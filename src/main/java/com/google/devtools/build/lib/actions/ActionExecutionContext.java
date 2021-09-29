@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -76,7 +75,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
   private final ArtifactPathResolver pathResolver;
-  private final NestedSetExpander nestedSetExpander;
+  private final DiscoveredModulesPruner discoveredModulesPruner;
   private final FilesystemCalls syscalls;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
 
@@ -96,7 +95,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      NestedSetExpander nestedSetExpander,
+      DiscoveredModulesPruner discoveredModulesPruner,
       FilesystemCalls syscalls,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     this.actionInputFileCache = actionInputFileCache;
@@ -118,7 +117,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
-    this.nestedSetExpander = nestedSetExpander;
+    this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscalls = syscalls;
   }
 
@@ -137,7 +136,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      NestedSetExpander nestedSetExpander,
+      DiscoveredModulesPruner discoveredModulesPruner,
       FilesystemCalls syscalls,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     this(
@@ -156,7 +155,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         /*env=*/ null,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander,
+        discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics);
   }
@@ -174,7 +173,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       Map<String, String> clientEnv,
       Environment env,
       @Nullable FileSystem actionFileSystem,
-      NestedSetExpander nestedSetExpander,
+      DiscoveredModulesPruner discoveredModulesPruner,
       FilesystemCalls syscalls,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     return new ActionExecutionContext(
@@ -193,7 +192,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         env,
         actionFileSystem,
         /*skyframeDepsResult=*/ null,
-        nestedSetExpander,
+        discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics);
   }
@@ -378,8 +377,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return actionKeyContext;
   }
 
-  public NestedSetExpander getNestedSetExpander() {
-    return nestedSetExpander;
+  public DiscoveredModulesPruner getDiscoveredModulesPruner() {
+    return discoveredModulesPruner;
   }
 
   /**
@@ -428,7 +427,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         env,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander,
+        discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics);
   }
@@ -451,7 +450,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         env,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander,
+        discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics);
   }

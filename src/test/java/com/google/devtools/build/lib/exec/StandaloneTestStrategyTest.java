@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Tes
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -153,7 +153,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           /*artifactExpander=*/ null,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult=*/ null,
-          NestedSetExpander.DEFAULT,
+          DiscoveredModulesPruner.DEFAULT,
           UnixGlob.DEFAULT_SYSCALLS,
           ThreadStateReceiver.NULL_INSTANCE);
       this.actionContextRegistry = actionContextRegistry;

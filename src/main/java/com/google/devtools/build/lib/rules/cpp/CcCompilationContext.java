@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -490,11 +491,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * Returns a list of all headers from {@code includes} that are properly declared as well as all
    * the modules that they are in.
    */
-  public Collection<Artifact.DerivedArtifact> computeUsedModules(
+  public Set<DerivedArtifact> computeUsedModules(
       boolean usePic, Set<Artifact> includes, boolean separate) {
-    CompactHashSet<Artifact.DerivedArtifact> modules = CompactHashSet.create();
+    CompactHashSet<DerivedArtifact> modules = CompactHashSet.create();
     for (HeaderInfo transitiveHeaderInfo : headerInfo.getTransitiveCollection()) {
-      Artifact.DerivedArtifact module = transitiveHeaderInfo.getModule(usePic);
+      DerivedArtifact module = transitiveHeaderInfo.getModule(usePic);
       if (module == null) {
         // If we don't have a main module, there is also not going to be a separate module. This is
         // verified when constructing HeaderInfo instances.
@@ -561,11 +562,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return directModuleMaps;
   }
 
-  Artifact.DerivedArtifact getHeaderModule(boolean usePic) {
+  DerivedArtifact getHeaderModule(boolean usePic) {
     return headerInfo.getModule(usePic);
   }
 
-  Artifact.DerivedArtifact getSeparateHeaderModule(boolean usePic) {
+  DerivedArtifact getSeparateHeaderModule(boolean usePic) {
     return headerInfo.getSeparateModule(usePic);
   }
 
@@ -1032,8 +1033,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     public Builder setSeparateModuleHdrs(
         Collection<Artifact> headers,
-        Artifact.DerivedArtifact separateModule,
-        Artifact.DerivedArtifact separatePicModule) {
+        DerivedArtifact separateModule,
+        DerivedArtifact separatePicModule) {
       this.headerInfoBuilder.setSeparateModuleHdrs(headers, separateModule, separatePicModule);
       return this;
     }
@@ -1079,7 +1080,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *
      * @param headerModule The .pcm file generated for this library.
      */
-    Builder setHeaderModule(Artifact.DerivedArtifact headerModule) {
+    Builder setHeaderModule(DerivedArtifact headerModule) {
       this.headerInfoBuilder.setHeaderModule(headerModule);
       return this;
     }
@@ -1089,7 +1090,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *
      * @param picHeaderModule The .pic.pcm file generated for this library.
      */
-    Builder setPicHeaderModule(Artifact.DerivedArtifact picHeaderModule) {
+    Builder setPicHeaderModule(DerivedArtifact picHeaderModule) {
       this.headerInfoBuilder.setPicHeaderModule(picHeaderModule);
       return this;
     }
@@ -1261,9 +1262,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * The modules built for this context. If null, then no module is being compiled for this
      * context.
      */
-    private final Artifact.DerivedArtifact headerModule;
+    private final DerivedArtifact headerModule;
 
-    private final Artifact.DerivedArtifact picHeaderModule;
+    private final DerivedArtifact picHeaderModule;
 
     /** All public header files that are compiled into this module. */
     private final ImmutableList<Artifact> modularPublicHeaders;
@@ -1280,8 +1281,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** Headers that can be compiled into a separate, smaller module for performance reasons. */
     private final ImmutableList<Artifact> separateModuleHeaders;
 
-    private final Artifact.DerivedArtifact separateModule;
-    private final Artifact.DerivedArtifact separatePicModule;
+    private final DerivedArtifact separateModule;
+    private final DerivedArtifact separatePicModule;
 
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
     private final ImmutableList<HeaderInfo> deps;
@@ -1290,14 +1291,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private TransitiveHeaderCollection memo = null;
 
     HeaderInfo(
-        Artifact.DerivedArtifact headerModule,
-        Artifact.DerivedArtifact picHeaderModule,
+        DerivedArtifact headerModule,
+        DerivedArtifact picHeaderModule,
         ImmutableList<Artifact> modularPublicHeaders,
         ImmutableList<Artifact> modularPrivateHeaders,
         ImmutableList<Artifact> textualHeaders,
         ImmutableList<Artifact> separateModuleHeaders,
-        Artifact.DerivedArtifact separateModule,
-        Artifact.DerivedArtifact separatePicModule,
+        DerivedArtifact separateModule,
+        DerivedArtifact separatePicModule,
         ImmutableList<HeaderInfo> deps) {
       this.headerModule = headerModule;
       this.picHeaderModule = picHeaderModule;
@@ -1312,11 +1313,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       this.deps = deps;
     }
 
-    Artifact.DerivedArtifact getModule(boolean pic) {
+    DerivedArtifact getModule(boolean pic) {
       return pic ? picHeaderModule : headerModule;
     }
 
-    Artifact.DerivedArtifact getSeparateModule(boolean pic) {
+    DerivedArtifact getSeparateModule(boolean pic) {
       return pic ? separatePicModule : separateModule;
     }
 
@@ -1414,22 +1415,22 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** Builder class for {@link HeaderInfo}. */
     public static class Builder {
-      private Artifact.DerivedArtifact headerModule = null;
-      private Artifact.DerivedArtifact picHeaderModule = null;
+      private DerivedArtifact headerModule = null;
+      private DerivedArtifact picHeaderModule = null;
       private final Set<Artifact> modularPublicHeaders = new HashSet<>();
       private final Set<Artifact> modularPrivateHeaders = new HashSet<>();
       private final Set<Artifact> textualHeaders = new HashSet<>();
       private Collection<Artifact> separateModuleHeaders = ImmutableList.of();
-      private Artifact.DerivedArtifact separateModule = null;
-      private Artifact.DerivedArtifact separatePicModule = null;
+      private DerivedArtifact separateModule = null;
+      private DerivedArtifact separatePicModule = null;
       private final List<HeaderInfo> deps = new ArrayList<>();
 
-      Builder setHeaderModule(Artifact.DerivedArtifact headerModule) {
+      Builder setHeaderModule(DerivedArtifact headerModule) {
         this.headerModule = headerModule;
         return this;
       }
 
-      Builder setPicHeaderModule(Artifact.DerivedArtifact headerModule) {
+      Builder setPicHeaderModule(DerivedArtifact headerModule) {
         this.picHeaderModule = headerModule;
         return this;
       }
@@ -1472,8 +1473,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
       public Builder setSeparateModuleHdrs(
           Collection<Artifact> headers,
-          Artifact.DerivedArtifact separateModule,
-          Artifact.DerivedArtifact separatePicModule) {
+          DerivedArtifact separateModule,
+          DerivedArtifact separatePicModule) {
         this.separateModuleHeaders = headers;
         this.separateModule = separateModule;
         this.separatePicModule = separatePicModule;

@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -76,7 +77,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -214,7 +214,7 @@ public final class SkyframeActionExecutor {
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
-  private NestedSetExpander nestedSetExpander;
+  private DiscoveredModulesPruner discoveredModulesPruner;
   private final PathFragment relativeOutputPath;
 
   SkyframeActionExecutor(
@@ -559,7 +559,7 @@ public final class SkyframeActionExecutor {
         artifactExpander,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander,
+        discoveredModulesPruner,
         syscalls.get(),
         threadStateReceiverFactory.apply(actionLookupData));
   }
@@ -762,7 +762,7 @@ public final class SkyframeActionExecutor {
             clientEnv,
             env,
             actionFileSystem,
-            nestedSetExpander,
+            discoveredModulesPruner,
             syscalls.get(),
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
@@ -859,10 +859,10 @@ public final class SkyframeActionExecutor {
   public void configure(
       MetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
-      NestedSetExpander nestedSetExpander) {
+      DiscoveredModulesPruner discoveredModulesPruner) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
-    this.nestedSetExpander = nestedSetExpander;
+    this.discoveredModulesPruner = discoveredModulesPruner;
   }
 
   /**
