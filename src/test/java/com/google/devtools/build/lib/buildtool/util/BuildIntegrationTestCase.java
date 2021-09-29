@@ -121,6 +121,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.concurrent.GuardedBy;
@@ -516,6 +517,10 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addOptions(args);
   }
 
+  protected void addStarlarkOption(String label, Object value) {
+    runtimeWrapper.addStarlarkOption(label, value);
+  }
+
   protected OptionsParser createOptionsParser() {
     return runtimeWrapper.createOptionsParser();
   }
@@ -615,11 +620,9 @@ public abstract class BuildIntegrationTestCase {
       return baseConfiguration;
     }
     Set<BuildConfiguration> topLevelTargetConfigurations =
-        result
-            .getActualTargets()
-            .stream()
-            .map((ct) -> getConfiguration(ct))
-            .filter((config) -> config != null)
+        result.getActualTargets().stream()
+            .map(this::getConfiguration)
+            .filter(Objects::nonNull)
             .collect(toImmutableSet());
     if (topLevelTargetConfigurations.size() != 1) {
       return baseConfiguration;
@@ -742,7 +745,7 @@ public abstract class BuildIntegrationTestCase {
    * @throws IOException if the file could not be written.
    */
   public Path write(String relativePath, String... lines) throws IOException {
-    Path path = getWorkspace().getRelative(relativePath);
+    Path path = workspace.getRelative(relativePath);
     return writeAbsolute(path, lines);
   }
 
@@ -759,7 +762,7 @@ public abstract class BuildIntegrationTestCase {
    * {@code relativeLinkPath} (equivalent to {@code ln -s <target> <relativeLinkPath>}).
    */
   protected Path createSymlink(String target, String relativeLinkPath) throws IOException {
-    Path path = getWorkspace().getRelative(relativeLinkPath);
+    Path path = workspace.getRelative(relativeLinkPath);
     path.getParentDirectory().createDirectoryAndParents();
     path.createSymbolicLink(PathFragment.create(target));
     return path;
