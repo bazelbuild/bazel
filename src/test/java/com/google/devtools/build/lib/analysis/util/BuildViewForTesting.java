@@ -217,7 +217,8 @@ public class BuildViewForTesting {
         loadingPhaseThreads,
         topLevelOptions,
         eventHandler,
-        eventBus);
+        eventBus,
+        /*includeExecutionPhase=*/ false);
   }
 
   /** Sets the configurations. Not thread-safe. */

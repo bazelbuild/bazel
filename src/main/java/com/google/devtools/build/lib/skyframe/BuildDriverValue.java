@@ -13,18 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** The result of evaluating a {@link BuildDriverKey}. */
 public class BuildDriverValue implements SkyValue {
-  private final ActionLookupValue actionLookupValue;
+  private final SkyValue wrappedSkyValue;
 
-  BuildDriverValue(ActionLookupValue actionLookupValue) {
-    this.actionLookupValue = actionLookupValue;
+  BuildDriverValue(SkyValue wrappedSkyValue) {
+    this.wrappedSkyValue = wrappedSkyValue;
   }
 
-  public ActionLookupValue getActionLookupValue() {
-    return actionLookupValue;
+  public SkyValue getWrappedSkyValue() {
+    return wrappedSkyValue;
   }
 }

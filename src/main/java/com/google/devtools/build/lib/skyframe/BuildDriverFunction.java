@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,11 +24,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
+import com.google.devtools.build.lib.skyframe.ToplevelStarlarkAspectFunction.TopLevelAspectsValue;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -40,7 +42,8 @@ public class BuildDriverFunction implements SkyFunction {
 
   /**
    * From the ConfiguredTarget/Aspect keys, get the top-level artifacts. Then evaluate them together
-   * with the appropriate CompletionFunctions.
+   * with the appropriate CompletionFunctions. This is the bridge between the conceptual analysis &
+   * execution phases.
    *
    * <p>TODO(b/199053098): implement build-info, build-changelist, coverage & exception handling.
    */
@@ -52,16 +55,22 @@ public class BuildDriverFunction implements SkyFunction {
     TopLevelArtifactContext topLevelArtifactContext =
         ((BuildDriverKey) skyKey).getTopLevelArtifactContext();
 
-    SkyValue actionLookupValue = env.getValue(actionLookupKey);
+    // Why SkyValue and not ActionLookupValue? The evaluation of some ActionLookupKey can result in
+    // classes that don't implement
+    // ActionLookupValue (e.g. ConfiguredTargetKey -> NonRuleConfiguredTargetValue).
+    SkyValue topLevelSkyValue = env.getValue(actionLookupKey);
 
     if (env.valuesMissing()) {
       return null;
     }
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
 
-    if (actionLookupValue instanceof ConfiguredTargetValue) {
+    Preconditions.checkState(
+        topLevelSkyValue instanceof ConfiguredTargetValue
+            || topLevelSkyValue instanceof TopLevelAspectsValue);
+    if (topLevelSkyValue instanceof ConfiguredTargetValue) {
       ConfiguredTarget configuredTarget =
-          ((ConfiguredTargetValue) actionLookupValue).getConfiguredTarget();
+          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget();
       addExtraActionsIfRequested(
           configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
       env.getValues(
@@ -70,23 +79,27 @@ public class BuildDriverFunction implements SkyFunction {
               Collections.singletonList(
                   TargetCompletionValue.key(
                       (ConfiguredTargetKey) actionLookupKey, topLevelArtifactContext, false))));
-    } else if (actionLookupValue instanceof AspectValue) {
-      AspectValue aspectValue = (AspectValue) actionLookupValue;
-      addExtraActionsIfRequested(
-          aspectValue.getConfiguredAspect().getProvider(ExtraActionArtifactsProvider.class),
-          artifactsToBuild);
-      env.getValues(
-          Iterables.concat(
-              artifactsToBuild.build(),
-              Collections.singletonList(
-                  AspectCompletionKey.create(aspectValue.getKey(), topLevelArtifactContext))));
+    } else if (topLevelSkyValue instanceof TopLevelAspectsValue) {
+      List<SkyKey> aspectCompletionKeys = new ArrayList<>();
+      for (SkyValue aspectValue :
+          ((TopLevelAspectsValue) topLevelSkyValue).getTopLevelAspectsValues()) {
+        addExtraActionsIfRequested(
+            ((AspectValue) aspectValue)
+                .getConfiguredAspect()
+                .getProvider(ExtraActionArtifactsProvider.class),
+            artifactsToBuild);
+        aspectCompletionKeys.add(
+            AspectCompletionKey.create(
+                ((AspectValue) aspectValue).getKey(), topLevelArtifactContext));
+      }
+      env.getValues(Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
     }
 
     if (env.valuesMissing()) {
       return null;
     }
 
-    return new BuildDriverValue((ActionLookupValue) actionLookupValue);
+    return new BuildDriverValue(topLevelSkyValue);
   }
 
   @Nullable

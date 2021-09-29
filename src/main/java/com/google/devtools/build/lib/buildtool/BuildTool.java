@@ -23,6 +23,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -166,6 +168,34 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
+      if (request.getBuildOptions().mergedSkyframeAnalysisExecution) {
+        // Target pattern evaluation.
+        TargetPatternPhaseValue loadingResult;
+        Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
+        try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
+          loadingResult =
+              AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
+        }
+        env.setWorkspaceName(loadingResult.getWorkspaceName());
+
+        if (request.getBuildOptions().performAnalysisPhase) {
+          executionTool = new ExecutionTool(env, request);
+
+          try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
+            executionTool.prepareForExecution(request.getId());
+          }
+
+          // TODO(b/199053098): implement support for --nobuild.
+          AnalysisAndExecutionResult analysisAndExecutionResult =
+              AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
+
+          result.setBuildConfigurationCollection(
+              analysisAndExecutionResult.getConfigurationCollection());
+          result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
+          result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
+        }
+        return;
+      }
       AnalysisResult analysisResult =
           AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 

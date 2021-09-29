@@ -114,6 +114,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -625,6 +626,79 @@ public final class SkyframeBuildView {
         result.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
         packageRoots);
+  }
+
+  /**
+   * Performs analysis & execution of the CTs and aspects with Skyframe.
+   *
+   * @return the configured targets that should be built along with a WalkableGraph of the analysis.
+   *     TODO(b/199053098) Have a more appropriate return type.
+   */
+  public SkyframeAnalysisResult analyzeAndExecuteTargets(
+      ExtendedEventHandler eventHandler,
+      List<ConfiguredTargetKey> ctKeys,
+      ImmutableList<TopLevelAspectsKey> topLevelAspectsKey,
+      TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
+      boolean keepGoing,
+      int numThreads,
+      int cpuHeavySkyKeysThreadPoolSize)
+      throws InterruptedException {
+    enableAnalysis(true);
+    EvaluationResult<BuildDriverValue> result;
+    List<BuildDriverKey> buildDriverCTKeys =
+        ctKeys.stream()
+            .map(k -> new BuildDriverKey(k, topLevelArtifactContextForConflictPruning))
+            .collect(Collectors.toList());
+    List<BuildDriverKey> buildDriverAspectKeys =
+        topLevelAspectsKey.stream()
+            .map(k -> new BuildDriverKey(k, topLevelArtifactContextForConflictPruning))
+            .collect(Collectors.toList());
+
+    try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
+      result =
+          skyframeExecutor.evaluateBuildDriverKeys(
+              eventHandler,
+              buildDriverCTKeys,
+              buildDriverAspectKeys,
+              keepGoing,
+              numThreads,
+              cpuHeavySkyKeysThreadPoolSize);
+    } finally {
+      enableAnalysis(false);
+    }
+
+    Map<AspectKey, ConfiguredAspect> aspects =
+        Maps.newHashMapWithExpectedSize(topLevelAspectsKey.size());
+    for (BuildDriverKey bdAspectKey : buildDriverAspectKeys) {
+      BuildDriverValue value = result.get(bdAspectKey);
+      if (value == null) {
+        // Skip aspects that couldn't be applied to targets.
+        continue;
+      }
+      TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
+      for (SkyValue val : topLevelAspectsValue.getTopLevelAspectsValues()) {
+        AspectValue aspectValue = (AspectValue) val;
+        aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
+      }
+    }
+    Collection<ConfiguredTarget> cts = Lists.newArrayListWithCapacity(ctKeys.size());
+    for (BuildDriverKey bdCTKey : buildDriverCTKeys) {
+      BuildDriverValue value = result.get(bdCTKey);
+      if (value == null) {
+        continue;
+      }
+      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value.getWrappedSkyValue();
+
+      cts.add(ctValue.getConfiguredTarget());
+    }
+    return new SkyframeAnalysisResult(
+        /*hasLoadingError=*/ false,
+        /*hasAnalysisError=*/ false,
+        foundActionConflict,
+        ImmutableList.copyOf(cts),
+        result.getWalkableGraph(),
+        ImmutableMap.copyOf(aspects),
+        null);
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(

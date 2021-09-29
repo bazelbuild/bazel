@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Objects;
 
 /**
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
@@ -43,5 +44,20 @@ public class BuildDriverKey implements SkyKey {
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.BUILD_DRIVER;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other instanceof BuildDriverKey) {
+      BuildDriverKey otherBuildDriverKey = (BuildDriverKey) other;
+      return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
+          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(actionLookupKey, topLevelArtifactContext);
   }
 }

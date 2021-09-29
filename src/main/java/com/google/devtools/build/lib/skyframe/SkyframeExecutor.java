@@ -646,6 +646,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.ARTIFACT_NESTED_SET,
         ArtifactNestedSetFunction.createInstance(valueBasedChangePruningEnabled()));
+    map.put(SkyFunctions.BUILD_DRIVER, new BuildDriverFunction());
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -2376,6 +2377,38 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .build();
     EvaluationResult<ActionLookupValue> result =
         buildDriver.evaluate(Iterables.concat(values, aspectKeys), evaluationContext);
+    // Get rid of any memory retained by the cache -- all loading is done.
+    perBuildSyscallCache.clear();
+    return result;
+  }
+
+  /**
+   * Evaluates the given collections of CT/Aspect BuildDriverKeys. This is part of
+   * https://github.com/bazelbuild/bazel/issues/14057, internal: b/147350683.
+   */
+  EvaluationResult<BuildDriverValue> evaluateBuildDriverKeys(
+      ExtendedEventHandler eventHandler,
+      List<BuildDriverKey> buildDriverCTKeys,
+      List<BuildDriverKey> buildDriverAspectKeys,
+      boolean keepGoing,
+      int numThreads,
+      int cpuHeavySkyKeysThreadPoolSize)
+      throws InterruptedException {
+    checkActive();
+
+    eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setNumThreads(numThreads)
+            .setExecutorServiceSupplier(
+                () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
+            .setCPUHeavySkyKeysThreadPoolSize(cpuHeavySkyKeysThreadPoolSize)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<BuildDriverValue> result =
+        buildDriver.evaluate(
+            Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
     // Get rid of any memory retained by the cache -- all loading is done.
     perBuildSyscallCache.clear();
     return result;

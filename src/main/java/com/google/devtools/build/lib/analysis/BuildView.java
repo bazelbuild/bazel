@@ -202,7 +202,8 @@ public class BuildView {
       int loadingPhaseThreads,
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
-      EventBus eventBus)
+      EventBus eventBus,
+      boolean includeExecutionPhase)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException {
     logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
@@ -369,41 +370,34 @@ public class BuildView {
             }
             return result;
           };
-      skyframeAnalysisResult =
-          skyframeBuildView.configureTargets(
-              eventHandler,
-              topLevelCtKeys,
-              aspectsKeys.build(),
-              Suppliers.memoize(configurationLookupSupplier),
-              topLevelOptions,
-              eventBus,
-              keepGoing,
-              loadingPhaseThreads,
-              viewOptions.strictConflictChecks,
-              checkForActionConflicts,
-              viewOptions.cpuHeavySkyKeysThreadPoolSize);
-      setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
+      if (!includeExecutionPhase) {
+        skyframeAnalysisResult =
+            skyframeBuildView.configureTargets(
+                eventHandler,
+                topLevelCtKeys,
+                aspectsKeys.build(),
+                Suppliers.memoize(configurationLookupSupplier),
+                topLevelOptions,
+                eventBus,
+                keepGoing,
+                loadingPhaseThreads,
+                viewOptions.strictConflictChecks,
+                checkForActionConflicts,
+                viewOptions.cpuHeavySkyKeysThreadPoolSize);
+        setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
+      } else {
+        skyframeAnalysisResult =
+            skyframeBuildView.analyzeAndExecuteTargets(
+                eventHandler,
+                topLevelCtKeys,
+                aspectsKeys.build(),
+                topLevelOptions,
+                keepGoing,
+                loadingPhaseThreads,
+                viewOptions.cpuHeavySkyKeysThreadPoolSize);
+      }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
-    }
-
-    TopLevelConstraintSemantics topLevelConstraintSemantics =
-        new TopLevelConstraintSemantics(
-            (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics(),
-            skyframeExecutor.getPackageManager(),
-            input -> skyframeExecutor.getConfiguration(eventHandler, input),
-            eventHandler);
-
-    PlatformRestrictionsResult platformRestrictions =
-        topLevelConstraintSemantics.checkPlatformRestrictions(
-            skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
-
-    if (!platformRestrictions.targetsWithErrors().isEmpty()) {
-      // If there are any errored targets (e.g. incompatible targets that are explicitly specified
-      // on the command line), remove them from the list of targets to be built.
-      skyframeAnalysisResult =
-          skyframeAnalysisResult.withAdditionalErroredTargets(
-              ImmutableSet.copyOf(platformRestrictions.targetsWithErrors()));
     }
 
     int numTargetsToAnalyze = topLevelTargetsWithConfigs.size();
@@ -417,24 +411,61 @@ public class BuildView {
       logger.atInfo().log(msg);
     }
 
-    Set<ConfiguredTarget> targetsToSkip =
-        Sets.union(
-                topLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
-                    skyframeAnalysisResult.getConfiguredTargets()),
-                platformRestrictions.targetsToSkip())
-            .immutableCopy();
+    AnalysisResult result;
+    if (includeExecutionPhase) {
+      // TODO(b/199053098): Also consider targets with errors like below.
+      result =
+          createResult(
+              eventHandler,
+              eventBus,
+              loadingResult,
+              configurations,
+              topLevelOptions,
+              viewOptions,
+              skyframeAnalysisResult,
+              /*targetsToSkip=*/ ImmutableSet.of(),
+              topLevelTargetsWithConfigsResult,
+              /*includeExecutionPhase=*/ true);
+    } else {
+      TopLevelConstraintSemantics topLevelConstraintSemantics =
+          new TopLevelConstraintSemantics(
+              (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics(),
+              skyframeExecutor.getPackageManager(),
+              input -> skyframeExecutor.getConfiguration(eventHandler, input),
+              eventHandler);
 
-    AnalysisResult result =
-        createResult(
-            eventHandler,
-            eventBus,
-            loadingResult,
-            configurations,
-            topLevelOptions,
-            viewOptions,
-            skyframeAnalysisResult,
-            targetsToSkip,
-            topLevelTargetsWithConfigsResult);
+      PlatformRestrictionsResult platformRestrictions =
+          topLevelConstraintSemantics.checkPlatformRestrictions(
+              skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
+
+      if (!platformRestrictions.targetsWithErrors().isEmpty()) {
+        // If there are any errored targets (e.g. incompatible targets that are explicitly specified
+        // on the command line), remove them from the list of targets to be built.
+        skyframeAnalysisResult =
+            skyframeAnalysisResult.withAdditionalErroredTargets(
+                platformRestrictions.targetsWithErrors());
+      }
+
+      Set<ConfiguredTarget> targetsToSkip =
+          Sets.union(
+                  topLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
+                      skyframeAnalysisResult.getConfiguredTargets()),
+                  platformRestrictions.targetsToSkip())
+              .immutableCopy();
+
+      result =
+          createResult(
+              eventHandler,
+              eventBus,
+              loadingResult,
+              configurations,
+              topLevelOptions,
+              viewOptions,
+              skyframeAnalysisResult,
+              targetsToSkip,
+              topLevelTargetsWithConfigsResult,
+              /*includeExecutionPhase=*/ false);
+    }
     logger.atInfo().log("Finished analysis");
     return result;
   }
@@ -456,7 +487,8 @@ public class BuildView {
       AnalysisOptions viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
-      TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigs)
+      TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigs,
+      boolean includeExecutionPhase)
       throws InterruptedException {
     Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
@@ -524,6 +556,22 @@ public class BuildView {
             topLevelOptions, allTargetsToTest, skyframeExecutor.getPackageManager(), eventHandler);
     ImmutableSet<ConfiguredTarget> parallelTests = testsPair.first;
     ImmutableSet<ConfiguredTarget> exclusiveTests = testsPair.second;
+
+    if (includeExecutionPhase) {
+      return new AnalysisAndExecutionResult(
+          configurations,
+          ImmutableSet.copyOf(configuredTargets),
+          aspects,
+          allTargetsToTest == null ? null : ImmutableList.copyOf(allTargetsToTest),
+          ImmutableSet.copyOf(targetsToSkip),
+          artifactsToBuild.build(),
+          parallelTests,
+          exclusiveTests,
+          topLevelOptions,
+          loadingResult.getWorkspaceName(),
+          topLevelTargetsWithConfigs.getTargetsAndConfigs(),
+          loadingResult.getNotSymlinkedInExecrootDirectories());
+    }
 
     FailureDetail failureDetail =
         createFailureDetail(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);

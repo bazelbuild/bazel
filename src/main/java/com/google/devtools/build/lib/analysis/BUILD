@@ -161,6 +161,7 @@ java_library(
     srcs = [
         "AliasProvider.java",
         "Allowlist.java",
+        "AnalysisAndExecutionResult.java",
         "AnalysisEnvironment.java",
         "AnalysisFailureEvent.java",
         "AnalysisIssues.java",

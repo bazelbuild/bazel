@@ -25,6 +25,7 @@ java_library(
         "AspectFunction.java",
         "BazelSkyframeExecutorConstants.java",
         "BuildConfigurationFunction.java",
+        "BuildDriverFunction.java",
         "BuildInfoCollectionFunction.java",
         "BuildTopLevelAspectsDetailsFunction.java",
         "BzlLoadFunction.java",
@@ -116,6 +117,8 @@ java_library(
         ":aspect_creation_exception",
         ":aspect_key_creator",
         ":build_configuration_value",
+        ":build_driver_key",
+        ":build_driver_value",
         ":build_info_collection_value",
         ":bzl_compile",
         ":bzl_load_value",
@@ -261,6 +264,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/analysis:duplicate_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
@@ -1034,30 +1038,6 @@ java_library(
 )
 
 java_library(
-    name = "build_driver_function",
-    srcs = ["BuildDriverFunction.java"],
-    deps = [
-        ":build_driver_key",
-        ":build_driver_value",
-        ":configured_target_key",
-        ":skyframe_cluster",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "build_driver_key",
     srcs = ["BuildDriverKey.java"],
     deps = [
@@ -1072,7 +1052,6 @@ java_library(
     name = "build_driver_value",
     srcs = ["BuildDriverValue.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
