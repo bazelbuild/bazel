@@ -46,7 +46,7 @@ public class SerializationContextTest {
         new SerializationContext(registry, ImmutableClassToInstanceMap.of());
     serializationContext.serialize(null, codedOutputStream);
     Mockito.verify(codedOutputStream).writeSInt32NoTag(0);
-    Mockito.verifyZeroInteractions(registry);
+    Mockito.verifyNoInteractions(registry);
   }
 
   @Test
@@ -89,7 +89,7 @@ public class SerializationContextTest {
         new SerializationContext(registry, ImmutableClassToInstanceMap.of());
     serializationContext.getMemoizingContext().serialize(null, codedOutputStream);
     Mockito.verify(codedOutputStream).writeSInt32NoTag(0);
-    Mockito.verifyZeroInteractions(registry);
+    Mockito.verifyNoInteractions(registry);
   }
 
   @Test

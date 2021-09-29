@@ -40,7 +40,7 @@ public class DeserializationContextTest {
         new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
     assertThat((Object) deserializationContext.deserialize(codedInputStream)).isNull();
     Mockito.verify(codedInputStream).readSInt32();
-    Mockito.verifyZeroInteractions(registry);
+    Mockito.verifyNoInteractions(registry);
   }
 
   @Test
@@ -88,7 +88,7 @@ public class DeserializationContextTest {
     assertThat((Object) deserializationContext.getMemoizingContext().deserialize(codedInputStream))
         .isEqualTo(null);
     Mockito.verify(codedInputStream).readSInt32();
-    Mockito.verifyZeroInteractions(registry);
+    Mockito.verifyNoInteractions(registry);
   }
 
   @Test

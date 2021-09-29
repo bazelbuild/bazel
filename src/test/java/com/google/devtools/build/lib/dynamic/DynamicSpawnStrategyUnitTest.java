@@ -24,7 +24,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -74,21 +74,6 @@ public class DynamicSpawnStrategyUnitTest {
       FailureDetail.newBuilder().setExecution(Execution.getDefaultInstance()).build();
 
   private ExecutorService executorServiceForCleanup;
-
-  /**
-   * {@see org.mockito.Mockito#verifyZeroInteractions}
-   *
-   * <p>TODO(b/188373809): {@link org.mockito.Mockito#verifyZeroInteractions
-   * Mockito.verifyZeroInteractions} is deprecated in Mockito 3.0.1, replaced with {@code
-   * verifyNoInteractions}. However, some of the builders on Google Bazel Presubmits on BuildKite
-   * have an older version of that, so we can't replace these calls yet. This function will serve to
-   * mute the depcrecation warnings until they are. At which point this method should be removed and
-   * {@code verifyNoInteractions} just be called instead.
-   */
-  @SuppressWarnings("deprecation")
-  private static void verifyNoInteractions(Object... objs) {
-    verifyZeroInteractions(objs);
-  }
 
   @Mock private Function<Spawn, Optional<Spawn>> mockGetPostProcessingSpawn;
 
