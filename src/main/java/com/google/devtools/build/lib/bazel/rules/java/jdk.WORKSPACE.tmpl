@@ -268,6 +268,74 @@ maybe(
     version = "16",
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
+    name = "remotejdk17_linux",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    sha256 = "37c4f8e48536cceae8c6c20250d6c385e176972532fd35759fa7d6015c965f56",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-linux_x64.tar.gz",
+    ],
+    version = "17",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
+    name = "remotejdk17_macos",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    sha256 = "6029b1fe6853cecad22ab99ac0b3bb4fb8c903dd2edefa91c3abc89755bbd47d",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_x64.tar.gz",
+    ],
+    version = "17",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
+    name = "remotejdk17_macos_aarch64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+    sha256 = "6b17f01f767ee7abf4704149ca4d86423aab9b16b68697b7d36e9b616846a8b0",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-macosx_aarch64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_aarch64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_aarch64.tar.gz",
+    ],
+    version = "17",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
+    name = "remotejdk17_win",
+    exec_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    sha256 = "f4437011239f3f0031c794bb91c02a6350bc941d4196bdd19c9f157b491815a3",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-win_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
+    ],
+    version = "17",
+)
+
 {remote_java_tools}
 {remote_java_tools_linux}
 {remote_java_tools_windows}
