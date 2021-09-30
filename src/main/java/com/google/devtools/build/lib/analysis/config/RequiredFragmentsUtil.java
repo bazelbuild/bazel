@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -282,16 +284,7 @@ public final class RequiredFragmentsUtil {
   private static boolean requiredFragmentsEnabled(BuildConfiguration config) {
     IncludeConfigFragmentsEnum setting =
         config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider;
-    switch (setting) {
-      case OFF:
-        return false;
-      case DIRECT_HOST_ONLY:
-        return config.isHostConfiguration();
-      case DIRECT:
-      case TRANSITIVE:
-        return true;
-    }
-    throw new AssertionError(setting);
+    return checkNotNull(setting) != IncludeConfigFragmentsEnum.OFF;
   }
 
   private RequiredFragmentsUtil() {}

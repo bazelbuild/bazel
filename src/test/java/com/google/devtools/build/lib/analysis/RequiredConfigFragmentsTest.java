@@ -78,25 +78,6 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void provideDirectHostOnlyRequiredFragmentsMode() throws Exception {
-    useConfiguration("--include_config_fragments_provider=direct_host_only");
-    scratch.file(
-        "a/BUILD",
-        "py_library(name = 'pylib', srcs = ['pylib.py'])",
-        "cc_library(name = 'cclib', srcs = ['cclb.cc'], data = [':pylib'])");
-
-    RequiredConfigFragmentsProvider targetConfigProvider =
-        getConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
-    RequiredConfigFragmentsProvider hostConfigProvider =
-        getHostConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
-
-    assertThat(targetConfigProvider).isNull();
-    assertThat(hostConfigProvider).isNotNull();
-    assertThat(hostConfigProvider.getFragmentClasses()).contains(CppConfiguration.class);
-    assertThat(hostConfigProvider.getFragmentClasses()).doesNotContain(PythonConfiguration.class);
-  }
-
-  @Test
   public void requiresMakeVariablesSuppliedByDefine() throws Exception {
     useConfiguration("--include_config_fragments_provider=direct", "--define", "myvar=myval");
     scratch.file(
