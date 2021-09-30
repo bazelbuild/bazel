@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.ClassName;
-import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.AbstractSet;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -35,7 +33,7 @@ import javax.annotation.concurrent.Immutable;
 /**
  * A wrapper class for an {@code ImmutableSortedSet<Class<? extends Fragment>>}. Interning these
  * objects allows us to do cheap reference equality checks when these sets are in frequently used
- * keys. For good measure, we also compute a fingerprint.
+ * keys.
  */
 @AutoCodec
 @Immutable
@@ -55,9 +53,7 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
   public static FragmentClassSet of(Collection<Class<? extends Fragment>> fragments) {
     ImmutableSortedSet<Class<? extends Fragment>> sortedFragments =
         ImmutableSortedSet.copyOf(LEXICAL_FRAGMENT_SORTER, fragments);
-    byte[] fingerprint = computeFingerprint(sortedFragments);
-    return interner.intern(
-        new FragmentClassSet(sortedFragments, fingerprint, Arrays.hashCode(fingerprint)));
+    return interner.intern(new FragmentClassSet(sortedFragments, sortedFragments.hashCode()));
   }
 
   public static FragmentClassSet union(
@@ -69,23 +65,11 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
             .build());
   }
 
-  private static byte[] computeFingerprint(
-      ImmutableSortedSet<Class<? extends Fragment>> fragments) {
-    Fingerprint fingerprint = new Fingerprint();
-    for (Class<?> fragment : fragments) {
-      fingerprint.addString(fragment.getName());
-    }
-    return fingerprint.digestAndReset();
-  }
-
   private final ImmutableSortedSet<Class<? extends Fragment>> fragments;
-  private final byte[] fingerprint;
   private final int hashCode;
 
-  private FragmentClassSet(
-      ImmutableSortedSet<Class<? extends Fragment>> fragments, byte[] fingerprint, int hashCode) {
+  private FragmentClassSet(ImmutableSortedSet<Class<? extends Fragment>> fragments, int hashCode) {
     this.fragments = fragments;
-    this.fingerprint = fingerprint;
     this.hashCode = hashCode;
   }
 
@@ -113,7 +97,6 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality") // Fast-path check of the underlying fragments set.
   public boolean equals(Object other) {
     if (this == other) {
       return true;
@@ -122,7 +105,7 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
       return false;
     }
     FragmentClassSet that = (FragmentClassSet) other;
-    return fragments == that.fragments || Arrays.equals(fingerprint, that.fingerprint);
+    return hashCode == that.hashCode && fragments.equals(that.fragments);
   }
 
   @Override
