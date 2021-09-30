@@ -126,9 +126,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           ExternalDepsException.withCauseAndMessage(
               Code.BAD_MODULE,
               e,
-              "Error loading '%s' for module extensions, requested by %s",
+              "Error loading '%s' for module extensions, requested by %s: %s",
               extensionId.getBzlFileLabel(),
-              sampleUsageLocation),
+              sampleUsageLocation,
+              e.getMessage()),
           Transience.PERSISTENT);
     }
     if (bzlLoadValue == null) {

@@ -548,4 +548,30 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .contains(
             "The repo exported as 'some_repo' by module extension 'myext' is already imported at");
   }
+
+  @Test
+  public void testModuelFileExecute_syntaxError() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1',compatibility_level=4)",
+        "foo()");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertContainsEvent("name 'foo' is not defined");
+  }
+
+  @Test
+  public void testModuelFileExecute_evalError() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1',compatibility_level=\"4\")");
+
+    EvaluationResult<RootModuleFileValue> result =
+        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains("parameter 'compatibility_level' got value of type 'string', want 'int'");
+  }
 }
