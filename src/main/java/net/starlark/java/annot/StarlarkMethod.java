@@ -142,7 +142,7 @@ public @interface StarlarkMethod {
    *
    * <p>If this is left as default, it is an error for the caller to pass any named arguments not
    * explicitly declared by the method signature. If this is defined, all additional named arguments
-   * are passed as elements of a {@link Dict<String, Object>} to the method.
+   * are passed as elements of a {@code Dict<String, Object>} to the method.
    *
    * <p>See Python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
