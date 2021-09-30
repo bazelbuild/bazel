@@ -182,6 +182,16 @@ public class TargetPatternTest {
     assertThat(TargetPattern.renameRepository("@myworkspace//foo/...", renaming))
         .isEqualTo("@//foo/...");
 
+    // Expecting renaming with the prefix negation operator -
+    assertThat(TargetPattern.renameRepository("-@foo//package:target", renaming))
+        .isEqualTo("-@bar//package:target");
+    assertThat(TargetPattern.renameRepository("-@myworkspace//package:target", renaming))
+        .isEqualTo("-@//package:target");
+    assertThat(TargetPattern.renameRepository("-@foo//foo/...", renaming))
+        .isEqualTo("-@bar//foo/...");
+    assertThat(TargetPattern.renameRepository("-@myworkspace//foo/...", renaming))
+        .isEqualTo("-@//foo/...");
+
     // No renaming should occur
     assertThat(TargetPattern.renameRepository("@//package:target", renaming))
         .isEqualTo("@//package:target");

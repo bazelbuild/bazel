@@ -818,6 +818,13 @@ public abstract class TargetPattern implements Serializable {
    * string is returned unchanged.
    */
   public static String renameRepository(String pattern, RepositoryMapping renaming) {
+    if (pattern.startsWith("-")) {
+      return "-" + renameRepositoryInternal(pattern.substring(1), renaming);
+    }
+    return renameRepositoryInternal(pattern, renaming);
+  }
+
+  private static String renameRepositoryInternal(String pattern, RepositoryMapping renaming) {
     if (!pattern.startsWith("@")) {
       return pattern;
     }
