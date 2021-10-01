@@ -324,7 +324,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_disable_depset_items",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -683,7 +683,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
       "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
-      "-incompatible_disable_depset_items";
+      "+incompatible_disable_depset_items";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
   public static final String INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING =

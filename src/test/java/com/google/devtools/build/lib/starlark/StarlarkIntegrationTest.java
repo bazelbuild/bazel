@@ -371,7 +371,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test/starlark/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  g = depset(ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "'])",
+        "  g = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "']",
         "  return [MyInfo(result = g),",
         "      OutputGroupInfo(my_group = g)]",
         "my_rule = rule(implementation = _impl,",
