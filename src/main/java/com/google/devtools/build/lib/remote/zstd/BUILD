@@ -11,6 +11,7 @@ java_library(
     name = "zstd",
     srcs = glob(["*.java"]),
     deps = [
+        "//third_party/protobuf:protobuf_java",
         "//third_party:zstd-jni",
     ],
 )

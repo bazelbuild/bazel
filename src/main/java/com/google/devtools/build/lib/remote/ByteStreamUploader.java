@@ -408,9 +408,8 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               () ->
                   retrier.executeAsync(
                       () -> {
-                        long offset = committedOffset.get();
-                        if ((offset == 0 && chunker.bytesLeft() != 0)
-                            || (offset < chunker.getActualSize())) {
+                        chunker.seek(committedOffset.get());
+                        if (chunker.hasNext()) {
                           return callAndQueryOnFailure(committedOffset, progressiveBackoff);
                         }
                         return Futures.immediateFuture(null);
@@ -422,7 +421,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           callFuture,
           (result) -> {
             long committedSize = committedOffset.get();
-            long expected = chunker.getActualSize();
+            long expected = chunker.getFinalSize();
             if (committedSize != expected) {
               String message =
                   format(

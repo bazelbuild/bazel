@@ -17,23 +17,22 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.remote.zstd.ZstdCompressingInputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.io.ByteArrayOutputStream;
+
 import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PushbackInputStream;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -105,21 +104,15 @@ public final class Chunker {
   private final int chunkSize;
   private final Chunk emptyChunk;
 
-  private InputStream data;
+  private ChunkerInputStream data;
   private long offset;
   private byte[] chunkCache;
 
-
   private final boolean compressed;
-  private ByteArrayOutputStream baos;
-  private ZstdOutputStream zos;
 
   // Set to true on the first call to next(). This is so that the Chunker can open its data source
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
-
-  private AtomicLong processedBytes = new AtomicLong(0);
-  private long actualSize = -1;
 
   Chunker(Supplier<InputStream> dataSupplier, long size, int chunkSize, boolean compressed) {
     this.dataSupplier = checkNotNull(dataSupplier);
@@ -137,25 +130,9 @@ public final class Chunker {
     return size;
   }
 
-  public long getActualSize() throws IOException {
-    if (compressed) {
-      if (actualSize == -1) {
-        if (bytesLeft() != 0) {
-          // If there are bytes left, compute the remaining size
-          long currentOffset = offset;
-          while (hasNext()) {
-            next();
-          }
-          actualSize = processedBytes.get();
-          seek(currentOffset);
-        } else {
-          actualSize = processedBytes.get();
-        }
-      }
-      return actualSize;
-    } else {
-      return size;
-    }
+  public long getFinalSize() throws IOException {
+    checkState(!hasNext());
+    return getOffset();
   }
 
   /**
@@ -166,14 +143,6 @@ public final class Chunker {
   public void reset() throws IOException {
     if (data != null) {
       data.close();
-    }
-    if (zos != null) {
-      zos.close();
-      zos = null;
-    }
-    if (baos != null) {
-      baos.close();
-      baos = null;
     }
     data = null;
     offset = 0;
@@ -191,35 +160,7 @@ public final class Chunker {
       reset();
     }
     maybeInitialize();
-    if (compressed && toOffset > 0) {
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      ZstdOutputStream zos = new ZstdOutputStream(baos);
-      long remaining = toOffset;
-
-      while (remaining > 0) {
-        int toRead = (int) Math.min(chunkSize, remaining);
-        byte[] chunk = new byte[toRead];
-        int read = 0;
-        while(read != toRead) {
-            int n = data.read(chunk, read, toRead - read);
-            if (n < 0) {
-              throw new EOFException("Reached end of stream before finishing seeking!");
-            }
-            read += n;
-        }
-        remaining -= toRead;
-        zos.write(chunk);
-        zos.flush();
-        if (remaining == 0 && toOffset == size) {
-          zos.close();
-        }
-        processedBytes.addAndGet(baos.toByteArray().length);
-        baos.reset();
-      }
-    } else {
-      ByteStreams.skipFully(data, toOffset - offset);
-      processedBytes.addAndGet(toOffset);
-    }
+    ByteStreams.skipFully(data, toOffset - offset);
     offset = toOffset;
   }
 
@@ -230,6 +171,20 @@ public final class Chunker {
     return data != null || !initialized;
   }
 
+  /**
+   * Attempts reading at most a full chunk and stores it in the chunkCache buffer
+   */
+  private int read() throws IOException {
+    int count = 0;
+    while (count < chunkCache.length) {
+      int c = data.read(chunkCache, count, chunkCache.length - count);
+      if (c < 0) {
+        break;
+      }
+      count += c;
+    }
+    return count;
+  }
   /**
    * Returns the next {@link Chunk} or throws a {@link NoSuchElementException} if no data is left.
    *
@@ -251,59 +206,40 @@ public final class Chunker {
       return emptyChunk;
     }
 
-    // The cast to int is safe, because the return value is capped at chunkSize.
-    int bytesToRead = (int) Math.min(bytesLeft(), chunkSize);
-    if (bytesToRead == 0) {
+    if (data.finished()) {
       chunkCache = null;
       data = null;
       throw new NoSuchElementException();
     }
 
     if (chunkCache == null) {
+      // If the output is compressed we can't know how many bytes there are yet to read,
+      // so we allocate the whole chunkSize, otherwise we try to compute the smallest possible value
+      // The cast to int is safe, because the return value is capped at chunkSize.
+      int cacheSize = compressed ? chunkSize : (int) Math.min(getSize() - getOffset(), chunkSize);
       // Lazily allocate it in order to save memory on small data.
       // 1) bytesToRead < chunkSize: There will only ever be one next() call.
       // 2) bytesToRead == chunkSize: chunkCache will be set to its biggest possible value.
       // 3) bytestoRead > chunkSize: Not possible, due to Math.min above.
-      chunkCache = new byte[bytesToRead];
+      chunkCache = new byte[cacheSize];
     }
 
     long offsetBefore = offset;
-    try {
-      ByteStreams.readFully(data, chunkCache, 0, bytesToRead);
-    } catch (EOFException e) {
-      throw new IllegalStateException("Reached EOF, but expected "
-          + bytesToRead + " bytes.", e);
-    }
 
-    ByteString blob;
-    if (compressed) {
-      zos.write(chunkCache, 0, bytesToRead);
-      zos.flush();
-      if (size - offsetBefore - bytesToRead == 0) {
-        zos.close();
-      }
-      byte[] compressed = baos.toByteArray();
-      baos.reset();
-      blob = ByteString.copyFrom(compressed, 0, compressed.length);
-    } else {
-      blob = ByteString.copyFrom(chunkCache, 0, bytesToRead);
-    }
-    processedBytes.addAndGet(blob.size());
+    int bytesRead = read();
+
+    ByteString blob = ByteString.copyFrom(chunkCache, 0, bytesRead);
 
     // This has to happen after actualSize has been updated
     // or the guard in getActualSize won't work.
-    offset += bytesToRead;
-    if (bytesLeft() == 0) {
+    offset += bytesRead;
+    if (data.finished()) {
       data.close();
       data = null;
       chunkCache = null;
     }
 
     return new Chunk(blob, offsetBefore);
-  }
-
-  public long bytesLeft() {
-    return getSize() - getOffset();
   }
 
   private void maybeInitialize() throws IOException {
@@ -313,19 +249,14 @@ public final class Chunker {
     checkState(data == null);
     checkState(offset == 0);
     checkState(chunkCache == null);
-    checkState(zos == null);
-    checkState(baos == null);
     try {
-      data = dataSupplier.get();
+      data = compressed ?
+              new ChunkerInputStream(new ZstdCompressingInputStream(dataSupplier.get())) :
+              new ChunkerInputStream(dataSupplier.get());
     } catch (RuntimeException e) {
       Throwables.propagateIfPossible(e.getCause(), IOException.class);
       throw e;
     }
-    if (compressed) {
-      baos = new ByteArrayOutputStream();
-      zos = new ZstdOutputStream(baos);
-    }
-    processedBytes = new AtomicLong(0);
     initialized = true;
   }
 
@@ -407,6 +338,20 @@ public final class Chunker {
     public Chunker build() {
       checkNotNull(inputStream);
       return new Chunker(inputStream, size, chunkSize, compressed);
+    }
+  }
+
+  static class ChunkerInputStream extends PushbackInputStream {
+    ChunkerInputStream(InputStream in) {
+      super(in);
+    }
+
+    public boolean finished() throws IOException {
+        int c = super.read();
+        if (c == -1)
+            return true;
+        super.unread(c);
+        return false;
     }
   }
 }
