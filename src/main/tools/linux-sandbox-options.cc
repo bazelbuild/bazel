@@ -72,6 +72,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -N  if set, a new network namespace will be created\n"
           "  -R  if set, make the uid/gid be root\n"
           "  -U  if set, make the uid/gid be nobody\n"
+          "  -P  if set, make the gid be tty and make /dev/pts writable\n"
           "  -D  if set, debug info will be printed\n"
           "  -h <sandbox-dir>  if set, chroot to sandbox-dir and only "
           " mount whats been specified with -M/-m for improved hermeticity. "
@@ -97,7 +98,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   bool source_specified = false;
 
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:h:HNRUD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:HNRUPD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -214,6 +215,9 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
                 "option.");
         }
         opt.fake_username = true;
+        break;
+      case 'P':
+        opt.enable_pty = true;
         break;
       case 'D':
         opt.debug = true;

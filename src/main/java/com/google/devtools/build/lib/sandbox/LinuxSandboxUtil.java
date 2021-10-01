@@ -71,6 +71,7 @@ public final class LinuxSandboxUtil {
     private boolean createNetworkNamespace = false;
     private boolean useFakeRoot = false;
     private boolean useFakeUsername = false;
+    private boolean enablePseudoterminal = false;
     private boolean useDebugMode = false;
     private boolean sigintSendsSigterm = false;
 
@@ -173,6 +174,15 @@ public final class LinuxSandboxUtil {
       return this;
     }
 
+    /**
+     * Sets whether to set group to 'tty' and make /dev/pts writable inside the sandbox in order
+     * to enable the use of pseudoterminals.
+     */
+    public CommandLineBuilder setEnablePseudoterminal(boolean enablePseudoterminal) {
+      this.enablePseudoterminal = enablePseudoterminal;
+      return this;
+    }
+
     /** Sets whether to enable debug mode (e.g. to print debugging messages). */
     public CommandLineBuilder setUseDebugMode(boolean useDebugMode) {
       this.useDebugMode = useDebugMode;
@@ -244,6 +254,9 @@ public final class LinuxSandboxUtil {
       }
       if (useFakeUsername) {
         commandLineBuilder.add("-U");
+      }
+      if (enablePseudoterminal) {
+        commandLineBuilder.add("-P");
       }
       if (useDebugMode) {
         commandLineBuilder.add("-D");
