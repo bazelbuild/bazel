@@ -194,8 +194,8 @@ public class ChunkerTest {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     baos.write(chunker.next().getData().toByteArray());
     assertThat(chunker.hasNext()).isTrue();
-    baos.write(chunker.next().getData().toByteArray());
-    assertThat(chunker.hasNext()).isFalse();
+    while (chunker.hasNext())
+      baos.write(chunker.next().getData().toByteArray());
     baos.close();
 
     assertThat(Zstd.decompress(baos.toByteArray(), data.length)).isEqualTo(data);
@@ -204,7 +204,7 @@ public class ChunkerTest {
   @Test
   public void testActualSizeIsCorrectAfterSeek() throws IOException {
     byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
-    int[] expectedSizes = {12, 33};
+    int[] expectedSizes = {12, 24};
     for (int expected : expectedSizes) {
       Chunker chunker =
           Chunker.builder()
