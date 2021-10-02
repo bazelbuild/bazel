@@ -408,7 +408,19 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               () ->
                   retrier.executeAsync(
                       () -> {
-                        chunker.seek(committedOffset.get());
+                        if (chunker.getSize() == 0) {
+                          return Futures.immediateFuture(null);
+                        }
+                        try {
+                          chunker.seek(committedOffset.get());
+                        } catch (IOException e) {
+                          try {
+                            chunker.reset();
+                          } catch (IOException resetException) {
+                            e.addSuppressed(resetException);
+                          }
+                          return Futures.immediateFailedFuture(e);
+                        }
                         if (chunker.hasNext()) {
                           return callAndQueryOnFailure(committedOffset, progressiveBackoff);
                         }
@@ -520,17 +532,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               .withCallCredentials(callCredentialsProvider.getCallCredentials())
               .withDeadlineAfter(callTimeoutSecs, SECONDS);
       call = channel.newCall(ByteStreamGrpc.getWriteMethod(), callOptions);
-
-      try {
-        chunker.seek(committedOffset.get());
-      } catch (IOException e) {
-        try {
-          chunker.reset();
-        } catch (IOException resetException) {
-          e.addSuppressed(resetException);
-        }
-        return Futures.immediateFailedFuture(e);
-      }
 
       SettableFuture<Void> uploadResult = SettableFuture.create();
       ClientCall.Listener<WriteResponse> callListener =
