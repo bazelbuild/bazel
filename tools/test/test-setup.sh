@@ -237,6 +237,15 @@ else
   TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
 fi
 
+if [ -z "$TEST_PATH" ] && [[ "$EXE" == external/* ]]; then
+  TEST_PATH="$(rlocation ${EXE#external/})"
+fi
+
+if [ -z "$TEST_PATH" ]; then
+  echo "error: failed to find the path to '$TEST_PATH', please submit an issue at https://github.com/bazelbuild/bazel/issues"
+  exit 1
+fi
+
 # TODO(jsharpe): Use --test_env=TEST_SHORT_EXEC_PATH=true to activate this code
 # path to workaround a bug with long executable paths when executing remote
 # tests on Windows.
