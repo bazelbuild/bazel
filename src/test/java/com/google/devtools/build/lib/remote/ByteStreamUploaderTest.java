@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -333,6 +334,130 @@ public class ByteStreamUploaderTest {
             response.onCompleted();
           }
         });
+
+    uploader.uploadBlob(context, hash, chunker, true);
+
+    // This test should not have triggered any retries.
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+    Mockito.verify(mockBackoff, Mockito.times(1)).getRetryAttempts();
+
+    blockUntilInternalStateConsistent(uploader);
+  }
+
+  @Test
+  public void progressiveCompressedUploadShouldWork() throws Exception {
+    Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);
+    RemoteRetrier retrier =
+            TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    ByteStreamUploader uploader =
+            new ByteStreamUploader(
+                    INSTANCE_NAME,
+                    new ReferenceCountedChannel(channelConnectionFactory),
+                    CallCredentialsProvider.NO_CREDENTIALS,
+                    300,
+                    retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker = Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    long expectedSize = chunker.getFinalSize();
+    chunker.reset();
+
+    serviceRegistry.addService(
+            new ByteStreamImplBase() {
+
+              byte[] receivedData = new byte[(int) expectedSize];
+              String receivedResourceName = null;
+              boolean receivedComplete = false;
+              long nextOffset = 0;
+              long initialOffset = 0;
+              boolean mustQueryWriteStatus = false;
+
+              @Override
+              public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+                return new StreamObserver<WriteRequest>() {
+                  @Override
+                  public void onNext(WriteRequest writeRequest) {
+                    assertThat(mustQueryWriteStatus).isFalse();
+
+                    String resourceName = writeRequest.getResourceName();
+                    if (nextOffset == initialOffset) {
+                      if (initialOffset == 0) {
+                        receivedResourceName = resourceName;
+                      }
+                      assertThat(resourceName).startsWith(INSTANCE_NAME + "/uploads");
+                      assertThat(resourceName).endsWith(String.valueOf(blob.length));
+                    } else {
+                      assertThat(resourceName).isEmpty();
+                    }
+
+                    assertThat(writeRequest.getWriteOffset()).isEqualTo(nextOffset);
+
+                    ByteString data = writeRequest.getData();
+
+                    System.arraycopy(
+                            data.toByteArray(), 0, receivedData, (int) nextOffset, data.size());
+
+                    nextOffset += data.size();
+                    receivedComplete = expectedSize == nextOffset;
+                    assertThat(writeRequest.getFinishWrite()).isEqualTo(receivedComplete);
+
+                    if (initialOffset == 0) {
+                      streamObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+                      mustQueryWriteStatus = true;
+                      initialOffset = nextOffset;
+                    }
+                  }
+
+                  @Override
+                  public void onError(Throwable throwable) {
+                    fail("onError should never be called.");
+                  }
+
+                  @Override
+                  public void onCompleted() {
+                    assertThat(nextOffset).isEqualTo(expectedSize);
+                    try {
+                      byte[] decompressed = Zstd.decompress(receivedData, blob.length);
+                      assertThat(decompressed).isEqualTo(blob);
+                    } catch (Exception e) {
+                      throw e;
+                    }
+
+                    WriteResponse response =
+                            WriteResponse.newBuilder().setCommittedSize(nextOffset).build();
+                    streamObserver.onNext(response);
+                    streamObserver.onCompleted();
+                  }
+                };
+              }
+
+              @Override
+              public void queryWriteStatus(
+                      QueryWriteStatusRequest request, StreamObserver<QueryWriteStatusResponse> response) {
+                String resourceName = request.getResourceName();
+                final long committedSize;
+                final boolean complete;
+                if (receivedResourceName != null && receivedResourceName.equals(resourceName)) {
+                  assertThat(mustQueryWriteStatus).isTrue();
+                  mustQueryWriteStatus = false;
+                  committedSize = nextOffset;
+                  complete = receivedComplete;
+                } else {
+                  committedSize = 0;
+                  complete = false;
+                }
+                response.onNext(
+                        QueryWriteStatusResponse.newBuilder()
+                                .setCommittedSize(committedSize)
+                                .setComplete(complete)
+                                .build());
+                response.onCompleted();
+              }
+            });
 
     uploader.uploadBlob(context, hash, chunker, true);
 
