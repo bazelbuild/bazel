@@ -141,13 +141,9 @@ public final class Chunker {
    * <p>Closes any open resources (file handles, ...).
    */
   public void reset() throws IOException {
-    if (data != null) {
-      data.close();
-    }
-    data = null;
+    close();
     offset = 0;
     initialized = false;
-    chunkCache = null;
   }
 
   /**
@@ -162,6 +158,9 @@ public final class Chunker {
     maybeInitialize();
     ByteStreams.skipFully(data, toOffset - offset);
     offset = toOffset;
+    if (data.finished()) {
+      close();
+    }
   }
 
   /**
@@ -169,6 +168,18 @@ public final class Chunker {
    */
   public boolean hasNext() {
     return data != null || !initialized;
+  }
+
+  /**
+   * Closes the input stream and reset chunk cache
+   * @throws IOException
+   */
+  private void close() throws IOException {
+    if (data != null) {
+      data.close();
+      data = null;
+    }
+    chunkCache = null;
   }
 
   /**
@@ -234,9 +245,7 @@ public final class Chunker {
     // or the guard in getActualSize won't work.
     offset += bytesRead;
     if (data.finished()) {
-      data.close();
-      data = null;
-      chunkCache = null;
+      close();
     }
 
     return new Chunk(blob, offsetBefore);
