@@ -56,15 +56,6 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
     return interner.intern(new FragmentClassSet(sortedFragments, sortedFragments.hashCode()));
   }
 
-  public static FragmentClassSet union(
-      FragmentClassSet firstFragments, FragmentClassSet secondFragments) {
-    return of(
-        ImmutableSortedSet.orderedBy(LEXICAL_FRAGMENT_SORTER)
-            .addAll(firstFragments)
-            .addAll(secondFragments)
-            .build());
-  }
-
   private final ImmutableSortedSet<Class<? extends Fragment>> fragments;
   private final int hashCode;
 

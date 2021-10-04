@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformBootstrap;
 
@@ -33,7 +32,6 @@ public class PlatformRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addConfigurationOptions(PlatformOptions.class);
     builder.addConfigurationFragment(PlatformConfiguration.class);
 
     builder.addRuleDefinition(new PlatformBaseRule());

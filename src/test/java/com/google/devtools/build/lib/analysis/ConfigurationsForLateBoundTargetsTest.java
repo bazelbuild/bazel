@@ -69,16 +69,15 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
           () ->
               MockRule.define(
                   "rule_with_latebound_attr",
-                  (builder, env) -> {
-                    builder
-                        .add(
-                            attr(":latebound_attr", LABEL)
-                                .value(
-                                    Attribute.LateBoundDefault.fromConstantForTesting(
-                                        Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
-                                .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
-                        .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class);
-                  });
+                  (builder, env) ->
+                      builder
+                          .add(
+                              attr(":latebound_attr", LABEL)
+                                  .value(
+                                      Attribute.LateBoundDefault.fromConstantForTesting(
+                                          Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
+                                  .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
+                          .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class));
 
   @Before
   public void setupCustomLateBoundRules() throws Exception {
@@ -86,7 +85,6 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(LateBoundSplitUtil.RULE_WITH_TEST_FRAGMENT);
     builder.addConfigurationFragment(LateBoundSplitUtil.TestFragment.class);
-    builder.addConfigurationOptions(LateBoundSplitUtil.TestOptions.class);
     builder.addRuleDefinition(LATE_BOUND_DEP_RULE);
     useRuleClassProvider(builder.build());
   }

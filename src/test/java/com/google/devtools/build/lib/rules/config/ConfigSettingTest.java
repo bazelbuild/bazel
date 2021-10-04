@@ -129,7 +129,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
-    builder.addConfigurationOptions(DummyTestOptions.class);
     builder.addConfigurationFragment(DummyTestOptionsFragment.class);
     return builder.build();
   }

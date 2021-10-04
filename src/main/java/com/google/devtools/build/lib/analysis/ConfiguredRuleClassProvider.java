@@ -304,6 +304,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     public Builder addUniversalConfigurationFragment(Class<? extends Fragment> fragment) {
       this.universalFragments.add(fragment);
+      addConfigurationFragment(fragment);
       return this;
     }
 
@@ -417,7 +418,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
      * the given options diff.
      */
     @VisibleForTesting(/* for testing cache invalidation without relying on prod use */ )
-    public Builder overrideShouldInvalidateCacheForOptionDiffForTesting(
+    Builder overrideShouldInvalidateCacheForOptionDiffForTesting(
         OptionsDiffPredicate shouldInvalidateCacheForOptionDiff) {
       this.shouldInvalidateCacheForOptionDiff = OptionsDiffPredicate.ALWAYS_INVALIDATE;
       return this.setShouldInvalidateCacheForOptionDiff(shouldInvalidateCacheForOptionDiff);
@@ -659,8 +660,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
    */
   private final FragmentClassSet universalFragments;
 
-  private final FragmentClassSet allFragments;
-
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
 
   private final PrerequisiteValidator prerequisiteValidator;
@@ -743,7 +742,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.configurationFragmentMap = createFragmentMap(configurationFragmentClasses);
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
-    this.allFragments = FragmentClassSet.union(configurationFragmentClasses, universalFragments);
     this.networkAllowlistForTests = networkAllowlistForTests;
   }
 
@@ -882,8 +880,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   /**
-   * Returns the configuration fragment that should be available to all rules even when they don't
-   * explicitly require it.
+   * Returns the configuration fragments that should be available to all rules even when not
+   * explicitly required.
+   *
+   * <p>This is a subset of {@link #getConfigurationFragments}.
    */
   public FragmentClassSet getUniversalFragments() {
     return universalFragments;
@@ -980,8 +980,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
    * Returns the symlink definitions introduced by the fragments registered with this rule class
    * provider.
    *
-   * <p>This only includes definitions added by {@link #addSymlinkDefinition}, not the standard
-   * symlinks in {@link ConvenienceSymlinks#getStandardLinkDefinitions}.
+   * <p>This only includes definitions added by {@link Builder#addSymlinkDefinition}, not the
+   * standard symlinks in {@link com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils}.
    *
    * <p>Note: Usages of custom symlink definitions should be rare. Currently it is only used to
    * implement the py2-bin / py3-bin symlinks.
@@ -997,11 +997,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   @Override
   public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
     return thirdPartyLicenseExistencePolicy;
-  }
-
-  /** Returns all registered {@link Fragment} classes. */
-  public FragmentClassSet getAllFragments() {
-    return allFragments;
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */

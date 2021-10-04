@@ -52,7 +52,7 @@ public class BazelRuleClassProviderTest {
 
   private static void checkConfigConsistency(ConfiguredRuleClassProvider provider) {
     // Check that every fragment required by a rule is present.
-    FragmentClassSet configurationFragments = provider.getAllFragments();
+    FragmentClassSet configurationFragments = provider.getConfigurationFragments();
     for (RuleClass ruleClass : provider.getRuleClassMap().values()) {
       for (Class<?> fragment :
           ruleClass.getConfigurationFragmentPolicy().getRequiredConfigurationFragments()) {

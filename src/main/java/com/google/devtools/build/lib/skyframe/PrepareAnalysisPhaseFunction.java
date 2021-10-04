@@ -256,7 +256,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       throws InterruptedException, TransitionException, OptionsParsingException {
     Multimap<DependencyKey, BuildConfiguration> builder = ArrayListMultimap.create();
 
-    FragmentClassSet allFragments = ruleClassProvider.getAllFragments();
+    FragmentClassSet allFragments = ruleClassProvider.getConfigurationFragments();
 
     // Now get the configurations.
     PathFragment platformMappingPath = fromOptions.get(PlatformOptions.class).platformMappings;
