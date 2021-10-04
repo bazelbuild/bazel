@@ -182,8 +182,10 @@ public class DumpPlatformClassPath {
     List<Path> jars = new ArrayList<>();
     Path extDir = javaHome.resolve("jre/lib/ext");
     if (Files.exists(extDir)) {
-      for (Path extJar : Files.newDirectoryStream(extDir, "*.jar")) {
-        jars.add(extJar);
+      try(pathStream = Files.newDirectoryStream(extDir, "*.jar")) {
+        for (Path extJar : Files.newDirectoryStream(extDir, "*.jar")) {
+          jars.add(extJar);
+        } 
       }
     }
     for (String jar :
