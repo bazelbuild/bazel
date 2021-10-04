@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -124,7 +123,6 @@ public class TransitiveTargetFunction
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public SkyValue computeSkyValue(
       TargetAndErrorIfAny targetAndErrorIfAny, TransitiveTargetValueBuilder builder) {
     Target target = targetAndErrorIfAny.getTarget();
@@ -141,25 +139,23 @@ public class TransitiveTargetFunction
         // isLegalConfigurationFragment considers both natively declared fragments and Starlark
         // (named) fragments.
         if (configurationFragmentPolicy.isLegalConfigurationFragment(fragment)) {
-          addFragmentIfNew(builder, fragment.asSubclass(Fragment.class));
+          addFragmentIfNew(builder, fragment);
         }
       }
 
       // Declared by late-bound attributes:
       for (Attribute attr : rule.getAttributes()) {
-        if (attr.isLateBound()
-            && attr.getLateBoundDefault().getFragmentClass() != null
-            && Fragment.class.isAssignableFrom(attr.getLateBoundDefault().getFragmentClass())) {
-          addFragmentIfNew(
-              builder,
-              (Class<? extends Fragment>) // unchecked cast
-                  attr.getLateBoundDefault().getFragmentClass());
+        if (attr.isLateBound()) {
+          Class<?> fragment = attr.getLateBoundDefault().getFragmentClass();
+          if (fragment != null && Fragment.class.isAssignableFrom(fragment)) {
+            addFragmentIfNew(builder, fragment.asSubclass(Fragment.class));
+          }
         }
       }
 
       // config_setting rules have values like {"some_flag": "some_value"} that need the
       // corresponding fragments in their configurations to properly resolve:
-      addFragmentsIfNew(builder, getFragmentsFromRequiredOptions(rule));
+      addFragmentsFromRequiredOptions(builder, rule);
 
       // Fragments to unconditionally include:
       for (Class<? extends Fragment> universalFragment :
@@ -171,39 +167,25 @@ public class TransitiveTargetFunction
     return builder.build(errorLoadingTarget);
   }
 
-  private Set<Class<? extends Fragment>> getFragmentsFromRequiredOptions(Rule rule) {
+  private void addFragmentsFromRequiredOptions(TransitiveTargetValueBuilder builder, Rule rule) {
     Set<String> requiredOptions =
       rule.getRuleClassObject().getOptionReferenceFunction().apply(rule);
-    ImmutableSet.Builder<Class<? extends Fragment>> optionsFragments = new ImmutableSet.Builder<>();
     for (String requiredOption : requiredOptions) {
       Class<? extends Fragment> fragment =
           ruleClassProvider.getConfigurationFragmentForOption(requiredOption);
       // Null values come from CoreOptions, which is implicitly included.
       if (fragment != null) {
-        optionsFragments.add(fragment);
+        addFragmentIfNew(builder, fragment);
       }
     }
-    return optionsFragments.build();
   }
 
-  private void addFragmentIfNew(TransitiveTargetValueBuilder builder,
-      Class<? extends Fragment> fragment) {
+  private static void addFragmentIfNew(
+      TransitiveTargetValueBuilder builder, Class<? extends Fragment> fragment) {
     // This only checks that the deps don't already use this fragment, not the parent rule itself.
     // So duplicates are still possible. We can further optimize if needed.
     if (!builder.getConfigFragmentsFromDeps().contains(fragment)) {
       builder.getTransitiveConfigFragments().add(fragment);
-    }
-  }
-
-  private void addFragmentsIfNew(
-      TransitiveTargetValueBuilder builder, Iterable<? extends Class<?>> fragments) {
-    // We take Iterable<?> instead of Iterable<Class<?>> or Iterable<Class<? extends Fragment>>
-    // because both of the latter are passed as actual parameters and there's no way to consistently
-    // cast to one of them. In actuality, all values are Class<? extends Fragment>, but the values
-    // coming from Attribute.java don't have access to the Fragment symbol since Attribute is built
-    // in a different library.
-    for (Class<?> fragment : fragments) {
-      addFragmentIfNew(builder, fragment.asSubclass(Fragment.class));
     }
   }
 
