@@ -94,7 +94,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
   @Test
   public void starlarkExpandMakeVariables() throws Exception {
-    useConfiguration("--include_config_fragments_provider=direct", "--define", "myvar=myval");
+    useConfiguration("--include_config_fragments_provider=direct", "--define=myvar=myval");
     scratch.file(
         "a/defs.bzl",
         "def _impl(ctx):",
@@ -102,12 +102,39 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "",
         "simple_rule = rule(",
         "  implementation = _impl,",
-        "   attrs = {}",
+        "  attrs = {}",
         ")");
     scratch.file("a/BUILD", "load('//a:defs.bzl', 'simple_rule')", "simple_rule(name = 'simple')");
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:simple").getProvider(RequiredConfigFragmentsProvider.class);
     assertThat(requiredFragments.getDefines()).containsExactly("myvar");
+  }
+
+  @Test
+  public void starlarkCtxVar() throws Exception {
+    useConfiguration(
+        "--include_config_fragments_provider=direct", "--define=required_var=1,irrelevant_var=1");
+    scratch.file(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        // Defined, so reported as required.
+        "  if 'required_var' not in ctx.var:",
+        "    fail('Missing required_var')",
+        // Not defined, so not reported as required.
+        "  if 'prohibited_var' in ctx.var:",
+        "    fail('Not allowed to set prohibited_var')",
+        // Present but not a define variable, so not reported as required.
+        "  if 'COMPILATION_MODE' not in ctx.var:",
+        "    fail('Missing COMPILATION_MODE')",
+        "",
+        "simple_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {}",
+        ")");
+    scratch.file("a/BUILD", "load('//a:defs.bzl', 'simple_rule')", "simple_rule(name = 'simple')");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:simple").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.getDefines()).containsExactly("required_var");
   }
 
   /**

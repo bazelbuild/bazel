@@ -116,14 +116,14 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     throw new ExpansionException(String.format("$(%s) not defined", name));
   }
 
-  public Dict<String, String> collectMakeVariables() throws ExpansionException {
+  public Dict.Builder<String, String> collectMakeVariables() throws ExpansionException {
     Dict.Builder<String, String> map = Dict.builder();
     // Collect variables in the reverse order as in lookupMakeVariable
     // because each update is overwriting.
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers.reverse()) {
       map.putAll(supplier.getAllMakeVariables());
     }
-    return map.buildImmutable();
+    return map;
   }
 
   @Override

@@ -89,6 +89,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Dict.ImmutableKeyTrackingDict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -706,14 +707,28 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public Dict<String, String> var() throws EvalException {
     checkMutable("var");
     if (cachedMakeVariables == null) {
+      Dict.Builder<String, String> vars;
       try {
-        cachedMakeVariables =
-            ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+        vars = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
       } catch (ExpansionException e) {
-        throw Starlark.errorf("%s", e.getMessage());
+        throw new EvalException(e.getMessage());
       }
+
+      // When tracking required fragments, use a key-tracking dict to support lookedUpVariables().
+      cachedMakeVariables =
+          ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+              ? vars.buildImmutableWithKeyTracking()
+              : vars.buildImmutable();
     }
     return cachedMakeVariables;
+  }
+
+  /** Returns the set of variables accessed through {@code ctx.var}. */
+  public ImmutableSet<String> lookedUpVariables() {
+    Preconditions.checkState(ruleContext.shouldIncludeRequiredConfigFragmentsProvider(), this);
+    return cachedMakeVariables == null
+        ? ImmutableSet.of()
+        : ((ImmutableKeyTrackingDict<String, String>) cachedMakeVariables).getAccessedKeys();
   }
 
   @Override

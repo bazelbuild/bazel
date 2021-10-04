@@ -1272,13 +1272,11 @@ public final class RuleContext extends TargetContext
   /** Returns the configuration fragments this rule uses. */
   public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
     RequiredConfigFragmentsProvider.Builder merged = null;
-    for (Expander makeVariableExpander : makeVariableExpanders) {
-      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
-        // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
-        // rule's package. Both are equivalent for these purposes, since in both cases setting
-        // "--define foo=bar" impacts the rule's output.
-        if (rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
-            || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable)) {
+
+    // Add variables accessed through ctx.var, if this is a Starlark rule.
+    if (starlarkRuleContext != null) {
+      for (String makeVariable : starlarkRuleContext.lookedUpVariables()) {
+        if (isUserDefinedMakeVariable(makeVariable)) {
           if (merged == null) {
             merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
           }
@@ -1286,7 +1284,28 @@ public final class RuleContext extends TargetContext
         }
       }
     }
+
+    // Add variables accessed through Make variable substitution.
+    for (Expander makeVariableExpander : makeVariableExpanders) {
+      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
+        if (isUserDefinedMakeVariable(makeVariable)) {
+          if (merged == null) {
+            merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
+          }
+          merged.addDefine(makeVariable);
+        }
+      }
+    }
+
     return merged == null ? requiredConfigFragments : merged.build();
+  }
+
+  private boolean isUserDefinedMakeVariable(String makeVariable) {
+    // User-defined make values may be set either in "--define foo=bar" or in a vardef in the rule's
+    // package. Both are equivalent for these purposes, since in both cases setting
+    // "--define foo=bar" impacts the rule's output.
+    return rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
+        || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable);
   }
 
   private void checkAttributeIsDependency(String attributeName) {
