@@ -50,14 +50,16 @@ import net.starlark.java.syntax.Location;
 @DocumentMethods
 public class ModuleFileGlobals {
   private boolean moduleCalled = false;
+  private final boolean ignoreDevDeps;
   private final Module.Builder module;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionProxy> extensionProxies = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
-  public ModuleFileGlobals(ModuleKey key, @Nullable Registry registry) {
+  public ModuleFileGlobals(ModuleKey key, @Nullable Registry registry, boolean ignoreDevDeps) {
     module = Module.builder().setKey(key).setRegistry(registry);
+    this.ignoreDevDeps = ignoreDevDeps;
   }
 
   @AutoValue
@@ -168,9 +170,15 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "''"),
+        @Param(
+            name = "dev_dependency",
+            doc = "If true, this dependency won't be propagated to dependents of this module",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
-  public void bazelDep(String name, String version, String repoName, StarlarkThread thread)
+  public void bazelDep(String name, String version, String repoName, boolean devDependency, StarlarkThread thread)
       throws EvalException {
     if (repoName.isEmpty()) {
       repoName = name;
@@ -182,7 +190,11 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
-    deps.put(repoName, ModuleKey.create(name, parsedVersion));
+
+    if (!(ignoreDevDeps && devDependency)) {
+      deps.put(repoName, ModuleKey.create(name, parsedVersion));
+    }
+
     addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
   }
 
@@ -200,10 +212,16 @@ public class ModuleFileGlobals {
             doc =
                 "The name of the module extension to use. A symbol with this name must be exported"
                     + " by the Starlark file."),
+        @Param(
+            name = "dev_dependency",
+            doc = "If true, this dependency won't be propagated to dependents of this module",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
-      String extensionBzlFile, String extensionName, StarlarkThread thread) throws EvalException {
+      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread) throws EvalException {
     for (ModuleExtensionProxy proxy : extensionProxies) {
       if (proxy.extensionBzlFile.equals(extensionBzlFile)
           && proxy.extensionName.equals(extensionName)) {
@@ -212,7 +230,11 @@ public class ModuleFileGlobals {
     }
     ModuleExtensionProxy proxy =
         new ModuleExtensionProxy(extensionBzlFile, extensionName, thread.getCallerLocation());
-    extensionProxies.add(proxy);
+
+    if (!(ignoreDevDeps && devDependency)) {
+      extensionProxies.add(proxy);
+    }
+
     return proxy;
   }
 
@@ -315,6 +337,9 @@ public class ModuleFileGlobals {
       Dict<String, Object> kwargs,
       StarlarkThread thread)
       throws EvalException {
+    if (extensionProxy == null) {
+      return;
+    }
     Location location = thread.getCallerLocation();
     for (String arg : Sequence.cast(args, String.class, "args")) {
       extensionProxy.addImport(arg, arg, location);

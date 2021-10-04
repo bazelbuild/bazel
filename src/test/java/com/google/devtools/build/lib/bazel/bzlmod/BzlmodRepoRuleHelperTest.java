@@ -123,6 +123,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
   }
 
   @Test

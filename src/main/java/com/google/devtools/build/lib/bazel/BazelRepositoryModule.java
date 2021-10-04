@@ -132,6 +132,7 @@ public class BazelRepositoryModule extends BlazeModule {
   // on WorkspaceFileValue is not registered for each FileStateValue.
   private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
   private final AtomicBoolean enableBzlmod = new AtomicBoolean(false);
+  private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
   public BazelRepositoryModule() {
@@ -372,6 +373,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       enableBzlmod.set(repoOptions.enableBzlmod);
+      ignoreDevDeps.set(repoOptions.ignoreDevDependency);
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
@@ -441,7 +443,8 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
         PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod.get()),
-        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries));
+        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()));
   }
 
   @Override

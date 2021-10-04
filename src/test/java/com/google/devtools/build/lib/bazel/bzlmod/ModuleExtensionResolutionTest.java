@@ -253,6 +253,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     // Set up a simple repo rule.
