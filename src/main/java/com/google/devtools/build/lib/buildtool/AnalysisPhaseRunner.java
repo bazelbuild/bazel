@@ -315,7 +315,7 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env, List<String> requestedTargetPatterns)
       throws ViewCreationFailedException {
     ImmutableSet.Builder<String> explicitTargetPatterns = ImmutableSet.builder();
-    TargetPattern.Parser parser = new TargetPattern.Parser(env.getRelativeWorkingDirectory());
+    TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
       if (requestedTargetPattern.startsWith("-")) {

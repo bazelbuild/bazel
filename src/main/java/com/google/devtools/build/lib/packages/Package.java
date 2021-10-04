@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -238,8 +239,8 @@ public class Package {
 
   private ImmutableSet<String> features;
 
-  private ImmutableList<String> registeredExecutionPlatforms;
-  private ImmutableList<String> registeredToolchains;
+  private ImmutableList<TargetPattern> registeredExecutionPlatforms;
+  private ImmutableList<TargetPattern> registeredToolchains;
 
   private long computationSteps;
 
@@ -801,11 +802,11 @@ public class Package {
     return defaultRestrictedTo;
   }
 
-  public ImmutableList<String> getRegisteredExecutionPlatforms() {
+  public ImmutableList<TargetPattern> getRegisteredExecutionPlatforms() {
     return registeredExecutionPlatforms;
   }
 
-  public ImmutableList<String> getRegisteredToolchains() {
+  public ImmutableList<TargetPattern> getRegisteredToolchains() {
     return registeredToolchains;
   }
 
@@ -994,8 +995,8 @@ public class Package {
 
     private ImmutableList<Label> starlarkFileDependencies = ImmutableList.of();
 
-    private final List<String> registeredExecutionPlatforms = new ArrayList<>();
-    private final List<String> registeredToolchains = new ArrayList<>();
+    private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
+    private final List<TargetPattern> registeredToolchains = new ArrayList<>();
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
@@ -1730,11 +1731,11 @@ public class Package {
       ruleLabels.put(rule, labels);
     }
 
-    void addRegisteredExecutionPlatforms(List<String> platforms) {
+    void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
       this.registeredExecutionPlatforms.addAll(platforms);
     }
 
-    void addRegisteredToolchains(List<String> toolchains) {
+    void addRegisteredToolchains(List<TargetPattern> toolchains) {
       this.registeredToolchains.addAll(toolchains);
     }
 

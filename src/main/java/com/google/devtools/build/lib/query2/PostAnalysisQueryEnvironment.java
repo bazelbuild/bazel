@@ -69,8 +69,6 @@ import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtrac
 import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCallback;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -249,10 +247,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected abstract T getValueFromKey(SkyKey key) throws InterruptedException;
 
   protected TargetPattern getPattern(String pattern) throws TargetParsingException {
-    TargetPatternKey targetPatternKey =
-        ((TargetPatternKey)
-            TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, parserPrefix).argument());
-    return targetPatternKey.getParsedPattern();
+    return TargetPattern.mainRepoParser(parserPrefix).parse(pattern);
   }
 
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {

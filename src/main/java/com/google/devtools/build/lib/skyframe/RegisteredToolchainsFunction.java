@@ -27,10 +27,15 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
+import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -54,33 +59,45 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     BuildConfigurationValue buildConfigurationValue =
         (BuildConfigurationValue)
             env.getValue(((RegisteredToolchainsValue.Key) skyKey).getConfigurationKey());
+    RepositoryMappingValue mainRepoMapping =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (env.valuesMissing()) {
       return null;
     }
     BuildConfiguration configuration = buildConfigurationValue.getConfiguration();
 
-    ImmutableList.Builder<String> targetPatternBuilder = new ImmutableList.Builder<>();
+    TargetPattern.Parser mainRepoParser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.MAIN,
+            mainRepoMapping.getRepositoryMapping());
+    ImmutableList.Builder<SignedTargetPattern> targetPatternBuilder = new ImmutableList.Builder<>();
 
     // Get the toolchains from the configuration.
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
-    targetPatternBuilder.addAll(platformConfiguration.getExtraToolchains());
+    try {
+      targetPatternBuilder.addAll(
+          TargetPatternUtil.parseAllSigned(
+              platformConfiguration.getExtraToolchains(), mainRepoParser));
+    } catch (InvalidTargetPatternException e) {
+      throw new RegisteredToolchainsFunctionException(
+          new InvalidToolchainLabelException(e), Transience.PERSISTENT);
+    }
 
     // Get the registered toolchains from the WORKSPACE.
-    ImmutableList<String> workspaceToolchains = getWorkspaceToolchains(env);
+    ImmutableList<TargetPattern> workspaceToolchains = getWorkspaceToolchains(env);
     if (workspaceToolchains == null) {
       return null;
     }
-    targetPatternBuilder.addAll(workspaceToolchains);
-
-    ImmutableList<String> targetPatterns = targetPatternBuilder.build();
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(workspaceToolchains));
 
     // Expand target patterns.
     ImmutableList<Label> toolchainLabels;
     try {
       toolchainLabels =
           TargetPatternUtil.expandTargetPatterns(
-              env, targetPatterns, FilteringPolicies.ruleType("toolchain", true));
+              env, targetPatternBuilder.build(), FilteringPolicies.ruleTypeExplicit("toolchain"));
       if (env.valuesMissing()) {
         return null;
       }
@@ -106,7 +123,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
    */
   @Nullable
   @VisibleForTesting
-  public static ImmutableList<String> getWorkspaceToolchains(Environment env)
+  public static ImmutableList<TargetPattern> getWorkspaceToolchains(Environment env)
       throws InterruptedException {
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));

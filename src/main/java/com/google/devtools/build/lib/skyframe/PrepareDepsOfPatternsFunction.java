@@ -87,6 +87,7 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     ExtendedEventHandler eventHandler = env.getListener();
+    // TODO(wyv): use the repo mapping of the main repo here.
     ImmutableList<SkyKey> skyKeys = getSkyKeys(skyKey, eventHandler);
 
     Map<SkyKey, ValueOrException<TargetParsingException>> tokensByKey =

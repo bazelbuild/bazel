@@ -193,12 +193,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            // We would expect:
-            // Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_1"),
-            // Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_2"))
-            // but this is actually:
-            Label.parseAbsoluteUnchecked("//platforms:linux"),
-            Label.parseAbsoluteUnchecked("//platforms:mac"))
+            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_2"))
         .inOrder();
   }
 
