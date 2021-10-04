@@ -438,6 +438,25 @@ struct KeepForCompileAttribute : Attribute {
   void Write(u1 *&p) { WriteProlog(p, 0); }
 };
 
+struct HasAttrs {
+  std::vector<Attribute*> attributes;
+
+  void WriteAttrs(u1 *&p);
+  void ReadAttrs(const u1 *&p);
+
+  virtual ~HasAttrs() {
+    for (const auto *attribute : attributes) {
+      delete attribute;
+    }
+  }
+
+  void ExtractClassNames() {
+    for (auto *attribute : attributes) {
+      attribute->ExtractClassNames();
+    }
+  }
+};
+
 // See sec.4.7.5 of JVM spec.
 struct ExceptionsAttribute : Attribute {
 
@@ -1234,6 +1253,55 @@ struct NestMembersAttribute : Attribute {
   std::vector<Constant *> classes_;
 };
 
+// See JVMS §4.7.30
+struct RecordAttribute : Attribute {
+  static RecordAttribute *Read(const u1 *&p, Constant *attribute_name,
+                                    u4 attribute_length) {
+    auto attr = new RecordAttribute;
+    attr->attribute_name_ = attribute_name;
+    attr->attribute_length_ = attribute_length;
+    u2 components_length = get_u2be(p);
+    for (int i = 0; i < components_length; ++i) {
+      attr->components_.push_back(RecordComponentInfo::Read(p));
+    }
+    return attr;
+  }
+
+  void Write(u1 *&p) {
+    u1 *tmp = new u1[attribute_length_];
+    u1 *start = tmp;
+    put_u2be(tmp, components_.size());
+    for (size_t i = 0; i < components_.size(); ++i) {
+      components_[i]->Write(tmp);
+    }
+    u2 length = tmp - start;
+    WriteProlog(p, length);
+    memcpy(p, start, length);
+    p += length;
+  }
+
+  struct RecordComponentInfo : HasAttrs {
+    void Write(u1 *&p) {
+      put_u2be(p, name_->slot());
+      put_u2be(p, descriptor_->slot());
+      WriteAttrs(p);
+    }
+    static RecordComponentInfo *Read(const u1 *&p) {
+      RecordComponentInfo *value = new RecordComponentInfo;
+      value->name_ = constant(get_u2be(p));
+      value->descriptor_ = constant(get_u2be(p));
+      value->ReadAttrs(p);
+      return value;
+    }
+
+    Constant *name_;
+    Constant *descriptor_;
+  };
+
+  u4 attribute_length_;
+  std::vector<RecordComponentInfo *> components_;
+};
+
 struct GeneralAttribute : Attribute {
   static GeneralAttribute* Read(const u1 *&p, Constant *attribute_name,
                                 u4 attribute_length) {
@@ -1259,25 +1327,6 @@ struct GeneralAttribute : Attribute {
  *                             ClassFile                              *
  *                                                                    *
  **********************************************************************/
-
-struct HasAttrs {
-  std::vector<Attribute*> attributes;
-
-  void WriteAttrs(u1 *&p);
-  void ReadAttrs(const u1 *&p);
-
-  virtual ~HasAttrs() {
-    for (const auto *attribute : attributes) {
-      delete attribute;
-    }
-  }
-
-  void ExtractClassNames() {
-    for (auto *attribute : attributes) {
-      attribute->ExtractClassNames();
-    }
-  }
-};
 
 // A field or method.
 // See sec.4.5 and 4.6 of JVM spec.
@@ -1451,6 +1500,9 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
     } else if (attr_name == "NestMembers") {
       attributes.push_back(
           NestMembersAttribute::Read(p, attribute_name, attribute_length));
+    } else if (attr_name == "Record") {
+      attributes.push_back(
+          RecordAttribute::Read(p, attribute_name, attribute_length));
     } else if (attr_name == "com.google.devtools.ijar.KeepForCompile") {
       auto attr = new KeepForCompileAttribute;
       attr->attribute_name_ = attribute_name;
