@@ -261,7 +261,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     BuildConfiguration topLevelConfiguration =
         getConfiguration(Iterables.getOnlyElement(update("//a:binary").getTargetsToBuild()));
     for (ConfiguredTarget dep : deps) {
-      assertThat(topLevelConfiguration.equalsOrIsSupersetOf(getConfiguration(dep))).isTrue();
+      assertThat(topLevelConfiguration).isEqualTo(getConfiguration(dep));
     }
   }
 

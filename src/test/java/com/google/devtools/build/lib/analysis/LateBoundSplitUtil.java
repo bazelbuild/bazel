@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;

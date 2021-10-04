@@ -158,8 +158,7 @@ final class AspectFunction implements SkyFunction {
       Object starlarkValue = bzlLoadValue.getModule().getGlobal(starlarkValueName);
       if (starlarkValue == null) {
         throw new ConversionException(
-            String.format(
-                "%s is not exported from %s", starlarkValueName, extensionLabel.toString()));
+            String.format("%s is not exported from %s", starlarkValueName, extensionLabel));
       }
       if (!(starlarkValue instanceof StarlarkDefinedAspect)) {
         throw new ConversionException(
@@ -296,7 +295,7 @@ final class AspectFunction implements SkyFunction {
     if (AliasProvider.isAlias(associatedTarget)) {
       return createAliasAspect(
           env,
-          view.getHostConfiguration(aspectConfiguration),
+          view.getHostConfiguration(),
           new TargetAndConfiguration(target, configuration),
           aspect,
           key,
@@ -427,7 +426,7 @@ final class AspectFunction implements SkyFunction {
                         .build(),
                 shouldUseToolchainTransition(configuration, aspect.getDefinition()),
                 ruleClassProvider,
-                view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
+                view.getHostConfiguration(),
                 transitivePackagesForPackageRootResolution,
                 transitiveRootCauses);
       } catch (ConfiguredValueCreationException e) {
@@ -729,7 +728,7 @@ final class AspectFunction implements SkyFunction {
         transitivePackagesForPackageRootResolution);
   }
 
-  private AspectValue createAliasAspect(
+  private static AspectValue createAliasAspect(
       Environment env,
       Target originalTarget,
       AspectKey originalKey,
@@ -875,7 +874,7 @@ final class AspectFunction implements SkyFunction {
                     configConditions,
                     toolchainContext,
                     aspectConfiguration,
-                    view.getHostConfiguration(aspectConfiguration),
+                    view.getHostConfiguration(),
                     key);
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());

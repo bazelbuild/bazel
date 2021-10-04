@@ -328,7 +328,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   : unloadedToolchainContexts.asToolchainContexts(),
               DependencyResolver.shouldUseToolchainTransition(configuration, ctgValue.getTarget()),
               ruleClassProvider,
-              view.getHostConfiguration(configuration),
+              view.getHostConfiguration(),
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses);
       if (!transitiveRootCauses.isEmpty()) {

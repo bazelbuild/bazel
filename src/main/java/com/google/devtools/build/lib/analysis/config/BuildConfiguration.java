@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
@@ -51,7 +49,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -123,28 +120,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final Supplier<BuildConfigurationEvent> buildEventSupplier;
 
   private final boolean siblingRepositoryLayout;
-
-  /**
-   * Returns true if this configuration is semantically equal to the other, with the possible
-   * exception that the other has fewer fragments.
-   *
-   * <p>This is useful for trimming: as the same configuration gets "trimmed" while going down a
-   * dependency chain, it's still the same configuration but loses some of its fragments. So we need
-   * a more nuanced concept of "equality" than simple reference equality.
-   */
-  // TODO(b/121048710): make this reflect starlark options
-  public boolean equalsOrIsSupersetOf(BuildConfiguration other) {
-    return this.equals(other)
-        || (other != null
-            // TODO(gregce): add back in output root checking. This requires a better approach to
-            // configuration-safe output paths. If the parent config has a fragment the child config
-            // doesn't, it may inject $(FOO) into the output roots. So the child bindir might be
-            // "bazel-out/arm-linux-fastbuild/bin" while the parent bindir is
-            // "bazel-out/android-arm-linux-fastbuild/bin". That's pretty awkward to check here.
-            //      && outputRoots.equals(other.outputRoots)
-            && fragments.values().containsAll(other.fragments.values())
-            && buildOptions.getNativeOptions().containsAll(other.buildOptions.getNativeOptions()));
-  }
 
   /**
    * Returns {@code true} if this configuration is semantically equal to the other, including
@@ -257,38 +232,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
     this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
-  }
-
-  /**
-   * Returns a copy of this configuration only including the given fragments (which the current
-   * configuration is assumed to have).
-   */
-  public BuildConfiguration clone(
-      FragmentClassSet fragmentClasses, RuleClassProvider ruleClassProvider) {
-    ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragmentsMap =
-        fragments.values().stream()
-            .filter(fragment -> fragmentClasses.contains(fragment.getClass()))
-            .collect(
-                toImmutableSortedMap(
-                    FragmentClassSet.LEXICAL_FRAGMENT_SORTER,
-                    Fragment::getClass,
-                    Function.identity()));
-    BuildOptions options =
-        buildOptions.trim(getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
-    try {
-      return new BuildConfiguration(
-          getDirectories(),
-          fragmentsMap,
-          fragmentClasses,
-          options,
-          reservedActionMnemonics,
-          actionEnv,
-          mainRepositoryName,
-          siblingRepositoryLayout);
-    } catch (InvalidMnemonicException e) {
-      throw new IllegalStateException(
-          "Invalid mnemonic unexpected when cloning: " + this + ", " + fragmentClasses, e);
-    }
   }
 
   /** Returns the config fragment options classes used by the given fragment types. */

@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
@@ -200,20 +199,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     // Legitimately null option:
     assertThat(create().getTransitiveOptionDetails().getOptionValue("test_filter")).isNull();
-  }
-
-  @Test
-  public void testEqualsOrIsSupersetOf() throws Exception {
-    BuildConfiguration config = create();
-    BuildConfiguration trimmedConfig =
-        config.clone(
-            FragmentClassSet.of(ImmutableSet.of(CppConfiguration.class)),
-            analysisMock.createRuleClassProvider());
-    BuildConfiguration hostConfig = createHost();
-
-    assertThat(config.equalsOrIsSupersetOf(trimmedConfig)).isTrue();
-    assertThat(config.equalsOrIsSupersetOf(hostConfig)).isFalse();
-    assertThat(trimmedConfig.equalsOrIsSupersetOf(config)).isFalse();
   }
 
   @Test

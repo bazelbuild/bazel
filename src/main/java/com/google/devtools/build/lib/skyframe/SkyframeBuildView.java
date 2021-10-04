@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
@@ -146,10 +145,6 @@ public final class SkyframeBuildView {
 
   // The host configuration containing all fragments used by this build's transitive closure.
   private BuildConfiguration topLevelHostConfiguration;
-  // Fragment-limited versions of the host configuration. It's faster to create/cache these here
-  // than to store them in Skyframe.
-  private final Map<BuildConfiguration, BuildConfiguration> hostConfigurationCache =
-      Maps.newConcurrentMap();
 
   private BuildConfigurationCollection configurations;
 
@@ -351,13 +346,9 @@ public final class SkyframeBuildView {
   /**
    * Sets the host configuration consisting of all fragments that will be used by the top level
    * targets' transitive closures.
-   *
-   * <p>This is used to power {@link #getHostConfiguration} during analysis, which computes
-   * fragment-trimmed host configurations from the top-level one.
    */
   private void setTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {
     if (!topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
-      hostConfigurationCache.clear();
       this.topLevelHostConfiguration = topLevelHostConfiguration;
     }
   }
@@ -1117,7 +1108,7 @@ public final class SkyframeBuildView {
         artifactFactory,
         target,
         configuration,
-        getHostConfiguration(configuration),
+        topLevelHostConfiguration,
         configuredTargetKey,
         prerequisiteMap,
         configConditions,
@@ -1126,55 +1117,13 @@ public final class SkyframeBuildView {
   }
 
   /**
-   * Returns the host configuration trimmed to the same fragments as the input configuration. If the
-   * input is null, returns the top-level host configuration.
+   * Returns the top-level host configuration.
    *
    * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the correct host
    * configuration at the top-level.
    */
-  public BuildConfiguration getHostConfiguration(BuildConfiguration config) {
-    if (config == null) {
-      return topLevelHostConfiguration;
-    }
-    // Currently, a single build doesn't use many different BuildConfiguration instances. Thus,
-    // having a cache per BuildConfiguration is efficient. It might lead to instances of otherwise
-    // identical configurations if multiple of these configs use the same fragment classes. However,
-    // these are cheap especially if there is only a small number of configs. Revisit and turn into
-    // a cache per FragmentClassSet if configuration trimming results in a much higher number of
-    // configuration instances.
-    BuildConfiguration hostConfig = hostConfigurationCache.get(config);
-    if (hostConfig != null) {
-      return hostConfig;
-    }
-    // TODO(bazel-team): have the fragment classes be those required by the consuming target's
-    // transitive closure. This isn't the same as the input configuration's fragment classes -
-    // the latter may be a proper subset of the former.
-    //
-    // ConfigurationFactory.getConfiguration provides the reason why: if a declared required
-    // fragment is evaluated and returns null, it never gets added to the configuration. So if we
-    // use the configuration's fragments as the source of truth, that excludes required fragments
-    // that never made it in.
-    //
-    // If we're just trimming an existing configuration, this is no big deal (if the original
-    // configuration doesn't need the fragment, the trimmed one doesn't either). But this method
-    // trims a host configuration to the same scope as a target configuration. Since their options
-    // are different, the host instance may actually be able to produce the fragment. So it's
-    // wrong and potentially dangerous to unilaterally exclude it.
-    FragmentClassSet fragmentClasses = ruleClassProvider.getConfigurationFragments();
-    // TODO(bazel-team): investigate getting the trimmed config from Skyframe instead of cloning.
-    // This is the only place we instantiate BuildConfigurations outside of Skyframe, This can
-    // produce surprising effects, such as requesting a configuration that's in the Skyframe cache
-    // but still produces a unique instance because we don't check that cache. It'd be nice to
-    // guarantee that *all* instantiations happen through Skyframe. That could, for example,
-    // guarantee that config1.equals(config2) implies config1 == config2, which is nice for
-    // verifying we don't accidentally create extra configurations. But unfortunately,
-    // hostConfigurationCache was specifically created because Skyframe is too slow for this use
-    // case. So further optimization is necessary to make that viable (proto_library in particular
-    // contributes to much of the difference).
-    BuildConfiguration trimmedConfig =
-        topLevelHostConfiguration.clone(fragmentClasses, ruleClassProvider);
-    hostConfigurationCache.put(config, trimmedConfig);
-    return trimmedConfig;
+  public BuildConfiguration getHostConfiguration() {
+    return topLevelHostConfiguration;
   }
 
   /**
