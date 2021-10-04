@@ -487,7 +487,7 @@ http_archive(
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     sha256 = "61254688067454d3ccf0ef25993b5dcab7b56c8129e53b73566c28a8dd4d48fb",
-    strip_prefix = "zulu11.37.48-ca-jdk11.0.6-linux_aarch64",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-linux_aarch64",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz"],
 )
 
