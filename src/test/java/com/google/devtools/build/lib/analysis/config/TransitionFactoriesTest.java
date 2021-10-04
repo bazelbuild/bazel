@@ -30,7 +30,8 @@ public class TransitionFactoriesTest {
 
   @Test
   public void hostTransition() {
-    TransitionFactory<Object> factory = TransitionFactories.of(HostTransition.INSTANCE);
+    TransitionFactory<TransitionFactory.Data> factory =
+        TransitionFactories.of(HostTransition.INSTANCE);
     assertThat(factory).isNotNull();
     assertThat(HostTransition.isInstance(factory)).isTrue();
     assertThat(factory.isHost()).isTrue();
@@ -39,7 +40,8 @@ public class TransitionFactoriesTest {
 
   @Test
   public void noTransition() {
-    TransitionFactory<Object> factory = TransitionFactories.of(NoTransition.INSTANCE);
+    TransitionFactory<TransitionFactory.Data> factory =
+        TransitionFactories.of(NoTransition.INSTANCE);
     assertThat(factory).isNotNull();
     assertThat(NoTransition.isInstance(factory)).isTrue();
     assertThat(factory.isHost()).isFalse();
@@ -48,7 +50,8 @@ public class TransitionFactoriesTest {
 
   @Test
   public void nullTransition() {
-    TransitionFactory<Object> factory = TransitionFactories.of(NullTransition.INSTANCE);
+    TransitionFactory<TransitionFactory.Data> factory =
+        TransitionFactories.of(NullTransition.INSTANCE);
     assertThat(factory).isNotNull();
     assertThat(NullTransition.isInstance(factory)).isTrue();
     assertThat(factory.isHost()).isFalse();
@@ -57,7 +60,7 @@ public class TransitionFactoriesTest {
 
   @Test
   public void splitTransition() {
-    TransitionFactory<Object> factory =
+    TransitionFactory<TransitionFactory.Data> factory =
         TransitionFactories.of(
             (SplitTransition)
                 (buildOptions, eventHandler) ->

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.net.InetAddresses;
@@ -69,6 +70,7 @@ import java.security.SecureRandom;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * gRPC server class.
@@ -113,7 +115,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       int serverPid,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
-      boolean idleServerTasks) {
+      boolean idleServerTasks,
+      @Nullable String slowInterruptMessageSuffix) {
     SecureRandom random = new SecureRandom();
     return new GrpcServerImpl(
         dispatcher,
@@ -127,7 +130,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         serverPid,
         maxIdleSeconds,
         shutdownOnLowSysMem,
-        idleServerTasks);
+        idleServerTasks,
+        slowInterruptMessageSuffix);
   }
 
 
@@ -302,7 +306,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       int serverPid,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
-      boolean doIdleServerTasks) {
+      boolean doIdleServerTasks,
+      @Nullable String slowInterruptMessageSuffix) {
     this.dispatcher = dispatcher;
     this.shutdownHooks = shutdownHooks;
     this.pidFileWatcher = pidFileWatcher;
@@ -327,8 +332,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                     .setDaemon(true)
                     .build()));
 
-
-    commandManager = new CommandManager(doIdleServerTasks);
+    commandManager = new CommandManager(doIdleServerTasks, slowInterruptMessageSuffix);
   }
 
   private static String generateCookie(SecureRandom random, int byteCount) {
@@ -456,8 +460,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       serverInfoTmpFile.renameTo(serverInfoFile);
       shutdownHooks.deleteAtExit(serverInfoFile);
     } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Failed to write server info file: " + e.getMessage(), e);
+      throw createFilesystemFailureException("Failed to write server info file", e);
     }
   }
 
@@ -466,9 +469,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     try {
       FileSystemUtils.writeContentAsLatin1(file, contents);
     } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Server file (" + file + ") write failed: " + e.getMessage(),
-          e);
+      throw createFilesystemFailureException("Server file (" + file + ") write failed", e);
     }
     shutdownHooks.deleteAtExit(file);
   }
@@ -668,7 +669,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     return new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setMessage(message)
+                .setMessage(
+                    message + (Strings.isNullOrEmpty(e.getMessage()) ? "" : ": " + e.getMessage()))
                 .setFilesystem(Filesystem.newBuilder().setCode(Code.SERVER_FILE_WRITE_FAILURE))
                 .build()),
         e);

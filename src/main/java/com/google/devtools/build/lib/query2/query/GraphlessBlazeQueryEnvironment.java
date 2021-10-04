@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -259,13 +258,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(from, /*maxDepth=*/ Integer.MAX_VALUE);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter).somePath(eventHandler, from, to));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(
-          caller, e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .somePath(eventHandler, from, to);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override
@@ -275,12 +277,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(from, /*maxDepth=*/ Integer.MAX_VALUE);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter).allPaths(eventHandler, from, to));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .allPaths(eventHandler, from, to);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override
@@ -294,13 +300,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(targetsToPreload, /*maxDepth=*/ 1);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter)
-              .samePkgDirectRdeps(eventHandler, from));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .samePkgDirectRdeps(eventHandler, from);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override
@@ -314,13 +323,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(universe, maxDepth);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter)
-              .rdeps(eventHandler, from, universe, maxDepth));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .rdeps(eventHandler, from, universe, maxDepth);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override
@@ -425,13 +437,13 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
 
           // Also add the BUILD file of the extension.
           if (buildFiles) {
-            Path buildFileForLoad =
-                cachingPackageLocator.getBuildFileForPackage(
+            // Can be null in genquery: see http://b/123795023#comment6.
+            String baseName =
+                cachingPackageLocator.getBaseNameForLoadedPackage(
                     loadTarget.getLabel().getPackageIdentifier());
-            if (buildFileForLoad != null) {
+            if (baseName != null) {
               Label buildFileLabel =
-                  Label.createUnvalidated(
-                      loadTarget.getLabel().getPackageIdentifier(), buildFileForLoad.getBaseName());
+                  Label.createUnvalidated(loadTarget.getLabel().getPackageIdentifier(), baseName);
               dependentFiles.add(new FakeLoadTarget(buildFileLabel, pkg));
             }
           }

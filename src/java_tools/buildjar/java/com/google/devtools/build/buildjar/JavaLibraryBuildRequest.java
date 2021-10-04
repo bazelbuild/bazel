@@ -21,6 +21,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.MoreFiles;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
@@ -30,6 +31,7 @@ import com.google.devtools.build.buildjar.javac.JavacOptions.FilteredJavacopts;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import javax.annotation.Nullable;
 
 /** All the information needed to perform a single Java library build operation. */
@@ -89,6 +92,11 @@ public final class JavaLibraryBuildRequest {
   /** List of plugins that are given to javac. */
   private final ImmutableList<BlazeJavaCompilerPlugin> plugins;
 
+  /** Map of inputs' path and digest */
+  private final ImmutableMap<String, ByteString> inputsAndDigest;
+
+  private final OptionalInt requestId;
+
   /**
    * Constructs a build from a list of command args. Sets the same JavacRunner for both compilation
    * and annotation processing.
@@ -116,6 +124,26 @@ public final class JavaLibraryBuildRequest {
       OptionsParser optionsParser,
       List<BlazeJavaCompilerPlugin> extraPlugins,
       DependencyModule.Builder depsBuilder)
+      throws InvalidCommandLineException, IOException {
+    this(optionsParser, extraPlugins, depsBuilder, ImmutableMap.of(), OptionalInt.empty());
+  }
+
+  /**
+   * Constructs a build from a list of command args. Sets the same JavacRunner for both compilation
+   * and annotation processing.
+   *
+   * @param optionsParser the parsed command line args.
+   * @param extraPlugins extraneous plugins to use in addition to the strict dependency module.
+   * @param depsBuilder a preconstructed dependency module builder.
+   * @param inputsAndDigest a map of inputs' paths and their digest
+   * @throws InvalidCommandLineException on any command line error
+   */
+  public JavaLibraryBuildRequest(
+      OptionsParser optionsParser,
+      List<BlazeJavaCompilerPlugin> extraPlugins,
+      DependencyModule.Builder depsBuilder,
+      ImmutableMap<String, ByteString> inputsAndDigest,
+      OptionalInt requestId)
       throws InvalidCommandLineException, IOException {
     depsBuilder.setDirectJars(
         optionsParser.directJars().stream().map(Paths::get).collect(toImmutableSet()));
@@ -185,6 +213,8 @@ public final class JavaLibraryBuildRequest {
     this.generatedClassOutputJar = asPath(optionsParser.getManifestProtoPath());
     this.targetLabel = optionsParser.getTargetLabel();
     this.injectingRuleKind = optionsParser.getInjectingRuleKind();
+    this.inputsAndDigest = inputsAndDigest;
+    this.requestId = requestId;
   }
 
   /**
@@ -317,6 +347,14 @@ public final class JavaLibraryBuildRequest {
     return plugins;
   }
 
+  public ImmutableMap<String, ByteString> getInputsAndDigest() {
+    return inputsAndDigest;
+  }
+
+  public OptionalInt getRequestId() {
+    return requestId;
+  }
+
   @Nullable
   public String getTargetLabel() {
     return targetLabel;
@@ -339,7 +377,9 @@ public final class JavaLibraryBuildRequest {
             .sourcePath(getSourcePath())
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
-            .plugins(getPlugins());
+            .plugins(getPlugins())
+            .inputsAndDigest(getInputsAndDigest())
+            .requestId(getRequestId());
     addJavacArguments(builder);
     // Performance optimization: when reduced classpaths are enabled, stop the compilation after
     // the first diagnostic that would result in fallback to the transitive classpath. The user

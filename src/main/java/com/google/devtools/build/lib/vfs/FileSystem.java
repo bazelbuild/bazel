@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
 import java.util.Iterator;
@@ -52,7 +53,11 @@ public abstract class FileSystem {
    */
   protected static final class NotASymlinkException extends IOException {
     public NotASymlinkException(PathFragment path) {
-      super(path + " is not a symlink");
+      super(path.getPathString() + " is not a symlink");
+    }
+
+    public NotASymlinkException(PathFragment path, Throwable cause) {
+      super(path.getPathString() + " is not a symlink", cause);
     }
   }
 
@@ -172,6 +177,15 @@ public abstract class FileSystem {
    * specification.
    */
   public abstract boolean createDirectory(PathFragment path) throws IOException;
+
+  /**
+   * Creates a writable directory at a given path or makes existing directory writable if it is
+   * already present. Returns whether a new directory was created.
+   *
+   * <p>This method is not atomic -- concurrent modifications for the same path will result in
+   * undefined behavior.
+   */
+  protected abstract boolean createWritableDirectory(PathFragment path) throws IOException;
 
   /**
    * Creates all directories up to the path. See {@link Path#createDirectoryAndParents} for
@@ -354,7 +368,7 @@ public abstract class FileSystem {
     }
 
     if (maxLinks-- == 0) {
-      throw new IOException(naive + " (Too many levels of symbolic links)");
+      throw new FileSymlinkLoopException(naive);
     }
     if (linkTarget.isAbsolute()) {
       dir = PathFragment.createAlreadyNormalized(linkTarget.getDriveStr());
@@ -707,6 +721,16 @@ public abstract class FileSystem {
   }
 
   /**
+   * Returns a {@link SeekableByteChannel} for writing to a file at provided path.
+   *
+   * <p>Truncates the target file, therefore it cannot be used to read already existing files.
+   * Please use {@link #createReadableByteChannel} to get a {@linkplain ReadableByteChannel channel}
+   * for reads instead.
+   */
+  protected abstract SeekableByteChannel createReadWriteByteChannel(PathFragment path)
+      throws IOException;
+
+  /**
    * Creates an OutputStream accessing the file denoted by path.
    *
    * @throws IOException if there was an error opening the file for writing
@@ -723,6 +747,16 @@ public abstract class FileSystem {
    */
   protected abstract OutputStream getOutputStream(PathFragment path, boolean append)
       throws IOException;
+
+  /**
+   * Creates an OutputStream accessing the file denoted by path.
+   *
+   * @param append whether to open the output stream in append mode
+   * @param internal whether the file is a Bazel internal file
+   * @throws IOException if there was an error opening the file for writing
+   */
+  protected abstract OutputStream getOutputStream(
+      PathFragment path, boolean append, boolean internal) throws IOException;
 
   /**
    * Renames the file denoted by "sourceNode" to the location "targetNode". See {@link
@@ -774,4 +808,5 @@ public abstract class FileSystem {
    * implement this in order to warm the filesystem's internal caches.
    */
   protected void prefetchPackageAsync(PathFragment path, int maxDirs) {}
+
 }

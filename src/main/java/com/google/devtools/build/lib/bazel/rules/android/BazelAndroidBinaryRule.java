@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
+import com.google.devtools.build.lib.rules.android.AndroidPlatformsTransition;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 
@@ -37,7 +38,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
             ComposingTransitionFactory.of(
                 new ConfigFeatureFlagTransitionFactory(
                     AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR),
-                AndroidRuleClasses.androidBinarySelfTransition()))
+                AndroidPlatformsTransition.create()))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application

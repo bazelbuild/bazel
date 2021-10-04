@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -75,7 +76,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
     return new AliasConfiguredTarget(ruleContext, actual, providers.build());
   }
 
-  private ConfiguredTarget createEmptyConfiguredTarget(RuleContext ruleContext)
+  private static ConfiguredTarget createEmptyConfiguredTarget(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
@@ -83,20 +84,19 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
   }
 
   /** Rule definition for custom alias rules */
-  public abstract static class CommonAliasRule<FragmentT> implements RuleDefinition {
-
+  public abstract static class CommonAliasRule<FragmentT extends Fragment>
+      extends AbstractAliasRule {
     private static final String ATTRIBUTE_NAME = ":alias";
 
-    private final String ruleName;
     private final Function<RuleDefinitionEnvironment, LabelLateBoundDefault<FragmentT>>
         labelResolver;
     private final Class<FragmentT> fragmentClass;
 
-    public CommonAliasRule(
+    protected CommonAliasRule(
         String ruleName,
         Function<RuleDefinitionEnvironment, LabelLateBoundDefault<FragmentT>> labelResolver,
         Class<FragmentT> fragmentClass) {
-      this.ruleName = Preconditions.checkNotNull(ruleName);
+      super(ruleName);
       this.labelResolver = Preconditions.checkNotNull(labelResolver);
       this.fragmentClass = Preconditions.checkNotNull(fragmentClass);
     }
@@ -118,9 +118,17 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
           .addAttribute(attribute)
           .build();
     }
+  }
+
+  abstract static class AbstractAliasRule implements RuleDefinition {
+    private final String ruleName;
+
+    AbstractAliasRule(String ruleName) {
+      this.ruleName = Preconditions.checkNotNull(ruleName);
+    }
 
     @Override
-    public Metadata getMetadata() {
+    public final Metadata getMetadata() {
       return Metadata.builder()
           .name(ruleName)
           .ancestors(BaseRuleClasses.NativeBuildRule.class)

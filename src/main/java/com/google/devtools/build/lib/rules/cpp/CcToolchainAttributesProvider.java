@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -55,7 +54,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
   private final NestedSet<Artifact> allFiles;
-  private final NestedSet<Artifact> allFilesMiddleman;
   private final NestedSet<Artifact> compilerFiles;
   private final NestedSet<Artifact> compilerFilesWithoutIncludes;
   private final NestedSet<Artifact> stripFiles;
@@ -66,7 +64,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final NestedSet<Artifact> dwpFiles;
   private final Label libcTopAttribute;
   private final NestedSet<Artifact> libc;
-  private final NestedSet<Artifact> libcMiddleman;
   private final TransitiveInfoCollection libcTop;
   private final NestedSet<Artifact> targetLibc;
   private final TransitiveInfoCollection targetLibcTop;
@@ -120,20 +117,17 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     this.compiler = ruleContext.attributes().get("compiler", Type.STRING);
     this.supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     this.supportsHeaderParsing = ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
-    this.allFiles =
-        ruleContext.getPrerequisite("all_files").getProvider(FileProvider.class).getFilesToBuild();
-    this.allFilesMiddleman = getMiddlemanOrFiles(ruleContext, "all_files");
-    this.compilerFiles = getMiddlemanOrFiles(ruleContext, "compiler_files");
+    this.allFiles = getFiles(ruleContext, "all_files");
+    this.compilerFiles = getFiles(ruleContext, "compiler_files");
     this.compilerFilesWithoutIncludes =
-        getOptionalMiddlemanOrFiles(ruleContext, "compiler_files_without_includes");
-    this.stripFiles = getMiddlemanOrFiles(ruleContext, "strip_files");
-    this.objcopyFiles = getMiddlemanOrFiles(ruleContext, "objcopy_files");
-    this.asFiles = getOptionalMiddlemanOrFiles(ruleContext, "as_files");
-    this.arFiles = getOptionalMiddlemanOrFiles(ruleContext, "ar_files");
-    this.linkerFiles = getMiddlemanOrFiles(ruleContext, "linker_files");
-    this.dwpFiles = getMiddlemanOrFiles(ruleContext, "dwp_files");
+        getOptionalFiles(ruleContext, "compiler_files_without_includes");
+    this.stripFiles = getFiles(ruleContext, "strip_files");
+    this.objcopyFiles = getFiles(ruleContext, "objcopy_files");
+    this.asFiles = getOptionalFiles(ruleContext, "as_files");
+    this.arFiles = getOptionalFiles(ruleContext, "ar_files");
+    this.linkerFiles = getFiles(ruleContext, "linker_files");
+    this.dwpFiles = getFiles(ruleContext, "dwp_files");
 
-    this.libcMiddleman = getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR);
     this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR);
     this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR);
 
@@ -144,12 +138,11 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
     this.fullInputsForCrosstool =
         NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(allFilesMiddleman)
-            .addTransitive(libcMiddleman)
+            .addTransitive(allFiles)
+            .addTransitive(libc)
             .build();
-    this.fullInputsForLink =
-        fullInputsForLink(ruleContext, linkerFiles, libcMiddleman, isAppleToolchain);
-    NestedSet<Artifact> coverageFiles = getOptionalMiddlemanOrFiles(ruleContext, "coverage_files");
+    this.fullInputsForLink = fullInputsForLink(ruleContext, linkerFiles, libc, isAppleToolchain);
+    NestedSet<Artifact> coverageFiles = getOptionalFiles(ruleContext, "coverage_files");
     if (coverageFiles.isEmpty()) {
       this.coverage = Preconditions.checkNotNull(this.allFiles);
     } else {
@@ -289,10 +282,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return allFiles;
   }
 
-  public NestedSet<Artifact> getAllFilesMiddleman() {
-    return allFilesMiddleman;
-  }
-
   public NestedSet<Artifact> getCompilerFiles() {
     return compilerFiles;
   }
@@ -310,7 +299,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   }
 
   public Artifact getLinkDynamicLibraryTool() {
-
     return linkDynamicLibraryTool;
   }
 
@@ -422,22 +410,9 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return allowlistForLooseHeaderCheck;
   }
 
-  private static NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {
+  private static NestedSet<Artifact> getFiles(RuleContext context, String attribute) {
     TransitiveInfoCollection dep = context.getPrerequisite(attribute);
-    MiddlemanProvider middlemanProvider = dep.getProvider(MiddlemanProvider.class);
-    // We use the middleman if we can (if the dep is a filegroup), otherwise, just the regular
-    // filesToBuild (e.g. if it is a simple input file)
-    return middlemanProvider != null
-        ? middlemanProvider.getMiddlemanArtifact()
-        : dep.getProvider(FileProvider.class).getFilesToBuild();
-  }
-
-  private static NestedSet<Artifact> getOptionalMiddlemanOrFiles(
-      RuleContext context, String attribute) {
-    TransitiveInfoCollection dep = context.getPrerequisite(attribute);
-    return dep != null
-        ? getMiddlemanOrFiles(context, attribute)
-        : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    return dep.getProvider(FileProvider.class).getFilesToBuild();
   }
 
   private static NestedSet<Artifact> getOptionalFiles(RuleContext ruleContext, String attribute) {

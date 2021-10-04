@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -239,12 +240,12 @@ public class BazelJavaRuleClasses {
           .add(
               attr("plugins", LABEL_LIST)
                   .cfg(ExecutionTransitionFactory.create())
-                  .allowedRuleClasses("java_plugin")
+                  .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
                   .cfg(ExecutionTransitionFactory.create())
-                  .allowedRuleClasses("java_plugin")
+                  .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(javacopts) -->
@@ -365,17 +366,24 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("deploy_manifest_lines", STRING_LIST))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(stamp) -->
-          Enable link stamping.
           Whether to encode build information into the binary. Possible values:
           <ul>
-            <li><code>stamp = 1</code>: Stamp the build information into the binary. Stamped
-              binaries are only rebuilt when their dependencies change. Use this if there are tests
-              that depend on the build information.</li>
-            <li><code>stamp = 0</code>: Always replace build information by constant values. This
-              gives good build result caching.</li>
-            <li><code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="../user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+            <li>
+              <code>stamp = 1</code>: Always stamp the build information into the binary, even in
+              <a href="../user-manual.html#flag--stamp"><code>--nostamp</code></a> builds. <b>This
+              setting should be avoided</b>, since it potentially kills remote caching for the
+              binary and any downstream actions that depend on it.
+            </li>
+            <li>
+              <code>stamp = 0</code>: Always replace build information by constant values. This
+              gives good build result caching.
+            </li>
+            <li>
+              <code>stamp = -1</code>: Embedding of build information is controlled by the
+              <a href="../user-manual.html#flag--stamp"><code>--[no]stamp</code></a> flag.
+            </li>
           </ul>
+          <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           // TODO(bazel-team): describe how to access this data at runtime
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))

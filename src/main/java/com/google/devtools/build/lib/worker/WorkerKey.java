@@ -18,7 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
-import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.util.CommandDescriptionForm;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -49,10 +50,10 @@ final class WorkerKey {
   private final HashCode workerFilesCombinedHash;
   /** Worker files with the corresponding hash code. */
   private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
-  /** Set it to true if this job is running speculatively and thus likely to be interrupted. */
-  private final boolean isSpeculative;
+  /** If true, the workers run inside a sandbox. */
+  private final boolean sandboxed;
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
-  private final boolean proxied;
+  private final boolean multiplex;
   /** If true, the workers for this key are able to cancel work requests. */
   private final boolean cancellable;
   /**
@@ -70,8 +71,8 @@ final class WorkerKey {
       String mnemonic,
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, HashCode> workerFilesWithHashes,
-      boolean isSpeculative,
-      boolean proxied,
+      boolean sandboxed,
+      boolean multiplex,
       boolean cancellable,
       WorkerProtocolFormat protocolFormat) {
     this.args = Preconditions.checkNotNull(args);
@@ -80,8 +81,8 @@ final class WorkerKey {
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
     this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
-    this.isSpeculative = isSpeculative;
-    this.proxied = proxied;
+    this.sandboxed = sandboxed;
+    this.multiplex = multiplex;
     this.cancellable = cancellable;
     this.protocolFormat = protocolFormat;
     hash = calculateHashCode();
@@ -117,18 +118,13 @@ final class WorkerKey {
     return workerFilesWithHashes;
   }
 
-  /** Returns true if workers are run speculatively. */
-  public boolean isSpeculative() {
-    return isSpeculative;
-  }
-
-  /** Getter function for variable proxied. */
-  public boolean getProxied() {
-    return proxied;
+  /** Returns true if workers are sandboxed. */
+  public boolean isSandboxed() {
+    return sandboxed;
   }
 
   public boolean isMultiplex() {
-    return getProxied() && !isSpeculative;
+    return multiplex;
   }
 
   public boolean isCancellable() {
@@ -151,7 +147,9 @@ final class WorkerKey {
 
   /** Returns a user-friendly name for this worker type. */
   public String getWorkerTypeName() {
-    return makeWorkerTypeName(proxied, isSpeculative);
+    // Current implementation does not support sandboxing with multiplex workers, so keys
+    // will only be proxied if they are not forced to be sandboxed due to dynamic execution.
+    return makeWorkerTypeName(multiplex, false);
   }
 
   @Override
@@ -170,7 +168,13 @@ final class WorkerKey {
     if (!args.equals(workerKey.args)) {
       return false;
     }
-    if (!proxied == workerKey.proxied) {
+    if (!multiplex == workerKey.multiplex) {
+      return false;
+    }
+    if (!cancellable == workerKey.cancellable) {
+      return false;
+    }
+    if (!sandboxed == workerKey.sandboxed) {
       return false;
     }
     if (!env.equals(workerKey.env)) {
@@ -195,11 +199,29 @@ final class WorkerKey {
   private int calculateHashCode() {
     // Use the string representation of the protocolFormat because the hash of the same enum value
     // can vary across instances.
-    return Objects.hash(args, env, execRoot, mnemonic, proxied, protocolFormat.toString());
+    return Objects.hash(
+        args,
+        env,
+        execRoot,
+        mnemonic,
+        multiplex,
+        cancellable,
+        sandboxed,
+        protocolFormat.toString());
   }
 
   @Override
   public String toString() {
-    return Spawns.asShellCommand(args, execRoot, env, /* prettyPrintArgs= */ false);
+    // We print this command out in such a way that it can safely be
+    // copied+pasted as a Bourne shell command.  This is extremely valuable for
+    // debugging.
+    return CommandFailureUtils.describeCommand(
+        CommandDescriptionForm.COMPLETE,
+        /* prettyPrintArgs= */ false,
+        args,
+        env,
+        execRoot.getPathString(),
+        /* configurationChecksum=*/ null,
+        /* executionPlatform= */ null);
   }
 }

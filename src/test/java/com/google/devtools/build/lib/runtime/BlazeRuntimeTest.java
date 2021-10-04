@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
@@ -37,6 +37,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
 import com.google.protobuf.StringValue;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,11 +48,14 @@ import org.mockito.Mockito;
 public class BlazeRuntimeTest {
 
   @Test
-  public void optionSplitting() throws Exception {
+  public void optionSplitting() {
     BlazeRuntime.CommandLineOptions options =
         BlazeRuntime.splitStartupOptions(
-            ImmutableList.<BlazeModule>of(),
-            "--install_base=/foo --host_jvm_args=-Xmx1B", "build", "//foo:bar", "--nobuild");
+            ImmutableList.of(),
+            "--install_base=/foo --host_jvm_args=-Xmx1B",
+            "build",
+            "//foo:bar",
+            "--nobuild");
     assertThat(options.getStartupArgs())
         .isEqualTo(Arrays.asList("--install_base=/foo --host_jvm_args=-Xmx1B"));
     assertThat(options.getOtherArgs()).isEqualTo(Arrays.asList("build", "//foo:bar", "--nobuild"));
@@ -59,9 +63,9 @@ public class BlazeRuntimeTest {
 
   // A regression test to make sure that the 'no' prefix is handled correctly.
   @Test
-  public void optionSplittingNoPrefix() throws Exception {
-    BlazeRuntime.CommandLineOptions options = BlazeRuntime.splitStartupOptions(
-        ImmutableList.<BlazeModule>of(), "--nobatch", "build");
+  public void optionSplittingNoPrefix() {
+    BlazeRuntime.CommandLineOptions options =
+        BlazeRuntime.splitStartupOptions(ImmutableList.of(), "--nobatch", "build");
     assertThat(options.getStartupArgs()).isEqualTo(Arrays.asList("--nobatch"));
     assertThat(options.getOtherArgs()).isEqualTo(Arrays.asList("build"));
   }
@@ -77,18 +81,12 @@ public class BlazeRuntimeTest {
             fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.builder().build();
-                  }
-                })
             .setFileSystem(fs)
-            .setProductName("bazel")
+            .setProductName("foo product")
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
             .build();
+    AtomicReference<String> shutdownMessage = new AtomicReference<>();
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
@@ -96,18 +94,20 @@ public class BlazeRuntimeTest {
     EventBus eventBus = Mockito.mock(EventBus.class);
     OptionsParser options =
         OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build();
+    Thread commandThread = Mockito.mock(Thread.class);
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
             workspace,
             eventBus,
-            Thread.currentThread(),
+            commandThread,
             VersionCommand.class.getAnnotation(Command.class),
             options,
             ImmutableList.of(),
             0L,
             0L,
-            ImmutableList.of());
+            ImmutableList.of(),
+            shutdownMessage::set);
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
     DetailedExitCode oom =
         DetailedExitCode.of(
@@ -121,6 +121,9 @@ public class BlazeRuntimeTest {
                 .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
                 .build());
     assertThat(runtime.afterCommand(env, mainThreadCrash).getDetailedExitCode()).isEqualTo(oom);
+    // Confirm that runtime interrupted the command thread.
+    verify(commandThread).interrupt();
+    assertThat(shutdownMessage.get()).isEqualTo("foo product is crashing: ");
   }
 
   @Test
@@ -131,13 +134,6 @@ public class BlazeRuntimeTest {
             fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.builder().build();
-                  }
-                })
             .setFileSystem(fs)
             .setProductName("bazel")
             .setServerDirectories(serverDirectories)
@@ -158,7 +154,8 @@ public class BlazeRuntimeTest {
             ImmutableList.of(),
             0L,
             0L,
-            ImmutableList.of());
+            ImmutableList.of(),
+            s -> {});
     Any anyFoo = Any.pack(StringValue.of("foo"));
     Any anyBar = Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")));
     env.addResponseExtensions(ImmutableList.of(anyFoo, anyBar));

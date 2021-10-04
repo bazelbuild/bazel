@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
@@ -27,7 +27,7 @@ import net.starlark.java.eval.StarlarkThread;
  * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule
  * creation.
  */
-public interface RuleClassProvider extends RuleDefinitionContext {
+public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
   /** Label referencing the prelude file. */
   Label getPreludeLabel();
@@ -67,8 +67,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
    * @param label the label of the .bzl file
    * @param repoMapping map of RepositoryNames to be remapped
    */
-  void setStarlarkThreadContext(
-      StarlarkThread thread, Label label, ImmutableMap<RepositoryName, RepositoryName> repoMapping);
+  void setStarlarkThreadContext(StarlarkThread thread, Label label, RepositoryMapping repoMapping);
 
   /**
    * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,

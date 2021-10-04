@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -506,4 +507,7 @@ public interface JavaSemantics {
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 
   void checkDependencyRuleKinds(RuleContext ruleContext);
+
+  /** Sets the progress message on the lint build action. */
+  void setLintProgressMessage(SpawnAction.Builder spawnAction);
 }

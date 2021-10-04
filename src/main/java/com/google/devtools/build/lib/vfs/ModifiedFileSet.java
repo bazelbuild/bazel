@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.ImmutableSet;
-
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -27,11 +25,14 @@ import javax.annotation.Nullable;
  */
 public final class ModifiedFileSet {
 
-  public static final ModifiedFileSet EVERYTHING_MODIFIED = new ModifiedFileSet(null);
-  public static final ModifiedFileSet NOTHING_MODIFIED = new ModifiedFileSet(
-      ImmutableSet.<PathFragment>of());
+  // When everything is modified that naturally includes all directories.
+  public static final ModifiedFileSet EVERYTHING_MODIFIED =
+      new ModifiedFileSet(null, /*includesAncestorDirectories=*/ true);
+  public static final ModifiedFileSet NOTHING_MODIFIED =
+      new ModifiedFileSet(ImmutableSet.<PathFragment>of(), /*includesAncestorDirectories=*/ true);
 
   @Nullable private final ImmutableSet<PathFragment> modified;
+  private final boolean includesAncestorDirectories;
 
   /**
    * Whether all files of interest should be treated as potentially modified.
@@ -50,6 +51,14 @@ public final class ModifiedFileSet {
       throw new IllegalStateException();
     }
     return modified;
+  }
+
+  /**
+   * Returns whether the diff includes all of affected directories or we need to infer those from
+   * reported items.
+   */
+  public boolean includesAncestorDirectories() {
+    return includesAncestorDirectories;
   }
 
   @Override
@@ -80,20 +89,29 @@ public final class ModifiedFileSet {
     }
   }
 
-  private ModifiedFileSet(ImmutableSet<PathFragment> modified) {
+  private ModifiedFileSet(
+      ImmutableSet<PathFragment> modified, boolean includesAncestorDirectories) {
     this.modified = modified;
+    this.includesAncestorDirectories = includesAncestorDirectories;
   }
 
-  /**
-   * The builder for {@link ModifiedFileSet}.
-   */
+  /** The builder for {@link ModifiedFileSet}. */
   public static class Builder {
-    private final ImmutableSet.Builder<PathFragment> setBuilder =
-        ImmutableSet.<PathFragment>builder();
+    private final ImmutableSet.Builder<PathFragment> setBuilder = ImmutableSet.builder();
+    private boolean includesAncestorDirectories = true;
 
     public ModifiedFileSet build() {
       ImmutableSet<PathFragment> modified = setBuilder.build();
-      return modified.isEmpty() ? NOTHING_MODIFIED : new ModifiedFileSet(modified);
+      return modified.isEmpty()
+          // Special case -- if no files were affected, we know the diff is complete even if
+          // ancestor directories may not be accounted for.
+          ? NOTHING_MODIFIED
+          : new ModifiedFileSet(modified, includesAncestorDirectories);
+    }
+
+    public Builder setIncludesAncestorDirectories(boolean includesAncestorDirectories) {
+      this.includesAncestorDirectories = includesAncestorDirectories;
+      return this;
     }
 
     public Builder modify(PathFragment pathFragment) {
@@ -124,6 +142,8 @@ public final class ModifiedFileSet {
     return ModifiedFileSet.builder()
         .modifyAll(mfs1.modifiedSourceFiles())
         .modifyAll(mfs2.modifiedSourceFiles())
+        .setIncludesAncestorDirectories(
+            mfs1.includesAncestorDirectories() && mfs2.includesAncestorDirectories())
         .build();
   }
 }

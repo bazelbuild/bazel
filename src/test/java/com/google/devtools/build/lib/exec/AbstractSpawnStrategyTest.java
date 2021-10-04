@@ -20,8 +20,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -48,8 +48,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -57,6 +55,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.Duration;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,7 +66,6 @@ import org.mockito.MockitoAnnotations;
 
 /** Tests for {@link BlazeExecutor}. */
 @RunWith(JUnit4.class)
-@TestSpec(size = Suite.SMALL_TESTS)
 public class AbstractSpawnStrategyTest {
   private static final FailureDetail NON_ZERO_EXIT_DETAILS =
       FailureDetail.newBuilder()
@@ -205,7 +203,7 @@ public class AbstractSpawnStrategyTest {
 
     // Must only be called exactly once.
     verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
-    verifyZeroInteractions(cache);
+    verifyNoInteractions(cache);
   }
 
   @Test
@@ -363,9 +361,11 @@ public class AbstractSpawnStrategyTest {
             .setExitCode(23)
             .setRemotable(true)
             .setCacheable(true)
+            .setRemoteCacheable(true)
             .setProgressMessage("my progress message")
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
+            .setWalltime(Duration.getDefaultInstance())
             .build();
     verify(messageOutput).write(expectedSpawnLog);
   }
@@ -489,6 +489,8 @@ public class AbstractSpawnStrategyTest {
         .setMnemonic("Mnemonic")
         .setRunner("runner")
         .setStatus("NON_ZERO_EXIT")
-        .setExitCode(23);
+        .setExitCode(23)
+        .setRemoteCacheable(true)
+        .setWalltime(Duration.getDefaultInstance());
   }
 }

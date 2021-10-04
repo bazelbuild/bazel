@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -68,7 +66,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Unit tests for the gRPC server. */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public final class GrpcServerTest {
 
@@ -96,7 +93,8 @@ public final class GrpcServerTest {
             SERVER_PID,
             1000,
             false,
-            false);
+            false,
+            "slow interrupt message suffix");
     String uniqueName = InProcessServerBuilder.generateName();
     server =
         InProcessServerBuilder.forName(uniqueName)

@@ -33,7 +33,9 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -154,9 +156,9 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     mockCache.put(artifact, FileArtifactValue.createForDirectoryWithMtime(-1));
 
-    IOException expected =
+    ForbiddenActionInputException expected =
         assertThrows(
-            IOException.class,
+            ForbiddenActionInputException.class,
             () ->
                 expander.addRunfilesToInputs(
                     inputMappings,
@@ -383,7 +385,7 @@ public class SpawnInputExpanderTest {
     Path outputPath = outputDir.getRelative(relPath);
     outputPath.createDirectoryAndParents();
     ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outputSegment);
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -453,7 +455,7 @@ public class SpawnInputExpanderTest {
   }
 
   private SpecialArtifact createFileset(String execPath) {
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         rootDir,
         PathFragment.create(execPath),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -463,15 +465,13 @@ public class SpawnInputExpanderTest {
   @Test
   public void testManifestWithErrorOnRelativeSymlink() {
     expander = new SpawnInputExpander(execRoot, /*strict=*/ true, ERROR);
-    // Because BugReport throws in tests, we catch the wrapped exception.
-    IllegalStateException e =
+    FilesetManifest.ForbiddenRelativeSymlinkException e =
         assertThrows(
-            IllegalStateException.class,
+            FilesetManifest.ForbiddenRelativeSymlinkException.class,
             () ->
                 expander.addFilesetManifests(
                     simpleFilesetManifest(), inputMappings, PathFragment.EMPTY_FRAGMENT));
-    assertThat(e).hasCauseThat().isInstanceOf(IOException.class);
-    assertThat(e).hasCauseThat().hasMessageThat().contains("runfiles target is not absolute: foo");
+    assertThat(e).hasMessageThat().contains("Fileset symlink foo is not absolute");
   }
 
   @Test

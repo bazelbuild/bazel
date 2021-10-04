@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
@@ -55,6 +56,7 @@ import javax.annotation.Nullable;
  */
 public final class SpawnStrategyRegistry
     implements DynamicStrategyRegistry, ActionContext, RemoteLocalFallbackRegistry {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ImmutableListMultimap<String, SpawnStrategy> mnemonicToStrategies;
   private final ImmutableListMultimap<RegexFilter, SpawnStrategy> filterToStrategies;
@@ -76,6 +78,12 @@ public final class SpawnStrategyRegistry
     this.mnemonicToRemoteDynamicStrategies = mnemonicToRemoteDynamicStrategies;
     this.mnemonicToLocalDynamicStrategies = mnemonicToLocalDynamicStrategies;
     this.remoteLocalFallbackStrategy = remoteLocalFallbackStrategy;
+    logger.atInfo().log("Default strategies: %s", defaultStrategies);
+    logger.atInfo().log("Filter strategies: %s", filterToStrategies);
+    logger.atInfo().log("Mnemonic strategies: %s", mnemonicToStrategies);
+    logger.atInfo().log("Remote strategies: %s", mnemonicToRemoteDynamicStrategies);
+    logger.atInfo().log("Local strategies: %s", mnemonicToLocalDynamicStrategies);
+    logger.atInfo().log("Fallback strategies: %s", remoteLocalFallbackStrategy);
   }
 
   /**
@@ -385,7 +393,10 @@ public final class SpawnStrategyRegistry
       ListMultimap<RegexFilter, SpawnStrategy> filterToStrategies = LinkedListMultimap.create();
       for (FilterAndIdentifiers filterAndIdentifier : orderedFilterAndIdentifiers) {
         RegexFilter filter = filterAndIdentifier.filter();
-        filterToStrategies.putAll(filter, toStrategies(filterAndIdentifier.identifiers(), filter));
+        if (!filterToStrategies.containsKey(filter)) {
+          filterToStrategies.putAll(
+              filter, toStrategies(filterAndIdentifier.identifiers(), filter));
+        }
       }
 
       ImmutableListMultimap.Builder<String, SpawnStrategy> mnemonicToStrategies =

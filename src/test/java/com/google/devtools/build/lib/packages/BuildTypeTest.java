@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
@@ -34,28 +35,20 @@ import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test of type-conversions for build-specific types.
- */
+/** Test of type-conversions for build-specific types. */
 @RunWith(JUnit4.class)
-public class BuildTypeTest {
-  private Label currentRule;
-  private LabelConversionContext labelConversionContext;
+public final class BuildTypeTest {
 
-  @Before
-  public final void setCurrentRule() throws Exception  {
-    this.currentRule = Label.parseAbsolute("//quux:baz", ImmutableMap.of());
-    this.labelConversionContext =
-        new LabelConversionContext(
-            currentRule,
-            /* repositoryMapping= */ ImmutableMap.of(),
-            /* convertedLabelsInPackage= */ new HashMap<>());
-  }
+  private final Label currentRule = Label.parseAbsoluteUnchecked("//quux:baz");
+  private final LabelConversionContext labelConversionContext =
+      new LabelConversionContext(
+          currentRule,
+          RepositoryMapping.ALWAYS_FALLBACK,
+          /*convertedLabelsInPackage=*/ new HashMap<>());
 
   @Test
   public void testKeepsDictOrdering() throws Exception {
@@ -138,7 +131,7 @@ public class BuildTypeTest {
   }
 
   @Test
-  public void testLabelKeyedStringDictConvertingMapWithNonStringKeyShouldFail() throws Exception {
+  public void testLabelKeyedStringDictConvertingMapWithNonStringKeyShouldFail() {
     ConversionException expected =
         assertThrows(
             ConversionException.class,
@@ -151,7 +144,7 @@ public class BuildTypeTest {
   }
 
   @Test
-  public void testLabelKeyedStringDictConvertingMapWithNonStringValueShouldFail() throws Exception {
+  public void testLabelKeyedStringDictConvertingMapWithNonStringValueShouldFail() {
     ConversionException expected =
         assertThrows(
             ConversionException.class,
@@ -164,8 +157,7 @@ public class BuildTypeTest {
   }
 
   @Test
-  public void testLabelKeyedStringDictConvertingMapWithInvalidLabelKeyShouldFail()
-      throws Exception {
+  public void testLabelKeyedStringDictConvertingMapWithInvalidLabelKeyShouldFail() {
     ConversionException expected =
         assertThrows(
             ConversionException.class,
@@ -278,53 +270,13 @@ public class BuildTypeTest {
   }
 
   @Test
-  public void testFilesetEntry() throws Exception {
-    Label srcDir = Label.create("foo", "src");
-    Label entryLabel = Label.create("foo", "entry");
-    FilesetEntry input =
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entryLabel),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null);
-    assertThat(BuildType.FILESET_ENTRY.convert(input, null, currentRule)).isEqualTo(input);
-    assertThat(collectLabels(BuildType.FILESET_ENTRY, input)).containsExactly(entryLabel);
-  }
-
-  @Test
-  public void testFilesetEntryList() throws Exception {
-    Label srcDir = Label.create("foo", "src");
-    Label entry1Label = Label.create("foo", "entry1");
-    Label entry2Label = Label.create("foo", "entry");
-    List<FilesetEntry> input = ImmutableList.of(
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entry1Label),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null),
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entry2Label),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null));
-    assertThat(BuildType.FILESET_ENTRY_LIST.convert(input, null, currentRule)).isEqualTo(input);
-    assertThat(collectLabels(BuildType.FILESET_ENTRY_LIST, input)).containsExactly(
-        entry1Label, entry2Label);
-  }
-
-  @Test
   public void testLabelWithRemapping() throws Exception {
     LabelConversionContext context =
         new LabelConversionContext(
             currentRule,
-            ImmutableMap.of(
-                RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo")),
+            RepositoryMapping.createAllowingFallback(
+                ImmutableMap.of(
+                    RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"))),
             /* convertedLabelsInPackage= */ new HashMap<>());
     Label label = BuildType.LABEL.convert("@orig_repo//foo:bar", null, context);
     assertThat(label)
@@ -354,10 +306,12 @@ public class BuildTypeTest {
 
     Map<Label, Label> expectedMap =
         ImmutableMap.of(
-            Label.parseAbsolute("//conditions:a", ImmutableMap.of()), Label.create("@//a", "a"),
-            Label.parseAbsolute("//conditions:b", ImmutableMap.of()), Label.create("@//b", "b"),
+            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
+            Label.create("@//a", "a"),
+            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
+            Label.create("@//b", "b"),
             Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY, ImmutableMap.of()),
-                Label.create("@//d", "d"));
+            Label.create("@//d", "d"));
     assertThat(selector.getEntries().entrySet()).containsExactlyElementsIn(expectedMap.entrySet());
   }
 
@@ -377,11 +331,9 @@ public class BuildTypeTest {
     assertThat(e).hasMessageThat().contains("invalid label 'not a/../label'");
   }
 
-  /**
-   * Tests that non-label selector keys trigger an exception.
-   */
+  /** Tests that non-label selector keys trigger an exception. */
   @Test
-  public void testSelectorKeyIsNotALabel() throws Exception {
+  public void testSelectorKeyIsNotALabel() {
     ImmutableMap<String, String> input = ImmutableMap.of(
         "not a/../label", "//a:a",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "whatever");
@@ -439,9 +391,9 @@ public class BuildTypeTest {
         .containsExactlyElementsIn(
             ImmutableMap.of(
                     Label.parseAbsolute("//conditions:c", ImmutableMap.of()),
-                        ImmutableList.of(Label.create("@//c", "c")),
+                    ImmutableList.of(Label.create("@//c", "c")),
                     Label.parseAbsolute("//conditions:d", ImmutableMap.of()),
-                        ImmutableList.of(Label.create("@//d", "d")))
+                    ImmutableList.of(Label.create("@//d", "d")))
                 .entrySet());
   }
 
@@ -610,49 +562,40 @@ public class BuildTypeTest {
   }
 
   private static FilesetEntry makeFilesetEntry() {
-    try {
-      return new FilesetEntry(
-          /* srcLabel */ Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
-          /* files */ ImmutableList.<Label>of(),
-          /* excludes */ ImmutableSet.of("xyz"),
-          /* destDir */ null,
-          /* symlinkBehavior */ null,
-          /* stripPrefix */ null);
-    } catch (LabelSyntaxException e) {
-      throw new RuntimeException("Bad label: ", e);
-    }
+    return new FilesetEntry(
+        /*srcLabel=*/ Label.parseAbsoluteUnchecked("//foo:bar"),
+        /*files=*/ ImmutableList.of(),
+        /*excludes=*/ ImmutableSet.of("xyz"),
+        /*destDir=*/ null,
+        /*symlinkBehavior=*/ null,
+        /*stripPrefix=*/ null);
   }
 
-  private String createExpectedFilesetEntryString(
-      FilesetEntry.SymlinkBehavior symlinkBehavior, char quotationMark) {
+  private static String createExpectedFilesetEntryString(
+      FilesetEntry.SymlinkBehavior symlinkBehavior) {
     return String.format(
-        "FilesetEntry(srcdir = %1$c//x:x%1$c,"
-        + " files = [%1$c//x:x%1$c],"
-        + " excludes = [],"
-        + " destdir = %1$c%1$c,"
-        + " strip_prefix = %1$c.%1$c,"
-        + " symlinks = %1$c%2$s%1$c)",
-        quotationMark, symlinkBehavior.toString().toLowerCase());
+        "FilesetEntry(srcdir = \"//x:x\","
+            + " files = [\"//x:x\"],"
+            + " excludes = [],"
+            + " destdir = \"\","
+            + " strip_prefix = \".\","
+            + " symlinks = \"%s\")",
+        symlinkBehavior.toString().toLowerCase());
   }
 
-  private String createExpectedFilesetEntryString(char quotationMark) {
-    return createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.COPY, quotationMark);
-  }
-
-  private FilesetEntry createTestFilesetEntry(
-      FilesetEntry.SymlinkBehavior symlinkBehavior)
+  private static FilesetEntry createTestFilesetEntry(FilesetEntry.SymlinkBehavior symlinkBehavior)
       throws LabelSyntaxException {
     Label label = Label.parseAbsolute("//x", ImmutableMap.of());
     return new FilesetEntry(
-        /* srcLabel */ label,
-        /* files */ Arrays.asList(label),
-        /* excludes */ null,
-        /* destDir */ null,
-        /* symlinkBehavior */ symlinkBehavior,
-        /* stripPrefix */ null);
+        /*srcLabel=*/ label,
+        /*files=*/ ImmutableList.of(label),
+        /*excludes=*/ null,
+        /*destDir=*/ null,
+        /*symlinkBehavior=*/ symlinkBehavior,
+        /*stripPrefix=*/ null);
   }
 
-  private FilesetEntry createTestFilesetEntry() throws LabelSyntaxException {
+  private static FilesetEntry createTestFilesetEntry() throws LabelSyntaxException {
     return createTestFilesetEntry(FilesetEntry.SymlinkBehavior.COPY);
   }
 
@@ -666,27 +609,27 @@ public class BuildTypeTest {
     // interpreter.
     // Fileset isn't part of bazel, even though FilesetEntry is.
     assertThat(Starlark.repr(createTestFilesetEntry()))
-        .isEqualTo(createExpectedFilesetEntryString('"'));
+        .isEqualTo(createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.COPY));
   }
 
   @Test
   public void testFilesetEntrySymlinkAttr() throws Exception {
     FilesetEntry entryDereference =
-      createTestFilesetEntry(FilesetEntry.SymlinkBehavior.DEREFERENCE);
+        createTestFilesetEntry(FilesetEntry.SymlinkBehavior.DEREFERENCE);
 
     assertThat(Starlark.repr(entryDereference))
-        .isEqualTo(createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.DEREFERENCE, '"'));
+        .isEqualTo(createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.DEREFERENCE));
   }
 
-  private FilesetEntry createStripPrefixFilesetEntry(String stripPrefix)  throws Exception {
+  private static FilesetEntry createStripPrefixFilesetEntry(String stripPrefix) throws Exception {
     Label label = Label.parseAbsolute("//x", ImmutableMap.of());
     return new FilesetEntry(
-        /* srcLabel */ label,
-        /* files */ Arrays.asList(label),
-        /* excludes */ null,
-        /* destDir */ null,
-        /* symlinkBehavior */ FilesetEntry.SymlinkBehavior.DEREFERENCE,
-        /* stripPrefix */ stripPrefix);
+        /*srcLabel=*/ label,
+        /*files=*/ ImmutableList.of(label),
+        /*excludes=*/ null,
+        /*destDir=*/ null,
+        /*symlinkBehavior=*/ FilesetEntry.SymlinkBehavior.DEREFERENCE,
+        /*stripPrefix=*/ stripPrefix);
   }
 
   @Test
@@ -706,13 +649,13 @@ public class BuildTypeTest {
     assertThat(
             Starlark.repr(
                 new FilesetEntry(
-                    /* srcLabel */ Label.parseAbsolute("//foo:BUILD", ImmutableMap.of()),
-                    /* files */ ImmutableList.of(
+                    /*srcLabel=*/ Label.parseAbsolute("//foo:BUILD", ImmutableMap.of()),
+                    /*files=*/ ImmutableList.of(
                         Label.parseAbsolute("//foo:bar", ImmutableMap.of())),
-                    /* excludes */ ImmutableSet.of("baz"),
-                    /* destDir */ "qux",
-                    /* symlinkBehavior */ FilesetEntry.SymlinkBehavior.DEREFERENCE,
-                    /* stripPrefix */ "blah")))
+                    /*excludes=*/ ImmutableSet.of("baz"),
+                    /*destDir=*/ "qux",
+                    /*symlinkBehavior=*/ FilesetEntry.SymlinkBehavior.DEREFERENCE,
+                    /*stripPrefix=*/ "blah")))
         .isEqualTo(
             Joiner.on(" ")
                 .join(
@@ -731,8 +674,8 @@ public class BuildTypeTest {
     assertThat(Starlark.isImmutable(makeFilesetEntry())).isTrue();
   }
 
-  private static ImmutableList<Label> collectLabels(Type<?> type, Object value) {
-    final ImmutableList.Builder<Label> result = ImmutableList.builder();
+  private static <T> ImmutableList<Label> collectLabels(Type<T> type, T value) {
+    ImmutableList.Builder<Label> result = ImmutableList.builder();
     type.visitLabels((label, dummy) -> result.add(label), value, /*context=*/ null);
     return result.build();
   }

@@ -106,6 +106,32 @@ EOF
  assert_contains "source file //$pkg:japanese.cc" output
 }
 
+function test_config_checksum_determinism() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name = 'lib')
+EOF
+
+  bazel cquery "$pkg:lib" > out1 2>"$TEST_log" || fail "Expected success"
+  bazel shutdown >& "$TEST_log" || fail "Failed to shutdown"
+  bazel cquery "$pkg:lib" > out2 2>"$TEST_log" || fail "Expected success"
+
+  output1="$(cat out1)"
+  output2="$(cat out2)"
+  if [[ "$output1" != "$output2" ]]
+  then
+    fail "$(cat<<EOF
+Nondeterminism in cquery:
+${output1}
+!=
+${output2}
+You may have added an option without a meaningful toString() implementation
+EOF
+)"
+  fi
+}
+
 function test_respects_selects() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -422,32 +448,6 @@ EOF
 
   assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
   assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
-}
-
-function test_show_direct_host_only_config_fragments() {
-  local -r pkg=$FUNCNAME
-  mkdir -p $pkg
-  cat > $pkg/BUILD <<'EOF'
-genrule(
-    name = "gen",
-    outs = ["gen.out"],
-    cmd = "$(location :tool) > $@",
-    tools = [":tool"],
-)
-
-genrule(
-    name = "tool",
-    outs = ["tool.sh"],
-    cmd = 'echo "echo built by TOOL" > $@',
-)
-EOF
-
-  bazel cquery "deps(//$pkg:gen)" --show_config_fragments=direct_host_only \
-    > output 2>"$TEST_log" || fail "Expected success"
-
-  assert_contains "//$pkg:gen" output
-  assert_not_contains "//$pkg:gen .*CoreOptions" output
-  assert_contains "//$pkg:tool .*CoreOptions" output
 }
 
 function test_show_direct_config_fragments_select() {
@@ -791,6 +791,20 @@ EOF
   bazel cquery "//$pkg:all" > output 2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:my_suite" output
   assert_contains "//$pkg:my_test" output
+}
+
+function test_build_tests_only_override() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+cc_binary(
+  name = "not_a_test",
+  srcs = ["not_a_test.cc"])
+EOF
+
+  bazel cquery --build_tests_only "//$pkg:all" > output 2>"$TEST_log" || \
+    fail "Expected success"
+  assert_contains "//$pkg:not_a_test" output
 }
 
 function test_label_output_shows_alias_labels() {
@@ -1261,6 +1275,29 @@ EOF
   expect_not_log "no targets found beneath"
   expect_log "@repo//:maple"
   expect_log "@repo//:japanese"
+}
+
+function test_test_arg_in_bazelrc() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat >$pkg/BUILD <<EOF
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+
+  touch $pkg/test.sh
+  chmod +x $pkg/test.sh
+
+  output_before="$(bazel cquery "//$pkg:test")"
+
+  add_to_bazelrc "test --test_arg=foo"
+
+  output_after="$(bazel cquery "//$pkg:test")"
+
+  assert_not_equals "${output_before}" "${output_after}"
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -25,7 +26,7 @@ import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
+import com.google.devtools.build.lib.rules.LateBoundAlias.AbstractAliasRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
@@ -56,7 +57,7 @@ public class LabelBuildSettings {
           null,
           (rule, attributes, configuration) -> {
             if (rule == null || configuration == null) {
-              return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL);
+              return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL);
             }
             Object commandLineValue =
                 configuration.getOptions().getStarlarkOptions().get(rule.getLabel());
@@ -64,7 +65,7 @@ public class LabelBuildSettings {
             try {
               asLabel =
                   commandLineValue == null
-                      ? attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)
+                      ? attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL)
                       : LABEL.convert(commandLineValue, "label_flag value resolution");
             } catch (ConversionException e) {
               throw new IllegalStateException(
@@ -81,35 +82,35 @@ public class LabelBuildSettings {
         .removeAttribute("licenses")
         .removeAttribute("distribs")
         .add(attr(":alias", LABEL).value(ACTUAL))
-        .setBuildSetting(BuildSetting.create(flag, LABEL))
+        .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .build();
   }
 
-  /** Rule definition of label_setting */
-  public static class LabelBuildSettingRule extends CommonAliasRule<BuildConfiguration> {
+  /** Rule definition of label_setting. */
+  public static final class LabelBuildSettingRule extends AbstractAliasRule {
 
     public LabelBuildSettingRule() {
-      super("label_setting", env -> ACTUAL, BuildConfiguration.class);
+      super("label_setting");
     }
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return buildRuleClass(builder, false);
+      return buildRuleClass(builder, /*flag=*/ false);
     }
   }
 
   /** Rule definition of label_flag */
-  public static class LabelBuildFlagRule extends CommonAliasRule<BuildConfiguration> {
+  public static final class LabelBuildFlagRule extends AbstractAliasRule {
 
     public LabelBuildFlagRule() {
-      super("label_flag", env -> ACTUAL, BuildConfiguration.class);
+      super("label_flag");
     }
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return buildRuleClass(builder, true);
+      return buildRuleClass(builder, /*flag=*/ true);
     }
   }
 }

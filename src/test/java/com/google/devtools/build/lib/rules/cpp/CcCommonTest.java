@@ -102,11 +102,6 @@ public class CcCommonTest extends BuildViewTestCase {
     // We create .a for empty libraries, for simplicity (in Blaze).
     // But we avoid creating .so files for empty libraries,
     // because those have a potentially significant run-time startup cost.
-    if (emptyShouldOutputStaticLibrary()) {
-      assertThat(baseNamesOf(getFilesToBuild(emptylib))).isEqualTo("libemptylib.a");
-    } else {
-      assertThat(getFilesToBuild(emptylib).toList()).isEmpty();
-    }
     assertThat(
             emptylib
                 .get(CcInfo.PROVIDER)
@@ -114,10 +109,6 @@ public class CcCommonTest extends BuildViewTestCase {
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
         .isTrue();
-  }
-
-  protected boolean emptyShouldOutputStaticLibrary() {
-    return !getAnalysisMock().isThisBazel();
   }
 
   @Test
@@ -175,6 +166,11 @@ public class CcCommonTest extends BuildViewTestCase {
    */
   @Test
   public void testArchiveInCcLibrarySrcs() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     useConfiguration("--cpu=k8");
     ConfiguredTarget archiveInSrcsTest =
         scratchConfiguredTarget(

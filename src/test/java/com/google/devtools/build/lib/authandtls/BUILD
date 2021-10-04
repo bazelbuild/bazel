@@ -1,29 +1,40 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
-java_test(
-    name = "AuthAndTLSTestSuite",
-    srcs = glob(["*.java"]),
-    test_class = "com.google.devtools.build.lib.AllTests",
+java_library(
+    name = "AuthAndTlsTests_lib",
+    srcs = glob(
+        [
+            "*.java",
+        ],
+    ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/authandtls",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "AuthAndTlsTests",
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":AuthAndTlsTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )

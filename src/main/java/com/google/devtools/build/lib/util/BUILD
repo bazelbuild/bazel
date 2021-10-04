@@ -77,6 +77,16 @@ java_library(
 )
 
 java_library(
+    name = "describable_execution_unit",
+    srcs = ["DescribableExecutionUnit.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -85,6 +95,7 @@ java_library(
         "CommandUtils.java",
     ],
     deps = [
+        ":describable_execution_unit",
         ":os",
         ":shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -109,13 +120,35 @@ java_library(
 )
 
 java_library(
+    name = "cpu_resource_converter",
+    srcs = [
+        "CpuResourceConverter.java",
+    ],
+    deps = [
+        ":resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "ram_resource_converter",
+    srcs = [
+        "RamResourceConverter.java",
+    ],
+    deps = [
+        ":resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = [
         "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
-        "BigIntegerFingerprint.java",
         "BigIntegerFingerprintUtils.java",
-        "BinaryPredicate.java",
         "CPU.java",
         "CanonicalStringIndexer.java",
         "ClassName.java",
@@ -125,11 +158,11 @@ java_library(
         "Fingerprint.java",
         "GroupedList.java",
         "JavaSleeper.java",
-        "LazyString.java",
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
         "NetUtil.java",
+        "OnDemandString.java",
         "OptionsUtils.java",
         "OrderedSetMultimap.java",
         "OsUtils.java",
@@ -149,6 +182,7 @@ java_library(
         ":os",
         ":shell_escaper",
         ":string",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

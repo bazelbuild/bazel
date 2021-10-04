@@ -96,7 +96,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      EvaluationVersionBehavior evaluationVersionBehavior,
+      int cpuHeavySkyKeysThreadPoolSize) {
     super(
         graph,
         graphVersion,
@@ -110,7 +111,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior);
+        evaluationVersionBehavior,
+        cpuHeavySkyKeysThreadPoolSize);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
@@ -523,6 +525,14 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         replay(valueWithMetadata);
         bubbleErrorInfo.put(errorKey, valueWithMetadata);
         continue;
+      } catch (RuntimeException e) {
+        // About to crash. Print debugging to INFO log.
+        logger.atSevere().log("Crashing on %s. Contents of bubbleErrorInfo:", parent);
+        for (Map.Entry<SkyKey, ValueWithMetadata> bubbleEntry : bubbleErrorInfo.entrySet()) {
+          logger.atSevere().log(
+              "  %.1000s -> %.1000s", bubbleEntry.getKey(), bubbleEntry.getValue());
+        }
+        throw e;
       } finally {
         // Clear interrupted status. We're not listening to interrupts here.
         Thread.interrupted();

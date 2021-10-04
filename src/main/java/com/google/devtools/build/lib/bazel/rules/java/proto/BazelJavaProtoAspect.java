@@ -56,7 +56,7 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
     }
 
     @Override
-    public NestedSet<Artifact> getBlacklist(RuleContext ruleContext) {
+    public NestedSet<Artifact> getForbiddenProtos(RuleContext ruleContext) {
       return NestedSetBuilder.emptySet(STABLE_ORDER);
     }
 

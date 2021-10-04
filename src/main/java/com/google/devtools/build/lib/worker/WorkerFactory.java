@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,12 +37,10 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
   // request_id (which is indistinguishable from 0 in proto3).
   private static final AtomicInteger pidCounter = new AtomicInteger(1);
 
-  private WorkerOptions workerOptions;
   private final Path workerBaseDir;
   private Reporter reporter;
 
-  public WorkerFactory(WorkerOptions workerOptions, Path workerBaseDir) {
-    this.workerOptions = workerOptions;
+  public WorkerFactory(Path workerBaseDir) {
     this.workerBaseDir = workerBaseDir;
   }
 
@@ -48,34 +48,38 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     this.reporter = reporter;
   }
 
-  public void setOptions(WorkerOptions workerOptions) {
-    this.workerOptions = workerOptions;
-  }
-
   @Override
-  public Worker create(WorkerKey key) {
+  public Worker create(WorkerKey key) throws IOException {
     int workerId = pidCounter.getAndIncrement();
     String workTypeName = key.getWorkerTypeName();
+    if (!workerBaseDir.isDirectory()) {
+      try {
+        workerBaseDir.createDirectoryAndParents();
+      } catch (IOException e) {
+        System.err.println(
+            "Can't create worker dir, there is a " + workerBaseDir.stat() + " there.");
+      }
+    }
+
     Path logFile =
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
-    boolean sandboxed = workerOptions.workerSandboxing || key.isSpeculative();
-    if (sandboxed) {
+    if (key.isSandboxed()) {
       Path workDir = getSandboxedWorkerPath(key, workerId);
       worker = new SandboxedWorker(key, workerId, workDir, logFile);
-    } else if (key.getProxied()) {
+    } else if (key.isMultiplex()) {
       WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
       worker = new WorkerProxy(key, workerId, workerMultiplexer.getLogFile(), workerMultiplexer);
     } else {
       worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
     }
-    if (workerOptions.workerVerbose) {
+    if (reporter != null) {
       reporter.handle(
           Event.info(
               String.format(
                   "Created new %s %s %s (id %d), logging to %s",
-                  sandboxed ? "sandboxed" : "non-sandboxed",
+                  key.isSandboxed() ? "sandboxed" : "non-sandboxed",
                   key.getMnemonic(),
                   workTypeName,
                   workerId,
@@ -91,20 +95,23 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
         .getRelative(workspaceName);
   }
 
-  /**
-   * Use the DefaultPooledObject implementation.
-   */
+  Path getSandboxedWorkerPath(WorkerKey key) {
+    String workspaceName = key.getExecRoot().getBaseName();
+    return workerBaseDir
+        .getRelative(key.getMnemonic() + "-" + key.getWorkerTypeName() + "-workdir")
+        .getRelative(workspaceName);
+  }
+
+  /** Use the DefaultPooledObject implementation. */
   @Override
   public PooledObject<Worker> wrap(Worker worker) {
     return new DefaultPooledObject<>(worker);
   }
 
-  /**
-   * When a worker process is discarded, destroy its process, too.
-   */
+  /** When a worker process is discarded, destroy its process, too. */
   @Override
-  public void destroyObject(WorkerKey key, PooledObject<Worker> p) throws Exception {
-    if (workerOptions.workerVerbose) {
+  public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
+    if (reporter != null) {
       int workerId = p.getObject().getWorkerId();
       reporter.handle(
           Event.info(
@@ -124,7 +131,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     Worker worker = p.getObject();
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
-      if (workerOptions.workerVerbose && worker.diedUnexpectedly()) {
+      if (reporter != null && worker.diedUnexpectedly()) {
         String msg =
             String.format(
                 "%s %s (id %d) has unexpectedly died with exit code %d.",
@@ -142,7 +149,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     boolean filesChanged =
         !key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 
-    if (workerOptions.workerVerbose && reporter != null && filesChanged) {
+    if (reporter != null && filesChanged) {
       StringBuilder msg = new StringBuilder();
       msg.append(
           String.format(
@@ -168,5 +175,22 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     }
 
     return !filesChanged;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof WorkerFactory)) {
+      return false;
+    }
+    WorkerFactory that = (WorkerFactory) o;
+    return workerBaseDir.equals(that.workerBaseDir);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(workerBaseDir);
   }
 }

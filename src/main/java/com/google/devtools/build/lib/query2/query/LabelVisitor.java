@@ -158,7 +158,7 @@ final class LabelVisitor {
     this.edgeFilter = edgeFilter;
   }
 
-  public void syncWithVisitor(
+  void syncWithVisitor(
       ExtendedEventHandler eventHandler,
       Set<Target> targetsToVisit,
       boolean keepGoing,
@@ -276,7 +276,7 @@ final class LabelVisitor {
       return !errorObserver.hasErrors();
     }
 
-    public void stopNewActions() {
+    void stopNewActions() {
       executorService.shutdownNow();
     }
 
@@ -405,7 +405,7 @@ final class LabelVisitor {
         visit(null, null, rule, depth + 1, count + 1);
       }
 
-      LabelVisitationUtils.visitTargetExceptionally(
+      LabelVisitationUtils.visitTarget(
           target,
           edgeFilter,
           (fromTarget, attribute, toLabel) ->

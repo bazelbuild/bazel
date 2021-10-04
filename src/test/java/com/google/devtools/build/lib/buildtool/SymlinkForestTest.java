@@ -184,16 +184,16 @@ public class SymlinkForestTest {
     assertLinksTo(fromRoot.getRelative(relpart), toRoot.getRelative(relpart));
   }
 
+  private static void assertLinksTo(Path fromRoot, Path toRoot) throws IOException {
+    assertWithMessage("stat: " + fromRoot.stat()).that(fromRoot.isSymbolicLink()).isTrue();
+    assertThat(fromRoot.readSymbolicLink()).isEqualTo(toRoot.asFragment());
+  }
+
   private static void assertLinksToExternalRepo(Path fromRoot, Root toRoot, String repoName)
       throws IOException {
     assertLinksTo(
         fromRoot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(repoName)),
         toRoot.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).getRelative(repoName));
-  }
-
-  private static void assertLinksTo(Path fromRoot, Path toRoot) throws IOException {
-    assertWithMessage("stat: " + fromRoot.stat()).that(fromRoot.isSymbolicLink()).isTrue();
-    assertThat(fromRoot.readSymbolicLink()).isEqualTo(toRoot.asFragment());
   }
 
   private static void assertIsDir(Path root, String relpart) {

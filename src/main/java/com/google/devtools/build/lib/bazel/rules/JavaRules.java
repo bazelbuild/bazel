@@ -28,19 +28,18 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaToolchain;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
-import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
-import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -49,9 +48,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
-/**
- * Rules for Java support in Bazel.
- */
+/** Rules for Java support in Bazel. */
 public class JavaRules implements RuleSet {
   public static final JavaRules INSTANCE = new JavaRules();
 
@@ -82,8 +79,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(JavaToolchainRule.create(BazelJavaToolchain.class));
     builder.addRuleDefinition(new JavaPackageConfigurationRule());
     builder.addRuleDefinition(new JavaRuntimeRule());
-    builder.addRuleDefinition(new JavaRuntimeAliasRule());
-    builder.addRuleDefinition(new JavaToolchainAliasRule());
+    builder.addRuleDefinition(new JavaPluginsFlagAliasRule());
 
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
@@ -92,8 +88,8 @@ public class JavaRules implements RuleSet {
         new JavaBootstrap(
             new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
+            JavaPluginInfo.PROVIDER,
             new JavaProtoStarlarkCommon(),
-            JavaCcLinkParamsProvider.PROVIDER,
             ProguardSpecProvider.PROVIDER));
 
     try {

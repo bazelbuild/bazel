@@ -22,17 +22,22 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -40,6 +45,7 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
@@ -53,7 +59,10 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -68,7 +77,6 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
@@ -90,7 +98,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.setSemantics(options); // for StarlarkThread
   }
 
-  @Rule public ExpectedException thrown = ExpectedException.none();
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addStarlarkAccessibleTopLevels(
+        "parametrized_native_aspect",
+        TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+    builder.addNativeAspectClass(TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+    return builder.build();
+  }
+
+  @org.junit.Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
   public final void createBuildFile() throws Exception {
@@ -404,6 +423,122 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "   pass",
         "my_aspect = aspect(implementation = _impl)",
         "attr.label_list(aspects = [my_aspect, 123])");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_stackOfRequiredAspects() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])",
+        "a = attr.label_list(aspects = [aspect_a])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkDefinedAspect aspectC = (StarlarkDefinedAspect) ev.lookup("aspect_c");
+    assertThat(aspectC).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(aspectA.getAspectClass(), aspectB.getAspectClass(), aspectC.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_aspectRequiredByMultipleAspects()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_c])",
+        "a = attr.label_list(aspects = [aspect_a, aspect_b])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkDefinedAspect aspectC = (StarlarkDefinedAspect) ev.lookup("aspect_c");
+    assertThat(aspectC).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(aspectA.getAspectClass(), aspectB.getAspectClass(), aspectC.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_aspectRequiredByMultipleAspects2()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_d = aspect(implementation = _impl)",
+        "aspect_c = aspect(implementation = _impl, requires = [aspect_d])",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_d])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b, aspect_c])",
+        "a = attr.label_list(aspects = [aspect_a])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkDefinedAspect aspectC = (StarlarkDefinedAspect) ev.lookup("aspect_c");
+    assertThat(aspectC).isNotNull();
+    StarlarkDefinedAspect aspectD = (StarlarkDefinedAspect) ev.lookup("aspect_d");
+    assertThat(aspectD).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(
+            aspectA.getAspectClass(),
+            aspectB.getAspectClass(),
+            aspectC.getAspectClass(),
+            aspectD.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_requireExistingAspect_passed() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])",
+        "a = attr.label_list(aspects = [aspect_b, aspect_a])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(aspectA.getAspectClass(), aspectB.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_requireExistingAspect_failed() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])",
+        "attr.label_list(aspects = [aspect_a, aspect_b])");
+
+    ev.assertContainsError(
+        String.format(
+            "aspect %s%%aspect_b was added before as a required aspect of aspect %s%%aspect_a",
+            FAKE_LABEL, FAKE_LABEL));
   }
 
   @Test
@@ -754,10 +889,73 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExportWithSpecifiedName() throws Exception {
+    evalAndExport(
+        ev, //
+        "def _impl(ctx): pass",
+        "a = rule(implementation = _impl, name = 'r')",
+        "z = a");
+
+    String aName = ((StarlarkRuleFunction) ev.lookup("a")).getRuleClass().getName();
+    assertThat(aName).isEqualTo("r");
+    String zName = ((StarlarkRuleFunction) ev.lookup("z")).getRuleClass().getName();
+    assertThat(zName).isEqualTo("r");
+  }
+
+  @Test
+  public void testExportWithSpecifiedNameFailure() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev, //
+        "def _impl(ctx): pass",
+        "rule(implementation = _impl, name = '1a')");
+
+    ev.assertContainsError("Invalid rule name: 1a");
+  }
+
+  @Test
+  public void testExportWithNonStringNameFailsCleanly() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev, //
+        "def _impl(ctx): pass",
+        "rule(implementation = _impl, name = {'not_a_string': True})");
+
+    ev.assertContainsError("got value of type 'dict', want 'string or NoneType'");
+  }
+
+  @Test
+  public void testExportWithMultipleErrors() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev,
+        "def _impl(ctx): pass",
+        "rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'name' : attr.string(),",
+        "    'tags' : attr.string_list(),",
+        "  },",
+        "  name = '1a',",
+        ")");
+
+    ev.assertContainsError(
+        "Error in rule: Errors in exporting 1a: \n"
+            + "cannot add attribute: There is already a built-in attribute 'name' which cannot be"
+            + " overridden.\n"
+            + "cannot add attribute: There is already a built-in attribute 'tags' which cannot be"
+            + " overridden.\n"
+            + "Invalid rule name: 1a");
+  }
+
+  @Test
   public void testOutputToGenfiles() throws Exception {
     evalAndExport(ev, "def impl(ctx): pass", "r1 = rule(impl, output_to_genfiles=True)");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasBinaryOutput()).isFalse();
+    assertThat(c.outputsToBindir()).isFalse();
   }
 
   @Test
@@ -1633,6 +1831,104 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void aspectRequiredProvidersNotAllowedWithApplyToGeneratingRules() throws Exception {
+    ev.checkEvalErrorContains(
+        "An aspect cannot simultaneously have required providers and apply to generating rules.",
+        "prov = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   required_providers = [prov],",
+        "   apply_to_generating_rules = True",
+        ")");
+  }
+
+  @Test
+  public void aspectRequiredProvidersSingle() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_providers=['java', cc])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder()
+                    .addStarlark(declared("cc"))
+                    .addStarlark("java")
+                    .build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredProvidersAlternatives() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_providers=[['java'], [cc]])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("java").build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredProvidersEmpty() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, required_providers=[])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isTrue();
+  }
+
+  @Test
+  public void aspectRequiredProvidersDefault() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):", //
+        "   pass",
+        "my_aspect = aspect(_impl)");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isTrue();
+  }
+
+  @Test
   public void aspectProvides() throws Exception {
     evalAndExport(
         ev,
@@ -1862,8 +2158,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRuleAddExecGroup() throws Exception {
-    setBuildLanguageOptions("--experimental_exec_groups=true");
-
     registerDummyStarlarkFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
@@ -1924,8 +2218,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateExecGroup() throws Exception {
-    setBuildLanguageOptions("--experimental_exec_groups=true");
-
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
@@ -2061,5 +2353,42 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     ev.assertContainsError(
         "Error in unexported rule: Invalid rule class hasn't been exported by a bzl file");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_requiredNativeAspect_getsParamsFromBaseRules()
+      throws Exception {
+    scratch.file(
+        "lib.bzl",
+        "rule_prov = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [parametrized_native_aspect],",
+        "                  attr_aspects = ['deps'],",
+        "                  required_providers = [rule_prov])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs={'deps': attr.label_list(aspects = [aspect_a]),",
+        "                      'aspect_attr': attr.string()})");
+    scratch.file(
+        "BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main', aspect_attr = 'v1')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute attr = rule.getRuleClassObject().getAttributeByName("deps");
+    ImmutableList<Aspect> aspects = attr.getAspects(rule);
+    Aspect requiredNativeAspect = aspects.get(0);
+    assertThat(requiredNativeAspect.getAspectClass().getName())
+        .isEqualTo("ParametrizedAspectWithProvider");
+    assertThat(
+            requiredNativeAspect
+                .getDefinition()
+                .getAttributes()
+                .get("aspect_attr")
+                .getDefaultValueUnchecked())
+        .isEqualTo("v1");
   }
 }

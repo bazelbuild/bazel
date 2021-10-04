@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
@@ -45,10 +46,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** Skyframe-based target pattern parsing. */
-final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
+public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   private final SkyframeExecutor skyframeExecutor;
 
-  SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
+  public SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
     this.skyframeExecutor = skyframeExecutor;
   }
 
@@ -146,7 +147,9 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       throws TargetParsingException {
     try {
       TargetPatternKey key =
-          TargetPatternValue.key(targetPattern, FilteringPolicies.NO_FILTER, offset);
+          TargetPatternValue.key(
+              SignedTargetPattern.parse(targetPattern, TargetPattern.mainRepoParser(offset)),
+              FilteringPolicies.NO_FILTER);
       return isSimple(key.getParsedPattern())
           ? new SimpleLookup(targetPattern, key)
           : new NormalLookup(targetPattern, key);
@@ -250,7 +253,8 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
                   ImmutableMap.of(pkg.getPackageIdentifier(), pkg)),
               eventHandler,
               FilteringPolicies.NO_FILTER,
-              /* packageSemaphore= */ null);
+              /* packageSemaphore= */ null,
+              SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       targetPattern.eval(
           resolver,

@@ -39,6 +39,7 @@ public final class CoreRules implements RuleSet {
     builder.addRuleDefinition(new BaseRuleClasses.MakeVariableExpandingRule());
     builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());
+    builder.addNativeAspectClass(new ValidateTarget()); // internally used aspect
   }
 
   @Override

@@ -35,12 +35,6 @@ import javax.annotation.Nullable;
  */
 class ParallelEvaluatorContext {
 
-  enum EnqueueParentBehavior {
-    ENQUEUE,
-    SIGNAL,
-    NO_ACTION
-  }
-
   private final QueryableGraph graph;
   private final Version graphVersion;
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
@@ -106,46 +100,41 @@ class ParallelEvaluatorContext {
   }
 
   Map<SkyKey, ? extends NodeEntry> getBatchValues(
-      @Nullable SkyKey parent, Reason reason, Iterable<? extends SkyKey> keys)
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
       throws InterruptedException {
-    return graph.getBatch(parent, reason, keys);
+    return graph.getBatch(requestor, reason, keys);
   }
 
   /**
-   * Signals all parents that this node is finished. If {@code enqueueParents} is true, also
-   * enqueues any parents that are ready. Otherwise, this indicates that we are building this node
-   * after the main build aborted, so skip any parents that are already done (that can happen with
-   * cycles).
+   * Signals all parents that this node is finished.
+   *
+   * <p>Calling this method indicates that we are building this node after the main build aborted,
+   * so skips signalling any parents that are already done (that can happen with cycles).
    */
-  void signalValuesAndEnqueueIfReady(
-      SkyKey skyKey, Iterable<SkyKey> keys, Version version, EnqueueParentBehavior enqueueParents)
+  void signalParentsOnAbort(SkyKey skyKey, Iterable<SkyKey> parents, Version version)
       throws InterruptedException {
-    // No fields of the entry are needed here, since we're just enqueuing for evaluation, but more
-    // importantly, these hints are not respected for not-done nodes. If they are, we may need to
-    // alter this hint.
-    Map<SkyKey, ? extends NodeEntry> batch = graph.getBatch(skyKey, Reason.SIGNAL_DEP, keys);
-    switch (enqueueParents) {
-      case ENQUEUE:
-        for (SkyKey key : keys) {
-          NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
-          if (entry.signalDep(version, skyKey)) {
-            getVisitor().enqueueEvaluation(key, Integer.MAX_VALUE);
-          }
-        }
-        return;
-      case SIGNAL:
-        for (SkyKey key : keys) {
-          NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
-          if (!entry.isDone()) {
-            // In cycles, we can have parents that are already done.
-            entry.signalDep(version, skyKey);
-          }
-        }
-        return;
-      case NO_ACTION:
-        return;
-      default:
-        throw new IllegalStateException(enqueueParents + ", " + skyKey);
+    Map<SkyKey, ? extends NodeEntry> batch = getBatchValues(skyKey, Reason.SIGNAL_DEP, parents);
+    for (SkyKey parent : parents) {
+      NodeEntry entry = Preconditions.checkNotNull(batch.get(parent), parent);
+      if (!entry.isDone()) { // In cycles, we can have parents that are already done.
+        entry.signalDep(version, skyKey);
+      }
+    }
+  }
+
+  /**
+   * Signals all parents that this node is finished and enqueues any parents that are ready at the
+   * given evaluation priority.
+   */
+  void signalParentsAndEnqueueIfReady(
+      SkyKey skyKey, Iterable<SkyKey> parents, Version version, int evaluationPriority)
+      throws InterruptedException {
+    Map<SkyKey, ? extends NodeEntry> batch = getBatchValues(skyKey, Reason.SIGNAL_DEP, parents);
+    for (SkyKey parent : parents) {
+      NodeEntry entry = Preconditions.checkNotNull(batch.get(parent), parent);
+      if (entry.signalDep(version, skyKey)) {
+        getVisitor().enqueueEvaluation(parent, evaluationPriority);
+      }
     }
   }
 
@@ -206,11 +195,11 @@ class ParallelEvaluatorContext {
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */
-  private static class NestedSetEventReceiver implements NestedSetVisitor.Receiver<TaggedEvents> {
-
+  private static final class NestedSetEventReceiver
+      implements NestedSetVisitor.Receiver<TaggedEvents> {
     private final ExtendedEventHandler reporter;
 
-    public NestedSetEventReceiver(ExtendedEventHandler reporter) {
+    NestedSetEventReceiver(ExtendedEventHandler reporter) {
       this.reporter = reporter;
     }
 
@@ -223,11 +212,11 @@ class ParallelEvaluatorContext {
   }
 
   /** Receives the postables from the NestedSet and delegates to the reporter. */
-  private static class NestedSetPostableReceiver implements NestedSetVisitor.Receiver<Postable> {
-
+  private static final class NestedSetPostableReceiver
+      implements NestedSetVisitor.Receiver<Postable> {
     private final ExtendedEventHandler reporter;
 
-    public NestedSetPostableReceiver(ExtendedEventHandler reporter) {
+    NestedSetPostableReceiver(ExtendedEventHandler reporter) {
       this.reporter = reporter;
     }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventstream;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.protobuf.util.Timestamps;
 import java.util.Collection;
 
 /**
@@ -80,6 +81,7 @@ public abstract class BuildCompletingEvent implements BuildEvent {
         BuildEventStreamProtos.BuildFinished.newBuilder()
             .setOverallSuccess(ExitCode.SUCCESS.equals(exitCode))
             .setExitCode(protoExitCode)
+            .setFinishTime(Timestamps.fromMillis(finishTimeMillis))
             .setFinishTimeMillis(finishTimeMillis)
             .setAnomalyReport(protoAnamolyReport)
             .build();

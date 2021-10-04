@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -352,7 +353,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder.setExecutable(provider);
       }
     } else if (executableUnchecked instanceof String) {
-      builder.setExecutable(PathFragment.create((String) executableUnchecked));
+      // Normalise if needed and then pass as a String; this keeps the reference when PathFragment
+      // is passed from native to Starlark
+      builder.setExecutableAsString(
+          PathFragment.create((String) executableUnchecked).getPathString());
     } else if (executableUnchecked instanceof FilesToRunProvider) {
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
     } else {
@@ -540,14 +544,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
-    Iterable<Artifact> inputArtifacts;
     if (inputs instanceof Sequence) {
-      inputArtifacts = Sequence.cast(inputs, Artifact.class, "inputs");
-      builder.addInputs(inputArtifacts);
+      builder.addInputs(Sequence.cast(inputs, Artifact.class, "inputs"));
     } else {
-      NestedSet<Artifact> inputSet = Depset.cast(inputs, Artifact.class, "inputs");
-      builder.addTransitiveInputs(inputSet);
-      inputArtifacts = inputSet.toList();
+      builder.addTransitiveInputs(Depset.cast(inputs, Artifact.class, "inputs"));
     }
 
     List<Artifact> outputArtifacts = Sequence.cast(outputs, Artifact.class, "outputs");
@@ -583,10 +583,19 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           builder.addTool((FilesToRunProvider) toolUnchecked);
+        } else if (toolUnchecked instanceof Depset) {
+          try {
+            builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));
+          } catch (TypeException e) {
+            throw Starlark.errorf(
+                "expected value of type 'File, FilesToRunProvider or Depset of Files' for a member "
+                    + "of parameter 'tools' but %s",
+                e.getMessage());
+          }
         } else {
           throw Starlark.errorf(
-              "expected value of type 'File or FilesToRunProvider' for a member of parameter"
-                  + " 'tools' but got %s instead",
+              "expected value of type 'File, FilesToRunProvider or Depset of Files' for a member of"
+                  + " parameter 'tools' but got %s instead",
               Starlark.type(toolUnchecked));
         }
       }
@@ -603,7 +612,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));
     }
     if (progressMessage != Starlark.NONE) {
-      builder.setProgressMessageNonLazy((String) progressMessage);
+      builder.setProgressMessageFromStarlark((String) progressMessage);
     }
     if (Starlark.truth(useDefaultShellEnv)) {
       builder.useDefaultShellEnvironment();

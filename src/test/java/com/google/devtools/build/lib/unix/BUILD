@@ -27,6 +27,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -44,6 +45,7 @@ java_library(
 java_test(
     name = "UnixTests",
     size = "medium",
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":UnixTests_lib",

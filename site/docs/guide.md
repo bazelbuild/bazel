@@ -120,7 +120,7 @@ these are known as _target patterns_. This syntax is used in commands like
 `build`, `test`, or `query`.
 
 Whereas [labels](build-ref.html#labels) are used to specify individual targets,
-e.g. for declaring dependencies in BUILD files, Bazel's target patterns are a
+e.g. for declaring dependencies in `BUILD` files, Bazel's target patterns are a
 syntax for specifying multiple targets: they are a generalization of the label
 syntax for _sets_ of targets, using wildcards. In the simplest case, any valid
 label is also a valid target pattern, identifying a set of exactly one target.
@@ -164,7 +164,7 @@ workspace.
 </tr>
 <tr>
   <td><code>//:all</code></td>
-  <td>All targets in the top-level package, if there is a BUILD file at the
+  <td>All targets in the top-level package, if there is a `BUILD` file at the
   root of the workspace.</td>
 </tr>
 </table>
@@ -263,10 +263,13 @@ that weren't subtracted. For example, if there were a target `//foo:all-apis`
 that among others depended on `//foo/bar:api`, then the latter would be built as
 part of building the former.
 
-Targets with `tags = ["manual"]` will not be included in wildcard target
-patterns (`...`, `:*`, `:all`, etc.). You should specify such test targets with
-explicit target patterns on the command line if you want Bazel to build/test
-them.
+Targets with `tags = ["manual"]` are not included in wildcard target patterns
+(`...`, `:*`, `:all`, etc.) when specified in commands like
+<code>bazel build</code> and <code>bazel test</code>; you should specify such
+test targets with explicit target patterns on the command line if you want Bazel
+to build/test them. In contrast, <code>bazel query</code> doesn't perform any
+such filtering automatically (that would defeat the purpose of
+<code>bazel query</code>).
 
 <a id="fetch"></a>
 ### Fetching external dependencies
@@ -346,7 +349,7 @@ The primary difference is that the distribution directory requires manual
 preparation.
 
 Using the
-[`--distdir=/path/to-directory`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+[`--distdir=/path/to-directory`](https://docs.bazel.build/versions/main/command-line-reference.html#flag--distdir)
 option, you can specify additional read-only directories to look for files
 instead of fetching them. A file is taken from such a directory if the file name
 is equal to the base name of the URL and additionally the hash of the file is
@@ -373,7 +376,7 @@ containing these dependencies on a machine with network access, and then
 transfer them to the airgapped environment with an offline approach.
 
 To prepare the [distribution directory](distribution-files-directories), use the
-[`--distdir`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+[`--distdir`](https://docs.bazel.build/versions/main/command-line-reference.html#flag--distdir)
 flag. You will need to do this once for every new Bazel binary version, since
 the implicit dependencies can be different for every release.
 
@@ -418,7 +421,7 @@ build --distdir=path/to/directory
 
 All the inputs that specify the behavior and result of a given build can be
 divided into two distinct categories. The first kind is the intrinsic
-information stored in the BUILD files of your project: the build rule, the
+information stored in the `BUILD` files of your project: the build rule, the
 values of its attributes, and the complete set of its transitive dependencies.
 The second kind is the external or environmental data, supplied by the user or
 by the build tool: the choice of target architecture, compilation and linking
@@ -602,8 +605,10 @@ If you ever detect a stable inconsistent state with Bazel, please report a bug.
 
 #### Sandboxed execution
 
-Bazel uses sandboxes to guarantee that actions run hermetically<sup>1</sup> and
-correctly. Bazel runs _Spawns_ (loosely speaking: actions) in sandboxes that
+NOTE: Sandboxing is enabled by default for local execution.
+
+Bazel can use sandboxes to guarantee that actions run hermetically<sup>1</sup>
+and correctly. Bazel runs _spawns_ (loosely speaking: actions) in sandboxes that
 only contain the minimal set of files the tool requires to do its job. Currently
 sandboxing works on Linux 3.12 or newer with the `CONFIG_USER_NS` option
 enabled, and also on macOS 10.11 or newer.
@@ -919,9 +924,10 @@ different rc files. In order to avoid name conflicts, we suggest that configs
 defined in personal rc files start with an underscore (`_`) to avoid
 unintentional name sharing.
 
-`--config=foo` expands to the options defined in the rc files "in-place" so that
-the options specified for the config have the same precedence that the
-`--config=foo` option had.
+`--config=foo` expands to the options defined in
+[the rc files](#where-are-the-bazelrc-files) "in-place" so that the options
+specified for the config have the same precedence that the `--config=foo` option
+had.
 
 This syntax does not extend to the use of `startup` to set
 [startup options](#option-defaults), e.g. setting

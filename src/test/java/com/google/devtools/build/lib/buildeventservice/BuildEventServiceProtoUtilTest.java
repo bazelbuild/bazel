@@ -80,7 +80,7 @@ public class BuildEventServiceProtoUtilTest {
                         .setEvent(
                             BuildEvent.newBuilder()
                                 .setEventTime(expected)
-                                .setBuildEnqueued(BuildEnqueued.newBuilder())))
+                                .setBuildEnqueued(BuildEnqueued.getDefaultInstance())))
                 .build());
   }
 

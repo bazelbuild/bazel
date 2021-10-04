@@ -120,6 +120,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
           ":android_sdk",
           "aidl_lib", // for the aidl runtime in the android_sdk rule
           "$toolchain", // this is _toolchain in Starlark rules (b/78647825)
+          "$build_stamp_deps", // for build stamp runtime class deps
+          "$build_stamp_mergee_manifest_lib", // for empty build stamp Service class implementation
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
           JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR,
           "runtime");
@@ -619,10 +621,10 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   /**
-   * Returns the subset of the given dexopts that are blacklisted from using incremental dexing by
+   * Returns the subset of the given dexopts that are forbidden from using incremental dexing by
    * default.
    */
-  static Iterable<String> blacklistedDexopts(RuleContext ruleContext, List<String> dexopts) {
+  static Iterable<String> forbiddenDexopts(RuleContext ruleContext, List<String> dexopts) {
     return Iterables.filter(
         dexopts,
         new FlagMatcher(

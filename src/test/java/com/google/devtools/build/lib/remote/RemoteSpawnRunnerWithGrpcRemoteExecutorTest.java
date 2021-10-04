@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.GrpcCacheClient.getResourceName;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -53,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -67,9 +69,11 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -122,6 +126,7 @@ import org.mockito.stubbing.Answer;
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
+  private final Reporter reporter = new Reporter(new EventBus());
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
@@ -295,6 +300,21 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             uploader);
     RemoteExecutionCache remoteCache =
         new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
+    RemoteExecutionService remoteExecutionService =
+        new RemoteExecutionService(
+            directExecutor(),
+            reporter,
+            /*verboseFailures=*/ true,
+            execRoot,
+            RemotePathResolver.createDefault(execRoot),
+            "build-req-id",
+            "command-id",
+            DIGEST_UTIL,
+            remoteOptions,
+            remoteCache,
+            executor,
+            ImmutableSet.of(),
+            /* captureCorruptedOutputsDir= */ null);
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -302,14 +322,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             Options.getDefaults(ExecutionOptions.class),
             /* verboseFailures= */ true,
             /*cmdlineReporter=*/ null,
-            "build-req-id",
-            "command-id",
-            remoteCache,
-            executor,
             retryService,
-            DIGEST_UTIL,
             logDir,
-            /* filesToDownload= */ ImmutableSet.of());
+            remoteExecutionService);
 
     inputDigest =
         fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
@@ -321,8 +336,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setName("VARIABLE")
                     .setValue("value")
                     .build())
-            .addAllOutputFiles(ImmutableList.of("main/bar", "main/foo"))
-            .setWorkingDirectory("main")
+            .addAllOutputFiles(ImmutableList.of("bar", "foo"))
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
     channel.release();

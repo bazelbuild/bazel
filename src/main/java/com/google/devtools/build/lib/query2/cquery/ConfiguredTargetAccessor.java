@@ -116,12 +116,13 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
 
     Multimap<Label, KeyedConfiguredTarget> depsByLabel =
         Multimaps.index(
-            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), kct -> kct.getLabel());
+            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), KeyedConfiguredTarget::getLabel);
 
     Rule rule = (Rule) getTarget(actual);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
     ConfiguredAttributeMapper attributeMapper =
-        ConfiguredAttributeMapper.of(rule, configConditions);
+        ConfiguredAttributeMapper.of(
+            rule, configConditions, keyedConfiguredTarget.getConfigurationChecksum());
     if (!attributeMapper.has(attrName)) {
       throw new QueryException(
           caller,
@@ -131,8 +132,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
     ImmutableList.Builder<KeyedConfiguredTarget> toReturn = ImmutableList.builder();
-    attributeMapper.visitLabels(attributeMapper.getAttributeDefinition(attrName)).stream()
-        .forEach(depEdge -> toReturn.addAll(depsByLabel.get(depEdge.getLabel())));
+    attributeMapper.visitLabels(
+        attributeMapper.getAttributeDefinition(attrName),
+        label -> toReturn.addAll(depsByLabel.get(label)));
     return toReturn.build();
   }
 
@@ -215,6 +217,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     ImmutableSet<Label> execConstraintLabels =
         getExecutionPlatformConstraints(rule, config.getFragment(PlatformConfiguration.class));
     ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
+    // Check if this specific target should be debugged for toolchain resolution.
+    boolean debugTarget =
+        config.getFragment(PlatformConfiguration.class).debugToolchainResolution(target.getLabel());
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
         ToolchainCollection.builder();
@@ -229,6 +234,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
                         .configurationKey(configurationKey)
                         .requiredToolchainTypeLabels(execGroup.requiredToolchains())
                         .execConstraintLabels(execGroup.execCompatibleWith())
+                        .debugTarget(debugTarget)
                         .build());
         if (context == null) {
           return null;
@@ -242,6 +248,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
                       .configurationKey(configurationKey)
                       .requiredToolchainTypeLabels(requiredToolchains)
                       .execConstraintLabels(execConstraintLabels)
+                      .debugTarget(debugTarget)
                       .build());
       if (defaultContext == null) {
         return null;

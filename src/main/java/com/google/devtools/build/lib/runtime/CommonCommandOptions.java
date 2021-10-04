@@ -47,12 +47,9 @@ public class CommonCommandOptions extends OptionsBase {
       name = "all_incompatible_changes",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      expansionFunction = AllIncompatibleChangesExpansion.class,
-      help =
-          "Enables all options of the form --incompatible_*. Use this option to find places where "
-              + "your build may break in the future due to deprecations or other changes.")
+      help = "No-op, being removed. See https://github.com/bazelbuild/bazel/issues/13892")
   public Void allIncompatibleChanges;
 
   @Option(
@@ -358,6 +355,19 @@ public class CommonCommandOptions extends OptionsBase {
           "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
               + "more than this percentage of the (old gen) heap is still occupied.")
   public int oomMoreEagerlyThreshold;
+
+  @Option(
+      name = "heap_dump_on_oom",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Whether to manually output a heap dump if an OOM is thrown (including OOMs due to"
+              + " --experimental_oom_more_eagerly_threshold). The dump will be written to"
+              + " <output_base>/<invocation_id>.heapdump.hprof. This option effectively replaces"
+              + " -XX:+HeapDumpOnOutOfMemoryError, which has no effect because OOMs are caught and"
+              + " redirected to Runtime#halt.")
+  public boolean heapDumpOnOom;
 
   @Option(
       name = "startup_time",

@@ -25,20 +25,20 @@ public class JavaBootstrap implements Bootstrap {
 
   private final JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi;
   private final JavaInfoProviderApi javaInfoProviderApi;
+  private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
   private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
-  private final JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
 
   public JavaBootstrap(
       JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
+      JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi,
       JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
-      JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider,
       ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
     this.javaCommonApi = javaCommonApi;
     this.javaInfoProviderApi = javaInfoProviderApi;
+    this.javaPluginInfoProviderApi = javaPluginInfoProviderApi;
     this.javaProtoCommonApi = javaProtoCommonApi;
-    this.javaCcLinkParamsProviderApiProvider = javaCcLinkParamsProviderApiProvider;
     this.proguardSpecProvider = proguardSpecProvider;
   }
 
@@ -46,8 +46,8 @@ public class JavaBootstrap implements Bootstrap {
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put("java_common", javaCommonApi);
     builder.put("JavaInfo", javaInfoProviderApi);
+    builder.put("JavaPluginInfo", javaPluginInfoProviderApi);
     builder.put("java_proto_common", javaProtoCommonApi);
-    builder.put("JavaCcLinkParamsInfo", javaCcLinkParamsProviderApiProvider);
 
     builder.put(
         ProguardSpecProviderApi.NAME,

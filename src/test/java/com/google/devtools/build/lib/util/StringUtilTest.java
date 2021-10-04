@@ -14,11 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.util.StringUtil.capitalize;
-import static com.google.devtools.build.lib.util.StringUtil.emptyToNull;
-import static com.google.devtools.build.lib.util.StringUtil.indent;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
-import static com.google.devtools.build.lib.util.StringUtil.stripSuffix;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
@@ -60,42 +56,5 @@ public class StringUtilTest {
                 .append("/end")
                 .toString())
         .isEqualTo("begin/a, b, c ...(omitting 2 more item(s))/end");
-  }
-
-  @Test
-  public void testIndent() throws Exception {
-    assertThat(indent("", 0)).isEmpty();
-    assertThat(indent("", 1)).isEmpty();
-    assertThat(indent("a", 1)).isEqualTo("a");
-    assertThat(indent("\na", 2)).isEqualTo("\n  a");
-    assertThat(indent("a\nb", 2)).isEqualTo("a\n  b");
-    assertThat(indent("a\nb\nc\nd", 1)).isEqualTo("a\n b\n c\n d");
-    assertThat(indent("\n", 1)).isEqualTo("\n ");
-  }
-
-  @Test
-  public void testStripSuffix() throws Exception {
-    assertThat(stripSuffix("", "")).isEmpty();
-    assertThat(stripSuffix("", "a")).isNull();
-    assertThat(stripSuffix("a", "")).isEqualTo("a");
-    assertThat(stripSuffix("aa", "a")).isEqualTo("a");
-    assertThat(stripSuffix("ab", "c")).isNull();
-  }
-
-  @Test
-  public void testCapitalize() throws Exception {
-    assertThat(capitalize("")).isEmpty();
-    assertThat(capitalize("joe")).isEqualTo("Joe");
-    assertThat(capitalize("Joe")).isEqualTo("Joe");
-    assertThat(capitalize("o")).isEqualTo("O");
-    assertThat(capitalize("O")).isEqualTo("O");
-  }
-
-  @Test
-  public void testEmptyToNull() {
-    assertThat(emptyToNull(null)).isNull();
-    assertThat(emptyToNull("")).isNull();
-    assertThat(emptyToNull("a")).isEqualTo("a");
-    assertThat(emptyToNull(" ")).isEqualTo(" ");
   }
 }

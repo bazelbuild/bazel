@@ -5,6 +5,7 @@ title: Build Event Protocol Glossary
 
 # Build Event Protocol Glossary
 
+
 Each BEP event type has its own semantics, minimally documented in
 [build\_event\_stream.proto](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto).
 The following glossary describes each event type.
@@ -48,7 +49,7 @@ BEP contains an event like the following:
 ## ActionExecuted
 
 Provides details about the execution of a specific
-[Action](skylark/lib/actions.html) in a build. By default, this event is
+[Action](https://docs.bazel.build/skylark/lib/actions.html) in a build. By default, this event is
 included in the BEP only for failed actions, to support identifying the root cause
 of build failures. Users may set the `--build_event_publish_all_actions` flag
 to include all `ActionExecuted` events.
@@ -74,8 +75,8 @@ work that is reused.
 
 Note that `memory_metrics` may not be populated if there was no Java garbage
 collection during the command's execution. Users may set the
-`--bep_publish_used_heap_size_post_build` option which forces the garbage
-collector to run at the end of the command to populate `memory_metrics`.
+`--memory_profile=/dev/null` option which forces the garbage collector to run at
+the end of the command to populate `memory_metrics`.
 
 <p>
   <button class="btn btn-primary" type="button" data-toggle="collapse"
@@ -175,7 +176,7 @@ indicates which representation it conveys; three such events appear in the BEP:
 
 ## Configuration
 
-A `Configuration` event is sent for every [`configuration`](skylark/config.html)
+A `Configuration` event is sent for every [`configuration`](https://docs.bazel.build/skylark/config.html)
 used in the top-level targets in a build. At least one configuration event is
 always be present. The `id` is reused by the `TargetConfigured` and
 `TargetComplete` event IDs and is necessary to disambiguate those events in
@@ -265,7 +266,7 @@ appear in the BEP stream.
 ## NamedSetOfFiles
 
 `NamedSetOfFiles` events report a structure matching a
-[`depset`](skylark/depsets.html) of files produced during command evaluation.
+[`depset`](https://docs.bazel.build/skylark/depsets.html) of files produced during command evaluation.
 Transitively included depsets are identified by `NamedSetOfFilesId`.
 
 For more information on interpreting a stream's `NamedSetOfFiles` events, see the
@@ -275,7 +276,7 @@ For more information on interpreting a stream's `NamedSetOfFiles` events, see th
 
 A single `OptionsParsed` event lists all options applied to the command,
 separating startup options from command options. It also includes the
-[InvocationPolicy](command-line-reference.html#flag--invocation_policy), if any.
+[InvocationPolicy](https://docs.bazel.build/command-line-reference.html#flag--invocation_policy), if any.
 
 <p>
   <button class="btn btn-primary" type="button" data-toggle="collapse"
@@ -305,7 +306,6 @@ separating startup options from command options. It also includes the
       "--nofatal_event_bus_exceptions",
       "--nowindows_enable_symlinks",
       "--noclient_debug",
-      "--noincompatible_enable_execution_transition"
     ],
     "cmdLine": [
       "--enable_platform_specific_config",
@@ -325,9 +325,39 @@ separating startup options from command options. It also includes the
 `PatternExpanded` events indicate the set of all targets that match the patterns
 supplied on the commandline. For successful commands, a single event is present
 with all patterns in the `PatternExpandedId` and all targets in the
-`PatternExpanded` event. For each pattern that fails to resolve, BEP contains
-an additional [`Aborted`](#aborted) event with a `PatternExpandedId` identifying
-the pattern.
+`PatternExpanded` event's *children*. If the pattern expands to any
+`test_suite`s the set of test targets included by the `test_suite`. For each
+pattern that fails to resolve, BEP contains an additional [`Aborted`](#aborted)
+event with a `PatternExpandedId` identifying the pattern.
+
+<p>
+  <button class="btn btn-primary" type="button" data-toggle="collapse"
+      data-target="#collapsePatternExpandedJson" aria-expanded="false"
+      aria-controls="collapsePatternExpandedJson">
+    Show/Hide BEP JSON
+  </button>
+</p>
+
+```json
+{
+  "id": {
+    "pattern": {
+      "pattern":["//base:all"]
+    }
+  },
+  "children": [
+    {"targetConfigured":{"label":"//base:foo"}},
+    {"targetConfigured":{"label":"//base:foobar"}}
+  ],
+  "expanded": {
+    "testSuiteExpansions": {
+      "suiteLabel": "//base:suite",
+      "testLabels": "//base:foo_test"
+    }
+  }
+}
+```
+{: .collapse #collapsePatternExpandedJson}
 
 ## Progress
 

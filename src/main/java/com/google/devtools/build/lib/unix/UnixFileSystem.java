@@ -326,6 +326,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    return NativePosixFiles.mkdirWritable(path.toString());
+  }
+
+  @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     NativePosixFiles.mkdirs(path.toString(), 0777);
   }
@@ -344,9 +349,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       return PathFragment.create(NativePosixFiles.readlink(name));
-    } catch (IOException e) {
-      // EINVAL => not a symbolic link.  Anything else is a real error.
-      throw e.getMessage().endsWith("(Invalid argument)") ? new NotASymlinkException(path) : e;
+    } catch (InvalidArgumentIOException e) {
+      throw new NotASymlinkException(path, e);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
     }
@@ -466,11 +470,17 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     return new FileInputStream(createJavaIoFile(path));
   }
 
-  @Override
   protected OutputStream createFileOutputStream(PathFragment path, boolean append)
       throws FileNotFoundException {
+    return createFileOutputStream(path, append, /* internal= */ false);
+  }
+
+  @Override
+  protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
+      throws FileNotFoundException {
     final String name = path.toString();
-    if (profiler.isActive()
+    if (!internal
+        && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();

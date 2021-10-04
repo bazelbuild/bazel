@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -54,6 +53,7 @@ public final class WorkspaceBuilder {
       ImmutableList.builder();
   private AllocationTracker allocationTracker;
   private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
+  private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -63,12 +63,10 @@ public final class WorkspaceBuilder {
   BlazeWorkspace build(
       BlazeRuntime runtime,
       PackageFactory packageFactory,
-      ConfiguredRuleClassProvider ruleClassProvider,
       SubscriberExceptionHandler eventBusExceptionHandler) throws AbruptExitException {
     // Set default values if none are set.
     if (skyframeExecutorFactory == null) {
-      skyframeExecutorFactory =
-          new SequencedSkyframeExecutorFactory(runtime.getDefaultBuildOptions());
+      skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
     }
 
     SkyframeExecutor skyframeExecutor =
@@ -82,6 +80,9 @@ public final class WorkspaceBuilder {
             skyFunctions.build(),
             customDirtinessCheckers.build(),
             managedDirectoriesKnowledge,
+            skyKeyStateReceiver == null
+                ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
+                : skyKeyStateReceiver,
             runtime.getBugReporter());
     return new BlazeWorkspace(
         runtime,
@@ -160,6 +161,17 @@ public final class WorkspaceBuilder {
   public WorkspaceBuilder setManagedDirectoriesKnowledge(
       ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+    return this;
+  }
+
+  public WorkspaceBuilder setSkyKeyStateReceiver(
+      SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver) {
+    Preconditions.checkState(
+        this.skyKeyStateReceiver == null,
+        "Multiple evaluatedSkyKeyReceiver: %s %s",
+        this.skyKeyStateReceiver,
+        skyKeyStateReceiver);
+    this.skyKeyStateReceiver = skyKeyStateReceiver;
     return this;
   }
 }

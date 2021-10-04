@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -93,7 +94,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   private PackageManager pkgManager;
   private TargetPatternPreloader targetParser;
-  private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private boolean blockUniverseEvaluationErrors;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
@@ -198,7 +198,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         pkgManager,
         pkgManager,
         targetParser,
-        relativeWorkingDirectory,
+        /*relativeWorkingDirectory=*/ PathFragment.EMPTY_FRAGMENT,
         keepGoing,
         /*strictScope=*/ true,
         orderedResults,
@@ -223,7 +223,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     }
   }
 
-  public ResultAndTargets<Target> evaluateQuery(
+  public static ResultAndTargets<Target> evaluateQuery(
       String query, AbstractBlazeQueryEnvironment<Target> env)
       throws QueryException, InterruptedException {
     AggregateAllOutputFormatterCallback<Target, ?> callback =
@@ -296,15 +296,15 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           packageLocator,
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
-          ImmutableMap.<String, String>of(),
-          ImmutableMap.<String, String>of(),
+          ImmutableMap.of(),
+          ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           OptionsProvider.EMPTY);
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }
     pkgManager = skyframeExecutor.getPackageManager();
-    targetParser = pkgManager.newTargetPatternPreloader();
+    targetParser = new SkyframeTargetPatternEvaluator(skyframeExecutor);
   }
 
   @Override
@@ -324,7 +324,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setDefaultBuildOptions(getDefaultBuildOptions(ruleClassProvider))
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
@@ -337,7 +336,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }

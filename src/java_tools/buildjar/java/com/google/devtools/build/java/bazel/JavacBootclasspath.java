@@ -26,7 +26,7 @@ import java.util.List;
 
 /**
  * Utility class to provide java-level access to the blessed javac boot class path: {@code
- * //tools/defaults:javac_bootclasspath}, as defined by bazel's --javac_bootclasspath flag.
+ * //tools/defaults:javac_bootclasspath}.
  *
  * <p>This class is typically used only from a host build tool or in tests. When using this in
  * production, the bootclasspath is deployed as separate jar files within the runfiles directory.

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -40,7 +39,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -67,26 +67,8 @@ public final class JavaCompilationHelper {
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
-  private NestedSet<Artifact> localClassPathEntries = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-
-  private JavaCompilationHelper(
-      RuleContext ruleContext,
-      JavaSemantics semantics,
-      ImmutableList<String> javacOpts,
-      JavaTargetAttributes.Builder attributes,
-      JavaToolchainProvider javaToolchainProvider,
-      ImmutableList<Artifact> additionalInputsForDatabinding,
-      boolean disableStrictDeps) {
-    this.ruleContext = ruleContext;
-    this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
-    this.attributes = attributes;
-    this.customJavacOpts = javacOpts;
-    this.semantics = semantics;
-    this.additionalInputsForDatabinding = additionalInputsForDatabinding;
-    this.strictJavaDeps =
-        disableStrictDeps ? StrictDepsMode.OFF : getJavaConfiguration().getFilteredStrictJavaDeps();
-    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
-  }
+  private boolean enableJspecify = true;
+  private boolean enableDirectClasspath = true;
 
   public JavaCompilationHelper(
       RuleContext ruleContext,
@@ -95,14 +77,14 @@ public final class JavaCompilationHelper {
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
       ImmutableList<Artifact> additionalInputsForDatabinding) {
-    this(
-        ruleContext,
-        semantics,
-        javacOpts,
-        attributes,
-        javaToolchainProvider,
-        additionalInputsForDatabinding,
-        false);
+    this.ruleContext = ruleContext;
+    this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
+    this.attributes = attributes;
+    this.customJavacOpts = javacOpts;
+    this.semantics = semantics;
+    this.additionalInputsForDatabinding = additionalInputsForDatabinding;
+    this.strictJavaDeps = getJavaConfiguration().getFilteredStrictJavaDeps();
+    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
   }
 
   public JavaCompilationHelper(
@@ -124,26 +106,29 @@ public final class JavaCompilationHelper {
       JavaSemantics semantics,
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
-      ImmutableList<Artifact> additionalInputsForDatabinding,
-      boolean disableStrictDeps) {
+      ImmutableList<Artifact> additionalInputsForDatabinding) {
     this(
         ruleContext,
         semantics,
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        additionalInputsForDatabinding,
-        disableStrictDeps);
+        additionalInputsForDatabinding);
+  }
+
+  public void enableJspecify(boolean enableJspecify) {
+    this.enableJspecify = enableJspecify;
   }
 
   JavaTargetAttributes getAttributes() {
     if (builtAttributes == null) {
       builtAttributes = attributes.build();
-      if (!localClassPathEntries.isEmpty()) {
-        builtAttributes = builtAttributes.withAdditionalClassPathEntries(localClassPathEntries);
-      }
     }
     return builtAttributes;
+  }
+
+  public void enableDirectClasspath(boolean enableDirectClasspath) {
+    this.enableDirectClasspath = enableDirectClasspath;
   }
 
   public RuleContext getRuleContext() {
@@ -200,8 +185,24 @@ public final class JavaCompilationHelper {
     }
 
     JavaTargetAttributes attributes = getAttributes();
+
+    JspecifyInfo jspecifyInfo = javaToolchain.jspecifyInfo();
+    boolean jspecify =
+        enableJspecify
+            && getJavaConfiguration().experimentalEnableJspecify()
+            && jspecifyInfo != null
+            && jspecifyInfo.matches(ruleContext.getLabel());
+    if (jspecify) {
+      // JSpecify requires these on the compile-time classpath; see b/187113128
+      // Add them as non-direct deps (for the purposes of Strict Java Deps) to still require an
+      // explicit dep if they're directly used by the compiled source.
+      attributes =
+          attributes.appendAdditionalTransitiveClassPathEntries(
+              jspecifyInfo.jspecifyImplicitDeps());
+    }
+
     ImmutableList<Artifact> sourceJars = attributes.getSourceJars();
-    JavaPluginInfo plugins = attributes.plugins().plugins();
+    JavaPluginData plugins = attributes.plugins().plugins();
     List<Artifact> resourceJars = new ArrayList<>();
 
     boolean turbineAnnotationProcessing =
@@ -250,6 +251,19 @@ public final class JavaCompilationHelper {
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
     }
 
+    ImmutableList<String> javacopts = customJavacOpts;
+    if (jspecify) {
+      plugins =
+          JavaPluginInfo.JavaPluginData.merge(
+              ImmutableList.of(plugins, jspecifyInfo.jspecifyProcessor()));
+      javacopts =
+          ImmutableList.<String>builder()
+              .addAll(javacopts)
+              // Add JSpecify options last to discourage overridding them, at least for now.
+              .addAll(jspecifyInfo.jspecifyJavacopts())
+              .build();
+    }
+
     JavaCompileActionBuilder builder = new JavaCompileActionBuilder(ruleContext, javaToolchain);
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
@@ -288,7 +302,7 @@ public final class JavaCompilationHelper {
       // Don't do annotation processing, but pass the processorpath through to allow service-loading
       // Error Prone plugins.
       builder.setPlugins(
-          JavaPluginInfo.create(
+          JavaPluginData.create(
               /* processorClasses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               plugins.processorClasspath(),
               plugins.data()));
@@ -298,7 +312,7 @@ public final class JavaCompilationHelper {
     ImmutableSet<Artifact> sourceFiles = attributes.getSourceFiles();
     builder.setSourceFiles(sourceFiles);
     builder.setSourceJars(sourceJars);
-    builder.setJavacOpts(customJavacOpts);
+    builder.setJavacOpts(javacopts);
     builder.setJavacExecutionInfo(getExecutionInfo());
     builder.setCompressJar(true);
     builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
@@ -345,6 +359,9 @@ public final class JavaCompilationHelper {
     }
     if (javaToolchain.getJavacSupportsMultiplexWorkers()) {
       workerInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
+    }
+    if (javaToolchain.getJavacSupportsWorkerCancellation()) {
+      workerInfo.put(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1");
     }
     executionInfo.putAll(
         getConfiguration()
@@ -464,7 +481,7 @@ public final class JavaCompilationHelper {
     JavaTargetAttributes attributes = getAttributes();
 
     // only run API-generating annotation processors during header compilation
-    JavaPluginInfo plugins = attributes.plugins().apiGeneratingPlugins();
+    JavaPluginData plugins = attributes.plugins().apiGeneratingPlugins();
 
     JavaHeaderCompileActionBuilder builder = getJavaHeaderCompileActionBuilder();
     builder.setOutputJar(headerJar);
@@ -477,6 +494,7 @@ public final class JavaCompilationHelper {
       // see b/31371210
       builder.addJavacOpt("-Aexperimental_turbine_hjar");
     }
+    builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
 
     artifactBuilder.setCompileTimeDependencies(headerDeps);
@@ -533,7 +551,7 @@ public final class JavaCompilationHelper {
                 .addInput(manifestProto)
                 .addInput(classJar)
                 .addOutput(genClassJar)
-                .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
+                .addTransitiveInputs(hostJavabase.javaBaseInputs())
                 .setJarExecutable(
                     JavaCommon.getHostJavaExecutable(hostJavabase),
                     getGenClassJar(ruleContext),
@@ -676,17 +694,6 @@ public final class JavaCompilationHelper {
     }
 
     attributes.merge(args);
-  }
-
-  /**
-   * Adds compile-time dependencies that will be included on the classpath, but which will not be
-   * visible to targets that depend on the current compilation.
-   */
-  public void addLocalClassPathEntries(NestedSet<Artifact> localClassPathEntries) {
-    checkState(
-        builtAttributes == null,
-        "addLocalClassPathEntries must be called before the first call to getAttributes()");
-    this.localClassPathEntries = localClassPathEntries;
   }
 
   private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps) {

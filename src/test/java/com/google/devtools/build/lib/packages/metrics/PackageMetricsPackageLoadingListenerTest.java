@@ -19,9 +19,9 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.protobuf.util.Durations;
@@ -569,7 +569,7 @@ public class PackageMetricsPackageLoadingListenerTest {
     Package mockPackage = mock(Package.class);
     when(mockPackage.getPackageIdentifier())
         .thenReturn(PackageIdentifier.createInMainRepo(pkgIdString));
-    when(mockPackage.getTargets()).thenReturn(ImmutableSortedKeyMap.copyOf(targets));
+    when(mockPackage.getTargets()).thenReturn(ImmutableSortedMap.copyOf(targets));
     when(mockPackage.getStarlarkFileDependencies())
         .thenReturn(ImmutableList.copyOf(starlarkDependencies));
     return mockPackage;

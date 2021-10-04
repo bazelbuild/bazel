@@ -14,13 +14,18 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static org.mockito.Mockito.when;
+
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link FileStateValue}. */
 @RunWith(JUnit4.class)
@@ -35,13 +40,20 @@ public class FileStateValueTest {
             new FileStateValue.RegularFileStateValue(
                 /*size=*/ 1,
                 /*digest=*/ null,
-                new FileContentsProxy(/* ctime= */ 2, /* nodeId= */ 42)),
+                makeFileContentsProxy(/* ctime= */ 2, /* nodeId= */ 42)),
             new FileStateValue.SpecialFileStateValue(
-                new FileContentsProxy(/* ctime= */ 4, /* nodeId= */ 84)),
+                makeFileContentsProxy(/* ctime= */ 4, /* nodeId= */ 84)),
             FileStateValue.DIRECTORY_FILE_STATE_NODE,
             new FileStateValue.SymlinkFileStateValue(PathFragment.create("somewhere/elses")),
             FileStateValue.NONEXISTENT_FILE_STATE_NODE)
         .runTests();
   }
 
+  private static FileContentsProxy makeFileContentsProxy(long ctime, long nodeId)
+      throws IOException {
+    FileStatus status = Mockito.mock(FileStatus.class);
+    when(status.getLastChangeTime()).thenReturn(ctime);
+    when(status.getNodeId()).thenReturn(nodeId);
+    return FileContentsProxy.create(status);
+  }
 }

@@ -25,13 +25,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesetEntryApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -41,7 +43,7 @@ import net.starlark.java.eval.StarlarkValue;
 @ThreadSafe
 public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
 
-  public static final SymlinkBehavior DEFAULT_SYMLINK_BEHAVIOR = SymlinkBehavior.COPY;
+  private static final SymlinkBehavior DEFAULT_SYMLINK_BEHAVIOR = SymlinkBehavior.COPY;
   public static final String DEFAULT_STRIP_PREFIX = ".";
   public static final String STRIP_PREFIX_WORKSPACE = "%workspace%";
 
@@ -50,35 +52,20 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
     return true;
   }
 
-  public static List<String> makeStringList(List<Label> labels) {
-    if (labels == null) {
-      return Collections.emptyList();
-    }
-    List<String> strings = Lists.newArrayListWithCapacity(labels.size());
-    for (Label label : labels) {
-      strings.add(label.toString());
-    }
-    return strings;
-  }
-
-  public static List<?> makeList(Collection<?> list) {
-    return list == null ? Lists.newArrayList() : Lists.newArrayList(list);
-  }
-
   @Override
   public void repr(Printer printer) {
     printer.append("FilesetEntry(srcdir = ");
-    printer.repr(getSrcLabel().toString());
+    printer.repr(srcLabel.toString());
     printer.append(", files = ");
-    printer.repr(makeStringList(getFiles()));
+    printer.repr(files == null ? ImmutableList.of() : Lists.transform(files, Label::toString));
     printer.append(", excludes = ");
-    printer.repr(makeList(getExcludes()));
+    printer.repr(excludes == null ? ImmutableList.of() : excludes.asList());
     printer.append(", destdir = ");
-    printer.repr(getDestDir().getPathString());
+    printer.repr(destDir.getPathString());
     printer.append(", strip_prefix = ");
-    printer.repr(getStripPrefix());
+    printer.repr(stripPrefix);
     printer.append(", symlinks = ");
-    printer.repr(getSymlinkBehavior().toString());
+    printer.repr(symlinkBehavior.toString());
     printer.append(")");
   }
 
@@ -142,11 +129,24 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
     return srcLabel;
   }
 
+  /** Returns the source label. */
+  @StarlarkMethod(name = "srcdir", documented = false, useStarlarkThread = true)
+  public Label getSrcStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    return getSrcLabel();
+  }
+
   /**
    * @return the destDir. Non null.
    */
   public PathFragment getDestDir() {
     return destDir;
+  }
+
+  @StarlarkMethod(name = "destdir", documented = false, useStarlarkThread = true)
+  public String getStarlarkDestDir(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    return getDestDir().toString();
   }
 
   /**
@@ -156,22 +156,46 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
     return symlinkBehavior;
   }
 
-  /**
-   * @return an immutable set of excludes. Null if none specified.
-   */
+  @StarlarkMethod(name = "symlinks", documented = false, useStarlarkThread = true)
+  public String getSymlinkBehaviorStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    return getSymlinkBehavior().toString();
+  }
+
+  /** Returns an immutable set of excludes. Null if none specified. */
+  @StarlarkMethod(
+      name = "excludes",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
   @Nullable
+  public ImmutableList<String> getExcludesStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    return getExcludes() == null ? null : getExcludes().asList();
+  }
+
+  /** Returns an immutable set of excludes. Null if none specified. */
   public ImmutableSet<String> getExcludes() {
     return excludes;
   }
 
-  /**
-   * @return an immutable list of file labels. Null if none specified.
-   */
+  /** Returns an immutable list of file labels. Null if none specified. */
+  @StarlarkMethod(
+      name = "files",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public ImmutableList<Label> getFilesStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    return getFiles();
+  }
+
+  /** Returns an immutable list of file labels. Null if none specified. */
   @Nullable
   public ImmutableList<Label> getFiles() {
     return files;
   }
-
   /**
    * @return true if this Fileset should get files from the source directory.
    */
@@ -192,9 +216,13 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
     return labels;
   }
 
-  /**
-   * @return the prefix that should be stripped from package-relative path names.
-   */
+  /** Returns the prefix that should be stripped from package-relative path names. */
+  @StarlarkMethod(name = "strip_prefix", documented = false, useStarlarkThread = true)
+  public String getStripPrefixStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    return getStripPrefix();
+  }
+
   public String getStripPrefix() {
     return stripPrefix;
   }
@@ -261,6 +289,4 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
         && Objects.equal(symlinkBehavior, that.symlinkBehavior)
         && Objects.equal(stripPrefix, that.stripPrefix);
   }
-
-
 }

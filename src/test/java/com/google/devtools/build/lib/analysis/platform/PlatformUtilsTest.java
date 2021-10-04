@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -90,6 +91,26 @@ public final class PlatformUtilsTest {
             .addProperties(Platform.Property.newBuilder().setName("aa").setValue("99"))
             .addProperties(Platform.Property.newBuilder().setName("dd").setValue("11"))
             .addProperties(Platform.Property.newBuilder().setName("zz").setValue("66"))
+            .build();
+    // execProperties are sorted by key
+    assertThat(PlatformUtils.getPlatformProto(s, remoteOptions())).isEqualTo(expected);
+  }
+
+  @Test
+  public void testGetPlatformProto_differentiateWorkspace() throws Exception {
+    Spawn s =
+        new SpawnBuilder("dummy")
+            .withExecutionInfo(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE, "aa")
+            .build();
+
+    Platform expected =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
+            .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
+            .addProperties(
+                Platform.Property.newBuilder()
+                    .setName("bazel-differentiate-workspace-cache")
+                    .setValue("aa"))
             .build();
     // execProperties are sorted by key
     assertThat(PlatformUtils.getPlatformProto(s, remoteOptions())).isEqualTo(expected);

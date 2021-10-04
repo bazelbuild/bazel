@@ -15,10 +15,11 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -67,6 +68,13 @@ public interface AppleCommonApi<
               + "</pre>",
       structField = true)
   StructApi getPlatformTypeStruct();
+
+  @StarlarkMethod(
+      name = "apple_crosstool_transition",
+      doc = "Testing the Apple crosstool transition",
+      documented = false,
+      structField = true)
+  StarlarkExposedRuleTransitionFactory getAppleCrosstoolTransition();
 
   @StarlarkMethod(
       name = "platform",
@@ -259,23 +267,13 @@ public interface AppleCommonApi<
   @StarlarkMethod(
       name = "new_objc_provider",
       doc = "Creates a new ObjcProvider instance.",
-      parameters = {
-        @Param(
-            name = "uses_swift",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc = "Whether this provider should enable Swift support.")
-      },
+      parameters = {},
       extraKeywords =
-          @Param(
-              name = "kwargs",
-              defaultValue = "{}",
-              doc = "Dictionary of arguments."),
+          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
       useStarlarkThread = true)
   // This method is registered statically for Starlark, and never called directly.
-  ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
+  ObjcProviderApi<?> newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "new_dynamic_framework_provider",
@@ -331,6 +329,31 @@ public interface AppleCommonApi<
       throws EvalException;
 
   @StarlarkMethod(
+      name = "new_executable_binary_provider",
+      doc = "Creates a new AppleExecutableBinaryInfo provider instance.",
+      parameters = {
+        @Param(
+            name = "binary",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "The binary artifact of the executable."),
+        @Param(
+            name = "objc",
+            named = true,
+            positional = false,
+            doc =
+                "An ObjcProvider which contains information about the transitive "
+                    + "dependencies linked into the binary.")
+      })
+  AppleExecutableBinaryApi newExecutableBinaryProvider(
+      Object executableBinary, ObjcProviderApiT depsObjcProvider) throws EvalException;
+
+  @StarlarkMethod(
       name = "link_multi_arch_binary",
       doc =
           "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
@@ -341,6 +364,21 @@ public interface AppleCommonApi<
               + "not depend on the stability of this function at this time.",
       parameters = {
         @Param(name = "ctx", named = true, positional = false, doc = "The Starlark rule context."),
+        @Param(
+            name = "avoid_deps",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollection.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "A list of <code>Target</code>s that are in the dependency graph of the binary but"
+                    + " whose libraries should not be linked into the binary. This is the case for"
+                    + " dependencies that will be found at runtime in another image, such as the"
+                    + " bundle loader or any dynamic libraries/frameworks that will be loaded by"
+                    + " this binary."),
         @Param(
             name = "extra_linkopts",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -371,12 +409,19 @@ public interface AppleCommonApi<
             named = true,
             positional = false,
             defaultValue = "True",
-            doc = "If true, invoke lipo after linking to create a universal binary.")
+            doc =
+                "If True, invoke lipo after linking to create a universal binary. This parameter "
+                    + "is temporary and defaults to True for legacy purposes. After rules_apple "
+                    + "has been updated to call this with False, the default will be changed to "
+                    + "False and the support for invoking lipo inside "
+                    + "<code>link_multi_arch_binary</code> will be removed, along with this "
+                    + "parameter.")
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   StructApi linkMultiArchBinary(
       StarlarkRuleContextT starlarkRuleContext,
+      Object avoidDeps, // Sequence<TransitiveInfoCollection> expected.
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkInt stamp,
@@ -391,12 +436,4 @@ public interface AppleCommonApi<
         @Param(name = "version", doc = "The string representation of the DottedVersion.")
       })
   DottedVersionApi<?> dottedVersion(String version) throws EvalException;
-
-  @StarlarkMethod(
-      name = "objc_proto_aspect",
-      doc =
-          "objc_proto_aspect gathers the proto dependencies of the attached rule target, and"
-              + " propagates the proto values of its dependencies through the ObjcProto provider.",
-      structField = true)
-  StarlarkAspectApi getObjcProtoAspect();
 }

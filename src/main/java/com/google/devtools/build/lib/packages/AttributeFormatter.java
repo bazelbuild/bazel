@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
-import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
@@ -57,7 +56,7 @@ import net.starlark.java.eval.StarlarkInt;
 public class AttributeFormatter {
 
   private static final ImmutableSet<Type<?>> depTypes =
-      ImmutableSet.<Type<?>>of(
+      ImmutableSet.of(
           STRING,
           LABEL,
           OUTPUT,
@@ -69,7 +68,7 @@ public class AttributeFormatter {
           DISTRIBUTIONS);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
-      ImmutableSet.<Type<?>>of(NODEP_LABEL_LIST, NODEP_LABEL);
+      ImmutableSet.of(NODEP_LABEL_LIST, NODEP_LABEL);
 
   private AttributeFormatter() {}
 
@@ -239,32 +238,6 @@ public class AttributeFormatter {
                 .setValue(dictEntry.getValue());
         builder.addLabelKeyedStringDictValue(entry);
       }
-    } else if (type == FILESET_ENTRY_LIST) {
-      @SuppressWarnings("unchecked")
-      List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
-      for (FilesetEntry filesetEntry : filesetEntries) {
-        Build.FilesetEntry.Builder filesetEntryPb =
-            Build.FilesetEntry.newBuilder()
-                .setSource(filesetEntry.getSrcLabel().toString())
-                .setDestinationDirectory(filesetEntry.getDestDir().getPathString())
-                .setSymlinkBehavior(symlinkBehaviorToPb(filesetEntry.getSymlinkBehavior()))
-                .setStripPrefix(filesetEntry.getStripPrefix())
-                .setFilesPresent(filesetEntry.getFiles() != null);
-
-        if (filesetEntry.getFiles() != null) {
-          for (Label file : filesetEntry.getFiles()) {
-            filesetEntryPb.addFile(file.toString());
-          }
-        }
-
-        if (filesetEntry.getExcludes() != null) {
-          for (String exclude : filesetEntry.getExcludes()) {
-            filesetEntryPb.addExclude(exclude);
-          }
-        }
-
-        builder.addFilesetListValue(filesetEntryPb);
-      }
     } else {
       throw new AssertionError("Unknown type: " + type);
     }
@@ -280,21 +253,6 @@ public class AttributeFormatter {
         return Tristate.YES;
       default:
         throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
-    }
-  }
-
-  // This is needed because I do not want to use the SymlinkBehavior from the
-  // protocol buffer all over the place, so there are two classes that do
-  // essentially the same thing.
-  private static Build.FilesetEntry.SymlinkBehavior symlinkBehaviorToPb(
-      FilesetEntry.SymlinkBehavior symlinkBehavior) {
-    switch (symlinkBehavior) {
-      case COPY:
-        return Build.FilesetEntry.SymlinkBehavior.COPY;
-      case DEREFERENCE:
-        return Build.FilesetEntry.SymlinkBehavior.DEREFERENCE;
-      default:
-        throw new AssertionError("Unhandled FilesetEntry.SymlinkBehavior");
     }
   }
 

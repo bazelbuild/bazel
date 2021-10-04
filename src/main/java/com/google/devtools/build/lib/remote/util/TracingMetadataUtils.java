@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
@@ -65,7 +66,10 @@ public class TracingMetadataUtils {
                     .setToolVersion(BlazeVersionInfo.instance().getVersion()));
     if (actionMetadata != null) {
       builder.setActionMnemonic(actionMetadata.getMnemonic());
-      builder.setTargetId(actionMetadata.getOwner().getLabel().getCanonicalForm());
+      Label label = actionMetadata.getOwner().getLabel();
+      if (label != null) {
+        builder.setTargetId(label.getCanonicalForm());
+      }
       builder.setConfigurationId(actionMetadata.getOwner().getConfigurationChecksum());
     }
     return builder.build();

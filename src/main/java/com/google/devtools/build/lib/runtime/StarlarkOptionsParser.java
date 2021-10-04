@@ -259,7 +259,10 @@ public class StarlarkOptionsParser {
           buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
       if (current.getType().equals(BOOLEAN)) {
         // --boolean_flag or --noboolean_flag
-        unparsedOptions.put(name, new Pair<>(String.valueOf(booleanValue), buildSettingTarget));
+        // Ditto w/r/t canonical form.
+        unparsedOptions.put(
+            buildSettingTarget.getLabel().getCanonicalForm(),
+            new Pair<>(String.valueOf(booleanValue), buildSettingTarget));
       } else {
         if (!booleanValue) {
           // --no(non_boolean_flag)

@@ -90,7 +90,6 @@ sh_test(
     args = ["$(JAVABASE)"],
     data = [
         ":test-deps",
-        "//src/test/shell/bazel/apple:objc-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
@@ -225,6 +224,24 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java17_test",
+    srcs = ["bazel_java17_test.sh"],
+    args = [
+        # java_tools zip to test
+        "src/java_tools.zip",
+        "src/java_tools_prebuilt.zip",
+    ],
+    data = [
+        ":test-deps",
+        "//src:java_tools_prebuilt_zip",
+        "//src:java_tools_zip",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["local"],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
@@ -242,7 +259,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11", "15", "16")
+JAVA_VERSIONS = ("11", "15", "16", "17")
 
 # TODO(davido): Enable test coverage for JDK 16 toolchain when this issue is fixed:
 # https://github.com/bazelbuild/bazel/issues/13358
@@ -480,6 +497,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
+        "manual",
         "no_windows",
     ],
 )
@@ -503,6 +521,7 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
+            "manual",
             "no_windows",
         ],
     )
@@ -954,6 +973,20 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_hermetic_sandboxing_test",
+    size = "small",
+    srcs = ["bazel_hermetic_sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:sandboxing_test_utils.sh",
+    ],
+    tags = [
+        "no-sandbox",
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_sandboxing_cpp_test",
     srcs = ["bazel_sandboxing_cpp_test.sh"],
     data = [
@@ -1175,23 +1208,6 @@ sh_test(
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/test/shell:__pkg__"],
 )
 
 sh_test(

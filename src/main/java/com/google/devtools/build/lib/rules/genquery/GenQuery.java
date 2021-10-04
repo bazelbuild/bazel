@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -213,7 +215,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                         ruleContext.getConfiguration().legacyExternalRunfiles())
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
-        .setPropagateValidationActionOutputGroup(false)
+        .addOutputGroup(
+            OutputGroupInfo.VALIDATION_TRANSITIVE, NestedSetBuilder.emptySet(Order.STABLE_ORDER))
         .build();
   }
 
@@ -488,7 +491,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         checkValidPatternType(pattern);
         patternKeys.put(
             TargetPatternValue.key(
-                pattern, FilteringPolicies.NO_FILTER, PathFragment.EMPTY_FRAGMENT),
+                SignedTargetPattern.parse(pattern, TargetPattern.defaultParser()),
+                FilteringPolicies.NO_FILTER),
             pattern);
       }
       Set<SkyKey> packageKeys = new HashSet<>();
@@ -551,8 +555,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     private void checkValidPatternType(String pattern) throws TargetParsingException {
-      TargetPattern.Type type =
-          new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT).parse(pattern).getType();
+      TargetPattern.Type type = TargetPattern.defaultParser().parse(pattern).getType();
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
         throw new TargetParsingException(
             String.format("couldn't determine target from filename '%s'", pattern),
@@ -616,6 +619,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         return null;
       }
       return pkg.getBuildFile().getPath();
+    }
+
+    @Override
+    public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+      // TODO(b/123795023): we should have the data here but we don't have all packages for Starlark
+      //  loads present here.
+      Package pkg = pkgMap.get(packageName);
+      return pkg == null ? null : pkg.getBuildFileLabel().getName();
     }
   }
 

@@ -149,7 +149,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         new DummyAction(
             NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
             output,
-            MiddlemanType.AGGREGATING_MIDDLEMAN);
+            MiddlemanType.RUNFILES_MIDDLEMAN);
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
@@ -158,8 +158,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             Artifact.keys(ImmutableSet.of(input2, input1, input2, tree)), SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
     ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
-    inputs.addAll(((AggregatingArtifactValue) value).getFileArtifacts());
-    inputs.addAll(((AggregatingArtifactValue) value).getTreeArtifacts());
+    inputs.addAll(((RunfilesArtifactValue) value).getFileArtifacts());
+    inputs.addAll(((RunfilesArtifactValue) value).getTreeArtifacts());
     assertThat(inputs)
         .containsExactly(
             Pair.of(input1, createForTesting(input1)),
@@ -365,7 +365,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private DerivedArtifact createDerivedArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     DerivedArtifact output =
-        new DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, ALL_OWNER);
     actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     output.setGeneratingActionKey(ActionLookupData.create(ALL_OWNER, actions.size() - 1));
@@ -375,7 +375,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private Artifact createMiddlemanArtifact(String path) {
     ArtifactRoot middlemanRoot =
         ArtifactRoot.asDerivedRoot(middlemanPath, RootType.Middleman, PathFragment.create("out"));
-    return new DerivedArtifact(
+    return DerivedArtifact.create(
         middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
   }
 
@@ -388,7 +388,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   private SpecialArtifact createDerivedTreeArtifactOnly(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
         execPath,
         ALL_OWNER,

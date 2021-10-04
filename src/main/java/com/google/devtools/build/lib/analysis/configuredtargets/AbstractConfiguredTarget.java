@@ -20,10 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,7 +33,6 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -53,9 +50,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   private final BuildConfigurationValue.Key configurationKey;
 
   private final NestedSet<PackageGroupContents> visibility;
-
-  // Cached on-demand default provider
-  private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
 
   // Accessors for Starlark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
@@ -211,15 +205,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   protected void addExtraStarlarkKeys(Consumer<String> result) {}
 
   private DefaultInfo getDefaultProvider() {
-    if (defaultProvider.get() == null) {
-      defaultProvider.compareAndSet(
-          null,
-          DefaultInfo.build(
-              getProvider(RunfilesProvider.class),
-              getProvider(FileProvider.class),
-              getProvider(FilesToRunProvider.class)));
-    }
-    return defaultProvider.get();
+    return DefaultInfo.build(this);
   }
 
   /** Returns a declared provider provided by this target. Only meant to use from Starlark. */

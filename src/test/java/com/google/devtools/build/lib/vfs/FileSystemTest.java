@@ -14,7 +14,9 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -26,6 +28,9 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.FileStatus;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameter.TestParameterValuesProvider;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -33,9 +38,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
-import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
@@ -44,17 +50,13 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
 /**
  * This class handles the generic tests that any filesystem must pass.
  *
- * <p>Each filesystem-test should inherit from this class, thereby obtaining
- * all the tests.
+ * <p>Each filesystem-test should inherit from this class, thereby obtaining all the tests.
  */
-@RunWith(Parameterized.class)
+@RunWith(TestParameterInjector.class)
 public abstract class FileSystemTest {
 
   private long savedTime;
@@ -69,18 +71,15 @@ public abstract class FileSystemTest {
   protected Path xNonEmptyDirectoryFoo;
   protected Path xEmptyDirectory;
 
-  @Parameters(name = "{index}: digestHashFunction={0}")
-  public static Collection<DigestHashFunction[]> hashFunctions() {
-    // TODO(b/112537387): Remove the array-ification and return Collection<DigestHashFunction>. This
-    // is possible in Junit4.12, but 4.11 requires the array. Bazel 0.18 will have Junit4.12, so
-    // this can change then.
-    return DigestHashFunction.getPossibleHashFunctions()
-        .stream()
-        .map(dhf -> new DigestHashFunction[] {dhf})
-        .collect(ImmutableList.toImmutableList());
-  }
+  @TestParameter(valuesProvider = DigestHashFunctionsProvider.class)
+  public DigestHashFunction digestHashFunction;
 
-  @Parameter public DigestHashFunction digestHashFunction;
+  private static final class DigestHashFunctionsProvider implements TestParameterValuesProvider {
+    @Override
+    public ImmutableList<?> provideValues() {
+      return DigestHashFunction.getPossibleHashFunctions().asList();
+    }
+  }
 
   @Before
   public final void createDirectories() throws Exception  {
@@ -108,8 +107,14 @@ public abstract class FileSystemTest {
   }
 
   @After
-  public final void destroyFileSystem() throws Exception  {
+  public final void destroyFileSystem() throws Exception {
     destroyFileSystem(testFS);
+  }
+
+  /** Removes all stuff from the test filesystem. */
+  protected void destroyFileSystem(FileSystem fileSystem) throws IOException {
+    Preconditions.checkArgument(fileSystem.equals(workingDir.getFileSystem()));
+    cleanUpWorkingDirectory(workingDir);
   }
 
   /**
@@ -139,14 +144,6 @@ public abstract class FileSystemTest {
         throw e;
       }
     }
-  }
-
-  /**
-   * Removes all stuff from the test filesystem.
-   */
-  protected void destroyFileSystem(FileSystem fileSystem) throws IOException {
-    Preconditions.checkArgument(fileSystem.equals(workingDir.getFileSystem()));
-    cleanUpWorkingDirectory(workingDir);
   }
 
   /**
@@ -651,6 +648,64 @@ public abstract class FileSystemTest {
     Path wrongPath = absolutize("some-file/new-file");
     IOException e = assertThrows(IOException.class, () -> wrongPath.createDirectory());
     assertThat(e).hasMessageThat().endsWith(" (Not a directory)");
+  }
+
+  @Test
+  public void testCreateWritableDirectoryCreatesNewDirectory() throws Exception {
+    Path dir = absolutize("dir");
+
+    boolean result = dir.createWritableDirectory();
+
+    assertThat(result).isTrue();
+    assertThat(dir.isReadable()).isTrue();
+    assertThat(dir.isWritable()).isTrue();
+    assertThat(dir.isExecutable()).isTrue();
+    assertThat(dir.isDirectory(Symlinks.NOFOLLOW)).isTrue();
+  }
+
+  @Test
+  public void testCreateWritableDirectoryUpdatesPermissions() throws Exception {
+    Path dir = absolutize("dir");
+    dir.createDirectory();
+    dir.setWritable(false);
+    dir.setReadable(false);
+
+    boolean result = dir.createWritableDirectory();
+
+    assertThat(result).isFalse();
+    assertThat(dir.isReadable()).isTrue();
+    assertThat(dir.isWritable()).isTrue();
+    assertThat(dir.isExecutable()).isTrue();
+    assertThat(dir.isDirectory(Symlinks.NOFOLLOW)).isTrue();
+  }
+
+  @Test
+  public void testCreateWritableDirectoryUnderNonExistentParentFails() throws Exception {
+    Path dir = absolutize("nonexistent/dir");
+    assertThrows(FileNotFoundException.class, dir::createWritableDirectory);
+  }
+
+  @Test
+  public void testCreateWritableDirectoryOverExistingFileFails() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+    file.setExecutable(false);
+
+    IOException e = assertThrows(IOException.class, file::createWritableDirectory);
+
+    assertThat(e).hasMessageThat().isEqualTo(file + " (Not a directory)");
+    assertThat(file.isExecutable()).isFalse();
+  }
+
+  @Test
+  public void testCreateWritableDirectoryUnderExistingFileFails() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+    Path dir = absolutize("file/dir");
+
+    IOException e = assertThrows(IOException.class, dir::createWritableDirectory);
+
+    assertThat(e).hasMessageThat().endsWith("(Not a directory)");
   }
 
   // Test directory contents
@@ -1262,6 +1317,74 @@ public abstract class FileSystemTest {
       assertThat(numRead).isEqualTo(bytes.length);
       assertThat(buffer.hasArray()).isTrue();
       assertThat(buffer.array()).isEqualTo(bytes);
+    }
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelWrite(@TestParameter boolean overwrite)
+      throws Exception {
+    String text = "hello";
+    Path file = overwrite ? xFile : xNothing;
+    try (SeekableByteChannel channel = file.createReadWriteByteChannel()) {
+      writeToChannelAsLatin1(channel, text);
+      assertThat(channel.position()).isEqualTo(text.length());
+    }
+
+    assertThat(FileSystemUtils.readContent(file, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelWriteAfterSeek() throws Exception {
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      writeToChannelAsLatin1(channel, "01234567890");
+      channel.position(5);
+      writeToChannelAsLatin1(channel, "hello!");
+      assertThat(channel.position()).isEqualTo(5 + "hello!".length());
+    }
+
+    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1)).isEqualTo("01234hello!");
+  }
+
+  @Test
+  public void testCreateReadWriteByteChannelRead(@TestParameter({"0", "5", "12"}) int seekPosition)
+      throws Exception {
+    String text = "hello there!";
+    try (SeekableByteChannel channel = xNothing.createReadWriteByteChannel()) {
+      writeToChannelAsLatin1(channel, text);
+      channel.position(seekPosition);
+
+      String read = readAllAsString(channel, text.length() - seekPosition);
+      assertThat(channel.position()).isEqualTo(text.length());
+      assertThat(read).isEqualTo(text.substring(seekPosition));
+    }
+  }
+
+  private static void writeToChannelAsLatin1(WritableByteChannel channel, String text)
+      throws IOException {
+    byte[] bytes = text.getBytes(ISO_8859_1);
+    ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    int toWrite = bytes.length;
+    while (toWrite > 0) {
+      toWrite -= channel.write(buffer);
+    }
+    assertThat(toWrite).isEqualTo(0);
+    assertThat(buffer.remaining()).isEqualTo(0);
+  }
+
+  private static String readAllAsString(ReadableByteChannel channel, int expectedSize)
+      throws IOException {
+    checkArgument(expectedSize >= 0, "negative expected size: %s", expectedSize);
+    // +1 to make sure we can observe EOF -- Channel::read will always return 0 for a full buffer.
+    ByteBuffer buffer = ByteBuffer.allocate(expectedSize + 1);
+    int totalRead = 0;
+    for (; ; ) {
+      int read = channel.read(buffer);
+      if (read == -1) {
+        assertThat(totalRead).isEqualTo(expectedSize);
+        return new String(buffer.array(), 0, expectedSize, ISO_8859_1);
+      }
+      totalRead += read;
+      assertThat(buffer.position()).isEqualTo(totalRead);
     }
   }
 

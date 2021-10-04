@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -49,15 +49,15 @@ import java.util.Objects;
  */
 public class RepositoryMappingValue implements SkyValue {
 
-  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final RepositoryMapping repositoryMapping;
 
-  private RepositoryMappingValue(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+  private RepositoryMappingValue(RepositoryMapping repositoryMapping) {
     Preconditions.checkNotNull(repositoryMapping);
     this.repositoryMapping = repositoryMapping;
   }
 
   /** Returns the workspace mappings. */
-  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+  public RepositoryMapping getRepositoryMapping() {
     return repositoryMapping;
   }
 
@@ -67,8 +67,7 @@ public class RepositoryMappingValue implements SkyValue {
   }
 
   /** Returns a {@link RepositoryMappingValue} for a workspace with the given name. */
-  public static RepositoryMappingValue withMapping(
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+  public static RepositoryMappingValue withMapping(RepositoryMapping repositoryMapping) {
     return new RepositoryMappingValue(Preconditions.checkNotNull(repositoryMapping));
   }
 

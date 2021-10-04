@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -603,12 +604,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/test",
         "lib",
         // error:
-        getErrorMsgMisplacedRules(
-            "plugins",
-            "android_binary",
-            "//java/test:lib",
-            "java_library",
-            "//java/test:not_a_plugin"),
+        getErrorMsgMandatoryProviderMissing("//java/test:not_a_plugin", "JavaPluginInfo"),
         // BUILD file:
         "java_library(name = 'not_a_plugin',",
         "    srcs = [ 'NotAPlugin.java'])",
@@ -2674,10 +2670,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    multidex = 'legacy')");
 
-    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    ConfiguredTargetAndData a = getConfiguredTargetAndData("//java/a:a");
     Artifact intermediateJar =
         artifactByPath(
-            ImmutableList.of(getCompressedUnsignedApk(a)),
+            ImmutableList.of(getCompressedUnsignedApk(a.getConfiguredTarget())),
             ".apk",
             ".dex.zip",
             ".dex.zip",
@@ -2688,7 +2684,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         args,
         ImmutableList.of(
             "-include",
-            targetConfig.getBinFragment(RepositoryName.MAIN)
+            a.getConfiguration().getBinFragment(RepositoryName.MAIN)
                 + "/java/a/proguard/a/main_dex_a_proguard.cfg"));
   }
 
@@ -2994,9 +2990,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               resource_files = ['res/values/strings.xml'],",
         "               )");
-    ConfiguredTarget r = getConfiguredTarget("//java/android/resources:r");
-    assertThat(getFirstArtifactEndingWith(getFilesToBuild(r), ".apk").getRoot())
-        .isEqualTo(getTargetConfiguration().getBinDirectory(RepositoryName.MAIN));
+    ConfiguredTargetAndData r = getConfiguredTargetAndData("//java/android/resources:r");
+    assertThat(
+            getFirstArtifactEndingWith(getFilesToBuild(r.getConfiguredTarget()), ".apk").getRoot())
+        .isEqualTo(r.getConfiguration().getBinDirectory(RepositoryName.MAIN));
   }
 
   @Test
@@ -3279,9 +3276,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInDependency() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=notrim",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3334,9 +3329,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInBinary() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=notrim",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3384,9 +3377,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInBinaryAlias() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=notrim",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3426,10 +3417,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        // TODO(b/173547615): Re-enable this flag or delete.
-        // "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3469,10 +3457,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalidEvenIfNotUsed()
       throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        // TODO(b/173547615): Re-enable this flag or delete.
-        // "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3502,9 +3487,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagIsAliased() throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration(
-        "--experimental_dynamic_configs=notrim",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -3534,9 +3517,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsFeatureFlagProviderValues() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=notrim",
-        "--enforce_transitive_configs_for_config_feature_flag");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "java/com/foo/reader.bzl",
         "def _impl(ctx):",
@@ -3607,8 +3588,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  },",
         ")");
     ConfiguredTarget ct = getConfiguredTarget("//java/com/foo:foo");
-    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getRequiredConfigFragments())
-        .contains("//java/com/foo:flag1");
+    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())
+        .containsExactly(Label.parseAbsoluteUnchecked("//java/com/foo:flag1"));
   }
 
   @Test
@@ -3672,9 +3653,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
     assertContainsEvent(
-        "in feature_flags attribute of android_binary rule //java/com/google/android/foo:foo: "
-            + "the feature_flags attribute is not available in package "
-            + "'java/com/google/android/foo'");
+        "in android_binary rule //java/com/google/android/foo:foo: "
+            + "the attribute feature_flags is not available in this package");
   }
 
   @Test
@@ -3947,13 +3927,15 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
         "                                 'proguard-spec2.pro'])");
+    ConfiguredTargetAndData binary =
+        getConfiguredTargetAndData("//java/com/google/android/hello:b");
     checkProguardUse(
-        "//java/com/google/android/hello:b",
+        binary.getConfiguredTarget(),
         "b_proguard.jar",
         false,
         null,
         /*splitOptimizationPass=*/ false,
-        targetConfig.getBinFragment(RepositoryName.MAIN)
+        binary.getConfiguration().getBinFragment(RepositoryName.MAIN)
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
   }
 
@@ -4092,7 +4074,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               proguard_specs = ['proguard-spec.pro'],",
         "               proguard_generate_mapping = 1)");
     checkProguardUse(
-        "//java/com/google/android/hello:b",
+        getConfiguredTarget("//java/com/google/android/hello:b"),
         "b_proguard.jar",
         true,
         null,
@@ -4149,7 +4131,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro'])");
     checkProguardUse(
-        "//java/com/google/android/hello:b",
+        getConfiguredTarget("//java/com/google/android/hello:b"),
         "b_proguard.jar",
         false,
         null,
@@ -4180,7 +4162,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro'])");
     checkProguardUse(
-        "//java/com/google/android/hello:b",
+        getConfiguredTarget("//java/com/google/android/hello:b"),
         "b_proguard.jar",
         false,
         null,
@@ -4274,15 +4256,17 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
         "                                 'proguard-spec2.pro'])");
-    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    ConfiguredTargetAndData binary =
+        getConfiguredTargetAndData("//java/com/google/android/hello:b");
     SpawnAction action =
         (SpawnAction)
             actionsTestUtil()
-                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar");
+                .getActionForArtifactEndingWith(
+                    getFilesToBuild(binary.getConfiguredTarget()), "_proguard.jar");
 
     checkProguardLibJars(
         action,
-        targetConfig.getBinFragment(RepositoryName.MAIN)
+        binary.getConfiguration().getBinFragment(RepositoryName.MAIN)
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
   }
 
@@ -4300,15 +4284,17 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro', 'proguard-spec1.pro',",
         "                                 'proguard-spec2.pro'])");
-    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    ConfiguredTargetAndData binary =
+        getConfiguredTargetAndData("//java/com/google/android/hello:b");
     SpawnAction action =
         (SpawnAction)
             actionsTestUtil()
-                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar");
+                .getActionForArtifactEndingWith(
+                    getFilesToBuild(binary.getConfiguredTarget()), "_proguard.jar");
 
     checkProguardLibJars(
         action,
-        targetConfig.getBinFragment(RepositoryName.MAIN)
+        binary.getConfiguration().getBinFragment(RepositoryName.MAIN)
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars_filtered.jar");
   }
 
@@ -4503,7 +4489,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    ],",
         "    manifest = 'AndroidManifest.xml')");
     checkProguardUse(
-        "//java/foo:abin",
+        getConfiguredTarget("//java/foo:abin"),
         "abin_proguard.jar",
         /*expectMapping=*/ false,
         /*passes=*/ null,

@@ -120,8 +120,8 @@ dependencies.
 
 The attributes in the target explicitly state its dependencies and options.
 While the `name` attribute is mandatory, many are optional. For example, in the
-`hello-world` target, `name` is self-explanatory, and `srcs` specifies the
-source file(s) from which Bazel builds the target.
+`hello-world` target, `name` is required and self-explanatory, and `srcs` is
+optional and specifies the source file(s) from which Bazel builds the target.
 
 ### Build the project
 
@@ -368,11 +368,14 @@ is:
 //path/to/package:target-name
 ```
 
-If the target is a rule target, then `path/to/package` is the path to the
-directory containing the `BUILD` file, and `target-name` is what you named the
-target in the `BUILD` file (the `name` attribute). If the target is a file
-target, then `path/to/package` is the path to the root of the package, and
-`target-name` is the name of the target file, including its full path.
+If the target is a rule target, then `path/to/package` is the path from the
+workspace root (the directory containing the `WORKSPACE` file) to the directory
+containing the `BUILD` file, and `target-name` is what you named the target
+in the `BUILD` file (the `name` attribute). If the target is a file target,
+then `path/to/package` is the path to the root of the package, and
+`target-name` is the name of the target file, including its full
+path relative to the root of the package (the directory containing the
+package's `BUILD` file).
 
 When referencing targets at the repository root, the package path is empty,
 just use `//:target-name`. When referencing targets within the same `BUILD`

@@ -18,16 +18,12 @@ import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import javax.annotation.Nullable;
@@ -40,9 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Encapsulates information for linking a library. */
 // The AutoValue implementation of this class already has a sizeable number of fields, meaning that
-// instances have a surprising memory cost. We may benefit from having more specialized
-// implementations similar to StaticOnlyLibraryToLink, for cases when certain fields are always
-// null. Consider this before adding additional fields to this class. See b/181991741.
+// instances have a surprising memory cost.
 @Immutable
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBackendArtifacts> {
 
@@ -258,14 +252,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         .setDisableWholeArchive(false);
   }
 
-  /**
-   * Creates a {@link LibraryToLink} that has only {@link #getStaticLibrary} and no other optional
-   * fields.
-   */
-  public static LibraryToLink staticOnly(Artifact staticLibrary) {
-    return StaticOnlyLibraryToLink.cache.getUnchecked(staticLibrary);
-  }
-
   /** Builder for {@link LibraryToLink}. */
   public interface Builder {
 
@@ -401,143 +387,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
                 || result.getInterfaceLibrary() != null,
             result);
 
-        // Static-only instances must always return StaticOnlyLibraryToLink to preserve equality.
-        if (result.getStaticLibrary() != null
-            && !result.getAlwayslink()
-            && !result.getMustKeepDebug()
-            && !result.getDisableWholeArchive()
-            && result.getPicStaticLibrary() == null
-            && result.getDynamicLibrary() == null
-            && result.getInterfaceLibrary() == null
-            && result.getSharedNonLtoBackends() == null
-            && result.getPicObjectFiles() == null
-            && result.getPicLtoCompilationContext() == null) {
-          Artifact staticLibrary = result.getStaticLibrary();
-          String libraryIdentifier = result.getLibraryIdentifier();
-
-          // Try to reuse an existing instance if possible.
-          StaticOnlyLibraryToLink existing =
-              StaticOnlyLibraryToLink.cache.getIfPresent(staticLibrary);
-          if (existing != null && existing.getLibraryIdentifier().equals(libraryIdentifier)) {
-            return existing;
-          }
-
-          return new AutoValue_LibraryToLink_StaticOnlyLibraryToLink(
-              result.getLibraryIdentifier(), result.getStaticLibrary());
-        }
-
         return result;
       }
-    }
-  }
-
-  /**
-   * Specialized implementation for the case when only {@link #getStaticLibrary} is needed, to save
-   * memory compared to {@link AutoLibraryToLink}.
-   */
-  @AutoValue
-  abstract static class StaticOnlyLibraryToLink extends LibraryToLink {
-
-    // Essentially an interner, but keyed on Artifact to defer creating the string identifier.
-    private static final LoadingCache<Artifact, StaticOnlyLibraryToLink> cache =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(BlazeInterners.concurrencyLevel())
-            .weakValues()
-            .build(
-                CacheLoader.from(
-                    artifact ->
-                        new AutoValue_LibraryToLink_StaticOnlyLibraryToLink(
-                            CcLinkingOutputs.libraryIdentifierOf(artifact), artifact)));
-
-    @Override // Remove @Nullable.
-    public abstract Artifact getStaticLibrary();
-
-    @Nullable
-    @Override
-    public ImmutableList<Artifact> getObjectFiles() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public LtoCompilationContext getLtoCompilationContext() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public ImmutableList<Artifact> getPicObjectFiles() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public LtoCompilationContext getPicLtoCompilationContext() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Artifact getPicStaticLibrary() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Artifact getDynamicLibrary() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Artifact getResolvedSymlinkDynamicLibrary() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Artifact getInterfaceLibrary() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Artifact getResolvedSymlinkInterfaceLibrary() {
-      return null;
-    }
-
-    @Override
-    public boolean getAlwayslink() {
-      return false;
-    }
-
-    @Override
-    public AutoLibraryToLink.Builder toBuilder() {
-      return builder()
-          .setStaticLibrary(getStaticLibrary())
-          .setLibraryIdentifier(getLibraryIdentifier());
-    }
-
-    @Override
-    boolean getMustKeepDebug() {
-      return false;
-    }
-
-    @Override
-    boolean getDisableWholeArchive() {
-      return false;
     }
   }
 }

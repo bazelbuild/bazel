@@ -154,8 +154,10 @@ public class PlatformOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "Print debug information during toolchain resolution. The flag takes a regex, which is"
-              + " checked against toolchain types to see which to debug. Multiple regexes may be"
-              + " separated by commas, and then each regex is checked separately.")
+              + " checked against toolchain types and specific targets to see which to debug. "
+              + "Multiple regexes may be  separated by commas, and then each regex is checked "
+              + "separately. Note: The output of this flag is very complex and will likely only be "
+              + "useful to experts in toolchain resolution.")
   public RegexFilter toolchainResolutionDebug;
 
   @Option(
@@ -163,10 +165,7 @@ public class PlatformOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, the host platform will be inherited from @local_config_platform//:host, "
               + "instead of being based on the --cpu (and --host_cpu) flags.")
@@ -177,13 +176,8 @@ public class PlatformOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, toolchain resolution will be used to resolve java_toolchain and"
-              + " java_runtime.")
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean useToolchainResolutionForJavaRules;
 
   @Option(
@@ -222,13 +216,10 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_override_toolchain_transition",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, all rules will use the toolchain transition for toolchain dependencies.")
   public boolean overrideToolchainTransition;

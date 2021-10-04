@@ -14,11 +14,20 @@
 
 package com.google.devtools.build.lib.worker;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
+import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -34,33 +43,93 @@ class TestUtils {
 
   private TestUtils() {}
 
+  /** A helper method to create a fake Spawn with the given execution info. */
+  static Spawn createSpawn(ImmutableMap<String, String> executionInfo) {
+    return new SimpleSpawn(
+        new ActionsTestUtil.NullAction(),
+        /* arguments= */ ImmutableList.of(),
+        /* environment= */ ImmutableMap.of(),
+        executionInfo,
+        /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* outputs= */ ImmutableSet.of(),
+        ResourceSet.ZERO);
+  }
+
+  /** A helper method to create a WorkerKey through WorkerParser. */
+  static WorkerKey createWorkerKey(
+      WorkerProtocolFormat protocolFormat,
+      FileSystem fs,
+      String mnemonic,
+      boolean multiplex,
+      boolean sandboxed,
+      boolean dynamic,
+      String... args) {
+    WorkerOptions workerOptions = new WorkerOptions();
+    workerOptions.workerMultiplex = multiplex;
+    workerOptions.workerSandboxing = sandboxed;
+
+    Spawn spawn =
+        createSpawn(
+            ImmutableMap.of(
+                ExecutionRequirements.WORKER_KEY_MNEMONIC, mnemonic,
+                ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "proto",
+                ExecutionRequirements.SUPPORTS_WORKERS, "1",
+                ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1"));
+
+    return WorkerParser.createWorkerKey(
+        spawn,
+        /* workerArgs= */ ImmutableList.copyOf(args),
+        /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
+        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+        /* workerFiles= */ ImmutableSortedMap.of(),
+        workerOptions,
+        dynamic,
+        protocolFormat);
+  }
+
   static WorkerKey createWorkerKey(
       FileSystem fileSystem, String mnemonic, boolean proxied, String... args) {
-    return new WorkerKey(
-        /* args= */ ImmutableList.copyOf(args),
-        /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
-        /* execRoot= */ fileSystem.getPath("/fake"),
-        /* mnemonic= */ mnemonic,
-        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
-        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
-        /* mustBeSandboxed= */ false,
-        /* proxied= */ proxied,
-        /* cancellable= */ false,
-        WorkerProtocolFormat.PROTO);
+    return createWorkerKey(
+        WorkerProtocolFormat.PROTO,
+        fileSystem,
+        mnemonic,
+        proxied,
+        /* sandboxed= */ false,
+        /* dynamic= */ false,
+        args);
   }
 
   static WorkerKey createWorkerKey(WorkerProtocolFormat protocolFormat, FileSystem fs) {
-    return new WorkerKey(
-        /* args= */ ImmutableList.of("arg1", "arg2", "arg3"),
-        /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
-        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+    return createWorkerKey(protocolFormat, fs, false);
+  }
+
+  static WorkerKey createWorkerKey(
+      WorkerProtocolFormat protocolFormat, FileSystem fs, boolean dynamic) {
+    return createWorkerKey(
+        protocolFormat,
+        fs,
         /* mnemonic= */ "dummy",
-        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
-        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
-        /* mustBeSandboxed= */ true,
         /* proxied= */ true,
-        /* cancellable= */ false,
-        protocolFormat);
+        /* sandboxed= */ true,
+        dynamic,
+        /* args...= */ "arg1",
+        "arg2",
+        "arg3");
+  }
+
+  static WorkerKey createWorkerKey(
+      FileSystem fs, boolean multiplex, boolean sandboxed, boolean dynamic) {
+    return createWorkerKey(
+        WorkerProtocolFormat.PROTO,
+        fs,
+        /* mnemonic= */ "dummy",
+        multiplex,
+        sandboxed,
+        dynamic,
+        /* args...= */ "arg1",
+        "arg2",
+        "arg3");
   }
 
   /** A worker that uses a fake subprocess for I/O. */

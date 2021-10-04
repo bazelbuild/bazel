@@ -75,7 +75,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public String getSrcsVersionDocURL() {
     // TODO(#8996): Update URL to point to rules_python's docs instead of the Bazel site.
-    return "https://docs.bazel.build/versions/master/be/python.html#py_binary.srcs_version";
+    return "https://docs.bazel.build/versions/main/be/python.html#py_binary.srcs_version";
   }
 
   @Override
@@ -167,6 +167,7 @@ public class BazelPythonSemantics implements PythonSemantics {
             stubOutput,
             STUB_TEMPLATE,
             ImmutableList.of(
+                Substitution.of("%shebang%", getStubShebang(ruleContext, common)),
                 Substitution.of(
                     "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
                 Substitution.of("%python_binary%", pythonBinary),
@@ -207,7 +208,7 @@ public class BazelPythonSemantics implements PythonSemantics {
      * logic will extract the zip's runfiles into a temporary directory.
      *
      * The stub script has a shebang pointing to a first-stage Python interpreter (as of this
-     * writing "#!/usr/bin/env python"). When a zip file is built on unix, this shebang is also
+     * writing "#!/usr/bin/env python3"). When a zip file is built on unix, this shebang is also
      * prepended to the final zip artifact. On Windows shebangs are ignored, and the launcher
      * runs the first stage with an interpreter whose path is passed in as LaunchInfo.
      */
@@ -237,9 +238,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-        // TODO(#8685): Remove this special-case handling as part of making the proper shebang a
-        // property of the Python toolchain configuration.
-        String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
+        String pythonExecutableName = "python3";
         // NOTE: keep the following line intact to support nix builds
         String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;
         ruleContext.registerAction(
@@ -449,6 +448,15 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
 
     return pythonBinary;
+  }
+
+  private static String getStubShebang(RuleContext ruleContext, PyCommon common) {
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null) {
+      return provider.getStubShebang();
+    } else {
+      return PyRuntimeInfo.DEFAULT_STUB_SHEBANG;
+    }
   }
 
   @Override

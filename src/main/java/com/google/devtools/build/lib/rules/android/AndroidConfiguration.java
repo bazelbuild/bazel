@@ -783,10 +783,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.EAGERNESS_TO_EXIT,
         },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If enabled, direct usage of the native Android rules is disabled. Please use the"
                 + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
@@ -797,10 +794,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
                 + " native)")
@@ -887,22 +881,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Tracking flag for when busybox workers are enabled.")
     public boolean persistentBusyboxTools;
 
-    // TODO(b/142520065): Remove.
-    @Option(
-        name = "incompatible_prohibit_aapt1",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        defaultValue = "true",
-        help =
-            "End support for aapt in Android rules. "
-                + "To resolve issues when migrating your app to build with aapt2, see "
-                + "https://developer.android.com/studio/command-line/aapt2#aapt2_changes")
-    public boolean incompatibleProhibitAapt1;
-
     @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
         defaultValue = "true",
@@ -978,6 +956,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
 
+    @Option(
+        name = "android_include_proguard_location_references",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "When using aapt2 to generate proguard configurations, include location references."
+                + " This will make the build nondeterministic.")
+    public boolean includeProguardLocationReferences;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1006,8 +994,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
-
-      host.incompatibleProhibitAapt1 = incompatibleProhibitAapt1;
 
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
@@ -1063,6 +1049,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean incompatibleUseToolchainResolution;
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
+  private final boolean includeProguardLocationReferences;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1123,6 +1110,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
+    this.includeProguardLocationReferences = options.includeProguardLocationReferences;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1401,6 +1389,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean getJavaResourcesFromOptimizedJar() {
     return getJavaResourcesFromOptimizedJar;
+  }
+
+  public boolean includeProguardLocationReferences() {
+    return includeProguardLocationReferences;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

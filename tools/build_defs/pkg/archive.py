@@ -1,4 +1,4 @@
-# Lint as: python2, python3
+# Lint as: python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,11 +19,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import gzip
-import io
 import os
-import subprocess
 import tarfile
-import six
 
 # Use a deterministic mtime that doesn't confuse other programs.
 # See: https://github.com/bazelbuild/bazel/issues/1299
@@ -46,7 +43,7 @@ class TarFileWriter(object):
 
     Args:
       name: the tar file name.
-      compression: compression type: bzip2, bz2, gz, tgz, xz, lzma.
+      compression: compression type: bzip2, bz2, gz, tgz.
       root_directory: virtual root to prepend to elements in the archive.
       default_mtime: default mtime to use for elements in the archive.
           May be an integer or the value 'portable' to use the date
@@ -58,10 +55,8 @@ class TarFileWriter(object):
     else:
       mode = 'w:'
     self.gz = compression in ['tgz', 'gz']
-    # Support xz compression through xz... until we can use Py3
-    self.xz = compression in ['xz', 'lzma']
     self.name = name
-    self.root_directory = six.ensure_str(root_directory).rstrip('/')
+    self.root_directory = root_directory.rstrip('/')
 
     self.preserve_mtime = preserve_tar_mtimes
 
@@ -116,7 +111,7 @@ class TarFileWriter(object):
       TarFileWriter.Error: when the recursion depth has exceeded the
                            `depth` argument.
     """
-    if not (name == self.root_directory or six.ensure_str(name).startswith('/')
+    if not (name == self.root_directory or name.startswith('/')
             or name.startswith(self.root_directory + '/')):
       name = os.path.join(self.root_directory, name)
     if mtime is None:
@@ -129,7 +124,7 @@ class TarFileWriter(object):
       # The x bit is set only to if the read bit is set.
       dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
       self.add_file(
-          six.ensure_str(name) + '/',
+          name + '/',
           tarfile.DIRTYPE,
           uid=uid,
           gid=gid,
@@ -161,8 +156,7 @@ class TarFileWriter(object):
 
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
-    if not six.ensure_str(
-        info.name).endswith('/') and info.type == tarfile.DIRTYPE:
+    if not info.name.endswith('/') and info.type == tarfile.DIRTYPE:
       # Enforce the ending / for directories so we correctly deduplicate.
       info.name += '/'
     if info.name not in self.members:
@@ -175,7 +169,6 @@ class TarFileWriter(object):
   def add_file(self,
                name,
                kind=tarfile.REGTYPE,
-               content=None,
                link=None,
                file_content=None,
                uid=0,
@@ -189,7 +182,6 @@ class TarFileWriter(object):
     Args:
       name: the name of the file to add.
       kind: the type of the file to add, see tarfile.*TYPE.
-      content: a textual content to put in the file.
       link: if the file is a link, the destination of the link.
       file_content: file to read the content from. Provide either this
           one or `content` to specifies a content for the file.
@@ -238,11 +230,7 @@ class TarFileWriter(object):
       tarinfo.mode = mode
     if link:
       tarinfo.linkname = link
-    if content:
-      content_bytes = six.ensure_binary(content, 'utf-8')
-      tarinfo.size = len(content_bytes)
-      self._addfile(tarinfo, io.BytesIO(content_bytes))
-    elif file_content:
+    if file_content:
       with open(file_content, 'rb') as f:
         tarinfo.size = os.fstat(f.fileno()).st_size
         self._addfile(tarinfo, f)
@@ -277,42 +265,22 @@ class TarFileWriter(object):
     """
     if root and root[0] not in ['/', '.']:
       # Root prefix should start with a '/', adds it if missing
-      root = '/' + six.ensure_str(root)
+      root = '/' + root
     compression = os.path.splitext(tar)[-1][1:]
     if compression == 'tgz':
       compression = 'gz'
     elif compression == 'bzip2':
       compression = 'bz2'
-    elif compression == 'lzma':
-      compression = 'xz'
-    elif compression not in ['gz', 'bz2', 'xz']:
+    elif compression not in ['gz', 'bz2']:
       compression = ''
-    if compression == 'xz':
-      # Python 2 does not support lzma, our py3 support is terrible so let's
-      # just hack around.
-      # Note that we buffer the file in memory and it can have an important
-      # memory footprint but it's probably fine as we don't use them for really
-      # large files.
-      # TODO(dmarting): once our py3 support gets better, compile this tools
-      # with py3 for proper lzma support.
-      if subprocess.call('which xzcat', shell=True, stdout=subprocess.PIPE):
-        raise self.Error('Cannot handle .xz and .lzma compression: '
-                         'xzcat not found.')
-      p = subprocess.Popen('cat %s | xzcat' % tar,
-                           shell=True,
-                           stdout=subprocess.PIPE)
-      f = io.BytesIO(p.stdout.read())
-      p.wait()
-      intar = tarfile.open(fileobj=f, mode='r:')
+    if compression in ['gz', 'bz2']:
+      # prevent performance issues due to accidentally-introduced seeks
+      # during intar traversal by opening in "streaming" mode. gz, bz2
+      # are supported natively by python 2.7 and 3.x
+      inmode = 'r|' + compression
     else:
-      if compression in ['gz', 'bz2']:
-        # prevent performance issues due to accidentally-introduced seeks
-        # during intar traversal by opening in "streaming" mode. gz, bz2
-        # are supported natively by python 2.7 and 3.x
-        inmode = 'r|' + six.ensure_str(compression)
-      else:
-        inmode = 'r:' + six.ensure_str(compression)
-      intar = tarfile.open(name=tar, mode=inmode)
+      inmode = 'r:' + compression
+    intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if name_filter is None or name_filter(tarinfo.name):
         if not self.preserve_mtime:
@@ -370,12 +338,3 @@ class TarFileWriter(object):
     # Close the gzip file object if necessary.
     if self.fileobj:
       self.fileobj.close()
-    if self.xz:
-      # Support xz compression through xz... until we can use Py3
-      if subprocess.call('which xz', shell=True, stdout=subprocess.PIPE):
-        raise self.Error('Cannot handle .xz and .lzma compression: '
-                         'xz not found.')
-      subprocess.call(
-          'mv {0} {0}.d && xz -z {0}.d && mv {0}.d.xz {0}'.format(self.name),
-          shell=True,
-          stdout=subprocess.PIPE)

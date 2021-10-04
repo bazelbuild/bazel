@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,7 +36,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -58,7 +61,7 @@ import net.starlark.java.syntax.Location;
 @Immutable
 @AutoCodec
 public final class JavaInfo extends NativeInfo
-    implements JavaInfoApi<Artifact, JavaOutput, CcInfo> {
+    implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData> {
 
   public static final String STARLARK_NAME = "JavaInfo";
 
@@ -76,7 +79,6 @@ public final class JavaInfo extends NativeInfo
           JavaCompilationArgsProvider.class,
           JavaSourceJarsProvider.class,
           JavaRuleOutputJarsProvider.class,
-          JavaPluginInfoProvider.class,
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
@@ -115,19 +117,26 @@ public final class JavaInfo extends NativeInfo
     return providers;
   }
 
+  @Nullable
+  public JavaPluginInfo getJavaPluginInfo() {
+    return providers.get(JavaPluginInfo.PROVIDER);
+  }
+
   /**
    * Merges the given providers into one {@link JavaInfo}. All the providers with the same type in
    * the given list are merged into one provider that is added to the resulting {@link JavaInfo}.
    */
-  public static JavaInfo merge(List<JavaInfo> providers) {
+  public static JavaInfo merge(List<JavaInfo> providers, boolean withExportsProvider) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
-    List<JavaPluginInfoProvider> javaPluginInfoProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
-    List<JavaExportsProvider> javaExportsProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
+    List<JavaPluginInfo> javaPluginInfos =
+        providers.stream()
+            .map(JavaInfo::getJavaPluginInfo)
+            .filter(Objects::nonNull)
+            .collect(toImmutableList());
+
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
     List<JavaCcInfoProvider> javaCcInfoProviders =
@@ -140,24 +149,31 @@ public final class JavaInfo extends NativeInfo
       javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
 
-    return JavaInfo.Builder.create()
-        .addProvider(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
-        .addProvider(
-            JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
-        .addProvider(
-            JavaRuleOutputJarsProvider.class,
-            JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-        .addProvider(
-            JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
-        .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
-        .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
-        // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
-        // TODO(iirina): merge or remove JavaCompilationInfoProvider
-        .setRuntimeJars(runtimeJars.build())
-        .setJavaConstraints(javaConstraints.build())
-        .build();
+    JavaInfo.Builder javaInfoBuilder =
+        JavaInfo.Builder.create()
+            .addProvider(
+                JavaCompilationArgsProvider.class,
+                JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
+            .addProvider(
+                JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
+            .addProvider(
+                JavaRuleOutputJarsProvider.class,
+                JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
+            .javaPluginInfo(JavaPluginInfo.merge(javaPluginInfos))
+            .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
+            // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
+            // TODO(iirina): merge or remove JavaCompilationInfoProvider
+            .setRuntimeJars(runtimeJars.build())
+            .setJavaConstraints(javaConstraints.build());
+
+    if (withExportsProvider) {
+      List<JavaExportsProvider> javaExportsProviders =
+          JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
+      javaInfoBuilder.addProvider(
+          JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders));
+    }
+
+    return javaInfoBuilder.build();
   }
 
   /**
@@ -167,7 +183,7 @@ public final class JavaInfo extends NativeInfo
    */
   public static <T extends TransitiveInfoProvider> ImmutableList<T> fetchProvidersFromList(
       Iterable<JavaInfo> javaProviders, Class<T> providerClass) {
-    return streamProviders(javaProviders, providerClass).collect(ImmutableList.toImmutableList());
+    return streamProviders(javaProviders, providerClass).collect(toImmutableList());
   }
 
   /**
@@ -390,6 +406,18 @@ public final class JavaInfo extends NativeInfo
     return javaCcInfoProvider != null ? javaCcInfoProvider.getCcInfo() : CcInfo.EMPTY;
   }
 
+  @Override
+  public JavaPluginData plugins() {
+    JavaPluginInfo javaPluginInfo = getJavaPluginInfo();
+    return javaPluginInfo == null ? JavaPluginData.empty() : javaPluginInfo.plugins();
+  }
+
+  @Override
+  public JavaPluginData apiGeneratingPlugins() {
+    JavaPluginInfo javaPluginInfo = getJavaPluginInfo();
+    return javaPluginInfo == null ? JavaPluginData.empty() : javaPluginInfo.apiGeneratingPlugins();
+  }
+
   /** Returns all constraints set on the associated target. */
   public ImmutableList<String> getJavaConstraints() {
     return javaConstraints;
@@ -458,6 +486,7 @@ public final class JavaInfo extends NativeInfo
         Sequence<?> deps,
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
+        Sequence<?> exportedPlugins,
         Object jdepsApi,
         Sequence<?> nativeLibraries,
         StarlarkThread thread)
@@ -471,7 +500,6 @@ public final class JavaInfo extends NativeInfo
       @Nullable Artifact nativeHeadersJar = nullIfNone(nativeHeadersJarApi, Artifact.class);
       @Nullable Artifact manifestProto = nullIfNone(manifestProtoApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
               JavaOutput.builder()
@@ -489,8 +517,10 @@ public final class JavaInfo extends NativeInfo
               Sequence.cast(deps, JavaInfo.class, "deps"),
               Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
               Sequence.cast(exports, JavaInfo.class, "exports"),
+              Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins"),
               Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-              thread.getCallerLocation());
+              thread.getCallerLocation(),
+              thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER));
     }
   }
 
@@ -538,7 +568,7 @@ public final class JavaInfo extends NativeInfo
           deps.stream()
               .map(JavaInfo::getJavaInfo)
               .filter(Objects::nonNull)
-              .collect(ImmutableList.toImmutableList()));
+              .collect(toImmutableList()));
       return this;
     }
 
@@ -551,31 +581,13 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
-    private Builder addTransitiveOnlyRuntimeJars(NestedSet<Artifact> runtimeJars) {
+    Builder addTransitiveOnlyRuntimeJars(NestedSet<Artifact> runtimeJars) {
       this.transitiveOnlyRuntimeJars.addTransitive(runtimeJars);
       return this;
     }
 
     public Builder setJavaConstraints(ImmutableList<String> javaConstraints) {
       this.javaConstraints = javaConstraints;
-      return this;
-    }
-
-    public Builder experimentalDisableAnnotationProcessing() {
-      JavaPluginInfoProvider provider = providerMap.getProvider(JavaPluginInfoProvider.class);
-      if (provider != null) {
-        JavaPluginInfo plugins = provider.plugins();
-        providerMap.put(
-            JavaPluginInfoProvider.class,
-            JavaPluginInfoProvider.create(
-                JavaPluginInfo.create(
-                    /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-                    // Preserve the processor path, since it may contain Error Prone plugins which
-                    // will be service-loaded by JavaBuilder.
-                    plugins.processorClasspath(),
-                    /* data= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)),
-                /* generatesApi= */ false));
-      }
       return this;
     }
 
@@ -588,6 +600,11 @@ public final class JavaInfo extends NativeInfo
         Class<P> providerClass, TransitiveInfoProvider provider) {
       Preconditions.checkArgument(ALLOWED_PROVIDERS.contains(providerClass));
       providerMap.put(providerClass, provider);
+      return this;
+    }
+
+    public Builder javaPluginInfo(JavaPluginInfo javaPluginInfo) {
+      providerMap.put(javaPluginInfo);
       return this;
     }
 

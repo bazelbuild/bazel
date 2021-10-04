@@ -118,6 +118,16 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     this.retrier = retrier;
   }
 
+  @VisibleForTesting
+  ReferenceCountedChannel getChannel() {
+    return channel;
+  }
+
+  @VisibleForTesting
+  RemoteRetrier getRetrier() {
+    return retrier;
+  }
+
   /**
    * Uploads a BLOB, as provided by the {@link Chunker}, to the remote {@code ByteStream} service.
    * The call blocks until the upload is complete, or throws an {@link Exception} in case of error.
@@ -229,7 +239,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * @param chunker the data to upload.
    * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
    *     uploaded, if {@code true} the blob is uploaded.
-   * @throws IOException when reading of the {@link Chunker}s input source fails
    */
   public ListenableFuture<Void> uploadBlobAsync(
       RemoteActionExecutionContext context, Digest digest, Chunker chunker, boolean forceUpload) {

@@ -123,32 +123,6 @@ public class RuleDocumentationTest {
   }
 
   @Test
-  public void testExtractExamples() throws BuildEncyclopediaDocException {
-    RuleDocumentation ruleDoc =
-        new RuleDocumentation(
-            "rule",
-            "OTHER",
-            "FOO",
-            Joiner.on("\n")
-                .join(
-                    new String[] {
-                      "x",
-                      "<!-- #BLAZE_RULE.EXAMPLE -->",
-                      "a",
-                      "<!-- #BLAZE_RULE.END_EXAMPLE -->",
-                      "y",
-                      "<!-- #BLAZE_RULE.EXAMPLE -->",
-                      "b",
-                      "<!-- #BLAZE_RULE.END_EXAMPLE -->",
-                      "z"
-                    }),
-            0,
-            "",
-            ImmutableSet.<String>of());
-    assertThat(ruleDoc.extractExamples()).isEqualTo(ImmutableSet.<String>of("a\n", "b\n"));
-  }
-
-  @Test
   public void testCreateExceptions() throws BuildEncyclopediaDocException {
     RuleDocumentation ruleDoc =
         new RuleDocumentation("foo_binary", "OTHER", "FOO", "", 10, "foo.txt", NO_FLAGS);

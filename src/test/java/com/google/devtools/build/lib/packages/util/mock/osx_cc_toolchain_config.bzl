@@ -2048,7 +2048,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2078,7 +2078,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2108,7 +2108,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2138,7 +2138,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2168,7 +2168,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2198,7 +2198,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2228,7 +2228,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2258,7 +2258,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2288,7 +2288,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -2318,7 +2318,7 @@ def _impl(ctx):
                                 "-syslibroot",
                                 "%{sdk_dir}",
                                 "-o",
-                                "%{archive_path}",
+                                "%{output_execpath}",
                             ],
                         ),
                     ],
@@ -5232,25 +5232,6 @@ def _impl(ctx):
 
     has_configured_linker_path_feature = feature(name = "has_configured_linker_path")
 
-    use_objc_modules_feature = feature(
-        name = "use_objc_modules",
-        flag_sets = [
-            flag_set(
-                actions = [ACTION_NAMES.objc_compile, ACTION_NAMES.objcpp_compile],
-                flag_groups = [
-                    flag_group(
-                        flags = [
-                            "-fmodule-name=%{module_name}",
-                            "-iquote",
-                            "%{module_maps_dir}",
-                            "-fmodules-cache-path=%{modules_cache_path}",
-                        ],
-                    ),
-                ],
-            ),
-        ],
-    )
-
     language_objc_feature = feature(
         name = "lang_objc",
         provides = [
@@ -6769,28 +6750,6 @@ def _impl(ctx):
         ],
     )
 
-    xcode_5_0_feature = feature(
-        name = "xcode_5.0",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    "c++-header-preprocessing",
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = ["-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"],
-                    ),
-                ],
-            ),
-        ],
-    )
-
     user_link_flags_feature = feature(
         name = "user_link_flags",
         enabled = True,
@@ -6853,17 +6812,6 @@ def _impl(ctx):
                 ],
             ),
         ],
-    )
-
-    no_enable_modules_feature = feature(
-        name = "no_enable_modules",
-        flag_sets = [
-            flag_set(
-                actions = [ACTION_NAMES.objc_compile, ACTION_NAMES.objcpp_compile],
-                flag_groups = [flag_group(flags = ["-fmodule-maps"])],
-            ),
-        ],
-        requires = [feature_set(features = ["use_objc_modules"])],
     )
 
     autofdo_feature = feature(
@@ -7171,28 +7119,6 @@ def _impl(ctx):
                         flags = ["%{runtime_root_entries}"],
                         iterate_over = "runtime_root_entries",
                         expand_if_available = "runtime_root_entries",
-                    ),
-                ],
-            ),
-        ],
-    )
-
-    xcode_7_3_feature = feature(
-        name = "xcode_7.3",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    "c++-header-preprocessing",
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = ["-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"],
                     ),
                 ],
             ),
@@ -7576,28 +7502,6 @@ def _impl(ctx):
 
     dbg_feature = feature(name = "dbg", implies = ["dbg_only_flag"])
 
-    xcode_5_8_feature = feature(
-        name = "xcode_5.8",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    "c++-header-preprocessing",
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = ["-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"],
-                    ),
-                ],
-            ),
-        ],
-    )
-
     framework_paths_feature = feature(
         name = "framework_paths",
         flag_sets = [
@@ -7907,13 +7811,8 @@ def _impl(ctx):
         force_pic_flags_feature,
         pch_feature,
         module_maps_feature,
-        use_objc_modules_feature,
-        no_enable_modules_feature,
         apply_default_warnings_feature,
         preprocessor_defines_feature,
-        xcode_5_0_feature,
-        xcode_5_8_feature,
-        xcode_7_3_feature,
         framework_paths_feature,
         apply_default_compiler_flags_feature,
         include_system_dirs_feature,

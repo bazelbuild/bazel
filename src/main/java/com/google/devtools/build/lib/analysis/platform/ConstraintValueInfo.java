@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -85,7 +85,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
         // used to build the platform this checks against. But platformInfo's existence implies
         // the owning target already depends on PlatformConfiguration. And we can't reference
         // PlatformConfiguration.class here without a build dependency cycle.
-        ImmutableSet.of(),
+        RequiredConfigFragmentsProvider.EMPTY,
         platformInfo.constraints().hasConstraintValue(this));
   }
 

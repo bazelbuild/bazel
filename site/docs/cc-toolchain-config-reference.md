@@ -19,7 +19,7 @@ Bazel needs to know the following:
 * Paths to the required tools such as gcc, ld, ar, objcopy, and so on.
 * The built-in system include directories. Bazel needs these to validate that
   all headers that were included in the source file were properly declared in
-  the build file.
+  the `BUILD` file.
 * The default sysroot.
 * Which flags to use for compilation, linking, archiving.
 * Which flags to use for the supported compilation modes (opt, dbg, fastbuild).
@@ -41,7 +41,7 @@ You can find Starlark constructors for all structs you'll need in the process in
 
 
 When a C++ target enters the analysis phase, Bazel selects the appropriate
-`cc_toolchain` target based on the BUILD file, and obtains the
+`cc_toolchain` target based on the `BUILD` file, and obtains the
 `CcToolchainConfigInfo` provider from the target specified in the
 `cc_toolchain.toolchain_config` attribute. The `cc_toolchain` target
 passes this information to the C++ target through a `CcToolchainProvider`.
@@ -100,7 +100,7 @@ Bazel binary. C++ rules support multiple unique actions documented in detail
 
 A feature is an entity that requires command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
-can be something as simple as allowing BUILD files to select configurations of
+can be something as simple as allowing `BUILD` files to select configurations of
 flags, such as `treat_warnings_as_errors`, or interact with the C++ rules and
 include new compile actions and inputs to the compilation, such as
 `header_modules` or `thin_lto`.
@@ -361,12 +361,14 @@ and encode some semantics into the name.
   </tr>
 </table>
 
-## Action config
+## Using action_config
 
-A `action_config` is a Starlark struct that describes a Bazel action
-by specifying the tool (binary) to invoke during the action and sets of flags,
-defined by features, that apply constraints to the action's execution. The
-`action_config()` constructor has the following parameters:
+The `action_config` is a Starlark struct that describes a Bazel
+action by specifying the tool (binary) to invoke during the action and sets of
+flags, defined by features. These flags apply constraints to the action's
+execution.
+
+The `action_config()` constructor has the following parameters:
 
 <table>
   <col width="300">
@@ -425,7 +427,7 @@ within the same toolchain. This prevents ambiguity in tool paths
 and enforces the intention behind `action_config` - that an action's properties
 are clearly described in a single place in the toolchain.
 
-### `tool`
+### Using tool constructor
 
 An`action_config` can specify a set of tools via its `tools` parameter.
 The `tool()` constructor takes in the following parameters:
@@ -449,7 +451,7 @@ The `tool()` constructor takes in the following parameters:
   <tr>
    <td><code>with_features</code>
    </td>
-   <td>A a list of feature sets out of which at least one must be satisfied
+   <td>A list of feature sets out of which at least one must be satisfied
        for this tool to apply.
    </td>
   </tr>
@@ -662,12 +664,12 @@ variable or its field using the `expand_if_available`, `expand_if_not_available`
 the build command only when a currently iterated library has an
 `is_whole_archive` field.
 
-## `CcToolchainConfigInfo` reference
+## CcToolchainConfigInfo reference
 
 This section provides a reference of build variables, features, and other
 information required to successfully configure C++ rules.
 
-### `CcToolchainConfigInfo` build variables
+### CcToolchainConfigInfo build variables
 
 The following is a reference of `CcToolchainConfigInfo` build variables.
 

@@ -136,6 +136,12 @@ public final class ClassMetadataCollector extends ClassVisitor {
   }
 
   @Override
+  public void visitSource(String source, String debug) {
+    classAttributesBuilder.setSourceFileName(source);
+    super.visitSource(source, debug);
+  }
+
+  @Override
   public void visitEnd() {
     if (isInNest || (classAccessCode & Opcodes.ACC_INTERFACE) != 0) {
       nestAnalysisBasedMemberRecord.mergeFrom(stagingMemberRecord.build());

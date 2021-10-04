@@ -42,7 +42,7 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   private final String name;
   private final Class<T> valueClass;
 
-  public BuiltinProvider(String name, Class<T> valueClass) {
+  protected BuiltinProvider(String name, Class<T> valueClass) {
     this.key = new Key(name, getClass());
     this.name = name;
     this.valueClass = valueClass;
@@ -89,12 +89,12 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   @Override
   public void repr(Printer printer) {
     // TODO(adonovan): change to '<provider name>'.
-    printer.append("<function " + getPrintableName() + ">");
+    printer.append("<function " + name + ">");
   }
 
   /** Returns the identifier of this provider. */
   public StarlarkProviderIdentifier id() {
-    return StarlarkProviderIdentifier.forKey(getKey());
+    return StarlarkProviderIdentifier.forKey(key);
   }
 
   /**

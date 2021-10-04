@@ -97,7 +97,6 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_UNSPECIFIED),
 #endif
       unlimit_coredumps(false),
-      incompatible_enable_execution_transition(false),
       windows_enable_symlinks(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
@@ -141,8 +140,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("autodetect_server_javabase",
                              &autodetect_server_javabase);
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
-  RegisterNullaryStartupFlag("incompatible_enable_execution_transition",
-                             &incompatible_enable_execution_transition);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
@@ -209,13 +206,7 @@ bool StartupOptions::MaybeCheckValidNullary(const string &arg, bool *result,
   return false;
 }
 
-void StartupOptions::AddExtraOptions(vector<string> *result) const {
-  if (incompatible_enable_execution_transition) {
-    result->push_back("--incompatible_enable_execution_transition");
-  } else {
-    result->push_back("--noincompatible_enable_execution_transition");
-  }
-}
+void StartupOptions::AddExtraOptions(vector<string> *result) const {}
 
 blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       const string &argstr, const string &next_argstr, const string &rcfile,

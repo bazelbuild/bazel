@@ -19,26 +19,32 @@ import static java.lang.String.format;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.protobuf.Message;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
 
   public RemoteExecutionCache(
-      RemoteCacheClient protocolImpl, RemoteOptions options, DigestUtil digestUtil) {
+      RemoteCacheClient protocolImpl,
+      RemoteOptions options,
+      DigestUtil digestUtil) {
     super(protocolImpl, options, digestUtil);
   }
 
@@ -57,16 +63,56 @@ public class RemoteExecutionCache extends RemoteCache {
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
       MerkleTree merkleTree,
-      Map<Digest, Message> additionalInputs)
+      Map<Digest, Message> additionalInputs,
+      boolean force)
       throws IOException, InterruptedException {
-    Iterable<Digest> allDigests =
-        Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
-    ImmutableSet<Digest> missingDigests =
-        getFromFuture(cacheProtocol.findMissingDigests(context, allDigests));
+    ImmutableSet<Digest> allDigests =
+        ImmutableSet.<Digest>builder()
+            .addAll(merkleTree.getAllDigests())
+            .addAll(additionalInputs.keySet())
+            .build();
+
+    // Collect digests that are not being or already uploaded
+    ConcurrentHashMap<Digest, AsyncSubject<Boolean>> missingDigestSubjects =
+        new ConcurrentHashMap<>();
 
     List<ListenableFuture<Void>> uploadFutures = new ArrayList<>();
-    for (Digest missingDigest : missingDigests) {
-      uploadFutures.add(uploadBlob(context, missingDigest, merkleTree, additionalInputs));
+    for (Digest digest : allDigests) {
+      Completable upload =
+          casUploadCache.execute(
+              digest,
+              Completable.defer(
+                  () -> {
+                    // The digest hasn't been processed, add it to the collection which will be used
+                    // later for findMissingDigests call
+                    AsyncSubject<Boolean> missingDigestSubject = AsyncSubject.create();
+                    missingDigestSubjects.put(digest, missingDigestSubject);
+
+                    return missingDigestSubject.flatMapCompletable(
+                        missing -> {
+                          if (!missing) {
+                            return Completable.complete();
+                          }
+                          return RxFutures.toCompletable(
+                              () -> uploadBlob(context, digest, merkleTree, additionalInputs),
+                              MoreExecutors.directExecutor());
+                        });
+                  }),
+              force);
+      uploadFutures.add(RxFutures.toListenableFuture(upload));
+    }
+
+    ImmutableSet<Digest> missingDigests =
+        getFromFuture(findMissingDigests(context, missingDigestSubjects.keySet()));
+    for (Map.Entry<Digest, AsyncSubject<Boolean>> entry : missingDigestSubjects.entrySet()) {
+      AsyncSubject<Boolean> missingSubject = entry.getValue();
+      if (missingDigests.contains(entry.getKey())) {
+        missingSubject.onNext(true);
+      } else {
+        // The digest is already existed in the remote cache, skip the upload.
+        missingSubject.onNext(false);
+      }
+      missingSubject.onComplete();
     }
 
     waitForBulkTransfer(uploadFutures, /* cancelRemainingOnInterrupt=*/ false);

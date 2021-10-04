@@ -15,19 +15,23 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.PackageFactory.getContext;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterators;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
@@ -35,18 +39,24 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
@@ -55,6 +65,7 @@ import net.starlark.java.syntax.Location;
 /** The Starlark native module. */
 // TODO(cparsons): Move the definition of native.package() to this class.
 public class StarlarkNativeModule implements StarlarkNativeModuleApi {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * This map contains all the (non-rule) functions of the native module (keyed by their symbol
@@ -80,7 +91,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       StarlarkInt excludeDirs,
       Object allowEmptyArgument,
       StarlarkThread thread)
-      throws EvalException, ConversionException, InterruptedException {
+      throws EvalException, InterruptedException {
     BazelStarlarkContext.from(thread).checkLoadingPhase("native.glob");
     PackageContext context = getContext(thread);
 
@@ -104,6 +115,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
           context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
       matches = context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
+      logger.atWarning().withCause(e).log(
+          "Exception processing includes=%s, excludes=%s)", includes, excludes);
       String errorMessage =
           String.format(
               "error globbing [%s]%s: %s",
@@ -111,7 +124,16 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
               e.getMessage());
       Location loc = thread.getCallerLocation();
-      Event error = Package.error(loc, errorMessage, Code.GLOB_IO_EXCEPTION);
+      Event error =
+          Package.error(
+              loc,
+              errorMessage,
+              // If there are other IOExceptions that can result from user error, they should be
+              // tested for here. Currently FileNotFoundException is not one of those, because globs
+              // only encounter that error in the presence of an inconsistent filesystem.
+              e instanceof FileSymlinkException
+                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
+                  : Code.GLOB_IO_EXCEPTION);
       context.eventHandler.handle(error);
       context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
       matches = ImmutableList.of();
@@ -127,18 +149,234 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       result.add(match);
     }
-    result.sort(Comparator.naturalOrder());
+    result.sort(naturalOrder());
 
     return StarlarkList.copyOf(thread.mutability(), result);
   }
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/13605): implement StarlarkMapping (after we've
+  // added such an interface) to allow `dict(native.existing_rule(x))`.
+  private static interface DictLikeView extends StarlarkIndexable, StarlarkIterable<String> {
+    @Override
+    public default boolean isImmutable() {
+      return true;
+    }
+
+    @StarlarkMethod(
+        name = "get",
+        doc = "Behaves the same as <a href=\"dict.html#get\"><code>dict.get</code></a>.",
+        parameters = {
+          @Param(name = "key", doc = "The key to look for."),
+          @Param(
+              name = "default",
+              defaultValue = "None",
+              named = true,
+              doc = "The default value to use (instead of None) if the key is not found.")
+        },
+        allowReturnNones = true)
+    @Nullable // Java callers expect a null return when defaultValue is null
+    public Object get(Object key, @Nullable Object defaultValue) throws EvalException;
+
+    @StarlarkMethod(
+        name = "keys",
+        doc =
+            "Behaves like <a href=\"dict.html#keys\"><code>dict.keys</code></a>, but the returned"
+                + " value is an immutable sequence.")
+    public default StarlarkIterable<String> keys() {
+      // TODO(https://github.com/bazelbuild/starlark/issues/203): return a sequence view which
+      // supports efficient membership lookup (`"foo" in existing_rule("bar").keys()`), and
+      // materializes into a list (to allow len() or lookup by integer index) only if needed. Note
+      // that materialization into a list would need to be thread-safe (assuming it's possible for
+      // the sequence view to be used from multiple starlark threads). For now, we return an
+      // immutable list, so that migration to a sequence view is less likely to cause breakage.
+      return StarlarkList.immutableCopyOf(this);
+    }
+
+    @StarlarkMethod(
+        name = "values",
+        doc =
+            "Behaves like <a href=\"dict.html#values\"><code>dict.values</code></a>, but the"
+                + " returned value is an immutable sequence.")
+    public default StarlarkIterable<Object> values() throws EvalException {
+      // TODO(https://github.com/bazelbuild/starlark/issues/203): return a sequence view; see keys()
+      // for implementation concerns.
+      ArrayList<Object> valueList = new ArrayList<>();
+      for (String key : this) {
+        valueList.add(Preconditions.checkNotNull(get(key, null)));
+      }
+      return StarlarkList.immutableCopyOf(valueList);
+    }
+
+    @StarlarkMethod(
+        name = "items",
+        doc =
+            "Behaves like <a href=\"dict.html#items\"><code>dict.items</code></a>, but the returned"
+                + " value is an immutable sequence.")
+    public default StarlarkIterable<Tuple> items() throws EvalException {
+      // TODO(https://github.com/bazelbuild/starlark/issues/203): return a sequence view; see keys()
+      // for implementation concerns.
+      ArrayList<Tuple> itemsList = new ArrayList<>();
+      for (String key : this) {
+        itemsList.add(Tuple.pair(key, Preconditions.checkNotNull(get(key, null))));
+      }
+      return StarlarkList.immutableCopyOf(itemsList);
+    }
+  }
+
+  private static final class ExistingRuleView implements DictLikeView {
+    private final Rule rule;
+
+    ExistingRuleView(Rule rule) {
+      this.rule = rule;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("<native.ExistingRuleView for target '").append(rule.getName()).append("'>");
+    }
+
+    @Override
+    @Nullable // Java callers expect a null return when defaultValue is null
+    public Object get(Object key, @Nullable Object defaultValue) throws EvalException {
+      if (!(key instanceof String)) {
+        return defaultValue;
+      }
+      String attributeName = (String) key;
+      switch (attributeName) {
+        case "name":
+          return rule.getName();
+        case "kind":
+          return rule.getRuleClass();
+        default:
+          if (!isPotentiallyExportableAttribute(rule.getRuleClassObject(), attributeName)) {
+            return defaultValue;
+          }
+          Object v =
+              starlarkifyValue(
+                  null /* immutable */, rule.getAttr(attributeName), rule.getPackage());
+          if (v != null) {
+            return v;
+          }
+      }
+      return defaultValue;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return Iterators.concat(
+          ImmutableList.of("name", "kind").iterator(),
+          rule.getAttributes().stream()
+              .map(Attribute::getName)
+              .filter(
+                  attributeName -> {
+                    switch (attributeName) {
+                      case "name":
+                      case "kind":
+                        // handled specially
+                        return false;
+                      default:
+                        return isPotentiallyExportableAttribute(
+                                rule.getRuleClassObject(), attributeName)
+                            && isPotentiallyStarlarkifiableValue(rule.getAttr(attributeName));
+                    }
+                  })
+              .iterator());
+    }
+
+    @Override
+    public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+      Object val = get(key, null);
+      if (val != null) {
+        return val;
+      }
+      throw Starlark.errorf("key %s not found in view", Starlark.repr(key));
+    }
+
+    @Override
+    public boolean containsKey(StarlarkSemantics semantics, Object key) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      String attributeName = (String) key;
+      switch (attributeName) {
+        case "name":
+        case "kind":
+          return true;
+        default:
+          return isPotentiallyExportableAttribute(rule.getRuleClassObject(), attributeName)
+              && isPotentiallyStarlarkifiableValue(rule.getAttr(attributeName));
+      }
+    }
+  }
+
   @Override
-  public Object existingRule(String name, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public Object existingRule(String name, StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rule");
     PackageContext context = getContext(thread);
     Target target = context.pkgBuilder.getTarget(name);
-    return target instanceof Rule ? getRuleDict((Rule) target, thread.mutability()) : Starlark.NONE;
+    if (target instanceof Rule /* `instanceof` also verifies that target != null */) {
+      Rule rule = (Rule) target;
+      if (thread
+          .getSemantics()
+          .getBool(BuildLanguageOptions.EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW)) {
+        return new ExistingRuleView(rule);
+      } else {
+        return getRuleDict(rule, thread.mutability());
+      }
+    } else {
+      return Starlark.NONE;
+    }
+  }
+
+  private static final class ExistingRulesView implements DictLikeView {
+    // We take a lightweight snapshot of the rules existing in a Package.Builder to avoid exposing
+    // any rules added to Package.Builder after the existing_rules() call which created this view.
+    private final Map<String, Rule> rulesSnapshotView;
+
+    ExistingRulesView(Map<String, Rule> rulesSnapshotView) {
+      this.rulesSnapshotView = rulesSnapshotView;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("<native.ExistingRulesView object>");
+    }
+
+    @Override
+    @Nullable // Java callers expect a null return when defaultValue is null
+    public Object get(Object key, @Nullable Object defaultValue) {
+      if (!(key instanceof String)) {
+        return defaultValue;
+      }
+      Rule rule = rulesSnapshotView.get(key);
+      if (rule != null) {
+        return new ExistingRuleView(rule);
+      } else {
+        return defaultValue;
+      }
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return rulesSnapshotView.keySet().iterator();
+    }
+
+    @Override
+    public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+      Object val = get(key, null);
+      if (val != null) {
+        return val;
+      }
+      throw Starlark.errorf("key %s not found in view", Starlark.repr(key));
+    }
+
+    @Override
+    public boolean containsKey(StarlarkSemantics semantics, Object key) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      return rulesSnapshotView.containsKey(key);
+    }
   }
 
   /*
@@ -146,27 +384,29 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     For now, we ignore this, since users can implement it in Starlark.
   */
   @Override
-  public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public Object existingRules(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rules");
     PackageContext context = getContext(thread);
-    Collection<Target> targets = context.pkgBuilder.getTargets();
-    Mutability mu = thread.mutability();
-    Dict.Builder<String, Dict<String, Object>> rules = Dict.builder();
-    for (Target t : targets) {
-      if (t instanceof Rule) {
-        rules.put(t.getName(), getRuleDict((Rule) t, mu));
+    if (thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW)) {
+      return new ExistingRulesView(context.pkgBuilder.getRulesSnapshotView());
+    } else {
+      Collection<Target> targets = context.pkgBuilder.getTargets();
+      Mutability mu = thread.mutability();
+      Dict.Builder<String, Dict<String, Object>> rules = Dict.builder();
+      for (Target t : targets) {
+        if (t instanceof Rule) {
+          rules.put(t.getName(), getRuleDict((Rule) t, mu));
+        }
       }
+      return rules.build(mu);
     }
-    return rules.build(mu);
   }
 
   @Override
   public NoneType packageGroup(
-      String name,
-      Sequence<?> packagesO,
-      Sequence<?> includesO,
-      StarlarkThread thread)
+      String name, Sequence<?> packagesO, Sequence<?> includesO, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_group");
     PackageContext context = getContext(thread);
@@ -278,13 +518,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Dict.Builder<String, Object> values = Dict.builder();
 
     for (Attribute attr : rule.getAttributes()) {
-      if (!Character.isAlphabetic(attr.getName().charAt(0))) {
-        continue;
-      }
-
-      if (attr.getName().equals("distribs")) {
-        // attribute distribs: cannot represent type class java.util.Collections$SingletonSet
-        // in Starlark: [INTERNAL].
+      if (!isPotentiallyExportableAttribute(rule.getRuleClassObject(), attr.getName())) {
         continue;
       }
 
@@ -307,22 +541,81 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   }
 
   /**
+   * Returns true if the given attribute of a rule class is generally allowed to be exposed via
+   * {@code native.existing_rule()} and {@code native.existing_rules()}.
+   *
+   * <p>This method makes no attempt to validate that the attribute exists in the rule class.
+   *
+   * <p>Even if this method returns true, the attribute may still be suppressed if it has a
+   * prohibited value (e.g. is of a bad type, or is a select() that cannot be processed).
+   */
+  private static boolean isPotentiallyExportableAttribute(
+      RuleClass ruleClass, String attributeName) {
+    if (attributeName.length() == 0 || !Character.isAlphabetic(attributeName.charAt(0))) {
+      // Do not expose hidden or implicit attributes.
+      return false;
+    }
+    if (attributeName.equals("distribs")) {
+      Attribute attr = ruleClass.getAttributeByName(attributeName);
+      if (attr != null && attr.getType() == BuildType.DISTRIBUTIONS) {
+        // "distribs" attribute (a Set<License.DistributionType> value) is not a StarlarkValue. Note
+        // that we cannot check for a Set<License.DistributionType> directly because generic type
+        // info is erased at runime.
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if the given value is generally allowed to be exposed via {@code
+   * native.existing_rule()} and or {@code native.existing_rules()}. Returns false for null.
+   *
+   * <p>Even if this method returns true, the value may still be suppressed if it is a select() that
+   * cannot be processed.
+   */
+  private static boolean isPotentiallyStarlarkifiableValue(@Nullable Object val) {
+    if (val == null) {
+      return false;
+    }
+    if (val.getClass().isAnonymousClass()) {
+      // Computed defaults. They will be represented as
+      // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
+      // Filter them until we invent something more clever.
+      return false;
+    }
+
+    if (val instanceof License) {
+      // License is deprecated as a Starlark type, so omit this type from Starlark values
+      // to avoid exposing these objects, even though they are technically StarlarkValue.
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Converts a target attribute value to a Starlark value for return in {@code
    * native.existing_rule()} or {@code native.existing_rules()}.
    *
    * <p>Any dict values in the result have mutability {@code mu}.
    *
+   * <p>Any label values in the result which are inside {@code pkg} (the current package) are
+   * rewritten using ":foo" shorthand.
+   *
    * @return the value, or null if we don't want to export it to the user.
    * @throws NotRepresentableException if an unknown type is encountered.
    */
+  // TODO(https://github.com/bazelbuild/bazel/issues/13829): don't throw NotRepresentableException;
+  // perhaps change to an unchecked exception instead?
   @Nullable
   private static Object starlarkifyValue(Mutability mu, Object val, Package pkg)
       throws NotRepresentableException {
     // easy cases
-    if (val == null
-        || val instanceof Boolean
-        || val instanceof String
-        || val instanceof StarlarkInt) {
+    if (!isPotentiallyStarlarkifiableValue(val)) {
+      return null;
+    }
+    if (val instanceof Boolean || val instanceof String || val instanceof StarlarkInt) {
       return val;
     }
 
@@ -340,6 +633,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (val instanceof Label) {
       Label l = (Label) val;
       if (l.getPackageName().equals(pkg.getName())) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/13828): do not ignore the repo component
+        // of the label.
         return ":" + l.getName();
       }
       return l.getCanonicalForm();
@@ -347,7 +642,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     if (val instanceof List) {
       List<Object> l = new ArrayList<>();
-      for (Object o : (List) val) {
+      for (Object o : (List<?>) val) {
         Object elt = starlarkifyValue(mu, o, pkg);
         if (elt == null) {
           continue;
@@ -371,19 +666,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         m.put(key, mapVal);
       }
       return m.build(mu);
-    }
-
-    if (val.getClass().isAnonymousClass()) {
-      // Computed defaults. They will be represented as
-      // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
-      // Filter them until we invent something more clever.
-      return null;
-    }
-
-    if (val instanceof License) {
-      // License is deprecated as a Starlark type, so omit this type from Starlark values
-      // to avoid exposing these objects, even though they are technically StarlarkValue.
-      return null;
     }
 
     if (val instanceof BuildType.SelectorList) {

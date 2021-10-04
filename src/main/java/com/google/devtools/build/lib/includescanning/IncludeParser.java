@@ -17,11 +17,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -190,9 +189,9 @@ class IncludeParser {
     private final AtomicReference<FilesystemCalls> syscallCache = new AtomicReference<>();
 
     private final LoadingCache<Artifact, ImmutableList<Artifact>> fileLevelHintsCache =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(HINTS_CACHE_CONCURRENCY)
-            .build(CacheLoader.from(this::getHintedInclusionsLegacy));
+        Caffeine.newBuilder()
+            .initialCapacity(HINTS_CACHE_CONCURRENCY)
+            .build(this::getHintedInclusionsLegacy);
 
     /**
      * Constructs a hint set for a given INCLUDE_HINTS file to read.
@@ -248,7 +247,7 @@ class IncludeParser {
     void clearCachedLegacyHints() {
       fileLevelHintsCache.invalidateAll();
       syscallCache.set(
-          PerBuildSyscallCache.newBuilder().setConcurrencyLevel(HINTS_CACHE_CONCURRENCY).build());
+          PerBuildSyscallCache.newBuilder().setInitialCapacity(HINTS_CACHE_CONCURRENCY).build());
     }
 
     /** Returns the "file" type hinted inclusions for a given path, caching results by path. */
@@ -256,7 +255,7 @@ class IncludeParser {
       if (!path.getExecPathString().startsWith(ALLOWED_PREFIX)) {
         return ImmutableList.of();
       }
-      return fileLevelHintsCache.getUnchecked(path);
+      return fileLevelHintsCache.get(path);
     }
 
     /**
@@ -267,7 +266,8 @@ class IncludeParser {
      */
     @Nullable
     ImmutableSet<Artifact> getPathLevelHintedInclusions(
-        ImmutableList<PathFragment> paths, Environment env) throws InterruptedException {
+        ImmutableList<PathFragment> paths, Environment env)
+        throws InterruptedException, IOException {
       ImmutableList<String> pathStrings =
           paths.stream()
               .map(PathFragment::getPathString)
@@ -360,15 +360,9 @@ class IncludeParser {
         return null;
       }
       for (Map.Entry<SkyKey, ValueOrException<IOException>> globEntry : globResults.entrySet()) {
-        GlobValue globValue;
         GlobDescriptor globKey = (GlobDescriptor) globEntry.getKey();
         PathFragment packageFragment = globKey.getPackageId().getPackageFragment();
-        try {
-          globValue = (GlobValue) globEntry.getValue().get();
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Error getting hints for %s", packageFragment);
-          continue;
-        }
+        GlobValue globValue = (GlobValue) globEntry.getValue().get();
         for (PathFragment file : globValue.getMatches().toList()) {
           hints.add(
               artifactFactory.getSourceArtifact(

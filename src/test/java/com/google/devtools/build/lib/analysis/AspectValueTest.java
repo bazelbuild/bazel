@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -218,7 +218,7 @@ public class AspectValueTest extends AnalysisTestCase {
   private static SkyKey createKey(
       Label label, BuildConfiguration baseConfiguration, NativeAspectClass aspectClass,
       AspectParameters parameters, BuildConfiguration aspectConfiguration) {
-    return AspectValueKey.createAspectKey(
+    return AspectKeyCreator.createAspectKey(
         label,
         baseConfiguration,
         new AspectDescriptor(aspectClass, parameters),
@@ -232,12 +232,12 @@ public class AspectValueTest extends AnalysisTestCase {
       NativeAspectClass aspectClass2, AspectParameters parameters2,
       BuildConfiguration aspectConfiguration2) {
     AspectKey baseKey =
-        AspectValueKey.createAspectKey(
+        AspectKeyCreator.createAspectKey(
             label,
             baseConfiguration,
             new AspectDescriptor(aspectClass1, parameters1),
             aspectConfiguration1);
-    return AspectValueKey.createAspectKey(
+    return AspectKeyCreator.createAspectKey(
         label,
         baseConfiguration,
         ImmutableList.of(baseKey),

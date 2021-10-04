@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
@@ -39,7 +39,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
       Predicates.or(
           SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
-          SkyFunctions.isSkyFunction(SkyFunctions.LOAD_STARLARK_ASPECT),
+          SkyFunctions.isSkyFunction(SkyFunctions.TOP_LEVEL_ASPECTS),
           SkyFunctions.isSkyFunction(TransitiveTargetKey.NAME),
           SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE));
 
@@ -65,8 +65,6 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
       return ((ConfiguredTargetKey) key.argument()).prettyPrint();
     } else if (key instanceof AspectKey) {
       return ((AspectKey) key.argument()).prettyPrint();
-    } else if (key instanceof AspectValueKey) {
-      return ((AspectValueKey) key).getDescription();
     } else {
       return getLabel(key).toString();
     }

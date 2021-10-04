@@ -17,13 +17,8 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.util.CommandDescriptionForm;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.Map;
 
 /** Helper methods relating to implementations of {@link Spawn}. */
 public final class Spawns {
@@ -167,30 +162,20 @@ public final class Spawns {
     return (disablePrefetchRequest == null) || disablePrefetchRequest.equals("0");
   }
 
-  /** Convert a spawn into a Bourne shell command. */
-  public static String asShellCommand(Spawn spawn, Path workingDirectory, boolean prettyPrintArgs) {
-    return asShellCommand(
-        spawn.getArguments(),
-        workingDirectory,
-        spawn.getEnvironment(),
-        prettyPrintArgs);
-  }
-
-  /** Convert a working dir + environment map + arg list into a Bourne shell command. */
-  public static String asShellCommand(
-      Collection<String> arguments,
-      Path workingDirectory,
-      Map<String, String> environment,
-      boolean prettyPrintArgs) {
-
-    // We print this command out in such a way that it can safely be
-    // copied+pasted as a Bourne shell command.  This is extremely valuable for
-    // debugging.
-    return CommandFailureUtils.describeCommand(
-        CommandDescriptionForm.COMPLETE,
-        prettyPrintArgs,
-        arguments,
-        environment,
-        workingDirectory.getPathString());
+  /**
+   * Returns a (somewhat) human-readable string for the given {@code Spawn}. Meant to be used in
+   * {@code toString()} of Spawns.
+   */
+  public static String prettyPrint(Spawn spawn) {
+    if (spawn.getResourceOwner() != null && spawn.getResourceOwner().getPrimaryOutput() != null) {
+      return spawn.getClass().getSimpleName()
+          + " for "
+          + spawn.getResourceOwner().getPrimaryOutput().prettyPrint();
+    } else {
+      return spawn.getClass().getSimpleName()
+          + " for "
+          + spawn.getMnemonic()
+          + " action without primary output";
+    }
   }
 }

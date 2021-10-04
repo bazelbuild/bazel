@@ -58,7 +58,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Nullable private final CppConfiguration cppConfiguration;
   private final PathFragment crosstoolTopPathFragment;
   private final NestedSet<Artifact> allFiles;
-  private final NestedSet<Artifact> allFilesMiddleman;
+  private final NestedSet<Artifact> allFilesIncludingLibc;
   private final NestedSet<Artifact> compilerFiles;
   private final NestedSet<Artifact> compilerFilesWithoutIncludes;
   private final NestedSet<Artifact> stripFiles;
@@ -72,9 +72,7 @@ public final class CcToolchainProvider extends NativeInfo
   private final NestedSet<Artifact> libcLink;
   private final NestedSet<Artifact> targetLibcLink;
   @Nullable private final NestedSet<Artifact> staticRuntimeLinkInputs;
-  @Nullable private final Artifact staticRuntimeLinkMiddleman;
   @Nullable private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
-  @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
   private final CcInfo ccInfo;
   private final boolean supportsParamFiles;
@@ -99,7 +97,6 @@ public final class CcToolchainProvider extends NativeInfo
   private final String abiGlibcVersion;
   private final String abi;
   private final String targetLibc;
-  private final String hostSystemName;
   private final String targetSystemName;
   private final Label ccToolchainLabel;
   private final String solibDirectory;
@@ -133,7 +130,7 @@ public final class CcToolchainProvider extends NativeInfo
       CcToolchainFeatures toolchainFeatures,
       PathFragment crosstoolTopPathFragment,
       NestedSet<Artifact> allFiles,
-      NestedSet<Artifact> allFilesMiddleman,
+      NestedSet<Artifact> allFilesIncludingLibc,
       NestedSet<Artifact> compilerFiles,
       NestedSet<Artifact> compilerFilesWithoutIncludes,
       NestedSet<Artifact> stripFiles,
@@ -147,9 +144,7 @@ public final class CcToolchainProvider extends NativeInfo
       NestedSet<Artifact> libcLink,
       NestedSet<Artifact> targetLibcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
-      @Nullable Artifact staticRuntimeLinkMiddleman,
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
-      @Nullable Artifact dynamicRuntimeLinkMiddleman,
       PathFragment dynamicRuntimeSolibDir,
       CcCompilationContext ccCompilationContext,
       boolean supportsParamFiles,
@@ -174,7 +169,6 @@ public final class CcToolchainProvider extends NativeInfo
       PathFragment defaultSysroot,
       PathFragment runtimeSysroot,
       String targetLibc,
-      String hostSystemName,
       Label ccToolchainLabel,
       String solibDirectory,
       String abi,
@@ -196,7 +190,7 @@ public final class CcToolchainProvider extends NativeInfo
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.allFiles = Preconditions.checkNotNull(allFiles);
-    this.allFilesMiddleman = Preconditions.checkNotNull(allFilesMiddleman);
+    this.allFilesIncludingLibc = Preconditions.checkNotNull(allFilesIncludingLibc);
     this.compilerFiles = Preconditions.checkNotNull(compilerFiles);
     this.compilerFilesWithoutIncludes = Preconditions.checkNotNull(compilerFilesWithoutIncludes);
     this.stripFiles = Preconditions.checkNotNull(stripFiles);
@@ -210,9 +204,7 @@ public final class CcToolchainProvider extends NativeInfo
     this.libcLink = Preconditions.checkNotNull(libcLink);
     this.targetLibcLink = Preconditions.checkNotNull(targetLibcLink);
     this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
-    this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
     this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
-    this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
     this.ccInfo =
         CcInfo.builder()
@@ -241,7 +233,6 @@ public final class CcToolchainProvider extends NativeInfo
     this.targetCpu = targetCpu;
     this.targetOS = targetOS;
     this.targetLibc = targetLibc;
-    this.hostSystemName = hostSystemName;
     this.ccToolchainLabel = ccToolchainLabel;
     this.solibDirectory = solibDirectory;
     this.abi = abi;
@@ -358,12 +349,19 @@ public final class CcToolchainProvider extends NativeInfo
     // TODO(bazel-team): delete all of these.
     result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
 
-    // TODO(kmensah): Remove when Starlark dependencies can be updated to rely on
+    // TODO(bazel-team): Remove when Starlark dependencies can be updated to rely on
     // CcToolchainProvider.
     result.putAll(getAdditionalMakeVariables());
 
-    result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
-    result.put("ABI", getAbi());
+    String abiGlibcVersion = getAbiGlibcVersion();
+    if (abiGlibcVersion != null) {
+      result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
+    }
+
+    String abi = getAbi();
+    if (abi != null) {
+      result.put("ABI", getAbi());
+    }
 
     globalMakeEnvBuilder.putAll(result.build());
   }
@@ -414,11 +412,9 @@ public final class CcToolchainProvider extends NativeInfo
     return CcToolchainProviderHelper.getToolPathFragment(toolPaths, tool);
   }
 
-
   @Override
   public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings() {
-    return builtInIncludeDirectories
-        .stream()
+    return builtInIncludeDirectories.stream()
         .map(PathFragment::getSafePathString)
         .collect(ImmutableList.toImmutableList());
   }
@@ -449,18 +445,19 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /** Returns the identifier of the toolchain as specified in the {@code CToolchain} proto. */
+  @Override
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
   }
 
-  /** Returns all the files in Crosstool. Is not a middleman. */
+  /** Returns all the files in Crosstool. */
   public NestedSet<Artifact> getAllFiles() {
     return allFiles;
   }
 
-  /** Returns a middleman for all the files in Crosstool. */
-  public NestedSet<Artifact> getAllFilesMiddleman() {
-    return allFilesMiddleman;
+  /** Returns all the files in Crosstool + libc. */
+  public NestedSet<Artifact> getAllFilesIncludingLibc() {
+    return allFilesIncludingLibc;
   }
 
   /** Returns the files necessary for compilation. */
@@ -588,23 +585,6 @@ public final class CcToolchainProvider extends NativeInfo
     }
   }
 
-  /** Returns an aggregating middleman that represents the static runtime libraries. */
-  @Nullable
-  public Artifact getStaticRuntimeLinkMiddleman(
-      RuleErrorConsumer ruleErrorConsumer, FeatureConfiguration featureConfiguration)
-      throws RuleErrorException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (staticRuntimeLinkInputs == null) {
-        throw ruleErrorConsumer.throwWithRuleError(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide static_runtime_lib attribute.");
-      }
-      return staticRuntimeLinkMiddleman;
-    } else {
-      return null;
-    }
-  }
-
   /** Returns the dynamic runtime libraries. */
   public NestedSet<Artifact> getDynamicRuntimeLinkInputs(FeatureConfiguration featureConfiguration)
       throws EvalException {
@@ -620,23 +600,6 @@ public final class CcToolchainProvider extends NativeInfo
     }
   }
 
-  /** Returns an aggregating middleman that represents the dynamic runtime libraries. */
-  @Nullable
-  public Artifact getDynamicRuntimeLinkMiddleman(
-      RuleErrorConsumer ruleContext, FeatureConfiguration featureConfiguration)
-      throws RuleErrorException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (dynamicRuntimeLinkInputs == null) {
-        throw ruleContext.throwWithRuleError(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide dynamic_runtime_lib attribute.");
-      }
-      return dynamicRuntimeLinkMiddleman;
-    } else {
-      return null;
-    }
-  }
-
   /**
    * Returns the name of the directory where the solib symlinks for the dynamic runtime libraries
    * live. The directory itself will be under the root of the host configuration in the 'bin'
@@ -647,8 +610,7 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   @Override
-  public String getDynamicRuntimeSolibDirForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public String getDynamicRuntimeSolibDirForStarlark() {
     return getDynamicRuntimeSolibDir().getPathString();
   }
 
@@ -662,16 +624,12 @@ public final class CcToolchainProvider extends NativeInfo
     return ccInfo;
   }
 
-  /**
-   * Whether the toolchains supports parameter files.
-   */
+  /** Whether the toolchains supports parameter files. */
   public boolean supportsParamFiles() {
     return supportsParamFiles;
   }
-  
-  /**
-   * Returns the configured features of the toolchain.
-   */
+
+  /** Returns the configured features of the toolchain. */
   @Nullable
   public CcToolchainFeatures getFeatures() {
     return toolchainFeatures;
@@ -779,9 +737,7 @@ public final class CcToolchainProvider extends NativeInfo
     return linkDynamicLibraryTool;
   }
 
-  /**
-   * Returns the tool that builds interface libraries from dynamic libraries.
-   */
+  /** Returns the tool that builds interface libraries from dynamic libraries. */
   public Artifact getInterfaceSoBuilder() {
     return interfaceSoBuilder;
   }
@@ -927,11 +883,6 @@ public final class CcToolchainProvider extends NativeInfo
     return targetOS;
   }
 
-  /** Returns the system name which is required by the toolchain to run. */
-  public String getHostSystemName() {
-    return hostSystemName;
-  }
-
   /** Returns the GNU System Name */
   @Override
   public String getTargetGnuSystemName() {
@@ -944,13 +895,6 @@ public final class CcToolchainProvider extends NativeInfo
       return targetSystemName;
     }
     return targetSystemName.substring(0, targetSystemName.indexOf('-'));
-  }
-
-  public final boolean isLLVMCompiler() {
-    // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
-    // is temporary until the crosstool configuration is modified to add fields that
-    // indicate which flavor of fdo is being used.
-    return toolchainIdentifier.contains("llvm");
   }
 
   // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality
@@ -1001,4 +945,3 @@ public final class CcToolchainProvider extends NativeInfo
     return allowListForLooseHeaderCheck;
   }
 }
-

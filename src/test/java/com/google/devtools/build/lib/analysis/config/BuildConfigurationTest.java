@@ -19,8 +19,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -107,7 +109,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testCaching() throws Exception {
+  public void testCaching() {
     CoreOptions a = Options.getDefaults(CoreOptions.class);
     CoreOptions b = Options.getDefaults(CoreOptions.class);
     // The String representations of the CoreOptions must be equal even if these are
@@ -205,12 +207,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     BuildConfiguration config = create();
     BuildConfiguration trimmedConfig =
         config.clone(
-            FragmentClassSet.of(
-                ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter)
-                    .add(CppConfiguration.class)
-                    .build()),
-            analysisMock.createRuleClassProvider(),
-            skyframeExecutor.getDefaultBuildOptions());
+            FragmentClassSet.of(ImmutableSet.of(CppConfiguration.class)),
+            analysisMock.createRuleClassProvider());
     BuildConfiguration hostConfig = createHost();
 
     assertThat(config.equalsOrIsSupersetOf(trimmedConfig)).isTrue();
@@ -373,7 +371,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     // Unnecessary ImmutableList.copyOf apparently necessary to choose non-varargs constructor.
     new SerializationTester(ImmutableList.copyOf(getTestConfigurations()))
         .addDependency(FileSystem.class, getScratch().getFileSystem())
-        .addDependency(BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())
+        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
         .setVerificationFunction(BuildConfigurationTest::verifyDeserialized)
         .runTests();
   }
@@ -381,11 +379,10 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   @Test
   public void testKeyCodec() throws Exception {
     new SerializationTester(
-            getTestConfigurations()
-                .stream()
+            getTestConfigurations().stream()
                 .map(BuildConfigurationValue::key)
                 .collect(ImmutableList.toImmutableList()))
-        .addDependency(BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())
+        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
         .runTests();
   }
 

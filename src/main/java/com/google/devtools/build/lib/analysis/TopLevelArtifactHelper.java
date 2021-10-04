@@ -16,24 +16,20 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.util.RegexFilter;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -85,9 +81,12 @@ public final class TopLevelArtifactHelper {
   @Immutable
   public static final class ArtifactsToBuild {
     private final ImmutableMap<String, ArtifactsInOutputGroup> artifacts;
+    private final boolean allOutputGroupsImportant;
 
-    private ArtifactsToBuild(ImmutableMap<String, ArtifactsInOutputGroup> artifacts) {
+    private ArtifactsToBuild(
+        ImmutableMap<String, ArtifactsInOutputGroup> artifacts, boolean allOutputGroupsImportant) {
       this.artifacts = checkNotNull(artifacts);
+      this.allOutputGroupsImportant = allOutputGroupsImportant;
     }
 
     /** Returns the artifacts that the user should know about. */
@@ -119,6 +118,14 @@ public final class TopLevelArtifactHelper {
     public ImmutableMap<String, ArtifactsInOutputGroup> getAllArtifactsByOutputGroup() {
       return artifacts;
     }
+
+    /**
+     * Returns if all of the output groups returned by {@link #getAllArtifactsByOutputGroup()} are
+     * "important" - implying that all artifacts will be reported in BEP events.
+     */
+    public boolean areAllOutputGroupsImportant() {
+      return allOutputGroupsImportant;
+    }
   }
 
   private TopLevelArtifactHelper() {
@@ -127,61 +134,52 @@ public final class TopLevelArtifactHelper {
 
   private static final Duration MIN_LOGGING = Duration.ofMillis(10);
 
-  @VisibleForTesting
-  public static ArtifactsToOwnerLabels makeTopLevelArtifactsToOwnerLabels(
-      AnalysisResult analysisResult) {
+  /**
+   * Returns the set of all top-level output artifacts.
+   *
+   * <p>In contrast with {@link AnalysisResult#getArtifactsToBuild}, which only returns artifacts to
+   * request from the build tool, this method returns <em>all</em> artifacts produced by top-level
+   * targets (including tests) and aspects.
+   */
+  public static ImmutableSet<Artifact> findAllTopLevelArtifacts(AnalysisResult analysisResult) {
     try (AutoProfiler ignored =
-        GoogleAutoProfilerUtils.logged("assigning owner labels", MIN_LOGGING)) {
-      ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder =
-          analysisResult.getTopLevelArtifactsToOwnerLabels().toBuilder();
-      TopLevelArtifactContext artifactContext = analysisResult.getTopLevelContext();
-      for (ConfiguredTarget target : analysisResult.getTargetsToBuild()) {
-        addArtifactsWithOwnerLabel(
-            getAllArtifactsToBuild(target, artifactContext).getAllArtifacts(),
-            null,
-            target.getLabel(),
-            artifactsToOwnerLabelsBuilder);
-      }
-      for (Map.Entry<AspectKey, ConfiguredAspect> aspectEntry :
-          analysisResult.getAspectsMap().entrySet()) {
-        addArtifactsWithOwnerLabel(
-            getAllArtifactsToBuild(aspectEntry.getValue(), artifactContext).getAllArtifacts(),
-            null,
-            aspectEntry.getKey().getLabel(),
-            artifactsToOwnerLabelsBuilder);
-      }
-      if (analysisResult.getTargetsToTest() != null) {
-        for (ConfiguredTarget target : analysisResult.getTargetsToTest()) {
-          addArtifactsWithOwnerLabel(
-              TestProvider.getTestStatusArtifacts(target),
-              null,
-              target.getLabel(),
-              artifactsToOwnerLabelsBuilder);
+        GoogleAutoProfilerUtils.logged("finding top level artifacts", MIN_LOGGING)) {
+
+      ImmutableSet.Builder<Artifact> artifacts = ImmutableSet.builder();
+      artifacts.addAll(analysisResult.getArtifactsToBuild());
+
+      TopLevelArtifactContext ctx = analysisResult.getTopLevelContext();
+      Set<NestedSet.Node> visited = new HashSet<>();
+
+      for (ProviderCollection provider :
+          Iterables.concat(
+              analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().values())) {
+        for (ArtifactsInOutputGroup group :
+            getAllArtifactsToBuild(provider, ctx).getAllArtifactsByOutputGroup().values()) {
+          memoizedAddAll(group.getArtifacts(), artifacts, visited);
         }
       }
-      // TODO(dslomov): Artifacts to test from aspects?
-      return artifactsToOwnerLabelsBuilder.build();
+
+      if (analysisResult.getTargetsToTest() != null) {
+        for (ConfiguredTarget testTarget : analysisResult.getTargetsToTest()) {
+          artifacts.addAll(TestProvider.getTestStatusArtifacts(testTarget));
+        }
+      }
+
+      return artifacts.build();
     }
   }
 
-  public static void addArtifactsWithOwnerLabel(
-      NestedSet<? extends Artifact> artifacts,
-      @Nullable RegexFilter filter,
-      Label ownerLabel,
-      ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder) {
-    addArtifactsWithOwnerLabel(
-        artifacts.toList(), filter, ownerLabel, artifactsToOwnerLabelsBuilder);
-  }
-
-  public static void addArtifactsWithOwnerLabel(
-      Collection<? extends Artifact> artifacts,
-      @Nullable RegexFilter filter,
-      Label ownerLabel,
-      ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder) {
-    for (Artifact artifact : artifacts) {
-      if (filter == null || filter.isIncluded(artifact.getOwnerLabel().toString())) {
-        artifactsToOwnerLabelsBuilder.addArtifact(artifact, ownerLabel);
-      }
+  private static void memoizedAddAll(
+      NestedSet<Artifact> current,
+      ImmutableSet.Builder<Artifact> artifacts,
+      Set<NestedSet.Node> visited) {
+    if (!visited.add(current.toNode())) {
+      return;
+    }
+    artifacts.addAll(current.getLeaves());
+    for (NestedSet<Artifact> child : current.getNonLeaves()) {
+      memoizedAddAll(child, artifacts, visited);
     }
   }
 
@@ -206,7 +204,7 @@ public final class TopLevelArtifactHelper {
       TopLevelArtifactContext context) {
     ImmutableMap.Builder<String, ArtifactsInOutputGroup> allOutputGroups =
         ImmutableMap.builderWithExpectedSize(context.outputGroups().size());
-
+    boolean allOutputGroupsImportant = true;
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
 
@@ -226,13 +224,16 @@ public final class TopLevelArtifactHelper {
       boolean isImportantGroup =
           !outputGroup.startsWith(OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX);
 
+      allOutputGroupsImportant &= isImportantGroup;
+
       ArtifactsInOutputGroup artifacts =
           new ArtifactsInOutputGroup(isImportantGroup, /*incomplete=*/ false, results.build());
 
       allOutputGroups.put(outputGroup, artifacts);
     }
 
-    return new ArtifactsToBuild(allOutputGroups.build());
+    return new ArtifactsToBuild(
+        allOutputGroups.build(), /*allOutputGroupsImportant=*/ allOutputGroupsImportant);
   }
 
   /**

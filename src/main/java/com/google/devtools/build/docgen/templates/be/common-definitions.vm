@@ -58,7 +58,7 @@ many functions or build rules.
   substring, such as <code>//mypkg:target</code>, and that label is a
   declared prerequisite of the current rule, it is expanded into the
   pathname of the file represented by the
-  <a href="https://docs.bazel.build/versions/master/glossary.html#target">target</a>
+  <a href="https://docs.bazel.build/versions/main/glossary.html#target">target</a>
   <code>//mypkg:target</code>.
 </p>
 
@@ -168,13 +168,13 @@ config_setting(
 <p>
   Bazel evaluates configurable attributes after processing macros and before
   processing rules (technically, between the
-  <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">
+  <a href="https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model">
   loading and analysis phases</a>).
   Any processing before <code>select()</code> evaluation doesn't know which
   branch the <code>select()</code> chooses. Macros, for example, can't change
   their behavior based on the chosen branch, and <code>bazel query</code> can
   only make conservative guesses about a target's configurable dependencies. See
-  <a href="https://docs.bazel.build/versions/master/configurable-attributes.html#faq">
+  <a href="https://docs.bazel.build/versions/main/configurable-attributes.html#faq">
   this FAQ</a>
   for more on using <code>select()</code> with rules and macros.
 </p>
@@ -187,7 +187,7 @@ config_setting(
 </p>
 
 <p>
-  See <a href="https://docs.bazel.build/versions/master/configurable-attributes.html">
+  See <a href="https://docs.bazel.build/versions/main/configurable-attributes.html">
   Configurable Build Attributes</a> for a detailed overview.
 </p>
 

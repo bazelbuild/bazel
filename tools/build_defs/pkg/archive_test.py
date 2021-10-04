@@ -23,9 +23,6 @@ import os.path
 import tarfile
 import unittest
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
-import six
-
 from tools.build_defs.pkg import archive
 from tools.build_defs.pkg import testenv
 
@@ -80,19 +77,6 @@ class TarFileWriterTest(unittest.TestCase):
       pass
     self.assertTarFileContent(self.tempfile, [])
 
-  def assertSimpleFileContent(self, names):
-    with archive.TarFileWriter(self.tempfile) as f:
-      for n in names:
-        f.add_file(n, content=n)
-    content = ([{
-        "name": "."
-    }] + [{
-        "name": n,
-        "size": len(six.ensure_binary(n, "utf-8")),
-        "data": six.ensure_binary(n, "utf-8")
-    } for n in names])
-    self.assertTarFileContent(self.tempfile, content)
-
   def testDefaultMtimeNotProvided(self):
     with archive.TarFileWriter(self.tempfile) as f:
       self.assertEqual(f.default_mtime, 0)
@@ -120,14 +104,6 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"))
       for output_file in f.tar:
         self.assertEqual(output_file.mtime, 0)
-
-  def testAddFile(self):
-    self.assertSimpleFileContent(["./a"])
-    self.assertSimpleFileContent(["./b"])
-    self.assertSimpleFileContent(["./ab"])
-    self.assertSimpleFileContent(["./a", "./b"])
-    self.assertSimpleFileContent(["./a", "./ab"])
-    self.assertSimpleFileContent(["./a", "./b", "./ab"])
 
   def testDottedFiles(self):
     with archive.TarFileWriter(self.tempfile) as f:
@@ -170,7 +146,7 @@ class TarFileWriterTest(unittest.TestCase):
         {"name": "./a", "data": b"a"},
         {"name": "./ab", "data": b"ab"},
         ]
-    for ext in ["", ".gz", ".bz2", ".xz"]:
+    for ext in ["", ".gz", ".bz2"]:
       with archive.TarFileWriter(self.tempfile) as f:
         f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext),
                   name_filter=lambda n: n != "./b")

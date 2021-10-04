@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
@@ -38,6 +40,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
@@ -60,8 +67,12 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
-  /** Prefix for iOS cpu values. */
+  /** Prefix for iOS cpu values */
   public static final String IOS_CPU_PREFIX = "ios_";
+
+  // TODO(b/180572694): Remove after platforms based toolchain resolution supported.
+  /** Prefix for forced iOS simulator cpu values */
+  public static final String IOS_FORCED_SIMULATOR_CPU_PREFIX = "sim_";
 
   /** Default cpu for iOS builds. */
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
@@ -207,16 +218,33 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public String getSingleArchitecture() {
-    return getSingleArchitecture(applePlatformType, appleCpus);
+    return getSingleArchitecture(applePlatformType, appleCpus, /* removeSimPrefix= */ true);
   }
 
-  private static String getSingleArchitecture(PlatformType applePlatformType, AppleCpus appleCpus) {
+  private static String getSingleArchitecture(
+      PlatformType applePlatformType, AppleCpus appleCpus, boolean removeSimPrefix) {
+    // The removeSimPrefix argument is necessary due to a simulator and device both using arm64
+    // architecture. In the case of Starlark asking for the architecture, we should return the
+    // actual architecture (arm64) but in other cases in this class what we actually want is the
+    // CPU without the ios prefix (e.g. sim_arm64). This parameter is provided in the private method
+    // so that internal to this class we are able to use both without duplicating retrieval logic.
+    // TODO(b/180572694): Remove removeSimPrefix parameter once platforms are used instead of CPU
     if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
-      return appleCpus.appleSplitCpu();
+      String cpu = appleCpus.appleSplitCpu();
+      if (removeSimPrefix && cpu.startsWith(IOS_FORCED_SIMULATOR_CPU_PREFIX)) {
+        cpu = cpu.substring(IOS_FORCED_SIMULATOR_CPU_PREFIX.length());
+      }
+      return cpu;
     }
     switch (applePlatformType) {
       case IOS:
-        return Iterables.getFirst(appleCpus.iosMultiCpus(), appleCpus.iosCpu());
+        {
+          String cpu = Iterables.getFirst(appleCpus.iosMultiCpus(), appleCpus.iosCpu());
+          if (removeSimPrefix && cpu.startsWith(IOS_FORCED_SIMULATOR_CPU_PREFIX)) {
+            cpu = cpu.substring(IOS_FORCED_SIMULATOR_CPU_PREFIX.length());
+          }
+          return cpu;
+        }
       case WATCHOS:
         return appleCpus.watchosCpus().get(0);
       case TVOS:
@@ -285,7 +313,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public ApplePlatform getSingleArchPlatform() {
-    return ApplePlatform.forTarget(applePlatformType, getSingleArchitecture());
+    return ApplePlatform.forTarget(
+        applePlatformType,
+        getSingleArchitecture(applePlatformType, appleCpus, /* removeSimPrefix= */ false));
   }
 
   /**
@@ -387,7 +417,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       PlatformType applePlatformType,
       AppleCpus appleCpus,
       EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes) {
-    String architecture = getSingleArchitecture(applePlatformType, appleCpus);
+    String architecture =
+        getSingleArchitecture(applePlatformType, appleCpus, /* removeSimPrefix= */ false);
     String cpuString = ApplePlatform.cpuStringForTarget(applePlatformType, architecture);
     if (ApplePlatform.isApplePlatform(cpuString)) {
       ApplePlatform platform = ApplePlatform.forTarget(applePlatformType, architecture);
@@ -433,6 +464,18 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   }
 
   /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
+  @Override
+  public boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getName())) {
+      throw Starlark.errorf("private API only for use by builtins");
+    }
+    return isMandatoryMinimumVersion();
+  }
+
   public boolean isMandatoryMinimumVersion() {
     return mandatoryMinimumVersion;
   }
@@ -495,7 +538,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * Value used to avoid multiple configurations from conflicting. No two instances of this
    * transition may exist with the same value in a single Bazel invocation.
    */
-  public enum ConfigurationDistinguisher {
+  public enum ConfigurationDistinguisher implements StarlarkValue {
     UNKNOWN("unknown"),
     /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
     APPLEBIN_IOS("applebin_ios"),

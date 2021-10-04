@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import com.google.common.collect.ImmutableList;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
+
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -41,8 +43,8 @@ import net.starlark.java.eval.StarlarkThread;
 public interface JavaInfoApi<
         FileT extends FileApi,
         JavaOutputT extends JavaOutputApi<FileT>,
-        CcInfoT extends CcInfoApi<FileT>>
-    extends StructApi {
+        JavaPluginDataT extends JavaPluginDataApi>
+    extends StructApi, JavaPluginInfoApi<FileT, JavaPluginDataT, JavaOutputT> {
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",
@@ -113,12 +115,6 @@ public interface JavaInfoApi<
   JavaRuleOutputJarsProviderApi<?> getOutputJars();
 
   @StarlarkMethod(
-      name = "java_outputs",
-      doc = "Returns information about outputs of this Java/Java-like target.",
-      structField = true)
-  ImmutableList<JavaOutputT> getJavaOutputs();
-
-  @StarlarkMethod(
       name = "annotation_processing",
       structField = true,
       allowReturnNones = true,
@@ -171,6 +167,7 @@ public interface JavaInfoApi<
   @StarlarkMethod(
       name = "transitive_exports",
       structField = true,
+      enableOnlyWithFlag = INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER,
       doc = "Returns a set of labels that are being exported from this rule transitively.")
   Depset /*<Label>*/ getTransitiveExports();
 
@@ -316,6 +313,14 @@ public interface JavaInfoApi<
                       + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
                       + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
           @Param(
+              name = "exported_plugins",
+              named = true,
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = JavaPluginInfoApi.class)
+              },
+              defaultValue = "[]",
+              doc = "A list of exported plugins. Optional."),
+          @Param(
               name = "jdeps",
               allowedTypes = {
                 @ParamType(type = FileApi.class),
@@ -351,6 +356,7 @@ public interface JavaInfoApi<
         Sequence<?> deps,
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
+        Sequence<?> exportedPlugins,
         Object jdepsApi,
         Sequence<?> nativeLibraries,
         StarlarkThread thread)

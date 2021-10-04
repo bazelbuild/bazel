@@ -29,5 +29,7 @@ proto_library(
         "//src/main/protobuf:command_line_proto",
         "//src/main/protobuf:failure_details_proto",
         "//src/main/protobuf:invocation_policy_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:timestamp_proto",
     ],
 )

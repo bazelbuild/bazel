@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -139,10 +140,10 @@ public interface ActionAnalysisMetadata {
    *
    * <p>Warning: For optimization reasons, the available environment variables are restricted to
    * those white-listed on the command line. If actions want to specify additional client
-   * environment variables to depend on, that restriction must be lifted in
-   * {@link com.google.devtools.build.lib.runtime.CommandEnvironment}.
+   * environment variables to depend on, that restriction must be lifted in {@link
+   * com.google.devtools.build.lib.runtime.CommandEnvironment}.
    */
-  Iterable<String> getClientEnvironmentVariables();
+  Collection<String> getClientEnvironmentVariables();
 
   /**
    * Returns the (unordered, immutable) set of output Artifacts that
@@ -214,17 +215,6 @@ public interface ActionAnalysisMetadata {
 
   /** Returns the action type. Must not be {@code null}. */
   MiddlemanType getActionType();
-
-  /**
-   * Indicates whether this action has loose headers, or if this is an {@link ActionTemplate},
-   * whether the expanded action(s) will have loose headers.
-   *
-   * <p>If this is true, top-down evaluation considers an action changed if any source files in
-   * package have changed.
-   */
-  default boolean hasLooseHeaders() {
-    return false;
-  }
 
   /** Returns a String to String map containing the execution properties of this action. */
   ImmutableMap<String, String> getExecProperties();

@@ -71,6 +71,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final boolean throwOnResourceConflict;
   private final boolean useDataBindingV2;
   private final boolean useDataBindingAndroidX;
+  private final boolean includeProguardLocationReferences;
   private final ImmutableMap<String, String> executionInfo;
 
   public static AndroidDataContext forNative(RuleContext ruleContext) {
@@ -97,6 +98,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
         !hasExemption(ruleContext, "allow_resource_conflicts", true),
         androidConfig.useDataBindingV2(),
         androidConfig.useDataBindingAndroidX(),
+        androidConfig.includeProguardLocationReferences(),
         executionInfo);
   }
 
@@ -120,6 +122,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       boolean throwOnResourceConflict,
       boolean useDataBindingV2,
       boolean useDataBindingAndroidX,
+      boolean includeProguardLocationReferences,
       ImmutableMap<String, String> executionInfo) {
     this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
     this.ruleContext = ruleContext;
@@ -133,6 +136,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.throwOnResourceConflict = throwOnResourceConflict;
     this.useDataBindingV2 = useDataBindingV2;
     this.useDataBindingAndroidX = useDataBindingAndroidX;
+    this.includeProguardLocationReferences = includeProguardLocationReferences;
     this.executionInfo = executionInfo;
   }
 
@@ -242,6 +246,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public boolean useDataBindingAndroidX() {
     return useDataBindingAndroidX;
+  }
+
+  public boolean includeProguardLocationReferences() {
+    return includeProguardLocationReferences;
   }
 
   public boolean annotateRFieldsFromTransitiveDeps() {

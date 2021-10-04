@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Map;
 import java.util.Set;
@@ -33,8 +32,8 @@ import net.starlark.java.syntax.Location;
 
 /**
  * Given a {@link RuleClass} and a set of attribute values, returns a {@link Rule} instance. Also
- * performs a number of checks and associates the {@link Rule} and the owning {@link Package}
- * with each other.
+ * performs a number of checks and associates the {@link Rule} and the owning {@link Package} with
+ * each other.
  *
  * <p>This class is immutable, once created the set of managed {@link RuleClass}es will not change.
  *
@@ -43,9 +42,7 @@ import net.starlark.java.syntax.Location;
  */
 public class RuleFactory {
 
-  /**
-   * Maps rule class name to the metaclass instance for that rule.
-   */
+  /** Maps rule class name to the metaclass instance for that rule. */
   private final ImmutableMap<String, RuleClass> ruleClassMap;
 
   /** Constructs a RuleFactory instance. */
@@ -53,16 +50,12 @@ public class RuleFactory {
     this.ruleClassMap = ImmutableMap.copyOf(provider.getRuleClassMap());
   }
 
-  /**
-   * Returns the (immutable, unordered) set of names of all the known rule classes.
-   */
+  /** Returns the (immutable, unordered) set of names of all the known rule classes. */
   public Set<String> getRuleClassNames() {
     return ruleClassMap.keySet();
   }
 
-  /**
-   * Returns the RuleClass for the specified rule class name.
-   */
+  /** Returns the RuleClass for the specified rule class name. */
   public RuleClass getRuleClass(String ruleClassName) {
     return ruleClassMap.get(ruleClassName);
   }
@@ -73,7 +66,7 @@ public class RuleFactory {
    * <p>It is the caller's responsibility to add the rule to the package (the caller may choose not
    * to do so if, for example, the rule has errors).
    */
-  static Rule createRule(
+  public static Rule createRule(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
@@ -157,7 +150,7 @@ public class RuleFactory {
    *     package
    * @throws InterruptedException if interrupted
    */
-  static Rule createAndAddRuleImpl(
+  public static Rule createAndAddRule(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
@@ -172,38 +165,11 @@ public class RuleFactory {
   }
 
   /**
-   * Creates a {@link Rule} instance, adds it to the {@link Package.Builder} and returns it.
-   *
-   * @param context the package-building context in which this rule was declared
-   * @param ruleClass the {@link RuleClass} of the rule
-   * @param attributeValues a {@link BuildLangTypedAttributeValuesMap} mapping attribute names to
-   *     attribute values of build-language type. Each attribute must be defined for this class of
-   *     rule, and have a build-language-typed value which can be converted to the appropriate
-   *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must be
-   *     a map entry for each non-optional attribute of this class of rule.
-   * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
-   *     {@code name} attribute is defined)
-   * @throws NameConflictException if the rule's name or output files conflict with others in this
-   *     package
-   * @throws InterruptedException if interrupted
-   */
-  public static Rule createAndAddRule(
-      PackageContext context,
-      RuleClass ruleClass,
-      BuildLangTypedAttributeValuesMap attributeValues,
-      StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack)
-      throws InvalidRuleException, NameConflictException, InterruptedException {
-    return createAndAddRuleImpl(
-        context.pkgBuilder, ruleClass, attributeValues, context.eventHandler, semantics, callstack);
-  }
-
-  /**
-   * InvalidRuleException is thrown by {@link Rule} creation methods if the {@link Rule} could
-   * not be constructed. It contains an error message.
+   * InvalidRuleException is thrown by {@link Rule} creation methods if the {@link Rule} could not
+   * be constructed. It contains an error message.
    */
   public static class InvalidRuleException extends Exception {
-    private InvalidRuleException(String message) {
+    public InvalidRuleException(String message) {
       super(message);
     }
   }
@@ -220,22 +186,23 @@ public class RuleFactory {
   }
 
   /**
-   * A wrapper around an map of named attribute values that specifies whether the map's values
-   * are of "build-language" or of "native" types.
+   * A wrapper around an map of named attribute values that specifies whether the map's values are
+   * of "build-language" or of "native" types.
    */
   public interface AttributeValues<T> {
     /**
-     * Returns {@code true} if all the map's values are "build-language typed", i.e., resulting
-     * from the evaluation of an expression in the build language. Returns {@code false} if all
-     * the map's values are "natively typed", i.e. of a type returned by {@link
-     * BuildType#selectableConvert}.
+     * Returns {@code true} if all the map's values are "build-language typed", i.e., resulting from
+     * the evaluation of an expression in the build language. Returns {@code false} if all the map's
+     * values are "natively typed", i.e. of a type returned by {@link BuildType#selectableConvert}.
      */
     boolean valuesAreBuildLanguageTyped();
 
     Iterable<T> getAttributeAccessors();
 
     String getName(T attributeAccessor);
+
     Object getValue(T attributeAccessor);
+
     boolean isExplicitlySpecified(T attributeAccessor);
   }
 

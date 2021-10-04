@@ -293,6 +293,12 @@ def _my_rule_impl(ctx):
         )
         group_kwargs[name + "_outputs"] = depset(
             [outfile], transitive=[group_kwargs[name + "_outputs"]])
+    valid = ctx.actions.declare_file(ctx.label.name + "-valid")
+    ctx.actions.run_shell(
+        outputs = [valid],
+        command = "printf valid > %s && exit %d" % (valid.path, 0),
+    )
+    group_kwargs["_validation"] = depset([valid])
     return [OutputGroupInfo(**group_kwargs)]
 
 my_rule = rule(implementation = _my_rule_impl, attrs = {
@@ -514,6 +520,45 @@ function test_test_attempts() {
   expect_not_log 'name:.*SUCCESS'
 }
 
+function test_undeclared_output_annotations() {
+  mkdir -p undeclared_annotations || fail "mkdir undeclared_annotations failed"
+  cat > undeclared_annotations/undeclared_annotations_test.sh <<'EOF'
+#!/bin/sh
+
+base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
+[ -d $base ] || exit 2
+[ ! -e $base/1.txt ]] | exit 2
+
+echo "some information" > $base/something.part
+EOF
+  chmod u+x undeclared_annotations/undeclared_annotations_test.sh
+  echo "sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
+    > undeclared_annotations/BUILD
+  bazel test  --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_test || fail "Expected success"
+  expect_log 'test_result'
+  expect_log 'test.outputs_manifest__ANNOTATIONS'
+  expect_not_log 'test.outputs_manifest__ANNOTATIONS.pb'
+}
+
+function test_undeclared_output_annotations_pb() {
+  mkdir -p undeclared_annotations || fail "mkdir undeclared_annotations failed"
+  cat > undeclared_annotations/undeclared_annotations_test.sh <<'EOF'
+#!/bin/sh
+
+base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
+[ -d $base ] || exit 2
+[ ! -e $base/1.txt ]] | exit 2
+
+echo "some information" > $base/something.pb
+EOF
+  chmod u+x undeclared_annotations/undeclared_annotations_test.sh
+  echo "sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
+    > undeclared_annotations/BUILD
+  bazel test --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_pb_test || fail "Expected success"
+  expect_log 'test_result'
+  expect_log 'test.outputs_manifest__ANNOTATIONS.pb'
+}
+
 function test_test_runtime() {
   bazel test --build_event_text_file=$TEST_log pkg:slow \
     || fail "bazel test failed"
@@ -666,6 +711,7 @@ function test_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
   # We request the first three output groups and expect foo_outputs and
   # bar_outputs to appear in BEP, because both groups have at least one
@@ -675,6 +721,7 @@ function test_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
    --output_groups=foo_outputs,bar_outputs,baz_outputs \
     && fail "expected failure" || true
 
@@ -700,6 +747,7 @@ function test_bep_output_groups() {
     expect_not_log "\"name\":\"${name}_outputs\""
     expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
+  expect_not_log "-valid\""  # validation outputs shouldn't appear in BEP
 }
 
 function test_aspect_artifacts() {
@@ -766,6 +814,7 @@ function test_failing_aspect_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
   # We request the first two output groups and expect only bar_outputs to
   # appear in BEP, because all actions contributing to bar_outputs succeeded.
@@ -778,6 +827,8 @@ function test_failing_aspect_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
+   --experimental_use_validation_aspect \
    --aspects=semifailingaspect.bzl%semifailing_aspect \
    --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out,mixed-aspect-out \
     && fail "expected failure" || true
@@ -804,6 +855,10 @@ function test_failing_aspect_bep_output_groups() {
   expect_log "\"name\":\"semifailingpkg/out2.txt.aspect.good\",\"uri\":"
   expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.mixed\",\"uri\":"
   expect_not_log "\"name\":\"semifailingpkg/out2.txt.aspect.mixed\",\"uri\":"
+
+  # Validation outputs shouldn't appear in BEP (incl. no output group)
+  expect_not_log "-valid\""
+  expect_log_n '^{"id":{"targetCompleted":{.*"aspect":"ValidateTarget".*}},"completed":{"success":true}}$' 2
 }
 
 function test_build_only() {
@@ -1062,6 +1117,21 @@ function test_srcfiles() {
 function test_test_fails_to_build() {
   (bazel test --experimental_bep_target_summary \
          --build_event_text_file=$TEST_log \
+         pkg:test_that_fails_to_build && fail "test failure expected") || true
+  expect_not_log 'test_summary'  # no test_summary events or references to them
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success'
+  expect_log 'last_message: true'
+  expect_log 'BUILD_FAILURE'
+  expect_log 'last_message: true'
+  expect_log 'command_line:.*This build will fail'
+  expect_log_once '^build_tool_logs'
+}
+
+function test_test_fails_to_build_without_default_output_group() {
+  (bazel test --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
+         --output_groups=extra \
          pkg:test_that_fails_to_build && fail "test failure expected") || true
   expect_not_log 'test_summary'  # no test_summary events or references to them
   expect_log_once '^target_summary '
@@ -1338,6 +1408,14 @@ EOF
       grep -q \
           'event { id { named_set { id: "0" } } named_set_of_files { file_sets { id: "[0-9]" } file_sets { id: "[0-9]" } } }' \
       || fail "Couldn't find top-level named set"
+}
+
+function test_memory_profile() {
+  bazel build --build_event_text_file=bep.txt --memory_profile=/dev/null \
+      >& "$TEST_log" || fail "Expected success"
+  cp bep.txt "$TEST_log" || fail "cp failed"
+  # Non-zero used heap size.
+  expect_log 'used_heap_size_post_build: [1-9]'
 }
 
 run_suite "Integration tests for the build event stream"

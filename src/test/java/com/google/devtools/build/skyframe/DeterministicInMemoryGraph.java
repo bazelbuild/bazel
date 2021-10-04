@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -68,7 +69,7 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+  public ConcurrentHashMap<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
     return ((InMemoryGraph) delegate).getAllValuesMutable();
   }
 }

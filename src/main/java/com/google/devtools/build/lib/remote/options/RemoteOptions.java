@@ -89,6 +89,25 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteExecutionKeepalive;
 
   @Option(
+      name = "experimental_remote_capture_corrupted_outputs",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help = "A path to a directory where the corrupted outputs will be captured to.")
+  public PathFragment remoteCaptureCorruptedOutputs;
+
+  @Option(
+      name = "experimental_remote_cache_async",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, remote cache I/O will happen in the background instead of taking place as the"
+              + " part of a spawn.")
+  public boolean remoteCacheAsync;
+
+  @Option(
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",
@@ -98,7 +117,7 @@ public final class RemoteOptions extends OptionsBase {
           "A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs "
               + "(grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided "
               + "Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable "
-              + "TLS. See https://docs.bazel.build/versions/master/remote-caching.html")
+              + "TLS. See https://docs.bazel.build/versions/main/remote-caching.html")
   public String remoteCache;
 
   @Option(
@@ -108,8 +127,8 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
-              + " schemas are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets)."
-              + " If no schema is provided Bazel will default to grpcs. See: "
+              + " schemas are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
+              + " no schema is provided Bazel will default to grpcs. See: "
               + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public String remoteDownloader;
 
@@ -252,10 +271,7 @@ public final class RemoteOptions extends OptionsBase {
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
               + " apply to the disk cache. If a combined cache is used:\n"
@@ -263,8 +279,19 @@ public final class RemoteOptions extends OptionsBase {
               + " cache, but not uploaded to the remote cache.\n"
               + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
               + " cache, but not in the remote cache.\n"
+              + "\tno-remote-exec actions can hit the disk cache.\n"
               + "See #8216 for details.")
   public boolean incompatibleRemoteResultsIgnoreDisk;
+
+  @Option(
+      name = "incompatible_remote_output_paths_relative_to_input_root",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, output paths are relative to input root instead of working directory.")
+  public boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
 
   @Option(
       name = "remote_instance_name",
@@ -329,10 +356,7 @@ public final class RemoteOptions extends OptionsBase {
       category = "remote",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, Bazel will represent symlinks in action outputs "
               + "in the remote caching/execution protocol as such. The "

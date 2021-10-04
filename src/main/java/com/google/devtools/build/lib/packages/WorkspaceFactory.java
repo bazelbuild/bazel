@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -56,8 +57,6 @@ public class WorkspaceFactory {
   private final Path defaultSystemJavabaseDir;
   private final Mutability mutability;
 
-  private final RuleFactory ruleFactory;
-
   private final WorkspaceGlobals workspaceGlobals;
   private final StarlarkSemantics starlarkSemantics;
   private final ImmutableMap<String, Object> workspaceFunctions;
@@ -93,7 +92,7 @@ public class WorkspaceFactory {
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
     this.environmentExtensions = environmentExtensions;
-    this.ruleFactory = new RuleFactory(ruleClassProvider);
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
     this.starlarkSemantics = starlarkSemantics;
     this.workspaceFunctions =
@@ -139,10 +138,11 @@ public class WorkspaceFactory {
               BazelStarlarkContext.Phase.WORKSPACE,
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*repoMapping=*/ ImmutableMap.of(),
+              /*repoMapping=*/ RepositoryMapping.ALWAYS_FALLBACK,
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       List<String> globs = new ArrayList<>(); // unused

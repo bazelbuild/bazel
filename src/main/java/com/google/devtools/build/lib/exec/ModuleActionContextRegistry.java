@@ -160,7 +160,7 @@ public final class ModuleActionContextRegistry
         throw new AbruptExitException(
             DetailedExitCode.of(
                 FailureDetail.newBuilder()
-                    .setMessage(getMissingIdentifierErrorMessage(unusedRestrictions).toString())
+                    .setMessage(getMissingIdentifierErrorMessage(unusedRestrictions))
                     .setExecutionOptions(
                         FailureDetails.ExecutionOptions.newBuilder()
                             .setCode(Code.RESTRICTION_UNMATCHED_TO_ACTION_CONTEXT))
@@ -170,8 +170,7 @@ public final class ModuleActionContextRegistry
       return new ModuleActionContextRegistry(ImmutableClassToInstanceMap.copyOf(contextToInstance));
     }
 
-    private StringBuilder getMissingIdentifierErrorMessage(
-        Sets.SetView<Class<?>> unusedRestrictions) {
+    private String getMissingIdentifierErrorMessage(Sets.SetView<Class<?>> unusedRestrictions) {
       Multimap<Class<?>, String> typeToAvailableIdentifiers = ArrayListMultimap.create();
       for (Class<?> type : unusedRestrictions) {
         for (ActionContextInformation<?> actionContextInformation : actionContexts) {
@@ -193,7 +192,8 @@ public final class ModuleActionContextRegistry
                 typeToRestriction.get(type),
                 Joiner.on(", ").join(typeToIdentifiers.getValue())));
       }
-      return message;
+      message.append("unused ").append(unusedRestrictions);
+      return message.toString();
     }
   }
 

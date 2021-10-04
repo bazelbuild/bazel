@@ -220,12 +220,12 @@ class RemoteServerCapabilities {
     if (shouldCheckCacheCapabilities) {
       // Check cache digest function.
       CacheCapabilities cacheCap = capabilities.getCacheCapabilities();
-      if (!cacheCap.getDigestFunctionList().contains(digestFunction)) {
+      if (!cacheCap.getDigestFunctionsList().contains(digestFunction)) {
         result.addError(
             String.format(
                 "Cannot use hash function %s with remote cache. "
                     + "Server supported functions are: %s",
-                digestFunction, cacheCap.getDigestFunctionList()));
+                digestFunction, cacheCap.getDigestFunctionsList()));
       }
 
       // Check updating remote cache is allowed, if we ever need to do that.

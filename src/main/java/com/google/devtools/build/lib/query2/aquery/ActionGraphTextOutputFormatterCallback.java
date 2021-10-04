@@ -90,8 +90,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         }
         if (options.useAspects) {
           for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
-            for (ActionAnalysisMetadata action : aspectValue.getActions()) {
-              writeAction(action, printStream);
+            if (aspectValue != null) {
+              for (ActionAnalysisMetadata action : aspectValue.getActions()) {
+                writeAction(action, printStream);
+              }
             }
           }
         }
@@ -137,6 +139,12 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
           .append('\n');
+      if (actionOwner.getExecutionPlatform() != null) {
+        stringBuilder
+            .append("  Execution platform: ")
+            .append(actionOwner.getExecutionPlatform().label().toString())
+            .append("\n");
+      }
 
       // In the case of aspect-on-aspect, AspectDescriptors are listed in
       // topological order of the dependency graph.
@@ -252,7 +260,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* prettyPrintArgs= */ true,
                   ((CommandAction) action).getArguments(),
                   /* environment= */ null,
-                  /* cwd= */ null))
+                  /* cwd= */ null,
+                  action.getOwner().getConfigurationChecksum(),
+                  action.getExecutionPlatform()))
           .append("\n");
     }
 

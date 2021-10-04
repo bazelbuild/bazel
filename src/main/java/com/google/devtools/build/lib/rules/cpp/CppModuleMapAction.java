@@ -292,6 +292,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     }
     fp.addInt(dependencies.size());
     for (CppModuleMap dep : dependencies) {
+      fp.addString(dep.getName());
       fp.addPath(dep.getArtifact().getExecPath());
     }
     fp.addInt(additionalExportedHeaders.size());

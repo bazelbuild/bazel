@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -27,7 +29,9 @@ import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 
 /** Common logic used by java*_proto aspects (e.g. {@link JavaLiteProtoAspect}). */
 public class JavaProtoAspectCommon {
@@ -114,6 +118,7 @@ public class JavaProtoAspectCommon {
             .setOutput(outputJar)
             .addSourceJars(sourceJar)
             .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext))
+            .enableJspecify(false)
             .addDep(dep)
             .setCompilationStrictDepsMode(StrictDepsMode.ERROR);
     for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {
@@ -186,5 +191,29 @@ public class JavaProtoAspectCommon {
   public Artifact getOutputJarArtifact() {
     return ruleContext.getBinArtifact(
         "lib" + ruleContext.getLabel().getName() + jarSuffix + ".jar");
+  }
+
+  /**
+   * Decides whether code should be generated for the .proto files in the currently-processed
+   * proto_library.
+   */
+  boolean shouldGenerateCode(ProtoInfo protoInfo, String ruleName) {
+    Preconditions.checkNotNull(protoInfo);
+    Preconditions.checkNotNull(ruleName);
+
+    if (protoInfo.getDirectSources().isEmpty()) {
+      return false;
+    }
+
+    NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
+    forbiddenProtos.addTransitive(getProtoToolchainProvider().forbiddenProtos());
+    if (rpcSupport != null) {
+      forbiddenProtos.addTransitive(rpcSupport.getForbiddenProtos(ruleContext));
+    }
+
+    final ProtoSourceFileExcludeList protoExcludeList =
+        new ProtoSourceFileExcludeList(ruleContext, forbiddenProtos.build());
+
+    return protoExcludeList.checkSrcs(protoInfo.getDirectSources(), ruleName);
   }
 }

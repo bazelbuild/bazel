@@ -299,15 +299,8 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public ImmutableList<String> getClientEnvironmentVariables() {
     return ImmutableList.of();
-  }
-
-  @Override
-  public boolean hasLooseHeaders() {
-    return CppCompileAction.hasLooseHeaders(
-        cppCompileActionBuilder.getCcCompilationContext(),
-        cppCompileActionBuilder.getFeatureConfiguration());
   }
 
   @Override

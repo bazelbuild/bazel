@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -519,158 +519,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetRuleSelect() throws Exception {
-    scratch.file("test/starlark/BUILD");
-    scratch.file(
-        "test/starlark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
-
-    scratch.file(
-        "test/getrule/BUILD",
-        "load('//test/starlark:rulestr.bzl', 'rule_dict')",
-        "cc_library(name ='x', ",
-        "  srcs = select({'//conditions:default': []})",
-        ")",
-        "rule_dict('x')");
-
-    // Parse the BUILD file, to make sure select() makes it out of native.rule().
-    createRuleContext("//test/getrule:x");
-  }
-
-  @Test
-  public void testExistingRuleReturnNone() throws Exception {
-    scratch.file(
-        "test/rulestr.bzl",
-        "def test_rule(name, x):",
-        "  print(native.existing_rule(x))",
-        "  if native.existing_rule(x) == None:",
-        "    native.cc_library(name = name)");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:rulestr.bzl', 'test_rule')",
-        "test_rule('a', 'does not exist')",
-        "test_rule('b', 'BUILD')");
-
-    assertThat(getConfiguredTarget("//test:a")).isNotNull();
-    assertThat(getConfiguredTarget("//test:b")).isNotNull();
-  }
-
-  @Test
-  public void existingRuleWithSelect() throws Exception {
-    scratch.file(
-        "test/existing_rule.bzl",
-        "def macro():",
-        "  s = select({'//foo': ['//bar']})",
-        "  print('Passed: ' + repr(s))",
-        "  native.cc_library(name = 'x', srcs = s)",
-        "  print('Returned: ' + repr(native.existing_rule('x')['srcs']))",
-        // The value returned here should round-trip fine.
-        "  native.cc_library(name = 'y', srcs = native.existing_rule('x')['srcs'])");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:existing_rule.bzl', 'macro')",
-        "macro()",
-        "cc_library(name = 'a', srcs = [])");
-    getConfiguredTarget("//test:a");
-    assertContainsEvent("Passed: select({\"//foo\": [\"//bar\"]}");
-    // The short labels are now in their canonical form, and the sequence is represented as
-    // tuple instead of list, but the meaning is unchanged.
-    assertContainsEvent("Returned: select({\"//foo:foo\": (\"//bar:bar\",)}");
-  }
-
-  @Test
-  public void testGetRule() throws Exception {
-    scratch.file("test/starlark/BUILD");
-    scratch.file(
-        "test/starlark/rulestr.bzl",
-        "def rule_dict(name):",
-        "  return native.existing_rule(name)",
-        "def rules_dict():",
-        "  return native.existing_rules()",
-        "def nop(ctx):",
-        "  pass",
-        "nop_rule = rule(attrs = {'x': attr.label()}, implementation = nop)",
-        "consume_rule = rule(attrs = {'s': attr.string_list()}, implementation = nop)");
-
-    scratch.file(
-        "test/getrule/BUILD",
-        "load('//test/starlark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule',"
-            + "'consume_rule')",
-        "genrule(name = 'a', outs = ['a.txt'], ",
-        "        licenses = ['notice'],",
-        "        output_to_bindir = False,",
-        "        tools = [ '//test:bla' ], cmd = 'touch $@')",
-        "nop_rule(name = 'c', x = ':a')",
-        "rlist= rules_dict()",
-        "consume_rule(name = 'all_str', s = [rlist['a']['kind'], rlist['a']['name'], ",
-        "                                    rlist['c']['kind'], rlist['c']['name']])",
-        "adict = rule_dict('a')",
-        "cdict = rule_dict('c')",
-        "consume_rule(name = 'a_str', ",
-        "             s = [adict['kind'], adict['name'], adict['outs'][0], adict['tools'][0]])",
-        "consume_rule(name = 'genrule_attr', ",
-        "             s = adict.keys())",
-        "consume_rule(name = 'c_str', s = [cdict['kind'], cdict['name'], cdict['x']])");
-
-    StarlarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
-    setRuleContext(allContext);
-    List<?> result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result).containsExactly("genrule", "a", "nop_rule", "c");
-
-    setRuleContext(createRuleContext("//test/getrule:a_str"));
-    result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result).containsExactly("genrule", "a", ":a.txt", "//test:bla");
-
-    setRuleContext(createRuleContext("//test/getrule:c_str"));
-    result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result).containsExactly("nop_rule", "c", ":a");
-
-    setRuleContext(createRuleContext("//test/getrule:genrule_attr"));
-    result = (List) ev.eval("ruleContext.attr.s");
-    assertThat(result)
-        .containsAtLeast(
-            "name",
-            "visibility",
-            "transitive_configs",
-            "tags",
-            "generator_name",
-            "generator_function",
-            "generator_location",
-            "features",
-            "compatible_with",
-            "target_compatible_with",
-            "restricted_to",
-            "srcs",
-            "tools",
-            "toolchains",
-            "outs",
-            "cmd",
-            "output_to_bindir",
-            "local",
-            "message",
-            "executable",
-            "stamp",
-            "heuristic_label_expansion",
-            "kind");
-  }
-
-  @Test
-  public void testExistingRuleDictIsMutable() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load('inc.bzl', 'f')", //
-        "f()");
-    scratch.file(
-        "test/inc.bzl", //
-        "def f():",
-        "  native.config_setting(name='x', define_values={'key': 'value'})",
-        "  r = native.existing_rule('x')",
-        "  r['define_values']['key'] = 123"); // mutate the dict
-
-    // Logically this belongs among the loading-phase tests of existing_rules. Where are they?
-    assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error
-  }
-
-  @Test
   public void testGetRuleAttributeListValue() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
@@ -706,6 +554,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   public void testGetRuleAttributeBadAttributeName() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains("No attribute 'bad'", "ruleContext.attr.bad");
+  }
+
+  @Test
+  public void testGetRuleAttributeNoAspectHints() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains("No attribute 'aspect_hints'", "ruleContext.attr.aspect_hints");
   }
 
   @Test
@@ -1477,42 +1331,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCallerRelativeLabelInExternalRepository() throws Exception {
-    scratch.file("BUILD");
-    scratch.file(
-        "external_rule.bzl",
-        "def _impl(ctx):",
-        "  return",
-        "external_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'internal_dep': attr.label(",
-        "        default = Label('//:dep', relative_to_caller_repository = True)",
-        "    )",
-        "  }",
-        ")");
-
-    scratch.file("/r/WORKSPACE");
-    scratch.file("/r/BUILD", "filegroup(name='dep')");
-
-    scratch.file(
-        "/r/a/BUILD", "load('@//:external_rule.bzl', 'external_rule')", "external_rule(name='r')");
-
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='/r')")
-            .build());
-
-    invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
-    setRuleContext(createRuleContext("@r//a:r"));
-    Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
-    assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep", ImmutableMap.of()));
-  }
-
-  @Test
   public void testExternalWorkspaceLoad() throws Exception {
     // RepositoryDelegatorFunction deletes and creates symlink for the repository and as such is not
     // safe to execute in parallel. Disable checks with package loader to avoid parallel
@@ -1916,6 +1734,19 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(symlinkPathsList)
         .containsExactly("symlink_test/a.py", "symlink_test/b.py", "symlink_test/c.py")
         .inOrder();
+  }
+
+  @Test
+  public void runfiles_incompatibleTransitiveFilesOrder() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _bad_runfiles_impl(ctx):",
+        "  ctx.runfiles(transitive_files = depset(order = 'preorder'))",
+        "bad_runfiles = rule(implementation = _bad_runfiles_impl)");
+    scratch.file("test/BUILD", "load(':rule.bzl', 'bad_runfiles')", "bad_runfiles(name = 'test')");
+    reporter.removeHandler(failFastHandler); // Error expected.
+    assertThat(getConfiguredTarget("//test:test")).isNull();
+    assertContainsEvent("Error in runfiles: order 'preorder' is invalid for transitive_files");
   }
 
   @Test
@@ -2426,6 +2257,31 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         .contains(
             "map_each function (declared at /workspace/q/inc.bzl:2:7) must be "
                 + "declared by a top-level def statement");
+  }
+
+  @Test
+  public void testArgsMapEachFunctionAllowClosure() throws Exception {
+    // lambda
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "def local_fn(x): return 'local:%s' % x",
+            "args = ctx.actions.args()",
+            "args.add_all(['a', 'b'], allow_closure=True, map_each=lambda x: 'lambda:%s' % x)",
+            "args.add_joined(['c', 'd'], join_with=';', allow_closure=True, map_each=local_fn)",
+            "args.set_param_file_format('multiline')",
+            "ctx.actions.write(output=out, content=args)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    // Args content ends the file with a newline
+    assertThat(ev.eval("action.content")).isEqualTo("lambda:a\nlambda:b\nlocal:c;local:d\n");
   }
 
   @Test
@@ -3041,7 +2897,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "something/BUILD",
         "load('//something:defs.bzl', 'use_exec_groups')",
         "use_exec_groups(name = 'nectarine')");
-    setBuildLanguageOptions("--experimental_exec_groups=true");
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");
@@ -3103,7 +2958,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "constraint_value(name = 'extra', constraint_setting = ':setting')",
         "load('//something:defs.bzl', 'use_exec_groups')",
         "use_exec_groups(name = 'nectarine')");
-    setBuildLanguageOptions("--experimental_exec_groups=true");
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AarImportTest.WithPlatforms;
 import com.google.devtools.build.lib.rules.android.AarImportTest.WithoutPlatforms;
@@ -173,15 +171,13 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testProguardExtractor() throws Exception {
+    ConfiguredTarget target = getConfiguredTarget("//a:bar");
     Artifact proguardSpecsAritfact =
-        getConfiguredTarget("//a:bar")
-            .get(ProguardSpecProvider.PROVIDER)
-            .getTransitiveProguardSpecs()
-            .toList()
-            .get(0);
+        target.get(ProguardSpecProvider.PROVIDER).getTransitiveProguardSpecs().toList().get(0);
 
     Artifact aarProguardExtractor =
-        getHostConfiguredTarget(
+        getDirectPrerequisite(
+                target,
                 ruleClassProvider.getToolsRepository()
                     + "//tools/android:aar_embedded_proguard_extractor")
             .getProvider(FilesToRunProvider.class)
@@ -253,7 +249,7 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
 
     DataBindingV2Provider provider = aarImportTarget.get(DataBindingV2Provider.PROVIDER);
 
-    Artifact setterStore = Iterables.getOnlyElement(provider.getSetterStores());
+    Artifact setterStore = provider.getSetterStores().toList().get(0);
     assertThat(setterStore.isTreeArtifact()).isTrue();
     assertThat(setterStore.getExecPathString())
         .endsWith("_aar/unzipped/data-binding-setter_store/last");
@@ -294,33 +290,27 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testResourcesExtractor() throws Exception {
+    ConfiguredTarget target = getConfiguredTarget("//a:foo");
     ValidatedAndroidResources resourceContainer =
-        getConfiguredTarget("//a:foo")
-            .get(AndroidResourcesInfo.PROVIDER)
-            .getDirectAndroidResources()
-            .toList()
-            .get(0);
+        target.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList().get(0);
 
     Artifact resourceTreeArtifact = resourceContainer.getResources().get(0);
     Artifact aarResourcesExtractor =
-        getHostConfiguredTarget(
+        getDirectPrerequisite(
+                target,
                 ruleClassProvider.getToolsRepository() + "//tools/android:aar_resources_extractor")
             .getProvider(FilesToRunProvider.class)
             .getExecutable();
 
     ParsedAndroidAssets assets =
-        getConfiguredTarget("//a:foo")
-            .get(AndroidAssetsInfo.PROVIDER)
-            .getDirectParsedAssets()
-            .toList()
-            .get(0);
+        target.get(AndroidAssetsInfo.PROVIDER).getDirectParsedAssets().toList().get(0);
     Artifact assetsTreeArtifact = assets.getAssets().get(0);
 
-    DataBindingV2Provider dataBindingV2Provider =
-        getConfiguredTarget("//a:foo").get(DataBindingV2Provider.PROVIDER);
+    DataBindingV2Provider dataBindingV2Provider = target.get(DataBindingV2Provider.PROVIDER);
     Artifact databindingBrTreeArtifact =
         dataBindingV2Provider.getTransitiveBRFiles().toList().get(0);
-    Artifact databindingSetterStoreTreeArtifact = dataBindingV2Provider.getSetterStores().get(0);
+    Artifact databindingSetterStoreTreeArtifact =
+        dataBindingV2Provider.getSetterStores().toList().get(0);
 
     assertThat(getGeneratingSpawnAction(resourceTreeArtifact).getArguments())
         .containsExactly(
@@ -647,18 +637,6 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
         .get(0)
         .getManifest()
         .getRootRelativePathString();
-  }
-
-  @Test
-  public void testTransitiveExports() throws Exception {
-    assertThat(
-            getConfiguredTarget("//a:bar")
-                .get(JavaInfo.PROVIDER)
-                .getTransitiveExports()
-                .toList(Label.class))
-        .containsExactly(
-            Label.parseAbsolute("//a:foo", ImmutableMap.of()),
-            Label.parseAbsolute("//java:baz", ImmutableMap.of()));
   }
 
   @Test

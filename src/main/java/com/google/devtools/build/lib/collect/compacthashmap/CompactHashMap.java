@@ -283,7 +283,8 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
 
   @CanIgnoreReturnValue
   @Override
-  public @Nullable V put(@Nullable K key, @Nullable V value) {
+  @Nullable
+  public V put(@Nullable K key, @Nullable V value) {
     if (needsAllocArrays()) {
       allocArrays();
     }
@@ -418,14 +419,16 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
 
   @CanIgnoreReturnValue
   @Override
-  public @Nullable V remove(@Nullable Object key) {
+  @Nullable
+  public V remove(@Nullable Object key) {
     if (needsAllocArrays()) {
       return null;
     }
     return remove(key, smearedHash(key));
   }
 
-  private @Nullable V remove(@Nullable Object key, int hash) {
+  @Nullable
+  private V remove(@Nullable Object key, int hash) {
     int tableIndex = hash & hashTableMask();
     int next = table[tableIndex];
     if (next == UNSET) { // empty bucket
@@ -712,7 +715,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
   }
 
   final class MapEntry implements Map.Entry<K, V> {
-    private final @Nullable K key;
+    @Nullable private final K key;
 
     private int lastKnownIndex;
 

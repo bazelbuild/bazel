@@ -16,17 +16,18 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -41,35 +42,32 @@ import net.starlark.java.syntax.Location;
 public final class CallStack {
 
   /** Null instance, for use in testing or where contents doesn't actually matter. */
-  public static final CallStack EMPTY = new CallStack(ImmutableList.of(), 0, null);
+  public static final CallStack EMPTY = new CallStack(/* size = */ 0, /* head = */ null);
 
-  /** String table, shared with all instances created from the same {@link Factory}. */
-  private final List<String> strings;
   /** Number of frames in this stack. */
   private final int size;
   /** Top (innermost call) of the call stack. */
-  @Nullable private final Node node;
+  @Nullable final Node head;
 
-  private CallStack(List<String> strings, int size, @Nullable Node node) {
-    this.strings = strings;
+  private CallStack(int size, @Nullable Node head) {
     this.size = size;
-    this.node = node;
+    this.head = head;
   }
 
   /** Returns the call stack as a list of frames, outermost call first. */
   public ImmutableList<StarlarkThread.CallStackEntry> toList() {
     StarlarkThread.CallStackEntry[] array = new StarlarkThread.CallStackEntry[size];
-    int i = size;
-    for (Node n = node; n != null; n = n.parent) {
-      array[--i] = nodeFrame(n);
+    int i = 0;
+    for (Node n = head; n != null; n = n.child) {
+      array[i++] = nodeFrame(n);
     }
     return ImmutableList.copyOf(array);
   }
 
   /** Returns a single frame, like {@code toList().get(i)} but more efficient. */
   public StarlarkThread.CallStackEntry getFrame(int i) {
-    for (Node n = node; n != null; n = n.parent) {
-      if (++i == size) {
+    for (Node n = head; n != null; n = n.child, i--) {
+      if (i == 0) {
         return nodeFrame(n);
       }
     }
@@ -82,96 +80,99 @@ public final class CallStack {
   }
 
   private StarlarkThread.CallStackEntry nodeFrame(Node n) {
-    String file = strings.get(n.file);
-    String name = strings.get(n.name);
-    Location loc = Location.fromFileLineColumn(file, n.line, n.col);
-    return new StarlarkThread.CallStackEntry(name, loc);
+    Location loc = Location.fromFileLineColumn(n.file, n.line, n.col);
+    return new StarlarkThread.CallStackEntry(n.name, loc);
   }
 
   /** Compact representation of a call stack entry. */
-  private static class Node {
-    /** Index of function name. */
-    private final int name;
-    /** Index of file name. */
-    private final int file;
+  static class Node {
+    /** Function name. */
+    private final String name;
+    /** File name. */
+    private final String file;
 
     private final int line;
     private final int col;
-    @Nullable private final Node parent;
+    @Nullable final Node child;
 
-    Node(int name, int file, int line, int col, Node parent) {
+    Node(String name, String file, int line, int col, Node child) {
       this.name = name;
       this.file = file;
       this.line = line;
       this.col = col;
-      this.parent = parent;
+      this.child = child;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Node)) {
+        return false;
+      }
+      Node node = (Node) o;
+      return line == node.line
+          && col == node.col
+          && name.equals(node.name)
+          && file.equals(node.file)
+          && Objects.equals(child, node.child);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, file, line, col, child);
     }
   }
 
   /**
    * Preferred instantiation method. All {@link CallStack} instances produced from a {@link Factory}
    * will share some amount of internal state.
-   *
-   * <p>All {@link CallStack}s in a package should be created from the same {@link Factory}
-   * instance, and there should be exactly one {@link Factory} instance per package.
    */
   static final class Factory {
 
-    private final Map<String, Integer> stringTableIndex = new HashMap<>();
-    private final List<String> stringTable = new ArrayList<>();
-    /** Unmodifiable view of the string table to be shared with instances. */
-    private final List<String> unmodifiableStringTable = Collections.unmodifiableList(stringTable);
-
-    /**
-     * Previously encountered call stack. This is an optimization to take advantage of the
-     * observation that sequentially created instances are likely to overlapping call-stacks due to
-     * coming from sequentially created rules.
-     */
-    private Node[] nodes = new Node[10];
-    /** Depth of previously encountered call stack. */
-    private int depth = 0;
+    private final Interner<Node> nodeCache = BlazeInterners.newWeakInterner();
 
     /**
      * Returns a {@link CallStack}.
-     *
-     * <p>Space efficiency depends on the similarity of the list elements in successive calls.
-     * Reversing the stack before calling this function destroys the optimization, for instance.
      */
     CallStack createFrom(List<StarlarkThread.CallStackEntry> stack) {
-      // We find and reuse the common ancestor node for the prefix common
-      // to the current stack and the stack passed to the previous call,
-      // then add child nodes for the different suffix, if any.
-
-      // Loop invariant: parent == (i > 0 ? nodes[i-1] : null)
-      Node parent = null;
+      Node child = null;
       int n = stack.size();
-      for (int i = 0; i < n; i++) {
+      for (int i = n - 1; i >= 0; i--) {
         StarlarkThread.CallStackEntry entry = stack.get(i);
 
-        int name = indexOf(entry.name);
-        int file = indexOf(entry.location.file());
+        String name = entry.name;
+        String file = entry.location.file();
         int line = entry.location.line();
         int column = entry.location.column();
-        if (i < depth
-            && parent == nodes[i].parent
-            && name == nodes[i].name
-            && file == nodes[i].file
-            && line == nodes[i].line
-            && column == nodes[i].col) {
-          parent = nodes[i];
-          continue;
+
+        child = new Node(name, file, line, column, child);
+        if (i != 0) {
+          // We don't intern top node, because it hardly ever repeats.
+          child = nodeCache.intern(child);
         }
-        parent = new Node(name, file, line, column, parent);
-        if (i == nodes.length) {
-          nodes = Arrays.copyOf(nodes, nodes.length << 1); // grow by doubling
-        }
-        nodes[i] = parent;
       }
-      this.depth = n; // truncate
 
       // Use the same node for all empty stacks, to avoid allocations.
-      return parent != null ? new CallStack(unmodifiableStringTable, n, parent) : EMPTY;
+      return child != null ? new CallStack(n, child) : EMPTY;
     }
+  }
+
+  /**
+   * Efficient serializer for {@link CallStack}s. All {@link CallStack}s instances passed to a
+   * {@link Serializer} <b>MUST</b> have originated from the same {@link Factory} instance. Before
+   * callstacks are serialized in a package {@link #prepareCallStack(CallStack)} method must be
+   * called on them (to prepare a table of strings).
+   */
+  static class Serializer {
+    private static final int NULL_NODE_ID = 0;
+
+    private final IdentityHashMap<Node, Integer> nodeTable = new IdentityHashMap<>();
+    private final List<String> stringTable = new ArrayList<>();
+    private boolean stringTableSerialized = false;
+
+    private final Map<String, Integer> stringTableIndex = new HashMap<>();
 
     private int indexOf(String s) {
       int i = stringTableIndex.size();
@@ -179,41 +180,28 @@ public final class CallStack {
       if (prev != null) {
         i = prev;
       } else {
+        Preconditions.checkArgument(
+            !stringTableSerialized, "Can only serialize CallStacks that were prepared before.");
         stringTable.add(s);
       }
       return i;
     }
-  }
-
-  /**
-   * Efficient serializer for {@link CallStack}s. All {@link CallStack}s instances passed to a
-   * {@link Serializer} <b>MUST</b> have originated from the same {@link Factory} instance.
-   */
-  static class Serializer {
-    private static final int NULL_NODE_ID = 0;
-
-    private final IdentityHashMap<Node, Integer> nodeTable = new IdentityHashMap<>();
-    @Nullable private List<String> stringTable;
 
     Serializer() {
       nodeTable.put(null, NULL_NODE_ID);
     }
 
     void serializeCallStack(CallStack callStack, CodedOutputStream codedOut) throws IOException {
-      if (stringTable == null) {
-        codedOut.writeInt32NoTag(callStack.strings.size());
-        for (String string : callStack.strings) {
+      if (!stringTableSerialized) {
+        codedOut.writeInt32NoTag(stringTable.size());
+        for (String string : stringTable) {
           codedOut.writeStringNoTag(string);
         }
-        stringTable = callStack.strings;
-      } else {
-        Preconditions.checkArgument(
-            stringTable == callStack.strings,
-            "Can only serialize CallStacks that share a string table.");
+        stringTableSerialized = true;
       }
 
       codedOut.writeInt32NoTag(callStack.size);
-      emitNode(callStack.node, codedOut);
+      emitNode(callStack.head, codedOut);
     }
 
     private void emitNode(Node node, CodedOutputStream codedOut) throws IOException {
@@ -230,11 +218,18 @@ public final class CallStack {
       int newIndex = nodeTable.size();
       codedOut.writeInt32NoTag(newIndex);
       nodeTable.put(node, newIndex);
-      codedOut.writeInt32NoTag(node.name);
-      codedOut.writeInt32NoTag(node.file);
+      codedOut.writeInt32NoTag(indexOf(node.name));
+      codedOut.writeInt32NoTag(indexOf(node.file));
       codedOut.writeInt32NoTag(node.line);
       codedOut.writeInt32NoTag(node.col);
-      emitNode(node.parent, codedOut);
+      emitNode(node.child, codedOut);
+    }
+
+    public void prepareCallStack(CallStack callStack) {
+      for (Node n = callStack.head; n != null; n = n.child) {
+        indexOf(n.name);
+        indexOf(n.file);
+      }
     }
   }
 
@@ -243,7 +238,7 @@ public final class CallStack {
    * are optimized as if they had been created from the same {@link Factory}.
    */
   static class Deserializer {
-    private static final Node DUMMY_NODE = new Node(-1, -1, -1, -1, null);
+    private static final Node DUMMY_NODE = new Node("", "", -1, -1, null);
 
     private final List<Node> nodeTable = new ArrayList<>();
     @Nullable private List<String> stringTable;
@@ -266,7 +261,7 @@ public final class CallStack {
       }
 
       int size = codedIn.readInt32();
-      return new CallStack(stringTable, size, readNode(codedIn));
+      return new CallStack(size, readNode(codedIn));
     }
 
     @Nullable
@@ -290,9 +285,9 @@ public final class CallStack {
       int file = codedIn.readInt32();
       int line = codedIn.readInt32();
       int col = codedIn.readInt32();
-      Node parent = readNode(codedIn);
+      Node child = readNode(codedIn);
 
-      Node result = new Node(name, file, line, col, parent);
+      Node result = new Node(stringTable.get(name), stringTable.get(file), line, col, child);
       nodeTable.set(index, result);
       return result;
     }

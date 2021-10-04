@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,23 +29,15 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.causes.Cause;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -80,7 +71,6 @@ import org.junit.runners.JUnit4;
  * method needs a {@link SkyFunction.Environment} and Blaze's test infrastructure doesn't support
  * direct access to environments.
  */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
@@ -93,13 +83,9 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         SkyFunctionName.createHermetic("CONFIGURED_TARGET_FUNCTION_COMPUTE_DEPENDENCIES");
 
     private final LateBoundStateProvider stateProvider;
-    private final Supplier<BuildOptions> buildOptionsSupplier;
 
-    ComputeDependenciesFunction(
-        LateBoundStateProvider lateBoundStateProvider,
-        Supplier<BuildOptions> buildOptionsSupplier) {
+    ComputeDependenciesFunction(LateBoundStateProvider lateBoundStateProvider) {
       this.stateProvider = lateBoundStateProvider;
-      this.buildOptionsSupplier = buildOptionsSupplier;
     }
 
     /** Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair. */
@@ -118,11 +104,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       }
     }
 
-    /**
-     * Returns a {@link OrderedSetMultimap<Attribute, ConfiguredTarget>} map representing the
-     * deps of given target.
-     */
-    static class Value implements SkyValue {
+    /** Returns an {@link OrderedSetMultimap} representing the deps of given target. */
+    static final class Value implements SkyValue {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap;
 
       Value(OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap) {
@@ -139,15 +122,14 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 env,
                 new SkyframeDependencyResolver(env),
                 (TargetAndConfiguration) skyKey.argument(),
-                ImmutableList.<Aspect>of(),
-                ImmutableMap.<Label, ConfigMatchingProvider>of(),
-                /* toolchainContexts= */ null,
-                /* useToolchainTransition= */ false,
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                /*toolchainContexts=*/ null,
+                /*useToolchainTransition=*/ false,
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig(),
-                NestedSetBuilder.<Package>stableOrder(),
-                NestedSetBuilder.<Cause>stableOrder(),
-                buildOptionsSupplier.get());
+                NestedSetBuilder.stableOrder(),
+                NestedSetBuilder.stableOrder());
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;
@@ -156,8 +138,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       }
     }
 
-    private static class EvalException extends SkyFunctionException {
-      public EvalException(Exception cause) {
+    private static final class EvalException extends SkyFunctionException {
+      EvalException(Exception cause) {
         super(cause, Transience.PERSISTENT); // We can generalize the transience if/when needed.
       }
     }
@@ -174,7 +156,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    * the {@link AnalysisMock} instance that instantiates the function gets created before the rest
    * of the build state. See {@link AnalysisTestCase#createMocks} for details.
    */
-  private class LateBoundStateProvider {
+  private final class LateBoundStateProvider {
     RuleClassProvider lateBoundRuleClassProvider() {
       return ruleClassProvider;
     }
@@ -189,13 +171,10 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   private static final class AnalysisMockWithComputeDepsFunction extends AnalysisMock.Delegate {
     private final LateBoundStateProvider stateProvider;
-    private final Supplier<BuildOptions> defaultBuildOptions;
 
-    AnalysisMockWithComputeDepsFunction(
-        LateBoundStateProvider stateProvider, Supplier<BuildOptions> defaultBuildOptions) {
+    AnalysisMockWithComputeDepsFunction(LateBoundStateProvider stateProvider) {
       super(AnalysisMock.get());
       this.stateProvider = stateProvider;
-      this.defaultBuildOptions = defaultBuildOptions;
     }
 
     @Override
@@ -205,15 +184,14 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
           .putAll(super.getSkyFunctions(directories))
           .put(
               ComputeDependenciesFunction.SKYFUNCTION_NAME,
-              new ComputeDependenciesFunction(stateProvider, defaultBuildOptions))
+              new ComputeDependenciesFunction(stateProvider))
           .build();
     }
-  };
+  }
 
   @Override
   protected AnalysisMock getAnalysisMock() {
-    return new AnalysisMockWithComputeDepsFunction(
-        new LateBoundStateProvider(), () -> skyframeExecutor.getDefaultBuildOptions());
+    return new AnalysisMockWithComputeDepsFunction(new LateBoundStateProvider());
   }
 
   /** Returns the configured deps for a given target. */
@@ -223,12 +201,10 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     SkyKey key = ComputeDependenciesFunction.key(getTarget(targetLabel), getConfiguration(target));
     // Must re-enable analysis for Skyframe functions that create configured targets.
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
-    Object evalResult = SkyframeExecutorTestUtils.evaluate(
-        skyframeExecutor, key, /*keepGoing=*/false, reporter);
+    EvaluationResult<ComputeDependenciesFunction.Value> evalResult =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
-    @SuppressWarnings("unchecked")
-    SkyValue value = ((EvaluationResult<ComputeDependenciesFunction.Value>) evalResult).get(key);
-    return ((ComputeDependenciesFunction.Value) value).depMap;
+    return evalResult.get(key).depMap;
   }
 
   /**
@@ -301,11 +277,6 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   @Test
   public void splitDeps() throws Exception {
-    // This test does not pass with trimming because android_binary applies an aspect and aspects
-    // are not yet correctly supported with trimming.
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      return;
-    }
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
         "java/a/BUILD",
@@ -316,9 +287,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     assertThat(deps).hasSize(2);
     ConfiguredTarget dep1 = deps.get(0);
     ConfiguredTarget dep2 = deps.get(1);
-    assertThat(
-            ImmutableList.<String>of(
-                getConfiguration(dep1).getCpu(), getConfiguration(dep2).getCpu()))
+    assertThat(ImmutableList.of(getConfiguration(dep1).getCpu(), getConfiguration(dep2).getCpu()))
         .containsExactly("armeabi-v7a", "k8");
     // We don't care what order split deps are listed, but it must be deterministic.
     assertThat(
@@ -347,7 +316,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   @Test
   public void sameTransitionDifferentParameters() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",

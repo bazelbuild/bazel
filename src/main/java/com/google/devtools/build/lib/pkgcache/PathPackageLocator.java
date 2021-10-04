@@ -161,7 +161,7 @@ public class PathPackageLocator implements Serializable {
     return "PathPackageLocator" + pathEntries;
   }
 
-  public static String maybeReplaceWorkspaceInString(String pathElement, Path workspace) {
+  public static String maybeReplaceWorkspaceInString(String pathElement, PathFragment workspace) {
     return pathElement.replace(WORKSPACE_WILDCARD, workspace.getPathString());
   }
   /**
@@ -188,7 +188,7 @@ public class PathPackageLocator implements Serializable {
       Path outputBase,
       List<String> pathElements,
       EventHandler eventHandler,
-      Path workspace,
+      PathFragment workspace,
       Path clientWorkingDirectory,
       List<BuildFileName> buildFilesByPriority) {
     return createInternal(
@@ -197,8 +197,7 @@ public class PathPackageLocator implements Serializable {
         eventHandler,
         workspace,
         clientWorkingDirectory,
-        buildFilesByPriority,
-        true);
+        buildFilesByPriority);
   }
 
   /**
@@ -220,10 +219,9 @@ public class PathPackageLocator implements Serializable {
       Path outputBase,
       List<String> pathElements,
       EventHandler eventHandler,
-      Path workspace,
+      PathFragment workspace,
       Path clientWorkingDirectory,
-      List<BuildFileName> buildFilesByPriority,
-      boolean checkExistence) {
+      List<BuildFileName> buildFilesByPriority) {
     List<Root> resolvedPaths = new ArrayList<>();
 
     for (String pathElement : pathElements) {
@@ -232,11 +230,12 @@ public class PathPackageLocator implements Serializable {
 
       PathFragment pathElementFragment = PathFragment.create(pathElement);
 
-      // If the path string started with "%workspace%" or "/", it is already absolute,
-      // so the following line is a no-op.
+      // If the path string started with "%workspace%" or "/", it is already absolute, so the
+      // following line returns a path pointing to pathElementFragment.
       Path rootPath = clientWorkingDirectory.getRelative(pathElementFragment);
 
-      if (!pathElementFragment.isAbsolute() && !clientWorkingDirectory.equals(workspace)) {
+      if (!pathElementFragment.isAbsolute()
+          && !clientWorkingDirectory.asFragment().equals(workspace)) {
         eventHandler.handle(
             Event.warn(
                 "The package path element '"
@@ -248,7 +247,7 @@ public class PathPackageLocator implements Serializable {
                     + "' wildcard."));
       }
 
-      if (!checkExistence || rootPath.exists()) {
+      if (rootPath.exists()) {
         resolvedPaths.add(Root.fromPath(rootPath));
       }
     }

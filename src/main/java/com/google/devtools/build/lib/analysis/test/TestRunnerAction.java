@@ -24,7 +24,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -58,7 +59,6 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttempt
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -79,7 +79,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -119,6 +122,7 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment undeclaredOutputsAnnotationsDir;
   private final PathFragment undeclaredOutputsManifestPath;
   private final PathFragment undeclaredOutputsAnnotationsPath;
+  private final PathFragment undeclaredOutputsAnnotationsPbPath;
   private final PathFragment xmlOutputPath;
   @Nullable private final PathFragment testShard;
   private final PathFragment testExitSafe;
@@ -147,13 +151,16 @@ public class TestRunnerAction extends AbstractAction
    * The set of environment variables that are inherited from the client environment. These are
    * handled explicitly by the ActionCacheChecker and so don't have to be included in the cache key.
    */
-  private final ImmutableIterable<String> requiredClientEnvVariables;
+  private final Collection<String> requiredClientEnvVariables;
 
   private final boolean cancelConcurrentTestsOnSuccess;
 
   private final boolean splitCoveragePostProcessing;
   private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
   private final RunfilesSupplier lcovMergerRunfilesSupplier;
+
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
+  private final PackageSpecificationProvider networkAllowlist;
 
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
@@ -196,7 +203,8 @@ public class TestRunnerAction extends AbstractAction
       Iterable<Artifact> tools,
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
-      RunfilesSupplier lcovMergerRunfilesSupplier) {
+      RunfilesSupplier lcovMergerRunfilesSupplier,
+      PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
@@ -241,20 +249,22 @@ public class TestRunnerAction extends AbstractAction
     this.undeclaredOutputsAnnotationsDir = baseDir.getChild("test.outputs_manifest");
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
+    this.undeclaredOutputsAnnotationsPbPath =
+        undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS.pb");
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
 
     this.extraTestEnv = extraTestEnv;
     this.requiredClientEnvVariables =
-        ImmutableIterable.from(
-            Iterables.concat(
-                configuration.getActionEnvironment().getInheritedEnv(),
-                configuration.getTestActionEnvironment().getInheritedEnv(),
-                this.extraTestEnv.getInheritedEnv()));
+        LazySetConcatenation.from(
+            configuration.getActionEnvironment().getInheritedEnv(),
+            configuration.getTestActionEnvironment().getInheritedEnv(),
+            this.extraTestEnv.getInheritedEnv());
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
     this.lcovMergerRunfilesSupplier = lcovMergerRunfilesSupplier;
+    this.networkAllowlist = networkAllowlist;
 
     // Mark all possible test outputs for deletion before test execution.
     // TestRunnerAction potentially can create many more non-declared outputs - xml output, coverage
@@ -332,6 +342,7 @@ public class TestRunnerAction extends AbstractAction
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsZipPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
+    outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPbPath()));
     if (isCoverageMode()) {
       if (!splitCoveragePostProcessing) {
         outputs.add(coverageData);
@@ -389,6 +400,12 @@ public class TestRunnerAction extends AbstractAction
             Pair.of(
                 TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
                 resolvedPaths.getUndeclaredOutputsAnnotationsPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsAnnotationsPbPath().exists()) {
+        builder.add(
+            Pair.of(
+                TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS_PB,
+                resolvedPaths.getUndeclaredOutputsAnnotationsPbPath()));
       }
       if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
         builder.add(
@@ -575,6 +592,15 @@ public class TestRunnerAction extends AbstractAction
     if (executionSettings.getTotalRuns() > 1 && !env.containsKey("TEST_RANDOM_SEED")) {
       env.put("TEST_RANDOM_SEED", Integer.toString(getRunNumber() + 1));
     }
+    // TODO(b/184206260): Actually set TEST_RANDOM_SEED with random seed.
+    // The above TEST_RANDOM_SEED has histroically been set with the run number, but we should
+    // explicitly set TEST_RUN_NUMBER to indicate the run number and actually set TEST_RANDOM_SEED
+    // with a random seed. However, much code has come to depend on it being set to the run number
+    // and this is an externally documented behavior. Modifying TEST_RANDOM_SEED should be done
+    // carefully.
+    if (executionSettings.getTotalRuns() > 1 && !env.containsKey("TEST_RUN_NUMBER")) {
+      env.put("TEST_RUN_NUMBER", Integer.toString(getRunNumber() + 1));
+    }
 
     String testFilter = getExecutionSettings().getTestFilter();
     if (testFilter != null) {
@@ -672,7 +698,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public Collection<String> getClientEnvironmentVariables() {
     return requiredClientEnvVariables;
   }
 
@@ -717,6 +743,11 @@ public class TestRunnerAction extends AbstractAction
   /** Returns path to the undeclared output annotations file. */
   public PathFragment getUndeclaredOutputsAnnotationsPath() {
     return undeclaredOutputsAnnotationsPath;
+  }
+
+  /** Returns path to the undeclared output annotations file. */
+  public PathFragment getUndeclaredOutputsAnnotationsPbPath() {
+    return undeclaredOutputsAnnotationsPbPath;
   }
 
   public PathFragment getTestShard() {
@@ -812,6 +843,10 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public Artifact getPrimaryOutput() {
     return testLog;
+  }
+
+  public PackageSpecificationProvider getNetworkAllowlist() {
+    return networkAllowlist;
   }
 
   @Override
@@ -1018,6 +1053,11 @@ public class TestRunnerAction extends AbstractAction
     /** Returns path to the undeclared output annotations file. */
     public Path getUndeclaredOutputsAnnotationsPath() {
       return getPath(undeclaredOutputsAnnotationsPath);
+    }
+
+    /** Returns path to the undeclared output annotations pb file. */
+    public Path getUndeclaredOutputsAnnotationsPbPath() {
+      return getPath(undeclaredOutputsAnnotationsPbPath);
     }
 
     @Nullable
@@ -1259,6 +1299,52 @@ public class TestRunnerAction extends AbstractAction
         return new AutoValue_TestRunnerAction_RunAttemptsContinuation_TestRunnerSpawnAndMaxAttempts(
             spawn, maxAttempts);
       }
+    }
+  }
+
+  private static class LazySetConcatenation extends AbstractCollection<String> {
+    private final ImmutableSet<String> first;
+    private final ImmutableSet<String> second;
+    private final ImmutableSet<String> third;
+
+    static Collection<String> from(
+        ImmutableSet<String> first, ImmutableSet<String> second, ImmutableSet<String> third) {
+      boolean firstEmpty = first.isEmpty();
+      boolean secondEmpty = second.isEmpty();
+      boolean thirdEmpty = third.isEmpty();
+      if (firstEmpty && secondEmpty) {
+        return third;
+      }
+      if (firstEmpty && thirdEmpty) {
+        return second;
+      }
+      if (secondEmpty && thirdEmpty) {
+        return first;
+      }
+
+      return new LazySetConcatenation(first, second, third);
+    }
+
+    private LazySetConcatenation(
+        ImmutableSet<String> first, ImmutableSet<String> second, ImmutableSet<String> third) {
+      this.first = first;
+      this.second = second;
+      this.third = third;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return Iterators.concat(first.iterator(), second.iterator(), third.iterator());
+    }
+
+    @Override
+    public int size() {
+      return first.size() + second.size() + third.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return false;
     }
   }
 }

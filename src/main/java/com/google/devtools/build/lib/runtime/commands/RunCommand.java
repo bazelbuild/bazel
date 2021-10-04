@@ -214,9 +214,9 @@ public class RunCommand implements BlazeCommand  {
             env.getWorkspace(),
             requestOptions.printWorkspaceInOutputPathsIfNeeded
                 ? env.getWorkingDirectory()
-                : env.getWorkspace(),
-            requestOptions.experimentalNoProductNameOutSymlink);
-    PathFragment prettyExecutablePath = prettyPrinter.getPrettyPath(executable.getPath());
+                : env.getWorkspace());
+    PathFragment prettyExecutablePath =
+        prettyPrinter.getPrettyPath(executable.getPath().asFragment());
 
     RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).runUnder;
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
@@ -498,12 +498,15 @@ public class RunCommand implements BlazeCommand  {
     }
 
     if (runOptions.scriptPath != null) {
-      String unisolatedCommand = CommandFailureUtils.describeCommand(
-          CommandDescriptionForm.COMPLETE_UNISOLATED,
-          /* prettyPrintArgs= */ false,
-          cmdLine,
-          runEnvironment,
-          workingDir.getPathString());
+      String unisolatedCommand =
+          CommandFailureUtils.describeCommand(
+              CommandDescriptionForm.COMPLETE_UNISOLATED,
+              /* prettyPrintArgs= */ false,
+              cmdLine,
+              runEnvironment,
+              workingDir.getPathString(),
+              configuration.checksum(),
+              /* executionPlatform= */ null);
 
       PathFragment shExecutable = ShToolchain.getPath(configuration);
       if (shExecutable.isEmpty()) {

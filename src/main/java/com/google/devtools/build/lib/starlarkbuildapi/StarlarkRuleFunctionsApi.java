@@ -334,14 +334,43 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "None",
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
-            valueWhenDisabled = "None",
             doc =
                 "Dict of execution group name (string) to <a"
                     + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
                     + " allows rules to run actions on multiple execution platforms within a"
                     + " single target. See <a href='../../exec-groups.html'>execution groups"
-                    + " documentation</a> for more info.")
+                    + " documentation</a> for more info."),
+        @Param(
+            name = "compile_one_filetype",
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "Used by --compile_one_dependency: if multiple rules consume the specified file, "
+                    + "should we choose this rule over others."),
+        @Param(
+            name = "name",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            doc =
+                "The name of this rule, as understood by Bazel and reported in contexts such as"
+                    + " logging, <code>native.existing_rule(...)[kind]</code>, and <code>bazel"
+                    + " query</code>. Usually this is the same as the Starlark identifier that gets"
+                    + " bound to this rule; for instance a rule called <code>foo_library</code>"
+                    + " would typically be declared as <code>foo_library = rule(...)</code> and"
+                    + " instantiated in a BUILD file as <code>foo_library(...)</code>.<p>If this"
+                    + " parameter is omitted, the rule's name is set to the name of the first"
+                    + " Starlark global variable to be bound to this rule within its declaring .bzl"
+                    + " module. Thus, <code>foo_library = rule(...)</code> need not specify this"
+                    + " parameter if the name is <code>foo_library</code>.<p>Specifying an explicit"
+                    + " name for a rule does not change where you are allowed to instantiate the"
+                    + " rule."),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -363,6 +392,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object compileOneFiletype,
+      Object name,
       StarlarkThread thread)
       throws EvalException;
 
@@ -417,16 +448,42 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect to only be used with rules that have attributes of the same "
                     + "name, type, and valid values according to the restriction."),
         @Param(
+            name = "required_providers",
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "This attribute allows the aspect to limit its propagation to only the targets "
+                    + "whose rules advertise its required providers. The value must be a "
+                    + "list containing either individual providers or lists of providers but not "
+                    + "both. For example, <code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code> "
+                    + "is a valid value while <code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> "
+                    + "is not valid."
+                    + ""
+                    + "<p>An unnested list of providers will automatically be converted to a list "
+                    + "containing one list of providers. That is, <code>[FooInfo, BarInfo]</code> "
+                    + "will automatically be converted to <code>[[FooInfo, BarInfo]]</code>."
+                    + ""
+                    + "<p>To make some rule (e.g. <code>some_rule</code>) targets visible to an "
+                    + "aspect, <code>some_rule</code> must advertise all providers from at least "
+                    + "one of the required providers lists. For example, if the "
+                    + "<code>required_providers</code> of an aspect are "
+                    + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
+                    + "only see <code>some_rule</code> targets if and only if "
+                    + "<code>some_rule</code> provides <code>FooInfo</code> *or* "
+                    + "<code>BarInfo</code> *or* both <code>BazInfo</code> *and* "
+                    + "<code>QuxInfo</code>."),
+        @Param(
             name = "required_aspect_providers",
             named = true,
             defaultValue = "[]",
             doc =
                 "This attribute allows this aspect to inspect other aspects. The value must be a "
-                    + "list of providers, or a list of lists of providers. For example, "
-                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> is a "
-                    + "valid value."
+                    + "list containing either individual providers or lists of providers but not "
+                    + "both. For example, <code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code> "
+                    + "is a valid value while <code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> "
+                    + "is not valid."
                     + ""
-                    + "<p>A single list of providers will automatically be converted to a list "
+                    + "<p>An unnested list of providers will automatically be converted to a list "
                     + "containing one list of providers. That is, "
                     + "<code>[FooInfo, BarInfo]</code> will automatically be converted to "
                     + "<code>[[FooInfo, BarInfo]]</code>. "
@@ -434,11 +491,17 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<p>To make another aspect (e.g. <code>other_aspect</code>) visible to this "
                     + "aspect, <code>other_aspect</code> must provide all providers from at least "
                     + "one of the lists. In the example of "
-                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code>, this aspect can only "
-                    + "see <code>other_aspect</code> if and only if <code>other_aspect</code> "
+                    + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
+                    + "only see <code>other_aspect</code> if and only if <code>other_aspect</code> "
                     + "provides <code>FooInfo</code> *or* <code>BarInfo</code> *or* both "
                     + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(name = "provides", named = true, defaultValue = "[]", doc = PROVIDES_DOC),
+        @Param(
+            name = "requires",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkAspectApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "List of aspects required to be propagated before this aspect."),
         @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -500,8 +563,10 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,
+      Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
+      Sequence<?> requiredAspects,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
@@ -514,30 +579,17 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "Label",
       doc =
-          "Creates a Label referring to a BUILD target. Use "
-              + "this function only when you want to give a default value for the label "
-              + "attributes. The argument must refer to an absolute label. "
-              + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
+          "Creates a Label referring to a BUILD target. Use this function only when you want to"
+              + " give a default value for the label attributes. The argument must refer to an"
+              + " absolute label. The repo part of the label (or its absence) is interpreted in the"
+              + " context of the repo where this Label() call appears. Example: <br><pre"
+              + " class=language-python>Label(\"//tools:default\")</pre>",
       parameters = {
         @Param(name = "label_string", doc = "the label string."),
-        @Param(
-            name = "relative_to_caller_repository",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc =
-                "Deprecated. Do not use. "
-                    + "When relative_to_caller_repository is True and the calling thread is a "
-                    + "rule's implementation function, then a repo-relative label //foo:bar is "
-                    + "resolved relative to the rule's repository.  For calls to Label from any "
-                    + "other thread, or calls in which the relative_to_caller_repository flag is "
-                    + "False, a repo-relative label is resolved relative to the file in which the "
-                    + "Label() call appears.")
       },
       useStarlarkThread = true)
   @StarlarkConstructor
-  Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException;
+  Label label(String labelString, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "exec_group",

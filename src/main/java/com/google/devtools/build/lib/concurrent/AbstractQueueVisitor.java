@@ -103,8 +103,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   private final ExecutorService executorService;
 
-  private final boolean usingPriorityQueue;
-
   /**
    * Flag used to record when the main thread (the thread which called {@link #awaitQuiescence}) is
    * interrupted.
@@ -235,25 +233,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       boolean shutdownOnCompletion,
       boolean failFastOnException,
       ErrorClassifier errorClassifier) {
-    this(
-        executorService,
-        shutdownOnCompletion,
-        failFastOnException,
-        errorClassifier,
-        /*usingPriorityQueue=*/ false);
-  }
-
-  private AbstractQueueVisitor(
-      ExecutorService executorService,
-      boolean shutdownOnCompletion,
-      boolean failFastOnException,
-      ErrorClassifier errorClassifier,
-      boolean usingPriorityQueue) {
     this.failFastOnException = failFastOnException;
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = Preconditions.checkNotNull(executorService);
     this.errorClassifier = Preconditions.checkNotNull(errorClassifier);
-    this.usingPriorityQueue = usingPriorityQueue;
   }
 
   @Override
@@ -278,9 +261,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   /** Schedules a call. Called in a worker thread. */
   @Override
   public final void execute(Runnable runnable) {
-    if (usingPriorityQueue) {
-      Preconditions.checkState(runnable instanceof Comparable);
-    }
+    executeWithExecutorService(runnable, executorService);
+  }
+
+  protected void executeWithExecutorService(Runnable runnable, ExecutorService executorService) {
     WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
     try {
       // It's impossible for this increment to result in remainingTasks.get <= 0 because
@@ -290,7 +274,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       Preconditions.checkState(
           tasks > 0,
           "Incrementing remaining tasks counter resulted in impossible non-positive number.");
-      executeRunnable(wrappedRunnable);
+      executeWrappedRunnable(wrappedRunnable, executorService);
     } catch (Throwable e) {
       if (!wrappedRunnable.ran) {
         // Note that keeping track of ranTask is necessary to disambiguate the case where
@@ -302,7 +286,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  protected void executeRunnable(WrappedRunnable runnable) {
+  protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
     executorService.execute(runnable);
   }
 
@@ -476,6 +460,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     return remainingTasks.get();
   }
 
+  protected ExecutorService getExecutorService() {
+    return executorService;
+  }
+
   @Override
   public void dependOnFuture(ListenableFuture<?> future) throws InterruptedException {
     outstandingFuturesLock.readLock().lock();
@@ -575,6 +563,11 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
 
     if (ownExecutorService) {
+      shutdownExecutorService(catastrophe);
+    }
+  }
+
+  protected void shutdownExecutorService(Throwable catastrophe) {
       executorService.shutdown();
       for (; ; ) {
         try {
@@ -585,7 +578,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
           setInterrupted();
         }
       }
-    }
   }
 
   private void interruptInFlightTasks() {

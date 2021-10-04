@@ -17,17 +17,14 @@ package com.google.devtools.build.lib.worker;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
@@ -41,8 +38,13 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -61,11 +63,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 
 /**
  * A spawn runner that launches Spawns the first time they are used in a persistent mode and then
@@ -74,30 +73,28 @@ import java.util.regex.Pattern;
 final class WorkerSpawnRunner implements SpawnRunner {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
-  public static final String REASON_NO_FLAGFILE =
-      "because the command-line arguments do not contain at least one @flagfile or --flagfile=";
   public static final String REASON_NO_TOOLS = "because the action has no tools";
-
-  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
-  private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
+  /**
+   * The verbosity level implied by `--worker_verbose`. This value allows for manually setting some
+   * only-slightly-verbose levels.
+   */
+  private static final int VERBOSE_LEVEL = 10;
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
   private final WorkerPool workers;
-  private final boolean multiplex;
   private final ExtendedEventHandler reporter;
-  private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
+  private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
 
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
       Path execRoot,
       WorkerPool workers,
-      boolean multiplex,
       ExtendedEventHandler reporter,
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
@@ -107,12 +104,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
-    this.multiplex = multiplex;
     this.reporter = reporter;
-    this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
+    this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
   }
 
@@ -139,11 +135,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException, ForbiddenActionInputException {
     context.report(
-        ProgressStatus.SCHEDULING,
-        WorkerKey.makeWorkerTypeName(
-            Spawns.supportsMultiplexWorkers(spawn), context.speculating()));
+        SpawnSchedulingEvent.create(
+            WorkerKey.makeWorkerTypeName(
+                Spawns.supportsMultiplexWorkers(spawn), context.speculating())));
     if (spawn.getToolFiles().isEmpty()) {
       throw createUserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()),
@@ -151,71 +147,50 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     Instant startTime = Instant.now();
+    SpawnMetrics.Builder spawnMetrics;
+    WorkResponse response;
 
-    runfilesTreeUpdater.updateRunfilesDirectory(
-        execRoot,
-        spawn.getRunfilesSupplier(),
-        binTools,
-        spawn.getEnvironment(),
-        context.getFileOutErr());
+    try (SilentCloseable c =
+        Profiler.instance()
+            .profile(
+                String.format(
+                    "%s worker %s", spawn.getMnemonic(), spawn.getResourceOwner().describe()))) {
 
-    // We assume that the spawn to be executed always gets at least one @flagfile.txt or
-    // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
-    // opposed to start-up options for the executed tool). Thus, we can extract those elements from
-    // its args and put them into the WorkRequest instead.
-    List<String> flagFiles = new ArrayList<>();
-    ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
-    ImmutableMap<String, String> env =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
+      runfilesTreeUpdater.updateRunfilesDirectory(
+          execRoot,
+          spawn.getRunfilesSupplier(),
+          binTools,
+          spawn.getEnvironment(),
+          context.getFileOutErr());
 
-    MetadataProvider inputFileCache = context.getMetadataProvider();
+      MetadataProvider inputFileCache = context.getMetadataProvider();
 
-    SortedMap<PathFragment, HashCode> workerFiles =
-        WorkerFilesHash.getWorkerFilesWithHashes(
-            spawn, context.getArtifactExpander(), context.getMetadataProvider());
-
-    HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
-
-    SandboxInputs inputFiles =
-        helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            spawn,
-            context.getArtifactExpander(),
-            execRoot);
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
-
-    WorkerProtocolFormat protocolFormat = Spawns.getWorkerProtocolFormat(spawn);
-    if (!workerOptions.experimentalJsonWorkerProtocol) {
-      if (protocolFormat == WorkerProtocolFormat.JSON) {
-        throw new IOException(
-            "Persistent worker protocol format must be set to proto unless"
-                + " --experimental_worker_allow_json_protocol is used");
+      SandboxInputs inputFiles;
+      try (SilentCloseable c1 =
+          Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
+        inputFiles =
+            helpers.processInputFiles(
+                context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+                spawn,
+                context.getArtifactExpander(),
+                execRoot);
       }
+      SandboxOutputs outputs = helpers.getOutputs(spawn);
+
+      WorkerParser.WorkerConfig workerConfig = workerParser.compute(spawn, context);
+      WorkerKey key = workerConfig.getWorkerKey();
+      List<String> flagFiles = workerConfig.getFlagFiles();
+
+      spawnMetrics =
+          SpawnMetrics.Builder.forWorkerExec()
+              .setInputFiles(inputFiles.getFiles().size() + inputFiles.getSymlinks().size());
+      response =
+          execInWorker(
+              spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache, spawnMetrics);
+
+      FileOutErr outErr = context.getFileOutErr();
+      response.getOutputBytes().writeTo(outErr.getErrorStream());
     }
-
-    WorkerKey key =
-        new WorkerKey(
-            workerArgs,
-            env,
-            execRoot,
-            Spawns.getWorkerKeyMnemonic(spawn),
-            workerFilesCombinedHash,
-            workerFiles,
-            context.speculating(),
-            multiplex && Spawns.supportsMultiplexWorkers(spawn),
-            Spawns.supportsWorkerCancellation(spawn),
-            protocolFormat);
-
-    SpawnMetrics.Builder spawnMetrics =
-        SpawnMetrics.Builder.forWorkerExec()
-            .setInputFiles(inputFiles.getFiles().size() + inputFiles.getSymlinks().size());
-    WorkResponse response =
-        execInWorker(
-            spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache, spawnMetrics);
-
-    FileOutErr outErr = context.getFileOutErr();
-    response.getOutputBytes().writeTo(outErr.getErrorStream());
-
     Duration wallTime = Duration.between(startTime, Instant.now());
 
     int exitCode = response.getExitCode();
@@ -239,40 +214,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     SpawnResult result = builder.build();
     reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
     return result;
-  }
-
-  /**
-   * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
-   * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
-   * protobuf ({@code flagFiles}).
-   */
-  private ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
-      Spawn spawn, List<String> flagFiles) throws UserExecException {
-    ImmutableList.Builder<String> workerArgs = ImmutableList.builder();
-    for (String arg : spawn.getArguments()) {
-      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
-        flagFiles.add(arg);
-      } else {
-        workerArgs.add(arg);
-      }
-    }
-
-    if (flagFiles.isEmpty()) {
-      throw createUserExecException(
-          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()),
-          Code.NO_FLAGFILE);
-    }
-
-    ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
-
-    workerOptions.workerExtraFlags.stream()
-        .filter(entry -> entry.getKey().equals(spawn.getMnemonic()))
-        .forEach(entry -> mnemonicFlags.add(entry.getValue()));
-
-    return workerArgs
-        .add("--persistent_worker")
-        .addAll(MoreObjects.firstNonNull(mnemonicFlags.build(), ImmutableList.<String>of()))
-        .build();
   }
 
   private WorkRequest createWorkRequest(
@@ -300,6 +241,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       requestBuilder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
+    }
+    if (workerOptions.workerVerbose) {
+      requestBuilder.setVerbosity(VERBOSE_LEVEL);
     }
     if (key.isMultiplex()) {
       requestBuilder.setRequestId(requestIdCounter.getAndIncrement());
@@ -386,25 +330,32 @@ final class WorkerSpawnRunner implements SpawnRunner {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     try {
       Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
-      try {
-        inputFiles.materializeVirtualInputs(execRoot);
-      } catch (IOException e) {
-        restoreInterrupt(e);
-        String message = "IOException while materializing virtual inputs:";
-        throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
-      }
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
+        try {
+          inputFiles.materializeVirtualInputs(execRoot);
+        } catch (IOException e) {
+          restoreInterrupt(e);
+          String message = "IOException while materializing virtual inputs:";
+          throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
+        }
 
-      try {
-        context.prefetchInputs();
-      } catch (IOException e) {
-        restoreInterrupt(e);
-        String message = "IOException while prefetching for worker:";
-        throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
+        try {
+          context.prefetchInputs();
+        } catch (IOException e) {
+          restoreInterrupt(e);
+          String message = "IOException while prefetching for worker:";
+          throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
+        } catch (ForbiddenActionInputException e) {
+          throw createUserExecException(
+              e, "Forbidden input found while prefetching for worker:", Code.FORBIDDEN_INPUT);
+        }
       }
       Duration setupInputsTime = setupInputsStopwatch.elapsed();
 
       Stopwatch queueStopwatch = Stopwatch.createStarted();
-      try {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.WORKER_BORROW, "Waiting to borrow worker")) {
         worker = workers.borrowObject(key);
         worker.setReporter(workerOptions.workerVerbose ? reporter : null);
         request = createWorkRequest(spawn, context, flagFiles, inputFileCache, key);
@@ -419,8 +370,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
         // We acquired a worker and resources -- mark that as queuing time.
         spawnMetrics.setQueueTime(queueStopwatch.elapsed());
 
-        context.report(ProgressStatus.EXECUTING, key.getWorkerTypeName());
-        try {
+        context.report(SpawnExecutingEvent.create(key.getWorkerTypeName()));
+        try (SilentCloseable c =
+            Profiler.instance()
+                .profile(
+                    ProfilerTask.WORKER_SETUP,
+                    String.format("Worker #%d preparing execution", worker.getWorkerId()))) {
           // We consider `prepareExecution` to be also part of setup.
           Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
@@ -454,15 +409,34 @@ final class WorkerSpawnRunner implements SpawnRunner {
           throw createUserExecException(message, Code.REQUEST_FAILURE);
         }
 
-        try {
+        try (SilentCloseable c =
+            Profiler.instance()
+                .profile(
+                    ProfilerTask.WORKER_WORKING,
+                    String.format("Worker #%d working", worker.getWorkerId()))) {
           response = worker.getResponse(request.getRequestId());
         } catch (InterruptedException e) {
-          finishWorkAsync(
-              key,
-              worker,
-              request,
-              workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn));
-          worker = null;
+          if (worker.isSandboxed()) {
+            // Sandboxed workers can safely finish their work async.
+            finishWorkAsync(
+                key,
+                worker,
+                request,
+                workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn));
+            worker = null;
+          } else if (!context.speculating()) {
+            // Non-sandboxed workers interrupted outside of dynamic execution can only mean that
+            // the user interrupted the build, and we don't want to delay finishing. Instead we
+            // kill the worker.
+            // Technically, workers are always sandboxed under dynamic execution, at least for now.
+            try {
+              workers.invalidateObject(key, worker);
+            } catch (IOException e1) {
+              // Nothing useful we can do here, in fact it may not be possible to get here.
+            } finally {
+              worker = null;
+            }
+          }
           throw e;
         } catch (IOException e) {
           restoreInterrupt(e);
@@ -489,7 +463,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
             Code.FINISH_FAILURE);
       }
 
-      try {
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(
+                  ProfilerTask.WORKER_COPYING_OUTPUTS,
+                  String.format("Worker #%d copying output files", worker.getWorkerId()))) {
         Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
         context.lockOutputFiles();
         worker.finishExecution(execRoot, outputs);
@@ -580,6 +558,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private static UserExecException createUserExecException(
       IOException e, String message, Code detailedCode) {
+    return createUserExecException(
+        ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
+  }
+
+  private static UserExecException createUserExecException(
+      ForbiddenActionInputException e, String message, Code detailedCode) {
     return createUserExecException(
         ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
   }

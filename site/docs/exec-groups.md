@@ -11,12 +11,6 @@ Each execution group has its own [toolchain](toolchains.md) dependencies and
 performs its own [toolchain resolution](toolchains.md#toolchain-resolution).
 
 ## Current status
-To use Starlark rules that create execution groups, set
-`--experimental_exec_groups=true` on your command line or in a .bazelrc:
-
-```shell
-$ bazel build //target/with/exec/group --experimental_exec_groups
-```
 
 ## Background
 
@@ -34,7 +28,7 @@ like linking in c++ builds without over-allocating to less demanding tasks.
 ## Defining execution groups
 
 During rule definition, rule authors can
-[declare](https://docs.bazel.build/versions/master/skylark/lib/globals.html#exec_group)
+[declare](https://docs.bazel.build/versions/main/skylark/lib/globals.html#exec_group)
 a set of execution groups. On each execution group, the rule author can specify
 everything needed to select an execution platform for that execution group,
 namely any constraints via `exec_compatible_with` and toolchain types via
@@ -45,11 +39,11 @@ namely any constraints via `exec_compatible_with` and toolchain types via
 my_rule = rule(
     _impl,
     exec_groups = {
-        “link”: exec_group(
-            exec_compatible_with = [ "@platforms//os:linux" ]
+        "link": exec_group(
+            exec_compatible_with = ["@platforms//os:linux"],
             toolchains = ["//foo:toolchain_type"],
         ),
-        “test”: exec_group(
+        "test": exec_group(
             toolchains = ["//foo_tools:toolchain_type"],
         ),
     },
@@ -61,20 +55,65 @@ my_rule = rule(
 
 In the code snippet above, you can see that tool dependencies can also specify
 transition for an exec group using the
-[`cfg`](https://docs.bazel.build/versions/master/skylark/lib/attr.html#label)
+[`cfg`](https://docs.bazel.build/versions/main/skylark/lib/attr.html#label)
 attribute param and the
-[`config`](https://docs.bazel.build/versions/master/skylark/lib/config.html)
+[`config`](https://docs.bazel.build/versions/main/skylark/lib/config.html)
 module. The module exposes an `exec` function which takes a single string
 parameter which is the name of the exec group for which the dependency should be
 built.
+
+As on native rules, the `test` execution group is present by default on Stalark
+test rules.
+
+### Execution group inheritance
+
+In addition to defining its own constraints and toolchains, a new execution
+group can declare that it wants to inherit from the rule's default execution
+group, by passing the `copy_from_rule = True` parameter. It is an error to set
+`copy_from_rule` to true and to also pass `exec_compatible_with` or
+`toolchains`.
+
+An execution group that inherits from the default execution group copies
+constraints, toolchains, and execution properties from the default. This
+includes constraints and execution properties set on the target level, not just
+those specified by the rule itself. In other words, given the following:
+
+```python
+# foo.bzl
+my_rule = rule(
+    _impl,
+    exec_groups = {
+        "copied": exec_group(
+            copy_from_rule = True,
+            # This will inherit exec_compatible_with and toolchains.
+            # Setting them here directly would be an error, however.
+        ),
+    },
+    toolchains = ["//foo_tools:toolchain_type"],
+    exec_compatible_with = [ "@platforms//os:linux" ]
+)
+
+# BUILD
+
+my_rule(
+    name = "demo",
+    exec_compatible_with = [":local_constraint"],
+)
+```
+
+The `copied` execution group for the configured target `demo` will include all
+of:
+- `//fool_tools:toolchain_type`
+- `@platforms//os:linux`
+- `:local_constraint`
 
 ## Accessing execution groups
 
 In the rule implementation, you can declare that actions should be run on the
 execution platform of an execution group. You can do this by using the `exec_group`
 param of action generating methods, specifically [`ctx.actions.run`]
-(https://docs.bazel.build/versions/master/skylark/lib/actions.html#run) and
-[`ctx.actions.run_shell`](https://docs.bazel.build/versions/master/skylark/lib/actions.html#run_shell).
+(https://docs.bazel.build/versions/main/skylark/lib/actions.html#run) and
+[`ctx.actions.run_shell`](https://docs.bazel.build/versions/main/skylark/lib/actions.html#run_shell).
 
 ```python
 # foo.bzl
@@ -158,7 +197,7 @@ my_rule = rule(
     toolchains = ["//foo:toolchain_type"],
     exec_groups = {
         # The following two groups have the same toolchains and constraints:
-        “foo”: exec_group(copy_from_rule = True),
+        "foo": exec_group(copy_from_rule = True),
         "bar": exec_group(
             exec_compatible_with = [ "@platforms//os:linux" ],
             toolchains = ["//foo:toolchain_type"],

@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.rules.objc.AppleBinaryRule.BUNDLE_LOADER_ATTR_NAME;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -45,23 +43,30 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Map;
 import java.util.TreeMap;
 
 /** Implementation for the "apple_binary" rule. */
 public class AppleBinary implements RuleConfiguredTargetFactory {
+  public static final String BINARY_TYPE_ATTR = "binary_type";
+  public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
+  public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
+
+  private final CppSemantics cppSemantics;
+
+  protected AppleBinary(CppSemantics cppSemantics) {
+    this.cppSemantics = cppSemantics;
+  }
 
   /** Type of linked binary that apple_binary may create. */
-  enum BinaryType {
+  public enum BinaryType {
 
     /**
      * Binaries that can be loaded by other binaries at runtime, and which can't be directly
@@ -109,7 +114,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     }
 
     /** Returns the enum values as a list of strings for validation. */
-    static Iterable<String> getValues() {
+    public static Iterable<String> getValues() {
       return Iterables.transform(ImmutableList.copyOf(values()), Functions.toStringFunction());
     }
   }
@@ -129,16 +134,17 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
               + " rule from https://github.com/bazelbuild/rules_apple.");
     }
 
-    AppleBinaryOutput appleBinaryOutput =
+    AppleLinkingOutputs linkingOutputs =
         linkMultiArchBinary(
             ruleContext,
-            ObjcCppSemantics.INSTANCE,
+            cppSemantics,
+            /* avoidDeps= */ ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
             AnalysisUtils.isStampingEnabled(ruleContext),
             /* shouldLipo= */ true);
 
-    return ruleConfiguredTargetFromProvider(ruleContext, appleBinaryOutput);
+    return ruleConfiguredTargetFromLinkingOutputs(ruleContext, linkingOutputs);
   }
 
   /**
@@ -150,89 +156,76 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
    *
    * @param ruleContext the current rule context
    * @param cppSemantics the cpp semantics to use
+   * @param avoidDeps a list of {@code TransitiveInfoColllection} that contain information about
+   *     dependencies whose symbols are used by the linked binary but should not be linked into the
+   *     binary itself
    * @param extraLinkopts extra linkopts to pass to the linker actions
    * @param extraLinkInputs extra input files to pass to the linker action
    * @param isStampingEnabled whether linkstamping is enabled
    * @param shouldLipo whether lipoing all binary slices as one output is desired
    * @return a tuple containing all necessary information about the linked binary
    */
-  public static AppleBinaryOutput linkMultiArchBinary(
+  public static AppleLinkingOutputs linkMultiArchBinary(
       RuleContext ruleContext,
       CppSemantics cppSemantics,
+      ImmutableList<TransitiveInfoCollection> avoidDeps,
       Iterable<String> extraLinkopts,
       Iterable<Artifact> extraLinkInputs,
       boolean isStampingEnabled,
       boolean shouldLipo)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
-    PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
-
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
     ApplePlatform platform = null;
-    try {
-      platform = appleConfiguration.getMultiArchPlatform(platformType);
-    } catch (IllegalArgumentException e) {
-      ruleContext.throwWithRuleError(e);
+
+    if (shouldLipo) {
+      MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
+      PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
+
+      AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+
+      try {
+        platform = appleConfiguration.getMultiArchPlatform(platformType);
+      } catch (IllegalArgumentException e) {
+        ruleContext.throwWithRuleError(e);
+      }
+
+      avoidDeps =
+          ImmutableList.<TransitiveInfoCollection>builder()
+              .addAll(getDylibProviderTargets(ruleContext))
+              .addAll(avoidDeps)
+              .build();
     }
+
     ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
         MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
-    ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap =
-        MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps"));
 
     ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
-    Artifact outputArtifact = null;
-    if (shouldLipo) {
-      outputArtifact =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
-    }
-
     MultiArchBinarySupport multiArchBinarySupport =
         new MultiArchBinarySupport(ruleContext, cppSemantics);
 
     ImmutableSet<DependencySpecificConfiguration> dependencySpecificConfigurations =
         multiArchBinarySupport.getDependencySpecificConfigurations(
-            childConfigurationsAndToolchains,
-            cpuToDepsCollectionMap,
-            cpuToCTATDepsCollectionMap,
-            getDylibProviderTargets(ruleContext));
+            childConfigurationsAndToolchains, cpuToDepsCollectionMap, avoidDeps);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
 
-    Iterable<Artifact> allLinkInputs =
-        Iterables.concat(getRequiredLinkInputs(ruleContext), extraLinkInputs);
-    ExtraLinkArgs allLinkopts =
-        new ExtraLinkArgs(Iterables.concat(getRequiredLinkopts(ruleContext), extraLinkopts));
-
-    ImmutableMap<String, Artifact> platformToBinariesMap =
-        multiArchBinarySupport.registerActions(
-            allLinkopts,
-            dependencySpecificConfigurations,
-            allLinkInputs,
-            isStampingEnabled,
-            cpuToDepsCollectionMap,
-            outputGroupCollector,
-            platform);
-
+    NestedSetBuilder<Artifact> binariesToLipo = null;
+    ImmutableList.Builder<Artifact> allLinkInputs = ImmutableList.builder();
+    ImmutableList.Builder<String> allLinkopts = ImmutableList.builder();
     if (shouldLipo) {
-      NestedSetBuilder<Artifact> binariesToLipo = NestedSetBuilder.stableOrder();
-      for (Map.Entry<String, Artifact> entry : platformToBinariesMap.entrySet()) {
-        Artifact binaryToLipo = entry.getValue();
-        binariesToLipo.add(binaryToLipo);
-      }
-      new LipoSupport(ruleContext)
-          .registerCombineArchitecturesAction(binariesToLipo.build(), outputArtifact, platform);
+      binariesToLipo = NestedSetBuilder.stableOrder();
+      allLinkInputs.addAll(getRequiredLinkInputs(ruleContext));
+      allLinkopts.addAll(getRequiredLinkopts(ruleContext));
     }
+    allLinkInputs.addAll(extraLinkInputs);
+    allLinkopts.addAll(extraLinkopts);
 
-    ImmutableListMultimap<BuildConfiguration, OutputGroupInfo> buildConfigToOutputGroupInfoMap =
-        ruleContext.getPrerequisitesByConfiguration("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    ImmutableListMultimap<BuildConfiguration, CcInfo> buildConfigToCcInfoMap =
+        ruleContext.getPrerequisitesByConfiguration("deps", CcInfo.PROVIDER);
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (Map.Entry<BuildConfiguration, OutputGroupInfo> entry :
-        buildConfigToOutputGroupInfoMap.entries()) {
-      OutputGroupInfo dep = entry.getValue();
-      headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
+    for (Map.Entry<BuildConfiguration, CcInfo> entry : buildConfigToCcInfoMap.entries()) {
+      CcInfo dep = entry.getValue();
+      headerTokens.addTransitive(dep.getCcCompilationContext().getHeaderTokens());
     }
     outputGroupCollector.put(OutputGroupInfo.VALIDATION, headerTokens.build());
 
@@ -243,64 +236,81 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       objcProviderBuilder.addTransitiveAndPropagate(
           dependencySpecificConfiguration.objcProviderWithDylibSymbols());
     }
-    if (shouldLipo) {
-      objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
-    }
 
-    ObjcProvider objcProvider = objcProviderBuilder.build();
-    NativeInfo binaryInfoProvider;
-
-    switch (getBinaryType(ruleContext)) {
-      case EXECUTABLE:
-        binaryInfoProvider = new AppleExecutableBinaryInfo(outputArtifact, objcProvider);
-        break;
-      case DYLIB:
-        binaryInfoProvider = new AppleDylibBinaryInfo(outputArtifact, objcProvider);
-        break;
-      case LOADABLE_BUNDLE:
-        binaryInfoProvider = new AppleLoadableBundleBinaryInfo(outputArtifact, objcProvider);
-        break;
-      default:
-        throw ruleContext.throwWithRuleError("Unhandled binary type " + getBinaryType(ruleContext));
-    }
-
-    AppleDebugOutputsInfo.Builder builder = AppleDebugOutputsInfo.Builder.create();
+    AppleDebugOutputsInfo.Builder legacyDebugOutputsBuilder =
+        AppleDebugOutputsInfo.Builder.create();
+    AppleLinkingOutputs.Builder builder =
+        new AppleLinkingOutputs.Builder().addOutputGroups(outputGroupCollector);
 
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations) {
-      AppleConfiguration childAppleConfig =
-          dependencySpecificConfiguration.config().getFragment(AppleConfiguration.class);
-      CppConfiguration childCppConfig =
-          dependencySpecificConfiguration.config().getFragment(CppConfiguration.class);
-      ObjcConfiguration childObjcConfig =
-          dependencySpecificConfiguration.config().getFragment(ObjcConfiguration.class);
+      BuildConfiguration childConfig = dependencySpecificConfiguration.config();
+      String configCpu = childConfig.getCpu();
+      AppleConfiguration childAppleConfig = childConfig.getFragment(AppleConfiguration.class);
+      CppConfiguration childCppConfig = childConfig.getFragment(CppConfiguration.class);
+      ObjcConfiguration childObjcConfig = childConfig.getFragment(ObjcConfiguration.class);
       IntermediateArtifacts intermediateArtifacts =
           new IntermediateArtifacts(
-              ruleContext, /*archiveFileNameSuffix*/
-              "", /*outputPrefix*/
-              "",
-              dependencySpecificConfiguration.config());
+              ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", childConfig);
       String arch = childAppleConfig.getSingleArchitecture();
 
+      Artifact binaryArtifact =
+          multiArchBinarySupport.registerConfigurationSpecificLinkActions(
+              dependencySpecificConfiguration,
+              new ExtraLinkArgs(allLinkopts.build()),
+              allLinkInputs.build(),
+              isStampingEnabled,
+              cpuToDepsCollectionMap.get(configCpu),
+              outputGroupCollector);
+      if (shouldLipo) {
+        binariesToLipo.add(binaryArtifact);
+      }
+
+      // TODO(b/177442911): Use the target platform from platform info coming from split
+      // transition outputs instead of inferring this based on the target CPU.
+      ApplePlatform cpuPlatform = ApplePlatform.forTargetCpu(configCpu);
+
+      AppleLinkingOutputs.LinkingOutput.Builder outputBuilder =
+          AppleLinkingOutputs.LinkingOutput.builder()
+              .setPlatform(cpuPlatform.getTargetPlatform())
+              .setArchitecture(arch)
+              .setEnvironment(cpuPlatform.getTargetEnvironment())
+              .setBinary(binaryArtifact);
+
       if (childCppConfig.getAppleBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
-        Artifact bitcodeSymbol = intermediateArtifacts.bitcodeSymbolMap();
-        builder.addOutput(arch, OutputType.BITCODE_SYMBOLS, bitcodeSymbol);
+        Artifact bitcodeSymbols = intermediateArtifacts.bitcodeSymbolMap();
+        outputBuilder.setBitcodeSymbols(bitcodeSymbols);
+        legacyDebugOutputsBuilder.addOutput(arch, OutputType.BITCODE_SYMBOLS, bitcodeSymbols);
       }
       if (childCppConfig.appleGenerateDsym()) {
         Artifact dsymBinary =
             childObjcConfig.shouldStripBinary()
                 ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
                 : intermediateArtifacts.dsymSymbolForStrippedBinary();
-        builder.addOutput(arch, OutputType.DSYM_BINARY, dsymBinary);
+        outputBuilder.setDsymBinary(dsymBinary);
+        legacyDebugOutputsBuilder.addOutput(arch, OutputType.DSYM_BINARY, dsymBinary);
       }
       if (childObjcConfig.generateLinkmap()) {
         Artifact linkmap = intermediateArtifacts.linkmap();
-        builder.addOutput(arch, OutputType.LINKMAP, linkmap);
+        outputBuilder.setLinkmap(linkmap);
+        legacyDebugOutputsBuilder.addOutput(arch, OutputType.LINKMAP, linkmap);
       }
+
+      builder.addOutput(outputBuilder.build());
     }
 
-    return new AppleBinaryOutput(
-        binaryInfoProvider, builder.build(), outputGroupCollector, platformToBinariesMap);
+    if (shouldLipo) {
+      Artifact outputArtifact =
+          ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
+      builder.setLegacyBinaryArtifact(outputArtifact, getBinaryType(ruleContext));
+      new LipoSupport(ruleContext)
+          .registerCombineArchitecturesAction(binariesToLipo.build(), outputArtifact, platform);
+    }
+
+    return builder
+        .setDepsObjcProvider(objcProviderBuilder.build())
+        .setLegacyDebugOutputsProvider(legacyDebugOutputsBuilder.build())
+        .build();
   }
 
   private static ExtraLinkArgs getRequiredLinkopts(RuleContext ruleContext)
@@ -357,15 +367,14 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   }
 
   private static BinaryType getBinaryType(RuleContext ruleContext) {
-    String binaryTypeString =
-        ruleContext.attributes().get(AppleBinaryRule.BINARY_TYPE_ATTR, STRING);
+    String binaryTypeString = ruleContext.attributes().get(BINARY_TYPE_ATTR, STRING);
     return BinaryType.fromString(binaryTypeString);
   }
 
-  private static ConfiguredTarget ruleConfiguredTargetFromProvider(
-      RuleContext ruleContext, AppleBinaryOutput appleBinaryOutput)
+  private static ConfiguredTarget ruleConfiguredTargetFromLinkingOutputs(
+      RuleContext ruleContext, AppleLinkingOutputs linkingOutputs)
       throws RuleErrorException, ActionConflictException, InterruptedException {
-    NativeInfo nativeInfo = appleBinaryOutput.getBinaryInfoProvider();
+    NativeInfo nativeInfo = linkingOutputs.getLegacyBinaryInfoProvider();
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
     ObjcProvider objcProvider;
@@ -409,60 +418,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     return targetBuilder
         .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addNativeDeclaredProvider(nativeInfo)
-        .addNativeDeclaredProvider(appleBinaryOutput.getDebugOutputsProvider())
-        .addOutputGroups(appleBinaryOutput.getOutputGroups())
+        .addNativeDeclaredProvider(linkingOutputs.getLegacyDebugOutputsProvider())
+        .addOutputGroups(linkingOutputs.getOutputGroups())
         .build();
-  }
-
-  /** The set of rule outputs propagated by the {@code apple_binary} rule. */
-  public static class AppleBinaryOutput {
-    private final NativeInfo binaryInfoProvider;
-    private final AppleDebugOutputsInfo debugOutputsProvider;
-    private final Map<String, NestedSet<Artifact>> outputGroups;
-    private final Map<String, Artifact> artifactByPlatform;
-
-    private AppleBinaryOutput(
-        NativeInfo binaryInfoProvider,
-        AppleDebugOutputsInfo debugOutputsProvider,
-        Map<String, NestedSet<Artifact>> outputGroups,
-        Map<String, Artifact> artifactByPlatform) {
-      this.binaryInfoProvider = binaryInfoProvider;
-      this.debugOutputsProvider = debugOutputsProvider;
-      this.outputGroups = outputGroups;
-      this.artifactByPlatform = artifactByPlatform;
-    }
-
-    /**
-     * Returns a {@link NativeInfo} possessing information about the linked binary. Depending on the
-     * type of binary, this may be either a {@link AppleExecutableBinaryInfo}, a {@link
-     * AppleDylibBinaryInfo}, or a {@link AppleLoadableBundleBinaryInfo}.
-     */
-    public NativeInfo getBinaryInfoProvider() {
-      return binaryInfoProvider;
-    }
-
-    /**
-     * Returns a {@link AppleDebugOutputsInfo} containing debug information about the linked binary.
-     */
-    public AppleDebugOutputsInfo getDebugOutputsProvider() {
-      return debugOutputsProvider;
-    }
-
-    /**
-     * Returns a map from output group name to set of artifacts belonging to this output group. This
-     * should be added to configured target information using {@link
-     * RuleConfiguredTargetBuilder#addOutputGroups(Map)}.
-     */
-    public Map<String, NestedSet<Artifact>> getOutputGroups() {
-      return outputGroups;
-    }
-
-    /**
-     * Returns a map from cpu string with device type to each artifact representing a linked single
-     * architecture binary before it is lipoed.
-     */
-    public Map<String, Artifact> getArtifactByPlatform() {
-      return artifactByPlatform;
-    }
   }
 }

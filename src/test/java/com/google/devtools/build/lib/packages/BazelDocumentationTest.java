@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.bazel.Bazel;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.packages.util.DocumentationTestUtil;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import org.junit.Test;

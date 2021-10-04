@@ -110,7 +110,7 @@ transitive = []
 for i in inputs:
     transitive.append(i.deps)
 
-x = depset(transitive = transitive])
+x = depset(transitive = transitive)
 ```
 
 This can sometimes be reduced using a list comprehension:
@@ -119,7 +119,7 @@ This can sometimes be reduced using a list comprehension:
 x = depset(transitive = [i.deps for i in inputs])
 ```
 
-## Use `ctx.actions.args()` for command lines
+## Use ctx.actions.args() for command lines
 
 When building command lines you should use [ctx.actions.args()](lib/Args.html).
 This defers expansion of any depsets to the execution phase.
@@ -368,7 +368,7 @@ You must pass these two startup flags to *every* Bazel invocation:
 
   ```
   STARTUP_FLAGS=\
-  --host_jvm_args=-javaagent:$(BAZEL)/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+  --host_jvm_args=-javaagent:$(BAZEL)/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
   --host_jvm_args=-DRULE_MEMORY_TRACKER=1
   ```
   **NOTE**: The bazel repository comes with an allocation instrumenter.
@@ -379,22 +379,22 @@ one Bazel invocation the server will restart and you will have to start over.
 
 ### Using the Memory Tracker
 
-Let's have a look at the target `foo` and see what it's up to. We add
-`--nobuild` since it doesn't matter to memory consumption if we actually build
-or not, we just have to run the analysis phase.
+As an example, look at the target `foo` and see what it does. To only
+run the analysis and not run the build execution phase, add the
+`--nobuild` flag.
 
 ```
 $ bazel $(STARTUP_FLAGS) build --nobuild //foo:foo
 ```
 
-Let's see how much memory the whole Bazel instance consumes:
+Next, see how much memory the whole Bazel instance consumes:
 
 ```
 $ bazel $(STARTUP_FLAGS) info used-heap-size-after-gc
 > 2594MB
 ```
 
-Let's break it down by rule class by using `bazel dump --rules`:
+Break it down by rule class by using `bazel dump --rules`:
 
 ```
 $ bazel $(STARTUP_FLAGS) dump --rules
@@ -413,20 +413,20 @@ _check_proto_library_deps              719         668      1,835,288        2,5
 ... (more output)
 ```
 
-And finally let's have a look at where the memory is going by producing a
-`pprof` file using `bazel dump --skylark_memory`:
+Look at where the memory is going by producing a `pprof` file
+using `bazel dump --skylark_memory`:
 
 ```
 $ bazel $(STARTUP_FLAGS) dump --skylark_memory=$HOME/prof.gz
 > Dumping Starlark heap to: /usr/local/google/home/$USER/prof.gz
 ```
 
-Next, we use the `pprof` tool to investigate the heap. A good starting point is
+Use the `pprof` tool to investigate the heap. A good starting point is
 getting a flame graph by using `pprof -flame $HOME/prof.gz`.
 
-  You can get `pprof` from [https://github.com/google/pprof](https://github.com/google/pprof).
+Get `pprof` from [https://github.com/google/pprof](https://github.com/google/pprof).
 
-In this case we get a text dump of the hottest call sites annotated with lines:
+Get a text dump of the hottest call sites annotated with lines:
 
 ```
 $ pprof -text -lines $HOME/prof.gz

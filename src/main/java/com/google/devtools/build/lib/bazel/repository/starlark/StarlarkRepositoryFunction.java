@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -159,7 +161,8 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               rule.getPackage().getRepositoryMapping(),
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =
@@ -169,11 +172,10 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               outputDirectory,
               ignoredPatterns,
               env,
-              clientEnvironment,
+              ImmutableMap.copyOf(clientEnvironment),
               downloadManager,
               timeoutScaling,
               processWrapper,
-              markerData,
               starlarkSemantics,
               repositoryRemoteExecutor);
 
@@ -187,7 +189,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       // all label-arguments can be resolved to paths.
       try {
         starlarkRepositoryContext.enforceLabelAttributes();
-      } catch (RepositoryMissingDependencyException e) {
+      } catch (NeedsSkyframeRestartException e) {
         // Missing values are expected; just restart before we actually start the rule
         return null;
       } catch (EvalException e) {
@@ -223,6 +225,13 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
+      // Modify marker data to include the files used by the rule's implementation function.
+      for (Map.Entry<Label, String> entry :
+          starlarkRepositoryContext.getAccumulatedFileDigests().entrySet()) {
+        // A label does not contain spaces so it's safe to use as a key.
+        markerData.put("FILE:" + entry.getKey(), entry.getValue());
+      }
+
       String ruleClass =
           rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
       if (verificationRules.contains(ruleClass)) {
@@ -238,7 +247,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
         }
       }
       env.getListener().post(resolved);
-    } catch (RepositoryMissingDependencyException e) {
+    } catch (NeedsSkyframeRestartException e) {
       // A dependency is missing, cleanup and returns null
       try {
         if (outputDirectory.exists()) {

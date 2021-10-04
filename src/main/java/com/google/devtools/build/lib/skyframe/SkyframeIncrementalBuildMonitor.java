@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * A package-private class intended to track a small number of modified files during the build. This
@@ -35,6 +36,7 @@ class SkyframeIncrementalBuildMonitor {
 
   private Set<PathFragment> files = new HashSet<>();
   private int fileCount;
+  private final LongAdder invalidatedFileValueCount = new LongAdder();
 
   public void accrue(Iterable<SkyKey> invalidatedValues) {
     for (SkyKey skyKey : invalidatedValues) {
@@ -56,8 +58,14 @@ class SkyframeIncrementalBuildMonitor {
     fileCount++;
   }
 
+  @ThreadSafety.ThreadSafe
+  public void reportInvalidatedFileValue() {
+    invalidatedFileValueCount.increment();
+  }
+
   public void alertListeners(EventBus eventBus) {
-    Set<PathFragment> changedFiles = (files != null) ? files : ImmutableSet.<PathFragment>of();
-    eventBus.post(new ChangedFilesMessage(changedFiles, fileCount));
+    Set<PathFragment> changedFiles = (files != null) ? files : ImmutableSet.of();
+    eventBus.post(
+        ChangedFilesMessage.create(changedFiles, fileCount, invalidatedFileValueCount.intValue()));
   }
 }

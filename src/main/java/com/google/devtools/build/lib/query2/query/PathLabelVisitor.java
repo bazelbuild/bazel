@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -38,12 +39,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 
 /** Computes path queries given a {@link TargetProvider}. */
 final class PathLabelVisitor {
   private final TargetProvider targetProvider;
   private final DependencyFilter edgeFilter;
+  private final TargetEdgeErrorObserver errorObserver;
 
   /**
    * Construct a PathLabelVisitor.
@@ -51,14 +54,18 @@ final class PathLabelVisitor {
    * @param targetProvider how to resolve labels to targets
    * @param edgeFilter which edges may be traversed
    */
-  public PathLabelVisitor(TargetProvider targetProvider, DependencyFilter edgeFilter) {
+  public PathLabelVisitor(
+      TargetProvider targetProvider,
+      DependencyFilter edgeFilter,
+      TargetEdgeErrorObserver errorObserver) {
     this.targetProvider = targetProvider;
     this.edgeFilter = edgeFilter;
+    this.errorObserver = errorObserver;
   }
 
   public Iterable<Target> somePath(
       ExtendedEventHandler eventHandler, Iterable<Target> from, Iterable<Target> to)
-      throws NoSuchThingException, InterruptedException {
+      throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.SOMEPATH);
     // TODO(ulfjack): It might be faster to stop the visitation once we see any 'to' Target.
     visitor.visitTargets(from);
@@ -83,7 +90,7 @@ final class PathLabelVisitor {
 
   public Iterable<Target> allPaths(
       ExtendedEventHandler eventHandler, Iterable<Target> from, Iterable<Target> to)
-      throws NoSuchThingException, InterruptedException {
+      throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
     visitor.visitTargets(from);
     Set<Target> result = new HashSet<>();
@@ -107,8 +114,7 @@ final class PathLabelVisitor {
   }
 
   public Iterable<Target> samePkgDirectRdeps(
-      ExtendedEventHandler eventHandler, Iterable<Target> from)
-      throws NoSuchThingException, InterruptedException {
+      ExtendedEventHandler eventHandler, Iterable<Target> from) throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.SAME_PKG_DIRECT_RDEPS);
     for (Target t : from) {
       visitor.visitTargets(t.getPackage().getTargets().values());
@@ -128,7 +134,7 @@ final class PathLabelVisitor {
       Iterable<Target> from,
       Iterable<Target> universe,
       int depth)
-      throws NoSuchThingException, InterruptedException {
+      throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
     visitor.visitTargets(universe);
 
@@ -189,14 +195,14 @@ final class PathLabelVisitor {
     }
   }
 
-  private class Visitor {
+  private final class Visitor {
     private final ExtendedEventHandler eventHandler;
     private final VisitorMode mode;
     private final Set<Target> visited = new HashSet<>();
     private final Map<Target, List<Target>> parentMap = new HashMap<>();
     private final Queue<Visit> workQueue = new ArrayDeque<>();
 
-    public Visitor(ExtendedEventHandler eventHandler, VisitorMode mode) {
+    Visitor(ExtendedEventHandler eventHandler, VisitorMode mode) {
       this.eventHandler = eventHandler;
       this.mode = Preconditions.checkNotNull(mode);
     }
@@ -216,21 +222,23 @@ final class PathLabelVisitor {
      * @param targets the targets to visit
      */
     @ThreadSafe
-    private void visitTargets(Iterable<Target> targets)
-        throws InterruptedException, NoSuchThingException {
+    private void visitTargets(Iterable<Target> targets) throws InterruptedException {
       for (Target t : targets) {
         enqueue(null, null, t);
       }
       while (!workQueue.isEmpty()) {
         Visit visit = workQueue.remove();
-        visit(visit.from, visit.attribute, visit.target);
+        try {
+          visit(visit.from, visit.attribute, visit.target);
+        } catch (NoSuchThingException e) {
+          errorObserver.missingEdge(visit.from, visit.target.getLabel(), e);
+        }
       }
     }
 
     private void enqueue(Target from, Attribute attribute, Label label)
         throws InterruptedException, NoSuchThingException {
-      Target target;
-      target = targetProvider.getTarget(eventHandler, label);
+      Target target = targetProvider.getTarget(eventHandler, label);
       enqueue(from, attribute, target);
     }
 
@@ -273,13 +281,30 @@ final class PathLabelVisitor {
         visitAspectsIfRequired(from, attribute, target);
       }
 
-      if (!visited.add(target)) {
-        // We've been here before.
-        return;
+      if (visited.add(target)) {
+        visitEdgesOfTarget(target);
       }
+    }
 
-      LabelVisitationUtils.<InterruptedException, NoSuchThingException>visitTargetExceptionally(
-          target, edgeFilter, this::enqueue);
+    private void visitEdgesOfTarget(Target target)
+        throws InterruptedException, NoSuchThingException {
+      try {
+        LabelVisitationUtils.visitTarget(
+            target,
+            edgeFilter,
+            (from, attribute, label) -> {
+              try {
+                enqueue(from, attribute, label);
+              } catch (InterruptedException | NoSuchThingException e) {
+                // Tunnel the exception, since we can't throw checked exceptions from here.
+                throw new CompletionException(e);
+              }
+            });
+      } catch (CompletionException e) {
+        Throwables.propagateIfPossible(
+            e.getCause(), InterruptedException.class, NoSuchThingException.class);
+        throw e;
+      }
     }
 
     private void visitAspectsIfRequired(Target from, Attribute attribute, final Target to)

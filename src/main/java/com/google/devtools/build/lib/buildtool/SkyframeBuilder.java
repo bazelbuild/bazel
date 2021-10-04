@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DetailedException;
@@ -211,7 +211,6 @@ public class SkyframeBuilder implements Builder {
                 options,
                 actionCacheChecker,
                 topDownActionCache,
-                null,
                 topLevelArtifactContext);
         detailedExitCode =
             processResult(
@@ -253,7 +252,7 @@ public class SkyframeBuilder implements Builder {
    *   <li>{@code null}, if {@code result} had no errors
    *   <li>{@code e} if result had errors and one of them specified a {@link DetailedExitCode} value
    *       {@code e}
-   *   <li>a {@link DetailedExitCode} with {@link Code.NON_ACTION_EXECUTION_FAILURE} if result had
+   *   <li>a {@link DetailedExitCode} with {@link Code#NON_ACTION_EXECUTION_FAILURE} if result had
    *       errors but none specified a {@link DetailedExitCode} value
    * </ol>
    *
@@ -393,6 +392,22 @@ public class SkyframeBuilder implements Builder {
                 .setMessage(message)
                 .setExecution(Execution.newBuilder().setCode(Code.UNEXPECTED_EXCEPTION))
                 .build()));
+  }
+
+  ActionCacheChecker getActionCacheChecker() {
+    return actionCacheChecker;
+  }
+
+  TopDownActionCache getTopDownActionCache() {
+    return topDownActionCache;
+  }
+
+  MetadataProvider getFileCache() {
+    return fileCache;
+  }
+
+  ActionInputPrefetcher getActionInputPrefetcher() {
+    return actionInputPrefetcher;
   }
 
   private static int countTestActions(Iterable<ConfiguredTarget> testTargets) {

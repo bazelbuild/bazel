@@ -47,6 +47,7 @@ java_test(
         ],
     ),
     data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",

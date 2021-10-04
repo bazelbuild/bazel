@@ -86,7 +86,7 @@ import net.starlark.java.eval.StarlarkInt;
 // types, both Starlark and native.
 public abstract class Type<T> {
 
-  protected Type() {}
+  Type() {}
 
   /**
    * Converts a legal Starlark value x into an Java value of type T.
@@ -162,24 +162,24 @@ public abstract class Type<T> {
   public abstract T getDefaultValue();
 
   /**
-   * Function accepting a (potentially null) {@link Label} and an arbitrary context object. Used by
-   * {@link #visitLabels}.
+   * Function accepting a (potentially null) {@link Label} and a (potentially null) {@link
+   * Attribute} provided as context. Used by {@link #visitLabels}.
    */
-  public interface LabelVisitor<C> {
-    void visit(@Nullable Label label, @Nullable C context);
+  public interface LabelVisitor {
+    void visit(@Nullable Label label, @Nullable Attribute context);
   }
 
   /**
    * Invokes {@code visitor.visit(label, context)} for each {@link Label} {@code label} associated
-   * with {@code value}, which is assumed an instance of this {@link Type}.
+   * with {@code value}, an instance of this {@link Type}.
    *
    * <p>This is used to support reliable label visitation in {@link
-   * com.google.devtools.build.lib.packages.AbstractAttributeMapper#visitLabels}. To preserve that
+   * com.google.devtools.build.lib.packages.AttributeMap#visitAllLabels}. To preserve that
    * reliability, every type should faithfully define its own instance of this method. In other
    * words, be careful about defining default instances in base types that get auto-inherited by
    * their children. Keep all definitions as explicit as possible.
    */
-  public abstract <C> void visitLabels(LabelVisitor<C> visitor, Object value, @Nullable C context);
+  public abstract void visitLabels(LabelVisitor visitor, T value, @Nullable Attribute context);
 
   /** Classifications of labels by their usage. */
   public enum LabelClass {
@@ -285,7 +285,7 @@ public abstract class Type<T> {
     }
 
     /** Contructs a conversion error. Throws NullPointerException if value is null. */
-    public ConversionException(Type<?> type, Object value, @Nullable Object what) {
+    ConversionException(Type<?> type, Object value, @Nullable Object what) {
       super(message(type, Preconditions.checkNotNull(value), what));
     }
 
@@ -300,7 +300,7 @@ public abstract class Type<T> {
    *                                                                  *
    ********************************************************************/
 
-  private static class ObjectType extends Type<Object> {
+  private static final class ObjectType extends Type<Object> {
     @Override
     public Object cast(Object value) {
       return value;
@@ -313,8 +313,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -328,7 +327,7 @@ public abstract class Type<T> {
   }
 
   // A Starlark integer in the signed 32-bit range (like Java int).
-  private static class IntegerType extends Type<StarlarkInt> {
+  private static final class IntegerType extends Type<StarlarkInt> {
     @Override
     public StarlarkInt cast(Object value) {
       // This cast will fail if passed a java.lang.Integer,
@@ -342,8 +341,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, StarlarkInt value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -384,7 +382,7 @@ public abstract class Type<T> {
     }
   }
 
-  private static class BooleanType extends Type<Boolean> {
+  private static final class BooleanType extends Type<Boolean> {
     @Override
     public Boolean cast(Object value) {
       return (Boolean) value;
@@ -396,8 +394,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, Boolean value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -434,7 +431,7 @@ public abstract class Type<T> {
     }
   }
 
-  private static class StringType extends Type<String> {
+  private static final class StringType extends Type<String> {
     @Override
     public String cast(Object value) {
       return (String) value;
@@ -446,8 +443,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, String value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -494,9 +490,10 @@ public abstract class Type<T> {
     private final LabelClass labelClass;
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+    public final void visitLabels(
+        LabelVisitor visitor, Map<KeyT, ValueT> value, @Nullable Attribute context) {
       if (labelClass != LabelClass.NONE) {
-        for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
+        for (Map.Entry<KeyT, ValueT> entry : value.entrySet()) {
           keyType.visitLabels(visitor, entry.getKey(), context);
           valueType.visitLabels(visitor, entry.getValue(), context);
         }
@@ -523,7 +520,7 @@ public abstract class Type<T> {
       return new DictType<>(keyType, valueType, labelClass);
     }
 
-    protected DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
+    DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
       this.keyType = keyType;
       this.valueType = valueType;
       this.labelClass = labelClass;
@@ -594,7 +591,7 @@ public abstract class Type<T> {
 
     @SuppressWarnings("unchecked")
     @Override
-    public List<ElemT> cast(Object value) {
+    public final List<ElemT> cast(Object value) {
       return (List<ElemT>) value;
     }
 
@@ -614,19 +611,19 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+    public final void visitLabels(
+        LabelVisitor visitor, List<ElemT> value, @Nullable Attribute context) {
       if (elemType.getLabelClass() == LabelClass.NONE) {
         return;
       }
 
-      List<ElemT> elems = cast(value);
       // Hot code path. Optimize for lists with O(1) access to avoid iterator garbage.
-      if (elems instanceof RandomAccess) {
-        for (int i = 0; i < elems.size(); i++) {
-          elemType.visitLabels(visitor, elems.get(i), context);
+      if (value instanceof RandomAccess) {
+        for (int i = 0; i < value.size(); i++) {
+          elemType.visitLabels(visitor, value.get(i), context);
         }
       } else {
-        for (ElemT elem : elems) {
+        for (ElemT elem : value) {
           elemType.visitLabels(visitor, elem, context);
         }
       }
@@ -738,7 +735,7 @@ public abstract class Type<T> {
         throws ConversionException {
       // TODO(adonovan): converge on Starlark.toIterable.
       if (x instanceof Sequence) {
-        return ((Sequence) x).getImmutableList();
+        return ((Sequence<Object>) x).getImmutableList();
       } else if (x instanceof List) {
         return (List<Object>) x;
       } else if (x instanceof Iterable) {

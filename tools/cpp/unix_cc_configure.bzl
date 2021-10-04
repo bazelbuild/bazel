@@ -307,7 +307,15 @@ def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False,
     return result
 
 def find_cc(repository_ctx, overriden_tools):
-    return _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+    cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+    if _is_clang(repository_ctx, cc):
+        # If clang is run through a symlink with -no-canonical-prefixes, it does
+        # not find its own include directory, which includes the headers for
+        # libc++. Resolving the potential symlink here prevents this.
+        result = repository_ctx.execute(["readlink", "-f", cc])
+        if result.return_code == 0:
+            return result.stdout.strip()
+    return cc
 
 def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on Unix platforms."""
@@ -331,9 +339,9 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     )
 
     repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
-    darwin = cpu_value == "darwin"
+    darwin = cpu_value.startswith("darwin")
 
-    cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+    cc = find_cc(repository_ctx, overriden_tools)
     is_clang = _is_clang(repository_ctx, cc)
     overriden_tools = dict(overriden_tools)
     overriden_tools["gcc"] = cc
@@ -416,15 +424,24 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
         # cc is outside the repository, set -B
-        bin_search_flag = ["-B" + escape_string(str(cc_path.dirname))]
+        bin_search_flags = ["-B" + escape_string(str(cc_path.dirname))]
     else:
         # cc is inside the repository, don't set -B.
-        bin_search_flag = []
-
+        bin_search_flags = []
+    if not gold_or_lld_linker_path:
+        ld_path = repository_ctx.path(tool_paths["ld"])
+        if ld_path.dirname != cc_path.dirname:
+            bin_search_flags.append("-B" + str(ld_path.dirname))
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
     builtin_include_directories = _uniq(
         _get_cxx_include_directories(repository_ctx, cc, "-xc") +
         _get_cxx_include_directories(repository_ctx, cc, "-xc++", cxx_opts) +
+        _get_cxx_include_directories(
+            repository_ctx,
+            cc,
+            "-xc++",
+            cxx_opts + ["-stdlib=libc++"],
+        ) +
         _get_cxx_include_directories(
             repository_ctx,
             cc,
@@ -436,6 +453,12 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             cc,
             "-xc++",
             cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ) +
+        _get_cxx_include_directories(
+            repository_ctx,
+            cc,
+            "-xc++",
+            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc) + ["-stdlib=libc++"],
         ),
     )
 
@@ -546,7 +569,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-undefined",
                     "dynamic_lookup",
                     "-headerpad_max_install_names",
-                ] if darwin else bin_search_flag + [
+                ] if darwin else bin_search_flags + [
                     # Gold linker only? Can we enable this by default?
                     # "-Wl,--warn-execstack",
                     # "-Wl,--detect-odr-violations"

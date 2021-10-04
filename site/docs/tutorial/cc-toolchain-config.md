@@ -8,7 +8,7 @@ category: getting-started
 
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project. It's based on an
-[example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
+[example C++ project](https://github.com/bazelbuild/examples/tree/HEAD/cpp-tutorial/stage1)
 that builds error-free using `clang`.
 
 ## What you'll learn
@@ -38,7 +38,7 @@ Set up your build environment as follows:
    [download and install Bazel 0.23](../install-ubuntu.html) or later.
 
 2.  Download the
-    [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
+    [example C++ project](https://github.com/bazelbuild/examples/tree/HEAD/cpp-tutorial/stage1)
     from GitHub and place it in an empty directory on your local machine.
 
 

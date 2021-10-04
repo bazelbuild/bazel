@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheStats;
 import com.google.common.primitives.Longs;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -126,9 +126,10 @@ public class DigestUtils {
    *
    * <p>This is null when the cache is disabled.
    *
-   * <p>Note that we do not use a {@link com.google.common.cache.LoadingCache} because our keys
-   * represent the paths as strings, not as {@link Path} instances. As a result, the loading
-   * function cannot actually compute the digests of the files so we have to handle this externally.
+   * <p>Note that we do not use a {@link com.github.benmanes.caffeine.cache.LoadingCache} because
+   * our keys represent the paths as strings, not as {@link Path} instances. As a result, the
+   * loading function cannot actually compute the digests of the files so we have to handle this
+   * externally.
    */
   private static Cache<CacheKey, byte[]> globalCache = null;
 
@@ -178,7 +179,7 @@ public class DigestUtils {
     if (maximumSize == 0) {
       globalCache = null;
     } else {
-      globalCache = CacheBuilder.newBuilder().maximumSize(maximumSize).recordStats().build();
+      globalCache = Caffeine.newBuilder().maximumSize(maximumSize).recordStats().build();
     }
   }
 

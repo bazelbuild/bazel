@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
@@ -23,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.errorprone.annotations.Immutable;
-import java.util.Objects;
 
 /**
  * An abstract configuration transition that sets the Python version as per its {@link
@@ -31,9 +32,6 @@ import java.util.Objects;
  *
  * <p>See {@link PythonOptions#canTransitionPythonVersion} for information on when transitioning is
  * allowed.
- *
- * <p>Subclasses should override {@link #determineNewVersion}, as well as {@link #equals} and {@link
- * #hashCode}.
  */
 @Immutable
 public abstract class PythonVersionTransition implements PatchTransition {
@@ -50,6 +48,8 @@ public abstract class PythonVersionTransition implements PatchTransition {
     return ToDefault.INSTANCE;
   }
 
+  private PythonVersionTransition() {}
+
   /**
    * Returns the Python version to transition to, given the configuration.
    *
@@ -60,16 +60,11 @@ public abstract class PythonVersionTransition implements PatchTransition {
    */
   protected abstract PythonVersion determineNewVersion(BuildOptionsView options);
 
-  @Override
-  public abstract boolean equals(Object other);
-
-  @Override
-  public abstract int hashCode();
-
   // We added this cache after observing an O(100,000)-node build graph that applied multiple exec
   // transitions to Python 3 tools on every node. Before this cache, this produced O(100,000)
   // BuildOptions instances that consumed about a gigabyte of memory.
-  private static final BuildOptionsCache<PythonVersion> cache = new BuildOptionsCache<>();
+  private static final BuildOptionsCache<PythonVersion> cache =
+      new BuildOptionsCache<>(PythonVersionTransition::transitionImpl);
 
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
@@ -79,30 +74,29 @@ public abstract class PythonVersionTransition implements PatchTransition {
   @Override
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     PythonVersion newVersion = determineNewVersion(options);
-    Preconditions.checkArgument(newVersion.isTargetValue());
+    checkArgument(newVersion.isTargetValue(), newVersion);
 
     PythonOptions opts = options.get(PythonOptions.class);
     if (!opts.canTransitionPythonVersion(newVersion)) {
       return options.underlying();
     }
-    return cache.applyTransition(
-        options,
-        newVersion,
-        () -> {
-          BuildOptionsView newOptions = options.clone();
-          PythonOptions newOpts = newOptions.get(PythonOptions.class);
-          newOpts.setPythonVersion(newVersion);
-          return newOptions.underlying();
-        });
+    return cache.applyTransition(options, newVersion);
+  }
+
+  private static BuildOptions transitionImpl(BuildOptionsView options, PythonVersion newVersion) {
+    BuildOptionsView newOptions = options.clone();
+    PythonOptions newOpts = newOptions.get(PythonOptions.class);
+    newOpts.setPythonVersion(newVersion);
+    return newOptions.underlying();
   }
 
   /** A Python version transition that switches to the value specified in the constructor. */
-  private static class ToConstant extends PythonVersionTransition {
+  private static final class ToConstant extends PythonVersionTransition {
 
     private final PythonVersion newVersion;
 
-    public ToConstant(PythonVersion newVersion) {
-      this.newVersion = newVersion;
+    ToConstant(PythonVersion newVersion) {
+      this.newVersion = checkNotNull(newVersion);
     }
 
     @Override
@@ -123,12 +117,12 @@ public abstract class PythonVersionTransition implements PatchTransition {
 
     @Override
     public int hashCode() {
-      return Objects.hash(ToConstant.class, newVersion);
+      return 37 * ToConstant.class.hashCode() + newVersion.hashCode();
     }
   }
 
   /** A Python version transition that switches to the default given in the Python configuration. */
-  private static class ToDefault extends PythonVersionTransition {
+  private static final class ToDefault extends PythonVersionTransition {
 
     private static final ToDefault INSTANCE = new ToDefault();
 
@@ -138,17 +132,6 @@ public abstract class PythonVersionTransition implements PatchTransition {
     @Override
     protected PythonVersion determineNewVersion(BuildOptionsView options) {
       return options.get(PythonOptions.class).getDefaultPythonVersion();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      return other instanceof ToDefault;
-    }
-
-    @Override
-    public int hashCode() {
-      // Avoid varargs array allocation by using hashCode() rather than hash().
-      return Objects.hashCode(ToDefault.class);
     }
   }
 }

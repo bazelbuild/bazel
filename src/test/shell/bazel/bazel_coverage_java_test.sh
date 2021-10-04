@@ -39,6 +39,11 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
     else
         JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
     fi
+    # Remove the repo overrides that are set up some for Bazel CI workers.
+    inplace-sed "/override_repository=remote_java_tools=/d" "$TEST_TMPDIR/bazelrc"
+    inplace-sed "/override_repository=remote_java_tools_linux=/d" "$TEST_TMPDIR/bazelrc"
+    inplace-sed "/override_repository=remote_java_tools_windows=/d" "$TEST_TMPDIR/bazelrc"
+    inplace-sed "/override_repository=remote_java_tools_darwin=/d" "$TEST_TMPDIR/bazelrc"
 fi
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
@@ -686,6 +691,303 @@ end_of_record"
   # only that they are both included and correctly merged
   assert_coverage_result "$expected_result_cov" ${coverage_file_path}
   assert_coverage_result "$expected_result_random" ${coverage_file_path}
+}
+
+function test_java_string_switch_coverage() {
+  # Verify that Jacoco's filtering is being applied.
+  # Switches on strings generate over double the number of expected branches
+  # (because a switch on String::hashCode is made first) - these branches should
+  # be filtered.
+  cat <<EOF > BUILD
+java_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.java"]),
+    test_class = "com.example.TestSwitch",
+    deps = [":switch-lib"],
+)
+
+java_library(
+    name = "switch-lib",
+    srcs = glob(["src/main/**/*.java"]),
+)
+EOF
+
+  mkdir -p src/main/com/example
+  cat <<EOF > src/main/com/example/Switch.java
+package com.example;
+
+public class Switch {
+
+  public static int switchString(String input) {
+    switch (input) {
+      case "AA":
+        return 0;
+      case "BB":
+        return 1;
+      case "CC":
+        return 2;
+      default:
+        return -1;
+    }
+  }
+}
+EOF
+
+  mkdir -p src/test/com/example
+  cat <<EOF > src/test/com/example/TestSwitch.java
+package com.example;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class TestSwitch {
+
+  @Test
+  public void testValues() {
+    assertEquals(Switch.switchString("CC"), 2);
+    // "Aa" has a hash collision with "BB"
+    assertEquals(Switch.switchString("Aa"), -1);
+    assertEquals(Switch.switchString("DD"), -1);
+  }
+
+}
+EOF
+
+  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+
+  local expected_result="SF:src/main/com/example/Switch.java
+FN:3,com/example/Switch::<init> ()V
+FN:6,com/example/Switch::switchString (Ljava/lang/String;)I
+FNDA:0,com/example/Switch::<init> ()V
+FNDA:1,com/example/Switch::switchString (Ljava/lang/String;)I
+FNF:2
+FNH:1
+BRDA:6,0,0,0
+BRDA:6,0,1,0
+BRDA:6,0,2,1
+BRDA:6,0,3,1
+BRF:4
+BRH:2
+DA:3,0
+DA:6,1
+DA:8,0
+DA:10,0
+DA:12,1
+DA:14,1
+LH:3
+LF:6
+end_of_record"
+
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+}
+
+
+function test_finally_block_branch_coverage() {
+  # Verify branches in finally blocks are handled correctly.
+  # The java compiler duplicates finally blocks for the various code paths that
+  # may enter them (e.g. via an exception handler or when no exception is
+  # thrown).
+  cat <<EOF > BUILD
+java_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.java"]),
+    test_class = "com.example.TestFinally",
+    deps = [":finally-lib"],
+)
+
+java_library(
+    name = "finally-lib",
+    srcs = glob(["src/main/**/*.java"]),
+)
+EOF
+
+  mkdir -p src/main/com/example
+  cat <<EOF > src/main/com/example/Finally.java
+package com.example;
+
+public class Finally {
+
+  private static int secret = 0;
+
+  public static int runFinally(int x) {
+    try {
+      if (x == 1 || x == -1) {
+        throw new RuntimeException();
+      }
+      if (x % 2 == 0) {
+        return x * 2;
+      } else {
+        return x * 2 - 1;
+      }
+    } finally {
+      if (x >= 0) {
+        secret++;
+      } else {
+        secret--;
+      }
+    }
+  }
+}
+EOF
+
+  mkdir -p src/test/com/example
+  cat <<EOF > src/test/com/example/TestFinally.java
+package com.example;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import org.junit.Test;
+
+public class TestFinally {
+
+  @Test
+  public void testEven() {
+    assertEquals(4, Finally.runFinally(2));
+  }
+  @Test
+  public void testOdd() {
+    assertEquals(5, Finally.runFinally(3));
+  }
+  @Test
+  public void testNegativeEven() {
+    assertEquals(-4, Finally.runFinally(-2));
+  }
+  @Test
+  public void testNegativeOdd() {
+    assertEquals(-7, Finally.runFinally(-3));
+  }
+  @Test
+  public void testException() {
+    assertThrows(RuntimeException.class, () -> Finally.runFinally(1));
+  }
+  @Test
+  public void testNegativeException() {
+    assertThrows(RuntimeException.class, () -> Finally.runFinally(-1));
+  }
+
+}
+EOF
+
+  # For the sake of brevity, only check the output for the branches
+  # corresponding to the finally block in the method under test rather than the
+  # entire coverage output.
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=TestFinally.testNegativeException \
+   || echo "Coverage for //:test failed"
+
+    #--test_filter=".*(testNegativeException)" \
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,1
+BRDA:9,0,3,0
+BRDA:12,0,0,-
+BRDA:12,0,1,-
+BRDA:18,0,0,0
+BRDA:18,0,1,1
+BRF:8
+BRH:3"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testOdd|testNegativeOdd)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,0
+BRDA:18,0,0,1
+BRDA:18,0,1,1
+BRF:8
+BRH:5"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testEven|testNegativeOdd)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,1
+BRDA:18,0,0,1
+BRDA:18,0,1,1
+BRF:8
+BRH:6"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testNegativeEven|testException)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,0
+BRDA:12,0,1,1
+BRDA:18,0,0,1
+BRDA:18,0,1,1
+BRF:8
+BRH:6"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testNegativeEven|testNegativeOdd)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,1
+BRDA:18,0,0,0
+BRDA:18,0,1,1
+BRF:8
+BRH:5"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testOdd|testException)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,0
+BRDA:18,0,0,1
+BRDA:18,0,1,0
+BRF:8
+BRH:5"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 run_suite "test tests"

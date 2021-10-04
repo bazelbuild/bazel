@@ -130,7 +130,7 @@ Windows.
 ```python
 cc_library(
     name = "win_driver_lib",
-    srcs = "win_driver_lib.cc",
+    srcs = ["win_driver_lib.cc"],
     target_compatible_with = [
         "@platforms//cpu:x86_64",
         "@platforms//os:windows",
@@ -191,7 +191,7 @@ constraints list is equivalent to "compatible with everything".
 ```python
 cc_library(
     name = "unixish_lib",
-    srcs = "unixish_lib.cc",
+    srcs = ["unixish_lib.cc"],
     target_compatible_with = select({
         "@platforms//os:osx": [],
         "@platforms//os:linux": [],
@@ -218,7 +218,7 @@ describes a library that is compatible with everything _except_ for ARM.
 ```python
 cc_library(
     name = "non_arm_lib",
-    srcs = "non_arm_lib.cc",
+    srcs = ["non_arm_lib.cc"],
     target_compatible_with = select({
         "@platforms//cpu:arm": ["@platforms//:incompatible"],
         "//conditions:default": [],

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.test;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -25,9 +26,11 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -38,11 +41,15 @@ import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -65,6 +72,20 @@ public final class TestActionBuilder {
   // reported source file is the same as the actual source path it will not be included in the file.
   private static final String COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE =
       "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
+
+  static class EmptyPackageProvider extends PackageGroupConfiguredTarget {
+    public EmptyPackageProvider() {
+      super(null, null, null);
+    }
+
+    @Override
+    public NestedSet<PackageGroupContents> getPackageSpecifications() {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+  }
+
+  @VisibleForSerialization @SerializationConstant
+  static final PackageSpecificationProvider EMPTY_PACKAGES_PROVIDER = new EmptyPackageProvider();
 
   private final RuleContext ruleContext;
   private final ImmutableList.Builder<Artifact> additionalTools;
@@ -435,7 +456,13 @@ public final class TestActionBuilder {
                 tools.build(),
                 splitCoveragePostProcessing,
                 lcovMergerFilesToRun,
-                lcovMergerRunfilesSupplier);
+                lcovMergerRunfilesSupplier,
+                // Network allowlist only makes sense in workspaces which explicitly add it, use an
+                // empty one as a fallback.
+                MoreObjects.firstNonNull(
+                    Allowlist.fetchPackageSpecificationProviderOrNull(
+                        ruleContext, "external_network"),
+                    EMPTY_PACKAGES_PROVIDER));
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

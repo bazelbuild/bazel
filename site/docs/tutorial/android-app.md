@@ -53,7 +53,7 @@ This app has a single button that prints a greeting when clicked.
 width="700">
 
 Clone the repository with `git` (or [download the ZIP file
-directly](https://github.com/bazelbuild/examples/archive/master.zip)):
+directly](https://github.com/bazelbuild/examples/archive/main.zip)):
 
 ``` bash
 git clone https://github.com/bazelbuild/examples
@@ -176,7 +176,7 @@ android_sdk_repository(
     name = "androidsdk",
     path = "/path/to/Android/sdk",
     api_level = 25,
-    build_tools_version = "26.0.1"
+    build_tools_version = "30.0.3"
 )
 ```
 

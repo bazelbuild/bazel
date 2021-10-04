@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 
 /**
@@ -59,6 +60,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
     return delegateFs.createDirectory(toDelegatePath(path));
+  }
+
+  @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    return delegateFs.createWritableDirectory(toDelegatePath(path));
   }
 
   @Override
@@ -173,8 +179,19 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
+  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+    return delegateFs.createReadWriteByteChannel(toDelegatePath(path));
+  }
+
+  @Override
   protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
     return delegateFs.getOutputStream(toDelegatePath(path), append);
+  }
+
+  @Override
+  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException {
+    return delegateFs.getOutputStream(toDelegatePath(path), append, internal);
   }
 
   @Override

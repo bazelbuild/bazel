@@ -13,10 +13,9 @@
 // limitations under the License.
 syntax = "proto2";
 
-// option java_api_version = 2;
-
 package xml;
 
+// option java_api_version = 2;
 option java_package = "com.google.devtools.build.android.proto";
 
 // A header message describing information about the rest of the message stream,
@@ -52,7 +51,7 @@ message DataValue {
   optional uint32 source_id = 1;
 
   // If xml_value is defined it's an xml value, otherwise, it's a file value.
-  optional DataValueXml xml_value= 2;
+  optional DataValueXml xml_value = 2;
 }
 
 // A container for all the source information to be persisted.
@@ -75,6 +74,7 @@ message DataValueXml {
     STYLEABLE = 6;
     STYLE = 7;
     RESOURCES_ATTRIBUTE = 8;
+    MACRO = 9;
   }
 
   optional XmlType type = 1;

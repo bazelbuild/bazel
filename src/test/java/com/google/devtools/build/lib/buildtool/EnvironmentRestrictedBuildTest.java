@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,6 +35,11 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Before
   public final void addNoBuildOption() throws Exception  {
     addOptions("--nobuild"); // Target enforcement happens before the execution phase.
+  }
+
+  @Before
+  public void stageEmbeddedTools() throws Exception {
+    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
   }
 
   private void writeEnvironmentRules(String... defaults) throws Exception {
@@ -220,8 +226,22 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void topLevelOutputFile() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "cc_library(name = 'bar', srcs = ['bar.cc'], compatible_with = ['//buildenv:one'])");
+    write(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  file = ctx.actions.declare_file('libbar.a')",
+        "  ctx.actions.write(file, 'hello')",
+        "  return [DefaultInfo(files = depset([file]))]",
+        "crule = rule(",
+        "  _impl,",
+        "  outputs = {",
+        "    'archive': 'lib%{name}.a'",
+        "  },",
+        ");");
+    write(
+        "foo/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "crule(name = 'bar', compatible_with = ['//buildenv:one'])");
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:libbar.a");
     assertThat(getResult().getSuccess()).isTrue();

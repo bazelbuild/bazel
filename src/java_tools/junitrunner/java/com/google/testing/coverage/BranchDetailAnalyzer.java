@@ -114,7 +114,7 @@ public class BranchDetailAnalyzer extends Analyzer {
 
   // Generate the line to probeExp map so that we can evaluate the coverage.
   private Map<Integer, BranchExp> mapProbes(final ClassReader reader) {
-    final ClassProbesMapper mapper = new ClassProbesMapper();
+    final ClassProbesMapper mapper = new ClassProbesMapper(reader.getClassName());
     final ClassProbesAdapter adapter = new ClassProbesAdapter(mapper, false);
     reader.accept(adapter, 0);
 

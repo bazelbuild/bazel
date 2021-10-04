@@ -141,21 +141,22 @@ public class ObjectCodecRegistryTest {
   }
 
   @Test
-  public void blacklistingPrefix() throws NoCodecException {
+  public void excludingPrefix() throws NoCodecException {
     ObjectCodecRegistry underTest = builderWithThisClass().build();
     CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(this);
     assertThat(descriptor).isNotNull();
     assertThat(descriptor.getCodec()).isInstanceOf(DynamicCodec.class);
-    ObjectCodecRegistry underTestWithBlacklist =
+    ObjectCodecRegistry underTestWithExcludeList =
         builderWithThisClass()
-            .blacklistClassNamePrefix(this.getClass().getPackage().getName())
+            .excludeClassNamePrefix(this.getClass().getPackage().getName())
             .build();
     assertThrows(
-        NoCodecException.class, () -> underTestWithBlacklist.getCodecDescriptorForObject(this));
-    ObjectCodecRegistry underTestWithWideBlacklist =
-        builderWithThisClass().blacklistClassNamePrefix("com").build();
+        NoCodecException.class, () -> underTestWithExcludeList.getCodecDescriptorForObject(this));
+    ObjectCodecRegistry underTestWithWideExcludeList =
+        builderWithThisClass().excludeClassNamePrefix("com").build();
     assertThrows(
-        NoCodecException.class, () -> underTestWithWideBlacklist.getCodecDescriptorForObject(this));
+        NoCodecException.class,
+        () -> underTestWithWideExcludeList.getCodecDescriptorForObject(this));
   }
 
   @Test
@@ -223,5 +224,155 @@ public class ObjectCodecRegistryTest {
     assertThat(oneDescriptor).isEqualTo(twoDescriptor);
 
     assertThat(oneDescriptor.getCodec().getEncodedClass()).isEqualTo(TestEnum.class);
+  }
+
+  @Test
+  public void checksum_nullIfNotComputed() {
+    ObjectCodecRegistry registry =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(true)
+            .add(SingletonCodec.of("value", "mnemonic"))
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(new Object())
+            .computeChecksum(false)
+            .build();
+    assertThat(registry.getChecksum()).isNull();
+  }
+
+  @Test
+  public void checksum_deterministic() {
+    ObjectCodec<String> codec = SingletonCodec.of("value", "mnemonic");
+    Object constant = new Object();
+    byte[] checksum1 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(true)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    byte[] checksum2 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(true)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    assertThat(checksum1).isNotNull();
+    assertThat(checksum1).isEqualTo(checksum2);
+  }
+
+  @Test
+  public void checksum_sensitiveToChangeInAllowDefaultCodec() {
+    ObjectCodec<String> codec = SingletonCodec.of("value", "mnemonic");
+    Object constant = new Object();
+    byte[] checksum1 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(true)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    byte[] checksum2 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    assertThat(checksum1).isNotNull();
+    assertThat(checksum2).isNotNull();
+    assertThat(checksum1).isNotEqualTo(checksum2);
+  }
+
+  @Test
+  public void checksum_sensitiveToChangeInCodecs() {
+    ObjectCodec<String> codec = SingletonCodec.of("value", "mnemonic");
+    Object constant = new Object();
+    byte[] checksum1 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(true)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    byte[] checksum2 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .add(codec)
+            .add(SingletonCodec.of("extra", "extra_mnemonic"))
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    assertThat(checksum1).isNotNull();
+    assertThat(checksum2).isNotNull();
+    assertThat(checksum1).isNotEqualTo(checksum2);
+  }
+
+  @Test
+  public void checksum_sensitiveToChangeInClassNames() {
+    ObjectCodec<String> codec = SingletonCodec.of("value", "mnemonic");
+    Object constant = new Object();
+    byte[] checksum1 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(true)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    byte[] checksum2 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .add(codec)
+            .addClassName(Integer.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    assertThat(checksum1).isNotNull();
+    assertThat(checksum2).isNotNull();
+    assertThat(checksum1).isNotEqualTo(checksum2);
+  }
+
+  @Test
+  public void checksum_sensitiveToChangeInReferenceConstants() {
+    ObjectCodec<String> codec = SingletonCodec.of("value", "mnemonic");
+    Object constant = new Object();
+    byte[] checksum1 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(true)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addReferenceConstant(constant)
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    byte[] checksum2 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .add(codec)
+            .addClassName(Byte.class.getName())
+            .addClassName(Integer.class.getName())
+            .addReferenceConstant(constant)
+            .addReferenceConstant("another constant")
+            .computeChecksum(true)
+            .build()
+            .getChecksum();
+    assertThat(checksum1).isNotNull();
+    assertThat(checksum2).isNotNull();
+    assertThat(checksum1).isNotEqualTo(checksum2);
   }
 }

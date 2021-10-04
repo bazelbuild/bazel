@@ -283,4 +283,11 @@ public class VarInt {
       sink.put((byte) (bits | 0x80));
     }
   }
+
+  public static void putVarLong(long v, OutputStream outputStream) throws IOException {
+    byte[] bytes = new byte[varLongSize(v)];
+    ByteBuffer sink = ByteBuffer.wrap(bytes);
+    putVarLong(v, sink);
+    outputStream.write(bytes);
+  }
 }

@@ -35,6 +35,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link AbstractHttpHandlerTest}. */
 @RunWith(JUnit4.class)
+@SuppressWarnings("FutureReturnValueIgnored")
 public abstract class AbstractHttpHandlerTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);

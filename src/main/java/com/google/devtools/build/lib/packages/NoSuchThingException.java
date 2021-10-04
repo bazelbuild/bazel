@@ -33,17 +33,17 @@ public class NoSuchThingException extends Exception implements DetailedException
     this.detailedExitCode = null;
   }
 
-  public NoSuchThingException(String message, Throwable cause) {
+  NoSuchThingException(String message, Throwable cause) {
     super(message, cause);
     this.detailedExitCode = null;
   }
 
-  public NoSuchThingException(String message, DetailedExitCode detailedExitCode) {
+  NoSuchThingException(String message, DetailedExitCode detailedExitCode) {
     super(message);
     this.detailedExitCode = detailedExitCode;
   }
 
-  public NoSuchThingException(String message, Throwable cause, DetailedExitCode detailedExitCode) {
+  NoSuchThingException(String message, Throwable cause, DetailedExitCode detailedExitCode) {
     super(message, cause);
     this.detailedExitCode = detailedExitCode;
   }

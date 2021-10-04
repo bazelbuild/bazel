@@ -68,7 +68,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:guava",
         "//third_party:guava-testlib",
-        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
@@ -89,6 +88,7 @@ java_library(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 
@@ -146,20 +146,6 @@ java_library(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )

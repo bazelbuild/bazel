@@ -12,7 +12,6 @@ filegroup(
         "BUILD.android_tools",
         "BUILD.bazel",
         "WORKSPACE.android_tools",
-        "upload_android_tools.sh",
     ],
     visibility = [
         "//tools/android:__pkg__",
@@ -41,10 +40,9 @@ genrule(
 )
 
 genrule(
-  name = "gen_version_txt",
-  outs = ["version.txt"],
-  stamp = True,
-  cmd = """
+    name = "gen_version_txt",
+    outs = ["version.txt"],
+    cmd = """
 embed_label="$$(grep BUILD_EMBED_LABEL bazel-out/stable-status.txt | cut -d ' ' -f 2-)"
 if [[ -z "$$embed_label" ]]; then
   # this happens when building for tests
@@ -66,6 +64,7 @@ bazel_repo_commit $$bazel_repo_commit
 built_with_bazel_version $$bazel_version
 EOF
 """,
+    stamp = True,
 )
 
 genrule(
@@ -78,19 +77,13 @@ genrule(
 pkg_tar(
     name = "android_tools",
     srcs = [
-        ":version.txt",
         "BUILD",
         "WORKSPACE",
         ":desugar_jdk_libs.jar",
+        ":version.txt",
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools_deploy.jar",
     ],
     extension = "tar.gz",
     visibility = ["//src/test/shell/bazel:__subpackages__"],
-)
-
-sh_binary(
-    name = "upload_android_tools",
-    srcs = ["upload_android_tools.sh"],
-    data = ["android_tools.tar.gz"],
 )

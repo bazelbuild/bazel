@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
@@ -85,20 +86,21 @@ public class WorkerSpawnRunnerTest {
 
   private WorkerPool createWorkerPool() {
     return new WorkerPool(
-        new WorkerFactory(options, fs.getPath("/workerBase")) {
-          @Override
-          public Worker create(WorkerKey key) {
-            return worker;
-          }
+        new WorkerPoolConfig(
+            new WorkerFactory(fs.getPath("/workerBase")) {
+              @Override
+              public Worker create(WorkerKey key) {
+                return worker;
+              }
 
-          @Override
-          public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
-            return true;
-          }
-        },
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        ImmutableList.of());
+              @Override
+              public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
+                return true;
+              }
+            },
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of()));
   }
 
   @Test
@@ -108,7 +110,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -135,7 +136,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
   }
 
   @Test
@@ -145,7 +146,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -170,7 +170,7 @@ public class WorkerSpawnRunnerTest {
                 inputFileCache,
                 spawnMetrics));
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
     verify(worker, times(1)).putRequest(WorkRequest.newBuilder().setRequestId(0).build());
   }
 
@@ -179,14 +179,15 @@ public class WorkerSpawnRunnerTest {
       throws ExecException, InterruptedException, IOException {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerCancellation = true;
+    workerOptions.workerSandboxing = true;
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
+    when(worker.isSandboxed()).thenReturn(true);
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -196,6 +197,7 @@ public class WorkerSpawnRunnerTest {
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     Semaphore secondResponseRequested = new Semaphore(0);
+    // Fake that the getting the regular response gets interrupted and we then answer the cancel.
     when(worker.getResponse(anyInt()))
         .thenThrow(new InterruptedException())
         .thenAnswer(
@@ -220,13 +222,59 @@ public class WorkerSpawnRunnerTest {
                 spawnMetrics));
     secondResponseRequested.acquire();
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
     ArgumentCaptor<WorkRequest> argumentCaptor = ArgumentCaptor.forClass(WorkRequest.class);
     verify(worker, times(2)).putRequest(argumentCaptor.capture());
     assertThat(argumentCaptor.getAllValues().get(0))
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
     assertThat(argumentCaptor.getAllValues().get(1))
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).setCancel(true).build());
+  }
+
+  @Test
+  public void testExecInWorker_unsandboxedDiesOnInterrupt()
+      throws InterruptedException, IOException {
+    WorkerOptions workerOptions = new WorkerOptions();
+    workerOptions.workerCancellation = true;
+    workerOptions.workerSandboxing = false;
+    when(spawn.getExecutionInfo())
+        .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
+    WorkerSpawnRunner runner =
+        new WorkerSpawnRunner(
+            new SandboxHelpers(false),
+            fs.getPath("/execRoot"),
+            createWorkerPool(),
+            reporter,
+            localEnvProvider,
+            /* binTools */ null,
+            resourceManager,
+            /* runfilesTreeUpdater=*/ null,
+            workerOptions);
+    WorkerKey key = createWorkerKey(fs, "mnem", false);
+    Path logFile = fs.getPath("/worker.log");
+    when(worker.getResponse(anyInt())).thenThrow(new InterruptedException());
+
+    // Since this worker is not sandboxed, it will just get killed on interrupt.
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            runner.execInWorker(
+                spawn,
+                key,
+                context,
+                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+                ImmutableList.of(),
+                inputFileCache,
+                spawnMetrics));
+
+    assertThat(logFile.exists()).isFalse();
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
+    ArgumentCaptor<WorkRequest> argumentCaptor = ArgumentCaptor.forClass(WorkRequest.class);
+    verify(worker, times(1)).putRequest(argumentCaptor.capture());
+    assertThat(argumentCaptor.getAllValues().get(0))
+        .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
+    verify(worker, times(1)).destroy();
   }
 
   @Test
@@ -239,7 +287,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ true,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -247,7 +294,7 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             workerOptions);
     // This worker key just so happens to be multiplex and require sandboxing.
-    WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs);
+    WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs, true);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(0))
         .thenReturn(
@@ -268,7 +315,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
   }
 
   private void assertRecordedResponsethrowsException(String recordedResponse, String exceptionText)
@@ -278,7 +325,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,

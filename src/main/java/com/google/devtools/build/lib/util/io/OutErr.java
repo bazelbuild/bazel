@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -54,38 +53,43 @@ public class OutErr implements Closeable {
     }
   }
 
+  /** Returns a {@link SystemPatcher} that uses this instance's out and err streams. */
+  public final SystemPatcher getSystemPatcher() {
+    return new SystemPatcher(out, err);
+  }
+
   /**
    * Temporarily patches {@link System#out} and {@link System#err} with custom streams.
    *
    * <p>{@link #start} is called to signal the beginning of the scope of the patch. {@link #close}
    * ends the scope of the patch, returning {@link System#out} and {@link System#err} to what they
-   * were before.
+   * were when this instance was instantiated.
    */
-  public interface SystemPatcher extends SilentCloseable {
-    void start();
-  }
+  public static class SystemPatcher implements AutoCloseable {
+    private final PrintStream savedOut;
+    private final PrintStream savedErr;
+    private final SwitchingPrintStream outPatch;
+    private final SwitchingPrintStream errPatch;
 
-  /** Returns a {@link SystemPatcher} that uses this instance's out and err streams. */
-  public final SystemPatcher getSystemPatcher() {
-    PrintStream savedOut = System.out;
-    PrintStream savedErr = System.err;
-    SwitchingPrintStream outPatch = new SwitchingPrintStream(out);
-    SwitchingPrintStream errPatch = new SwitchingPrintStream(err);
-    return new SystemPatcher() {
-      @Override
-      public void start() {
-        System.setOut(outPatch);
-        System.setErr(errPatch);
-      }
+    private SystemPatcher(OutputStream overrideOut, OutputStream overrideErr) {
+      this.savedOut = System.out;
+      this.savedErr = System.err;
+      this.outPatch = new SwitchingPrintStream(overrideOut);
+      this.errPatch = new SwitchingPrintStream(overrideErr);
+    }
 
-      @Override
-      public void close() {
-        System.setOut(savedOut);
-        System.setErr(savedErr);
-        outPatch.switchBackTo(savedOut);
-        errPatch.switchBackTo(savedErr);
-      }
-    };
+    public void start() {
+      System.setOut(outPatch);
+      System.setErr(errPatch);
+    }
+
+    @Override
+    public void close() {
+      System.setOut(savedOut);
+      System.setErr(savedErr);
+      outPatch.switchBackTo(savedOut);
+      errPatch.switchBackTo(savedErr);
+    }
   }
 
   /**

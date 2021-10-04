@@ -169,7 +169,7 @@ public final class StarlarkLibrary {
       private void field(String name, Object v) throws EvalException {
         // dict?
         if (v instanceof Dict) {
-          Dict<?, ?> dict = (Dict) v;
+          Dict<?, ?> dict = (Dict<?, ?>) v;
           for (Map.Entry<?, ?> entry : dict.entrySet()) {
             Object key = entry.getKey();
             if (!(key instanceof String || key instanceof StarlarkInt)) {
@@ -194,7 +194,7 @@ public final class StarlarkLibrary {
         // list or tuple?
         if (v instanceof Sequence) {
           int i = 0;
-          for (Object item : (Sequence) v) {
+          for (Object item : (Sequence<?>) v) {
             try {
               fieldElement(name, item);
             } catch (EvalException ex) {

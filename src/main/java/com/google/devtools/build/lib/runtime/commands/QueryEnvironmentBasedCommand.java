@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.profiler.ProfilePhase;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -44,6 +46,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
+import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Either;
@@ -83,6 +86,11 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
                 /* showProgress= */ true,
                 /* id= */ null));
     BlazeCommandResult result = execInternal(env, options);
+    try {
+      Profiler.instance().markPhase(ProfilePhase.FINISH);
+    } catch (InterruptedException e) {
+      return reportAndCreateInterruptResult(env, "Profile finish operation interrupted");
+    }
     env.getEventBus()
         .post(
             new NoBuildRequestFinishedEvent(
@@ -256,7 +264,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getSkyframeExecutor(),
             targetProviderForQueryEnvironment,
             env.getPackageManager(),
-            env.getPackageManager().newTargetPatternPreloader(),
+            new SkyframeTargetPatternEvaluator(env.getSkyframeExecutor()),
             env.getRelativeWorkingDirectory(),
             keepGoing,
             /*strictScope=*/ true,

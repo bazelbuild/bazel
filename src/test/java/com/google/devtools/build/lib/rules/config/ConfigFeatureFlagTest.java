@@ -44,10 +44,8 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Before
-  public void useTrimmedConfigurations() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+  public void enforceTransitiveConfigs() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
   }
 
   @Override
@@ -411,7 +409,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:flag")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: the config_feature_flag rule is not available in "
-        + "package 'test'");
+            + "this package");
   }
 
   @Test

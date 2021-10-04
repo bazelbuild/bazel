@@ -446,7 +446,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
             // path and size.
             : FileArtifactValue.createForNormalFileUsingPath(path, rfsv.getSize());
       }
-      return new HasDigest.ByteStringDigest(fsv.getValueFingerprint().toByteArray());
+      return new HasDigest.ByteStringDigest(fsv.getValueFingerprint());
     } else if (fsVal instanceof FileArtifactValue) {
       FileArtifactValue fav = ((FileArtifactValue) fsVal);
       if (fav.getDigest() != null) {
@@ -457,7 +457,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       // if the HasDigest value is a file, convert it using the Path and size values.
       return fav.getType().isFile()
           ? FileArtifactValue.createForNormalFileUsingPath(path, fav.getSize())
-          : new HasDigest.ByteStringDigest(fav.getValueFingerprint().toByteArray());
+          : new HasDigest.ByteStringDigest(fav.getValueFingerprint());
     }
     return fsVal;
   }

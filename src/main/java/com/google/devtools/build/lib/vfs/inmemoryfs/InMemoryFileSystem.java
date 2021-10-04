@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -608,6 +609,12 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   protected synchronized ReadableByteChannel createReadableByteChannel(PathFragment path)
       throws IOException {
     return statFile(path).createReadableByteChannel();
+  }
+
+  @Override
+  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path) {
+    // It's feasible to implement, but so far it is not needed.
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override

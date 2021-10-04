@@ -171,6 +171,34 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Test
+  public void testRegisteredExecutionPlatforms_targetPattern_otherRepo() throws Exception {
+    scratch.file("myrepo/WORKSPACE", "workspace(name='myrepo')");
+    scratch.file("myrepo/BUILD");
+    scratch.file(
+        "myrepo/platforms/BUILD",
+        "platform(name = 'execution_platform_1')",
+        "platform(name = 'execution_platform_2')");
+    scratch.file(
+        "myrepo/macro.bzl", "def reg(): native.register_execution_platforms('//platforms:all')");
+
+    rewriteWorkspace(
+        "local_repository(name='myrepo',path='myrepo')",
+        "load('@myrepo//:macro.bzl', 'reg')",
+        "reg()");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsAtLeast(
+            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_2"))
+        .inOrder();
+  }
+
+  @Test
   public void testRegisteredExecutionPlatforms_targetPattern_mixed() throws Exception {
 
     // Add several targets, some of which are not actually platforms.
@@ -313,6 +341,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     rewriteWorkspace("register_execution_platforms('//test:bad_exec_platform_label')");
     scratch.file(
         "test/BUILD", "genrule(name = 'g', srcs = [], outs = ['g.out'], cmd = 'echo hi > $@')");
+    reporter.removeHandler(failFastHandler);
     assertThrows(
         "invalid registered execution platform '//test:bad_exec_platform_label': "
             + "no such target '//test:bad_exec_platform_label'",

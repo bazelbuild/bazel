@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Hints;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,6 +55,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -254,7 +255,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         }
 
         // Look for header in path/to/foo.framework/Headers/
-        PathFragment foundHeaderPath = null;
+        PathFragment foundHeaderPath;
         PathFragment fullHeaderPath =
             fullFrameworkPath.getRelative("Headers").getRelative(relHeaderPath);
 
@@ -758,8 +759,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *     inclusions
      * @param visited the set to receive the files that are transitively included by {@code source}
      */
-    // TODO(b/175294870): Clean up.
-    @SuppressWarnings("LogAndThrow") // Temporary debugging.
     private void process(
         final Artifact source, int contextPathPos, Kind contextKind, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
@@ -830,7 +829,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       } else {
         super.execute(
             () -> {
-              try {
+              try (SilentCloseable ignored =
+                  actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
                 process(source, contextPathPos, contextKind, visited);
               } catch (IOException e) {
                 throw new IORuntimeException(e);
@@ -925,7 +925,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       }
       super.execute(
           () -> {
-            try {
+            try (SilentCloseable ignored =
+                actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
               processBulkAsync(sources, alsoVisited);
             } catch (IOException e) {
               throw new IORuntimeException(e);
@@ -938,10 +939,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  private static class ExecRuntimeException extends RuntimeException {
+  private static final class ExecRuntimeException extends RuntimeException {
     private final ExecException cause;
 
-    public ExecRuntimeException(ExecException e) {
+    ExecRuntimeException(ExecException e) {
       super(e);
       this.cause = e;
     }
@@ -951,10 +952,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  private static class InterruptedRuntimeException extends RuntimeException {
+  private static final class InterruptedRuntimeException extends RuntimeException {
     private final InterruptedException cause;
 
-    public InterruptedRuntimeException(InterruptedException e) {
+    InterruptedRuntimeException(InterruptedException e) {
       super(e);
       this.cause = e;
     }

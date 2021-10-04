@@ -14,6 +14,8 @@
 package net.starlark.java.eval;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
+import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
@@ -63,6 +65,11 @@ public final class StarlarkEvaluationTest {
   @StarlarkMethod(name = "stackoverflow", documented = false)
   public int stackoverflow() {
     return true ? stackoverflow() : 0; // (defeat static recursion checker)
+  }
+
+  @StarlarkMethod(name = "throwoom", documented = false)
+  public void throwoom() {
+    throw new OutOfMemoryError("Java heap space");
   }
 
   @StarlarkMethod(name = "thrownpe", documented = false)
@@ -422,11 +429,6 @@ public final class StarlarkEvaluationTest {
                   .collect(joining(", "))
               + ")";
       return "with_args_and_kwargs(" + foo + ", " + argsString + ", " + kwargsString + ")";
-    }
-
-    @StarlarkMethod(name = "raise_unchecked_exception", documented = false)
-    public void raiseUncheckedException() {
-      throw new InternalError("buggy code");
     }
 
     @Override
@@ -1222,12 +1224,6 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
-  public void testCallingMethodThatRaisesUncheckedException() throws Exception {
-    ev.update("mock", new Mock());
-    assertThrows(InternalError.class, () -> ev.eval("mock.raise_unchecked_exception()"));
-  }
-
-  @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
     ev.new Scenario()
         .update("mock", new Mock())
@@ -1384,6 +1380,7 @@ public final class StarlarkEvaluationTest {
     Starlark.UncheckedEvalException e =
         assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("mock.return_bad()"));
     assertThat(e)
+        .hasCauseThat()
         .hasMessageThat()
         .contains(
             "cannot expose internal type to Starlark: class"
@@ -1395,33 +1392,64 @@ public final class StarlarkEvaluationTest {
     ev.update("mock", new Mock());
     RuntimeException e =
         assertThrows(RuntimeException.class, () -> ev.eval("mock.nullfunc_failing('abc', 1)"));
-    assertThat(e).hasMessageThat().contains("method invocation returned null");
+    assertThat(e).hasCauseThat().hasMessageThat().contains("method invocation returned null");
   }
 
   @Test
   public void testJavaFunctionOverflowsStack() throws Exception {
     ev.update("stackoverflow", getattr(this, "stackoverflow"));
-    Starlark.UncheckedEvalException e =
-        assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("stackoverflow()"));
-    assertThat(e).hasCauseThat().isInstanceOf(StackOverflowError.class);
-    // Wrapper reveals stack.
+    Starlark.UncheckedEvalError e =
+        assertThrows(Starlark.UncheckedEvalError.class, () -> ev.eval("stackoverflow()"));
     assertThat(e)
         .hasMessageThat()
-        .contains(" (Starlark stack: [<expr>@:1:14, stackoverflow@<builtin>])");
+        .isEqualTo("StackOverflowError thrown during Starlark evaluation");
+    assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
+        .containsExactly("stackoverflow", "<expr>")
+        .inOrder();
+    // The underlying exception is preserved as cause.
+    assertThat(e).hasCauseThat().isInstanceOf(StackOverflowError.class);
   }
 
   @Test
-  public void testJavaFunctionThrowsNPE() throws Exception {
+  public void javaFunctionThrowsOom() throws Exception {
+    ev.update("throwoom", getattr(this, "throwoom"));
+    Starlark.UncheckedEvalError e =
+        assertThrows(Starlark.UncheckedEvalError.class, () -> ev.eval("throwoom()"));
+    assertThat(e).hasMessageThat().isEqualTo("OutOfMemoryError thrown during Starlark evaluation");
+    assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
+        .containsExactly("throwoom", "<expr>")
+        .inOrder();
+    // The underlying exception is preserved as cause.
+    assertThat(e).hasCauseThat().isInstanceOf(OutOfMemoryError.class);
+    assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("Java heap space");
+  }
+
+  @Test
+  public void testJavaFunctionThrowsNpe() throws Exception {
     ev.update("thrownpe", getattr(this, "thrownpe"));
     Starlark.UncheckedEvalException e =
         assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("thrownpe()"));
-    // Wrapper reveals stack.
     assertThat(e)
         .hasMessageThat()
-        .contains("oops (Starlark stack: [<expr>@:1:9, thrownpe@<builtin>])");
+        .isEqualTo("NullPointerException thrown during Starlark evaluation");
+    assertThat(stream(e.getStackTrace()).map(StackTraceElement::getMethodName))
+        .containsExactly("thrownpe", "<expr>")
+        .inOrder();
     // The underlying exception is preserved as cause.
     assertThat(e).hasCauseThat().isInstanceOf(NullPointerException.class);
     assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("oops");
+  }
+
+  @Test
+  public void uncheckedExceptionContextAppendedToMessage() throws Exception {
+    ev.update("thrownpe", getattr(this, "thrownpe"))
+        .getStarlarkThread()
+        .setUncheckedExceptionContext(() -> "some extra context");
+    Starlark.UncheckedEvalException e =
+        assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("thrownpe()"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("NullPointerException thrown during Starlark evaluation (some extra context)");
   }
 
   @Test
@@ -1437,6 +1465,7 @@ public final class StarlarkEvaluationTest {
     ev.update("s", new SimpleStruct(ImmutableMap.of("bad", new StringBuilder())));
     RuntimeException e = assertThrows(RuntimeException.class, () -> ev.eval("s.bad"));
     assertThat(e)
+        .hasCauseThat()
         .hasMessageThat()
         .contains("invalid Starlark value: class java.lang.StringBuilder");
   }
@@ -1892,7 +1921,6 @@ public final class StarlarkEvaluationTest {
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",
-            "raise_unchecked_exception",
             "return_bad",
             "string",
             "string_list",

@@ -148,6 +148,9 @@ public class WorkerMultiplexerManager {
   /** Resets the instances. For testing only. */
   @VisibleForTesting
   static void reset() {
+    for (InstanceInfo i : multiplexerInstance.values()) {
+      i.workerMultiplexer.destroyMultiplexer();
+    }
     multiplexerInstance.clear();
   }
 }

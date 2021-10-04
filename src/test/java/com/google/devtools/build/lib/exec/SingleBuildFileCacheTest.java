@@ -20,8 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -40,7 +38,6 @@ import org.junit.runners.JUnit4;
 
 /** Tests SingleBuildFileCache. */
 @RunWith(JUnit4.class)
-@TestSpec(size = Suite.SMALL_TESTS)
 public class SingleBuildFileCacheTest {
   private FileSystem fs;
   private Map<String, Integer> calls;

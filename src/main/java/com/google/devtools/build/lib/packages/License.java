@@ -44,7 +44,7 @@ public final class License implements LicenseApi {
    * The error that's thrown if a build file contains an invalid license string.
    */
   public static class LicenseParsingException extends Exception {
-    public LicenseParsingException(String s) {
+    LicenseParsingException(String s) {
       super(s);
     }
   }

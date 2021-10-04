@@ -47,7 +47,7 @@ public class EnvironmentLabels {
    * can't set this map until all Target instances for member environments have been initialized,
    * which occurs after group instantiation (this makes the class mutable).
    */
-  private Map<Label, NestedSet<Label>> fulfillersMap = null;
+  private Map<Label, NestedSet<Label>> fulfillersMap;
 
   EnvironmentLabels(Label label, Collection<Label> environments, Collection<Label> defaults) {
     this(label, environments, defaults, null);

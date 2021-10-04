@@ -46,8 +46,9 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
- * Creates mangled symlinks in the solib directory for all shared libraries. Libraries that have a
- * potential to contain SONAME field rely on the mangled symlink to the parent directory instead.
+ * Creates mangled symlinks in the solib directory for all shared libraries. For shared libraries
+ * that have potential to contain a SONAME field, create a link to the shared library parent
+ * directory instead - so that the name of the library file is preserved.
  *
  * <p>Such symlinks are used by the linker to ensure that all rpath entries can be specified
  * relative to the $ORIGIN.

@@ -51,22 +51,11 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return builder.build();
   }
 
-  private static ImmutableList<Artifact> extractOriginalProtoSources(
-      ImmutableList<ProtoSource> sources) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    for (ProtoSource source : sources) {
-      builder.add(source.getOriginalSourceFile());
-    }
-    return builder.build();
-  }
-
   private final ImmutableList<ProtoSource> directSources;
   private final ImmutableList<Artifact> directProtoSources;
-  private final ImmutableList<Artifact> originalDirectProtoSources;
   private final PathFragment directProtoSourceRoot;
   private final NestedSet<ProtoSource> transitiveSources;
   private final NestedSet<Artifact> transitiveProtoSources;
-  private final NestedSet<Artifact> originalTransitiveProtoSources;
   private final NestedSet<String> transitiveProtoSourceRoots;
   private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
   private final Artifact directDescriptorSet;
@@ -85,7 +74,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       PathFragment directProtoSourceRoot,
       NestedSet<ProtoSource> transitiveSources,
       NestedSet<Artifact> transitiveProtoSources,
-      NestedSet<Artifact> originalTransitiveProtoSources,
       NestedSet<String> transitiveProtoSourceRoots,
       NestedSet<Artifact> strictImportableProtoSourcesForDependents,
       Artifact directDescriptorSet,
@@ -96,11 +84,9 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       NestedSet<ProtoSource> publicImportSources) {
     this.directSources = directSources;
     this.directProtoSources = extractProtoSources(directSources);
-    this.originalDirectProtoSources = extractOriginalProtoSources(directSources);
     this.directProtoSourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(directProtoSourceRoot);
     this.transitiveSources = transitiveSources;
     this.transitiveProtoSources = transitiveProtoSources;
-    this.originalTransitiveProtoSources = originalTransitiveProtoSources;
     this.transitiveProtoSourceRoots = transitiveProtoSourceRoots;
     this.strictImportableProtoSourcesForDependents = strictImportableProtoSourcesForDependents;
     this.directDescriptorSet = directDescriptorSet;
@@ -131,16 +117,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   }
 
   /**
-   * The non-virtual proto sources of the {@code proto_library} declaring this provider.
-   *
-   * <p>Different from {@link #getDirectProtoSources()} if a transitive dependency has {@code
-   * import_prefix} or the like.
-   */
-  public ImmutableList<Artifact> getOriginalDirectProtoSources() {
-    return originalDirectProtoSources;
-  }
-
-  /**
    * The source root of the current library.
    *
    * <p>For Bazel, this is always a (logical) prefix of all direct sources. For Blaze, this is
@@ -167,16 +143,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   public NestedSet<Artifact> getTransitiveProtoSources() {
     return transitiveProtoSources;
-  }
-
-  /**
-   * The non-virtual transitive proto source files.
-   *
-   * <p>Different from {@link #getTransitiveProtoSources()} if a transitive dependency has {@code
-   * import_prefix} or the like.
-   */
-  public NestedSet<Artifact> getOriginalTransitiveProtoSources() {
-    return originalTransitiveProtoSources;
   }
 
   /**

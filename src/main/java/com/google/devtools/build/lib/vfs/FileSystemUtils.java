@@ -22,6 +22,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -622,6 +623,7 @@ public class FileSystemUtils {
    */
   @Deprecated
   @ThreadSafe
+  @InlineMe(replacement = "dir.createDirectoryAndParents()")
   public static void createDirectoryAndParents(Path dir) throws IOException {
     dir.createDirectoryAndParents();
   }

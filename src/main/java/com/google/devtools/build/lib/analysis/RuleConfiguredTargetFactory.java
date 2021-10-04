@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /**
@@ -121,4 +123,11 @@ import com.google.devtools.build.lib.packages.RuleClass;
  */
 public interface RuleConfiguredTargetFactory
     extends RuleClass.ConfiguredTargetFactory<
-        ConfiguredTarget, RuleContext, ActionConflictException> {}
+        ConfiguredTarget, RuleContext, ActionConflictException> {
+
+  /** Adds any rule implementation-specific requirements to the given builder. */
+  default void addRuleImplSpecificRequiredConfigFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      AttributeMap attributes,
+      BuildConfiguration configuration) {}
+}

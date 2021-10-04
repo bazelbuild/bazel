@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -185,28 +183,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean deviceDebugEntitlements;
 
   @Option(
-    name = "enable_apple_binary_native_protos",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set, apple_binary will generate and link objc protos into the output binary."
-  )
-  public boolean enableAppleBinaryNativeProtos;
-
-  @Option(
-    name = "apple_sdk",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Location of target that will provide the appropriate Apple SDK for the current build "
-            + "configuration."
-  )
-  public Label appleSdk;
-
-  @Option(
       name = "incompatible_avoid_hardcoded_objc_compilation_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -216,10 +192,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.ACTION_COMMAND_LINES,
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Prevents Bazel from adding compiler options to Objective-C compilation actions. Options"
               + " set in the crosstool are still applied.")
@@ -232,10 +205,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       effectTags = {
         OptionEffectTag.EAGERNESS_TO_EXIT,
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If enabled, direct usage of the native apple_binary rule is disabled. Please use the"
               + " Starlark rule from https://github.com/bazelbuild/rules_apple instead.")

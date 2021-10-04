@@ -1,4 +1,4 @@
-// Copyright 2021 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,19 +15,16 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
- * Information about native libraries in the transitive closure of a target that are needed for
- * executing C++ code.
+ * Interface for C++ debug related objects, specifically when fission is used.
+ *
+ * <p>It is not expected for this to be used externally at this time. This API is experimental and
+ * subject to change, and its usage should be restricted to internal packages.
+ *
+ * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
-@StarlarkBuiltin(name = "CcNativeLibrary", documented = false, category = DocCategory.PROVIDER)
-public interface CcNativeLibraryInfoApi extends StarlarkValue {
-
-  @StarlarkMethod(name = "libs", structField = true, documented = false)
-  Depset getTransitiveCcNativeLibrariesStarlark() throws EvalException;
-}
+@StarlarkBuiltin(name = "CcNativeLibraryInfo", category = DocCategory.PROVIDER, documented = false)
+public interface CcNativeLibraryInfoApi extends StarlarkValue {}

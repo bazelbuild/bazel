@@ -15,10 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
@@ -34,7 +35,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for top-down, transitive action caching. */
 @RunWith(JUnit4.class)
-public class TopDownActionCacheTest extends TimestampBuilderTestCase {
+public final class TopDownActionCacheTest extends TimestampBuilderTestCase {
 
   @Override
   protected TopDownActionCache initTopDownActionCache() {
@@ -172,12 +173,11 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
   }
 
   private static class InMemoryTopDownActionCache implements TopDownActionCache {
-    private final Cache<ActionSketch, ActionExecutionValue> cache =
-        CacheBuilder.newBuilder().build();
+    private final Cache<ActionSketch, ActionExecutionValue> cache = Caffeine.newBuilder().build();
 
     @Nullable
     @Override
-    public ActionExecutionValue get(ActionSketch sketch) {
+    public ActionExecutionValue get(ActionSketch sketch, ActionLookupData action) {
       return cache.getIfPresent(sketch);
     }
 
@@ -187,11 +187,10 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     }
   }
 
-  private static class MutableActionKeyAction extends TestAction {
-
+  private static final class MutableActionKeyAction extends TestAction {
     private final ActionKeyButton button;
 
-    public MutableActionKeyAction(
+    MutableActionKeyAction(
         ActionKeyButton button, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
       super(button, inputs, outputs);
       this.button = button;
@@ -207,10 +206,10 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     }
   }
 
-  private static class ActionKeyButton extends Button {
+  private static final class ActionKeyButton extends Button {
     private final String key;
 
-    public ActionKeyButton(String key) {
+    ActionKeyButton(String key) {
       this.key = key;
     }
   }

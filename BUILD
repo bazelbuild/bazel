@@ -207,18 +207,11 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
 [
     platform(
         name = platform_name + "_platform",
+        exec_properties = {
+            "dockerNetwork": "standard",
+            "dockerPrivileged": "true",
+        },
         parents = ["@" + platform_name + "//config:platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "dockerNetwork"
-                value: "standard"
-            }
-            properties: {
-                name: "dockerPrivileged"
-                value: "true"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]
@@ -231,14 +224,10 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
         constraint_values = [
             "//:highcpu_machine",
         ],
+        exec_properties = {
+            "gceMachineType": "e2-highcpu-32",
+        },
         parents = ["//:" + platform_name + "_platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "gceMachineType"
-                value: "e2-highcpu-32"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]

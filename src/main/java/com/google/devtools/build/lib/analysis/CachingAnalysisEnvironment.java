@@ -55,22 +55,15 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * The implementation of AnalysisEnvironment used for analysis. It tracks metadata for each
- * configured target, such as the errors and warnings emitted by that target. It is intended that
- * a separate instance is used for each configured target, so that these don't mix up.
+ * configured target, such as the errors and warnings emitted by that target. It is intended that a
+ * separate instance is used for each configured target, so that these don't mix up.
  */
-public class CachingAnalysisEnvironment implements AnalysisEnvironment {
-  private final ArtifactFactory artifactFactory;
+public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
+  private final ArtifactFactory artifactFactory;
   private final ActionLookupKey owner;
-  /**
-   * If this is the system analysis environment, then errors and warnings are directly reported
-   * to the global reporter, rather than stored, i.e., we don't track here whether there are any
-   * errors.
-   */
-  private final boolean isSystemEnv;
   private final boolean extendedSanityChecks;
   private final boolean allowAnalysisFailures;
-
   private final ActionKeyContext actionKeyContext;
 
   private boolean enabled = true;
@@ -88,19 +81,18 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    *
    * <p>The artifact is stored so that we can deduplicate artifacts created multiple times.
    */
-  private Map<Artifact, Object> artifacts;
+  private Map<Artifact, Object> artifacts = new HashMap<>();
 
   /**
    * The list of actions registered by the configured target this analysis environment is
    * responsible for. May get cleared out at the end of the analysis of said target.
    */
-  final List<ActionAnalysisMetadata> actions = new ArrayList<>();
+  private final List<ActionAnalysisMetadata> actions = new ArrayList<>();
 
   public CachingAnalysisEnvironment(
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
       ActionLookupKey owner,
-      boolean isSystemEnv,
       boolean extendedSanityChecks,
       boolean allowAnalysisFailures,
       ExtendedEventHandler errorEventListener,
@@ -109,14 +101,12 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.artifactFactory = artifactFactory;
     this.actionKeyContext = actionKeyContext;
     this.owner = Preconditions.checkNotNull(owner);
-    this.isSystemEnv = isSystemEnv;
     this.extendedSanityChecks = extendedSanityChecks;
     this.allowAnalysisFailures = allowAnalysisFailures;
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     this.starlarkBuiltinsValue = starlarkBuiltinsValue;
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
-    artifacts = new HashMap<>();
   }
 
   public void disable(Target target) {
@@ -146,7 +136,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    */
   public void verifyGeneratedArtifactHaveActions(Target target) {
     Collection<String> orphanArtifacts = getOrphanArtifactMap().values();
-    List<String> checkedActions = null;
+    List<String> checkedActions;
     if (!orphanArtifacts.isEmpty()) {
       checkedActions = Lists.newArrayListWithCapacity(actions.size());
       for (ActionAnalysisMetadata action : actions) {
@@ -244,10 +234,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public boolean hasErrors() {
-    // The system analysis environment never has errors.
-    if (isSystemEnv) {
-      return false;
-    }
     Preconditions.checkState(enabled);
     return ((StoredEventHandler) errorEventListener).hasErrors();
   }
@@ -295,7 +281,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
     Preconditions.checkState(enabled);
     return dedupAndTrackArtifactAndOrigin(
-        artifactFactory.getDerivedArtifact(rootRelativePath, root, getOwner(), contentBasedPath),
+        artifactFactory.getDerivedArtifact(rootRelativePath, root, owner, contentBasedPath),
         extendedSanityChecks ? new Throwable() : null);
   }
 
@@ -304,7 +290,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     Preconditions.checkState(enabled);
     return (SpecialArtifact)
         dedupAndTrackArtifactAndOrigin(
-            artifactFactory.getTreeArtifact(rootRelativePath, root, getOwner()),
+            artifactFactory.getTreeArtifact(rootRelativePath, root, owner),
             extendedSanityChecks ? new Throwable() : null);
   }
 
@@ -313,7 +299,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     Preconditions.checkState(enabled);
     return (SpecialArtifact)
         dedupAndTrackArtifactAndOrigin(
-            artifactFactory.getSymlinkArtifact(rootRelativePath, root, getOwner()),
+            artifactFactory.getSymlinkArtifact(rootRelativePath, root, owner),
             extendedSanityChecks ? new Throwable() : null);
   }
 
@@ -327,13 +313,13 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return dedupAndTrackArtifactAndOrigin(
-        artifactFactory.getFilesetArtifact(rootRelativePath, root, getOwner()),
+        artifactFactory.getFilesetArtifact(rootRelativePath, root, owner),
         extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override
   public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-    return artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, getOwner());
+    return artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, owner);
   }
 
   @Override
@@ -363,12 +349,12 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+  public StarlarkSemantics getStarlarkSemantics() {
     return starlarkBuiltinsValue.starlarkSemantics;
   }
 
   @Override
-  public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+  public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() {
     return starlarkBuiltinsValue.exportedToJava;
   }
 

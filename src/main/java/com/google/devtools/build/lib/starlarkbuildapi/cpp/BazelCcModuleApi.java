@@ -306,6 +306,21 @@ public interface BazelCcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = String.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "purpose",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "grep_includes",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            }),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -338,6 +353,8 @@ public interface BazelCcModuleApi<
       Object hdrsCheckingMode,
       Object variablesExtension,
       Object language,
+      Object purpose,
+      Object grepIncludes,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

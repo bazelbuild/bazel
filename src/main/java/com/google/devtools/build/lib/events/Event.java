@@ -19,8 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -173,9 +171,12 @@ public final class Event implements Serializable {
     return withProperty(String.class, tag);
   }
 
-  /** Like {@link #withProperty(Class, Object)}, with {@code type.equals(FileOutErr.class)}. */
-  public Event withStdoutStderr(FileOutErr outErr) {
-    return withProperty(FileOutErr.class, outErr);
+  /**
+   * Returns a new event with the provided {@link ProcessOutput} property. See {@link #withProperty}
+   * for more specifics.
+   */
+  public Event withProcessOutput(ProcessOutput processOutput) {
+    return withProperty(ProcessOutput.class, processOutput);
   }
 
   /**
@@ -189,61 +190,29 @@ public final class Event implements Serializable {
     return getProperty(String.class);
   }
 
-  /** Indicates if a {@link FileOutErr} property is associated with this event. */
-  public boolean hasStdoutStderr() {
-    return getProperty(FileOutErr.class) != null;
-  }
-
-  /**
-   * Gets the path to the stdout associated with this event (which the caller must not access), or
-   * null if there is no such path.
-   */
   @Nullable
-  public PathFragment getStdOutPathFragment() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? null : outErr.getOutputPathFragment();
-  }
-
-  /** Gets the size of the stdout associated with this event without reading it. */
-  public long getStdOutSize() throws IOException {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? 0 : outErr.outSize();
+  public ProcessOutput getProcessOutput() {
+    return getProperty(ProcessOutput.class);
   }
 
   /** Returns the stdout bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
   public byte[] getStdOut() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    if (outErr == null) {
+    ProcessOutput processOutput = getProperty(ProcessOutput.class);
+    if (processOutput == null) {
       return null;
     }
-    return outErr.outAsBytes();
-  }
-
-  /**
-   * Gets the path to the stderr associated with this event (which the caller must not access), or
-   * null if there is no such path.
-   */
-  @Nullable
-  public PathFragment getStdErrPathFragment() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? null : outErr.getErrorPathFragment();
-  }
-
-  /** Gets the size of the stderr associated with this event without reading it. */
-  public long getStdErrSize() throws IOException {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    return outErr == null ? 0 : outErr.errSize();
+    return processOutput.getStdOut();
   }
 
   /** Returns the stderr bytes associated with this event if any, and {@code null} otherwise. */
   @Nullable
   public byte[] getStdErr() {
-    FileOutErr outErr = getProperty(FileOutErr.class);
-    if (outErr == null) {
+    ProcessOutput processOutput = getProperty(ProcessOutput.class);
+    if (processOutput == null) {
       return null;
     }
-    return outErr.errAsBytes();
+    return processOutput.getStdErr();
   }
 
   /**
@@ -462,5 +431,35 @@ public final class Event implements Serializable {
    */
   public static StarlarkThread.PrintHandler makeDebugPrintHandler(EventHandler h) {
     return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
+  }
+
+  /**
+   * Process output associated with an event. The contents is just-about-certainly on disk, so
+   * special care should be taken when accessing it.
+   *
+   * <p>Note that this indirection exists partially for documentation sake, but also to keep the
+   * event library lightweight and broadly usable by avoiding bringing in all of the dependencies
+   * that come with dealing with process output (specifically the filesystem library).
+   */
+  public interface ProcessOutput {
+    /**
+     * Returns the string representation of the path containing the process's stdout for
+     * logging/debugging purposes.
+     */
+    String getStdOutPath();
+
+    long getStdOutSize() throws IOException;
+
+    byte[] getStdOut();
+
+    /**
+     * Returns the string representation of the path containing the process's stderr for
+     * logging/debugging purposes.
+     */
+    String getStdErrPath();
+
+    long getStdErrSize() throws IOException;
+
+    byte[] getStdErr();
   }
 }

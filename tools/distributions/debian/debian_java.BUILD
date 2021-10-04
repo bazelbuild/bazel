@@ -231,6 +231,7 @@ filegroup(
 
 # libjacoco-java - BEGIN
 JACOCOVERSION = "0.8.6"
+
 java_import(
     name = "agent",
     jars = ["org.jacoco.agent.jar"],
@@ -320,9 +321,9 @@ java_import(
 filegroup(
     name = "auto_value-jars",
     srcs = [
+        "auto-common.jar",
         "auto-value.jar",
         "auto-value-annotations.jar",
-        "auto-common.jar",
         "escapevelocity.jar",
         "javapoet.jar",
     ],

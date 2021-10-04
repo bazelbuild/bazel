@@ -466,7 +466,8 @@ public final class EvaluationTest {
 
   @Test
   public void testDictComprehensionOnNonIterable() throws Exception {
-    ev.new Scenario().testIfExactError("type 'int' is not iterable", "{k : k for k in 3}");
+    ev.new Scenario()
+        .testIfExactErrorAtLocation("type 'int' is not iterable", 1, 17, "{k : k for k in 3}");
   }
 
   @Test
@@ -507,12 +508,14 @@ public final class EvaluationTest {
 
   @Test
   public void testListComprehensionFailsOnNonSequence() throws Exception {
-    ev.new Scenario().testIfErrorContains("type 'int' is not iterable", "[x + 1 for x in 123]");
+    ev.new Scenario()
+        .testIfExactErrorAtLocation("type 'int' is not iterable", 1, 17, "[x + 1 for x in 123]");
   }
 
   @Test
   public void testListComprehensionOnStringIsForbidden() throws Exception {
-    ev.new Scenario().testIfErrorContains("type 'string' is not iterable", "[x for x in 'abc']");
+    ev.new Scenario()
+        .testIfExactErrorAtLocation("type 'string' is not iterable", 1, 13, "[x for x in 'abc']");
   }
 
   @Test

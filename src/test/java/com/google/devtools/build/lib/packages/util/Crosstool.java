@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -117,7 +118,7 @@ public final class Crosstool {
       private String ccTargetOs = "";
       private String cpu = "k8";
       private String compiler = "compiler";
-      private String toolchainIdentifier = "mock-llvm-toolchain-k8";
+      private String toolchainIdentifier = "mock-toolchain-k8";
       private String hostSystemName = "local";
       private String targetSystemName = "local";
       private String targetLibc = "local";
@@ -379,7 +380,7 @@ public final class Crosstool {
   private final String crosstoolTop;
   private final Label crosstoolTopLabel;
   private String ccToolchainConfigFileContents;
-  private ImmutableList<String> archs;
+  private final List<String> archs;
   private boolean supportsHeaderParsing;
   private ImmutableList<CcToolchainConfig> ccToolchainConfigList = ImmutableList.of();
 
@@ -387,6 +388,7 @@ public final class Crosstool {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
     this.crosstoolTopLabel = crosstoolTopLabel;
+    this.archs = new ArrayList<>();
   }
 
   public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
@@ -395,7 +397,8 @@ public final class Crosstool {
   }
 
   public Crosstool setSupportedArchs(ImmutableList<String> archs) {
-    this.archs = archs;
+    this.archs.clear();
+    this.archs.addAll(archs);
     return this;
   }
 

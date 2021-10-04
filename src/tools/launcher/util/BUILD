@@ -41,20 +41,3 @@ win_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/tools/launcher:__pkg__"],
-)

@@ -63,68 +63,6 @@ public final class CompileOneDependencyTransformer {
     return builder.build();
   }
 
-  /**
-   * Returns a list of rules in the given package sorted by BUILD file order. When
-   * multiple rules depend on a target, we choose the first match in this list (after
-   * filtering for preferred dependencies - see below).
-   */
-  private Iterable<Rule> getOrderedRuleList(Package pkg) {
-    List<Rule> orderedList = Lists.newArrayList();
-    for (Rule rule : pkg.getTargets(Rule.class)) {
-      orderedList.add(rule);
-    }
-
-    Collections.sort(orderedList, Comparator.comparing(arg -> arg.getLocation()));
-    return orderedList;
-  }
-
-  /**
-   * Returns true if a specific rule compiles a specific source. Looks through genrules and
-   * filegroups.
-   */
-  private boolean listContainsFile(
-      ExtendedEventHandler eventHandler,
-      Collection<Label> srcLabels,
-      Label source,
-      Set<Label> visitedRuleLabels)
-      throws TargetParsingException, InterruptedException {
-    if (srcLabels.contains(source)) {
-      return true;
-    }
-    for (Label label : srcLabels) {
-      if (!visitedRuleLabels.add(label)) {
-        continue;
-      }
-      Target target = null;
-      try {
-        target = targetProvider.getTarget(eventHandler, label);
-      } catch (NoSuchThingException e) {
-        // Just ignore failing sources/packages. We could report them here, but as long as we do
-        // early return, the presence of this error would then be determined by the order of items
-        // in the srcs attribute. A proper error will be created by the subsequent loading.
-      }
-      if (target == null || target instanceof FileTarget) {
-        continue;
-      }
-      Rule targetRule = target.getAssociatedRule();
-      if ("filegroup".equals(targetRule.getRuleClass())) {
-        RawAttributeMapper attributeMapper = RawAttributeMapper.of(targetRule);
-        Collection<Label> srcs = attributeMapper.getMergedValues("srcs", BuildType.LABEL_LIST);
-        if (listContainsFile(eventHandler, srcs, source, visitedRuleLabels)) {
-          return true;
-        }
-      } else if ("genrule".equals(targetRule.getRuleClass())) {
-        // TODO(djasper): Likely, it makes much more sense to look at the inputs of a genrule.
-        for (OutputFile file : targetRule.getOutputFiles()) {
-          if (file.getLabel().equals(source)) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
   private Target transformCompileOneDependency(ExtendedEventHandler eventHandler, Target target)
       throws TargetParsingException, InterruptedException {
     if (!(target instanceof FileTarget)) {
@@ -165,8 +103,7 @@ public final class CompileOneDependencyTransformer {
     for (Rule rule : orderedRuleList) {
       RawAttributeMapper attributes = RawAttributeMapper.of(rule);
       // We don't know which path to follow for configurable attributes, so skip them.
-      if (attributes.isConfigurable("deps")
-          || attributes.isConfigurable("srcs")) {
+      if (attributes.isConfigurable("deps") || attributes.isConfigurable("srcs")) {
         continue;
       }
       RuleClass ruleClass = rule.getRuleClassObject();
@@ -181,8 +118,76 @@ public final class CompileOneDependencyTransformer {
         }
       }
     }
-    
+
     return result;
+  }
+
+  /**
+   * Returns a list of rules in the given package sorted by BUILD file order. When
+   * multiple rules depend on a target, we choose the first match in this list (after
+   * filtering for preferred dependencies - see below).
+   */
+  private Iterable<Rule> getOrderedRuleList(Package pkg) {
+    List<Rule> orderedList = Lists.newArrayList();
+    for (Rule rule : pkg.getTargets(Rule.class)) {
+      orderedList.add(rule);
+    }
+
+    Collections.sort(orderedList, Comparator.comparing(arg -> arg.getLocation()));
+    return orderedList;
+  }
+
+  /**
+   * Returns true if a specific rule compiles a specific source. Looks through genrules and
+   * filegroups.
+   */
+  private boolean listContainsFile(
+      ExtendedEventHandler eventHandler,
+      Collection<Label> srcLabels,
+      Label source,
+      Set<Label> visitedRuleLabels)
+      throws InterruptedException {
+    if (srcLabels.contains(source)) {
+      return true;
+    }
+    for (Label label : srcLabels) {
+      if (!visitedRuleLabels.add(label)) {
+        continue;
+      }
+
+      Target target = null;
+      try {
+        target = targetProvider.getTarget(eventHandler, label);
+      } catch (NoSuchThingException e) {
+        // Just ignore failing sources/packages. We could report them here, but as long as we do
+        // early return, the presence of this error would then be determined by the order of items
+        // in the srcs attribute. A proper error will be created by the subsequent loading.
+      }
+
+      if (target == null || target instanceof FileTarget) {
+        continue;
+      }
+      Rule targetRule = target.getAssociatedRule();
+      if (targetRule == null) {
+        continue;
+      }
+
+      if ("filegroup".equals(targetRule.getRuleClass())) {
+        RawAttributeMapper attributeMapper = RawAttributeMapper.of(targetRule);
+        Collection<Label> srcs = attributeMapper.getMergedValues("srcs", BuildType.LABEL_LIST);
+        if (listContainsFile(eventHandler, srcs, source, visitedRuleLabels)) {
+          return true;
+        }
+      } else if ("genrule".equals(targetRule.getRuleClass())) {
+        // TODO(djasper): Likely, it makes much more sense to look at the inputs of a genrule.
+        for (OutputFile file : targetRule.getOutputFiles()) {
+          if (file.getLabel().equals(source)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   /** Returns all labels that are contained in direct compile time inputs of {@code rule}. */

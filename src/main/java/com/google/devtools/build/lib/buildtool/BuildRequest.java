@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -41,7 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 /**
  * A BuildRequest represents a single invocation of the build tool by a user.
@@ -50,6 +48,8 @@ import java.util.concurrent.ExecutionException;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsProvider {
+  public static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
+
   private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
       ImmutableList.of(
           BuildRequestOptions.class,
@@ -186,18 +186,17 @@ public class BuildRequest implements OptionsProvider {
     this.targets = targets;
     this.id = id;
     this.startTimeMillis = startTimeMillis;
-    this.optionsCache = CacheBuilder.newBuilder()
-        .build(new CacheLoader<Class<? extends OptionsBase>, Optional<OptionsBase>>() {
-          @Override
-          public Optional<OptionsBase> load(Class<? extends OptionsBase> key) throws Exception {
-            OptionsBase result = options.getOptions(key);
-            if (result == null && startupOptions != null) {
-              result = startupOptions.getOptions(key);
-            }
+    this.optionsCache =
+        Caffeine.newBuilder()
+            .build(
+                key -> {
+                  OptionsBase result = options.getOptions(key);
+                  if (result == null && startupOptions != null) {
+                    result = startupOptions.getOptions(key);
+                  }
 
-            return Optional.fromNullable(result);
-          }
-        });
+                  return Optional.fromNullable(result);
+                });
     this.starlarkOptions = options.getStarlarkOptions();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
@@ -266,11 +265,7 @@ public class BuildRequest implements OptionsProvider {
   @Override
   @SuppressWarnings("unchecked")
   public <T extends OptionsBase> T getOptions(Class<T> clazz) {
-    try {
-      return (T) optionsCache.get(clazz).orNull();
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+    return (T) optionsCache.get(clazz).orNull();
   }
 
 
@@ -372,7 +367,7 @@ public class BuildRequest implements OptionsProvider {
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
         getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
         OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, buildOptions.runValidationActions));
+            buildOptions.outputGroups, validationMode(), /*shouldRunTests=*/ shouldRunTests()));
   }
 
   public ImmutableSortedSet<String> getMultiCpus() {
@@ -380,7 +375,31 @@ public class BuildRequest implements OptionsProvider {
   }
 
   public ImmutableList<String> getAspects() {
-    return ImmutableList.copyOf(getBuildOptions().aspects);
+    List<String> aspects = getBuildOptions().aspects;
+    ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(aspects);
+    if (!aspects.contains(VALIDATION_ASPECT_NAME) && useValidationAspect()) {
+      result.add(VALIDATION_ASPECT_NAME);
+    }
+    return result.build();
+  }
+
+  /** Whether {@value #VALIDATION_ASPECT_NAME} is in use. */
+  public boolean useValidationAspect() {
+    return validationMode() == OutputGroupInfo.ValidationMode.ASPECT;
+  }
+
+  private OutputGroupInfo.ValidationMode validationMode() {
+    BuildRequestOptions buildOptions = getBuildOptions();
+    // "and" these together so that --noexperimental_run_validation and --norun_validations work
+    // as expected.
+    boolean runValidationActions =
+        buildOptions.runValidationActions && buildOptions.experimentalRunValidationActions;
+    if (!runValidationActions) {
+      return OutputGroupInfo.ValidationMode.OFF;
+    }
+    return buildOptions.useValidationAspect
+        ? OutputGroupInfo.ValidationMode.ASPECT
+        : OutputGroupInfo.ValidationMode.OUTPUT_GROUP;
   }
 
   public boolean getCheckForActionConflicts() {

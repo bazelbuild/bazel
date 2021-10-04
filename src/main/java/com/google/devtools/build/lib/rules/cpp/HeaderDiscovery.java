@@ -14,19 +14,16 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -34,6 +31,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * HeaderDiscovery checks whether all header files that a compile action uses are actually declared
@@ -44,7 +42,7 @@ import java.util.Map;
  * but the result is cached. If all files in a tree artifact are at the root of the artifact, the
  * entire check is performed by hash lookups.
  */
-public class HeaderDiscovery {
+final class HeaderDiscovery {
 
   /** Indicates if a compile should perform dotd pruning. */
   public enum DotdPruningMode {
@@ -52,67 +50,7 @@ public class HeaderDiscovery {
     DO_NOT_USE
   }
 
-  private final Action action;
-  private final Artifact sourceFile;
-
-  private final boolean shouldValidateInclusions;
-
-  private final Collection<Path> dependencies;
-  private final List<Path> permittedSystemIncludePrefixes;
-
-  /**
-   * allowedDerivedInputsMap maps paths of derived artifacts to the artifacts. These only include
-   * file artifacts.
-   */
-  private final ImmutableMap<PathFragment, Artifact> allowedDerivedInputsMap;
-
-  /**
-   * {@link #treeArtifacts} contains tree artifacts given as input to the action.
-   *
-   * <p>Header files whose prefix is in this set are considered as included, and will not trigger a
-   * header inclusion error.
-   */
-  private final ImmutableSet<Artifact> treeArtifacts;
-
-  /**
-   * {@link #pathToOwningTreeArtifact} caches answers to "does a fragment have a prefix in {@link
-   * #treeArtifacts}".
-   *
-   * <p>It is initialized to (a.path, a) for each a in {@link #treeArtifacts}, in order to speed up
-   * the typical case of headers coming from a flat tree artifact.
-   */
-  private final HashMap<PathFragment, Artifact> pathToOwningTreeArtifact;
-
-  /**
-   * Creates a HeaderDiscover instance
-   *
-   * @param action the action instance requiring header discovery
-   * @param sourceFile the source file for the compile
-   * @param shouldValidateInclusions true if include validation should be performed
-   * @param allowedDerivedInputsMap see javadoc for {@link #allowedDerivedInputsMap}
-   * @param treeArtifacts see javadoc for {@link #treeArtifacts}
-   */
-  private HeaderDiscovery(
-      Action action,
-      Artifact sourceFile,
-      boolean shouldValidateInclusions,
-      Collection<Path> dependencies,
-      List<Path> permittedSystemIncludePrefixes,
-      ImmutableMap<PathFragment, Artifact> allowedDerivedInputsMap,
-      ImmutableSet<Artifact> treeArtifacts) {
-    this.action = Preconditions.checkNotNull(action);
-    this.sourceFile = Preconditions.checkNotNull(sourceFile);
-    this.shouldValidateInclusions = shouldValidateInclusions;
-    this.dependencies = dependencies;
-    this.permittedSystemIncludePrefixes = permittedSystemIncludePrefixes;
-    this.allowedDerivedInputsMap = allowedDerivedInputsMap;
-    this.treeArtifacts = treeArtifacts;
-
-    this.pathToOwningTreeArtifact = new HashMap<>();
-    for (Artifact a : treeArtifacts) {
-      pathToOwningTreeArtifact.put(a.getExecPath(), a);
-    }
-  }
+  private HeaderDiscovery() {}
 
   /**
    * Returns a collection with additional input artifacts relevant to the action by reading the
@@ -124,14 +62,65 @@ public class HeaderDiscovery {
    * @throws ActionExecutionException iff the .d is missing (when required), malformed, or has
    *     unresolvable included artifacts.
    */
-  @ThreadCompatible
-  NestedSet<Artifact> discoverInputsFromDependencies(
-      Path execRoot, ArtifactResolver artifactResolver, boolean siblingRepositoryLayout)
+  static NestedSet<Artifact> discoverInputsFromDependencies(
+      Action action,
+      Artifact sourceFile,
+      boolean shouldValidateInclusions,
+      Collection<Path> dependencies,
+      List<Path> permittedSystemIncludePrefixes,
+      NestedSet<Artifact> allowedDerivedInputs,
+      Path execRoot,
+      ArtifactResolver artifactResolver,
+      boolean siblingRepositoryLayout)
+      throws ActionExecutionException {
+    Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
+    Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
+    for (Artifact a : allowedDerivedInputs.toList()) {
+      if (a.isSourceArtifact()) {
+        continue;
+      }
+      // We may encounter duplicate keys in the derived inputs if two artifacts have different
+      // owners. Just use the first one. The two artifacts must be generated by equivalent
+      // (shareable) actions in order to have not generated a conflict in Bazel. If on an
+      // incremental build one changes without the other one changing, then if their paths remain
+      // the same, that will trigger an action conflict and fail the build. If one path changes,
+      // then this action will be re-analyzed, and will execute in Skyframe. It can legitimately get
+      // an action cache hit in that case, since even if it previously depended on the artifact
+      // whose path changed, that is not taken into account by the action cache, and it will get an
+      // action cache hit using the remaining un-renamed artifact.
+      if (a.isTreeArtifact()) {
+        treeArtifacts.putIfAbsent(a.getExecPath(), (SpecialArtifact) a);
+      } else {
+        regularDerivedArtifacts.putIfAbsent(a.getExecPath(), a);
+      }
+    }
+
+    return runDiscovery(
+        action,
+        sourceFile,
+        shouldValidateInclusions,
+        dependencies,
+        permittedSystemIncludePrefixes,
+        regularDerivedArtifacts,
+        treeArtifacts,
+        execRoot,
+        artifactResolver,
+        siblingRepositoryLayout);
+  }
+
+  private static NestedSet<Artifact> runDiscovery(
+      Action action,
+      Artifact sourceFile,
+      boolean shouldValidateInclusions,
+      Collection<Path> dependencies,
+      List<Path> permittedSystemIncludePrefixes,
+      Map<PathFragment, Artifact> regularDerivedArtifacts,
+      Map<PathFragment, SpecialArtifact> treeArtifacts,
+      Path execRoot,
+      ArtifactResolver artifactResolver,
+      boolean siblingRepositoryLayout)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-    if (dependencies == null) {
-      return inputs.build();
-    }
 
     // Check inclusions.
     IncludeProblems problems = new IncludeProblems();
@@ -142,10 +131,9 @@ public class HeaderDiscovery {
         if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
           continue;
         }
-        // Since gcc is given only relative paths on the command line,
-        // non-system include paths here should never be absolute. If they
-        // are, it's probably due to a non-hermetic #include, & we should stop
-        // the build with an error.
+        // Since gcc is given only relative paths on the command line, non-system include paths here
+        // should never be absolute. If they are, it's probably due to a non-hermetic #include, and
+        // we should stop the build with an error.
         if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
         } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
@@ -158,7 +146,7 @@ public class HeaderDiscovery {
           continue;
         }
       }
-      Artifact artifact = allowedDerivedInputsMap.get(execPathFragment);
+      Artifact artifact = regularDerivedArtifacts.get(execPathFragment);
       if (artifact == null) {
         RepositoryName repository =
             PackageIdentifier.discoverFromExecPath(execPathFragment, false, siblingRepositoryLayout)
@@ -173,15 +161,14 @@ public class HeaderDiscovery {
         continue;
       }
 
-      Artifact treeArtifact = findOwningTreeArtifact(execPathFragment);
+      SpecialArtifact treeArtifact = findOwningTreeArtifact(execPathFragment, treeArtifacts);
       if (treeArtifact != null) {
         inputs.add(treeArtifact);
-        continue;
+      } else {
+        // Record a problem if we see files that we can't resolve, likely caused by undeclared
+        // includes or illegal include constructs.
+        problems.add(execPathFragment.getPathString());
       }
-
-      // Abort if we see files that we can't resolve, likely caused by
-      // undeclared includes or illegal include constructs.
-      problems.add(execPathFragment.getPathString());
     }
     if (shouldValidateInclusions) {
       problems.assertProblemFree(action, sourceFile);
@@ -189,95 +176,21 @@ public class HeaderDiscovery {
     return inputs.build();
   }
 
-  private Artifact findOwningTreeArtifact(PathFragment execPathFragment) {
-    PathFragment dir = execPathFragment.getParentDirectory();
-    Artifact artifact = pathToOwningTreeArtifact.get(dir);
-    if (artifact != null) {
-      return artifact;
+  @Nullable
+  private static SpecialArtifact findOwningTreeArtifact(
+      PathFragment execPath, Map<PathFragment, SpecialArtifact> treeArtifacts) {
+    // Check the map for the exec path's parent directory first. If the exec path matches a direct
+    // child of a tree artifact (a common case), we can skip the full iteration below.
+    PathFragment dir = execPath.getParentDirectory();
+    SpecialArtifact tree = treeArtifacts.get(dir);
+    if (tree != null) {
+      return tree;
     }
-    return treeArtifacts.stream()
+
+    // Search for any tree artifact that encloses the exec path.
+    return treeArtifacts.values().stream()
         .filter(a -> dir.startsWith(a.getExecPath()))
         .findAny()
         .orElse(null);
-  }
-
-  /** A Builder for HeaderDiscovery */
-  public static class Builder {
-    private Action action;
-    private Artifact sourceFile;
-    private boolean shouldValidateInclusions = false;
-
-    private Collection<Path> dependencies;
-    private List<Path> permittedSystemIncludePrefixes;
-    private NestedSet<Artifact> allowedDerivedInputs;
-
-    /** Sets the action for which to discover inputs. */
-    public Builder setAction(Action action) {
-      this.action = action;
-      return this;
-    }
-
-    /** Sets the source file for which to discover inputs. */
-    public Builder setSourceFile(Artifact sourceFile) {
-      this.sourceFile = sourceFile;
-      return this;
-    }
-
-    /** Sets that this compile should validate inclusions against the dotd file. */
-    public Builder shouldValidateInclusions() {
-      this.shouldValidateInclusions = true;
-      return this;
-    }
-
-    /** Sets the dependencies capturing used headers by this compile. */
-    public Builder setDependencies(Collection<Path> dependencies) {
-      this.dependencies = dependencies;
-      return this;
-    }
-
-    /** Sets prefixes of allowed absolute inclusions */
-    public Builder setPermittedSystemIncludePrefixes(List<Path> systemIncludePrefixes) {
-      this.permittedSystemIncludePrefixes = systemIncludePrefixes;
-      return this;
-    }
-
-    /** Sets permitted inputs to the build */
-    public Builder setAllowedDerivedInputs(NestedSet<Artifact> allowedDerivedInputs) {
-      this.allowedDerivedInputs = allowedDerivedInputs;
-      return this;
-    }
-
-    /** Creates a CppHeaderDiscovery instance. */
-    public HeaderDiscovery build() {
-      Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
-      ImmutableSet.Builder<Artifact> treeArtifacts = ImmutableSet.builder();
-      for (Artifact a : allowedDerivedInputs.toList()) {
-        if (a.isSourceArtifact()) {
-          continue;
-        }
-        if (a.isTreeArtifact()) {
-          treeArtifacts.add(a);
-        }
-        // We may encounter duplicate keys in the derived inputs if two artifacts have different
-        // owners. Just use the first one. The two artifacts must be generated by equivalent
-        // (shareable) actions in order to have not generated a conflict in Bazel. If on an
-        // incremental build one changes without the other one changing, then if their paths remain
-        // the same, that will trigger an action conflict and fail the build. If one path changes,
-        // then this action will be re-analyzed, and will execute in Skyframe. It can legitimately
-        // get an action cache hit in that case, since even if it previously depended on the
-        // artifact whose path changed, that is not taken into account by the action cache, and it
-        // will get an action cache hit using the remaining un-renamed artifact.
-        allowedDerivedInputsMap.putIfAbsent(a.getExecPath(), a);
-      }
-
-      return new HeaderDiscovery(
-          action,
-          sourceFile,
-          shouldValidateInclusions,
-          dependencies,
-          permittedSystemIncludePrefixes,
-          ImmutableMap.copyOf(allowedDerivedInputsMap),
-          treeArtifacts.build());
-    }
   }
 }

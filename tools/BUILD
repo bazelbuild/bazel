@@ -85,22 +85,6 @@ filegroup(
     ],
 )
 
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//tools/android:all_windows_tests",
-        "//tools/aquery_differ:aquery_differ_test",
-        "//tools/bash:all_windows_tests",
-        "//tools/build_defs:all_windows_tests",
-        "//tools/cpp/runfiles:all_windows_tests",
-        "//tools/java:all_windows_tests",
-        "//tools/jdk:all_windows_tests",
-        "//tools/python:all_windows_tests",
-        "//tools/test:all_windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
-)
-
 sh_binary(
     name = "upload_bazel_mirror",
     srcs = ["upload_bazel_mirror.sh"],

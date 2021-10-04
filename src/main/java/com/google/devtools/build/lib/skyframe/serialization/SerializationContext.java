@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -43,7 +45,7 @@ import javax.annotation.Nullable;
  */
 public class SerializationContext {
   private final ObjectCodecRegistry registry;
-  private final ImmutableMap<Class<?>, Object> dependencies;
+  private final ImmutableClassToInstanceMap<Object> dependencies;
   @Nullable private final Memoizer.Serializer serializer;
   private final Set<Class<?>> explicitlyAllowedClasses;
   /** Initialized lazily. */
@@ -53,7 +55,7 @@ public class SerializationContext {
 
   private SerializationContext(
       ObjectCodecRegistry registry,
-      ImmutableMap<Class<?>, Object> dependencies,
+      ImmutableClassToInstanceMap<Object> dependencies,
       @Nullable Serializer serializer,
       boolean allowFuturesToBlockWritingOn) {
     this.registry = registry;
@@ -65,12 +67,12 @@ public class SerializationContext {
 
   @VisibleForTesting
   public SerializationContext(
-      ObjectCodecRegistry registry, ImmutableMap<Class<?>, Object> dependencies) {
+      ObjectCodecRegistry registry, ImmutableClassToInstanceMap<Object> dependencies) {
     this(registry, dependencies, /*serializer=*/ null, /*allowFuturesToBlockWritingOn=*/ false);
   }
 
   @VisibleForTesting
-  public SerializationContext(ImmutableMap<Class<?>, Object> dependencies) {
+  public SerializationContext(ImmutableClassToInstanceMap<Object> dependencies) {
     this(AutoRegistry.get(), dependencies);
   }
 
@@ -106,10 +108,8 @@ public class SerializationContext {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public <T> T getDependency(Class<T> type) {
-    Preconditions.checkNotNull(type);
-    return (T) dependencies.get(type);
+    return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);
   }
 
   /**
@@ -132,10 +132,8 @@ public class SerializationContext {
 
   @CheckReturnValue
   SerializationContext getMemoizingAndBlockingOnWriteContext() {
-    Preconditions.checkState(
-        serializer == null, "Should only be called on base serializationContext");
-    Preconditions.checkState(
-        !allowFuturesToBlockWritingOn, "Should only be called on base serializationContext");
+    checkState(serializer == null, "Should only be called on base serializationContext");
+    checkState(!allowFuturesToBlockWritingOn, "Should only be called on base serializationContext");
     return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ true);
   }
 
@@ -165,7 +163,7 @@ public class SerializationContext {
    */
   public void addFutureToBlockWritingOn(
       ListenableFuture<Void> future, FutureCallback<Void> crashTerminatingCallback) {
-    Preconditions.checkState(allowFuturesToBlockWritingOn, "This context cannot block on a future");
+    checkState(allowFuturesToBlockWritingOn, "This context cannot block on a future");
     if (futuresToBlockWritingOn == null) {
       futuresToBlockWritingOn = new ArrayList<>();
     }

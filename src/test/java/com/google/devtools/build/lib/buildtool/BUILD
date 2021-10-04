@@ -78,25 +78,9 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "BogusExecutionTimeTest",
-    srcs = ["BogusExecutionTimeTest.java"],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:junit4",
     ],
 )
 
@@ -111,7 +95,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -128,7 +111,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:junit4",
         "//third_party:truth",
@@ -139,18 +121,18 @@ java_test(
     name = "ContextProviderInitializationTest",
     srcs = ["ContextProviderInitializationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:artifacts_to_owner_labels",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_lifecycle_listener",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
         "//third_party:junit4",
@@ -161,15 +143,14 @@ java_test(
     name = "CorruptedActionCacheTest",
     srcs = ["CorruptedActionCacheTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -184,11 +165,12 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -197,7 +179,9 @@ java_test(
 java_test(
     name = "UnusedInputsFailureIntegrationTest",
     srcs = ["UnusedInputsFailureIntegrationTest.java"],
-    tags = ["manual"],
+    tags = [
+        "no_windows",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
@@ -205,7 +189,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:junit4",
         "//third_party:truth",
         "@com_google_testparameterinjector//:testparameterinjector",
@@ -222,7 +208,6 @@ java_test(
     deps = [
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
     ],
 )
@@ -238,7 +223,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -249,32 +233,13 @@ java_test(
     name = "EnvironmentRestrictedBuildTest",
     srcs = ["EnvironmentRestrictedBuildTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "ExecutionPhaseContainingPackageLookupTest",
-    srcs = ["ExecutionPhaseContainingPackageLookupTest.java"],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-    deps = [
-        ":IoHookTestCase",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -285,13 +250,13 @@ java_test(
     name = "GenQueryIntegrationTest",
     srcs = ["GenQueryIntegrationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
@@ -310,7 +275,6 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
     ],
 )
@@ -350,13 +314,12 @@ java_test(
     name = "LabelCrossesPackageBoundaryTest",
     srcs = ["LabelCrossesPackageBoundaryTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
     ],
 )
@@ -401,11 +364,9 @@ java_test(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 
@@ -437,7 +398,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -446,6 +406,7 @@ java_test(
 java_test(
     name = "OutputArtifactConflictTest",
     srcs = ["OutputArtifactConflictTest.java"],
+    shard_count = 3,
     tags = [
         "manual",
         "no_windows",
@@ -476,7 +437,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
     ],
 )
@@ -495,7 +455,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:junit4",
@@ -537,14 +496,13 @@ java_test(
     name = "SymlinkDependencyAnalysisTest",
     srcs = ["SymlinkDependencyAnalysisTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -563,8 +521,29 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "TargetCompleteEventKeepsMinimalMetadataTest",
+    srcs = ["TargetCompleteEventKeepsMinimalMetadataTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -582,55 +561,12 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "CustomRealFilesystemBuildIntegrationTest",
-    srcs = ["CustomRealFilesystemBuildIntegrationTest.java"],
-    shard_count = 4,
-    tags = ["manual"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//src/test/java/com/google/devtools/build/skyframe:testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
-    ],
-)
-
-java_library(
-    name = "IoHookTestCase",
-    srcs = ["IoHookTestCase.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
     ],
 )
 
@@ -653,21 +589,6 @@ java_test(
     ],
 )
 
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-)
-
 # TODO(b/19011399): Remove any manual tags used to disable the tests on bazel,
 #  and enable manual tests inside Google if appropriate.
 # Keep in sync with Copybara transformation that makes these tests manual.
@@ -677,19 +598,15 @@ build_test(
     targets = [
         ":ActionListenerIntegrationTest",
         ":AqueryBuildToolTest",
-        ":BogusExecutionTimeTest",
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
         ":CompileOneDependencyIntegrationTest",
         ":ContextProviderInitializationTest",
         ":CorruptedActionCacheTest",
-        ":CustomRealFilesystemBuildIntegrationTest",
         ":DanglingSymlinkTest",
         ":DirectoryArtifactWarningTest",
         ":EditDuringBuildTest",
         ":EnvironmentRestrictedBuildTest",
-        ":ExecutionPhaseContainingPackageLookupTest",
-        ":GenQueryIntegrationTest",
         ":IncludeValidationTest",
         ":InconsistentFilesystemTest",
         ":LabelCrossesPackageBoundaryTest",
@@ -703,7 +620,7 @@ build_test(
         ":QueryIntegrationTest",
         ":SymlinkDependencyAnalysisTest",
         # Disabled in Google.
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:BazelAndroidTests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests",
         # Disabled in Google.
@@ -711,5 +628,38 @@ build_test(
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/packages:BazelDocumentationTests",
         "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidDataBindingV2Test",
+    ],
+)
+
+java_test(
+    name = "ShutdownCommandTest",
+    srcs = ["ShutdownCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "SubcommandEventTest",
+    srcs = ["SubcommandEventTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )

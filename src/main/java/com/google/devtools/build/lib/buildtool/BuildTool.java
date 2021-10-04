@@ -23,6 +23,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -166,6 +168,34 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
+      if (request.getBuildOptions().mergedSkyframeAnalysisExecution) {
+        // Target pattern evaluation.
+        TargetPatternPhaseValue loadingResult;
+        Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
+        try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
+          loadingResult =
+              AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
+        }
+        env.setWorkspaceName(loadingResult.getWorkspaceName());
+
+        if (request.getBuildOptions().performAnalysisPhase) {
+          executionTool = new ExecutionTool(env, request);
+
+          try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
+            executionTool.prepareForExecution(request.getId());
+          }
+
+          // TODO(b/199053098): implement support for --nobuild.
+          AnalysisAndExecutionResult analysisAndExecutionResult =
+              AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
+
+          result.setBuildConfigurationCollection(
+              analysisAndExecutionResult.getConfigurationCollection());
+          result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
+          result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
+        }
+        return;
+      }
       AnalysisResult analysisResult =
           AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 
@@ -235,7 +265,6 @@ public class BuildTool {
           }
         }
       }
-      Profiler.instance().markPhase(ProfilePhase.FINISH);
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;
@@ -347,6 +376,7 @@ public class BuildTool {
               /* includeArtifacts= */ true,
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
+              /* deduplicateDepsets= */ true,
               aqueryOutputHandler);
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }
@@ -379,6 +409,10 @@ public class BuildTool {
     }
   }
 
+  public BuildResult processRequest(BuildRequest request, TargetValidator validator) {
+    return processRequest(request, validator, /* postBuildCallback= */ null);
+  }
+
   /**
    * The crux of the build system. Builds the targets specified in the request using the specified
    * Executor.
@@ -395,18 +429,32 @@ public class BuildTool {
    * @param request the build request that this build tool is servicing, which specifies various
    *     options; during this method's execution, the actualTargets and successfulTargets fields of
    *     the request object are populated
-   * @param validator target validator
+   * @param validator an optional target validator
+   * @param postBuildCallback an optional callback called after the build has been completed
+   *     successfully
    * @return the result as a {@link BuildResult} object
    */
-  public BuildResult processRequest(BuildRequest request, TargetValidator validator) {
+  public BuildResult processRequest(
+      BuildRequest request, TargetValidator validator, PostBuildCallback postBuildCallback) {
     BuildResult result = new BuildResult(request.getStartTime());
     maybeSetStopOnFirstFailure(request, result);
     int startSuspendCount = suspendCount();
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
     try {
-      buildTargets(request, result, validator);
+      try (SilentCloseable c = Profiler.instance().profile("buildTargets")) {
+        buildTargets(request, result, validator);
+      }
       detailedExitCode = DetailedExitCode.success();
+      if (postBuildCallback != null) {
+        try (SilentCloseable c = Profiler.instance().profile("postBuildCallback.process")) {
+          result.setPostBuildCallbackFailureDetail(
+              postBuildCallback.process(result.getSuccessfulTargets()));
+        } catch (InterruptedException e) {
+          detailedExitCode =
+              InterruptedFailureDetails.detailedExitCode("post build callback interrupted");
+        }
+      }
     } catch (BuildFailedException e) {
       if (!e.isErrorAlreadyShown()) {
         // The actual error has not already been reported by the Builder.
@@ -423,17 +471,20 @@ public class BuildTool {
     } catch (InterruptedException e) {
       // We may have been interrupted by an error, or the user's interruption may have raced with
       // an error, so check to see if we should report that error code instead.
+      detailedExitCode = env.getRuntime().getCrashExitCode();
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
-      if (environmentPendingAbruptExitException == null) {
+      if (detailedExitCode == null && environmentPendingAbruptExitException != null) {
+        detailedExitCode = environmentPendingAbruptExitException.getDetailedExitCode();
+        // Report the exception from the environment - the exception we're handling here is just an
+        // interruption.
+        reportExceptionError(environmentPendingAbruptExitException);
+      }
+      if (detailedExitCode == null) {
         String message = "build interrupted";
         detailedExitCode = InterruptedFailureDetails.detailedExitCode(message);
         env.getReporter().handle(Event.error(message));
         env.getEventBus().post(new BuildInterruptedEvent());
       } else {
-        // Report the exception from the environment - the exception we're handling here is just an
-        // interruption.
-        detailedExitCode = environmentPendingAbruptExitException.getDetailedExitCode();
-        reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
     } catch (TargetParsingException | LoadingFailedException e) {
@@ -484,7 +535,9 @@ public class BuildTool {
             CrashFailureDetails.detailedExitCodeForThrowable(
                 new IllegalStateException("Unspecified DetailedExitCode"));
       }
-      stopRequest(result, crash, detailedExitCode, startSuspendCount);
+      try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
+        stopRequest(result, crash, detailedExitCode, startSuspendCount);
+      }
     }
 
     return result;
@@ -550,6 +603,12 @@ public class BuildTool {
     // Skip the build complete events so that modules can run blazeShutdownOnCrash without thinking
     // that the build completed normally. BlazeCommandDispatcher will call handleCrash.
     if (crash == null) {
+      try {
+        Profiler.instance().markPhase(ProfilePhase.FINISH);
+      } catch (InterruptedException e) {
+        env.getReporter().handle(Event.error("Build interrupted during command completion"));
+        ie = e;
+      }
       env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(

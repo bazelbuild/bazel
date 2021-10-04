@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.repository;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.mockito.Mockito.mock;
@@ -24,11 +25,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Rule;
@@ -152,7 +155,19 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             directories,
             /*bzlLoadFunctionForInlining=*/ null));
     skyFunctions.put(
-        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null));
+        SkyFunctions.PACKAGE,
+        new PackageFunction(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            /*packageProgress=*/ null,
+            PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
+            PackageFunction.IncrementalityIntent.INCREMENTAL,
+            k -> ThreadStateReceiver.NULL_INSTANCE));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -400,11 +415,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredToolchains = RegisteredToolchainsFunction.getRegisteredToolchains(env);
+      List<TargetPattern> registeredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(env);
       if (registeredToolchains == null) {
         return null;
       }
-      return GetRegisteredToolchainsValue.create(registeredToolchains);
+      return GetRegisteredToolchainsValue.create(
+          registeredToolchains.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
 
     @Nullable
@@ -434,12 +453,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredExecutionPlatforms =
+      List<TargetPattern> registeredExecutionPlatforms =
           RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
       if (registeredExecutionPlatforms == null) {
         return null;
       }
-      return GetRegisteredExecutionPlatformsValue.create(registeredExecutionPlatforms);
+      return GetRegisteredExecutionPlatformsValue.create(
+          registeredExecutionPlatforms.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
 
     @Nullable

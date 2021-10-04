@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.protobuf.util.Durations;
 import java.util.Collection;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -188,7 +189,8 @@ public final class TargetCompleteEvent
       AttributeMap attributes =
           ConfiguredAttributeMapper.of(
               (Rule) targetAndData.getTarget(),
-              targetAndData.getConfiguredTarget().getConfigConditions());
+              targetAndData.getConfiguredTarget().getConfigConditions(),
+              configuration.checksum());
       // Every build rule (implicitly) has a "tags" attribute. However other rule configured targets
       // are repository rules (which don't have a tags attribute); morevoer, thanks to the virtual
       // "external" package, they are user visible as targets and can create a completed event as
@@ -294,7 +296,7 @@ public final class TargetCompleteEvent
       childrenBuilder.add(BuildEventIdUtil.testSummary(label, configEventId));
     }
     if (announceTargetSummary) {
-      childrenBuilder.add(BuildEventIdUtil.targetSummary(label, configEventId));
+      childrenBuilder.add(BuildEventIdUtil.targetSummary(aliasLabel, configEventId));
     }
     return childrenBuilder.build();
   }
@@ -310,6 +312,7 @@ public final class TargetCompleteEvent
 
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
   // field.
+
   private static void addImportantOutputs(
       CompletionContext completionContext,
       TargetComplete.Builder builder,
@@ -317,10 +320,6 @@ public final class TargetCompleteEvent
       Iterable<Artifact> artifacts) {
     addImportantOutputs(
         completionContext, builder, Artifact::getRootRelativePathString, converters, artifacts);
-  }
-
-  private static Iterable<Artifact> filterFilesets(Iterable<Artifact> artifacts) {
-    return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
   }
 
   private static void addImportantOutputs(
@@ -348,6 +347,10 @@ public final class TargetCompleteEvent
             throw new IllegalStateException(fileset + " should have been filtered out");
           }
         });
+  }
+
+  private static Iterable<Artifact> filterFilesets(Iterable<Artifact> artifacts) {
+    return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
   }
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
@@ -434,6 +437,7 @@ public final class TargetCompleteEvent
     builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
 
     if (isTest) {
+      builder.setTestTimeout(Durations.fromSeconds(testTimeoutSeconds));
       builder.setTestTimeoutSeconds(testTimeoutSeconds);
     }
 
@@ -467,6 +471,13 @@ public final class TargetCompleteEvent
 
   @Override
   public ReportedArtifacts reportedArtifacts() {
+    return toReportedArtifacts(outputs, completionContext, baselineCoverageArtifacts);
+  }
+
+  static ReportedArtifacts toReportedArtifacts(
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      CompletionContext completionContext,
+      @Nullable NestedSet<Artifact> baselineCoverageArtifacts) {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     for (ArtifactsInOutputGroup artifactsInGroup : outputs.values()) {
       if (artifactsInGroup.areImportant()) {
@@ -489,6 +500,14 @@ public final class TargetCompleteEvent
   }
 
   private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
+    return toOutputGroupProtos(outputs, namer, baselineCoverageArtifacts);
+  }
+
+  /** Returns {@link OutputGroup} protos for given output groups and optional coverage artifacts. */
+  static ImmutableList<OutputGroup> toOutputGroupProtos(
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      ArtifactGroupNamer namer,
+      @Nullable NestedSet<Artifact> baselineCoverageArtifacts) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
     outputs.forEach(
         (outputGroup, artifactsInOutputGroup) -> {

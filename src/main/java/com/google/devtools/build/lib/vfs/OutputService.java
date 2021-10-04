@@ -183,8 +183,7 @@ public interface OutputService {
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
-      throws IOException {}
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {}
 
   /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
@@ -203,9 +202,8 @@ public interface OutputService {
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
-      throws IOException {
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 

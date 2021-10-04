@@ -102,7 +102,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "host_jvm_debug");
   ExpectValidNullaryOption(options, "autodetect_server_javabase");
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
-  ExpectValidNullaryOption(options, "incompatible_enable_execution_transition");
   ExpectValidNullaryOption(options, "master_bazelrc");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectValidNullaryOption(options, "system_rc");

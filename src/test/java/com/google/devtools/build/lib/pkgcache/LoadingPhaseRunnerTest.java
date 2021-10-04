@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.PatternExpanded.TestSuiteExpansion;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -98,7 +98,7 @@ public final class LoadingPhaseRunnerTest {
   }
 
   @Before
-  public final void createLoadingPhaseTester() throws Exception {
+  public void createLoadingPhaseTester() throws Exception {
     tester = new LoadingPhaseTester();
   }
 
@@ -1401,29 +1401,21 @@ public final class LoadingPhaseRunnerTest {
           analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
       PackageOptions options = Options.getDefaults(PackageOptions.class);
       storedErrors = new StoredEventHandler();
-      BuildOptions defaultBuildOptions;
-      try {
-        defaultBuildOptions = BuildOptions.of(ImmutableList.of());
-      } catch (OptionsParsingException e) {
-        throw new RuntimeException(e);
-      }
-      ActionKeyContext actionKeyContext = new ActionKeyContext();
       skyframeExecutor =
           BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)
-              .setActionKeyContext(actionKeyContext)
-              .setDefaultBuildOptions(defaultBuildOptions)
+              .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
-              null,
+              /*outputBase=*/ null,
               options.packagePath,
               storedErrors,
-              workspace,
+              workspace.asFragment(),
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
@@ -1433,8 +1425,8 @@ public final class LoadingPhaseRunnerTest {
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.empty())));
+                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+              PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
@@ -1518,7 +1510,7 @@ public final class LoadingPhaseRunnerTest {
       FileSystemUtils.writeContentAsLatin1(buildFile, Joiner.on('\n').join(content));
     }
 
-    private void sync() throws InterruptedException {
+    private void sync() throws InterruptedException, AbruptExitException {
       clock.advanceMillis(1);
       ModifiedFileSet.Builder builder = ModifiedFileSet.builder();
       for (Path path : changes) {

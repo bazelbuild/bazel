@@ -87,9 +87,20 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           installBase,
           outputBase,
           BUILD_FILES_BY_PRIORITY,
-          EXTERNAL_PACKAGE_HELPER,
           ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS);
       this.isFetch = isFetch;
+      addExtraPrecomputedValues(
+          PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
+          PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+              Suppliers.ofInstance(ImmutableMap.of())),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+          PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false));
     }
 
     @Override
@@ -123,17 +134,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
                       EXTERNAL_PACKAGE_HELPER))
               .build());
-      addExtraPrecomputedValues(
-          PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
-          PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
-          PrecomputedValue.injected(
-              RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-              Suppliers.ofInstance(ImmutableMap.of())),
-          PrecomputedValue.injected(
-              RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-          PrecomputedValue.injected(
-              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
 
       return new BazelPackageLoader(this);
     }

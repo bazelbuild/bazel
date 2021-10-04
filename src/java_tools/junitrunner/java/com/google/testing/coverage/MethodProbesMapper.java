@@ -14,24 +14,34 @@
 
 package com.google.testing.coverage;
 
+import static java.util.Comparator.comparing;
+
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import org.jacoco.core.internal.analysis.Instruction;
+import org.jacoco.core.internal.analysis.filter.IFilter;
+import org.jacoco.core.internal.analysis.filter.IFilterContext;
+import org.jacoco.core.internal.analysis.filter.IFilterOutput;
 import org.jacoco.core.internal.flow.IFrame;
 import org.jacoco.core.internal.flow.LabelInfo;
 import org.jacoco.core.internal.flow.MethodProbesVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /**
  * The mapper is a probes visitor that will cache control flow information as well as keeping track
  * of the probes as the main driver generates the probe ids. Upon finishing the method it uses the
  * information collected to generate the mapping information between probes and the instructions.
  */
-public class MethodProbesMapper extends MethodProbesVisitor {
+public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOutput {
   /*
    * The implementation roughly follows the same pattern of the Analyzer class of Jacoco.
    *
@@ -57,6 +67,17 @@ public class MethodProbesMapper extends MethodProbesVisitor {
   private Instruction lastInstruction = null;
   private int currentLine = -1;
   private List<Label> currentLabels = new ArrayList<>();
+  private AbstractInsnNode currentInstructionNode = null;
+  private Map<AbstractInsnNode, Instruction> instructionMap = new HashMap<>();
+  private int instructionNodeIndex = 0;
+  private Map<AbstractInsnNode, Integer> instructionNodeIndexMap = new HashMap<>();
+
+  // Filtering
+  private IFilter filter;
+  private IFilterContext filterContext;
+  private HashSet<AbstractInsnNode> ignored = new HashSet<>();
+  private Map<AbstractInsnNode, AbstractInsnNode> unioned = new HashMap<>();
+  private Map<AbstractInsnNode, Set<AbstractInsnNode>> branchReplacements = new HashMap<>();
 
   // Result
   private Map<Integer, BranchExp> lineToBranchExp = new TreeMap();
@@ -87,6 +108,22 @@ public class MethodProbesMapper extends MethodProbesVisitor {
   private Map<Instruction, Instruction> predecessors = new HashMap<>();
   private Map<Label, Instruction> labelToInsn = new HashMap<>();
 
+  public MethodProbesMapper(IFilterContext filterContext, IFilter filter) {
+    this.filterContext = filterContext;
+    this.filter = filter;
+  }
+
+  @Override
+  public void accept(MethodNode methodNode, MethodVisitor methodVisitor) {
+    methodVisitor.visitCode();
+    for (AbstractInsnNode i : methodNode.instructions) {
+      currentInstructionNode = i;
+      i.accept(methodVisitor);
+    }
+    filter.filter(methodNode, filterContext, this);
+    methodVisitor.visitEnd();
+  }
+
   /** Visitor method to append a new Instruction */
   private void visitInsn() {
     Instruction instruction = new Instruction(currentLine);
@@ -101,6 +138,9 @@ public class MethodProbesMapper extends MethodProbesVisitor {
     }
     currentLabels.clear(); // Update states
     lastInstruction = instruction;
+    instructionMap.put(currentInstructionNode, instruction);
+    instructionNodeIndexMap.put(currentInstructionNode, instructionNodeIndex);
+    instructionNodeIndex++;
   }
 
   // Plain visitors: called from adapter when no probe is needed
@@ -317,7 +357,6 @@ public class MethodProbesMapper extends MethodProbesVisitor {
   /** Finishing the method */
   @Override
   public void visitEnd() {
-
     for (Jump jump : jumps) {
       Instruction insn = labelToInsn.get(jump.target);
       jump.source.addBranch(insn, jump.branch);
@@ -370,8 +409,45 @@ public class MethodProbesMapper extends MethodProbesVisitor {
       }
     }
 
+    // Handle merged instructions
+    for (AbstractInsnNode node : unioned.keySet()) {
+      AbstractInsnNode rep = findRepresentative(node);
+      Instruction insn = instructionMap.get(node);
+      Instruction repInsn = instructionMap.get(rep);
+      BranchExp branch = BranchExp.ensureIsBranchExp(insnToCovExp.get(insn));
+      BranchExp repBranch = BranchExp.ensureIsBranchExp(insnToCovExp.get(repInsn));
+      insnToCovExp.put(repInsn, BranchExp.zip(repBranch, branch));
+      ignored.add(node);
+    }
+
+    // Handle branch replacements
+    for (Map.Entry<AbstractInsnNode, Set<AbstractInsnNode>> entry : branchReplacements.entrySet()) {
+      // The replacement set is not ordered deterministically and we require it to be so to be able
+      // to merge multiple coverage reports later on. We use the order in which we encountered
+      // nodes to determine the order of branches for the new BranchExp
+      ArrayList<AbstractInsnNode> replacements = new ArrayList<>(entry.getValue());
+      replacements.sort(comparing(instructionNodeIndexMap::get));
+      BranchExp newBranch = new BranchExp(new ArrayList<>());
+      // Merging of coverage reports down the line only makes sense now if replacements is iterated
+      // in a deterministic order, which is a false assumption.
+      for (AbstractInsnNode node : replacements) {
+        newBranch.add(insnToCovExp.get(instructionMap.get(node)));
+      }
+      insnToCovExp.put(instructionMap.get(entry.getKey()), newBranch);
+    }
+
+    HashSet<Instruction> ignoredInstructions = new HashSet<>();
+    for (Map.Entry<AbstractInsnNode, Instruction> entry : instructionMap.entrySet()) {
+      if (ignored.contains(entry.getKey())) {
+        ignoredInstructions.add(entry.getValue());
+      }
+    }
+
     // Merge branches in the instructions on the same line
     for (Instruction insn : instructions) {
+      if (ignoredInstructions.contains(insn)) {
+        continue;
+      }
       if (insn.getBranchCounter().getTotalCount() > 1) {
         CovExp insnExp = insnToCovExp.get(insn);
         if (insnExp != null && (insnExp instanceof BranchExp)) {
@@ -380,7 +456,7 @@ public class MethodProbesMapper extends MethodProbesVisitor {
           if (lineExp == null) {
             lineToBranchExp.put(insn.getLine(), exp);
           } else {
-            lineExp.merge(exp);
+            lineToBranchExp.put(insn.getLine(), BranchExp.concatenate(lineExp, exp));
           }
         } else {
           // If we reach here, the internal data of the mapping is inconsistent, either
@@ -389,6 +465,45 @@ public class MethodProbesMapper extends MethodProbesVisitor {
         }
       }
     }
+  }
+
+  /** IFilterOutput */
+  // Handle only ignore for now; most filters only use this.
+  @Override
+  public void ignore(AbstractInsnNode fromInclusive, AbstractInsnNode toInclusive) {
+    for (AbstractInsnNode n = fromInclusive; n != toInclusive; n = n.getNext()) {
+      ignored.add(n);
+    }
+    ignored.add(toInclusive);
+  }
+
+  @Override
+  public void merge(AbstractInsnNode i1, AbstractInsnNode i2) {
+    // Track nodes to be merged using a union-find algorithm.
+    i1 = findRepresentative(i1);
+    i2 = findRepresentative(i2);
+    if (i1 != i2) {
+      unioned.put(i1, i2);
+    }
+  }
+
+  @Override
+  public void replaceBranches(AbstractInsnNode source, Set<AbstractInsnNode> newTargets) {
+    branchReplacements.put(source, newTargets);
+  }
+
+  private AbstractInsnNode findRepresentative(AbstractInsnNode node) {
+    // The "find" part of union-find. Walk the chain of nodes to find the representative node
+    // (at the root), flattening the tree a little as we go.
+    AbstractInsnNode parent;
+    AbstractInsnNode grandParent;
+    while ((parent = unioned.get(node)) != null) {
+      if ((grandParent = unioned.get(parent)) != null) {
+        unioned.put(node, grandParent);
+      }
+      node = parent;
+    }
+    return node;
   }
 
   /** Jumps between instructions and labels */

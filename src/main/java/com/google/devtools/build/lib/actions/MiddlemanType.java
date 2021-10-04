@@ -19,9 +19,6 @@ public enum MiddlemanType {
   /** A normal action. */
   NORMAL,
 
-  /** A normal middleman, which just encapsulates a list of artifacts. */
-  AGGREGATING_MIDDLEMAN,
-
   /**
    * A middleman that denotes a scheduling dependency.
    *

@@ -66,7 +66,7 @@ public final class BuildEventServiceProtoUtil {
             1,
             com.google.devtools.build.v1.BuildEvent.newBuilder()
                 .setEventTime(timestamp)
-                .setBuildEnqueued(BuildEnqueued.newBuilder()))
+                .setBuildEnqueued(BuildEnqueued.getDefaultInstance()))
         .build();
   }
 

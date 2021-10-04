@@ -21,7 +21,7 @@ import java.io.Serializable;
  * A filtering policy defines how target patterns are matched. For instance, we may wish to select
  * only tests or no tests.
  */
-public abstract class FilteringPolicy implements Serializable {
+public interface FilteringPolicy extends Serializable {
 
   /**
    * Returns true if this target should be retained.
@@ -30,5 +30,5 @@ public abstract class FilteringPolicy implements Serializable {
    *     a wildcard.
    */
   @ThreadSafety.ThreadSafe
-  public abstract boolean shouldRetain(Target target, boolean explicit);
+  boolean shouldRetain(Target target, boolean explicit);
 }

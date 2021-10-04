@@ -75,7 +75,7 @@ class NamedArtifactGroup implements BuildEvent {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
         LocalFileType outputType =
-            completionContext.isOutputFile(expandedArtifact.artifact)
+            completionContext.isGuaranteedToBeOutputFile(expandedArtifact.artifact)
                 ? LocalFileType.OUTPUT_FILE
                 : LocalFileType.OUTPUT;
         artifacts.add(

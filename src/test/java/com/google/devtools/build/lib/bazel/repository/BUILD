@@ -76,6 +76,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
@@ -94,23 +95,5 @@ java_test(
     runtime_deps = [
         ":BazelRepositoryTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-    ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:all_windows_tests",
     ],
 )

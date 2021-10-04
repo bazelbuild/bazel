@@ -34,8 +34,6 @@ final class WorkerProxy extends Worker {
   /** The execution root of the worker. */
   private final Path workDir;
 
-  private Thread shutdownHook;
-
   WorkerProxy(
       WorkerKey workerKey,
       int workerId,
@@ -44,14 +42,11 @@ final class WorkerProxy extends Worker {
     super(workerKey, workerId, logFile);
     this.workDir = workerKey.getExecRoot();
     this.workerMultiplexer = workerMultiplexer;
-    final WorkerProxy self = this;
-    this.shutdownHook =
-        new Thread(
-            () -> {
-              self.shutdownHook = null;
-              self.destroy();
-            });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
+  }
+
+  @Override
+  public boolean isSandboxed() {
+    return false;
   }
 
   @Override
@@ -73,11 +68,6 @@ final class WorkerProxy extends Worker {
       WorkerMultiplexerManager.removeInstance(workerKey);
     } catch (UserExecException e) {
       logger.atWarning().withCause(e).log("Exception");
-    } finally {
-      if (this.shutdownHook != null) {
-        Runtime.getRuntime().removeShutdownHook(this.shutdownHook);
-        this.shutdownHook = null;
-      }
     }
   }
 

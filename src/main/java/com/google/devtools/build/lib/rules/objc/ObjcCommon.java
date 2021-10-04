@@ -22,18 +22,15 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKSTAMP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -41,9 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -57,13 +52,11 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -72,7 +65,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 // TODO(bazel-team): Decompose and subsume area-specific logic and data into the various *Support
 // classes. Make sure to distinguish rule output (providers, runfiles, ...) from intermediate,
 // rule-internal information. Any provider created by a rule should not be read, only published.
-public final class ObjcCommon {
+public final class ObjcCommon implements StarlarkValue {
 
   /** Filters fileset artifacts out of a group of artifacts. */
   public static ImmutableList<Artifact> filterFileset(Iterable<Artifact> artifacts) {
@@ -113,9 +106,9 @@ public final class ObjcCommon {
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
+    private Iterable<String> linkopts = ImmutableList.of();
     private boolean hasModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
-    private Optional<Artifact> linkedBinary = Optional.absent();
     private Iterable<CcCompilationContext> ccCompilationContexts = ImmutableList.of();
     private Iterable<CcCompilationContext> directCCompilationContexts = ImmutableList.of();
     private Iterable<CcLinkingContext> ccLinkingContexts = ImmutableList.of();
@@ -192,29 +185,27 @@ public final class ObjcCommon {
       return this;
     }
 
-    /** Add the providers for the build dependencies. */
-    Builder addDeps(List<ConfiguredTargetAndData> deps) {
+    Builder addDeps(List<? extends TransitiveInfoCollection> deps) {
       ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfosForDirectFields = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkStampContexts = ImmutableList.builder();
 
-      for (ConfiguredTargetAndData dep : deps) {
-        ConfiguredTarget depCT = dep.getConfiguredTarget();
-        if (depCT.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
-          addAnyProviders(objcProviders, depCT, ObjcProvider.STARLARK_CONSTRUCTOR);
+      for (TransitiveInfoCollection dep : deps) {
+        if (dep.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
+          addAnyProviders(objcProviders, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
         } else {
           // This is the way we inject cc_library attributes into direct fields.
-          addAnyProviders(ccInfosForDirectFields, depCT, CcInfo.PROVIDER);
+          addAnyProviders(ccInfosForDirectFields, dep, CcInfo.PROVIDER);
           // We only use CcInfo's linking info if there is no ObjcProvider.  This is required so
           // that objc_library archives do not get treated as if they are from cc targets.
-          addAnyContexts(ccLinkingContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+          addAnyContexts(ccLinkingContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
         }
-        addAnyProviders(ccInfos, depCT, CcInfo.PROVIDER);
+        addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
         // Temporary solution to specially handle LinkStamps, so that they don't get dropped.  When
         // linking info has been fully migrated to CcInfo, we can drop this.
-        addAnyContexts(ccLinkStampContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+        addAnyContexts(ccLinkStampContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
       }
       addObjcProviders(objcProviders.build());
       addCcCompilationContexts(ccInfos.build());
@@ -223,24 +214,6 @@ public final class ObjcCommon {
       this.ccLinkStampContexts =
           Iterables.concat(this.ccLinkStampContexts, ccLinkStampContexts.build());
 
-      return this;
-    }
-
-    /**
-     * Adds providers for runtime frameworks included in the final app bundle but not linked with at
-     * build time.
-     */
-    Builder addRuntimeDeps(List<? extends TransitiveInfoCollection> runtimeDeps) {
-      ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
-      ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
-
-      for (TransitiveInfoCollection dep : runtimeDeps) {
-        addAnyProviders(objcProviders, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
-        addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
-      }
-      this.runtimeObjcProviders =
-          Iterables.concat(this.runtimeObjcProviders, objcProviders.build());
-      addCcCompilationContexts(ccInfos.build());
       return this;
     }
 
@@ -311,22 +284,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    /**
-     * Adds additional static libraries to be linked into the final ObjC application bundle.
-     */
-    Builder addExtraImportLibraries(Iterable<Artifact> extraImportLibraries) {
-      this.extraImportLibraries = Iterables.concat(this.extraImportLibraries, extraImportLibraries);
-      return this;
-    }
-
-    /**
-     * Sets a linked binary generated by this rule to be propagated to dependers.
-     */
-    Builder setLinkedBinary(Artifact linkedBinary) {
-      this.linkedBinary = Optional.of(linkedBinary);
-      return this;
-    }
-
     ObjcCommon build() {
 
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
@@ -353,28 +310,15 @@ public final class ObjcCommon {
 
       for (CcLinkingContext linkProvider : ccLinkingContexts) {
         ImmutableList<String> linkOpts = linkProvider.getFlattenedUserLinkFlags();
-        ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
-        ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
-        // Add any framework flags as frameworks directly, rather than as linkopts.
-        for (UnmodifiableIterator<String> iterator = linkOpts.iterator(); iterator.hasNext(); ) {
-          String arg = iterator.next();
-          if (arg.equals("-framework") && iterator.hasNext()) {
-            String framework = iterator.next();
-            frameworkLinkOpts.add(new SdkFramework(framework));
-          } else {
-            nonFrameworkLinkOpts.add(arg);
-          }
-        }
-
+        addLinkoptsToObjcProvider(linkOpts, objcProvider);
         objcProvider
-            .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
-            .addAll(LINKOPT, nonFrameworkLinkOpts.build())
             .addTransitiveAndPropagate(
                 CC_LIBRARY,
                 NestedSetBuilder.<LibraryToLink>linkOrder()
                     .addTransitive(linkProvider.getLibraries())
                     .build());
       }
+      addLinkoptsToObjcProvider(linkopts, objcProvider);
 
       for (CcLinkingContext ccLinkStampContext : ccLinkStampContexts) {
         objcProvider.addAll(LINKSTAMP, ccLinkStampContext.getLinkstamps());
@@ -451,10 +395,7 @@ public final class ObjcCommon {
         }
         objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
         objcProvider.addDirect(MODULE_MAP, moduleMap.getArtifact());
-        objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
       }
-
-      objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
       ObjcCompilationContext objcCompilationContext = objcCompilationContextBuilder.build();
 
@@ -462,6 +403,25 @@ public final class ObjcCommon {
           purpose, objcProvider.build(), objcCompilationContext, compilationArtifacts);
     }
 
+    private void addLinkoptsToObjcProvider(
+        Iterable<String> linkopts, ObjcProvider.Builder objcProvider) {
+      ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
+      ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
+      // Add any framework flags as frameworks directly, rather than as linkopts.
+      for (Iterator<String> iterator = linkopts.iterator(); iterator.hasNext(); ) {
+        String arg = iterator.next();
+        if (arg.equals("-framework") && iterator.hasNext()) {
+          String framework = iterator.next();
+          frameworkLinkOpts.add(new SdkFramework(framework));
+        } else {
+          nonFrameworkLinkOpts.add(arg);
+        }
+      }
+
+      objcProvider
+          .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
+          .addAll(LINKOPT, nonFrameworkLinkOpts.build());
+    }
   }
 
   private final Purpose purpose;
@@ -512,85 +472,4 @@ public final class ObjcCommon {
     }
     return Optional.absent();
   }
-
-  /**
-   * Returns effective compilation options that do not arise from the crosstool.
-   */
-  static Iterable<String> getNonCrosstoolCopts(RuleContext ruleContext) {
-    return Iterables.concat(
-        ruleContext.getFragment(ObjcConfiguration.class).getCopts(),
-        ruleContext.getExpander().withDataLocations().tokenized("copts"));
-  }
-
-  /**
-   * Returns the first directory in the sequence of parents of the exec path of the given artifact
-   * that matches {@code type}. For instance, if {@code type} is FileType.of(".foo") and the exec
-   * path of {@code artifact} is {@code a/b/c/bar.foo/d/e}, then the return value is
-   * {@code a/b/c/bar.foo}.
-   */
-  static Optional<PathFragment> nearestContainerMatching(FileType type, Artifact artifact) {
-    PathFragment container = artifact.getExecPath();
-    do {
-      if (type.matches(container)) {
-        return Optional.of(container);
-      }
-      container = container.getParentDirectory();
-    } while (container != null);
-    return Optional.absent();
-  }
-
-  /**
-   * Similar to {@link #nearestContainerMatching(FileType, Artifact)}, but tries matching several
-   * file types in {@code types}, and returns a path for the first match in the sequence.
-   */
-  static Optional<PathFragment> nearestContainerMatching(
-      Iterable<FileType> types, Artifact artifact) {
-    for (FileType type : types) {
-      for (PathFragment container : nearestContainerMatching(type, artifact).asSet()) {
-        return Optional.of(container);
-      }
-    }
-    return Optional.absent();
-  }
-
-  /**
-   * Similar to {@link #nearestContainerMatching(FileType, Artifact)}, but returns the container
-   * closest to the root that matches the given type.
-   */
-  static Optional<PathFragment> farthestContainerMatching(FileType type, Artifact artifact) {
-    PathFragment container = artifact.getExecPath();
-    Optional<PathFragment> lastMatch = Optional.absent();
-    do {
-      if (type.matches(container)) {
-        lastMatch = Optional.of(container);
-      }
-      container = container.getParentDirectory();
-    } while (container != null);
-    return lastMatch;
-  }
-
-  static Iterable<String> notInContainerErrors(
-      Iterable<Artifact> artifacts, FileType containerType) {
-    return notInContainerErrors(artifacts, ImmutableList.of(containerType));
-  }
-
-  static Iterable<String> notInContainerErrors(
-      Iterable<Artifact> artifacts, Iterable<FileType> containerTypes) {
-    Set<String> errors = new HashSet<>();
-    for (Artifact artifact : artifacts) {
-      boolean inContainer = nearestContainerMatching(containerTypes, artifact).isPresent();
-      if (!inContainer) {
-        errors.add(
-            String.format(
-                NOT_IN_CONTAINER_ERROR_FORMAT,
-                artifact.getExecPath(),
-                Iterables.toString(containerTypes)));
-      }
-    }
-    return errors;
-  }
-
-  @VisibleForTesting
-  static final String NOT_IN_CONTAINER_ERROR_FORMAT =
-      "File '%s' is not in a directory of one of these type(s): %s";
 }

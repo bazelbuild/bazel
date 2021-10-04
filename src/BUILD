@@ -12,16 +12,22 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 [genrule(
     name = "install_base_key-file" + suffix,
     srcs = [
+        # Ensure we haven't forgotten any package-zip items,
+        # otherwise bazel won't correctly reextract modified files.
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        # TODO(brandjon): ensure we haven't forgotten any package-zip items,
-        # otherwise bazel won't correctly reextract modified files.
         "//src/main/cpp:client",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-    ] + embedded_tools_target,
+        ":platforms_archive",
+    ] + select({
+        "//src/conditions:windows": [],
+        "//conditions:default": [
+            "//src/main/tools:daemonize",
+        ],
+    }) + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
         "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
@@ -47,42 +53,6 @@ genquery(
     expression = "kind(java_toolchain, deps(@bazel_tools//tools/jdk:current_java_toolchain))",
     opts = ["--output=xml"],
     scope = ["@bazel_tools//tools/jdk:current_java_toolchain"],
-)
-
-# Create dummy tools so we can do select to prevent building iOS target on
-# Linux.
-OSX_DUMMY_TARGETS = [
-    "src/tools/xcode/realpath/realpath",
-    "src/tools/xcode/stdredirect/StdRedirect.dylib",
-]
-
-[
-    genrule(
-        name = "dummy_darwin_tool_" + name.replace("/", "_"),
-        srcs = [],
-        outs = ["dummy_darwin_tools/" + name],
-        cmd = "touch $@",
-    )
-    for name in OSX_DUMMY_TARGETS
-]
-
-filegroup(
-    name = "darwin_tools",
-    srcs = [
-        "//src/tools/xcode/realpath:realpath",
-        "//tools/osx:xcode_locator.m",
-    ] + select({
-        "//src/conditions:iphonesdk": ["//src/tools/xcode/stdredirect:StdRedirect.dylib"],
-        "//conditions:default": [":dummy_darwin_tool_src_tools_xcode_stdredirect_StdRedirect.dylib"],
-    }),
-)
-
-filegroup(
-    name = "dummy_darwin_tools",
-    srcs = [
-        "dummy_darwin_tool_" + name.replace("/", "_")
-        for name in OSX_DUMMY_TARGETS
-    ],
 )
 
 py_library(
@@ -138,11 +108,9 @@ JAVA_TOOLS = [
                "//third_party/zlib:embedded_tools",
            ] + select({
                "//src/conditions:darwin": [
-                   ":darwin_tools",
+                   "//tools/osx:xcode_locator.m",
                ],
-               "//conditions:default": [
-                   ":dummy_darwin_tools",
-               ],
+               "//conditions:default": [],
            }) + select({
                "//src/conditions:windows": [
                    "//src/tools/launcher:launcher",
@@ -167,7 +135,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 500,
+    expect = 465,
     margin = 5,  # percentage
 )
 
@@ -338,6 +306,9 @@ filegroup(
     #   3) the install base key
     #   4) the platforms archive
     #   5) everything else to be bundled
+    # Ensure we haven't forgotten to add all package-zip items as dependencies
+    # of :install_base_key-file, otherwise bazel won't correctly reextract
+    # modified files.
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
@@ -484,9 +455,7 @@ filegroup(
         "//src/tools/workspacelog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
-        "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",
-        "//src/tools/xcode/stdredirect:srcs",
         "//src/tools/remote:srcs",
         "//tools/osx:srcs",
     ],
@@ -512,37 +481,6 @@ genrule(
     toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/cpp:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/android:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/docgen:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/skyframe:all_windows_tests",
-        "//src/test/java/com/google/devtools/common/options:all_windows_tests",
-        "//src/test/native/windows:all_windows_tests",
-        "//src/test/py/bazel:all_windows_tests",
-        "//src/test/res:all_windows_tests",
-        "//src/test/shell:all_windows_tests",
-        "//src/test/shell/bazel/android:all_windows_tests",
-        "//src/tools/launcher:all_windows_tests",
-        "//src/tools/singlejar:all_windows_tests",
-        "//third_party/def_parser:all_windows_tests",
-        "//tools:all_windows_tests",
-    ],
 )
 
 # config_setting alias left here because bazel-only third_party code is pointing to it
@@ -719,6 +657,10 @@ filegroup(
         "@openjdk16_darwin_archive//:WORKSPACE",
         "@openjdk16_linux_archive//:WORKSPACE",
         "@openjdk16_windows_archive//:WORKSPACE",
+        "@openjdk17_darwin_aarch64_archive//:WORKSPACE",
+        "@openjdk17_darwin_archive//:WORKSPACE",
+        "@openjdk17_linux_archive//:WORKSPACE",
+        "@openjdk17_windows_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_aarch64_minimal//file",
@@ -748,6 +690,10 @@ filegroup(
         "@remotejdk16_macos_aarch64_for_testing//:WORKSPACE",
         "@remotejdk16_macos_for_testing//:WORKSPACE",
         "@remotejdk16_win_for_testing//:WORKSPACE",
+        "@remotejdk17_linux_for_testing//:WORKSPACE",
+        "@remotejdk17_macos_aarch64_for_testing//:WORKSPACE",
+        "@remotejdk17_macos_for_testing//:WORKSPACE",
+        "@remotejdk17_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",

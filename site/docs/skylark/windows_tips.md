@@ -41,8 +41,8 @@ Problems:
   Absolute paths on Windows start with a drive letter, e.g. `C:\foo\bar.txt`. There's no single
   filesystem root.
 
-  Be aware of this if your rule checks if a path is absolute. (Absolute paths should be avoided
-  though, they are often non-portable.)
+  Be aware of this if your rule checks if a path is absolute. Absolute paths
+  should be avoided since they are often non-portable.
 
 Solutions:
 
@@ -84,8 +84,8 @@ Solutions:
   ```
 
   <sup>[1]</sup>: Strictly speaking
-  [Junctions are not Symbolic Links](https://superuser.com/a/343079), but for sake of build actions
-  we may regard Junctions as Directory Symlinks.
+  [Junctions are not Symbolic Links](https://superuser.com/a/343079), but for
+  the sake of build actions you may regard Junctions as Directory Symlinks.
 
 - **Replace `/` with `\` in paths in actions / envvars.**
 

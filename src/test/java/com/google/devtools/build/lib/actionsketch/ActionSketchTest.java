@@ -29,7 +29,7 @@ public final class ActionSketchTest {
   public void serialization() {
     roundTrip(
         ActionSketch.builder()
-            .setTransitiveSourceHash(BigInteger.ONE)
+            .setTransitiveSourceHash(HashAndVersion.create(BigInteger.ONE, /*version=*/ 0L))
             .setTransitiveActionLookupHash(new BigInteger("123456789"))
             .build());
   }
@@ -42,12 +42,12 @@ public final class ActionSketchTest {
   public void canonicalNullInstance() {
     ActionSketch sketch1 =
         ActionSketch.builder()
-            .setTransitiveSourceHash(null)
+            .setTransitiveSourceHash(HashAndVersion.create(null, /*version=*/ Long.MAX_VALUE))
             .setTransitiveActionLookupHash(null)
             .build();
     ActionSketch sketch2 =
         ActionSketch.builder()
-            .setTransitiveSourceHash(null)
+            .setTransitiveSourceHash(HashAndVersion.create(null, /*version=*/ Long.MAX_VALUE))
             .setTransitiveActionLookupHash(null)
             .build();
 

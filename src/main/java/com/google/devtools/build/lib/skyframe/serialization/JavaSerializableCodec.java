@@ -28,7 +28,7 @@ import java.nio.ByteBuffer;
 /** Naive ObjectCodec using Java native Serialization. Not performant, but a good fallback */
 class JavaSerializableCodec implements ObjectCodec<Object> {
 
-  private static boolean isBlacklistedForJavaSerialization(Class<?> clazz) {
+  private static boolean shouldNotBeJavaSerialized(Class<?> clazz) {
     return MessageLite.class.isAssignableFrom(clazz);
   }
 
@@ -40,7 +40,7 @@ class JavaSerializableCodec implements ObjectCodec<Object> {
   @Override
   public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    if (isBlacklistedForJavaSerialization(obj.getClass())) {
+    if (shouldNotBeJavaSerialized(obj.getClass())) {
       throw new SerializationException(
           "Java serialization is not permitted for class " + obj.getClass());
     }

@@ -303,7 +303,7 @@ public abstract class ImplicitOutputsFunction {
    */
   // It would be nice to unify this with fromTemplates above, but that's not possible because
   // substitutePlaceholderIntoUnsafeTemplate can throw an exception.
-  public static ImplicitOutputsFunction fromUnsafeTemplates(Iterable<String> templates) {
+  private static ImplicitOutputsFunction fromUnsafeTemplates(Iterable<String> templates) {
     return new UnsafeTemplatesImplicitOutputsFunction(templates);
   }
 
@@ -457,7 +457,7 @@ public abstract class ImplicitOutputsFunction {
     abstract List<String> attributeNames();
 
     static ParsedTemplate parse(String rawTemplate) {
-      List<String> placeholders = Lists.<String>newArrayList();
+      List<String> placeholders = Lists.newArrayList();
       String formatStr = createPlaceholderSubstitutionFormatString(rawTemplate, placeholders);
       if (placeholders.isEmpty()) {
         placeholders = ImmutableList.of();
@@ -476,7 +476,7 @@ public abstract class ImplicitOutputsFunction {
       for (String placeholder : attributeNames()) {
         Set<String> attrValues = attributeGetter.get(attributeMap, placeholder);
         if (attrValues.isEmpty()) {
-          return ImmutableList.<String>of();
+          return ImmutableList.of();
         }
         values.add(attrValues);
       }

@@ -19,8 +19,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:ThrowingRecordableRunnableWrapper",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

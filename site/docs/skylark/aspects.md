@@ -15,14 +15,14 @@ and actions. Some typical scenarios when aspects can be useful:
 *   IDEs that integrate Bazel can use aspects to collect information about the
     project.
 *   Code generation tools can leverage aspects to execute on their inputs in
-    "target-agnostic" manner. As an example, BUILD files can specify a hierarchy
+    *target-agnostic* manner. As an example, `BUILD` files can specify a hierarchy
     of [protobuf](https://developers.google.com/protocol-buffers/) library
     definitions, and language-specific rules can use aspects to attach
     actions generating protobuf support code for a particular language.
 
 ## Aspect basics
 
-Bazel BUILD files provide a description of a project’s source code: what source
+Bazel `BUILD` files provide a description of a project’s source code: what source
 files are part of the project, what artifacts (_targets_) should be built from
 those files, what the dependencies between those files are, etc. Bazel uses
 this information to perform a build, that is, it figures out the set of actions
@@ -30,7 +30,7 @@ needed to produce the artifacts (such as running compiler or linker) and
 executes those actions. Bazel accomplishes this by constructing a _dependency
 graph_ between targets and visiting this graph to collect those actions.
 
-Consider the following BUILD file:
+Consider the following `BUILD` file:
 
 ```python
 java_library(name = 'W', ...)
@@ -41,7 +41,7 @@ java_library(name = 'T', deps = [':Q'], ...)
 java_library(name = 'X', deps = [':Y',':Z'], runtime_deps = [':T'], ...)
 ```
 
-This BUILD file defines a dependency graph shown in the following figure:
+This `BUILD` file defines a dependency graph shown in the following figure:
 
 <img src="build-graph.png" alt="Build Graph" width="250px" />
 
@@ -49,7 +49,7 @@ Bazel analyzes this dependency graph by calling an implementation function of
 the corresponding [rule](rules.md) (in this case "java_library") for every
 target in the above example. Rule implementation functions generate actions that
 build artifacts, such as `.jar` files, and pass information, such as locations
-and names of those artifacts, to the dependencies of those targets in
+and names of those artifacts, to the reverse dependencies of those targets in
 [providers](rules.md#providers).
 
 Aspects are similar to rules in that they have an implementation function that
@@ -151,7 +151,8 @@ does not provide anything, so it returns an empty list.
 
 The simplest way to apply an aspect is from the command line using the
 [`--aspects`](../command-line-reference.html#flag--aspects)
-argument. Assuming the rule above were defined in a file named `print.bzl` this:
+argument. Assuming the aspect above were defined in a file named `print.bzl`
+this:
 
 ```bash
 bazel build //MyExample:example --aspects print.bzl%print_aspect
@@ -256,11 +257,11 @@ file_count_aspect = aspect(
 )
 ```
 
-In this example, we are again propagating the aspect via the ``deps`` attribute.
+This example shows how the aspect propagates through the ``deps`` attribute.
 
 ``attrs`` defines a set of attributes for an aspect. Public aspect attributes
 are of type ``string`` and are called parameters. Parameters must have a``values``
-attribute specified on them. In this case we have a parameter called ``extension``
+attribute specified on them. This example has a parameter called ``extension``
 that is allowed to have '``*``', '``h``', or '``cc``' as a value.
 
 Parameter values for the aspect are taken from the string attribute with the same
@@ -311,25 +312,30 @@ def _file_count_aspect_impl(target, ctx):
 ```
 
 Just like a rule implementation function, an aspect implementation function
-returns a struct of providers that are accessible to its dependencies.
+returns a struct of providers that are accessible to its reverse dependencies.
 
 In this example, the ``FileCountInfo`` is defined as a provider that has one
 field ``count``. It is best practice to explicitly define the fields of a
 provider using the ``fields`` attribute.
 
 The set of providers for an aspect application A(X) is the union of providers
-that come from the implementation of a rule for target X and from
-the implementation of aspect A. It is an error if a target and an aspect that
-is applied to it each provide a provider with the same name. The providers that
-a rule implementation propagates are created and frozen before aspects are
-applied and cannot be modified from an aspect.
+that come from the implementation of a rule for target X and from the
+implementation of aspect A. The providers that a rule implementation propagates
+are created and frozen before aspects are applied and cannot be modified from an
+aspect. It is an error if a target and an aspect that is applied to it each
+provide a provider with the same type, with the exceptions of
+[`OutputGroupInfo`](lib/OutputGroupInfo.html) (which is merged, so long as the
+rule and aspect specify different output groups) and
+[`InstrumentedFilesInfo`](lib/InstrumentedFilesInfo.html) (which is taken from
+the aspect). This means that aspect implementations may never return
+[`DefaultInfo`](lib/DefaultInfo.html).
 
 The parameters and private attributes are passed in the attributes of the
-``ctx``. In this example, we reference the ``extension`` parameter to decide
+``ctx``. This example references the ``extension`` parameter and determines
 what files to count.
 
 For returning providers, the values of attributes along which
-the aspect is propagated (from the `attr_aspect` list) are replaced with
+the aspect is propagated (from the `attr_aspects` list) are replaced with
 the results of an application of the aspect to them. For example, if target
 X has Y and Z in its deps, `ctx.rule.attr.deps` for A(X) will be [A(Y), A(Z)].
 In this example, ``ctx.rule.attr.deps`` are Target objects that are the

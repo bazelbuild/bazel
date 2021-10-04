@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
@@ -27,4 +28,4 @@ import com.google.devtools.build.skyframe.SkyKey;
  * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,
  * while remaining agnostic to what action lookup values actually exist.
  */
-public interface ActionLookupKey extends ArtifactOwner, SkyKey {}
+public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {}

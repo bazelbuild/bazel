@@ -16,20 +16,17 @@ package com.google.devtools.build.lib.buildtool;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * End-to-end or integration test of some of the tricky include validation
- * cases, including regressions.
+ * End-to-end or integration test of some of the tricky include validation cases, including
+ * regressions.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
-public class IncludeValidationTest extends GoogleBuildIntegrationTestCase {
+public class IncludeValidationTest extends BuildIntegrationTestCase {
 
   private void writeFooBuild(boolean withDeps) throws Exception {
     write("foo/BUILD",

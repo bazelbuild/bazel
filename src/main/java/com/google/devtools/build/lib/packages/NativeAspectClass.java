@@ -49,8 +49,7 @@ public abstract class NativeAspectClass implements AspectClass {
     public void serialize(
         SerializationContext context, NativeAspectClass obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      RuleClassProvider ruleClassProvider =
-          Preconditions.checkNotNull(context.getDependency(RuleClassProvider.class), obj);
+      RuleClassProvider ruleClassProvider = context.getDependency(RuleClassProvider.class);
       NativeAspectClass storedAspect = ruleClassProvider.getNativeAspectClass(obj.getKey());
       Preconditions.checkState(
           obj == storedAspect, "Not stored right: %s %s %s", obj, storedAspect, ruleClassProvider);
@@ -62,8 +61,7 @@ public abstract class NativeAspectClass implements AspectClass {
         throws SerializationException, IOException {
       String aspectKey = context.deserialize(codedIn);
       return Preconditions.checkNotNull(
-          Preconditions.checkNotNull(context.getDependency(RuleClassProvider.class), aspectKey)
-              .getNativeAspectClass(aspectKey),
+          context.getDependency(RuleClassProvider.class).getNativeAspectClass(aspectKey),
           aspectKey);
     }
   }

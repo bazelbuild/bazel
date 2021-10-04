@@ -225,13 +225,13 @@ public abstract class TestStrategy implements TestActionContext {
         : getTestAttempts(action, /*defaultTestAttempts=*/ 1);
   }
 
-  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
-    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
-  }
-
   private int getTestAttempts(TestRunnerAction action, int defaultTestAttempts) {
     Label testLabel = action.getOwner().getLabel();
     return getTestAttemptsPerLabel(executionOptions, testLabel, defaultTestAttempts);
+  }
+
+  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
+    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
   }
 
   private static int getTestAttemptsPerLabel(

@@ -70,6 +70,23 @@ releases.
 Note that a new rolling release can contain breaking changes that are
 incompatible with previous releases.
 
+Rolling releases are tested on Bazel's test suite on Bazel CI and
+Google’s internal test suite. Incompatible flags may be
+used to ease the burden of migrating to new functionality, but default behaviors
+may change with any rolling release. (You can also use rolling releases to
+preview the next LTS version. For example, `5.0.0-pre.20210604.6` is based on a
+candidate cut on 2021-06-04 and represents a milestone towards the 5.0 LTS
+release.)
+
+You can download the latest rolling release from
+[GitHub](https://github.com/bazelbuild/bazel/releases). Alternatively, you can
+set up
+[Bazelisk v1.9.0](https://github.com/bazelbuild/bazelisk/releases/tag/v1.9.0)
+(or later) to use a specific version name or the
+“rolling” identifier, which uses the most recent rolling release. For more
+details, see the
+[Bazelisk documentation](https://github.com/bazelbuild/bazelisk#how-does-bazelisk-know-which-bazel-version-to-run).
+
 ## Updating versions
 
 * For more information on updating your Bazel version, see

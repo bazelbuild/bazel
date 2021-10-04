@@ -114,11 +114,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       if (configuredAttribute == null) { // handles aspects
         configuredAttribute = attribute;
       }
+      String description = configuredAttribute.getRequiredProviders().getDescription();
       boolean containsPackageSpecificationProvider =
-          configuredAttribute
-              .getRequiredProviders()
-              .getDescription()
-              .contains("PackageSpecificationProvider");
+          description.contains("PackageSpecificationProvider")
+              || description.contains("PackageSpecificationInfo");
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
       if (!attrName.equals("visibility")
           && !attrName.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)

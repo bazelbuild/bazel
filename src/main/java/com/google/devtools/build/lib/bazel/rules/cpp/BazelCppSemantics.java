@@ -51,6 +51,11 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
+  public static final Provider.Key CC_SHARED_INFO_PROVIDER_BUILT_INS =
+      new StarlarkProvider.Key(
+          Label.parseAbsoluteUnchecked("@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
+          "CcSharedLibraryInfo");
+
   private enum Language {
     CPP,
     OBJC
@@ -81,7 +86,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           .setShouldScanIncludes(false);
     } else {
       actionBuilder
-          .addTransitiveMandatoryInputs(toolchain.getAllFilesMiddleman())
+          .addTransitiveMandatoryInputs(toolchain.getAllFilesIncludingLibc())
           .setShouldScanIncludes(false);
     }
   }
@@ -133,6 +138,10 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     if (ccSharedLibraryInfo != null) {
       return ccSharedLibraryInfo;
     }
+    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_BUILT_INS);
+    if (ccSharedLibraryInfo != null) {
+      return ccSharedLibraryInfo;
+    }
     return null;
   }
 
@@ -142,4 +151,9 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
+
+  @Override
+  public boolean createEmptyArchive() {
+    return false;
+  }
 }

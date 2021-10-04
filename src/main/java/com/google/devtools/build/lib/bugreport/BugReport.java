@@ -25,8 +25,12 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.TestType;
+import com.sun.management.HotSpotDiagnosticMXBean;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
@@ -63,6 +67,9 @@ public final class BugReport {
    */
   public interface BlazeRuntimeInterface {
     String getProductName();
+
+    void fillInCrashContext(CrashContext ctx);
+
     /**
      * Perform all possible clean-up before crashing, posting events etc. so long as crashing isn't
      * significantly delayed or another crash isn't triggered.
@@ -148,18 +155,35 @@ public final class BugReport {
    */
   public static void handleCrash(Crash crash, CrashContext ctx) {
     int numericExitCode = crash.getDetailedExitCode().getExitCode().getNumericExitCode();
+    Throwable throwable = crash.getThrowable();
+    if (runtime != null) {
+      runtime.fillInCrashContext(ctx);
+    }
     try {
       synchronized (LOCK) {
-        logger.atSevere().withCause(crash.getThrowable()).log("Handling crash with %s", ctx);
+        logger.atSevere().withCause(throwable).log("Handling crash with %s", ctx);
 
         // Don't try to send a bug report during a crash in a test, it will throw itself.
         if (TestType.isInTest()) {
-          unprocessedThrowableInTest = crash.getThrowable();
+          unprocessedThrowableInTest = throwable;
         } else if (ctx.shouldSendBugReport()) {
-          sendBugReport(crash.getThrowable(), ctx.getArgs());
+          sendBugReport(throwable, ctx.getArgs());
         }
 
-        String crashMsg = constructCrashMessageWithStackTrace(crash.getThrowable(), ctx);
+        String crashMsg;
+        String heapDumpPath;
+        // Might be a wrapped OOM - the detailed exit code reflects the root cause.
+        if (crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR)) {
+          crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
+          heapDumpPath = ctx.getHeapDumpPath();
+          if (heapDumpPath != null) {
+            crashMsg += " An attempt will be made to write a heap dump to " + heapDumpPath + ".";
+          }
+        } else {
+          crashMsg = getProductName() + " crashed due to an internal error.";
+          heapDumpPath = null;
+        }
+        crashMsg += " Printing stack trace:\n" + Throwables.getStackTraceAsString(throwable);
         ctx.getEventHandler().handle(Event.fatal(crashMsg));
 
         try {
@@ -178,6 +202,16 @@ public final class BugReport {
             logger.atInfo().log("Wrote failure detail file.");
           } else {
             logger.atWarning().log("Did not write failure detail file; check stderr for errors.");
+          }
+
+          if (heapDumpPath != null) {
+            logger.atInfo().log("Attempting to dump heap to %s", heapDumpPath);
+            try {
+              dumpHeap(heapDumpPath);
+              logger.atInfo().log("Heap dump complete");
+            } catch (Throwable t) { // Catch anything so we don't forgo the OOM.
+              logger.atWarning().withCause(t).log("Heap dump failed");
+            }
           }
 
           if (runtime != null) {
@@ -207,7 +241,7 @@ public final class BugReport {
               + " and include the information below.");
 
       System.err.println("Original uncaught exception:");
-      crash.getThrowable().printStackTrace(System.err);
+      throwable.printStackTrace(System.err);
 
       System.err.println("Exception encountered during BugReport#handleCrash:");
       t.printStackTrace(System.err);
@@ -220,21 +254,21 @@ public final class BugReport {
       return;
     }
     logger.atSevere().log("Failed to crash in handleCrash");
-    throw new IllegalStateException("Should have halted", crash.getThrowable());
-  }
-
-  /** Constructs a user-helpful message for a crash bug. */
-  private static String constructCrashMessageWithStackTrace(Throwable throwable, CrashContext ctx) {
-    String msg =
-        throwable instanceof OutOfMemoryError
-            ? constructOomExitMessage(ctx.getExtraOomInfo())
-            : getProductName() + " crashed due to an internal error.";
-    return msg + " Printing stack trace:\n" + Throwables.getStackTraceAsString(throwable);
+    throw new IllegalStateException("Should have halted", throwable);
   }
 
   public static String constructOomExitMessage(@Nullable String extraInfo) {
     String msg = getProductName() + " ran out of memory and crashed.";
     return isNullOrEmpty(extraInfo) ? msg : msg + " " + extraInfo;
+  }
+
+  private static void dumpHeap(String path) throws IOException {
+    HotSpotDiagnosticMXBean mxBean =
+        ManagementFactory.newPlatformMXBeanProxy(
+            ManagementFactory.getPlatformMBeanServer(),
+            "com.sun.management:type=HotSpotDiagnostic",
+            HotSpotDiagnosticMXBean.class);
+    mxBean.dumpHeap(path, /*live=*/ true);
   }
 
   /**

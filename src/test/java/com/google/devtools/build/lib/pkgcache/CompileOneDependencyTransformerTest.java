@@ -59,7 +59,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     transformer = new CompileOneDependencyTransformer(getPackageManager());
   }
 
@@ -362,5 +363,18 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         "a/BUILD",
         "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h"));
+  }
+
+  @Test
+  public void doesNotCrashWhenPackageHasRuleWithDubiousSrcs() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "environment(name = 'foo')",
+        "environment(name = 'baz')",
+        "environment_group(name = 'bar', environments = [':baz', ':foo'], defaults = [':baz'])",
+        "package_group(name = 'pg')",
+        "cc_library(name = 'h1', srcs = [':bar', ':pg'])",
+        "cc_library(name = 'h2', hdrs = ['a.h'])");
+    assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h2"));
   }
 }

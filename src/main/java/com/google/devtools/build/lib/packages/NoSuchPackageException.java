@@ -58,7 +58,7 @@ public class NoSuchPackageException extends NoSuchThingException {
     return packageId;
   }
 
-  public String getRawMessage() {
+  String getRawMessage() {
     return super.getMessage();
   }
 

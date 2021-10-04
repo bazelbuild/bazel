@@ -47,6 +47,18 @@ public class RepositoryOptions extends OptionsBase {
   public PathFragment experimentalRepositoryCache;
 
   @Option(
+      name = "registry",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Specifies the registries to use to locate Bazel module dependencies. The order is"
+              + " important: modules will be looked up in earlier registries first, and only fall"
+              + " back to later registries when they're missing from the earlier ones.")
+  public List<String> registries;
+
+  @Option(
       name = "experimental_repository_cache_hardlinks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -64,6 +76,17 @@ public class RepositoryOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If set, downloading external repositories is not allowed.")
   public boolean disableDownload;
+
+  @Option(
+      name = "experimental_repository_downloader_retries",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "The maximum number of attempts to retry a download error. If set to 0, retries are"
+              + " disabled.")
+  public int repositoryDownloaderRetries;
 
   @Option(
       name = "distdir",
@@ -155,6 +178,28 @@ public class RepositoryOptions extends OptionsBase {
               + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
               + "give, and in this case multiple URLs will be returned.")
   public String downloaderConfig;
+
+  @Option(
+      name = "experimental_enable_bzlmod",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, Bazel tries to load external repositories from the Bzlmod system before "
+              + "looking into the WORKSPACE file.")
+  public boolean enableBzlmod;
+
+  @Option(
+      name = "ignore_dev_dependency",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in "
+              + "the MODULE.bazel of the root module. Note that, those dev dependencies are always "
+              + "ignored in the MODULE.bazel if it's not the root module regardless of the value "
+              + "of this flag.")
+  public boolean ignoreDevDependency;
 
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.

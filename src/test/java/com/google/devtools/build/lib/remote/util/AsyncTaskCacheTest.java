@@ -14,11 +14,19 @@
 package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.google.common.util.concurrent.SettableFuture;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.observers.TestObserver;
+import java.io.IOException;
+import java.util.Random;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -282,43 +290,190 @@ public class AsyncTaskCacheTest {
     assertThat(cache.getFinishedTasks()).containsExactly("key1");
   }
 
-  @Test
-  public void execute_executeAndDisposeLoop_noErrors() throws InterruptedException {
-    AsyncTaskCache<String, Long> cache = AsyncTaskCache.create();
-    Single<Long> task = Single.timer(1, SECONDS);
-    AtomicReference<Throwable> error = new AtomicReference<>(null);
-    AtomicInteger errorCount = new AtomicInteger(0);
-    int executionCount = 100;
-    Runnable runnable =
+  private Completable newTask(ExecutorService executorService) {
+    return RxFutures.toCompletable(
         () -> {
-          try {
-            for (int i = 0; i < executionCount; ++i) {
-              TestObserver<Long> observer = cache.execute("key1", task, true).test();
-              observer.assertNoErrors();
-              observer.dispose();
-            }
-          } catch (Throwable t) {
-            errorCount.incrementAndGet();
-            error.set(t);
-          }
-        };
-    int threadCount = 10;
-    Thread[] threads = new Thread[threadCount];
-    for (int i = 0; i < threadCount; ++i) {
-      Thread thread = new Thread(runnable);
-      threads[i] = thread;
-    }
+          SettableFuture<Void> future = SettableFuture.create();
+          executorService.execute(
+              () -> {
+                try {
+                  Thread.sleep((long) (Math.random() * 1000));
+                  future.set(null);
+                } catch (InterruptedException e) {
+                  future.setException(new IOException(e));
+                }
+              });
+          return future;
+        },
+        executorService);
+  }
 
-    for (Thread thread : threads) {
-      thread.start();
+  @Test
+  public void execute_executeAndDisposeLoop_noErrors() throws Throwable {
+    int taskCount = 1000;
+    int maxKey = 20;
+    Random random = new Random();
+    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
+    AsyncTaskCache.NoResult<String> cache = AsyncTaskCache.NoResult.create();
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Semaphore semaphore = new Semaphore(0);
+
+    for (int i = 0; i < taskCount; ++i) {
+      executorService.execute(
+          () -> {
+            try {
+              Completable task =
+                  cache.execute("key" + random.nextInt(maxKey), newTask(executorService), true);
+              TestObserver<Void> observer = task.test();
+              observer.assertNoErrors();
+              if (random.nextBoolean()) {
+                observer.dispose();
+              } else {
+                observer.await();
+                observer.assertNoErrors();
+              }
+            } catch (Throwable e) {
+              if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+              }
+              error.set(e);
+            } finally {
+              semaphore.release();
+            }
+          });
     }
-    for (Thread thread : threads) {
-      thread.join();
-    }
+    semaphore.acquire(taskCount);
 
     if (error.get() != null) {
-      throw new IllegalStateException(
-          String.format("%s/%s errors", errorCount.get(), threadCount), error.get());
+      throw error.get();
     }
+  }
+
+  @Test
+  public void execute_executeWithFutureAndCancelLoop_noErrors() throws Throwable {
+    int taskCount = 1000;
+    int maxKey = 20;
+    Random random = new Random();
+    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
+    AsyncTaskCache.NoResult<String> cache = AsyncTaskCache.NoResult.create();
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Semaphore semaphore = new Semaphore(0);
+
+    for (int i = 0; i < taskCount; ++i) {
+      executorService.execute(
+          () -> {
+            try {
+              Completable download =
+                  cache.execute("key" + random.nextInt(maxKey), newTask(executorService), true);
+              Future<Void> future = RxFutures.toListenableFuture(download);
+              if (!future.isDone() && random.nextBoolean()) {
+                future.cancel(true);
+              } else {
+                future.get();
+              }
+            } catch (Throwable e) {
+              if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+              }
+              error.set(e);
+            } finally {
+              semaphore.release();
+            }
+          });
+    }
+    semaphore.acquire(taskCount);
+
+    if (error.get() != null) {
+      throw error.get();
+    }
+  }
+
+  @Test
+  public void execute_pendingShutdown_getCancellationError() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache
+        .executeIfNot(
+            "key1",
+            Single.create(
+                emitter -> {
+                  // never complete
+                }))
+        .test()
+        .assertNotComplete();
+    cache.shutdown();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
+
+    TestObserver<String> ob = cache.executeIfNot("key2", Single.just("value2")).test();
+
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void execute_afterShutdown_getCancellationError() throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache.shutdown();
+    cache.awaitTermination();
+
+    TestObserver<String> ob = cache.executeIfNot("key", Single.just("value")).test();
+
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void shutdownNow_cancelInProgressTasks() throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    TestObserver<String> ob =
+        cache
+            .executeIfNot(
+                "key",
+                Single.create(
+                    emitter -> {
+                      // never complete
+                    }))
+            .test();
+    cache.shutdown();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
+    ob.assertNotComplete();
+
+    cache.shutdownNow();
+    cache.awaitTermination();
+
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void awaitTermination_pendingShutdown_completeAfterTaskFinished()
+      throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
+    TestObserver<String> ob =
+        cache.executeIfNot("key", Single.create(emitterRef::set)).test().assertNotComplete();
+    assertThat(emitterRef.get()).isNotNull();
+    cache.shutdown();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
+
+    emitterRef.get().onSuccess("value");
+    cache.awaitTermination();
+
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
+    ob.assertValue("value");
+  }
+
+  @Test
+  public void awaitTermination_afterShutdown_complete() throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache.shutdownNow();
+    cache.awaitTermination();
+
+    cache.awaitTermination();
+
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
   }
 }

@@ -42,7 +42,7 @@ class ProtoSource {
     return sourceFile;
   }
 
-  /** Returns the original source file. Only for blacklisting protos! */
+  /** Returns the original source file. Only for forbidding protos! */
   @Deprecated
   Artifact getOriginalSourceFile() {
     return originalSourceFile;

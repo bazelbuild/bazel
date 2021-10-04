@@ -48,7 +48,7 @@ public final class JavaGenJarsProvider
       boolean usesAnnotationProcessing,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
-      JavaPluginInfoProvider plugins,
+      JavaPluginInfo plugins,
       List<JavaGenJarsProvider> transitiveJavaGenJars) {
     NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();

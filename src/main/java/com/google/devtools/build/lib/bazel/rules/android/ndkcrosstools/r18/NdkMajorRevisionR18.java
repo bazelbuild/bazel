@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 
-/** Logic specific to Android NDK R17. */
+/** Logic specific to Android NDK R18. */
 public class NdkMajorRevisionR18 implements NdkMajorRevision {
   private final String clangVersion;
 

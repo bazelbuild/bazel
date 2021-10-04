@@ -102,18 +102,23 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return Utils.downloadAsActionResult(
-        actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true));
+    return Futures.transform(
+        Utils.downloadAsActionResult(
+            actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true)),
+        CachedActionResult::disk,
+        MoreExecutors.directExecutor());
   }
 
   @Override
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException {
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     try (InputStream data = actionResult.toByteString().newInput()) {
       saveFile(actionKey.getDigest().getHash(), data, /* actionResult= */ true);
+      return Futures.immediateFuture(null);
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
     }
   }
 

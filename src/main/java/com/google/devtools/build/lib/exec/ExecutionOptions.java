@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -94,7 +94,8 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
               + " list of strategies from highest to lowest priority. For each action Bazel picks"
               + " the strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\". See"
+              + " value is \"remote,worker,sandboxed,local\". This flag overrides the values set"
+              + " by --spawn_strategy (and --genrule_strategy if used with mnemonic Genrule). See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<Map.Entry<String, List<String>>> strategy;
 
@@ -443,38 +444,22 @@ public class ExecutionOptions extends OptionsBase {
   public boolean splitXmlGeneration;
 
   @Option(
-      name = "archived_tree_artifact_mnemonics_filter",
-      defaultValue = "-.*", // disabled by default
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      converter = RegexFilter.RegexFilterConverter.class,
-      help =
-          "Regex filter for mnemonics of actions for which we should create archived tree"
-              + " artifacts. This option is a no-op for actions which do not generate tree"
-              + " artifacts.")
-  public RegexFilter archivedArtifactsMnemonicsFilter;
-
-  @Option(
-      name = "experimental_send_archived_tree_artifact_inputs",
+      name = "experimental_path_agnostic_action",
+      allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      expansion = "--archived_tree_artifact_mnemonics_filter=.*",
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Send input tree artifacts as a single archived file rather than sending each file in the"
-              + " artifact as a separate input.")
-  public Void ignoredEnableAllArchivedArtifacts;
-
-  @Option(
-      name = "noexperimental_send_archived_tree_artifact_inputs",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      expansion = "--archived_tree_artifact_mnemonics_filter=-.*",
-      help =
-          "Send input tree artifacts as a single archived file rather than sending each file in the"
-              + " artifact as a separate input.")
-  public Void ignoredDisableAllArchivedArtifacts;
+          "Setting this to an action's mnemonic declares that the action's output doesn't "
+              + "depend on its input or output paths. For example, "
+              + "\"mytool blaze-out/x86-fastbuild/input -o  bar/output\" produces the same output "
+              + "as \"mytool blaze-out/input -o baz/output\". The action executor may strip "
+              + "configuration prefixes from paths before running these actions to improve cache "
+              + "efficiency. For for example, \"blaze-out/k8-fastbuild/foo\" -> \"blaze-out/foo\". "
+              + "Be especially careful with actions that process debug symbol paths or manifest "
+              + "files.")
+  // TODO(bazel-team): merge this and --experimental_output_paths into a coherent final API.
+  public List<String> pathAgnosticActions;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
@@ -578,46 +563,6 @@ public class ExecutionOptions extends OptionsBase {
     public ShowSubcommandsConverter() {
       super(
           ShowSubcommands.class, "subcommand option", ShowSubcommands.TRUE, ShowSubcommands.FALSE);
-    }
-  }
-
-  /**
-   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
-   * "HOST_CPUS", optionally followed by [-|*]<float>.
-   */
-  public static class CpuResourceConverter extends ResourceConverter {
-    public CpuResourceConverter() {
-      super(
-          ImmutableMap.of(
-              "HOST_CPUS",
-              () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage())),
-          1,
-          Integer.MAX_VALUE);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float>.";
-    }
-  }
-
-  /**
-   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
-   * "HOST_RAM", optionally followed by [-|*]<float>.
-   */
-  public static class RamResourceConverter extends ResourceConverter {
-    public RamResourceConverter() {
-      super(
-          ImmutableMap.of(
-              "HOST_RAM",
-              () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb())),
-          1,
-          Integer.MAX_VALUE);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
     }
   }
 }

@@ -98,4 +98,9 @@ public class DelegateSpawn implements Spawn {
   public PlatformInfo getExecutionPlatform() {
     return spawn.getExecutionPlatform();
   }
+
+  @Override
+  public String toString() {
+    return "Delegate of " + spawn;
+  }
 }

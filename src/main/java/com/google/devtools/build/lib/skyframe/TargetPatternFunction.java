@@ -66,7 +66,8 @@ public class TargetPatternFunction implements SkyFunction {
               provider,
               env.getListener(),
               patternKey.getPolicy(),
-              MultisetSemaphore.<PackageIdentifier>unbounded());
+              MultisetSemaphore.<PackageIdentifier>unbounded(),
+              SimplePackageIdentifierBatchingCallback::new);
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
       BatchCallback<Target, RuntimeException> callback =

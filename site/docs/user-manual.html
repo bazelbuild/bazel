@@ -7,7 +7,7 @@ title: User manual
 This page covers the options that are available with various Bazel commands,
 such as <code>bazel build</code>, <code>bazel run</code>, and
 <code>bazel test</code>. This page is a companion to the
-<a href="https://docs.bazel.build/versions/master/guide.html">Bazel user guide</a>,
+<a href="https://docs.bazel.build/versions/main/guide.html">Bazel user guide</a>,
 which lists Bazel's commands.
 <h2 id='target-patterns'>Target syntax</h2>
 
@@ -291,11 +291,17 @@ Package path elements may be specified in three formats:
   which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel. Also be
   aware that setting Bazel's <code class='flag'>--strip</code> flag will override
   <code class='flag'>--linkopt=-Wl,--strip-all</code>, so you should only set one or the other.
+
+  If you are only building a single binary and want all symbols stripped, you could also
+  pass <code class='flag'>--stripopt=--strip-all</code> and explicitly build the
+  <code>//foo:bar.stripped</code> version of the target. As described in the section on
+  <code class='flag'>--stripopt</code>, this applies a strip action after the final binary is
+  linked rather than including stripping in all of the build's link actions.
 </p>
 
 <h4 id='flag--stripopt'><code class='flag'>--stripopt=<var>strip-option</var></code></h4>
 <p>
-  An additional option to pass to the <code>strip</code> command when generating
+  This is an additional option to pass to the <code>strip</code> command when generating
   a <a href="be/c-cpp.html#cc_binary_implicit_outputs"><code>*.stripped</code>
   binary</a>. The default is <code>-S -p</code>. This option can be used
   multiple times.
@@ -549,11 +555,11 @@ the compilation of binaries during the build.
 <p>
   Specifies the set of environment variables available during the execution of all actions.
   Variables can be either specified by name, in which case the value will be taken from the
-  invocation environment, or by the `name=value` pair which sets the value independent of the
+  invocation environment, or by the <code>name=value</code> pair which sets the value independent of the
   invocation environment.
 
-  This `--action_env` flag can be specified multiple times. If a value is assigned to the same
-  variable across multiple `--action_env` flags, the latest assignment wins.
+  This <code>--action_env</code> flag can be specified multiple times. If a value is assigned to the same
+  variable across multiple <code>--action_env</code> flags, the latest assignment wins.
 </p>
 
 <h4 id='flag--experimental_action_listener'>
@@ -561,7 +567,7 @@ the compilation of binaries during the build.
 </h4>
 <p>
   <b>WARNING:</b> Extra actions are deprecated. Use
-  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  <a href="https://docs.bazel.build/versions/main/skylark/aspects.html">aspects</a>
   instead.
 </p>
 <p>
@@ -577,7 +583,7 @@ the compilation of binaries during the build.
 </h4>
 <p>
   <b>WARNING:</b> Extra actions are deprecated. Use
-  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  <a href="https://docs.bazel.build/versions/main/skylark/aspects.html">aspects</a>
   instead.
 </p>
 <p>
@@ -592,7 +598,7 @@ the compilation of binaries during the build.
 </h4>
 <p>
   <b>WARNING:</b> Extra actions are deprecated. Use
-  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  <a href="https://docs.bazel.build/versions/main/skylark/aspects.html">aspects</a>
   instead.
 </p>
 <p>
@@ -903,7 +909,9 @@ the compilation of binaries during the build.
     <code>sandboxed</code> causes commands to be executed inside a sandbox on the local machine.
     This requires that all input files, data dependencies and tools are listed as direct
     dependencies in the <code>srcs</code>, <code>data</code> and <code>tools</code> attributes.
-    This is the default on systems that support sandboxed execution.
+
+    
+    Bazel enables local sandboxing by default, on systems that support sandboxed execution.
   </li>
 
   <li>
@@ -927,8 +935,10 @@ the compilation of binaries during the build.
 
 <h4 id='flag--strategy'><code class='flag'>--strategy <var>mnemonic</var>=<var>strategy</var></code></h4>
 <p>
-  This option controls where and how commands are executed, overriding the default setting on a
-  per-mnemonic basis. See
+  This option controls where and how commands are executed, overriding the
+  <code class='flag'><a href="#flag--spawn_strategy">--spawn_strategy</a></code> (and
+  <code class='flag'><a href="#flag--genrule_strategy">--genrule_strategy</a></code> with mnemonic
+  Genrule) on a per-mnemonic basis. See
   <code class='flag'><a href="#flag--spawn_strategy">--spawn_strategy</a></code> for the supported
   strategies and their effects.
 </p>
@@ -943,7 +953,7 @@ the compilation of binaries during the build.
   strategies and their effects.
 </p>
 <p>
-The first <code>regex_filter</code> that matches the description is used. This option overrides
+The last <code>regex_filter</code> that matches the description is used. This option overrides
 other flags for specifying strategy.
 </p>
 <ul>
@@ -954,8 +964,14 @@ other flags for specifying strategy.
   <li>
     Example:
     <code>--strategy_regexp='Compiling.*/bar=local' --strategy_regexp=Compiling=sandboxed</code>
-    will run 'Compiling //foo/bar/baz' with the <code>local</code> strategy, but reversing the order
-    would run it with <code>sandboxed</code>.
+    will run 'Compiling //foo/bar/baz' with the <code>sandboxed</code> strategy, but reversing
+    the order would run it with <code>local</code>.
+  </li>
+  <li>
+    Example:
+    <code>--strategy_regexp='Compiling.*/bar=local,sandboxed'</code>
+    will run 'Compiling //foo/bar/baz' with the <code>local</code> strategy and fall back to
+    <code>sandboxed</code> if fails.
   </li>
 </ul>
 
@@ -999,13 +1015,13 @@ other flags for specifying strategy.
   <var>resources or resource expression</var></h4>
 <p>
   These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
-  that Bazel can take into consideration when scheduling build and test activities. They take
-  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
+  that Bazel can take into consideration when scheduling build and test activities to run locally.
+  They take an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
   (for example, <code class='flag'>--local_cpu_resources=2</code>,
   <code class='flag'>--local_ram_resources=HOST_RAM*.5</code>,
   <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
-  The flags are independent; one or both may be set. By default Bazel will estimate amount of RAM
-  and number of CPU cores directly from system configuration.
+  The flags are independent; one or both may be set. By default Bazel will estimate the amount of
+  RAM and number of CPU cores directly from the local system's configuration.
 </p>
 
 <h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>
@@ -1159,8 +1175,9 @@ memory-saving mode</a>.
   syntax checking source files in IDEs, for example, by rebuilding a single
   target that depends on the source file to detect errors as early as
   possible in the edit/build/test cycle. This argument affects the way all
-  non-flag arguments are interpreted: for each source filename, one
-  rule that depends on it will be built. For
+  non-flag arguments are interpreted: each argument must be a
+  file target label or a plain filename relative to the current working
+  directory, and one rule that depends on each source filename is built. For
 
   C++ and Java
   sources, rules in the same language space are preferentially chosen. For
@@ -1590,23 +1607,24 @@ echo "STABLE_USER_NAME $USER"
 
 <h4 id='flag--stamp'><code class='flag'>--[no]stamp</code></h4>
 <p>
-  This option controls whether stamping is enabled for
-  rule types that support it. For most of the supported rule types stamping is
-  enabled by default (e.g. <code>cc_binary</code>).
-
-  By default, stamping is disabled for all tests. Specifying
-  <code class='flag'>--stamp</code> does not force affected targets to be rebuilt,
-  if their dependencies have not changed.
+  This option, in conjunction with the <code>stamp</code> rule attribute, controls whether to embed
+  build information in binaries.
 </p>
-
 <p>
-  Stamping can be enabled or disabled explicitly in BUILD using
-  the <code>stamp</code> attribute of certain rule types, please refer to
-  the <a href="be/overview.html">build encyclopedia</a> for details. For
-  rules that are neither explicitly or implicitly configured as <code>stamp =
-  0</code> or <code>stamp = 1</code>, the <code class='flag'>--[no]stamp</code> option
-  selects whether stamping is enabled. Bazel never stamps binaries that are
-  built for the host configuration, regardless of the stamp attribute.
+  Stamping can be enabled or disabled explicitly on a per-rule basis using the <code>stamp</code>
+  attribute. Please refer to the <a href="be/overview.html">build encyclopedia</a> for details. When
+  a rule sets <code>stamp = -1</code> (the default for <code>*_binary</code> rules), this option
+  determines whether stamping is enabled.
+</p>
+<p>
+  Bazel never stamps binaries that are built for the host configuration, regardless of this option
+  or the <code>stamp</code> attribute. By default, stamping is disabled for all tests. Specifying
+  <code class='flag'>--stamp</code> does not force targets to be rebuilt if their dependencies have
+  not changed.
+</p>
+<p>
+  Setting <code class='flag'>--nostamp</code> is generally desireable for build performance, as it
+  reduces input volatility and maximizes build caching.
 </p>
 
 <h3 id='platform_build_options'>Platform</h3>
@@ -1664,7 +1682,7 @@ echo "STABLE_USER_NAME $USER"
 <p>
   A convenience flag used to bind longer Starlark build settings to a shorter name. For more
   details, see the
-  <a href=https://docs.bazel.build/versions/master/skylark/config.html#using-build-setting-aliases">Starlark Configurations</a>.
+  <a href=https://docs.bazel.build/versions/main/skylark/config.html#using-build-setting-aliases">Starlark Configurations</a>.
 </p>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix=<var>string</var></code></h4>
@@ -2190,7 +2208,7 @@ Examples:
   it is used to build <em>and run</em> a single target. Here is a typical session:
 </p>
 <pre>
-  % bazel run -- java/myapp:myapp --arg1 --arg2
+  % bazel run java/myapp:myapp -- --arg1 --arg2
   Welcome to Bazel
   INFO: Loading package: java/myapp
   INFO: Loading package: foo/bar
@@ -2253,6 +2271,19 @@ a user-friendly way.
   except that it applies to the command being run by <code>bazel
   run</code> rather than to the tests being run by <code>bazel test</code>
   and cannot run under label.
+</p>
+
+<h4>Filtering logging outputs from Bazel</h4>
+
+<p>
+  When invoking a binary with <code>bazel run</code>, Bazel prints logging output from Bazel itself
+  and the binary under invocation. To make the logs less noisy, you can suppress the outputs from
+  Bazel itself with the <code>--ui_event_filters</code> and <code>--noshow_progress</code> flags.
+  For example:
+
+  <pre>
+  bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress //java/myapp:myapp
+  </pre>
 </p>
 
 <h3>Executing tests</h3>
@@ -2700,12 +2731,12 @@ adb -s deadbeef install ...
     startup flags to Bazel:
   </p>
   <ul>
-    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar</code></li>
+    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar</code></li>
     <li><code>--host_jvm_args=-DRULE_MEMORY_TRACKER=1</code></li>
   </ul>
   <p>
     The java-agent is checked into Bazel at
-    third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
+    third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar, so make
     sure you adjust <code>$BAZEL</code> for where you keep your Bazel repository.
 
     Do not forget to keep passing these options to Bazel for every command or the server will
@@ -2713,17 +2744,17 @@ adb -s deadbeef install ...
   </p>
   <p>Example:</p>
   <pre>
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     build --nobuild &lt;targets&gt;
 
     # Dump rules
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --rules
 
     # Dump Starlark heap and analyze it with pprof
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
@@ -3054,10 +3085,10 @@ adb -s deadbeef install ...
 
 <h4 id='flag--config'><code class='flag'>--config=<var>name</var></code></h4>
 <p>
- Selects additional config section from the rc files; for the current
- <code>command</code>, it also pulls in the options from
- <code>command:name</code> if such a section exists. Can be specified multiple
- times to add flags from several config sections. Expansions can refer to other
+ Selects additional config section from
+ <a href="guide#where-are-the-bazelrc-files">the rc files</a>; for the current <code>command</code>,
+ it also pulls in the options from <code>command:name</code> if such a section exists. Can be
+ specified multiple times to add flags from several config sections. Expansions can refer to other
  definitions (i.e. expansions can be chained).
 </p>
 

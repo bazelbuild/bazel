@@ -34,14 +34,16 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -50,11 +52,13 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -105,6 +109,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             Iterables.transform(
                 ccCompilationContext.getIncludeDirs(), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
+  }
+
+  @Test
+  public void testJ2ObjCAspectDisablesParseHeaders() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget j2objcAspectTarget =
+        getJ2ObjCAspectConfiguredTarget("//java/com/google/dummy/test:test");
+    CcCompilationContext ccCompilationContext =
+        j2objcAspectTarget.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+
+    assertThat(baseArtifactNames(ccCompilationContext.getHeaderTokens().toList()))
+        .doesNotContain("test.h.processed");
   }
 
   @Test
@@ -201,7 +220,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
+    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
 
     assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
         .isEqualTo("java/com/google/transpile/dummy.mapping.j2objc");
@@ -223,7 +242,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
+    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
 
     assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
         .isEqualTo("java/com/google/dep/dep.mapping.j2objc");
@@ -253,7 +272,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/dummy/test/proto:test");
-    J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
+    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
     Artifact classMappingFile =
         getGenfilesArtifact(
             "test.clsmap.properties",
@@ -285,7 +304,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
     ConfiguredTarget test = getConfiguredTarget("//x:test_proto", getAppleCrosstoolConfiguration());
-    J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
+    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
     Artifact classMappingFile =
         getGenfilesArtifact("test.clsmap.properties", test, getJ2ObjcAspect());
     assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
@@ -334,7 +353,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget test =
         getConfiguredTarget("@bla//foo:test_proto", getAppleCrosstoolConfiguration());
 
-    J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
+    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
 
     Artifact classMappingFile =
         getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test, getJ2ObjcAspect());
@@ -368,7 +387,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
+    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
 
     assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
         .isEqualTo("java/com/google/transpile/dummy.mapping.j2objc");
@@ -500,8 +519,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/transpile:lib1");
-    J2ObjcMappingFileProvider mappingFileProvider =
-        target.getProvider(J2ObjcMappingFileProvider.class);
+    J2ObjcMappingFileProvider mappingFileProvider = target.get(J2ObjcMappingFileProvider.PROVIDER);
     assertThat(baseArtifactNames(mappingFileProvider.getHeaderMappingFiles()))
         .containsExactly("lib1.mapping.j2objc", "lib2.mapping.j2objc");
 
@@ -711,8 +729,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     CommandAction linkAction = linkAction("//x:test");
     ConfiguredTarget target = getConfiguredTargetInAppleBinaryTransition("//x:test");
     String binDir =
-        getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPathString();
-    assertThat(paramFileArgsForAction(linkAction))
+        removeConfigFragment(
+            getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPathString());
+    assertThat(removeConfigFragment(ImmutableList.copyOf(paramFileArgsForAction(linkAction))))
         .containsAtLeast(
             binDir + "/java/c/y/libylib_j2objc.a",
             // All jre libraries mus appear after java libraries in the link order.
@@ -788,7 +807,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.DEFAULT);
+            DiscoveredModulesPruner.DEFAULT,
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -846,7 +867,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.DEFAULT);
+            DiscoveredModulesPruner.DEFAULT,
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -1010,7 +1033,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("tools/j2objc/proto_plugin_binary");
     scratch.file("tools/j2objc/alt_proto_runtime.h");
     scratch.file("tools/j2objc/alt_proto_runtime.m");
-    scratch.file("tools/j2objc/some_blacklisted_proto.proto");
+    scratch.file("tools/j2objc/proto_to_exclude.proto");
 
     scratch.overwriteFile(
         "tools/j2objc/BUILD",
@@ -1023,8 +1046,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    srcs = ['j2objc_wrapper.py'],",
         ")",
         "proto_library(",
-        "    name = 'blacklisted_protos',",
-        "    srcs = ['some_blacklisted_proto.proto'],",
+        "    name = 'excluded_protos',",
+        "    srcs = ['proto_to_exclude.proto'],",
         ")",
         "filegroup(",
         "    name = 'j2objc_header_map',",
@@ -1035,11 +1058,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
         "    plugin = ':alt_proto_plugin',",
         "    runtime = ':alt_proto_runtime',",
-        "    blacklisted_protos = [':blacklisted_protos'],",
+        "    blacklisted_protos = [':excluded_protos'],",
         ")",
         "proto_library(",
-        "   name = 'blacklisted_proto_library',",
-        "   srcs = ['some_blacklisted_proto.proto'],",
+        "   name = 'excluded_proto_library',",
+        "   srcs = ['proto_to_exclude.proto'],",
         ")",
         "objc_library(",
         "    name = 'alt_proto_runtime',",
@@ -1060,7 +1083,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "proto_library(",
         "    name = 'test_proto',",
         "    srcs = ['test.proto'],",
-        "    deps = ['//tools/j2objc:blacklisted_proto_library'],",
+        "    deps = ['//tools/j2objc:excluded_proto_library'],",
         ")",
         "java_proto_library(",
         "    name = 'test_java_proto',",
@@ -1109,29 +1132,28 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact archiveSourceMappingFile =
         getBinArtifact("test.archive_source_mapping.j2objc", javaTarget);
     String execPath =
-        getConfiguration(javaTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
+        removeConfigFragment(
+            getConfiguration(javaTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/");
 
     assertContainsSublist(
-        ImmutableList.copyOf(paramFileArgsForAction(action)),
-        new ImmutableList.Builder<String>()
-            .add("--input_archive")
-            .add(inputArchive.getExecPathString())
-            .add("--output_archive")
-            .add(prunedArchive.getExecPathString())
-            .add("--dummy_archive")
-            .add(
-                execPath + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/libdummy_lib.a")
-            .add("--xcrunwrapper")
-            .add(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH)
-            .add("--dependency_mapping_files")
-            .add(dependencyMappingFile.getExecPathString())
-            .add("--header_mapping_files")
-            .add(headerMappingFile.getExecPathString())
-            .add("--archive_source_mapping_files")
-            .add(archiveSourceMappingFile.getExecPathString())
-            .add("--entry_classes")
-            .add("com.google.app.test.test")
-            .build());
+        removeConfigFragment(ImmutableList.copyOf(paramFileArgsForAction(action))),
+        ImmutableList.of(
+            "--input_archive",
+            removeConfigFragment(inputArchive.getExecPathString()),
+            "--output_archive",
+            removeConfigFragment(prunedArchive.getExecPathString()),
+            "--dummy_archive",
+            execPath + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/libdummy_lib.a",
+            "--xcrunwrapper",
+            removeConfigFragment(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH),
+            "--dependency_mapping_files",
+            removeConfigFragment(dependencyMappingFile.getExecPathString()),
+            "--header_mapping_files",
+            removeConfigFragment(headerMappingFile.getExecPathString()),
+            "--archive_source_mapping_files",
+            removeConfigFragment(archiveSourceMappingFile.getExecPathString()),
+            "--entry_classes",
+            "com.google.app.test.test"));
 
     SpawnAction deadCodeRemovalAction = (SpawnAction) getGeneratingAction(prunedArchive);
     assertContainsSublist(

@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -109,10 +110,17 @@ public class GlobCacheTest {
                   return null;
                 }
               }
+
+              @Override
+              public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+                Path buildFileForPackage = getBuildFileForPackage(packageName);
+                return buildFileForPackage == null ? null : buildFileForPackage.getBaseName();
+              }
             },
             null,
             TestUtils.getPool(),
-            -1);
+            -1,
+            ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @After

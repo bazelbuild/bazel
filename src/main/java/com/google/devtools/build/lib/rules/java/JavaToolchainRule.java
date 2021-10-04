@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -124,6 +125,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(true))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers_cancellation) -->
+        True if JavaBuilder supports cancellation of persistent workers, false if it doesn't.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("javac_supports_worker_cancellation", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
         Labels of tools available for label-expansion in jvm_opts.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -327,6 +332,34 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .mandatoryBuiltinProviders(
                     ImmutableList.of(JavaPackageConfigurationProvider.class)))
+        .add(attr("jspecify_processor_class", STRING).value("").undocumented("experimental"))
+        .add(
+            attr("jspecify_processor", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_implicit_deps", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_javacopts", STRING_LIST)
+                .value(ImmutableList.<String>of())
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_stubs", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_packages", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes()
+                .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id()))
+                .undocumented("experimental"))
         .build();
   }
 

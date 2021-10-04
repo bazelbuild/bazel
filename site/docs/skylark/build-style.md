@@ -6,8 +6,8 @@ title: BUILD style guide
 # BUILD Style Guide
 
 
-In `BUILD` files, we take the same approach as in Go: We let the machine take care
-of most formatting issues.
+`BUILD` file formatting follows the same approach as Go, where a standardized
+tool takes care of most formatting issues.
 [Buildifier](https://github.com/bazelbuild/buildifier) is a tool that parses and
 emits the source code in a standard style. Every `BUILD` file is therefore
 formatted in the same automated way, which makes formatting a non-issue during
@@ -44,7 +44,7 @@ py_test(
 
 ## File structure
 
-We recommend to use the following order (every element is optional):
+**Recommendation**: Use the following order (every element is optional):
 
 *   Package description (a comment)
 
@@ -57,7 +57,7 @@ We recommend to use the following order (every element is optional):
 Buildifier makes a distinction between a standalone comment and a comment
 attached to an element. If a comment is not attached to a specific element, use
 an empty line after it. The distinction is important when doing automated
-changes (e.g. to decide if we keep or remove a comment when we delete a rule).
+changes (for example, to keep or remove a comment when deleting a rule).
 
 ```python
 # Standalone comment (e.g. to make a section in a file)
@@ -172,15 +172,15 @@ is more error-prone and less obvious than an empty list.
 Do not use recursive globs to match source files (for example,
 `glob(["**/*.java"])`).
 
-Recursive globs make BUILD files difficult to reason about because they skip
-subdirectories containing BUILD files.
+Recursive globs make `BUILD` files difficult to reason about because they skip
+subdirectories containing `BUILD` files.
 
-Recursive globs are generally less efficient than having a BUILD file per
+Recursive globs are generally less efficient than having a `BUILD` file per
 directory with a dependency graph defined between them as this enables better
 remote caching and parallelism.
 
-We recommend authoring a BUILD file per directory and defining a dependency
-graph between them instead.
+It is good practice to author a `BUILD` file in each directory and define a
+dependency graph between them.
 
 ### Non-recursive
 
@@ -214,8 +214,8 @@ are a few differences:
  * No strict line length limit. Long comments and long strings are often split
    to 79 columns, but it is not required. It should not be enforced in code
    reviews or presubmit scripts. *Rationale*: Labels can be long and exceed this
-   limit. It is common for `BUILD` files to be generated or edited by tools, which
-   does not go well with a line length limit.
+   limit. It is common for `BUILD` files to be generated or edited by tools,
+   which does not go well with a line length limit.
 
  * Implicit string concatenation is not supported. Use the `+` operator.
    *Rationale*: `BUILD` files contain many string lists. It is easy to forget a
@@ -225,8 +225,7 @@ are a few differences:
  * Use spaces around the `=` sign for keywords arguments in rules. *Rationale*:
    Named arguments are much more frequent than in Python and are always on a
    separate line. Spaces improve readability. This convention has been around
-   for a long time, and we don't think it is worth modifying all existing
-   `BUILD` files.
+   for a long time, and it is not worth modifying all existing `BUILD` files.
 
  * By default, use double quotation marks for strings. *Rationale*: This is not
    specified in the Python style guide, but it recommends consistency. So we

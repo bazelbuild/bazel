@@ -77,7 +77,7 @@ If your build or tests fail, it's likely due to the following:
     [Adapting Bazel Rules for Remote Execution](remote-execution-rules.html) for
     details about compatibility with remote execution.
 
-## Using a custom container in the `rbe_ubuntu1604` CI config
+## Using a custom container in the rbe_ubuntu1604 CI config
 
 The `rbe-ubuntu16-04` container is publicly available at the following URL:
 
@@ -92,7 +92,7 @@ Before you begin, make sure you have installed `gcloud`, `docker`, and `git`.
 If you are building the container from source, you must also install the latest
 version of Bazel.
 
-### Pulling the `rbe-ubuntu16-04` from Container Registry
+### Pulling the rbe-ubuntu16-04 from Container Registry
 
 To pull the <span style="color:#212121;">Pull the `rbe-ubuntu16-04` container
   from Container Registry, run the following command:</span>
@@ -104,7 +104,7 @@ gcloud docker -- pull gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:<sh
 Replace `<sha256-checksum>` with the SHA256 checksum value for
 [the latest container](https://console.cloud.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
 
-### Building the `rbe-ubuntu16-04` container from source
+### Building the rbe-ubuntu16-04 container from source
 
 To build the `rbe-ubuntu16-04` container from source, do the following:
 

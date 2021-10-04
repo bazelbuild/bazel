@@ -1,4 +1,4 @@
-// Copyright 2020 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,17 +15,11 @@ package com.google.devtools.build.lib.packages.util;
 
 import java.io.IOException;
 
-/**
- * Creates mock BUILD files required for the genrule rule.
- */
+/** Creates mock BUILD files required for the genrule rule. */
 public final class MockGenruleSupport {
-  /**
-   * Sets up mocking support for genrules.
-   */
+  /** Sets up mocking support for genrules. */
   public static void setup(MockToolsConfig config) throws IOException {
-    config.create(
-        "tools/genrule/BUILD",
-        "exports_files(['genrule-setup.sh'])");
-    config.create("tools/genrule/genrule-setup.sh");
+    config.create("embedded_tools/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
+    config.create("embedded_tools/tools/genrule/genrule-setup.sh");
   }
 }

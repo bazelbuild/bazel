@@ -10,6 +10,7 @@ filegroup(
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
         "//third_party/aws-sdk-auth-lite:srcs",
+        "//third_party/bazel-toolchains:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
@@ -180,35 +181,35 @@ distrib_java_import(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.1.jar"],
-    srcjar = "asm/asm-9.1-sources.jar",
+    jars = ["asm/asm-9.2.jar"],
+    srcjar = "asm/asm-9.2-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.1.jar"],
-    srcjar = "asm/asm-analysis-9.1-sources.jar",
+    jars = ["asm/asm-analysis-9.2.jar"],
+    srcjar = "asm/asm-analysis-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.1.jar"],
-    srcjar = "asm/asm-commons-9.1-sources.jar",
+    jars = ["asm/asm-commons-9.2.jar"],
+    srcjar = "asm/asm-commons-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.1.jar"],
-    srcjar = "asm/asm-tree-9.1-sources.jar",
+    jars = ["asm/asm-tree-9.2.jar"],
+    srcjar = "asm/asm-tree-9.2-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.1.jar"],
-    srcjar = "asm/asm-util-9.1-sources.jar",
+    jars = ["asm/asm-util-9.2.jar"],
+    srcjar = "asm/asm-util-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -245,7 +246,7 @@ java_plugin(
 distrib_java_import(
     name = "auto_common",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-common-0.10.jar"],
+    jars = ["auto/auto-common-1.1.2.jar"],
 )
 
 java_library(
@@ -271,7 +272,10 @@ java_plugin(
 distrib_java_import(
     name = "auto_service_lib",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-service-1.0-rc4.jar"],
+    jars = [
+        "auto/auto-service-1.0-rc7.jar",
+        "auto/auto-service-annotations-1.0-rc7.jar",
+    ],
 )
 
 java_plugin(
@@ -305,8 +309,8 @@ distrib_java_import(
     name = "auto_value_value",
     enable_distributions = ["debian"],
     jars = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
 )
 
@@ -314,8 +318,8 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
     enable_distributions = ["debian"],
 )
@@ -348,7 +352,7 @@ distrib_java_import(
 
 java_import(
     name = "caffeine",
-    jars = ["caffeine/caffeine-2.8.0.jar"],
+    jars = ["caffeine/caffeine-2.9.2.jar"],
 )
 
 java_import(
@@ -368,15 +372,15 @@ distrib_java_import(
     name = "error_prone_annotations",
     enable_distributions = ["debian"],
     jars = [
-        "error_prone/error_prone_annotations-2.6.0.jar",
-        "error_prone/error_prone_type_annotations-2.6.0.jar",
+        "error_prone/error_prone_annotations-2.9.0.jar",
+        "error_prone/error_prone_type_annotations-2.9.0.jar",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.6.0.jar",
+        "error_prone/error_prone_annotations-2.9.0.jar",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -385,9 +389,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.6.0.jar",
-        "error_prone/error_prone_check_api-2.6.0.jar",
-        "error_prone/error_prone_core-2.6.0.jar",
+        "error_prone/error_prone_annotation-2.9.0.jar",
+        "error_prone/error_prone_check_api-2.9.0.jar",
+        "error_prone/error_prone_core-2.9.0.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -454,7 +458,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "guava/failureaccess-1.0.1.jar",
-        "guava/guava-29.0-jre.jar",
+        "guava/guava-30.1.1-jre.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -503,7 +507,7 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-29.0-jre.jar"],
+    srcs = ["guava/guava-30.1.1-jre.jar"],
     enable_distributions = ["debian"],
 )
 
@@ -523,13 +527,15 @@ distrib_java_import(
     srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
 )
 
-java_import(
+distrib_java_import(
     name = "reactive_streams",
+    enable_distributions = ["debian"],
     jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "rxjava3",
+    enable_distributions = ["debian"],
     jars = ["rxjava3/rxjava-3.0.9.jar"],
     exports = [":reactive_streams"],
     deps = [":reactive_streams"],
@@ -631,7 +637,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-29.0-jre.jar"],
+    jars = ["guava/guava-testlib-30.1.1-jre.jar"],
 )
 
 distrib_java_import(
@@ -645,7 +651,7 @@ distrib_java_import(
 
 java_import(
     name = "mockito",
-    jars = ["mockito/mockito-core-2.25.1.jar"],
+    jars = ["mockito/mockito-core-3.12.4.jar"],
     deps = [
         ":byte_buddy",
         ":objenesis",
@@ -695,7 +701,7 @@ java_import(
 distrib_java_import(
     name = "xz",
     enable_distributions = ["debian"],
-    jars = ["xz/xz-1.5.jar"],
+    jars = ["xz/xz-1.9.jar"],
 )
 
 # To be used by the skylark example.

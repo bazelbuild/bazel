@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -158,7 +158,7 @@ public final class AspectResolver {
       dependentAspects.add(buildAspectKey(path, result, dep));
     }
     AspectKey aspectKey =
-        AspectValueKey.createAspectKey(
+        AspectKeyCreator.createAspectKey(
             dep.getLabel(),
             dep.getConfiguration(),
             dependentAspects.build(),

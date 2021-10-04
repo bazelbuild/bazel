@@ -110,6 +110,8 @@ public class BazelCcModule extends CcModule
       Object hdrsCheckingMode,
       Object variablesExtension,
       Object language,
+      Object purpose,
+      Object grepIncludes,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -146,6 +148,7 @@ public class BazelCcModule extends CcModule
         hdrsCheckingMode,
         variablesExtension,
         language,
+        purpose,
         thread);
   }
 

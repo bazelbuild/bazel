@@ -48,10 +48,7 @@ echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" |
 ```
 
 The component name "jdk1.8" is kept only for legacy reasons and doesn't relate
-to supported or included JDK versions. In the past, when Bazel did not
-yet bundle a private JRE, there were two release versions, one compatible with
-JDK 7 and one with JDK 8. However, since Java 7 support stopped and
-bundling a private runtime started, Bazel releases are Java version agnostic.
+to supported or included JDK versions. Bazel releases are Java-version agnostic.
 Changing the "jdk1.8" component name would break existing users of the repo.
 
 ### Step 2: Install and update Bazel
@@ -66,18 +63,18 @@ Once installed, you can upgrade to a newer version of Bazel as part of your norm
 sudo apt update && sudo apt full-upgrade
 ```
 
-The `bazel` package will always install the latest stable version of Bazel. You
-can install specific, older versions of Bazel in addition to the latest one like
-this:
+The `bazel` package always installs the latest stable version of Bazel. You
+can install specific, older versions of Bazel in addition to the latest one,
+such as this:
 
 ```bash
 sudo apt install bazel-1.0.0
 ```
 
-This will install Bazel 1.0.0 as `/usr/bin/bazel-1.0.0` on your system. This
-can be useful if you need a specific version of Bazel to build a project, e.g.
-because it uses a `.bazelversion` file to explicitly state with which Bazel
-version it should be built.
+This installs Bazel 1.0.0 as `/usr/bin/bazel-1.0.0` on your system. This
+can be useful if you need a specific version of Bazel to build a project, for
+example because it uses a `.bazelversion` file to explicitly state with which
+Bazel version it should be built.
 
 Optionally, you can set `bazel` to a specific version by creating a symlink:
 

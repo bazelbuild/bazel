@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -25,16 +24,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
-/**
- * A factory of SkyframeExecutors that returns SequencedSkyframeExecutor.
- */
-public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory {
-
-  private final BuildOptions defaultBuildOptions;
-
-  public SequencedSkyframeExecutorFactory(BuildOptions defaultBuildOptions) {
-    this.defaultBuildOptions = defaultBuildOptions;
-  }
+/** A factory of SkyframeExecutors that returns SequencedSkyframeExecutor. */
+public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory {
 
   @Override
   public SkyframeExecutor create(
@@ -47,18 +38,19 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
         .setDirectories(directories)
         .setActionKeyContext(actionKeyContext)
-        .setDefaultBuildOptions(defaultBuildOptions)
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setDiffAwarenessFactories(diffAwarenessFactories)
         .setExtraSkyFunctions(extraSkyFunctions)
         .setCustomDirtinessCheckers(customDirtinessCheckers)
         .setManagedDirectoriesKnowledge(managedDirectoriesKnowledge)
+        .setSkyKeyStateReceiver(skyKeyStateReceiver)
         .setBugReporter(bugReporter)
         .build();
   }

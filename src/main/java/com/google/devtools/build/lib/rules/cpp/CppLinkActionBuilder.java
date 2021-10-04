@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -107,9 +108,7 @@ public class CppLinkActionBuilder {
   private final Set<Artifact> nonCodeInputs = new LinkedHashSet<>();
   private final NestedSetBuilder<LinkerInputs.LibraryToLink> libraries =
       NestedSetBuilder.linkOrder();
-  private final NestedSetBuilder<LibraryToLink> librariesToLink = NestedSetBuilder.linkOrder();
   private NestedSet<Artifact> linkerFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private Artifact runtimeMiddleman;
   private ArtifactCategory toolchainLibrariesType = null;
   private NestedSet<Artifact> toolchainLibrariesInputs =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -543,60 +542,9 @@ public class CppLinkActionBuilder {
     }
   }
 
-  private ImmutableList<LinkerInputs.LibraryToLink> collectLinkerInputs(
-      NestedSet<LibraryToLink> librariesToLink) {
-    ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
-        ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
-      LinkerInputs.LibraryToLink staticLibraryToLink =
-          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
-      LinkerInputs.LibraryToLink picStaticLibraryToLink =
-          libraryToLink.getPicStaticLibrary() == null
-              ? null
-              : libraryToLink.getPicStaticLibraryToLink();
-      LinkerInputs.LibraryToLink libraryToLinkToUse = null;
-      if (linkingMode == LinkingMode.STATIC) {
-        if (linkType.isDynamicLibrary()) {
-          if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          } else if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          }
-        } else {
-          if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          } else if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          }
-        }
-      }
-      if (libraryToLinkToUse == null) {
-        if (libraryToLink.getInterfaceLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
-        } else if (libraryToLink.getDynamicLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
-        }
-      }
-      Preconditions.checkNotNull(libraryToLinkToUse);
-      checkLibrary(libraryToLinkToUse);
-      librariesToLinkBuilder.add(libraryToLinkToUse);
-    }
-    return librariesToLinkBuilder.build();
-  }
-
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException, RuleErrorException {
-    NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = null;
-
-    if (librariesToLink.isEmpty()) {
-      originalUniqueLibraries = libraries.build();
-    } else {
-      Preconditions.checkState(libraries.isEmpty());
-      originalUniqueLibraries =
-          NestedSetBuilder.<LinkerInputs.LibraryToLink>linkOrder()
-              .addAll(collectLinkerInputs(librariesToLink.build()))
-              .build();
-    }
+    NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
 
     // Executable links do not have library identifiers.
     boolean hasIdentifier = (libraryIdentifier != null);
@@ -872,8 +820,7 @@ public class CppLinkActionBuilder {
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
               configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
-              SolibSymlinkAction.getDynamicLibrarySoname(
-                  output.getRootRelativePath(), /* preserveName= */ false),
+              output.getRootRelativePath().getBaseName(),
               linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
               paramFile != null ? paramFile.getExecPathString() : null,
               thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
@@ -966,9 +913,6 @@ public class CppLinkActionBuilder {
     if (shouldUseLinkDynamicLibraryTool()) {
       dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
     }
-    if (runtimeMiddleman != null) {
-      dependencyInputsBuilder.add(runtimeMiddleman);
-    }
     if (defFile != null) {
       dependencyInputsBuilder.add(defFile);
     }
@@ -1022,14 +966,20 @@ public class CppLinkActionBuilder {
         executionInfo, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
 
     if (!isLtoIndexing) {
+      Set<String> seenLinkstampSources = new HashSet<>();
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
+        Artifact source = linkstampEntry.getKey().getArtifact();
+        if (seenLinkstampSources.contains(source.getExecPathString())) {
+          continue;
+        }
+        seenLinkstampSources.add(source.getExecPathString());
         actionConstructionContext.registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleErrorConsumer,
                 actionConstructionContext,
                 grepIncludes,
                 configuration,
-                linkstampEntry.getKey().getArtifact(),
+                source,
                 linkstampEntry.getValue(),
                 linkstampEntry.getKey().getDeclaredIncludeSrcs(),
                 nonCodeInputsAsNestedSet,
@@ -1073,7 +1023,6 @@ public class CppLinkActionBuilder {
         toolchainEnv,
         ImmutableMap.copyOf(executionInfo),
         toolchain.getToolPathFragment(Tool.LD, ruleErrorConsumer),
-        toolchain.getHostSystemName(),
         toolchain.getTargetCpu());
   }
 
@@ -1234,9 +1183,8 @@ public class CppLinkActionBuilder {
 
   /** Sets the C++ runtime library inputs for the action. */
   public CppLinkActionBuilder setRuntimeInputs(
-      ArtifactCategory runtimeType, Artifact middleman, NestedSet<Artifact> inputs) {
+      ArtifactCategory runtimeType, NestedSet<Artifact> inputs) {
     this.toolchainLibrariesType = runtimeType;
-    this.runtimeMiddleman = middleman;
     this.toolchainLibrariesInputs = inputs;
     return this;
   }
@@ -1356,7 +1304,6 @@ public class CppLinkActionBuilder {
    * libraries.
    */
   public CppLinkActionBuilder addLibraries(Collection<LinkerInputs.LibraryToLink> inputs) {
-    Preconditions.checkState(librariesToLink.isEmpty());
     for (LinkerInputs.LibraryToLink input : inputs) {
       checkLibrary(input);
       if (input.isMustKeepDebug()) {
@@ -1364,17 +1311,6 @@ public class CppLinkActionBuilder {
       }
     }
     this.libraries.addAll(inputs);
-    return this;
-  }
-
-  public CppLinkActionBuilder addLibrariesToLink(Iterable<LibraryToLink> inputs) {
-    Preconditions.checkState(libraries.isEmpty());
-    for (LibraryToLink input : inputs) {
-      if (input.getMustKeepDebug()) {
-        mustKeepDebug = true;
-      }
-    }
-    this.librariesToLink.addAll(inputs);
     return this;
   }
 

@@ -48,7 +48,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(runtimes.getLabel())
         .isEqualTo(Label.parseAbsolute("//third_party/x:runtime", ImmutableMap.of()));
 
-    assertThat(prettyArtifactNames(toolchain.blacklistedProtos()))
+    assertThat(prettyArtifactNames(toolchain.forbiddenProtos()))
         .containsExactly(
             "third_party/x/metadata.proto",
             "third_party/x/descriptor.proto",
@@ -64,7 +64,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
         "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
         "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'blacklist', srcs = [':descriptors', ':any'])");
+        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])");
 
     scratch.file(
         "foo/BUILD",
@@ -75,7 +75,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    command_line = 'cmd-line',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:blacklist']",
+        "    blacklisted_protos = ['//third_party/x:denied']",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
@@ -158,5 +158,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
     assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
+    assertThat(toolchain.forbiddenProtos().toList()).isEmpty();
   }
 }

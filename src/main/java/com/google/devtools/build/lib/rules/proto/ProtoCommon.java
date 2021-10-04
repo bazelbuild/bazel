@@ -131,19 +131,6 @@ public class ProtoCommon {
     return result.build();
   }
 
-  private static NestedSet<Artifact> computeTransitiveOriginalProtoSources(
-      ImmutableList<ProtoInfo> protoDeps, ImmutableList<Artifact> originalProtoSources) {
-    NestedSetBuilder<Artifact> result = NestedSetBuilder.naiveLinkOrder();
-
-    result.addAll(originalProtoSources);
-
-    for (ProtoInfo dep : protoDeps) {
-      result.addTransitive(dep.getOriginalTransitiveProtoSources());
-    }
-
-    return result.build();
-  }
-
   static NestedSet<Artifact> computeDependenciesDescriptorSets(ImmutableList<ProtoInfo> deps) {
     return computeTransitiveDescriptorSets(null, deps);
   }
@@ -390,8 +377,6 @@ public class ProtoCommon {
     NestedSet<ProtoSource> transitiveSources = computeTransitiveProtoSources(deps, library);
     NestedSet<Artifact> transitiveProtoSources =
         computeTransitiveProtoSourceArtifacts(directSources, deps);
-    NestedSet<Artifact> transitiveOriginalProtoSources =
-        computeTransitiveOriginalProtoSources(deps, originalDirectProtoSources);
     NestedSet<String> transitiveProtoSourceRoots =
         computeTransitiveProtoSourceRoots(deps, directProtoSourceRoot.getSafePathString());
     NestedSet<Artifact> strictImportableProtosForDependents =
@@ -413,7 +398,6 @@ public class ProtoCommon {
         directProtoSourceRoot,
         transitiveSources,
         transitiveProtoSources,
-        transitiveOriginalProtoSources,
         transitiveProtoSourceRoots,
         strictImportableProtosForDependents,
         directDescriptorSet,
@@ -441,8 +425,8 @@ public class ProtoCommon {
    *
    * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
    *     ".pb.cc".
-   * @param pythonNames If true, replace hyphens in the file name with underscores, as required for
-   *     Python modules.
+   * @param pythonNames If true, replace hyphens in the file name with underscores, and dots in the
+   *     file name with forward slashes, as required for Python modules.
    */
   public static ImmutableList<Artifact> getGeneratedOutputs(
       RuleContext ruleContext,
@@ -456,13 +440,24 @@ public class ProtoCommon {
           src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       if (pythonNames) {
         srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
+
+        // Protoc python plugin converts dots in filenames to slashes when generating python source
+        // paths. For example, "myproto.gen.proto" generates "myproto/gen_pb2.py".
+        String baseName = srcPath.getBaseName();
+        int lastDot = baseName.lastIndexOf('.');
+        if (lastDot > 0) {
+          String baseNameNoExtension = baseName.substring(0, lastDot);
+          srcPath =
+              srcPath.replaceName(
+                  baseNameNoExtension.replace('.', '/') + baseName.substring(lastDot));
+        }
       }
       // Note that two proto_library rules can have the same source file, so this is actually a
       // shared action. NB: This can probably result in action conflicts if the proto_library rules
       // are not the same.
       outputsBuilder.add(
-          ruleContext.getShareableArtifact(FileSystemUtils.replaceExtension(srcPath, extension),
-              genfiles));
+          ruleContext.getShareableArtifact(
+              FileSystemUtils.replaceExtension(srcPath, extension), genfiles));
     }
     return outputsBuilder.build();
   }

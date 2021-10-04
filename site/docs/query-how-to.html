@@ -109,7 +109,7 @@ Compiler, so every <code>genproto</code> rule carries an implicit dependency on 
 protocol compiler. These dependencies are not mentioned in the build file,
 but added in by the build tool. The full set of implicit dependencies is
   currently undocumented. Using <code>--noimplicit_deps</code> allows you to filter out
-  these deps from your query results.
+  these deps from your query results. For cquery, this will include resolved toolchains.
 
 <h2 id="Reverse_Dependencies">Reverse dependencies</h2>
 
@@ -118,9 +118,8 @@ if you're going to change some code, you might want to know what other code
 you're about to break. You can use <code>rdeps(u, x)</code> to find the reverse
 dependencies of the targets in <code>x</code> within the transitive closure of <code>u</code>.</p>
 
-Bazel's <a href="query.html#sky-query">Sky Query</a>
-supports the <code>allrdeps</code> function which allows you to query rdeps in the entire
-universe of the build.
+Bazel's <a href="query.html#sky-query">Sky Query</a> supports the <code>allrdeps</code>
+function, which allows you to query <code>rdeps</code> in a universe you specify.
 <h2 id="Miscellaneous_Uses">Miscellaneous uses</h2>
 
 <p>You can use <code>bazel query</code> to analyze many dependency relationships.</p>

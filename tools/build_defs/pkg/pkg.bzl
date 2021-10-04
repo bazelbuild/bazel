@@ -17,7 +17,7 @@ load(":path.bzl", "compute_data_path", "dest_path")
 load("//tools/config:common_settings.bzl", "BuildSettingInfo")
 
 # Filetype to restrict inputs
-tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"]
+tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.bz2"]
 
 def _remap(remap_paths, path):
     """If path starts with a key in remap_paths, rewrite it."""
@@ -97,10 +97,6 @@ def _pkg_tar_impl(ctx):
             "--owner_names=%s=%s" % (_quote(key), ctx.attr.ownernames[key])
             for key in ctx.attr.ownernames
         ]
-    if ctx.attr.empty_files:
-        args += ["--empty_file=%s" % empty_file for empty_file in ctx.attr.empty_files]
-    if ctx.attr.empty_dirs:
-        args += ["--empty_dir=%s" % empty_dir for empty_dir in ctx.attr.empty_dirs]
     if ctx.attr.extension:
         dotPos = ctx.attr.extension.find(".")
         if dotPos > 0:
@@ -145,9 +141,7 @@ _real_pkg_tar = rule(
         "ownernames": attr.string_dict(),
         "extension": attr.string(default = "tar"),
         "symlinks": attr.string_dict(),
-        "empty_files": attr.string_list(),
         "include_runfiles": attr.bool(),
-        "empty_dirs": attr.string_list(),
         "remap_paths": attr.string_dict(),
         # Implicit dependencies.
         "build_tar": attr.label(

@@ -10,10 +10,13 @@ with Bazel. If you have not done so already, get started with building C++
 projects with Bazel by completing the tutorial
 [Introduction to Bazel: Build a C++ Project](tutorial/cpp.html).
 
+For information on cc_library and hdrs header files, see
+<a href="be/c-cpp.html#cc_library">cc_library</a>.
+
 ## Including multiple files in a target
 
 You can include multiple files in a single target with
-[glob](../be/functions.html#glob).
+<a href="be/functions.html#glob">glob</a>.
 For example:
 
 ```python
@@ -196,7 +199,7 @@ For example, you could create a test `./test/hello-test.cc`, such as:
 
 ```cpp
 #include "gtest/gtest.h"
-#include "lib/hello-greet.h"
+#include "main/hello-greet.h"
 
 TEST(HelloTest, GetGreet) {
   EXPECT_EQ(get_greet("Bazel"), "Hello Bazel");

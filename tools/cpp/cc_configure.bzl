@@ -122,7 +122,7 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         configure_windows_toolchain(repository_ctx)
     elif (cpu_value.startswith("darwin") and
           ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-        configure_osx_toolchain(repository_ctx, overriden_tools)
+        configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools)
     else:
         configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 

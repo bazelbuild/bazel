@@ -132,7 +132,7 @@ public final class ExtraActionRule implements RuleDefinition {
 
 <p>
   <b>WARNING:</b> Extra actions are deprecated. Use
-  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  <a href="https://docs.bazel.build/versions/main/skylark/aspects.html">aspects</a>
   instead.
 </p>
 

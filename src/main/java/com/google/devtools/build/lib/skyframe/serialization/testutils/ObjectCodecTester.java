@@ -19,8 +19,8 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -138,8 +138,8 @@ public class ObjectCodecTester<T> {
   public static class Builder<T> {
     private final ObjectCodec<T> underTest;
     private final ImmutableList.Builder<T> subjectsBuilder = ImmutableList.builder();
-    private final ImmutableMap.Builder<Class<?>, Object> dependenciesBuilder =
-        ImmutableMap.builder();
+    private final ImmutableClassToInstanceMap.Builder<Object> dependenciesBuilder =
+        ImmutableClassToInstanceMap.builder();
     private boolean skipBadDataTest = false;
     private VerificationFunction<T> verificationFunction =
         (original, deserialized) -> assertThat(deserialized).isEqualTo(original);
@@ -201,7 +201,7 @@ public class ObjectCodecTester<T> {
      * individually.
      */
     ObjectCodecTester<T> build() {
-      ImmutableMap<Class<?>, Object> dependencies = dependenciesBuilder.build();
+      ImmutableClassToInstanceMap<Object> dependencies = dependenciesBuilder.build();
       return new ObjectCodecTester<>(
           underTest,
           subjectsBuilder.build(),

@@ -19,37 +19,51 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Resolves the appropriate toolchains for the given parameters. */
 @AutoValue
 public abstract class ExecGroup implements ExecGroupApi {
 
-  // An exec group that inherits requirements from the rule.
-  public static final ExecGroup COPY_FROM_RULE_EXEC_GROUP =
-      createCopied(ImmutableSet.of(), ImmutableSet.of());
+  // This is intentionally a string that would fail {@code Identifier.isValid} so that
+  // users can't create a group with the same name.
+  public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
 
-  // Create an exec group that is marked as copying from the rule.
-  public static ExecGroup createCopied(
-      Set<Label> requiredToolchains, Set<Label> execCompatibleWith) {
-    return create(requiredToolchains, execCompatibleWith, /* copyFromRule= */ true);
+  /** Create an exec group that inherits from the default exec group. */
+  public static ExecGroup copyFromDefault() {
+    return create(ImmutableSet.of(), ImmutableSet.of(), /* copyFrom= */ DEFAULT_EXEC_GROUP_NAME);
   }
 
-  // Create an exec group.
+  /** Create an exec group with the given toolchains and execution constraints. */
   public static ExecGroup create(Set<Label> requiredToolchains, Set<Label> execCompatibleWith) {
-    return create(requiredToolchains, execCompatibleWith, /* copyFromRule= */ false);
+    return create(requiredToolchains, execCompatibleWith, /* copyFrom= */ null);
   }
 
   private static ExecGroup create(
-      Set<Label> requiredToolchains, Set<Label> execCompatibleWith, boolean copyFromRule) {
+      Set<Label> requiredToolchains, Set<Label> execCompatibleWith, @Nullable String copyFrom) {
     return new AutoValue_ExecGroup(
-        ImmutableSet.copyOf(requiredToolchains),
-        ImmutableSet.copyOf(execCompatibleWith),
-        copyFromRule);
+        ImmutableSet.copyOf(requiredToolchains), ImmutableSet.copyOf(execCompatibleWith), copyFrom);
   }
 
   public abstract ImmutableSet<Label> requiredToolchains();
 
   public abstract ImmutableSet<Label> execCompatibleWith();
 
-  public abstract boolean copyFromRule();
+  @Nullable
+  public abstract String copyFrom();
+
+  /** Creates a new exec group that inherits from the given group. */
+  public ExecGroup inheritFrom(ExecGroup other) {
+    ImmutableSet<Label> requiredToolchains =
+        new ImmutableSet.Builder<Label>()
+            .addAll(this.requiredToolchains())
+            .addAll(other.requiredToolchains())
+            .build();
+    ImmutableSet<Label> execCompatibleWith =
+        new ImmutableSet.Builder<Label>()
+            .addAll(this.execCompatibleWith())
+            .addAll(other.execCompatibleWith())
+            .build();
+    return create(requiredToolchains, execCompatibleWith);
+  }
 }

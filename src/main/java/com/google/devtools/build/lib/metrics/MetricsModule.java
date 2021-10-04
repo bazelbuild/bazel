@@ -32,14 +32,15 @@ public class MetricsModule extends BlazeModule {
   /** Metrics options. */
   public static final class Options extends OptionsBase {
     @Option(
-        name = "bep_publish_used_heap_size_post_build",
+        name = "experimental_record_metrics_for_all_mnemonics",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "When set we collect and publish used_heap_size_post_build "
-                + "from build_event_stream.proto. This forces a full GC and is off by default.")
-    public boolean bepPublishUsedHeapSizePostBuild;
+            "By default the number of action types is limited to the 20 mnemonics with the largest "
+                + "number of executed actions. Setting this option will write statistics for all "
+                + "mnemonics.")
+    public boolean recordMetricsForAllMnemonics;
   }
 
   private final AtomicInteger numAnalyses = new AtomicInteger();
@@ -47,7 +48,7 @@ public class MetricsModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name()) ? ImmutableList.of(Options.class) : ImmutableList.of();
+    return ImmutableList.of(Options.class);
   }
 
   /**
@@ -63,7 +64,4 @@ public class MetricsModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     MetricsCollector.installInEnv(env, numAnalyses, numBuilds);
   }
-
-  @Override
-  public void afterCommand() {}
 }

@@ -41,17 +41,23 @@ message WorkRequest {
 
   // Each WorkRequest must have either a unique
   // request_id or request_id = 0. If request_id is 0, this WorkRequest must be
-  // processed alone, otherwise the worker may process multiple WorkRequests in
-  // parallel (multiplexing). As an exception to the above, if the cancel field
-  // is true, the request_id must be the same as a previously sent WorkRequest.
-  // The request_id must be attached unchanged to the corresponding
-  // WorkResponse.
+  // processed alone (singleplex), otherwise the worker may process multiple
+  // WorkRequests in parallel (multiplexing). As an exception to the above, if
+  // the cancel field is true, the request_id must be the same as a previously
+  // sent WorkRequest. The request_id must be attached unchanged to the
+  // corresponding WorkResponse. Only one singleplex request may be sent to a
+  // worker at a time.
   int32 request_id = 3;
 
   // EXPERIMENTAL: When true, this is a cancel request, indicating that a
   // previously sent WorkRequest with the same request_id should be cancelled.
   // The arguments and inputs fields must be empty and should be ignored.
   bool cancel = 4;
+
+  // Values greater than 0 indicate that the worker should output extra debug
+  // information to stderr (which will go into the worker log). Setting the
+  // --worker_verbose flag for Bazel makes this flag default to 10.
+  int32 verbosity = 5;
 }
 
 // The worker sends this message to Blaze when it finished its work on the

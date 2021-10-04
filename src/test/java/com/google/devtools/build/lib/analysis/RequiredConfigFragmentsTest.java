@@ -17,17 +17,17 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -38,6 +38,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RequiredConfigFragmentsProvider}. */
 @RunWith(JUnit4.class)
 public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
+
   @Test
   public void provideTransitiveRequiredFragmentsMode() throws Exception {
     useConfiguration("--include_config_fragments_provider=transitive");
@@ -47,17 +48,14 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "py_library(name = 'pylib', srcs = ['pylib.py'])",
         "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
 
-    ImmutableSet<String> ccLibTransitiveFragments =
-        getConfiguredTarget("//a:a")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(ccLibTransitiveFragments).containsAtLeast("CppConfiguration", "PythonConfiguration");
+    RequiredConfigFragmentsProvider ccLibTransitiveFragments =
+        getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(ccLibTransitiveFragments.getFragmentClasses())
+        .containsAtLeast(CppConfiguration.class, PythonConfiguration.class);
 
-    ImmutableSet<String> configSettingTransitiveFragments =
-        getConfiguredTarget("//a:config")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(configSettingTransitiveFragments).contains("CppOptions");
+    RequiredConfigFragmentsProvider configSettingTransitiveFragments =
+        getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(configSettingTransitiveFragments.getOptionsClasses()).contains(CppOptions.class);
   }
 
   @Test
@@ -69,60 +67,14 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "py_library(name = 'pylib', srcs = ['pylib.py'])",
         "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
 
-    ImmutableSet<String> ccLibDirectFragments =
-        getConfiguredTarget("//a:a")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(ccLibDirectFragments).contains("CppConfiguration");
-    assertThat(ccLibDirectFragments).doesNotContain("PythonConfiguration");
+    RequiredConfigFragmentsProvider ccLibDirectFragments =
+        getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(ccLibDirectFragments.getFragmentClasses()).contains(CppConfiguration.class);
+    assertThat(ccLibDirectFragments.getFragmentClasses()).doesNotContain(PythonConfiguration.class);
 
-    ImmutableSet<String> configSettingDirectFragments =
-        getConfiguredTarget("//a:config")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(configSettingDirectFragments).contains("CppOptions");
-  }
-
-  @Test
-  public void provideDirectHostOnlyRequiredFragmentsMode() throws Exception {
-    useConfiguration("--include_config_fragments_provider=direct_host_only");
-    scratch.file(
-        "a/BUILD",
-        "py_library(name = 'pylib', srcs = ['pylib.py'])",
-        "cc_library(name = 'cclib', srcs = ['cclb.cc'], data = [':pylib'])");
-
-    RequiredConfigFragmentsProvider targetConfigProvider =
-        getConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
-    RequiredConfigFragmentsProvider hostConfigProvider =
-        getHostConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
-
-    assertThat(targetConfigProvider).isNull();
-    assertThat(hostConfigProvider).isNotNull();
-    assertThat(hostConfigProvider.getRequiredConfigFragments()).contains("CppConfiguration");
-    assertThat(hostConfigProvider.getRequiredConfigFragments())
-        .doesNotContain("PythonConfiguration");
-  }
-
-  /**
-   * Helper method that returns a combined set of the common fragments all genrules require plus
-   * instance-specific requirements passed here.
-   */
-  private ImmutableSortedSet<String> genRuleFragments(String... targetSpecificRequirements)
-      throws Exception {
-    scratch.file(
-        "base_genrule/BUILD",
-        "genrule(",
-        "    name = 'base_genrule',",
-        "    srcs = [],",
-        "    outs = ['base_genrule.out'],",
-        "    cmd = 'echo hi > $@')");
-    ImmutableSortedSet.Builder<String> builder = ImmutableSortedSet.naturalOrder();
-    builder.add(targetSpecificRequirements);
-    builder.addAll(
-        getConfiguredTarget("//base_genrule")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments());
-    return builder.build();
+    RequiredConfigFragmentsProvider configSettingDirectFragments =
+        getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(configSettingDirectFragments.getOptionsClasses()).contains(CppOptions.class);
   }
 
   @Test
@@ -135,13 +87,9 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "    srcs = [],",
         "    outs = ['myrule.out'],",
         "    cmd = 'echo $(myvar) $(COMPILATION_MODE) > $@')");
-    ImmutableSet<String> requiredFragments =
-        getConfiguredTarget("//a:myrule")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(requiredFragments)
-        .containsExactlyElementsIn(genRuleFragments("--define:myvar"))
-        .inOrder();
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:myrule").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.getDefines()).containsExactly("myvar");
   }
 
   @Test
@@ -157,24 +105,24 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "   attrs = {}",
         ")");
     scratch.file("a/BUILD", "load('//a:defs.bzl', 'simple_rule')", "simple_rule(name = 'simple')");
-    ImmutableSet<String> requiredFragments =
-        getConfiguredTarget("//a:simple")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(requiredFragments).contains("--define:myvar");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:simple").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.getDefines()).containsExactly("myvar");
   }
 
   /**
-   * Aspect that requires fragments both in its definition and through an optionally set <code>
-   * --define custom_define</code>.
+   * Aspect that requires fragments both in its definition and through {@link
+   * #addAspectImplSpecificRequiredConfigFragments}.
    */
   private static final class AspectWithConfigFragmentRequirements extends NativeAspectClass
       implements ConfiguredAspectFactory {
+    private static final Class<JavaConfiguration> REQUIRED_FRAGMENT = JavaConfiguration.class;
+    private static final String REQUIRED_DEFINE = "myvar";
+
     @Override
     public AspectDefinition getDefinition(AspectParameters params) {
       return new AspectDefinition.Builder(this)
-          .requiresConfigurationFragments(JavaConfiguration.class)
-          .add(attr("custom_define", Type.STRING).allowedValues(new AllowedValueSet("", "myvar")))
+          .requiresConfigurationFragments(REQUIRED_FRAGMENT)
           .build();
     }
 
@@ -185,12 +133,13 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         AspectParameters params,
         String toolsRepository)
         throws ActionConflictException, InterruptedException {
-      ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
-      String customDefine = ruleContext.attributes().get("custom_define", Type.STRING);
-      if (!customDefine.isEmpty()) {
-        builder.addRequiredConfigFragments(ImmutableSet.of("--define:" + customDefine));
-      }
-      return builder.build();
+      return new ConfiguredAspect.Builder(ruleContext).build();
+    }
+
+    @Override
+    public void addAspectImplSpecificRequiredConfigFragments(
+        RequiredConfigFragmentsProvider.Builder requiredFragments) {
+      requiredFragments.addDefine(REQUIRED_DEFINE);
     }
   }
 
@@ -203,7 +152,6 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("custom_define", Type.STRING).allowedValues(new AllowedValueSet("", "myvar")))
           .add(
               attr("deps", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.NO_FILE)
@@ -240,44 +188,22 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void aspectDefinitionRequiresFragments() throws Exception {
+  public void aspectRequiresFragments() throws Exception {
     scratch.file(
         "a/BUILD",
-        "rule_that_attaches_aspect(",
-        "    name = 'parent',",
-        "    deps = [':dep'])",
-        "rule_that_attaches_aspect(",
-        "    name = 'dep')");
+        "rule_that_attaches_aspect(name = 'parent', deps = [':dep'])",
+        "rule_that_attaches_aspect(name = 'dep')");
     useConfiguration("--include_config_fragments_provider=transitive");
-    ImmutableSet<String> requiredFragments =
-        getConfiguredTarget("//a:parent")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(requiredFragments).contains("JavaConfiguration");
-    assertThat(requiredFragments).doesNotContain("--define:myvar");
-  }
-
-  @Test
-  public void aspectImplementationRequiresFragments() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "rule_that_attaches_aspect(",
-        "    name = 'parent',",
-        "    deps = [':dep'])",
-        "rule_that_attaches_aspect(",
-        "    name = 'dep',",
-        "    custom_define = 'myvar')");
-    useConfiguration("--include_config_fragments_provider=transitive");
-    ImmutableSet<String> requiredFragments =
-        getConfiguredTarget("//a:parent")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(requiredFragments).contains("JavaConfiguration");
-    assertThat(requiredFragments).contains("--define:myvar");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:parent").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.getFragmentClasses())
+        .contains(AspectWithConfigFragmentRequirements.REQUIRED_FRAGMENT);
+    assertThat(requiredFragments.getDefines())
+        .containsExactly(AspectWithConfigFragmentRequirements.REQUIRED_DEFINE);
   }
 
   private void writeStarlarkTransitionsAndAllowList() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -325,12 +251,10 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "load('//a:defs.bzl', 'has_cpp_aware_rule_transition')",
         "has_cpp_aware_rule_transition(name = 'cctarget')");
     useConfiguration("--include_config_fragments_provider=direct");
-    ImmutableSet<String> requiredFragments =
-        getConfiguredTarget("//a:cctarget")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(requiredFragments).contains("CppOptions");
-    assertThat(requiredFragments).doesNotContain("JavaOptions");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:cctarget").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.getOptionsClasses()).contains(CppOptions.class);
+    assertThat(requiredFragments.getOptionsClasses()).doesNotContain(JavaOptions.class);
   }
 
   @Test
@@ -354,12 +278,10 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "load('//a:defs.bzl', 'has_java_aware_rule_transition')",
         "has_java_aware_rule_transition(name = 'javatarget')");
     useConfiguration("--include_config_fragments_provider=direct");
-    ImmutableSet<String> requiredFragments =
-        getConfiguredTarget("//a:javatarget")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(requiredFragments).contains("JavaOptions");
-    assertThat(requiredFragments).doesNotContain("CppOptions");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:javatarget").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.getOptionsClasses()).contains(JavaOptions.class);
+    assertThat(requiredFragments.getOptionsClasses()).doesNotContain(CppOptions.class);
   }
 
   @Test
@@ -394,13 +316,11 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "  name = 'javaparent',",
         "  deps = [':ccchild'])");
     useConfiguration("--include_config_fragments_provider=direct");
-    ImmutableSet<String> requiredFragments =
-        getConfiguredTarget("//a:javaparent")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:javaparent").getProvider(RequiredConfigFragmentsProvider.class);
     // We consider the attribute transition over the parent -> child edge a property of the parent.
-    assertThat(requiredFragments).contains("JavaOptions");
+    assertThat(requiredFragments.getOptionsClasses()).contains(JavaOptions.class);
     // But not the child's rule transition.
-    assertThat(requiredFragments).doesNotContain("CppOptions");
+    assertThat(requiredFragments.getOptionsClasses()).doesNotContain(CppOptions.class);
   }
 }

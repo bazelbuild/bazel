@@ -172,6 +172,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
+  public void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
+    getDelegate().removeReverseDepsFromDoneEntryDueToDeletion(deletedKeys);
+  }
+
+  @Override
   public void removeInProgressReverseDep(SkyKey reverseDep) {
     getDelegate().removeInProgressReverseDep(reverseDep);
   }

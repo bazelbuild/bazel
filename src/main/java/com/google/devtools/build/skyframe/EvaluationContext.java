@@ -33,6 +33,7 @@ public class EvaluationContext {
   private final ExtendedEventHandler eventHandler;
   private final boolean useForkJoinPool;
   private final boolean isExecutionPhase;
+  private final int cpuHeavySkyKeysThreadPoolSize;
 
   protected EvaluationContext(
       int numThreads,
@@ -40,7 +41,8 @@ public class EvaluationContext {
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
       boolean useForkJoinPool,
-      boolean isExecutionPhase) {
+      boolean isExecutionPhase,
+      int cpuHeavySkyKeysThreadPoolSize) {
     Preconditions.checkArgument(0 < numThreads, "numThreads must be positive");
     this.numThreads = numThreads;
     this.executorServiceSupplier = executorServiceSupplier;
@@ -48,6 +50,7 @@ public class EvaluationContext {
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
     this.useForkJoinPool = useForkJoinPool;
     this.isExecutionPhase = isExecutionPhase;
+    this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
   }
 
   public int getParallelism() {
@@ -76,12 +79,27 @@ public class EvaluationContext {
           keepGoing,
           this.eventHandler,
           this.useForkJoinPool,
-          this.isExecutionPhase);
+          this.isExecutionPhase,
+          this.cpuHeavySkyKeysThreadPoolSize);
     }
   }
 
   public boolean getUseForkJoinPool() {
     return useForkJoinPool;
+  }
+
+  /**
+   * Returns the size of the thread pool for CPU-heavy tasks set by
+   * --experimental_skyframe_cpu_heavy_skykeys_thread_pool_size.
+   *
+   * <p>--experimental_skyframe_cpu_heavy_skykeys_thread_pool_size is currently incompatible with
+   * the execution phase, and this method will return -1.
+   */
+  public int getCPUHeavySkyKeysThreadPoolSize() {
+    if (isExecutionPhase) {
+      return -1;
+    }
+    return cpuHeavySkyKeysThreadPoolSize;
   }
 
   public boolean isExecutionPhase() {
@@ -99,6 +117,7 @@ public class EvaluationContext {
     private boolean keepGoing;
     private ExtendedEventHandler eventHandler;
     private boolean useForkJoinPool;
+    private int cpuHeavySkyKeysThreadPoolSize;
     private boolean isExecutionPhase = false;
 
     private Builder() {}
@@ -110,6 +129,7 @@ public class EvaluationContext {
       this.eventHandler = evaluationContext.eventHandler;
       this.isExecutionPhase = evaluationContext.isExecutionPhase;
       this.useForkJoinPool = evaluationContext.useForkJoinPool;
+      this.cpuHeavySkyKeysThreadPoolSize = evaluationContext.cpuHeavySkyKeysThreadPoolSize;
       return this;
     }
 
@@ -138,6 +158,11 @@ public class EvaluationContext {
       return this;
     }
 
+    public Builder setCPUHeavySkyKeysThreadPoolSize(int cpuHeavySkyKeysThreadPoolSize) {
+      this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
+      return this;
+    }
+
     public Builder setExecutionPhase() {
       isExecutionPhase = true;
       return this;
@@ -150,7 +175,8 @@ public class EvaluationContext {
           keepGoing,
           eventHandler,
           useForkJoinPool,
-          isExecutionPhase);
+          isExecutionPhase,
+          cpuHeavySkyKeysThreadPoolSize);
     }
   }
 }

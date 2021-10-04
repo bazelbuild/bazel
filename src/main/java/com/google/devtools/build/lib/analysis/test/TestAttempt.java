@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import java.util.Collection;
 import java.util.List;
 
@@ -219,7 +221,9 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     builder.setStatusDetails(statusDetails);
     builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
+    builder.setTestAttemptStart(Timestamps.fromMillis(startTimeMillis));
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
+    builder.setTestAttemptDuration(Durations.fromMillis(durationMillis));
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
     for (Pair<String, Path> file : files) {

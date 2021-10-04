@@ -46,16 +46,20 @@ import java.util.Set;
 
 /** Handles the 'cquery' command on the Blaze command line. */
 @Command(
-  name = "cquery",
-  builds = true,
-  inherits = {BuildCommand.class},
-  options = {CqueryOptions.class},
-  usesConfigurationOptions = true,
-  shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
-  allowResidue = true,
-  completion = "label",
-  help = "resource:cquery.txt"
-)
+    name = "cquery",
+    builds = true,
+    // We inherit from TestCommand so that we pick up changes like `test --test_arg=foo` in .bazelrc
+    // files.
+    // Without doing this, there is no easy way to use the output of cquery to determine whether a
+    // test has changed between two invocations, because the testrunner action is not easily
+    // introspectable.
+    inherits = {TestCommand.class},
+    options = {CqueryOptions.class},
+    usesConfigurationOptions = true,
+    shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
+    allowResidue = true,
+    completion = "label",
+    help = "resource:cquery.txt")
 public final class CqueryCommand implements BlazeCommand {
 
   @Override
@@ -77,7 +81,7 @@ public final class CqueryCommand implements BlazeCommand {
           "cquery should include 'tags = [\"manual\"]' targets by default",
           ImmutableList.of("--build_manual_tests"));
       optionsParser.parse(
-          PriorityCategory.COMPUTED_DEFAULT,
+          PriorityCategory.SOFTWARE_REQUIREMENT,
           // https://github.com/bazelbuild/bazel/issues/11078
           "cquery should not exclude test_suite rules",
           ImmutableList.of("--noexpand_test_suites"));
@@ -89,6 +93,10 @@ public final class CqueryCommand implements BlazeCommand {
                 "--include_config_fragments_provider="
                     + cqueryOptions.showRequiredConfigFragments));
       }
+      optionsParser.parse(
+          PriorityCategory.SOFTWARE_REQUIREMENT,
+          "cquery should not exclude tests",
+          ImmutableList.of("--nobuild_tests_only"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Cquery's known options failed to parse", e);
     }

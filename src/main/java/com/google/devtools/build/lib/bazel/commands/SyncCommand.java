@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
@@ -166,12 +169,17 @@ public final class SyncCommand implements BlazeCommand {
       env.getReporter()
           .post(
               genericArgsCall(
-                  "register_toolchains", fileValue.getPackage().getRegisteredToolchains()));
+                  "register_toolchains",
+                  fileValue.getPackage().getRegisteredToolchains().stream()
+                      .map(TargetPattern::getOriginalPattern)
+                      .collect(toImmutableList())));
       env.getReporter()
           .post(
               genericArgsCall(
                   "register_execution_platforms",
-                  fileValue.getPackage().getRegisteredExecutionPlatforms()));
+                  fileValue.getPackage().getRegisteredExecutionPlatforms().stream()
+                      .map(TargetPattern::getOriginalPattern)
+                      .collect(toImmutableList())));
       env.getReporter().post(new RepositoryOrderEvent(repositoryOrder.build()));
 
       // take all Starlark workspace rules and get their values

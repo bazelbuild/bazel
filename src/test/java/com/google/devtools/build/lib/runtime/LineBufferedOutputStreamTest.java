@@ -17,8 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Strings;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +29,6 @@ import org.junit.runners.JUnit4;
 /**
  * Unit tests for {@link LineBufferedOutputStream} .
  */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class LineBufferedOutputStreamTest {
   private static class MockOutputStream extends OutputStream {

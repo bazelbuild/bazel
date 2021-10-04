@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -110,13 +109,6 @@ public class UiOptions extends OptionsBase {
   public static class UseCursesConverter extends EnumConverter<UseCurses> {
     public UseCursesConverter() {
       super(UseCurses.class, "--curses setting");
-    }
-  }
-
-  /** Progress mode converter. */
-  public static class ProgressModeConverter extends EnumConverter<ProgressMode> {
-    public ProgressModeConverter() {
-      super(ProgressMode.class, "--experimental_ui_mode setting");
     }
   }
 
@@ -251,19 +243,6 @@ public class UiOptions extends OptionsBase {
   public List<EventKind> eventFilters;
 
   @Option(
-      name = "experimental_ui_mode",
-      defaultValue = "oldest_actions",
-      converter = ProgressModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Determines what kind of data is shown in the detailed progress bar. By default, it is "
-              + "set to show the oldest actions and their running time. The underlying data "
-              + "source is usually sampled in a mode-dependend way to fit within the number of "
-              + "lines given by --ui_actions_shown.")
-  public ProgressMode uiProgressMode;
-
-  @Option(
       name = "ui_actions_shown",
       oldName = "experimental_ui_actions_shown",
       defaultValue = "8",
@@ -272,9 +251,8 @@ public class UiOptions extends OptionsBase {
       help =
           "Number of concurrent actions shown in the detailed progress bar; each "
               + "action is shown on a separate line. The progress bar always shows "
-              + "at least one one, all numbers less than 1 are mapped to 1. "
-              + "This option has no effect if --noui is set.")
-  public int uiSamplesShown;
+              + "at least one one, all numbers less than 1 are mapped to 1.")
+  public int uiActionsShown;
 
   @Option(
       name = "experimental_ui_max_stdouterr_bytes",
