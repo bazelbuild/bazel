@@ -101,12 +101,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   private SequentialBuildDriver driver;
   private EvaluationContext evaluationContext;
   private FakeRegistry registry;
+  private RecordingDifferencer differencer;
 
   @Before
   public void setup() throws Exception {
     workspaceRoot = scratch.dir("/ws");
     modulesRoot = scratch.dir("/modules");
-    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
     FakeRegistry.Factory registryFactory = new FakeRegistry.Factory();
@@ -253,6 +254,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     // Set up a simple repo rule.
@@ -374,6 +376,116 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("modules: root foo@1.0 bar@2.0 quux@2.0");
+  }
+
+  @Test
+  public void multipleModules_devDependency() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')",
+        "bazel_dep(name='bar',version='2.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext',dev_dependency=True)",
+        "ext.tag(data='root')",
+        "use_repo(ext,'ext_repo')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext_repo//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext',dev_dependency=True)",
+        "ext.tag(data='foo@1.0')");
+    registry.addModule(
+        createModuleKey("bar", "2.0"),
+        "module(name='bar',version='2.0')",
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "ext.tag(data='bar@2.0')");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("ext.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext.1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_str = 'modules:'",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_str += ' ' + tag.data",
+        "  data_repo(name='ext_repo',data=data_str)",
+        "tag=tag_class(attrs={'data':attr.string()})",
+        "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("modules: root bar@2.0");
+  }
+
+  @Test
+  public void multipleModules_ignoreDevDependency() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')",
+        "bazel_dep(name='bar',version='2.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext',dev_dependency=True)",
+        "ext.tag(data='root')",
+        "use_repo(ext,'ext_repo')");
+
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext',dev_dependency=True)",
+        "ext.tag(data='foo@1.0')");
+    registry.addModule(
+        createModuleKey("bar", "2.0"),
+        "module(name='bar',version='2.0')",
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "ext.tag(data='bar@2.0')");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("ext.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext.1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_str = 'modules:'",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_str += ' ' + tag.data",
+        "  data_repo(name='ext_repo',data=data_str)",
+        "tag=tag_class(attrs={'data':attr.string()})",
+        "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
+
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+
+    SkyKey skyKey =
+        BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("@ext.1.0.ext.ext_repo//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("modules: bar@2.0");
   }
 
   @Test

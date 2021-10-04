@@ -189,6 +189,18 @@ public class RepositoryOptions extends OptionsBase {
               + "looking into the WORKSPACE file.")
   public boolean enableBzlmod;
 
+  @Option(
+      name = "ignore_dev_dependency",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in "
+              + "the MODULE.bazel of the root module. Note that, those dev dependencies are always "
+              + "ignored in the MODULE.bazel if it's not the root module regardless of the value "
+              + "of this flag.")
+  public boolean ignoreDevDependency;
+
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */

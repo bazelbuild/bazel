@@ -70,6 +70,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(scratch.dir("modules").getPathString());
     ModuleFileFunction.REGISTRIES.set(
         getSkyframeExecutor().getDifferencerForTesting(), ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(getSkyframeExecutor().getDifferencerForTesting(), false);
   }
 
   public static RepositoryMappingValue withMappingAllowingFallback(

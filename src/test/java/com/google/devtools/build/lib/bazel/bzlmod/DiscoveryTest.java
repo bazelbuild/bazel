@@ -202,6 +202,7 @@ public class DiscoveryTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
   }
 
   @Test
@@ -260,6 +261,99 @@ public class DiscoveryTest extends FoundationTestCase {
                 .setName("D")
                 .setVersion(Version.parse("3.0"))
                 .setKey(createModuleKey("D", "3.0"))
+                .setRegistry(registry)
+                .build());
+  }
+
+  @Test
+  public void testDevDependency() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1')",
+        "bazel_dep(name='B',version='1.0')",
+        "bazel_dep(name='C',version='1.0',dev_dependency=True)");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("B", "1.0"),
+                "module(name='B', version='1.0')",
+                "bazel_dep(name='C',version='2.0',dev_dependency=True)")
+            .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0')")
+            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<DiscoveryValue> result =
+        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
+    assertThat(discoveryValue.getDepGraph())
+        .containsExactly(
+            ModuleKey.ROOT,
+            Module.builder()
+                .setName("A")
+                .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
+                .addDep("B", createModuleKey("B", "1.0"))
+                .addDep("C", createModuleKey("C", "1.0"))
+                .build(),
+            createModuleKey("B", "1.0"),
+            Module.builder()
+                .setName("B")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
+                .setRegistry(registry)
+                .build(),
+            createModuleKey("C", "1.0"),
+            Module.builder()
+                .setName("C")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("C", "1.0"))
+                .setRegistry(registry)
+                .build());
+  }
+
+  @Test
+  public void testIgnoreDevDependency() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1')",
+        "bazel_dep(name='B',version='1.0')",
+        "bazel_dep(name='C',version='1.0',dev_dependency=True)");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("B", "1.0"),
+                "module(name='B', version='1.0')",
+                "bazel_dep(name='C',version='2.0',dev_dependency=True)")
+            .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0')")
+            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+
+    EvaluationResult<DiscoveryValue> result =
+        driver.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
+    assertThat(discoveryValue.getDepGraph())
+        .containsExactly(
+            ModuleKey.ROOT,
+            Module.builder()
+                .setName("A")
+                .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
+                .addDep("B", createModuleKey("B", "1.0"))
+                .build(),
+            createModuleKey("B", "1.0"),
+            Module.builder()
+                .setName("B")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .setRegistry(registry)
                 .build());
   }
