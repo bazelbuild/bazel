@@ -1591,6 +1591,7 @@ java_library(
     srcs = ["config/BuildOptionsCache.java"],
     deps = [
         ":config/build_options",
+        "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",
     ],

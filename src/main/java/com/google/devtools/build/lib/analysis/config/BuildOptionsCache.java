@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.base.MoreObjects;
+import com.google.auto.value.AutoValue;
 import java.util.function.BiFunction;
 
 /**
@@ -39,7 +39,7 @@ import java.util.function.BiFunction;
  */
 public final class BuildOptionsCache<T> {
 
-  private final Cache<CacheKey, BuildOptions> cache = Caffeine.newBuilder().softValues().build();
+  private final Cache<CacheKey<T>, BuildOptions> cache = Caffeine.newBuilder().softValues().build();
 
   private final BiFunction<BuildOptionsView, T, BuildOptions> transition;
 
@@ -57,46 +57,24 @@ public final class BuildOptionsCache<T> {
    */
   public BuildOptions applyTransition(BuildOptionsView fromOptions, T context) {
     return cache.get(
-        new CacheKey(fromOptions.underlying().checksum(), context),
+        CacheKey.create(fromOptions.underlying().checksum(), context),
         unused -> transition.apply(fromOptions, context));
   }
 
   /**
-   * Helper class for matching ({@link BuildOptions}, {@link Object}) cache keys by {@link
+   * Helper class for matching ({@link BuildOptions}, {@link T}) cache keys by {@link
    * BuildOptions#checksum()}.
+   *
+   * @param <T> the type of the context object
    */
-  private static final class CacheKey {
-    private final String checksum;
-    private final Object context;
+  @AutoValue
+  abstract static class CacheKey<T> {
+    abstract String checksum();
 
-    CacheKey(String checksum, Object context) {
-      this.checksum = checksum;
-      this.context = context;
-    }
+    abstract T context();
 
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("checksum", checksum)
-          .add("context", context)
-          .toString();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (other == this) {
-        return true;
-      }
-      if (!(other instanceof CacheKey)) {
-        return false;
-      }
-      CacheKey casted = (CacheKey) other;
-      return checksum.equals(casted.checksum) && context.equals(casted.context);
-    }
-
-    @Override
-    public int hashCode() {
-      return 37 * checksum.hashCode() + context.hashCode();
+    static <T> CacheKey<T> create(String checksum, T context) {
+      return new AutoValue_BuildOptionsCache_CacheKey<>(checksum, context);
     }
   }
 }
