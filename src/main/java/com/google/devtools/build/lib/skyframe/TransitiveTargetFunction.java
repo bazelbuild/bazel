@@ -13,46 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetFunction.TransitiveTargetValueBuilder;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * This class builds transitive Target values such that evaluating a Target value is similar to
  * running it through the LabelVisitor.
  */
-public class TransitiveTargetFunction
+final class TransitiveTargetFunction
     extends TransitiveBaseTraversalFunction<TransitiveTargetValueBuilder> {
-
-  private final ConfiguredRuleClassProvider ruleClassProvider;
-
-  TransitiveTargetFunction(RuleClassProvider ruleClassProvider) {
-    this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
-  }
 
   @Override
   Label argumentFromKey(SkyKey key) {
@@ -103,90 +89,16 @@ public class TransitiveTargetFunction
               transitiveTargetValue.getErrorLoadingTarget(), eventHandler);
         }
       }
-
-      NestedSet<Class<? extends Fragment>> depFragments =
-          transitiveTargetValue.getTransitiveConfigFragments();
-      ImmutableList<Class<? extends Fragment>> depFragmentsAsList = depFragments.toList();
-      // The simplest collection technique would be to unconditionally add all deps' nested
-      // sets to the current target's nested set. But when there's large overlap between their
-      // fragment needs, this produces unnecessarily bloated nested sets and a lot of references
-      // that don't contribute anything unique to the required fragment set. So we optimize here
-      // by completely skipping sets that don't offer anything new. More fine-tuned optimization
-      // is possible, but this offers a good balance between simplicity and practical efficiency.
-      Set<Class<? extends Fragment>> addedConfigFragments = builder.getConfigFragmentsFromDeps();
-      if (!addedConfigFragments.containsAll(depFragmentsAsList)) {
-        builder.getTransitiveConfigFragments().addTransitive(depFragments);
-        addedConfigFragments.addAll(depFragmentsAsList);
-      }
     }
+
     builder.setSuccessfulTransitiveLoading(successfulTransitiveLoading);
   }
 
   @Override
   public SkyValue computeSkyValue(
       TargetAndErrorIfAny targetAndErrorIfAny, TransitiveTargetValueBuilder builder) {
-    Target target = targetAndErrorIfAny.getTarget();
     NoSuchTargetException errorLoadingTarget = targetAndErrorIfAny.getErrorLoadingTarget();
-
-    // Get configuration fragments directly required by this rule.
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
-
-      // Declared by the rule class:
-      ConfigurationFragmentPolicy configurationFragmentPolicy =
-          rule.getRuleClassObject().getConfigurationFragmentPolicy();
-      for (Class<? extends Fragment> fragment : ruleClassProvider.getConfigurationFragments()) {
-        // isLegalConfigurationFragment considers both natively declared fragments and Starlark
-        // (named) fragments.
-        if (configurationFragmentPolicy.isLegalConfigurationFragment(fragment)) {
-          addFragmentIfNew(builder, fragment);
-        }
-      }
-
-      // Declared by late-bound attributes:
-      for (Attribute attr : rule.getAttributes()) {
-        if (attr.isLateBound()) {
-          Class<?> fragment = attr.getLateBoundDefault().getFragmentClass();
-          if (fragment != null && Fragment.class.isAssignableFrom(fragment)) {
-            addFragmentIfNew(builder, fragment.asSubclass(Fragment.class));
-          }
-        }
-      }
-
-      // config_setting rules have values like {"some_flag": "some_value"} that need the
-      // corresponding fragments in their configurations to properly resolve:
-      addFragmentsFromRequiredOptions(builder, rule);
-
-      // Fragments to unconditionally include:
-      for (Class<? extends Fragment> universalFragment :
-          ruleClassProvider.getUniversalFragments()) {
-        addFragmentIfNew(builder, universalFragment);
-      }
-    }
-
     return builder.build(errorLoadingTarget);
-  }
-
-  private void addFragmentsFromRequiredOptions(TransitiveTargetValueBuilder builder, Rule rule) {
-    Set<String> requiredOptions =
-      rule.getRuleClassObject().getOptionReferenceFunction().apply(rule);
-    for (String requiredOption : requiredOptions) {
-      Class<? extends Fragment> fragment =
-          ruleClassProvider.getConfigurationFragmentForOption(requiredOption);
-      // Null values come from CoreOptions, which is implicitly included.
-      if (fragment != null) {
-        addFragmentIfNew(builder, fragment);
-      }
-    }
-  }
-
-  private static void addFragmentIfNew(
-      TransitiveTargetValueBuilder builder, Class<? extends Fragment> fragment) {
-    // This only checks that the deps don't already use this fragment, not the parent rule itself.
-    // So duplicates are still possible. We can further optimize if needed.
-    if (!builder.getConfigFragmentsFromDeps().contains(fragment)) {
-      builder.getTransitiveConfigFragments().add(fragment);
-    }
   }
 
   @Nullable
@@ -255,29 +167,15 @@ public class TransitiveTargetFunction
   static class TransitiveTargetValueBuilder {
     private boolean successfulTransitiveLoading;
     private final NestedSetBuilder<Label> transitiveTargets;
-    private final NestedSetBuilder<Class<? extends Fragment>> transitiveConfigFragments;
-    private final Set<Class<? extends Fragment>> configFragmentsFromDeps;
 
     public TransitiveTargetValueBuilder(Target target, boolean packageLoadedSuccessfully) {
       this.transitiveTargets = NestedSetBuilder.stableOrder();
-      this.transitiveConfigFragments = NestedSetBuilder.stableOrder();
-      // No need to store directly required fragments that are also required by deps.
-      this.configFragmentsFromDeps = new LinkedHashSet<>();
-
       this.successfulTransitiveLoading = packageLoadedSuccessfully;
       transitiveTargets.add(target.getLabel());
     }
 
     public NestedSetBuilder<Label> getTransitiveTargets() {
       return transitiveTargets;
-    }
-
-    public NestedSetBuilder<Class<? extends Fragment>> getTransitiveConfigFragments() {
-      return transitiveConfigFragments;
-    }
-
-    public Set<Class<? extends Fragment>> getConfigFragmentsFromDeps() {
-      return configFragmentsFromDeps;
     }
 
     public boolean isSuccessfulTransitiveLoading() {
@@ -290,13 +188,9 @@ public class TransitiveTargetFunction
 
     public SkyValue build(@Nullable NoSuchTargetException errorLoadingTarget) {
       NestedSet<Label> loadedTargets = transitiveTargets.build();
-      NestedSet<Class<? extends Fragment>> configFragments = transitiveConfigFragments.build();
       return successfulTransitiveLoading
-          ? TransitiveTargetValue.successfulTransitiveLoading(loadedTargets, configFragments)
-          : TransitiveTargetValue.unsuccessfulTransitiveLoading(
-              loadedTargets,
-              errorLoadingTarget,
-              configFragments);
+          ? TransitiveTargetValue.successfulTransitiveLoading(loadedTargets)
+          : TransitiveTargetValue.unsuccessfulTransitiveLoading(loadedTargets, errorLoadingTarget);
     }
   }
 }
