@@ -864,7 +864,7 @@ public final class UnixGlob {
           } else {
             processFileOrDirectory(child, childType == Dirent.Type.DIRECTORY, idx, context);
           }
-	}
+        }
       }
     }
 

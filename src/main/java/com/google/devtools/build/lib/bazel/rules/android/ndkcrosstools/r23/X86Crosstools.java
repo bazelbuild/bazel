@@ -37,6 +37,7 @@ final class X86Crosstools {
   }
 
   ImmutableList<CToolchain.Builder> createCrosstools() {
+    String targetPlatform = "x86-none-linux-android";
     /** x86 */
     // clang
     CToolchain.Builder x86Clang =
@@ -45,21 +46,18 @@ final class X86Crosstools {
             .addCompilerFlag("-mstackrealign")
             .setToolchainIdentifier("x86-clang" + clangVersion)
             .setTargetCpu("x86")
-            .addAllToolPath(ndkPaths.createClangToolpaths("x86-4.9", "i686-linux-android", null))
+            .addAllToolPath(ndkPaths.createClangToolpaths("llvm", "x86-none-linux-android", null))
             .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot());
-            // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"));
 
     stlImpl.addStlImpl(x86Clang, null);
 
     /** x86_64 */
     CToolchain.Builder x8664Clang =
         createBaseX86ClangToolchain("x86_64", "x86_64", "x86_64-linux-android")
-            .setToolchainIdentifier("x86_64-clang" + clangVersion)
             .setTargetCpu("x86_64")
-            .addAllToolPath(
-                ndkPaths.createClangToolpaths("x86_64-4.9", "x86_64-linux-android", null))
+            .setToolchainIdentifier("x86_64-clang" + clangVersion)
+            .addAllToolPath(ndkPaths.createClangToolpaths("llvm", "x86_64-none-linux-android", null))
             .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot());
-            // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
 
     stlImpl.addStlImpl(x8664Clang, null);
 
@@ -69,7 +67,7 @@ final class X86Crosstools {
   private CToolchain.Builder createBaseX86ClangToolchain(
       String x86Arch, String llvmArch, String triple) {
     String gccToolchain = ndkPaths.createGccToolchainPath(x86Arch + "-4.9");
-    String llvmTriple = llvmArch + "-none-linux-android";
+    String llvmTriple = llvmArch + "-none-linux-android" + ndkPaths.getCorrectedApiLevel("x86");
 
     CToolchain.Builder cToolchainBuilder = CToolchain.newBuilder();
 
@@ -79,22 +77,12 @@ final class X86Crosstools {
             ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
 
         // Compiler flags
-        .addCompilerFlag("-gcc-toolchain")
-        .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-target")
         .addCompilerFlag(llvmTriple)
         .addCompilerFlag("-fPIC")
-        /*
-        .addCompilerFlag(
-            "-isystem%ndk%/usr/include/%triple%"
-                .replace("%ndk%", ndkPaths.createBuiltinSysroot())
-                .replace("%triple%", triple))
-                */
         .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel(x86Arch))
 
         // Linker flags
-        .addLinkerFlag("-gcc-toolchain")
-        .addLinkerFlag(gccToolchain)
         .addLinkerFlag("-target")
         .addLinkerFlag(llvmTriple)
 

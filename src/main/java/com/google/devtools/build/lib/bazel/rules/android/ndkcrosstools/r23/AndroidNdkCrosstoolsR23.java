@@ -94,12 +94,10 @@ public final class AndroidNdkCrosstoolsR23 {
       // builtin_sysroot is set individually on each toolchain.
       // platforms/arch sysroot
       toolchainBuilder.addCxxBuiltinIncludeDirectory("%sysroot%/usr/include");
-      /*
       toolchainBuilder.addCxxBuiltinIncludeDirectory(
           ndkPaths.createBuiltinSysroot() + "/usr/include");
       toolchainBuilder.addUnfilteredCxxFlag(
           "-isystem%ndk%/usr/include".replace("%ndk%", ndkPaths.createBuiltinSysroot()));
-      */
 
       toolchains.add(toolchainBuilder.build());
     }

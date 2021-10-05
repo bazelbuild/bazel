@@ -57,6 +57,7 @@ public final class AndroidNdkCrosstools {
           .put(19, new NdkMajorRevisionR19("8.0.2"))
           .put(20, new NdkMajorRevisionR20("8.0.7"))
           .put(21, new NdkMajorRevisionR21("9.0.8"))
+          .put(22, new NdkMajorRevisionR21("11.0.5"))
           .put(23, new NdkMajorRevisionR23("12.0.5"))
           .build();
 

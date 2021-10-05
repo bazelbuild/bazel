@@ -191,7 +191,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
         NdkPaths.stripRepositoryPrefix(toolchain.getBuiltinSysroot()) + "/**/*";
 
     List<String> toolchainFileGlobPatterns = new ArrayList<>();
-    // toolchainFileGlobPatterns.add(androidPlatformIncludes);
+    toolchainFileGlobPatterns.add(androidPlatformIncludes);
 
     for (String cxxFlag : toolchain.getUnfilteredCxxFlagList()) {
       if (!cxxFlag.startsWith("-")) { // Skip flag names
@@ -200,16 +200,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     }
 
     // For NDK 15 and up. Unfortunately, the toolchain does not encode the NDK revision number.
-    // toolchainFileGlobPatterns.add("ndk/sysroot/**/*");
-
-    // For NDK 22 and up. Unfortunately, it's in clang
-    // toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/incude/**/*");
-
-    // test
-    // String hostPlatform = AndroidNdkCrosstools.getHostPlatform(31);
-    // toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/" + hostPlatform + "/lib64/clang/12.0.5/include/**/*");
-    toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/darwin-x86_64/lib64/clang/12.0.5/include/**/*");
-    toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.5/include/**/*");
+    toolchainFileGlobPatterns.add("ndk/sysroot/**/*");
 
     // If this is a clang toolchain, also add the corresponding gcc toolchain to the globs.
     int gccToolchainIndex = toolchain.getCompilerFlagList().indexOf("-gcc-toolchain");

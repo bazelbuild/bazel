@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,15 +50,9 @@ final class ArmCrosstools {
   }
 
   private CToolchain.Builder createAarch64ClangToolchain() {
-    // String toolchainName = "aarch64-linux-android-4.9";
     String toolchainName = "llvm";
     String targetPlatform = "aarch64-none-linux-android";
-    // String gccToolchain = ndkPaths.createGccToolchainPath(toolchainName);
-    // String clangToolchain = ndkPaths.createClangToolchainPath(toolchainName);
     String llvmTriple = "aarch64-none-linux-android" + ndkPaths.getCorrectedApiLevel("arm");
-
-    System.out.println("sysroot: " + ndkPaths.createClangBuiltinSysroot());
-    // System.out.println("clang tool:" + ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null));
 
     return CToolchain.newBuilder()
         .setToolchainIdentifier("aarch64-linux-android-clang" + clangVersion)
@@ -69,32 +63,12 @@ final class ArmCrosstools {
         .addCxxBuiltinIncludeDirectory(
             ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
         .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot())
-        // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
-        // .setBuiltinSysroot("external/androidndk/ndk/sysroot")
 
-        // Compiler flags
-        // .addCompilerFlag("-gcc-toolchain")
-        // .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-target")
         .addCompilerFlag(llvmTriple)
         .addCompilerFlag("-fpic")
-        /*
-        .addCompilerFlag("-isystemexternal/androidndk/ndk/sources/cxx-stl/llvm-libc++/include")
-        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include")
-        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/linux")
-        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/aarch64-linux-android")
-        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.5/include")*/
-/*
-        .addCompilerFlag(
-            "-isystem%ndk%/usr/include/%triple%"
-                .replace("%ndk%", ndkPaths.createBuiltinSysroot())
-                .replace("%triple%", targetPlatform))
-*/
-        // .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
 
         // Linker flags
-        // .addLinkerFlag("-gcc-toolchain")
-        // .addLinkerFlag(gccToolchain)
         .addLinkerFlag("-target")
         .addLinkerFlag(llvmTriple)
 
@@ -119,7 +93,8 @@ final class ArmCrosstools {
     // String toolchainName = "arm-linux-androideabi-4.9";
     String toolchainName = "llvm";
     String targetPlatform = "arm-linux-androideabi";
-    String gccToolchain = ndkPaths.createGccToolchainPath("arm-linux-androideabi-4.9");
+    // String gccToolchain = ndkPaths.createGccToolchainPath("arm-linux-androideabi-4.9");
+    String llvmTriple = "arm-none-linux-android" + ndkPaths.getCorrectedApiLevel("arm");
 
     return CToolchain.newBuilder()
         .setToolchainIdentifier("arm-linux-androideabi-clang" + clangVersion + "-v7a")
@@ -130,33 +105,21 @@ final class ArmCrosstools {
         .addCxxBuiltinIncludeDirectory(
             ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
         .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot())
-        // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
         .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
-        /*
-        .addCompilerFlag(
-            "-isystem%ndk%/usr/include/%triple%"
-                .replace("%ndk%", ndkPaths.createBuiltinSysroot())
-                .replace("%triple%", targetPlatform))
-                */
-
         // Compiler flags
         .addCompilerFlag("-target")
-        .addCompilerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
+        .addCompilerFlag(llvmTriple)
         .addCompilerFlag("-march=armv7-a")
         .addCompilerFlag("-mfloat-abi=softfp")
         // "32-bit ARM targets should use -mfpu=vfpv3-d16 when compiling unless using NEON. This
         // allows the compiler to make use of the FPU."
         // https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#additional-required-arguments
         .addCompilerFlag("-mfpu=vfpv3-d16")
-        // .addCompilerFlag("-gcc-toolchain")
-        // .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-fpic")
 
         // Linker flags
         .addLinkerFlag("-target")
-        .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
-        // .addLinkerFlag("-gcc-toolchain")
-        // .addLinkerFlag(gccToolchain)
+        .addLinkerFlag(llvmTriple)
 
         // Additional release flags
         .addCompilationModeFlags(

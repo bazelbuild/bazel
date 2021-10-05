@@ -67,7 +67,7 @@ public class NdkPaths {
       if (!Arrays.asList(excludedTools).contains(tool)) {
 
         String toolPath = createToolPath(toolchainName, targetPlatform + "-" + tool.getNamePart());
-        if (tool.getNamePart() == "ar")  {
+        if ((toolchainName == "llvm") && (tool.getNamePart() == "ar")) {
             toolPath = createToolPath(toolchainName, "llvm-" + tool.getNamePart());
         }
 
@@ -205,11 +205,6 @@ public class NdkPaths {
   public String createBuiltinSysroot() {
     // This location does not exist prior to NDK 15
     Preconditions.checkState(majorRevision >= 15);
-
-    StackTraceElement[] elements = Thread.currentThread().getStackTrace();
-for (int i = 1; i < elements.length; i++) {
-     StackTraceElement s = elements[i];
-}
 
     return "%externalExecPathBase%/%repositoryName%/ndk/sysroot"
         .replace("%externalExecPathBase%", externalExecPathBase)

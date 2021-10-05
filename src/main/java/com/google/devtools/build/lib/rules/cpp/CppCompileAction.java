@@ -120,7 +120,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
-  private static final boolean VALIDATION_DEBUG_WARN = true;
+  private static final boolean VALIDATION_DEBUG_WARN = false;
 
   @VisibleForTesting public static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   @VisibleForTesting public static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";

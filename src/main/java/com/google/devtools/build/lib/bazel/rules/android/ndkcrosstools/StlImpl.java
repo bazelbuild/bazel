@@ -129,12 +129,6 @@ public abstract class StlImpl {
       includeFlags.add("-isystem");
       includeFlags.add(includePath);
     }
-    /*
-    includeFlags.add("-isystem");
-    includeFlags.add("toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.5/include");
-    includeFlags.add("-isystem");
-    includeFlags.add("external/androidndk/ndk/toolchains/llvm/prebuilt/include");
-    */
     return includeFlags.build();
   }
 
