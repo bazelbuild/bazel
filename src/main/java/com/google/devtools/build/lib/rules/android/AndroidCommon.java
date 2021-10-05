@@ -970,7 +970,7 @@ public class AndroidCommon {
             .addExplicitFilter("/BR\\.class$")
             .addExplicitFilter("/databinding/[^/]+Binding\\.class$");
     if (removeAllRClasses) {
-      builder.addExplicitFilter("R\\.class").addExplicitFilter("R\\$.*\\.class");
+        builder.addExplicitFilter("(^|/)R\\.class").addExplicitFilter("(^|/)R\\$.*\\.class");
     }
 
     builder.build();
