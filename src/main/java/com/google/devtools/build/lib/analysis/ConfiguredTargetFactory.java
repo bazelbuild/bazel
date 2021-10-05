@@ -303,7 +303,7 @@ public final class ConfiguredTargetFactory {
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
+            .setUniversalFragments(ruleClassProvider.getFragmentRegistry().getUniversalFragments())
             .setToolchainContexts(toolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
@@ -311,7 +311,7 @@ public final class ConfiguredTargetFactory {
                 RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(
                     rule,
                     configuration,
-                    ruleClassProvider.getUniversalFragments(),
+                    ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();
@@ -521,7 +521,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setAspectAttributes(aspectAttributes)
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
+            .setUniversalFragments(ruleClassProvider.getFragmentRegistry().getUniversalFragments())
             .setToolchainContext(toolchainContext)
             // TODO(b/161222568): Implement the exec_properties attr for aspects and read its value
             // here.
@@ -534,7 +534,7 @@ public final class ConfiguredTargetFactory {
                     aspectFactory,
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
-                    ruleClassProvider.getUniversalFragments(),
+                    ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();

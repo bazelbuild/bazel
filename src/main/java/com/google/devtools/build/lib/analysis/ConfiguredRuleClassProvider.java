@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -59,19 +60,14 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,8 +138,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     @Nullable private String builtinsBzlPackagePathInSource;
     private final List<Class<? extends Fragment>> configurationFragmentClasses = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
-    private final Set<Class<? extends FragmentOptions>> configurationOptions =
-        new LinkedHashSet<>();
+    private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
@@ -286,7 +281,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
      * no two different configuration fragments can share the same name.
      */
     public Builder addConfigurationFragment(Class<? extends Fragment> fragmentClass) {
-      this.configurationOptions.addAll(Fragment.requiredOptions(fragmentClass));
       configurationFragmentClasses.add(fragmentClass);
       return this;
     }
@@ -554,12 +548,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(nativeAspectClassMap),
+          FragmentRegistry.create(
+              configurationFragmentClasses, universalFragments, configurationOptions),
           defaultWorkspaceFilePrefix.toString(),
           defaultWorkspaceFileSuffix.toString(),
           ImmutableList.copyOf(buildInfoFactories),
-          ImmutableList.copyOf(configurationOptions),
-          FragmentClassSet.of(configurationFragmentClasses),
-          FragmentClassSet.of(universalFragments),
           trimmingTransitionFactory,
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
@@ -632,18 +625,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   /** Maps aspect name to the aspect factory meta class. */
   private final ImmutableMap<String, NativeAspectClass> nativeAspectClassMap;
 
-  /** The configuration options that affect the behavior of the rules. */
-  private final ImmutableList<Class<? extends FragmentOptions>> configurationOptions;
-
-  /** The set of configuration fragment factories. */
-  private final FragmentClassSet configurationFragmentClasses;
-
-  /**
-   * Maps build option names to matching config fragments. This is used to determine correct
-   * fragment requirements for config_setting rules, which are unique in that their dependencies are
-   * triggered by string representations of option names.
-   */
-  private final Map<String, Class<? extends Fragment>> optionsToFragmentMap;
+  private final FragmentRegistry fragmentRegistry;
 
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
@@ -653,12 +635,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
   /** The predicate used to determine whether a diff requires the cache to be invalidated. */
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
-
-  /**
-   * Configuration fragments that should be available to all rules even when they don't explicitly
-   * require it.
-   */
-  private final FragmentClassSet universalFragments;
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
 
@@ -694,12 +670,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
+      FragmentRegistry fragmentRegistry,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
-      ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
-      FragmentClassSet configurationFragmentClasses,
-      FragmentClassSet universalFragments,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
@@ -721,13 +695,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
+    this.fragmentRegistry = fragmentRegistry;
     this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
     this.buildInfoFactories = buildInfoFactories;
-    this.configurationOptions = configurationOptions;
-    this.configurationFragmentClasses = configurationFragmentClasses;
-    this.optionsToFragmentMap = computeOptionsToFragmentMap(configurationFragmentClasses);
-    this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
@@ -739,41 +710,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.configurationFragmentMap = createFragmentMap(configurationFragmentClasses);
+    this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.networkAllowlistForTests = networkAllowlistForTests;
-  }
-
-  /**
-   * Computes the option name --> config fragments map. Note that this mapping is technically
-   * one-to-many: a single option may be required by multiple fragments (e.g. Java options are used
-   * by both JavaConfiguration and Jvm). In such cases, we arbitrarily choose one fragment since
-   * that's all that's needed to satisfy the config_setting.
-   */
-  private static Map<String, Class<? extends Fragment>> computeOptionsToFragmentMap(
-      FragmentClassSet configurationFragments) {
-    Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
-    Map<Class<? extends FragmentOptions>, Integer> visitedOptionsClasses = new HashMap<>();
-    for (Class<? extends Fragment> fragment : configurationFragments) {
-      Set<Class<? extends FragmentOptions>> requiredOpts = Fragment.requiredOptions(fragment);
-      for (Class<? extends FragmentOptions> optionsClass : requiredOpts) {
-        Integer previousBest = visitedOptionsClasses.get(optionsClass);
-        if (previousBest != null && previousBest <= requiredOpts.size()) {
-          // Multiple config fragments may require the same options class, but we only need one of
-          // them to guarantee that class makes it into the configuration. Pick one that depends
-          // on as few options classes as possible (not necessarily unique).
-          continue;
-        }
-        visitedOptionsClasses.put(optionsClass, requiredOpts.size());
-        for (Field field : optionsClass.getFields()) {
-          if (field.isAnnotationPresent(Option.class)) {
-            result.put(field.getAnnotation(Option.class).name(), fragment);
-          }
-        }
-      }
-    }
-    return result;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -822,22 +762,16 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return nativeAspectClassMap.get(key);
   }
 
+  public FragmentRegistry getFragmentRegistry() {
+    return fragmentRegistry;
+  }
+
   public Map<BuildInfoKey, BuildInfoFactory> getBuildInfoFactoriesAsMap() {
     ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
     return factoryMapBuilder.build();
-  }
-
-  /** Returns the set of configuration fragments provided by this module. */
-  public FragmentClassSet getConfigurationFragments() {
-    return configurationFragmentClasses;
-  }
-
-  @Nullable
-  public Class<? extends Fragment> getConfigurationFragmentForOption(String requiredOption) {
-    return optionsToFragmentMap.get(requiredOption);
   }
 
   /**
@@ -868,29 +802,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return shouldInvalidateCacheForOptionDiff.apply(newOptions, changedOption, oldValue, newValue);
   }
 
-  /** Returns the set of configuration options that are supported in this module. */
-  public ImmutableList<Class<? extends FragmentOptions>> getConfigurationOptions() {
-    return configurationOptions;
-  }
-
   /** Returns the definition of the rule class definition with the specified name. */
   public RuleDefinition getRuleClassDefinition(String ruleClassName) {
     return ruleDefinitionMap.get(ruleClassName);
-  }
-
-  /**
-   * Returns the configuration fragments that should be available to all rules even when not
-   * explicitly required.
-   *
-   * <p>This is a subset of {@link #getConfigurationFragments}.
-   */
-  public FragmentClassSet getUniversalFragments() {
-    return universalFragments;
-  }
-
-  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
-  public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
-    return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
   private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(

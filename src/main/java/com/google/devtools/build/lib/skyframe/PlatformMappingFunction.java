@@ -53,9 +53,9 @@ import net.starlark.java.syntax.Location;
  */
 final class PlatformMappingFunction implements SkyFunction {
 
-  private final ImmutableList<Class<? extends FragmentOptions>> optionsClasses;
+  private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
 
-  PlatformMappingFunction(ImmutableList<Class<? extends FragmentOptions>> optionsClasses) {
+  PlatformMappingFunction(ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
     this.optionsClasses = checkNotNull(optionsClasses);
   }
 
@@ -109,7 +109,7 @@ final class PlatformMappingFunction implements SkyFunction {
     if (!platformMappingKey.wasExplicitlySetByUser()) {
       // If no flag was passed and the default mapping file does not exist treat this as if the
       // mapping file was empty rather than an error.
-      return new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+      return new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
     }
     throw new PlatformMappingException(
         new MissingInputFileException(
@@ -275,7 +275,7 @@ final class PlatformMappingFunction implements SkyFunction {
     }
 
     PlatformMappingValue toPlatformMappingValue(
-        ImmutableList<Class<? extends FragmentOptions>> optionsClasses) {
+        ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
       return new PlatformMappingValue(platformsToFlags, flagsToPlatforms, optionsClasses);
     }
   }

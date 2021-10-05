@@ -181,7 +181,7 @@ public final class HelpCommand implements BlazeCommand {
     return BlazeCommandResult.success();
   }
 
-  private void emitBlazeVersionInfo(OutErr outErr, String productName) {
+  private static void emitBlazeVersionInfo(OutErr outErr, String productName) {
     String releaseInfo = BlazeVersionInfo.instance().getReleaseName();
     String line = String.format("[%s %s]", productName, releaseInfo);
     outErr.printOut(String.format("%80s\n", line));
@@ -199,7 +199,7 @@ public final class HelpCommand implements BlazeCommand {
             runtime.getProductName()));
   }
 
-  private void emitCompletionHelp(BlazeRuntime runtime, OutErr outErr) {
+  private static void emitCompletionHelp(BlazeRuntime runtime, OutErr outErr) {
     Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
 
     outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commandsByName.keySet()) + "\"");
@@ -235,7 +235,7 @@ public final class HelpCommand implements BlazeCommand {
     visitAllOptions(runtime, startupOptionVisitor, commandOptionVisitor);
   }
 
-  private void emitFlagsAsProtoHelp(BlazeRuntime runtime, OutErr outErr) {
+  private static void emitFlagsAsProtoHelp(BlazeRuntime runtime, OutErr outErr) {
     Map<String, BazelFlagsProto.FlagInfo.Builder> flags = new HashMap<>();
 
     Predicate<OptionDefinition> allOptions = option -> true;
@@ -250,13 +250,10 @@ public final class HelpCommand implements BlazeCommand {
           info.addCommands(commandName);
         };
     Consumer<OptionsParser> startupOptionVisitor =
-        parser -> {
-          parser.visitOptions(allOptions, option -> visitor.accept("startup", option));
-        };
+        parser -> parser.visitOptions(allOptions, option -> visitor.accept("startup", option));
     CommandOptionVisitor commandOptionVisitor =
-        (commandName, commandAnnotation, parser) -> {
-          parser.visitOptions(allOptions, option -> visitor.accept(commandName, option));
-        };
+        (commandName, commandAnnotation, parser) ->
+            parser.visitOptions(allOptions, option -> visitor.accept(commandName, option));
 
     visitAllOptions(runtime, startupOptionVisitor, commandOptionVisitor);
 
@@ -268,7 +265,7 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut(Base64.getEncoder().encodeToString(collectionBuilder.build().toByteArray()));
   }
 
-  private BazelFlagsProto.FlagInfo.Builder createFlagInfo(OptionDefinition option) {
+  private static BazelFlagsProto.FlagInfo.Builder createFlagInfo(OptionDefinition option) {
     BazelFlagsProto.FlagInfo.Builder flagBuilder = BazelFlagsProto.FlagInfo.newBuilder();
     flagBuilder.setName(option.getOptionName());
     flagBuilder.setHasNegativeFlag(option.hasNegativeOption());
@@ -280,7 +277,7 @@ public final class HelpCommand implements BlazeCommand {
     return flagBuilder;
   }
 
-  private void visitAllOptions(
+  private static void visitAllOptions(
       BlazeRuntime runtime,
       Consumer<OptionsParser> startupOptionVisitor,
       CommandOptionVisitor commandOptionVisitor) {
@@ -312,19 +309,19 @@ public final class HelpCommand implements BlazeCommand {
             "target-syntax",
             "resource:target-syntax.txt",
             getClass(),
-            ImmutableList.<Class<? extends OptionsBase>>of(),
+            ImmutableList.of(),
             OptionsParser.HelpVerbosity.MEDIUM,
             productName));
   }
 
-  private void emitInfoKeysHelp(CommandEnvironment env, OutErr outErr) {
+  private static void emitInfoKeysHelp(CommandEnvironment env, OutErr outErr) {
     for (InfoItem item :
         InfoCommand.getInfoItemMap(env, OptionsParser.builder().build()).values()) {
       outErr.printOut(String.format("%-23s %s\n", item.getName(), item.getDescription()));
     }
   }
 
-  private void emitGenericHelp(OutErr outErr, BlazeRuntime runtime) {
+  private static void emitGenericHelp(OutErr outErr, BlazeRuntime runtime) {
     outErr.printOut(String.format("Usage: %s <command> <options> ...\n\n",
             runtime.getProductName()));
     outErr.printOut("Available commands:\n");
@@ -430,7 +427,8 @@ public final class HelpCommand implements BlazeCommand {
           options.clear();
           Collections.addAll(options, annotation.options());
           if (annotation.usesConfigurationOptions()) {
-            options.addAll(runtime.getRuleClassProvider().getConfigurationOptions());
+            options.addAll(
+                runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
           }
           appendOptionsHtml(result, options);
           result.append("\n");

@@ -25,12 +25,7 @@ java_library(
 
 java_library(
     name = "util_internal",
-    srcs = glob(
-        [
-            "*.java",
-        ],
-        exclude = ["DefaultBuildOptionsForTesting.java"],
-    ),
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
@@ -141,15 +136,5 @@ java_library(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-java_library(
-    name = "test-build-options",
-    srcs = ["DefaultBuildOptionsForTesting.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/common/options",
     ],
 )

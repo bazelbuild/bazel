@@ -292,6 +292,7 @@ java_library(
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_options",
+        ":config/fragment_registry",
         ":config/host_transition",
         ":config/invalid_configuration_exception",
         ":config/per_label_options",
@@ -1573,6 +1574,7 @@ java_library(
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
@@ -1712,6 +1714,18 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/fragment_registry",
+    srcs = ["config/FragmentRegistry.java"],
+    deps = [
+        ":config/build_options",
+        ":config/fragment",
+        ":config/fragment_class_set",
+        ":config/fragment_options",
+        "//third_party:guava",
     ],
 )
 

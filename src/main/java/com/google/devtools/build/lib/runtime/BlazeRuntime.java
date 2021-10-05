@@ -750,9 +750,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
+  /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
-    return ruleClassProvider.createBuildOptions(optionsProvider);
+    return BuildOptions.of(
+        ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsProvider);
   }
 
   /**

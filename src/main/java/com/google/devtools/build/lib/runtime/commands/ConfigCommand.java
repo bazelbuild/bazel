@@ -21,20 +21,23 @@ import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -61,7 +64,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -341,7 +344,8 @@ public class ConfigCommand implements BlazeCommand {
               : new JsonOutputFormatter(writer);
       ImmutableSortedMap<
               Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
-          fragmentDefs = getFragmentDefs(env.getRuntime().getRuleClassProvider());
+          fragmentDefs =
+              getFragmentDefs(env.getRuntime().getRuleClassProvider().getFragmentRegistry());
 
       if (options.getResidue().isEmpty()) {
         if (configCommandOptions.dumpAll) {
@@ -398,17 +402,15 @@ public class ConfigCommand implements BlazeCommand {
    */
   private static ImmutableSortedMap<
           Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
-      getFragmentDefs(ConfiguredRuleClassProvider ruleClassProvider) {
-    ImmutableSortedMap.Builder<
-            Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
-        fragments = ImmutableSortedMap.orderedBy((c1, c2) -> c1.getName().compareTo(c2.getName()));
-    for (Class<? extends Fragment> fragmentClass : ruleClassProvider.getConfigurationFragments()) {
-      fragments.put(
-          fragmentClass,
-          ImmutableSortedSet.copyOf(
-              comparing(Class::getName), Fragment.requiredOptions(fragmentClass)));
-    }
-    return fragments.build();
+      getFragmentDefs(FragmentRegistry fragmentRegistry) {
+    return fragmentRegistry.getAllFragments().stream()
+        .collect(
+            toImmutableSortedMap(
+                FragmentClassSet.LEXICAL_FRAGMENT_SORTER,
+                fragment -> fragment,
+                fragment ->
+                    ImmutableSortedSet.copyOf(
+                        Comparator.comparing(Class::getName), Fragment.requiredOptions(fragment))));
   }
 
   /**
@@ -447,7 +449,7 @@ public class ConfigCommand implements BlazeCommand {
       fragments.add(
           new FragmentForOutput(
               entry.getKey().getName(),
-              entry.getValue().stream().map(clazz -> clazz.getName()).collect(toList())));
+              entry.getValue().stream().map(Class::getName).collect(toList())));
     }
     fragmentDefs.entrySet().stream()
         .filter(entry -> config.hasFragment(entry.getKey()))
@@ -456,21 +458,18 @@ public class ConfigCommand implements BlazeCommand {
                 fragments.add(
                     new FragmentForOutput(
                         entry.getKey().getName(),
-                        entry.getValue().stream()
-                            .map(clazz -> clazz.getName())
-                            .collect(toList()))));
+                        entry.getValue().stream().map(Class::getName).collect(toList()))));
 
     ImmutableSortedSet.Builder<FragmentOptionsForOutput> fragmentOptions =
         ImmutableSortedSet.orderedBy(comparing(e -> e.name));
     config.getOptions().getFragmentClasses().stream()
         .map(optionsClass -> config.getOptions().get(optionsClass))
         .forEach(
-            fragmentOptionsInstance -> {
-              fragmentOptions.add(
-                  new FragmentOptionsForOutput(
-                      fragmentOptionsInstance.getClass().getName(),
-                      getOrderedNativeOptions(fragmentOptionsInstance)));
-            });
+            fragmentOptionsInstance ->
+                fragmentOptions.add(
+                    new FragmentOptionsForOutput(
+                        fragmentOptionsInstance.getClass().getName(),
+                        getOrderedNativeOptions(fragmentOptionsInstance))));
     fragmentOptions.add(
         new FragmentOptionsForOutput(
             UserDefinedFragment.DESCRIPTIVE_NAME, getOrderedUserDefinedOptions(config)));
@@ -516,7 +515,7 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   private static boolean doesConfigMatch(ConfigurationForOutput config, String configPrefix) {
-    if (configPrefix.toLowerCase().equals("host")) {
+    if (Ascii.equalsIgnoreCase(configPrefix, "host")) {
       return config.isHost;
     }
     return config.checksum().startsWith(configPrefix);
@@ -538,7 +537,7 @@ public class ConfigCommand implements BlazeCommand {
                 !(options.getClass().equals(CoreOptions.class) && entry.getKey().equals("define")))
         .collect(
             toImmutableSortedMap(
-                Ordering.natural(), e -> e.getKey(), e -> String.valueOf(e.getValue())));
+                Ordering.natural(), Map.Entry::getKey, e -> String.valueOf(e.getValue())));
   }
 
   /**
@@ -578,7 +577,7 @@ public class ConfigCommand implements BlazeCommand {
   /**
    * Reports the result of <code>blaze config</code> and returns the appropriate command exit code.
    */
-  private BlazeCommandResult reportConfigurationIds(
+  private static BlazeCommandResult reportConfigurationIds(
       ConfigCommandOutputFormatter writer,
       ImmutableSortedSet<ConfigurationForOutput> configurations) {
     writer.writeConfigurationIDs(configurations);
@@ -656,10 +655,8 @@ public class ConfigCommand implements BlazeCommand {
 
   private static Map<String, Pair<Object, Object>> diffOptions(
       @Nullable FragmentOptionsForOutput options1, @Nullable FragmentOptionsForOutput options2) {
-    Set<String> optionNames1 =
-        options1 == null ? Collections.<String>emptySet() : options1.optionNames();
-    Set<String> optionNames2 =
-        options2 == null ? Collections.<String>emptySet() : options2.optionNames();
+    Set<String> optionNames1 = options1 == null ? ImmutableSet.of() : options1.optionNames();
+    Set<String> optionNames2 = options2 == null ? ImmutableSet.of() : options2.optionNames();
     Map<String, Pair<Object, Object>> diffs = new HashMap<>();
 
     for (String optionName : Sets.union(optionNames1, optionNames2)) {
@@ -678,7 +675,8 @@ public class ConfigCommand implements BlazeCommand {
       String configHash1, String configHash2, Table<String, String, Pair<Object, Object>> diffs) {
     ImmutableSortedSet.Builder<FragmentDiffForOutput> fragmentDiffs =
         ImmutableSortedSet.orderedBy(comparing(e -> e.name));
-    diffs.rowKeySet().stream()
+    diffs
+        .rowKeySet()
         .forEach(
             fragmentName -> {
               ImmutableSortedMap<String, Pair<String, String>> sortedOptionDiffs =

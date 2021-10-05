@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,7 +51,7 @@ public class BazelRuleClassProviderTest {
 
   private static void checkConfigConsistency(ConfiguredRuleClassProvider provider) {
     // Check that every fragment required by a rule is present.
-    FragmentClassSet configurationFragments = provider.getConfigurationFragments();
+    FragmentClassSet configurationFragments = provider.getFragmentRegistry().getAllFragments();
     for (RuleClass ruleClass : provider.getRuleClassMap().values()) {
       for (Class<?> fragment :
           ruleClass.getConfigurationFragmentPolicy().getRequiredConfigurationFragments()) {
@@ -60,10 +59,9 @@ public class BazelRuleClassProviderTest {
       }
     }
 
-    List<Class<? extends FragmentOptions>> configOptions = provider.getConfigurationOptions();
-    for (Class<? extends Fragment> fragmentClass : provider.getConfigurationFragments()) {
-      // Check that every created fragment is present.
-      assertThat(configurationFragments).contains(fragmentClass);
+    Set<Class<? extends FragmentOptions>> configOptions =
+        provider.getFragmentRegistry().getOptionsClasses();
+    for (Class<? extends Fragment> fragmentClass : configurationFragments) {
       // Check that every options class required for fragment creation is provided.
       for (Class<? extends FragmentOptions> options : Fragment.requiredOptions(fragmentClass)) {
         assertThat(configOptions).contains(options);

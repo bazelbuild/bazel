@@ -178,7 +178,7 @@ public class BlazeRuntimeWrapper {
       Iterables.addAll(
           options, module.getCommandOptions(DummyBuildCommand.class.getAnnotation(Command.class)));
     }
-    options.addAll(runtime.getRuleClassProvider().getConfigurationOptions());
+    options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
     return OptionsParser.builder().optionsClasses(options).build();
   }
 

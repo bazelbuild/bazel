@@ -62,7 +62,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   public void setDefaultBuildOptions() {
     defaultBuildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
-            ruleClassProvider.getConfigurationOptions());
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
   }
 
   @Test

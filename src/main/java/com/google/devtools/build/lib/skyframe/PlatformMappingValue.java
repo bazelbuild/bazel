@@ -100,7 +100,7 @@ public final class PlatformMappingValue implements SkyValue {
       return path;
     }
 
-    public boolean wasExplicitlySetByUser() {
+    boolean wasExplicitlySetByUser() {
       return wasExplicitlySetByUser;
     }
 
@@ -138,7 +138,7 @@ public final class PlatformMappingValue implements SkyValue {
 
   private final ImmutableMap<Label, ImmutableSet<String>> platformsToFlags;
   private final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
-  private final ImmutableList<Class<? extends FragmentOptions>> optionsClasses;
+  private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
   private final LoadingCache<ImmutableSet<String>, OptionsParsingResult> parserCache;
   private final LoadingCache<BuildConfigurationValue.Key, BuildConfigurationValue.Key> mappingCache;
 
@@ -155,7 +155,7 @@ public final class PlatformMappingValue implements SkyValue {
   PlatformMappingValue(
       ImmutableMap<Label, ImmutableSet<String>> platformsToFlags,
       ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms,
-      ImmutableList<Class<? extends FragmentOptions>> optionsClasses) {
+      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
     this.platformsToFlags = checkNotNull(platformsToFlags);
     this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
     this.optionsClasses = checkNotNull(optionsClasses);

@@ -43,8 +43,8 @@ public final class PlatformMappingValueTest {
   private static final FragmentClassSet PLATFORM_FRAGMENT_CLASS =
       FragmentClassSet.of(ImmutableSet.of(PlatformConfiguration.class));
 
-  private static final ImmutableList<Class<? extends FragmentOptions>>
-      BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableList.of(CoreOptions.class, PlatformOptions.class);
+  private static final ImmutableSet<Class<? extends FragmentOptions>>
+      BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
 
   private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
   private static final Label PLATFORM2 = Label.parseAbsoluteUnchecked("//platforms:two");

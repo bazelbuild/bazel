@@ -435,7 +435,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .optionsClasses(
                 Iterables.concat(
                     Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
-                    ruleClassProvider.getConfigurationOptions()))
+                    ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
             .build();
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
@@ -453,7 +453,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // to ensure that the values given in this map are the right types for their keys.
     optionsParser.setStarlarkOptions(starlarkOptions);
 
-    BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
+    BuildOptions buildOptions =
+        BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
     return skyframeExecutor.createConfigurations(reporter, buildOptions, ImmutableSet.of(), false);
   }
 
@@ -1311,7 +1312,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Given a list of PathFragments, returns a corresponding list of strings. Such strings make
    * assertions easier to write.
    */
-  protected List<String> pathfragmentsToStrings(List<PathFragment> pathFragments) {
+  protected static ImmutableList<String> pathfragmentsToStrings(List<PathFragment> pathFragments) {
     return pathFragments.stream().map(PathFragment::toString).collect(toImmutableList());
   }
 

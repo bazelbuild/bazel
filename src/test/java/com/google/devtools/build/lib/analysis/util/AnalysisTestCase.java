@@ -275,7 +275,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         KeepGoingOption.class,
                         LoadingPhaseThreadsOption.class,
                         LoadingOptions.class),
-                    ruleClassProvider.getConfigurationOptions()))
+                    ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
             .build();
     if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
       optionsParser.parse("--default_visibility=public");
@@ -288,7 +288,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     optionsParser.parse(args);
 
-    buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
+    buildOptions =
+        BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
   }
 
   protected FlagBuilder defaultFlags() {
