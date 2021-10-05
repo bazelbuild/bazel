@@ -24,7 +24,8 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -96,6 +98,13 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       }
     }
 
+    // Get registered execution platforms from bzlmod.
+    ImmutableList<TargetPattern> bzlmodExecutionPlatforms = getBzlmodExecutionPlatforms(env);
+    if (bzlmodExecutionPlatforms == null) {
+      return null;
+    }
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodExecutionPlatforms));
+
     // Get the registered execution platforms from the WORKSPACE.
     ImmutableList<TargetPattern> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
     if (workspaceExecutionPlatforms == null) {
@@ -144,6 +153,36 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     Package externalPackage = externalPackageValue.getPackage();
     return externalPackage.getRegisteredExecutionPlatforms();
+  }
+
+  @Nullable
+  private static ImmutableList<TargetPattern> getBzlmodExecutionPlatforms(Environment env)
+      throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
+    if (!RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+      return ImmutableList.of();
+    }
+    BazelModuleResolutionValue bazelModuleResolutionValue =
+        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
+    if (bazelModuleResolutionValue == null) {
+      return null;
+    }
+    ImmutableList.Builder<TargetPattern> executionPlatforms = ImmutableList.builder();
+    for (Module module : bazelModuleResolutionValue.getDepGraph().values()) {
+      TargetPattern.Parser parser =
+          new TargetPattern.Parser(
+              PathFragment.EMPTY_FRAGMENT,
+              RepositoryName.createFromValidStrippedName(module.getCanonicalRepoName()),
+              bazelModuleResolutionValue.getFullRepoMapping(module.getKey()));
+      for (String pattern : module.getExecutionPlatformsToRegister()) {
+        try {
+          executionPlatforms.add(parser.parse(pattern));
+        } catch (TargetParsingException e) {
+          throw new RegisteredExecutionPlatformsFunctionException(
+              new InvalidExecutionPlatformLabelException(pattern, e), Transience.PERSISTENT);
+        }
+      }
+    }
+    return executionPlatforms.build();
   }
 
   private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
@@ -244,11 +283,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     private RegisteredExecutionPlatformsFunctionException(
         InvalidPlatformException cause, Transience transience) {
-      super(cause, transience);
-    }
-
-    private RegisteredExecutionPlatformsFunctionException(
-        ExternalDepsException cause, Transience transience) {
       super(cause, transience);
     }
   }

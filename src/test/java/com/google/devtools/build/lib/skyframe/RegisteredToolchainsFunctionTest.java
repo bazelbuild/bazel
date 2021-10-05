@@ -15,18 +15,25 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.io.IOException;
 import java.util.stream.Collectors;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,6 +41,33 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RegisteredToolchainsFunction} and {@link RegisteredToolchainsValue}. */
 @RunWith(JUnit4.class)
 public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
+
+  private Path moduleRoot;
+  private FakeRegistry registry;
+
+  @Override
+  protected boolean enableBzlmod() {
+    return true;
+  }
+
+  @Override
+  protected ImmutableList<Injected> extraPrecomputedValues() {
+    try {
+      moduleRoot = scratch.dir("modules");
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
+    return ImmutableList.of(
+        PrecomputedValue.injected(
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false));
+  }
+
+  @Before
+  public void setUpForBzlmod() throws Exception {
+    scratch.file("MODULE.bazel");
+  }
 
   @Test
   public void testRegisteredToolchains() throws Exception {
@@ -262,6 +296,115 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
         .contains(Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"));
+  }
+
+  @Test
+  public void testRegisteredToolchains_bzlmod() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(toolchains_to_register=['//:tool'])",
+        "bazel_dep(name='B',version='1.0')",
+        "bazel_dep(name='C',version='1.1')",
+        "bazel_dep(name='toolchain_def',version='1.0')");
+    registry
+        .addModule(
+            createModuleKey("B", "1.0"),
+            "module(",
+            "    name='B',",
+            "    version='1.0',",
+            "    toolchains_to_register=['//:tool'],",
+            ")",
+            "bazel_dep(name='D',version='1.0')",
+            "bazel_dep(name='toolchain_def',version='1.0')")
+        .addModule(
+            createModuleKey("C", "1.1"),
+            "module(",
+            "    name='C',",
+            "    version='1.1',",
+            "    toolchains_to_register=['//:tool'],",
+            ")",
+            "bazel_dep(name='D',version='1.1')",
+            "bazel_dep(name='toolchain_def',version='1.0')")
+        // D@1.0 is not selected
+        .addModule(
+            createModuleKey("D", "1.0"),
+            "module(",
+            "    name='D',",
+            "    version='1.0',",
+            "    toolchains_to_register=['//:tool'],",
+            ")",
+            "bazel_dep(name='toolchain_def',version='1.0')")
+        .addModule(
+            createModuleKey("D", "1.1"),
+            "module(",
+            "    name='D',",
+            "    version='1.1',",
+            "    toolchains_to_register=['@E//:tool', '//:tool'],",
+            ")",
+            "bazel_dep(name='E',version='1.0')",
+            "bazel_dep(name='toolchain_def',version='1.0')")
+        .addModule(
+            createModuleKey("E", "1.0"),
+            "module(name='E',version='1.0')",
+            "bazel_dep(name='toolchain_def',version='1.0')")
+        .addModule(
+            createModuleKey("toolchain_def", "1.0"), "module(name='toolchain_def',version='1.0')");
+
+    // Everyone depends on toolchain_def@1.0 for the declare_toolchain macro.
+    Path toolchainDefDir = moduleRoot.getRelative("toolchain_def.1.0");
+    scratch.file(toolchainDefDir.getRelative("WORKSPACE").getPathString());
+    scratch.file(
+        toolchainDefDir.getRelative("BUILD").getPathString(),
+        "toolchain_type(name = 'test_toolchain')");
+    scratch.file(
+        toolchainDefDir.getRelative("toolchain_def.bzl").getPathString(),
+        "def _impl(ctx):",
+        "    toolchain = platform_common.ToolchainInfo(data = ctx.attr.data)",
+        "    return [toolchain]",
+        "test_toolchain = rule(implementation = _impl, attrs = {'data': attr.string()})",
+        "def declare_toolchain(name):",
+        "    native.toolchain(",
+        "        name = name,",
+        "        toolchain_type = Label('//:test_toolchain'),",
+        "        toolchain = ':' + name + '_impl')",
+        "    test_toolchain(",
+        "        name = name + '_impl',",
+        "        data = 'stuff')");
+
+    // Now create the toolchains for each module.
+    for (String repo : ImmutableList.of("B.1.0", "C.1.1", "D.1.0", "D.1.1", "E.1.0")) {
+      scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
+      scratch.file(
+          moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
+          "load('@toolchain_def//:toolchain_def.bzl', 'declare_toolchain')",
+          "declare_toolchain(name='tool')");
+    }
+    scratch.overwriteFile(
+        "BUILD",
+        "load('@toolchain_def//:toolchain_def.bzl', 'declare_toolchain')",
+        "declare_toolchain(name='tool')",
+        "declare_toolchain(name='wstool')");
+    rewriteWorkspace("register_toolchains('//:wstool')");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the toolchains registered with bzlmod come in the BFS order and before WORKSPACE
+    // registrations.
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsAtLeast(
+            Label.parseAbsoluteUnchecked("//:tool_impl"),
+            Label.parseAbsoluteUnchecked("@B.1.0//:tool_impl"),
+            Label.parseAbsoluteUnchecked("@C.1.1//:tool_impl"),
+            Label.parseAbsoluteUnchecked("@E.1.0//:tool_impl"),
+            Label.parseAbsoluteUnchecked("@D.1.1//:tool_impl"),
+            Label.parseAbsoluteUnchecked("//:wstool_impl"))
+        .inOrder();
   }
 
   @Test

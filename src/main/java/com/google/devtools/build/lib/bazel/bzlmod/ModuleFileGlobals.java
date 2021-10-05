@@ -122,12 +122,38 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "0"),
+        @Param(
+            name = "execution_platforms_to_register",
+            doc =
+                "A list of already-defined execution platforms to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
+        @Param(
+            name = "toolchains_to_register",
+            doc =
+                "A list of already-defined toolchains to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
       },
       useStarlarkThread = true)
   public void module(
       String name,
       String version,
       StarlarkInt compatibilityLevel,
+      Iterable<?> executionPlatformsToRegister,
+      Iterable<?> toolchainsToRegister,
       StarlarkThread thread)
       throws EvalException {
     if (moduleCalled) {
@@ -144,8 +170,27 @@ public class ModuleFileGlobals {
     module
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"));
+        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
+        .setExecutionPlatformsToRegister(
+            checkAllAbsolutePatterns(
+                executionPlatformsToRegister, "execution_platforms_to_register"))
+        .setToolchainsToRegister(
+            checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
     addRepoNameUsage(name, "as the current module name", thread.getCallerLocation());
+  }
+
+  private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)
+      throws EvalException {
+    Sequence<String> list = Sequence.cast(iterable, String.class, where);
+    for (String item : list) {
+      if (!item.startsWith("//") && !item.startsWith("@")) {
+        throw Starlark.errorf(
+            "Expected absolute target patterns (must begin with '//' or '@') for '%s' argument, but"
+                + " got '%s' as an argument",
+            where, item);
+      }
+    }
+    return list.getImmutableList();
   }
 
   @StarlarkMethod(
