@@ -227,7 +227,8 @@ public final class AnalysisPhaseRunner {
             request.getTopLevelArtifactContext(),
             env.getReporter(),
             env.getEventBus(),
-            /*includeExecutionPhase=*/ false);
+            /*includeExecutionPhase=*/ false,
+            /*mergedPhasesExecutionJobsCount=*/ 0);
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus()

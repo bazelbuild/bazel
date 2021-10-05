@@ -218,7 +218,8 @@ public class BuildViewForTesting {
         topLevelOptions,
         eventHandler,
         eventBus,
-        /*includeExecutionPhase=*/ false);
+        /*includeExecutionPhase=*/ false,
+        /*mergedPhasesExecutionJobsCount=*/ 0);
   }
 
   /** Sets the configurations. Not thread-safe. */

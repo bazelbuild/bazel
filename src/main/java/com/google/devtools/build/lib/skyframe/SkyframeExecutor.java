@@ -2393,7 +2393,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       List<BuildDriverKey> buildDriverAspectKeys,
       boolean keepGoing,
       int numThreads,
-      int cpuHeavySkyKeysThreadPoolSize)
+      int cpuHeavySkyKeysThreadPoolSize,
+      int mergedPhasesExecutionJobsCount)
       throws InterruptedException {
     checkActive();
 
@@ -2405,6 +2406,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setExecutorServiceSupplier(
                 () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
             .setCPUHeavySkyKeysThreadPoolSize(cpuHeavySkyKeysThreadPoolSize)
+            .setExecutionPhaseThreadPoolSize(mergedPhasesExecutionJobsCount)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<BuildDriverValue> result =

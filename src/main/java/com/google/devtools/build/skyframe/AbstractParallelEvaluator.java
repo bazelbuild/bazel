@@ -29,7 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.DualExecutorQueueVisitor;
+import com.google.devtools.build.lib.concurrent.MultiExecutorQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -121,7 +121,8 @@ abstract class AbstractParallelEvaluator {
         executorService,
         cycleDetector,
         evaluationVersionBehavior,
-        /*cpuHeavySkyKeysThreadPoolSize=*/ 0);
+        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
+        /*executionJobsThreadPoolSize=*/ 0);
   }
 
   AbstractParallelEvaluator(
@@ -138,26 +139,13 @@ abstract class AbstractParallelEvaluator {
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
       EvaluationVersionBehavior evaluationVersionBehavior,
-      int cpuHeavySkyKeysThreadPoolSize) {
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionJobsThreadPoolSize) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     Supplier<QuiescingExecutor> quiescingExecutorSupplier =
-        cpuHeavySkyKeysThreadPoolSize > 0
-            ? () ->
-                DualExecutorQueueVisitor.createWithExecutorServices(
-                    executorService.get(),
-                    AbstractQueueVisitor.createExecutorService(
-                        /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
-                        "skyframe-evaluator-cpu-heavy",
-                        // FJP performs much better on machines with many cores.
-                        /*useForkJoinPool=*/ true),
-                    /*failFastOnException=*/ true,
-                    NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER)
-            : () ->
-                AbstractQueueVisitor.createWithExecutorService(
-                    executorService.get(),
-                    /*failFastOnException=*/ true,
-                    NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+        getQuiescingExecutorSupplier(
+            executorService, cpuHeavySkyKeysThreadPoolSize, executionJobsThreadPoolSize);
     evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
@@ -174,6 +162,48 @@ abstract class AbstractParallelEvaluator {
                 new NodeEntryVisitor(
                     quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
             evaluationVersionBehavior);
+  }
+
+  private Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(
+      Supplier<ExecutorService> executorService,
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionJobsThreadPoolSize) {
+    if (cpuHeavySkyKeysThreadPoolSize <= 0) {
+      return () ->
+          AbstractQueueVisitor.createWithExecutorService(
+              executorService.get(),
+              /*failFastOnException=*/ true,
+              NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+    }
+    if (executionJobsThreadPoolSize <= 0) {
+      return () ->
+          MultiExecutorQueueVisitor.createWithExecutorServices(
+              executorService.get(),
+              AbstractQueueVisitor.createExecutorService(
+                  /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
+                  "skyframe-evaluator-cpu-heavy",
+                  // FJP performs much better on machines with many cores.
+                  /*useForkJoinPool=*/ true),
+              /*failFastOnException=*/ true,
+              NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+    }
+    // We only consider the experimental case of merged Skyframe phases WITH a separate pool for
+    // CPU-heavy tasks, since that's the default behavior moving forward. Blocker: b/194319860.
+    return () ->
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            executorService.get(),
+            AbstractQueueVisitor.createExecutorService(
+                /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
+                "skyframe-evaluator-cpu-heavy",
+                // FJP performs much better on machines with many cores.
+                /*useForkJoinPool=*/ true),
+            AbstractQueueVisitor.createExecutorService(
+                /*parallelism=*/ executionJobsThreadPoolSize,
+                "skyframe-evaluator-execution",
+                // FJP performs much better on machines with many cores.
+                /*useForkJoinPool=*/ true),
+            /*failFastOnException=*/ true,
+            NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
   }
 
   /**

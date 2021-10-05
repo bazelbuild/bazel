@@ -632,7 +632,8 @@ public final class SkyframeBuildView {
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       boolean keepGoing,
       int numThreads,
-      int cpuHeavySkyKeysThreadPoolSize)
+      int cpuHeavySkyKeysThreadPoolSize,
+      int mergedPhasesExecutionJobsCount)
       throws InterruptedException {
     enableAnalysis(true);
     EvaluationResult<BuildDriverValue> result;
@@ -653,7 +654,8 @@ public final class SkyframeBuildView {
               buildDriverAspectKeys,
               keepGoing,
               numThreads,
-              cpuHeavySkyKeysThreadPoolSize);
+              cpuHeavySkyKeysThreadPoolSize,
+              mergedPhasesExecutionJobsCount);
     } finally {
       enableAnalysis(false);
     }

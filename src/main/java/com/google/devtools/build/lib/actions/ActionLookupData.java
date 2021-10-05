@@ -17,12 +17,12 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 
 /** Data that uniquely identifies an action. */
-public class ActionLookupData implements SkyKey {
+public class ActionLookupData implements ExecutionPhaseSkyKey {
 
   private final ActionLookupKey actionLookupKey;
   private final int actionIndex;

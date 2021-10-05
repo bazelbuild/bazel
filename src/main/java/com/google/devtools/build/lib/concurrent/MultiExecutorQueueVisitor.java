@@ -19,20 +19,28 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import java.util.concurrent.ExecutorService;
+import javax.annotation.Nullable;
 
 /**
  * An implementation of MultiThreadPoolsQuiescingExecutor that has 2 ExecutorServices, one with a
  * larger thread pool for IO/Network-bound tasks, and one with a smaller thread pool for CPU-bound
  * tasks.
+ *
+ * <p>With merged analysis and execution phases, this QueueVisitor is responsible for all 3 phases:
+ * loading, analysis and execution. There's an additional 3rd pool for execution tasks. This is done
+ * for performance reason: each of these phases has an optimal number of threads for its thread
+ * pool.
  */
-public class DualExecutorQueueVisitor extends AbstractQueueVisitor
+public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     implements MultiThreadPoolsQuiescingExecutor {
   private final ExecutorService regularPoolExecutorService;
   private final ExecutorService cpuHeavyPoolExecutorService;
+  @Nullable private final ExecutorService executionPhaseExecutorService;
 
-  private DualExecutorQueueVisitor(
+  private MultiExecutorQueueVisitor(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
+      ExecutorService executionPhaseExecutorService,
       boolean failFastOnException,
       ErrorClassifier errorClassifier) {
     super(
@@ -42,15 +50,34 @@ public class DualExecutorQueueVisitor extends AbstractQueueVisitor
         errorClassifier);
     this.regularPoolExecutorService = super.getExecutorService();
     this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
+    this.executionPhaseExecutorService = executionPhaseExecutorService;
   }
 
-  public static AbstractQueueVisitor createWithExecutorServices(
-      ExecutorService executorService,
-      ExecutorService cpuExecutorService,
+  public static MultiExecutorQueueVisitor createWithExecutorServices(
+      ExecutorService regularPoolExecutorService,
+      ExecutorService cpuHeavyPoolExecutorService,
       boolean failFastOnException,
       ErrorClassifier errorClassifier) {
-    return new DualExecutorQueueVisitor(
-        executorService, cpuExecutorService, failFastOnException, errorClassifier);
+    return createWithExecutorServices(
+        regularPoolExecutorService,
+        cpuHeavyPoolExecutorService,
+        /*executionPhaseExecutorService=*/ null,
+        failFastOnException,
+        errorClassifier);
+  }
+
+  public static MultiExecutorQueueVisitor createWithExecutorServices(
+      ExecutorService regularPoolExecutorService,
+      ExecutorService cpuHeavyPoolExecutorService,
+      ExecutorService executionPhaseExecutorService,
+      boolean failFastOnException,
+      ErrorClassifier errorClassifier) {
+    return new MultiExecutorQueueVisitor(
+        regularPoolExecutorService,
+        cpuHeavyPoolExecutorService,
+        executionPhaseExecutorService,
+        failFastOnException,
+        errorClassifier);
   }
 
   @Override
@@ -65,6 +92,9 @@ public class DualExecutorQueueVisitor extends AbstractQueueVisitor
         return regularPoolExecutorService;
       case CPU_HEAVY:
         return cpuHeavyPoolExecutorService;
+      case EXECUTION_PHASE:
+        Preconditions.checkNotNull(executionPhaseExecutorService);
+        return executionPhaseExecutorService;
     }
     throw new IllegalStateException("Invalid ThreadPoolType: " + threadPoolType);
   }
@@ -76,6 +106,9 @@ public class DualExecutorQueueVisitor extends AbstractQueueVisitor
     }
     internalShutdownExecutorService(regularPoolExecutorService);
     internalShutdownExecutorService(cpuHeavyPoolExecutorService);
+    if (executionPhaseExecutorService != null) {
+      internalShutdownExecutorService(executionPhaseExecutorService);
+    }
   }
 
   private void internalShutdownExecutorService(ExecutorService executorService) {

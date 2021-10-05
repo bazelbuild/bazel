@@ -20,9 +20,16 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
     // Suitable for CPU-heavy tasks. Ideally the number of threads is close to the machine's number
     // of cores.
     CPU_HEAVY,
-    REGULAR
+    // Reserved for execution-phase tasks.
+    EXECUTION_PHASE,
+    REGULAR,
   }
 
-  /** Execute the runnable, taking into consideration the preferred thread pool type. */
+  /**
+   * Execute the runnable, taking into consideration the preferred thread pool type.
+   *
+   * <p>WARNING: it is the developer's responsibility to check that the appropriate thread pool is
+   * present.
+   */
   void execute(Runnable runnable, ThreadPoolType threadPoolType);
 }

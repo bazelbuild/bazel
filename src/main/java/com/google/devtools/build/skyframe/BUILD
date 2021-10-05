@@ -75,6 +75,13 @@ java_library(
     deps = ["skyframe-objects"],
 )
 
+java_library(
+    name = "execution_phase_skykey",
+    srcs = ["ExecutionPhaseSkyKey.java"],
+    visibility = ["//visibility:public"],
+    deps = [":skyframe-objects"],
+)
+
 proto_library(
     name = "graph_inconsistency",
     srcs = ["graph_inconsistency.proto"],

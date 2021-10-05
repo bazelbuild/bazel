@@ -203,7 +203,8 @@ public class BuildView {
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
-      boolean includeExecutionPhase)
+      boolean includeExecutionPhase,
+      int mergedPhasesExecutionJobsCount)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException {
     logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
@@ -394,7 +395,8 @@ public class BuildView {
                 topLevelOptions,
                 keepGoing,
                 loadingPhaseThreads,
-                viewOptions.cpuHeavySkyKeysThreadPoolSize);
+                viewOptions.cpuHeavySkyKeysThreadPoolSize,
+                mergedPhasesExecutionJobsCount);
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();

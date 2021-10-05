@@ -197,7 +197,8 @@ public final class AnalysisAndExecutionPhaseRunner {
                 request.getTopLevelArtifactContext(),
                 env.getReporter(),
                 env.getEventBus(),
-                /*includeExecutionPhase=*/ true);
+                /*includeExecutionPhase=*/ true,
+                request.getBuildOptions().jobs);
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus()

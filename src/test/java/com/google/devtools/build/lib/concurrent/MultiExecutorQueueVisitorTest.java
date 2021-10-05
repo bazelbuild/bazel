@@ -24,18 +24,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link DualExecutorQueueVisitor}. */
+/** Tests for {@link MultiExecutorQueueVisitor}. */
 @RunWith(JUnit4.class)
-public class DualExecutorQueueVisitorTest {
+public class MultiExecutorQueueVisitorTest {
   @Test
   public void testGetExecutorServiceByThreadPoolType_regular() {
     ExecutorService regular = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
-    DualExecutorQueueVisitor queueVisitor =
-        (DualExecutorQueueVisitor)
-            DualExecutorQueueVisitor.createWithExecutorServices(
-                regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
 
     assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.REGULAR))
         .isEqualTo(regular);
@@ -46,10 +45,9 @@ public class DualExecutorQueueVisitorTest {
     ExecutorService regular = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
-    DualExecutorQueueVisitor queueVisitor =
-        (DualExecutorQueueVisitor)
-            DualExecutorQueueVisitor.createWithExecutorServices(
-                regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
 
     assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.CPU_HEAVY))
         .isEqualTo(cpuHeavy);
@@ -60,10 +58,9 @@ public class DualExecutorQueueVisitorTest {
     ExecutorService regular = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
-    DualExecutorQueueVisitor queueVisitor =
-        (DualExecutorQueueVisitor)
-            DualExecutorQueueVisitor.createWithExecutorServices(
-                regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
     queueVisitor.shutdownExecutorService(/*catastrophe=*/ null);
 
     verify(regular).shutdown();
@@ -75,10 +72,9 @@ public class DualExecutorQueueVisitorTest {
     ExecutorService regular = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
 
-    DualExecutorQueueVisitor queueVisitor =
-        (DualExecutorQueueVisitor)
-            DualExecutorQueueVisitor.createWithExecutorServices(
-                regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
     RuntimeException toBeThrown = new RuntimeException();
 
     Throwable thrown =
@@ -86,5 +82,39 @@ public class DualExecutorQueueVisitorTest {
             Throwable.class,
             () -> queueVisitor.shutdownExecutorService(/*catastrophe=*/ toBeThrown));
     assertThat(thrown).isEqualTo(toBeThrown);
+  }
+
+  @Test
+  public void testGetExecutorServiceByThreadPoolType_executionPhase() {
+    ExecutorService regular = mock(ExecutorService.class);
+    ExecutorService cpuHeavy = mock(ExecutorService.class);
+    ExecutorService executionPhase = mock(ExecutorService.class);
+
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular,
+            cpuHeavy,
+            executionPhase,
+            /*failFastOnException=*/ false,
+            ErrorClassifier.DEFAULT);
+
+    assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.EXECUTION_PHASE))
+        .isEqualTo(executionPhase);
+  }
+
+  @Test
+  public void testGetExecutorServiceByThreadPoolType_executionPhaseWithoutExecutor_throwsNPE() {
+    ExecutorService regular = mock(ExecutorService.class);
+    ExecutorService cpuHeavy = mock(ExecutorService.class);
+
+    MultiExecutorQueueVisitor queueVisitorWithoutExecutionPhasePool =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            queueVisitorWithoutExecutionPhasePool.getExecutorServiceByThreadPoolType(
+                ThreadPoolType.EXECUTION_PHASE));
   }
 }
