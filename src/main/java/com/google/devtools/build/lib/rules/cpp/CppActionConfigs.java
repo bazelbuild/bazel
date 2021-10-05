@@ -175,6 +175,7 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'per_object_debug_info_file'",
                         "      flag: '-gsplit-dwarf'",
+                        "      flag: '-g'",
                         "    }",
                         "  }")));
       }
