@@ -128,6 +128,19 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
       return ret;
     }
+
+    @StarlarkMethod(
+        name = "kind",
+        documented = false,
+        parameters = {
+            @Param(name = "target"),
+        })
+    public Object kind(ConfiguredTarget target) {
+      if (!(target instanceof AbstractConfiguredTarget)) {
+        return Starlark.NONE;
+      }
+      return ((AbstractConfiguredTarget) target).getRuleClassString();
+    }
   }
 
   private static final Object[] NO_ARGS = new Object[0];

@@ -495,6 +495,13 @@ There are other options for exposing the results as well. </p>
   (for example, <code>"DefaultInfo"</code>) and whose values are their Starlark values. Providers
   whose values are not legal Starlark values are omitted from this map.
 </p>
+<h5 id='kind'>kind(target)</h5>
+<p>
+  <code>kind(target)</code> returns a string representing the rule name that instantiated this
+  target. For rule targets, like <code>filegroup</code> or <code>sh_binary</code>, this returns
+  the name of the rule. For file targets, like source files or generated files, this returns
+  the empty string (<code>""</code>).
+</p>
 
 <h4>Examples</h4>
 

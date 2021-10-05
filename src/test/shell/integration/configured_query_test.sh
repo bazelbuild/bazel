@@ -1184,6 +1184,56 @@ EOF
   assert_contains "^path=$pkg/foo$" output
 }
 
+function test_starlark_output_kind_function() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/my_rule.bzl <<'EOF'
+# A no-op rule
+def _my_rule_impl(ctx):
+    pass
+
+my_rule = rule(
+    implementation = _my_rule_impl,
+    attrs = {},
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+exports_files(["source_file.txt"])
+load(":my_rule.bzl", "my_rule")
+
+my_rule(name="myrule")
+
+filegroup(
+    name = "srcs",
+    srcs = ["source_file.txt"],
+)
+
+sh_binary(
+    name = "bin",
+    srcs = ["sh_binary.sh"],
+)
+EOF
+  touch "$pkg/source_file.txt"
+  touch "$pkg/sh_binary.sh"
+
+  bazel cquery "//$pkg:myrule" --output=starlark --starlark:expr="kind(target)" >output \
+    2>"$TEST_log" || fail "Expected success"
+  assert_contains "my_rule" output
+
+  bazel cquery "//$pkg:source_file.txt" --output=starlark --starlark:expr="kind(target)" >output \
+    2>"$TEST_log" || fail "Expected success"
+  # file target has no rule class / kind
+  assert_contains "" output
+
+  bazel cquery "//$pkg:srcs" --output=starlark --starlark:expr="kind(target)" >output \
+    2>"$TEST_log" || fail "Expected success"
+  assert_contains "filegroup" output
+
+  bazel cquery "//$pkg:bin" --output=starlark --starlark:expr="kind(target)" >output \
+    2>"$TEST_log" || fail "Expected success"
+  assert_contains "sh_binary" output
+}
+
 function test_starlark_output_providers_function() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
