@@ -23,9 +23,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -71,6 +73,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     ModuleFileFunction.REGISTRIES.set(
         getSkyframeExecutor().getDifferencerForTesting(), ImmutableList.of(registry.getUrl()));
     ModuleFileFunction.IGNORE_DEV_DEPS.set(getSkyframeExecutor().getDifferencerForTesting(), false);
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
+        getSkyframeExecutor().getDifferencerForTesting(), CheckDirectDepsMode.WARNING);
   }
 
   public static RepositoryMappingValue withMappingAllowingFallback(

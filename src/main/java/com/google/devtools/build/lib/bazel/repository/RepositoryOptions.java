@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -200,6 +201,33 @@ public class RepositoryOptions extends OptionsBase {
               + "ignored in the MODULE.bazel if it's not the root module regardless of the value "
               + "of this flag.")
   public boolean ignoreDevDependency;
+
+  @Option(
+      name = "check_direct_dependencies",
+      defaultValue = "warning",
+      converter = CheckDirectDepsMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Check if the direct `bazel_dep` dependencies declared in the root module are the same"
+              + " versions you get in the resolved dependency graph. Valid values are `off` to"
+              + " disable the check, `warning` to print a warning when mismatch detected or `error`"
+              + " to escalate it to a resolution failure.")
+  public CheckDirectDepsMode checkDirectDependencies;
+
+  /** An enum for specifying different modes for checking direct dependency accuracy. */
+  public enum CheckDirectDepsMode {
+    OFF, // Don't check direct dependency accuracy.
+    WARNING, // Print warning when mismatch.
+    ERROR; // Throw an error when mismatch.
+
+    /** Converts to {@link CheckDirectDepsMode}. */
+    public static class Converter extends EnumConverter<CheckDirectDepsMode> {
+      public Converter() {
+        super(CheckDirectDepsMode.class, "direct deps check mode");
+      }
+    }
+  }
 
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
