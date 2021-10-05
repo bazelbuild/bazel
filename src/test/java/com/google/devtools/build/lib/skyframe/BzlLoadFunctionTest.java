@@ -22,8 +22,10 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
@@ -105,7 +107,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     return ImmutableList.of(
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
-        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false));
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
   }
 
   @Before

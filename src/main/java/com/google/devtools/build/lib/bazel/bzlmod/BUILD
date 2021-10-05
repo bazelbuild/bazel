@@ -146,6 +146,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

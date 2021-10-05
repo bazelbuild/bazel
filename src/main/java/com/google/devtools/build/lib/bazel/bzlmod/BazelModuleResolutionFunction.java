@@ -24,15 +24,20 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Runs Bazel module resolution. This function produces the dependency graph containing all Bazel
@@ -40,6 +45,9 @@ import java.util.HashMap;
  * extensions are not evaluated yet.
  */
 public class BazelModuleResolutionFunction implements SkyFunction {
+
+  public static final Precomputed<CheckDirectDepsMode> CHECK_DIRECT_DEPENDENCIES =
+      new Precomputed<>("check_direct_dependency");
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -60,7 +68,44 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
+    verifyRootModuleDirectDepsAreAccurate(env, root, resolvedDepGraph.get(ModuleKey.ROOT));
     return createValue(resolvedDepGraph, overrides);
+  }
+
+  private static void verifyRootModuleDirectDepsAreAccurate(
+      Environment env, RootModuleFileValue root, Module resolvedRootModule)
+      throws InterruptedException, BazelModuleResolutionFunctionException {
+    CheckDirectDepsMode mode = Objects.requireNonNull(CHECK_DIRECT_DEPENDENCIES.get(env));
+    if (mode == CheckDirectDepsMode.OFF) {
+      return;
+    }
+    boolean failure = false;
+    for (Map.Entry<String, ModuleKey> dep : root.getModule().getDeps().entrySet()) {
+      // If the module is overridden, then ignore the check.
+      if (root.getOverrides().containsKey(dep.getValue().getName())) {
+        continue;
+      }
+      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey());
+      if (!dep.getValue().equals(resolved)) {
+        String message = String.format(
+            "For repository '%s', the root module requires module version %s, but got %s in the "
+                + "resolved dependency graph.",
+            dep.getKey(), dep.getValue().toString(), resolved.toString());
+        if (mode == CheckDirectDepsMode.WARNING) {
+          env.getListener().handle(Event.warn(message));
+        } else {
+          env.getListener().handle(Event.error(message));
+          failure = true;
+        }
+      }
+    }
+    if (failure) {
+      throw new BazelModuleResolutionFunctionException(
+          ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "Direct dependency check failed."),
+          Transience.PERSISTENT);
+    }
   }
 
   @VisibleForTesting

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
@@ -133,6 +134,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
   private final AtomicBoolean enableBzlmod = new AtomicBoolean(false);
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
+  private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
   public BazelRepositoryModule() {
@@ -374,6 +376,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
       enableBzlmod.set(repoOptions.enableBzlmod);
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
+      checkDirectDepsMode = repoOptions.checkDirectDependencies;
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
@@ -444,7 +447,9 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
         PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod.get()),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
-        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()));
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
+        PrecomputedValue.injected(BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
+            checkDirectDepsMode));
   }
 
   @Override

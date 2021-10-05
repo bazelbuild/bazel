@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -124,6 +125,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(differencer, CheckDirectDepsMode.WARNING);
   }
 
   @Test

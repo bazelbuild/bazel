@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
@@ -256,6 +257,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(differencer, CheckDirectDepsMode.WARNING);
 
     // Set up a simple repo rule.
     registry.addModule(
