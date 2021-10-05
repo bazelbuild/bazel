@@ -197,6 +197,45 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
+  public void testAppleBuildVariablesMacosHost() throws Exception {
+    MockObjcSupport.setup(mockToolsConfig);
+    String dummyMinimumOsValue = "13.579";
+    useConfiguration(
+        "--crosstool_top=//tools/osx/crosstool",
+        "--cpu=darwin_x86_64",
+        "--host_cpu=darwin_x86_64",
+        "--macos_minimum_os=10.11",
+        "--host_macos_minimum_os=" + dummyMinimumOsValue);
+    scratch.file(
+        "x/BUILD",
+        "apple_binary(",
+        "   name = 'bin',",
+        "   deps = [':a'],",
+        "   platform_type = 'macos',",
+        ")",
+        "cc_library(",
+        "   name = 'a',",
+        "   srcs = ['a.cc'],",
+        ")");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget target = getHostConfiguredTarget("//x:bin");
+    Artifact lipoBin =
+        getBinArtifact(
+            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
+    Action lipoAction = getGeneratingAction(lipoBin);
+    Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
+    CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
+    Artifact archive =
+        ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
+    CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
+
+    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
+    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
+        .contains(dummyMinimumOsValue);
+  }
+
+  @Test
   public void testDefaultBuildVariablesIos() throws Exception {
      MockObjcSupport.setup(mockToolsConfig);
     useConfiguration(

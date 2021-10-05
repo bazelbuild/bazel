@@ -164,6 +164,17 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public DottedVersion.Option macosMinimumOs;
 
   @Option(
+      name = "host_macos_minimum_os",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Minimum compatible macOS version for host targets. "
+              + "If unspecified, uses 'macos_sdk_version'.")
+  public DottedVersion.Option hostMacosMinimumOs;
+
+  @Option(
       name = "experimental_prefer_mutual_xcode",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -488,6 +499,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.watchOsSdkVersion = watchOsSdkVersion;
     host.tvOsSdkVersion = tvOsSdkVersion;
     host.macOsSdkVersion = macOsSdkVersion;
+    host.macosMinimumOs = hostMacosMinimumOs;
     // The host apple platform type will always be MACOS, as no other apple platform type can
     // currently execute build actions. If that were the case, a host_apple_platform_type flag might
     // be needed.
