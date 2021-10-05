@@ -47,7 +47,8 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
   @FormatMethod
   public static ExternalDepsException withCauseAndMessage(
       ExternalDeps.Code code, Throwable cause, @FormatString String format, Object... args) {
-    return new ExternalDepsException(String.format(format, args), cause, code);
+    return new ExternalDepsException(
+        String.format(format, args) + ": " + cause.getMessage(), cause, code);
   }
 
   @Override

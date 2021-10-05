@@ -511,11 +511,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains("this extension is already being used at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent("this extension is already being used at");
   }
 
   @Test
@@ -531,11 +529,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains("The repo name 'mymod' is already being used as the current module name at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertContainsEvent(
+        "The repo name 'mymod' is already being used as the current module name at");
   }
 
   @Test
@@ -551,12 +549,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains(
-            "The repo exported as 'some_repo' by module extension 'myext' is already imported at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertContainsEvent(
+        "The repo exported as 'some_repo' by module extension 'myext' is already imported at");
   }
 
   @Test
@@ -577,11 +574,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='A',version='0.1',compatibility_level=\"4\")");
 
-    EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .contains("parameter 'compatibility_level' got value of type 'string', want 'int'");
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int'");
   }
 }

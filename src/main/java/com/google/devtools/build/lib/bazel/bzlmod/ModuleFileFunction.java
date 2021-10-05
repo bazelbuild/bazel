@@ -190,14 +190,10 @@ public class ModuleFileFunction implements SkyFunction {
       Starlark.execFileProgram(program, predeclaredEnv, thread);
     } catch (SyntaxError.Exception e) {
       Event.replayEventsOn(env.getListener(), e.errors());
-      throw errorf(Code.BAD_MODULE, e, "error executing MODULE.bazel file for %s", moduleKey);
+      throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     } catch (EvalException e) {
-      throw errorf(
-          Code.BAD_MODULE,
-          e,
-          "error executing MODULE.bazel file for %s: %s",
-          moduleKey,
-          e.getMessageWithStack());
+      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
     return moduleFileGlobals;
   }
