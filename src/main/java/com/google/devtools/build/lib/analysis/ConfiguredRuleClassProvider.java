@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentProvider;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -51,6 +50,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
@@ -91,7 +91,7 @@ import net.starlark.java.eval.StarlarkThread;
  * configuration options is guaranteed not to change over the life time of the Blaze server.
  */
 // This class has no subclasses except those created by the evil that is mockery.
-public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
+public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   /**
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
@@ -831,7 +831,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   /** Returns the set of configuration fragments provided by this module. */
-  @Override
   public FragmentClassSet getConfigurationFragments() {
     return configurationFragmentClasses;
   }

@@ -64,7 +64,6 @@ java_library(
         ":config/execution_transition_factory",
         ":config/fragment",
         ":config/fragment_options",
-        ":config/fragment_provider",
         ":config/host_transition",
         ":config/invalid_configuration_exception",
         ":config/per_label_options",
@@ -293,7 +292,6 @@ java_library(
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_options",
-        ":config/fragment_provider",
         ":config/host_transition",
         ":config/invalid_configuration_exception",
         ":config/per_label_options",
@@ -1534,8 +1532,6 @@ java_library(
         ":config/core_options",
         ":config/fragment",
         ":config/fragment_class_set",
-        ":config/fragment_options",
-        ":config/fragment_provider",
         ":config/invalid_configuration_exception",
         ":config/run_under",
         ":config/transitive_option_details",
@@ -1546,7 +1542,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -1730,17 +1725,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "config/fragment_provider",
-    srcs = [
-        "config/FragmentProvider.java",
-    ],
-    deps = [
-        ":config/fragment_class_set",
-        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 

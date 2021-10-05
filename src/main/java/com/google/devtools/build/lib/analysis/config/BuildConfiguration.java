@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
@@ -36,14 +34,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -232,23 +228,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
     this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
-  }
-
-  /** Returns the config fragment options classes used by the given fragment types. */
-  public static Set<Class<? extends FragmentOptions>> getOptionsClasses(
-      Iterable<Class<? extends Fragment>> fragmentClasses, RuleClassProvider ruleClassProvider) {
-
-    Multimap<Class<? extends Fragment>, Class<? extends FragmentOptions>>
-        fragmentToRequiredOptions = ArrayListMultimap.create();
-    for (Class<? extends Fragment> fragmentClass :
-        ((FragmentProvider) ruleClassProvider).getConfigurationFragments()) {
-      fragmentToRequiredOptions.putAll(fragmentClass, Fragment.requiredOptions(fragmentClass));
-    }
-    Set<Class<? extends FragmentOptions>> options = new HashSet<>();
-    for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
-      options.addAll(fragmentToRequiredOptions.get(fragmentClass));
-    }
-    return options;
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {

@@ -17,7 +17,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -110,11 +109,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
     ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
         ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
-      BuildOptions trimmedOptions =
-          key.getOptions()
-              .trim(
-                  BuildConfiguration.getOptionsClasses(
-                      ImmutableList.of(fragmentClass), ruleClassProvider));
+      BuildOptions trimmedOptions = key.getOptions().trim(Fragment.requiredOptions(fragmentClass));
       Fragment fragment;
       FragmentKey fragmentKey = FragmentKey.create(trimmedOptions, fragmentClass);
       try {
