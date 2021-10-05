@@ -1302,6 +1302,30 @@ struct RecordAttribute : Attribute {
   std::vector<RecordComponentInfo *> components_;
 };
 
+// See JVMS §4.7.31
+struct PermittedSubclassesAttribute : Attribute {
+  static PermittedSubclassesAttribute *Read(const u1 *&p,
+                                            Constant *attribute_name) {
+    PermittedSubclassesAttribute *attr = new PermittedSubclassesAttribute;
+    attr->attribute_name_ = attribute_name;
+    u2 number_of_exceptions = get_u2be(p);
+    for (int ii = 0; ii < number_of_exceptions; ++ii) {
+      attr->permitted_subclasses_.push_back(constant(get_u2be(p)));
+    }
+    return attr;
+  }
+
+  void Write(u1 *&p) {
+    WriteProlog(p, permitted_subclasses_.size() * 2 + 2);
+    put_u2be(p, permitted_subclasses_.size());
+    for (size_t ii = 0; ii < permitted_subclasses_.size(); ++ii) {
+      put_u2be(p, permitted_subclasses_[ii]->slot());
+    }
+  }
+
+  std::vector<Constant *> permitted_subclasses_;
+};
+
 struct GeneralAttribute : Attribute {
   static GeneralAttribute* Read(const u1 *&p, Constant *attribute_name,
                                 u4 attribute_length) {
@@ -1503,6 +1527,9 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
     } else if (attr_name == "Record") {
       attributes.push_back(
           RecordAttribute::Read(p, attribute_name, attribute_length));
+    } else if (attr_name == "PermittedSubclasses") {
+      attributes.push_back(
+          PermittedSubclassesAttribute::Read(p, attribute_name));
     } else if (attr_name == "com.google.devtools.ijar.KeepForCompile") {
       auto attr = new KeepForCompileAttribute;
       attr->attribute_name_ = attribute_name;

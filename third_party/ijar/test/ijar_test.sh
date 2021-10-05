@@ -79,6 +79,8 @@ NESTMATES_JAR=$IJAR_SRCDIR/test/nestmates/nestmates.jar
 NESTMATES_IJAR=$TEST_TMPDIR/nestmates_interface.jar
 RECORDS_JAR=$IJAR_SRCDIR/test/records/records.jar
 RECORDS_IJAR=$TEST_TMPDIR/records_interface.jar
+SEALED_JAR=$IJAR_SRCDIR/test/sealed/sealed.jar
+SEALED_IJAR=$TEST_TMPDIR/sealed_interface.jar
 SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
 SOURCEDEBUGEXT_IJAR=$TEST_TMPDIR/source_debug_extension.jar
 CENTRAL_DIR_LARGEST_REGULAR=$IJAR_SRCDIR/test/largest_regular.jar
@@ -543,6 +545,17 @@ function test_records_attribute() {
   $JAVAP -classpath $RECORDS_IJAR -v RecordTest >& $TEST_log \
     || fail "javap failed"
   expect_log "Record" "Records not preserved!"
+}
+
+function test_sealed_attribute() {
+  ls $IJAR $SEALED_JAR
+
+  # Check that Java 16 PermittedSubclasses attributes are preserved
+  $IJAR $SEALED_JAR $SEALED_IJAR || fail "ijar failed"
+
+  $JAVAP -classpath $SEALED_IJAR -v SealedTest >& $TEST_log \
+    || fail "javap failed"
+  expect_log "PermittedSubclasses" "PermittedSubclasses not preserved!"
 }
 
 function test_source_debug_extension_attribute() {
