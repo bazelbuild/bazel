@@ -715,6 +715,11 @@ function run_suite() {
         set +o pipefail
         (
           set "${__opt_switch}" pipefail
+          # if errexit is enabled, make sure we run cleanup and collect the log.
+          if [[ "$-" = *e* ]]; then
+            set -E
+            trap __test_terminated_err ERR
+          fi
           timestamp >$TEST_TMPDIR/__ts_start
           testenv_set_up
           set_up
