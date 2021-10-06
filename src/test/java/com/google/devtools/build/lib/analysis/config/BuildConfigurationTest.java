@@ -68,7 +68,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       return;
     }
 
-    BuildConfiguration config = create("--platform_suffix=-test");
+    BuildConfiguration config = create("--platform_suffix=test");
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(
             outputBase
@@ -337,9 +337,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         assertThrows(InvalidMnemonicException.class, () -> create("--cpu=//bad/cpu"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "Output directory name '//bad/cpu' specified by CppConfiguration is invalid as part of"
-                + " a path: must not contain /");
+        .isEqualTo("CPU name '//bad/cpu' is invalid as part of a path: must not contain /");
     e =
         assertThrows(
             InvalidMnemonicException.class, () -> create("--platform_suffix=//bad/suffix"));

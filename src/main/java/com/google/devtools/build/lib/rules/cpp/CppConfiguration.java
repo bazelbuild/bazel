@@ -157,12 +157,6 @@ public final class CppConfiguration extends Fragment
    */
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
-  // TODO(lberki): This is only used for determining the output directory name.
-  // Unfortunately, we can't move it easily to OutputDirectories.buildMnemonic() because the CPU is
-  // currently in the middle of the name of the configuration directory (e.g. it comes after the
-  // Android configuration)
-  private final String cpu;
-
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
@@ -272,7 +266,6 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    this.cpu = commonOptions.cpu;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoProfileLabel;
     this.csFdoAbsolutePath = csFdoAbsolutePath;
@@ -571,7 +564,8 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public String getOutputDirectoryName() {
-    String result = cpu;
+    // Add a tag that will be replaced with the CPU identifier.
+    String result = "{CPU}";
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
       result += "-" + cppOptions.outputDirectoryTag;
     }

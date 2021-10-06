@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.base.Joiner;
+import static com.google.common.base.Predicates.not;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathFragment.InvalidBaseNameException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -168,47 +171,74 @@ public class OutputDirectories {
     this.execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
   }
 
+  private static void addMnemonicPart(
+      List<String> nameParts, String part, String errorTemplate, Object... spec)
+      throws InvalidMnemonicException {
+    if (Strings.isNullOrEmpty(part)) {
+      return;
+    }
+
+    validateMnemonicPart(part, errorTemplate, spec);
+
+    nameParts.add(part);
+  }
+
+  /**
+   * Validate that part is valid for use in the mnemonic, emitting an error message based on the
+   * template if not.
+   *
+   * <p>The error template is expanded with the part itself as the first argument, and any remaining
+   * elements of errorArgs following.
+   */
+  private static void validateMnemonicPart(String part, String errorTemplate, Object... errorArgs)
+      throws InvalidMnemonicException {
+    try {
+      PathFragment.checkSeparators(part);
+    } catch (InvalidBaseNameException e) {
+      Object[] args = new Object[errorArgs.length + 1];
+      args[0] = part;
+      System.arraycopy(errorArgs, 0, args, 1, errorArgs.length);
+      String message = String.format(errorTemplate, args);
+      throw new InvalidMnemonicException(message, e);
+    }
+  }
+
   private static String buildMnemonic(
       CoreOptions options, ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
       throws InvalidMnemonicException {
     // See explanation at declaration for outputRoots.
-    ArrayList<String> nameParts = new ArrayList<>();
+    List<String> nameParts = new ArrayList<>();
+
+    // Add the fragment-specific sections.
     for (Map.Entry<Class<? extends Fragment>, Fragment> entry : fragments.entrySet()) {
       String outputDirectoryName = entry.getValue().getOutputDirectoryName();
-      if (Strings.isNullOrEmpty(outputDirectoryName)) {
-        continue;
-      }
-      try {
-        PathFragment.checkSeparators(outputDirectoryName);
-      } catch (InvalidBaseNameException e) {
-        throw new InvalidMnemonicException(
-            "Output directory name '"
-                + outputDirectoryName
-                + "' specified by "
-                + entry.getKey().getSimpleName(),
-            e);
-      }
-      nameParts.add(outputDirectoryName);
+      addMnemonicPart(
+          nameParts,
+          outputDirectoryName,
+          "Output directory name '%s' specified by %s",
+          entry.getKey().getSimpleName());
     }
-    String platformSuffix = (options.platformSuffix != null) ? options.platformSuffix : "";
-    try {
-      PathFragment.checkSeparators(platformSuffix);
-    } catch (InvalidBaseNameException e) {
-      throw new InvalidMnemonicException("Platform suffix '" + platformSuffix + "'", e);
-    }
-    String shortString = options.compilationMode + platformSuffix;
-    nameParts.add(shortString);
-    if (options.transitionDirectoryNameFragment != null) {
-      try {
-        PathFragment.checkSeparators(options.transitionDirectoryNameFragment);
-      } catch (InvalidBaseNameException e) {
-        throw new InvalidMnemonicException(
-            "Transition directory name fragment '" + options.transitionDirectoryNameFragment + "'",
-            e);
-      }
-      nameParts.add(options.transitionDirectoryNameFragment);
-    }
-    return Joiner.on('-').skipNulls().join(nameParts);
+
+    // Add the compilation mode.
+    addMnemonicPart(nameParts, options.compilationMode.toString(), "Compilation mode '%s'");
+
+    // Add the platform suffix, if any.
+    addMnemonicPart(nameParts, options.platformSuffix, "Platform suffix '%s'");
+
+    // Add the transition suffix.
+    addMnemonicPart(
+        nameParts,
+        options.transitionDirectoryNameFragment,
+        "Transition directory name fragment '%s'");
+
+    // Join all the parts.
+    String mnemonic = nameParts.stream().filter(not(Strings::isNullOrEmpty)).collect(joining("-"));
+
+    // Replace the CPU idenfitier.
+    validateMnemonicPart(options.cpu, "CPU name '%s'");
+    mnemonic = mnemonic.replace("{CPU}", options.cpu);
+
+    return mnemonic;
   }
 
   private ArtifactRoot buildDerivedRoot(
