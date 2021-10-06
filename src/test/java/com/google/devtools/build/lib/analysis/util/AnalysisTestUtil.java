@@ -185,7 +185,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() {
       return original.getStarlarkSemantics();
     }
 

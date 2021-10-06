@@ -678,7 +678,10 @@ public class JavaCommon {
                 coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
-    if (ruleContext.getStarlarkSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
+    if (ruleContext
+        .getAnalysisEnvironment()
+        .getStarlarkSemantics()
+        .getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
       JavaExportsProvider exportsProvider = collectTransitiveExports();
       javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
     }

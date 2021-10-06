@@ -288,25 +288,17 @@ public final class ConfiguredTargetFactory {
         ruleClass.getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
-        new RuleContext.Builder(
-                env,
-                rule,
-                ImmutableList.of(),
-                configuration,
-                hostConfiguration,
-                ruleClassProvider.getPrerequisiteValidator(),
-                configurationFragmentPolicy,
-                configuredTargetKey)
-            .setToolsRepository(ruleClassProvider.getToolsRepository())
-            .setStarlarkSemantics(env.getStarlarkSemantics())
+        new RuleContext.Builder(env, rule, /*aspects=*/ ImmutableList.of(), configuration)
+            .setRuleClassProvider(ruleClassProvider)
+            .setHostConfiguration(hostConfiguration)
+            .setConfigurationFragmentPolicy(configurationFragmentPolicy)
+            .setActionOwnerSymbol(configuredTargetKey)
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getFragmentRegistry().getUniversalFragments())
             .setToolchainContexts(toolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
-            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(
                     rule,
@@ -496,38 +488,24 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration hostConfiguration,
       AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
-
-    RuleContext.Builder builder =
-        new RuleContext.Builder(
-            env,
-            associatedTarget.getTarget(),
-            aspectPath,
-            aspectConfiguration,
-            hostConfiguration,
-            ruleClassProvider.getPrerequisiteValidator(),
-            aspect.getDefinition().getConfigurationFragmentPolicy(),
-            aspectKey);
-
-    Map<String, Attribute> aspectAttributes = mergeAspectAttributes(aspectPath);
-
     RuleContext ruleContext =
-        builder
-            .setToolsRepository(ruleClassProvider.getToolsRepository())
-            .setStarlarkSemantics(env.getStarlarkSemantics())
+        new RuleContext.Builder(env, associatedTarget.getTarget(), aspectPath, aspectConfiguration)
+            .setRuleClassProvider(ruleClassProvider)
+            .setHostConfiguration(hostConfiguration)
+            .setConfigurationFragmentPolicy(aspect.getDefinition().getConfigurationFragmentPolicy())
+            .setActionOwnerSymbol(aspectKey)
             .setMutability(Mutability.create("aspect"))
             .setVisibility(
                 convertVisibility(
                     prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget()))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
-            .setAspectAttributes(aspectAttributes)
+            .setAspectAttributes(mergeAspectAttributes(aspectPath))
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getFragmentRegistry().getUniversalFragments())
             .setToolchainContext(toolchainContext)
             // TODO(b/161222568): Implement the exec_properties attr for aspects and read its value
             // here.
             .setExecGroupCollectionBuilder(ExecGroupCollection.emptyBuilder())
             .setExecProperties(ImmutableMap.of())
-            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
                     aspect,

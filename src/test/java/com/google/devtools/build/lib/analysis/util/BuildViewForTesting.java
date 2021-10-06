@@ -659,20 +659,16 @@ public class BuildViewForTesting {
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 
-    return new RuleContext.Builder(
-            env,
-            target,
-            ImmutableList.of(),
-            targetConfig,
-            configurations.getHostConfiguration(),
-            ruleClassProvider.getPrerequisiteValidator(),
-            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy(),
+    return new RuleContext.Builder(env, target, /*aspects=*/ ImmutableList.of(), targetConfig)
+        .setRuleClassProvider(ruleClassProvider)
+        .setHostConfiguration(configurations.getHostConfiguration())
+        .setConfigurationFragmentPolicy(
+            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
+        .setActionOwnerSymbol(
             ConfiguredTargetKey.builder()
                 .setConfiguredTarget(configuredTarget)
                 .setConfigurationKey(configuredTarget.getConfigurationKey())
                 .build())
-        .setToolsRepository(ruleClassProvider.getToolsRepository())
-        .setStarlarkSemantics(env.getStarlarkSemantics())
         .setMutability(Mutability.create("configured target"))
         .setVisibility(
             NestedSetBuilder.create(
@@ -680,10 +676,8 @@ public class BuildViewForTesting {
                 PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
         .setPrerequisites(ConfiguredTargetFactory.transformPrerequisiteMap(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
-        .setUniversalFragments(ruleClassProvider.getFragmentRegistry().getUniversalFragments())
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
-        .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
         .build();
   }
 

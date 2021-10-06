@@ -428,7 +428,8 @@ public final class RuleConfiguredTargetBuilder {
     if (!ruleContext.getRule().getRuleClassObject().supportsConstraintChecking()) {
       return;
     }
-    ConstraintSemantics<RuleContext> constraintSemantics = ruleContext.getConstraintSemantics();
+    ConstraintSemantics<RuleContext> constraintSemantics =
+        ruleContext.getRuleClassProvider().getConstraintSemantics();
     EnvironmentCollection supportedEnvironments =
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {

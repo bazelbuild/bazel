@@ -1032,7 +1032,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   public StarlarkSemantics getStarlarkSemantics() {
-    return ruleContext.getStarlarkSemantics();
+    return ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
   }
 
   /**
