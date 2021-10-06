@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -84,11 +83,10 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       return;
     }
 
-    Map<String, String> env = create().getLocalShellEnvironment();
+    ImmutableMap<String, String> env = create().getLocalShellEnvironment();
     assertThat(env).containsEntry("LANG", "en_US");
     assertThat(env).containsKey("PATH");
     assertThat(env.get("PATH")).contains("/bin:/usr/bin");
-    assertThrows(UnsupportedOperationException.class, () -> env.put("FOO", "bar"));
   }
 
   @Test
