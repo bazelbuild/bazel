@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -399,6 +400,7 @@ public abstract class DependencyResolver {
           propagatingAspects);
 
       Label executionPlatformLabel = null;
+      // TODO(jcater): refactor this nested if structure into something simpler.
       if (toolchainContexts != null) {
         if (attribute.getTransitionFactory() instanceof ExecutionTransitionFactory) {
           String execGroup =
@@ -414,6 +416,12 @@ public abstract class DependencyResolver {
             executionPlatformLabel =
                 toolchainContexts.getToolchainContext(execGroup).executionPlatform().label();
           }
+        } else {
+          executionPlatformLabel =
+              toolchainContexts
+                  .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
+                  .executionPlatform()
+                  .label();
         }
       }
 

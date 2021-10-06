@@ -277,6 +277,19 @@ java_test(
 )
 
 java_test(
+    name = "CcToolchainInputsTransitionFactoryTest",
+    srcs = ["CcToolchainInputsTransitionFactoryTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "CcToolchainProviderTest",
     srcs = ["CcToolchainProviderTest.java"],
     deps = [
