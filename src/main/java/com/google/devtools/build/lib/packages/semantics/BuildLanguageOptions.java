@@ -415,11 +415,10 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   @Option(
       name = "incompatible_applicable_licenses",
       defaultValue = "false",
-      // TODO(aiuto): change to OptionDocumentationCategory.STARLARK_SEMANTICS,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, enables the function `attr.applicable_licenses`.")
+      help = "No-op")
   public boolean incompatibleApplicableLicenses;
 
   @Option(
@@ -601,7 +600,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
             .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
-            .setBool(INCOMPATIBLE_APPLICABLE_LICENSES, incompatibleApplicableLicenses)
             .setBool(
                 INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS,
                 incompatibleDisableTargetProviderFields)
@@ -679,7 +677,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_allow_tags_propagation";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
-  public static final String INCOMPATIBLE_APPLICABLE_LICENSES = "-incompatible_applicable_licenses";
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
       "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
