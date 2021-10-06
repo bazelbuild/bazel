@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
@@ -707,18 +706,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return null;
   }
 
-  /**
-   * Returns a BuildOptions with options in exclude trimmed away.
-   *
-   * <p>BuildOptions.trim actually retains the options passed to it so must reverse the logic.
-   */
+  /** Returns a {@link BuildOptions} with options in {@code exclude} trimmed away. */
   private static BuildOptions trimConfiguration(
-      BuildOptions input, Set<Class<? extends FragmentOptions>> exclude) {
-    Set<Class<? extends FragmentOptions>> include =
-        input.getFragmentClasses().stream()
-            .filter((x) -> !exclude.contains(x))
-            .collect(toImmutableSet());
-    return input.trim(include);
+      BuildOptions original, Set<Class<? extends FragmentOptions>> exclude) {
+    BuildOptions.Builder trimmed = original.toBuilder();
+    exclude.forEach(trimmed::removeFragmentOptions);
+    return trimmed.build();
   }
 
   /**

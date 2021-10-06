@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -91,33 +90,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
       builder.addFragmentOptions(options.getHost());
-    }
-    return builder.addStarlarkOptions(starlarkOptionsMap).build();
-  }
-
-  /**
-   * Returns {@code BuildOptions} that are otherwise identical to this one, but contain only options
-   * from the given {@link FragmentOptions} classes (plus build configuration options).
-   *
-   * <p>If nothing needs to be trimmed, this instance is returned.
-   */
-  public BuildOptions trim(Set<Class<? extends FragmentOptions>> optionsClasses) {
-    List<FragmentOptions> retainedOptions =
-        Lists.newArrayListWithExpectedSize(optionsClasses.size() + 1);
-    for (FragmentOptions options : fragmentOptionsMap.values()) {
-      if (optionsClasses.contains(options.getClass())
-          // TODO(bazel-team): make this non-hacky while not requiring CoreOptions access
-          // to BuildOptions.
-          || options.getClass().getName().endsWith("CoreOptions")) {
-        retainedOptions.add(options);
-      }
-    }
-    if (retainedOptions.size() == fragmentOptionsMap.size()) {
-      return this; // Nothing to trim.
-    }
-    Builder builder = builder();
-    for (FragmentOptions options : retainedOptions) {
-      builder.addFragmentOptions(options);
     }
     return builder.addStarlarkOptions(starlarkOptionsMap).build();
   }
@@ -710,7 +682,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     @Override
     public BuildOptions deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws IOException {
-        String checksum = codedIn.readString();
+      String checksum = codedIn.readString();
       return checkNotNull(
           context.getDependency(OptionsChecksumCache.class).getOptions(checksum),
           "No options instance for %s",
