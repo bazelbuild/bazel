@@ -142,9 +142,10 @@ public final class BuildConfigurationFunction implements SkyFunction {
         trimmed.addFragmentOptions(options);
       }
     }
-    // Most fragments don't need starlark options, but we provide them unconditionally.
-    // TODO(jhorvitz): Only ConfigFeatureFlagConfiguration needs them - consider an annotation.
-    return trimmed.addStarlarkOptions(original.getStarlarkOptions()).build();
+    if (Fragment.requiresStarlarkOptions(fragment)) {
+      trimmed.addStarlarkOptions(original.getStarlarkOptions());
+    }
+    return trimmed.build();
   }
 
   @AutoValue
