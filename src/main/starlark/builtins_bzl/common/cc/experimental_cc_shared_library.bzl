@@ -322,7 +322,7 @@ def _same_package_or_above(label_a, label_b):
     return True
 
 def _get_permissions(ctx):
-    if ctx.fragments.cpp.experimental_enable_target_export_check:
+    if ctx.fragments.cpp.experimental_enable_target_export_check():
         return ctx.attr.permissions
     return None
 
@@ -393,7 +393,7 @@ def _cc_shared_library_impl(ctx):
         exports[str(export.label)] = True
 
     debug_files = []
-    if ctx.fragments.cpp.experimental_cc_shared_library_debug:
+    if ctx.fragments.cpp.experimental_cc_shared_library_debug():
         exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
         ctx.actions.write(content = "\n".join(exports.keys()), output = exports_debug_file)
 
@@ -403,7 +403,7 @@ def _cc_shared_library_impl(ctx):
         debug_files.append(exports_debug_file)
         debug_files.append(link_once_static_libs_debug_file)
 
-    if not ctx.fragments.cpp.experimental_link_static_libraries_once:
+    if not ctx.fragments.cpp.experimental_link_static_libraries_once():
         link_once_static_libs = []
 
     return [
