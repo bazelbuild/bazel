@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <libgen.h>
 #include <math.h>
 #include <mntent.h>
@@ -232,8 +233,9 @@ static void SetupUserNamespace() {
     inner_gid = global_outer_gid;
   }
   if (opt.enable_pty) {
-    // Change the group to 'tty' regardless of what was previously set
-    inner_gid = 5;
+    // Change the group to "tty" regardless of what was previously set
+    struct group *g = getgrnam("tty");
+    inner_gid = g->gr_gid;
   }
 
   WriteFile("/proc/self/uid_map", "%d %d 1\n", inner_uid, global_outer_uid);
