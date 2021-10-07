@@ -65,6 +65,10 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       structField = true)
   Depset getStarlarkLinkerInputs();
 
+  /**
+   * TODO(bazel-team): Do not expose this publicly. This was a mistake. Linkstamps should be
+   * accessed through linker_inputs. Remove this method.
+   */
   @StarlarkMethod(name = "linkstamps", documented = false, useStarlarkThread = true)
   Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException;
 

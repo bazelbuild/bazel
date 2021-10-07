@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -265,6 +266,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     public List<Linkstamp> getLinkstamps() {
       return linkstamps;
+    }
+
+    @StarlarkMethod(name = "linkstamps", documented = false, structField = true)
+    public Sequence<Linkstamp> getLinkstampsForStarlark() {
+      return StarlarkList.immutableCopyOf(getLinkstamps());
     }
 
     @Override

@@ -893,10 +893,6 @@ public abstract class CcModule
       Object linkstampsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    if (checkObjectsBound(linkstampsObject)) {
-      checkPrivateStarlarkificationAllowlist(thread);
-    }
-
     ImmutableList.Builder<LinkOptions> optionsBuilder = ImmutableList.builder();
     if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
       // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
