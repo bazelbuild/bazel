@@ -20,24 +20,18 @@ import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpHeaderValues;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpUtil;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.util.internal.StringUtil;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** ChannelHandler for downloads. */
 final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
@@ -51,6 +45,10 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   private long contentLength = -1;
   /** the path header in the http request */
   private String path;
+  /** the offset at which to download */
+  private long offset;
+  /** the bytes to skip in a full or chunked response */
+  private OptionalInt skipBytes;
 
   public HttpDownloadHandler(
       Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
@@ -93,7 +91,25 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       if (contentLengthSet) {
         contentLength = HttpUtil.getContentLength(response);
       }
-      downloadSucceeded = response.status().equals(HttpResponseStatus.OK);
+      boolean full_content = response.status().equals(HttpResponseStatus.OK);
+      boolean partial_content = response.status().equals(HttpResponseStatus.PARTIAL_CONTENT);
+      if (full_content) {
+        if (offset != 0) {
+          // We requested a range but the server replied with a full response.
+          // We need to skip `offset` bytes of the response.
+          if (!skipBytes.isPresent()) {
+            // This is the first chunk, or the full response.
+            skipBytes = OptionalInt.of((int)offset);
+          }
+        }
+      } else if (partial_content) {
+        Optional<HttpException> error = validateContentRangeHeader(response.headers());
+        if (error.isPresent()) {
+          failAndClose(error.get(), ctx);
+          return;
+        }
+      }
+      downloadSucceeded = full_content || partial_content;
       if (!downloadSucceeded) {
         out = new ByteArrayOutputStream();
       }
@@ -105,6 +121,15 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
       ByteBuf content = ((HttpContent) msg).content();
       int readableBytes = content.readableBytes();
+      if (skipBytes.isPresent() && skipBytes.getAsInt() > 0) {
+        int skipNow = skipBytes.getAsInt();
+        if (skipNow >= readableBytes) {
+          skipNow = readableBytes;
+        }
+        content.readerIndex(content.readerIndex() + skipNow);
+        skipBytes = OptionalInt.of(skipBytes.getAsInt() - skipNow);
+        readableBytes = readableBytes - skipNow;
+      }
       content.readBytes(out, readableBytes);
       bytesReceived += readableBytes;
       if (msg instanceof LastHttpContent) {
@@ -137,7 +162,9 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     DownloadCommand cmd = (DownloadCommand) msg;
     out = cmd.out();
     path = constructPath(cmd.uri(), cmd.digest().getHash(), cmd.casDownload());
-    HttpRequest request = buildRequest(path, constructHost(cmd.uri()));
+    offset = cmd.offset();
+    skipBytes = OptionalInt.empty();
+    HttpRequest request = buildRequest(path, constructHost(cmd.uri()), cmd.offset());
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);
     addUserAgentHeader(request);
@@ -159,14 +186,34 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     }
   }
 
-  private HttpRequest buildRequest(String path, String host) {
+  private HttpRequest buildRequest(String path, String host, long offset) {
     HttpRequest httpRequest =
         new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path);
     httpRequest.headers().set(HttpHeaderNames.HOST, host);
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP);
+    if (offset != 0) {
+      httpRequest.headers().set(HttpHeaderNames.RANGE, String.format("%s=%d-", HttpHeaderValues.BYTES, offset));
+    }
     return httpRequest;
+  }
+
+  private Optional<HttpException> validateContentRangeHeader(HttpHeaders headers) {
+    if (!headers.contains(HttpHeaderNames.CONTENT_RANGE)) {
+      return Optional.of(new HttpException(response, "Missing 'Content-Range' header", null));
+    }
+    Pattern pattern = Pattern.compile("bytes\\s+(?<start>[0-9]+)-(?<end>[0-9]+)/(?<size>[0-9]*|\\*)");
+    Matcher matcher = pattern.matcher(response.headers().get(HttpHeaderNames.CONTENT_RANGE));
+    if (!matcher.matches()) {
+      return Optional.of(new HttpException(response, "Unexpected 'Content-Range' header", null));
+    }
+    long start = Long.valueOf(matcher.group("start"));
+    if (start != offset) {
+      return Optional.of(new HttpException(
+              response, String.format("Unexpected 'Content-Range' start: Expected %d but got %d", offset, start), null));
+    }
+    return Optional.empty();
   }
 
   private void succeedAndReset(ChannelHandlerContext ctx) {

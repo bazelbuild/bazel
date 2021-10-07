@@ -18,7 +18,7 @@ import io.netty.handler.codec.http.HttpResponse;
 import java.io.IOException;
 
 /** An exception that propagates the http status. */
-final class HttpException extends IOException {
+public final class HttpException extends IOException {
   private final HttpResponse response;
 
   HttpException(HttpResponse response, String message, Throwable cause) {

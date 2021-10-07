@@ -59,9 +59,11 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
+import com.google.devtools.build.lib.remote.http.HttpException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -105,6 +107,7 @@ import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -230,7 +233,26 @@ public final class RemoteModule extends BlazeModule {
               credentials,
               authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
-              digestUtil);
+              digestUtil,
+              new RemoteRetrier(
+                 remoteOptions,
+                 (e) -> {
+                   boolean retry = false;
+                   if (e instanceof ClosedChannelException) {
+                     retry = true;
+                   } else if (e instanceof HttpException) {
+                     retry = true;
+                   } else if (e instanceof IOException) {
+                     String msg = e.getMessage().toLowerCase();
+                     if (msg.contains("connection reset by peer")) {
+                       retry = true;
+                     }
+                   }
+                   return retry;
+                 },
+                 retryScheduler,
+                 Retrier.ALLOW_ALL_CALLS)
+              );
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
