@@ -1,3 +1,35 @@
+## Release 5.0.0-pre.20210929.1 (2021-10-07)
+
+```
+Baseline: 61a5fae1b49ed067350d93578da268715031df06
+```
+
+Important changes:
+
+  - The deprecated "relative_to_caller_repository" parameter has been
+    removed from the Label constructor.
+  - The toolchain transition is now enabled for all toolchains.
+
+This release contains contributions from many people at Google, as well as Artem V. Navrotskiy, hvadehra, Ikko Ashimine, Paul Gschwendtner, ron-stripe, Yuval K.
+
+## Release 5.0.0-pre.20210923.7 (2021-09-30)
+
+```
+Baseline: 9a765c8b498a72e20af6c391bef01e794913c317
+
+Cherry picks:
+
+   + f959a22bc59229b723cfca8c987da210b03b8a8d:
+     Rollback.
+```
+
+Important changes:
+
+  - Add support to length-delimited protos as undeclared output
+    annotations []
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Brandon Jacklyn, Rabi Shanker Guha.
+
 ## Release 5.0.0-pre.20210921.1 (2021-09-27)
 
 ```
