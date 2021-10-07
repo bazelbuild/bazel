@@ -320,6 +320,26 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void createRepoRule_localConfigPlatform() throws Exception {
+    // Skip this test in Blaze because local_config_platform is not available.
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    EvaluationResult<BzlmodRepoRuleValue> result =
+        driver.evaluate(
+            ImmutableList.of(BzlmodRepoRuleValue.key("local_config_platform")), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    BzlmodRepoRuleValue bzlmodRepoRuleValue =
+        result.get(BzlmodRepoRuleValue.key("local_config_platform"));
+    Rule repoRule = bzlmodRepoRuleValue.getRule();
+
+    assertThat(repoRule.getRuleClass()).isEqualTo("local_config_platform");
+    assertThat(repoRule.getName()).isEqualTo("local_config_platform");
+  }
+
+  @Test
   public void createRepoRule_overrides() throws Exception {
     EvaluationResult<BzlmodRepoRuleValue> result =
         driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("A")), evaluationContext);

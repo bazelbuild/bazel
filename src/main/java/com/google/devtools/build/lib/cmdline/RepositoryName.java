@@ -37,13 +37,15 @@ public final class RepositoryName implements Serializable {
 
   static final String DEFAULT_REPOSITORY = "";
 
-  static final String BAZEL_TOOLS_REPO_NAME = "@bazel_tools";
-
   @SerializationConstant
   public static final RepositoryName DEFAULT = new RepositoryName(DEFAULT_REPOSITORY);
 
   @SerializationConstant
-  public static final RepositoryName BAZEL_TOOLS = new RepositoryName(BAZEL_TOOLS_REPO_NAME);
+  public static final RepositoryName BAZEL_TOOLS = new RepositoryName("@bazel_tools");
+
+  @SerializationConstant
+  public static final RepositoryName LOCAL_CONFIG_PLATFORM =
+      new RepositoryName("@local_config_platform");
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("@");
 
