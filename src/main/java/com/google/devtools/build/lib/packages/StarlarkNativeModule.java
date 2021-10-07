@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -42,6 +43,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -276,22 +278,55 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     public Iterator<String> iterator() {
       return Iterators.concat(
           ImmutableList.of("name", "kind").iterator(),
-          rule.getAttributes().stream()
-              .map(Attribute::getName)
-              .filter(
-                  attributeName -> {
-                    switch (attributeName) {
-                      case "name":
-                      case "kind":
-                        // handled specially
-                        return false;
-                      default:
-                        return isPotentiallyExportableAttribute(
-                                rule.getRuleClassObject(), attributeName)
-                            && isPotentiallyStarlarkifiableValue(rule.getAttr(attributeName));
-                    }
-                  })
-              .iterator());
+          // Compared to using stream().map(...).filter(...).iterator(), this bespoke iterator
+          // reduces loading time by 15% for a 4000-target package making heavy use of
+          // `native.existing_rules`.
+          new UnmodifiableIterator<String>() {
+            private final Iterator<Attribute> attributes = rule.getAttributes().iterator();
+            @Nullable private String nextRelevantAttributeName;
+
+            private boolean isRelevant(String attributeName) {
+              switch (attributeName) {
+                case "name":
+                case "kind":
+                  // pseudo-names handled specially
+                  return false;
+                default:
+                  return isPotentiallyExportableAttribute(rule.getRuleClassObject(), attributeName)
+                      && isPotentiallyStarlarkifiableValue(rule.getAttr(attributeName));
+              }
+            }
+
+            private void findNextRelevantName() {
+              if (nextRelevantAttributeName == null) {
+                while (attributes.hasNext()) {
+                  String attributeName = attributes.next().getName();
+                  if (isRelevant(attributeName)) {
+                    nextRelevantAttributeName = attributeName;
+                    break;
+                  }
+                }
+              }
+            }
+
+            @Override
+            public boolean hasNext() {
+              findNextRelevantName();
+              return nextRelevantAttributeName != null;
+            }
+
+            @Override
+            public String next() {
+              findNextRelevantName();
+              if (nextRelevantAttributeName != null) {
+                String attributeName = nextRelevantAttributeName;
+                nextRelevantAttributeName = null;
+                return attributeName;
+              } else {
+                throw new NoSuchElementException();
+              }
+            }
+          });
     }
 
     @Override
