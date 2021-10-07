@@ -154,6 +154,17 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     return StarlarkList.copyOf(thread.mutability(), result);
   }
 
+  /**
+   * WARNING -- HACK: We're using this marker type to signify that we're in module extension eval,
+   * and native.existing_rule[s] should just return nothing. We can't check for
+   * ModuleExtensionEvalStarlarkThreadContext because that would cause a cyclic dependency. The
+   * proper way to implement this would be to create a distinct no-op "StarlarkNativeModule" object
+   * that's only used for bzlmod, but that requires a big refactor that we're not going to have time
+   * for before Bazel 5.0.
+   */
+  // TODO(wyv): Do the proper fix described above.
+  public static class ExistingRulesShouldBeNoOp {}
+
   // TODO(https://github.com/bazelbuild/bazel/issues/13605): implement StarlarkMapping (after we've
   // added such an interface) to allow `dict(native.existing_rule(x))`.
   private static interface DictLikeView extends StarlarkIndexable, StarlarkIterable<String> {
@@ -311,6 +322,9 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public Object existingRule(String name, StarlarkThread thread) throws EvalException {
+    if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
+      return Starlark.NONE;
+    }
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rule");
     PackageContext context = getContext(thread);
     Target target = context.pkgBuilder.getTarget(name);
@@ -385,6 +399,9 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   */
   @Override
   public Object existingRules(StarlarkThread thread) throws EvalException {
+    if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
+      return Dict.empty();
+    }
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rules");
     PackageContext context = getContext(thread);
     if (thread

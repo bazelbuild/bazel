@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.StarlarkNativeModule.ExistingRulesShouldBeNoOp;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.HashMap;
@@ -43,6 +44,8 @@ import net.starlark.java.syntax.Location;
 public final class ModuleExtensionEvalStarlarkThreadContext {
   public void storeInThread(StarlarkThread thread) {
     thread.setThreadLocal(ModuleExtensionEvalStarlarkThreadContext.class, this);
+    // The following is just a hack; see documentation there for an explanation.
+    thread.setThreadLocal(ExistingRulesShouldBeNoOp.class, new ExistingRulesShouldBeNoOp());
   }
 
   public static ModuleExtensionEvalStarlarkThreadContext from(StarlarkThread thread) {

@@ -823,4 +823,33 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .contains(
             "Label '//foo/defs.bzl:defs.bzl' is invalid because 'foo/defs.bzl' is not a package");
   }
+
+  @Test
+  public void nativeExistingRuleIsEmpty() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='data_repo', version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext')",
+        "use_repo(ext, 'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  if not native.existing_rules():",
+        "    data_repo(name='ext',data='haha')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data = ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("haha");
+  }
 }
