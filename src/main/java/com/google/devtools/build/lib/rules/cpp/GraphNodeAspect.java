@@ -52,7 +52,10 @@ public final class GraphNodeAspect extends NativeAspectClass implements Configur
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    return new AspectDefinition.Builder(this).propagateAlongAllAttributes().build();
+    return new AspectDefinition.Builder(this)
+        .propagateAlongAllAttributes()
+        .requireStarlarkProviders(CcInfo.PROVIDER.id())
+        .build();
   }
 
   @Override

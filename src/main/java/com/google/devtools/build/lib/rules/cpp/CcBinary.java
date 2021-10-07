@@ -1389,13 +1389,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Queue<GraphNodeInfo> allChildren = new ArrayDeque<>(directChildren);
     ImmutableSet.Builder<String> linkStaticallyLabels = ImmutableSet.builder();
     ImmutableSet.Builder<String> linkDynamicallyLabels = ImmutableSet.builder();
+    Set<String> seenLabels = new HashSet<>();
 
     while (!allChildren.isEmpty()) {
       node = allChildren.poll();
-      if (canBeLinkedDynamically.contains(node.getLabel().toString())) {
-        linkDynamicallyLabels.add(node.getLabel().toString());
+      String labelString = node.getLabel().toString();
+      if (seenLabels.contains(labelString)) {
+        continue;
+      }
+      seenLabels.add(labelString);
+      if (canBeLinkedDynamically.contains(labelString)) {
+        linkDynamicallyLabels.add(labelString);
       } else {
-        linkStaticallyLabels.add(node.getLabel().toString());
+        linkStaticallyLabels.add(labelString);
         allChildren.addAll(node.getChildren());
       }
     }
@@ -1415,7 +1421,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     linkerInputs.addAll(ccLinkingContext.getLinkerInputs().toList());
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-      graphStructureAspectNodes.add(dep.getProvider(GraphNodeInfo.class));
+      GraphNodeInfo nodeInfo = dep.getProvider(GraphNodeInfo.class);
+      if (nodeInfo != null) {
+        graphStructureAspectNodes.add(nodeInfo);
+      }
     }
     graphStructureAspectNodes.add(
         CppHelper.mallocForTarget(ruleContext).getProvider(GraphNodeInfo.class));
