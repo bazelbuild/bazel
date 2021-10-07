@@ -693,7 +693,9 @@ public final class CcLinkingHelper {
             ImmutableList.of(
                 "-Wl,-soname="
                     + SolibSymlinkAction.getDynamicLibrarySoname(
-                        linkerOutput.getRootRelativePath(), /* preserveName= */ false));
+                        linkerOutput.getRootRelativePath(),
+                        /* preserveName= */ false,
+                        actionConstructionContext.getConfiguration().getMnemonic()));
       }
     }
 

@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -2020,5 +2022,137 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .getFilesToBuild()
                 .toList())
         .isNotEmpty();
+  }
+
+  @Test
+  public void testRpathIsNotAddedWhenThereAreNoSoDeps() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
+    scratch.file(
+        "BUILD",
+        "cc_library(",
+        "    name = 'malloc',",
+        "    srcs = ['malloc.cc'],",
+        "    linkstatic = 1,",
+        ")",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    malloc = ':malloc',",
+        "    linkstatic = 0,",
+        ")");
+
+    ConfiguredTarget main = getConfiguredTarget("//:main");
+    Artifact mainBin = getBinArtifact("main", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    assertThat(Joiner.on(" ").join(action.getLinkCommandLine().arguments()))
+        .doesNotContain("-Wl,-rpath");
+  }
+
+  @Test
+  public void testRpathAndLinkPathsWithoutTransitions() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+    useConfiguration("--cpu=k8", "--compilation_mode=fastbuild");
+
+    scratch.file(
+        "no-transition/BUILD",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    deps = ['dep1'],",
+        ")",
+        "",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")");
+
+    ConfiguredTarget main = getConfiguredTarget("//no-transition:main");
+    Artifact mainBin = getBinArtifact("main", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
+    assertThat(linkArgv)
+        .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
+    assertThat(linkArgv).contains("-lno-transition_Slibdep1");
+    assertThat(Joiner.on(" ").join(linkArgv))
+        .doesNotContain("-Wl,-rpath,$ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv))
+        .doesNotContain("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-lST-");
+  }
+
+  @Test
+  public void testRpathRootIsAddedEvenWithTransitionedDepsOnly() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+    useConfiguration("--cpu=k8", "--compilation_mode=fastbuild");
+
+    scratch.file(
+        "transition/BUILD",
+        "load(':custom_transition.bzl', 'apply_custom_transition')",
+        "cc_library(",
+        "    name = 'malloc',",
+        "    srcs = ['malloc.cc'],",
+        "    linkstatic = 1,",
+        ")",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    malloc = ':malloc',",
+        "    deps = ['dep1'],",
+        ")",
+        "",
+        "apply_custom_transition(",
+        "    name = 'dep1',",
+        "    deps = [",
+        "        ':dep2',':dep3',",
+        "    ],",
+        ")",
+        "",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep3',",
+        "    srcs = ['test3.cc'],",
+        "    hdrs = ['test3.h'],",
+        ")");
+
+    ConfiguredTarget main = getConfiguredTarget("//transition:main");
+    Artifact mainBin = getBinArtifact("main", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
+    assertThat(Joiner.on(" ").join(linkArgv))
+        .contains("-Wl,-rpath,$ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv))
+        .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv)).containsMatch("-lST-[0-9a-f]+_transition_Slibdep2");
+    assertThat(Joiner.on(" ").join(linkArgv))
+        .doesNotContain("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
+    assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-ltransition_Slibdep2");
   }
 }
