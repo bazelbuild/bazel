@@ -89,6 +89,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
     String repositoryName = ((BzlmodRepoRuleValue.Key) skyKey).argument();
 
+    // 1. Get repo spec for some special repos
+    // Keep this in sync with {@RepositoryMappingFunction}
     // @bazel_tools is a special repo that we pull from the extracted install dir.
     if (repositoryName.equals(RepositoryName.BAZEL_TOOLS.strippedName())) {
       RepoSpec repoSpec =
@@ -122,6 +124,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       return createRuleFromSpec(repoSpec, starlarkSemantics, env);
     }
 
+    // 2. Look for the repo from Bazel module generated repos
     try {
       Optional<RepoSpec> result = bzlmodRepoRuleHelper.getRepoSpec(env, repositoryName);
       if (env.valuesMissing()) {
@@ -134,7 +137,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }
 
-    // Otherwise, look for the repo from module extension evaluation results.
+    // 3. Otherwise, look for the repo from module extension evaluation results.
     ModuleExtensionResolutionValue extensionResolution =
         (ModuleExtensionResolutionValue) env.getValue(ModuleExtensionResolutionValue.KEY);
     if (extensionResolution == null) {
