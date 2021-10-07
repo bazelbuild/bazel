@@ -307,11 +307,11 @@ public final class CcToolchainRule implements RuleDefinition {
         Set to True when cc_toolchain supports header parsing actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
-        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(target_transition_for_inputs) -->
-        Set to True to build all file inputs to cc_toolchain for the target platform,
-        instead of the execution platform.
+        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(exec_transition_for_inputs) -->
+        Set to True to build all file inputs to cc_toolchain for the exec platform,
+        instead of having no transition (i.e. target platform by default).
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr(CcToolchainInputsTransitionFactory.ATTR_NAME, BOOLEAN).value(false))
+        .add(attr(CcToolchainInputsTransitionFactory.ATTR_NAME, BOOLEAN).value(true))
         .add(
             attr("$interface_library_builder", LABEL)
                 .cfg(ExecutionTransitionFactory.create())

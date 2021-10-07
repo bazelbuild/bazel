@@ -22,17 +22,17 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 
 /**
- * CcToolchainInputsTransition allows file inputs to the cc_toolchain to be transitioned either
- * between the exec or target platform (i.e. no transition).
+ * CcToolchainInputsTransition allows file inputs to the cc_toolchain to be transitioned to the exec
+ * platform, or no transition at all (which defaults to the target configuration).
  */
 public class CcToolchainInputsTransitionFactory
     implements TransitionFactory<AttributeTransitionData> {
 
-  public static final String ATTR_NAME = "target_transition_for_inputs";
+  public static final String ATTR_NAME = "exec_transition_for_inputs";
 
   @Override
   public ConfigurationTransition create(AttributeTransitionData data) {
-    if (data.attributes().has(ATTR_NAME) && data.attributes().get(ATTR_NAME, BOOLEAN)) {
+    if (data.attributes().has(ATTR_NAME) && !data.attributes().get(ATTR_NAME, BOOLEAN)) {
       return NoTransition.INSTANCE;
     } else {
       return ExecutionTransitionFactory.create().create(data);

@@ -28,7 +28,7 @@ import org.junit.runners.JUnit4;
 public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
 
   @Test
-  public void testTargetTransitionForInputsEnabled_usesTargetPlatform() throws Exception {
+  public void testExecTransitionForInputsDisabled_usesTargetPlatform() throws Exception {
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
@@ -49,7 +49,7 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
         "    objcopy_files = ':all_files',",
         "    toolchain_identifier = 'does-not-matter',",
         "    toolchain_config = ':does-not-matter-config',",
-        "    target_transition_for_inputs = True,",
+        "    exec_transition_for_inputs = False,",
         ")",
         "cc_toolchain_config(name = 'does-not-matter-config')");
 
@@ -69,7 +69,7 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTargetTransitionForInputsDisabled_usesExecPlatform() throws Exception {
+  public void testExecTransitionForInputsEnabled_usesExecPlatform() throws Exception {
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
@@ -90,7 +90,7 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
         "    objcopy_files = ':all_files',",
         "    toolchain_identifier = 'does-not-matter',",
         "    toolchain_config = ':does-not-matter-config',",
-        "    target_transition_for_inputs = False,",
+        "    exec_transition_for_inputs = True,",
         ")",
         "cc_toolchain_config(name = 'does-not-matter-config')");
 
@@ -109,7 +109,7 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTargetTransitionForInputsDefault_usesExecPlatform() throws Exception {
+  public void testExecTransitionForInputsDefault_usesExecPlatform() throws Exception {
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
