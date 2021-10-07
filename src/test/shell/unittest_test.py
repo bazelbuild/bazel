@@ -288,6 +288,22 @@ run_suite "bash errexit tests"
     result.assertLogMessage("Running tear_down")
     result.assertLogMessage("Running testenv_tear_down")
 
+  def test_set_bash_errexit_pipefail_long_testname_succeeds(self):
+    test_name = "x" * 1000
+    self.write_file(
+        "thing.sh", """
+set -euo pipefail
+
+function test_%s() {
+  :
+}
+
+run_suite "bash errexit tests"
+""" % test_name)
+
+    result = self.execute_test("thing.sh")
+    result.assertSuccess("bash errexit tests")
+
   def test_empty_test_fails(self):
     self.write_file("thing.sh", """
 # No tests present.

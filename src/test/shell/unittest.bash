@@ -163,10 +163,12 @@ function __show_log() {
 function __pad() {
     local title=$1
     local pad=$2
+    # Ignore the subshell error -- `head` closes the fd before reading to the
+    # end, therefore the subshell will get SIGPIPE while stuck in `write`.
     {
         echo -n "$pad$pad $title "
         printf "%80s" " " | tr ' ' "$pad"
-    } | head -c 80
+    } | head -c 80 || true
     echo
 }
 
