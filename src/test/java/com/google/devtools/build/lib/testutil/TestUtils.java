@@ -18,12 +18,8 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -160,20 +156,6 @@ public class TestUtils {
     }
 
     return randomSeed;
-  }
-
-  public static byte[] serializeObject(Object obj) throws IOException {
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (ObjectOutputStream objectStream = new ObjectOutputStream(outputStream)) {
-      objectStream.writeObject(obj);
-    }
-    return outputStream.toByteArray();
-  }
-
-  public static Object deserializeObject(byte[] buf) throws IOException, ClassNotFoundException {
-    try (ObjectInputStream inStream = new ObjectInputStream(new ByteArrayInputStream(buf))) {
-      return inStream.readObject();
-    }
   }
 
   /**
