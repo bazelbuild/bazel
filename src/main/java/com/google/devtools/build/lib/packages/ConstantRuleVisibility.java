@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -72,8 +73,7 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
    * Tries to parse a list of labels into a {@link ConstantRuleVisibility}.
    *
    * @param labels the list of labels to parse
-   * @return The resulting visibility object, or null if the list of labels
-   * could not be parsed.
+   * @return The resulting visibility object, or null if the list of labels could not be parsed.
    */
   public static ConstantRuleVisibility tryParse(List<Label> labels) throws EvalException {
     if (labels.size() == 1) {
@@ -99,5 +99,10 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
     } else {
       return null;
     }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this).add("result", result).toString();
   }
 }
