@@ -584,7 +584,7 @@ public final class CcCompilationHelper {
   }
 
   /** Sets a pattern that is used to filter copts; set to {@code null} for no filtering. */
-  private void setCoptsFilter(CoptsFilter coptsFilter) {
+  public void setCoptsFilter(CoptsFilter coptsFilter) {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
   }
 
@@ -637,8 +637,8 @@ public final class CcCompilationHelper {
    * Sets the given directories to by loose include directories that are only allowed to be
    * referenced when headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
-  private void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
-    this.looseIncludeDirs = looseIncludeDirs;
+  public void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
+    this.looseIncludeDirs = Preconditions.checkNotNull(looseIncludeDirs);
   }
 
   /**
