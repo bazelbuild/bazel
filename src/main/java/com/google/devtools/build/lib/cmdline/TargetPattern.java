@@ -915,7 +915,7 @@ public abstract class TargetPattern implements Serializable {
         if (!repository.isVisible()) {
           throw new TargetParsingException(
               String.format(
-                  "%s is not visible from %s",
+                  "%s is not visible from repository `@%s`",
                   repository.getName(), repository.getOwnerRepoIfNotVisible()),
               Code.PACKAGE_NOT_FOUND);
         }
