@@ -82,7 +82,6 @@ java_library(
         "ToplevelStarlarkAspectFunction.java",
         "TransitiveTargetFunction.java",
         "WorkspaceFileFunction.java",
-        "actiongraph/ActionGraphDump.java",
         "actiongraph/v2/ActionGraphDump.java",
     ],
     deps = [
@@ -97,12 +96,6 @@ java_library(
         ":action_sketch_function",
         ":action_template_expansion_function",
         ":action_utils",
-        ":actiongraph/known_artifacts",
-        ":actiongraph/known_aspect_descriptors",
-        ":actiongraph/known_configurations",
-        ":actiongraph/known_nested_sets",
-        ":actiongraph/known_rule_class_strings",
-        ":actiongraph/known_targets",
         ":actiongraph/v2/aquery_output_handler",
         ":actiongraph/v2/known_artifacts",
         ":actiongraph/v2/known_aspect_descriptors",
@@ -333,7 +326,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
@@ -579,75 +571,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "actiongraph/base_cache",
-    srcs = ["actiongraph/BaseCache.java"],
-    deps = ["//src/main/protobuf:analysis_java_proto"],
-)
-
-java_library(
-    name = "actiongraph/known_artifacts",
-    srcs = ["actiongraph/KnownArtifacts.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_aspect_descriptors",
-    srcs = ["actiongraph/KnownAspectDescriptors.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_configurations",
-    srcs = ["actiongraph/KnownConfigurations.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_nested_sets",
-    srcs = ["actiongraph/KnownNestedSets.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        ":actiongraph/known_artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_rule_class_strings",
-    srcs = ["actiongraph/KnownRuleClassStrings.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_targets",
-    srcs = ["actiongraph/KnownTargets.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        ":actiongraph/known_rule_class_strings",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/protobuf:analysis_java_proto",
     ],
 )
 

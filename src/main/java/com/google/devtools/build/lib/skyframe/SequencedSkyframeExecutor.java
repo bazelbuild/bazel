@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -77,7 +76,6 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -823,44 +821,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
     return new ArrayList<>(ruleStats.values());
-  }
-
-  @Override
-  public ActionGraphContainer getActionGraphContainer(
-      List<String> actionGraphTargets, boolean includeActionCmdLine, boolean includeArtifacts)
-      throws CommandLineExpansionException {
-    ActionGraphDump actionGraphDump =
-        new ActionGraphDump(actionGraphTargets, includeActionCmdLine, includeArtifacts);
-    return buildActionGraphContainerFromDump(actionGraphDump);
-  }
-
-  private ActionGraphContainer buildActionGraphContainerFromDump(ActionGraphDump actionGraphDump)
-      throws CommandLineExpansionException {
-    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-        memoizingEvaluator.getDoneValues().entrySet()) {
-      SkyKey key = skyKeyAndValue.getKey();
-      SkyValue skyValue = skyKeyAndValue.getValue();
-      if (skyValue == null) {
-        // The skyValue may be null in case analysis of the previous build failed.
-        continue;
-      }
-      try {
-        if (skyValue instanceof RuleConfiguredTargetValue) {
-          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
-        } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
-          AspectValue aspectValue = (AspectValue) skyValue;
-          AspectKey aspectKey = (AspectKey) key;
-          ConfiguredTargetValue configuredTargetValue =
-              (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
-          actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new IllegalStateException("No interruption in sequenced evaluation", e);
-      }
-    }
-    return actionGraphDump.build();
   }
 
   /** Support for aquery output. */
