@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -102,7 +103,13 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
             .map(p -> p.relativeTo(sandboxExecRoot))
             .collect(Collectors.toSet());
     SandboxHelpers.populateInputsAndDirsToCreate(
-        inputs, ImmutableSet.of(), outputs, writableSandboxDirs, inputsToCreate, dirsToCreate);
+        writableSandboxDirs,
+        inputsToCreate,
+        dirsToCreate,
+        Iterables.concat(
+            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        outputs.files(),
+        outputs.dirs());
 
     // Allow subclasses to filter out inputs and dirs that don't need to be created.
     filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);

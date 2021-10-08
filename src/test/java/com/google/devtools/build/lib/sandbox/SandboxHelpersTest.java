@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -296,13 +297,17 @@ public class SandboxHelpersTest {
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
     SandboxHelpers.populateInputsAndDirsToCreate(
-        inputs,
-        ImmutableSet.of(),
-        SandboxOutputs.create(
-            ImmutableSet.of(PathFragment.create("out/dir/output.txt")), ImmutableSet.of()),
         ImmutableSet.of(),
         inputsToCreate,
-        dirsToCreate);
+        dirsToCreate,
+        Iterables.concat(
+            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        SandboxOutputs.create(
+                ImmutableSet.of(PathFragment.create("out/dir/output.txt")), ImmutableSet.of())
+            .files(),
+        SandboxOutputs.create(
+                ImmutableSet.of(PathFragment.create("out/dir/output.txt")), ImmutableSet.of())
+            .dirs());
 
     PathFragment inputDir1 = input1.getParentDirectory();
     PathFragment inputDir2 = input2.getParentDirectory();

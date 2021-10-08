@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -43,7 +44,12 @@ final class WorkerExecRoot {
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
     SandboxHelpers.populateInputsAndDirsToCreate(
-        inputs, workerFiles, outputs, ImmutableSet.of(), inputsToCreate, dirsToCreate);
+        ImmutableSet.of(),
+        inputsToCreate,
+        dirsToCreate,
+        Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        outputs.files(),
+        outputs.dirs());
 
     // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
     // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
