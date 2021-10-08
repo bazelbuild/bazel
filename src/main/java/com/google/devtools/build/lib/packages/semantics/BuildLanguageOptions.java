@@ -156,15 +156,15 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleEnableExportsProvider;
 
   @Option(
-      name = "experimental_existing_rules_immutable_view",
+      name = "incompatible_existing_rules_immutable_view",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, native.existing_rule and native.existing_rules return lightweight"
               + " immutable view objects instead of mutable dicts.")
-  public boolean experimentalExistingRulesImmutableView;
+  public boolean incompatibleExistingRulesImmutableView;
 
   @Option(
       name = "experimental_google_legacy_api",
@@ -592,7 +592,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER, incompatibleEnableExportsProvider)
             .setBool(
-                EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW, experimentalExistingRulesImmutableView)
+                INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
@@ -665,8 +665,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-experimental_enable_android_migration_apis";
   public static final String INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER =
       "-incompatible_enable_exports_provider";
-  public static final String EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW =
-      "-experimental_existing_rules_immutable_view";
+  public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
+      "-incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_NINJA_ACTIONS = "-experimental_ninja_actions";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";

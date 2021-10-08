@@ -95,7 +95,7 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
           "Returns a new mutable dict that describes the attributes of a rule instantiated in this"
               + " thread's package, or <code>None</code> if no rule instance of that name"
               + " exists." //
-              + "<p>If the <code>--experimental_existing_rules_immutable_view</code> flag is set,"
+              + "<p>If the <code>--incompatible_existing_rules_immutable_view</code> flag is set,"
               + " instead returns an immutable dict-like object (i.e. supporting dict-like"
               + " iteration, <code>len(x)</code>, <code>name in x</code>, <code>x[name]</code>,"
               + " <code>x.get(name)</code>, <code>x.items()</code>, <code>x.keys()</code>, and"
@@ -132,14 +132,14 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
           "Returns a new mutable dict describing the rules so far instantiated in this thread's"
               + " package. Each dict entry maps the name of the rule instance to the result that"
               + " would be returned by <code>existing_rule(name)</code>." //
-              + "<p>If the <code>--experimental_existing_rules_immutable_view</code> flag is set,"
+              + "<p>If the <code>--incompatible_existing_rules_immutable_view</code> flag is set,"
               + " instead returns an immutable dict-like object (i.e. supporting dict-like"
               + " iteration, <code>len(x)</code>, <code>name in x</code>, <code>x[name]</code>,"
               + " <code>x.get(name)</code>, <code>x.items()</code>, <code>x.keys()</code>, and"
               + " <code>x.values()</code>) with the same content." //
               + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle"
               + " and order-dependent. Furthermore, unless the"
-              + " <code>--experimental_existing_rules_immutable_view</code> flag is set, this"
+              + " <code>--incompatible_existing_rules_immutable_view</code> flag is set, this"
               + " function may be very expensive, especially if called within a loop.</i>",
       useStarlarkThread = true)
   Object existingRules(StarlarkThread thread) throws EvalException;

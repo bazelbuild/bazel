@@ -367,7 +367,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Rule rule = (Rule) target;
       if (thread
           .getSemantics()
-          .getBool(BuildLanguageOptions.EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW)) {
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
         return new ExistingRuleView(rule);
       } else {
         return getRuleDict(rule, thread.mutability());
@@ -441,7 +441,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     PackageContext context = getContext(thread);
     if (thread
         .getSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW)) {
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
       return new ExistingRulesView(context.pkgBuilder.getRulesSnapshotView());
     } else {
       Collection<Target> targets = context.pkgBuilder.getTargets();
