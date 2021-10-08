@@ -668,7 +668,62 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("get up at 6am.");
   }
 
-  // TODO(wyv): labels_constructedInModuleExtension
+  @Test
+  public void labels_constructedInModuleExtension() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "ext.tag()",
+        "use_repo(ext,'ext_repo')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext_repo//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("foo.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("foo.1.0/requirements.txt").getPathString(), "get up at 6am.");
+    registry.addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
+    scratch.file(modulesRoot.getRelative("bar.2.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("bar.2.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("bar.2.0/requirements.txt").getPathString(), "go to bed at 11pm.");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')",
+        "bazel_dep(name='bar',version='2.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("ext.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext.1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        // The Label() call on the following line should work, using ext.1.0's repo mapping.
+        "  data_str = 'requirements: ' + ctx.read(Label('@foo//:requirements.txt')).strip()",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_str += ' ' + ctx.read(tag.file).strip()",
+        "  data_repo(name='ext_repo',data=data_str)",
+        // So should the attr.label default value on the following line.
+        "tag=tag_class(attrs={'file':attr.label(default='@bar//:requirements.txt')})",
+        "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("requirements: get up at 6am. go to bed at 11pm.");
+  }
 
   @Test
   public void generatedReposHaveCorrectMappings() throws Exception {

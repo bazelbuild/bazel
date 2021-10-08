@@ -557,10 +557,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
     BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     LabelConversionContext context =
         new LabelConversionContext(
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-            bazelStarlarkContext.getRepoMapping(),
+            moduleContext.label(),
+            moduleContext.repoMapping(),
             bazelStarlarkContext.getConvertedLabelsInPackage());
     for (String input : inputs) {
       try {
@@ -958,8 +960,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   @Override
   public Label label(String labelString, StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
-
     // This function is surprisingly complex.
     //
     // - The logic to find the "current repo" is rather magical, using dynamic scope:
@@ -984,16 +984,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     //   and cache without needing four allocations (parseAbsoluteLabel,
     //   getRelativeWithRemapping, getUnambiguousCanonicalForm, parseAbsoluteLabel
     //   in labelCache)
-
-    // This is the label of the innermost BUILD/.bzl file on the current call stack.
-    Label parentLabel =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
-
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
       LabelValidator.parseAbsoluteLabel(labelString);
       labelString =
-          parentLabel
-              .getRelativeWithRemapping(labelString, context.getRepoMapping())
+          moduleContext
+              .label()
+              .getRelativeWithRemapping(labelString, moduleContext.repoMapping())
               .getUnambiguousCanonicalForm();
       return labelCache.get(labelString);
     } catch (LabelValidator.BadLabelException | LabelSyntaxException e) {

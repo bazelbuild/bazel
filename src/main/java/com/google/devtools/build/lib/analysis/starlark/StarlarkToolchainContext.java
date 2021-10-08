@@ -89,11 +89,12 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
     } else if (key instanceof String) {
       try {
         BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(starlarkThread);
+        BazelModuleContext moduleContext =
+            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(starlarkThread));
         LabelConversionContext context =
             new LabelConversionContext(
-                BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(starlarkThread))
-                    .label(),
-                bazelStarlarkContext.getRepoMapping(),
+                moduleContext.label(),
+                moduleContext.repoMapping(),
                 bazelStarlarkContext.getConvertedLabelsInPackage());
         return context.convert((String) key);
       } catch (LabelSyntaxException e) {

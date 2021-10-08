@@ -158,7 +158,6 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              rule.getPackage().getRepositoryMapping(),
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
               /*analysisRuleLabel=*/ null,

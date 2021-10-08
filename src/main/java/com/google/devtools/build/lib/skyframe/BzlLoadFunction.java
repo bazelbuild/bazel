@@ -788,18 +788,16 @@ public class BzlLoadFunction implements SkyFunction {
     Module module = Module.withPredeclared(builtins.starlarkSemantics, predeclared);
     module.setClientData(
         BazelModuleContext.create(
-            key.getLabel(), prog.getFilename(), ImmutableMap.copyOf(loadMap), transitiveDigest));
+            key.getLabel(),
+            repoMapping,
+            prog.getFilename(),
+            ImmutableMap.copyOf(loadMap),
+            transitiveDigest));
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the module.
     executeBzlFile(
-        prog,
-        key.getLabel(),
-        module,
-        loadMap,
-        builtins.starlarkSemantics,
-        env.getListener(),
-        repoMapping);
+        prog, key.getLabel(), module, loadMap, builtins.starlarkSemantics, env.getListener());
     return new BzlLoadValue(module, transitiveDigest);
   }
 
@@ -1073,17 +1071,14 @@ public class BzlLoadFunction implements SkyFunction {
       Module module,
       Map<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
-      ExtendedEventHandler skyframeEventHandler,
-      RepositoryMapping repositoryMapping)
+      ExtendedEventHandler skyframeEventHandler)
       throws BzlLoadFailedException, InterruptedException {
     try (Mutability mu = Mutability.create("loading", label)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setLoader(loadedModules::get);
       StoredEventHandler starlarkEventHandler = new StoredEventHandler();
       thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
-      packageFactory
-          .getRuleClassProvider()
-          .setStarlarkThreadContext(thread, label, repositoryMapping);
+      packageFactory.getRuleClassProvider().setStarlarkThreadContext(thread, label);
       execAndExport(prog, label, starlarkEventHandler, module, thread);
 
       Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());

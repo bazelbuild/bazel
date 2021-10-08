@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -860,13 +859,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   }
 
   @Override
-  public void setStarlarkThreadContext(
-      StarlarkThread thread, Label fileLabel, RepositoryMapping repoMapping) {
+  public void setStarlarkThreadContext(StarlarkThread thread, Label fileLabel) {
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,
             toolsRepository,
             configurationFragmentMap,
-            repoMapping,
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(fileLabel),
             /*analysisRuleLabel=*/ null,

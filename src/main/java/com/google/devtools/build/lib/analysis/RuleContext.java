@@ -1127,7 +1127,6 @@ public final class RuleContext extends TargetContext
             BazelStarlarkContext.Phase.ANALYSIS,
             ruleClassProvider.getToolsRepository(),
             /*fragmentNameToClass=*/ null,
-            getTarget().getPackage().getRepositoryMapping(),
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             getSymbolGenerator(),
             getLabel(),

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -137,13 +138,12 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       } else if (defaultValue instanceof StarlarkLateBoundDefault) {
         builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
-        BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
+        BazelModuleContext moduleContext =
+            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
-                BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-                bazelStarlarkContext.getRepoMapping(),
-                bazelStarlarkContext.getConvertedLabelsInPackage()),
+                moduleContext.label(), moduleContext.repoMapping(), new HashMap<>()),
             DEFAULT_ARG);
       }
     }
