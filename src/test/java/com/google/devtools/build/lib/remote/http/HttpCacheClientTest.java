@@ -33,6 +33,10 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -90,6 +94,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -265,6 +270,13 @@ public class HttpCacheClientTest {
       AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
+    ListeningScheduledExecutorService retryScheduler =
+            MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+    RemoteRetrier retrier = new RemoteRetrier(
+            () -> RemoteRetrier.RETRIES_DISABLED,
+            (e) -> false,
+            retryScheduler,
+            Retrier.ALLOW_ALL_CALLS);
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
@@ -276,6 +288,7 @@ public class HttpCacheClientTest {
           remoteVerifyDownloads,
           ImmutableList.of(),
           DIGEST_UTIL,
+          retrier,
           creds,
           authAndTlsOptions);
     } else if (socketAddress instanceof InetSocketAddress) {
@@ -288,6 +301,7 @@ public class HttpCacheClientTest {
           remoteVerifyDownloads,
           ImmutableList.of(),
           DIGEST_UTIL,
+          retrier,
           creds,
           authAndTlsOptions);
     } else {
