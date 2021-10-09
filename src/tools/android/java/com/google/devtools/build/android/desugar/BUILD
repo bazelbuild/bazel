@@ -67,8 +67,18 @@ java_library(
     ],
 )
 
-java_binary(
+sh_binary(
     name = "Desugar",
+    srcs = ["desugar.sh"],
+    data = [":Desugar_java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+java_binary(
+    name = "Desugar_java",
     main_class = "com.google.devtools.build.android.desugar.Desugar",
     visibility = [
         "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
