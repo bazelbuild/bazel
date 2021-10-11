@@ -128,7 +128,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   /** Initiates visitation and waits for completion. */
   final void run() throws InterruptedException {
     try (AutoProfiler ignored =
-        GoogleAutoProfilerUtils.logged("invalidation", MIN_TIME_FOR_LOGGING)) {
+        GoogleAutoProfilerUtils.logged(
+            "invalidation of " + pendingVisitations.size() + " nodes", MIN_TIME_FOR_LOGGING)) {
       // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
       // the caller, and which are added by other threads during the run. Since no tasks have been
       // started yet, this is thread-safe.
