@@ -58,7 +58,6 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.repository.CacheHitReportingModule.class,
           com.google.devtools.build.lib.bazel.SpawnLogModule.class,
           com.google.devtools.build.lib.outputfilter.OutputFilteringModule.class,
-          com.google.devtools.build.lib.ssd.SsdModule.class,
           com.google.devtools.build.lib.worker.WorkerModule.class,
           com.google.devtools.build.lib.runtime.CacheFileDigestsModule.class,
           com.google.devtools.build.lib.standalone.StandaloneModule.class,

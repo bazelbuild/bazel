@@ -92,7 +92,6 @@ filegroup(
         "//src/main/java/net/starlark/java/eval:srcs",
         "//src/main/java/net/starlark/java/syntax:srcs",
         "//src/main/java/net/starlark/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",

@@ -301,6 +301,14 @@ public final class BazelRulesModule extends BlazeModule {
             "The --legacy_spawn_scheduler flag is a no-op and will be removed soon.",
         help = "Was used to enable the old spawn scheduler. Now a no-op.")
     public boolean legacySpawnScheduler;
+
+    @Option(
+        name = "experimental_multi_threaded_digest",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op")
+    public boolean experimentalMultiThreadedDigest;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
