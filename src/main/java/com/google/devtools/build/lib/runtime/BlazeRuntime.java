@@ -394,7 +394,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             recordFullProfilerData,
             clock,
             execStartTimeNanos,
-            options.enableCpuUsageProfiling,
             options.slimProfile,
             options.includePrimaryOutput,
             options.profileIncludeTargetLabel,

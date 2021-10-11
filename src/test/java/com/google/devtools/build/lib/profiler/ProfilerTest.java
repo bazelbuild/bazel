@@ -100,7 +100,6 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -119,7 +118,6 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -159,7 +157,7 @@ public final class ProfilerTest {
     profiler.logEvent(ProfilerTask.PHASE, "should be ignored");
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(jsonProfile.getTraceEvents())
+    assertThat(removeUsageEvents(jsonProfile.getTraceEvents()))
         .hasSize(
             2 /* thread names */
                 + 2 /* thread indices */
@@ -225,7 +223,6 @@ public final class ProfilerTest {
         true,
         clock,
         clock.nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -274,7 +271,6 @@ public final class ProfilerTest {
         true,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -395,7 +391,6 @@ public final class ProfilerTest {
         true,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -451,7 +446,7 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(jsonProfile.getTraceEvents())
+    assertThat(removeUsageEvents(jsonProfile.getTraceEvents()))
         .hasSize(
             4 /* thread names */
                 + 4 /* thread indices */
@@ -517,7 +512,8 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(jsonProfile.getTraceEvents())
+    List<TraceEvent> filteredEvents = removeUsageEvents(jsonProfile.getTraceEvents());
+    assertThat(filteredEvents)
         .hasSize(
             4 /* thread names */
                 + 4 /* threads sort index */
@@ -526,14 +522,19 @@ public final class ProfilerTest {
                 + 1 /* complex task */
                 + 1 /* last task */
                 + 1 /* finishing */);
-    assertThat(getTraceEventsForPhase(ProfilePhase.INIT, jsonProfile.getTraceEvents())).isEmpty();
-    assertThat(
-            getTraceEventsForPhase(ProfilePhase.TARGET_PATTERN_EVAL, jsonProfile.getTraceEvents()))
+    assertThat(getTraceEventsForPhase(ProfilePhase.INIT, filteredEvents)).isEmpty();
+    assertThat(getTraceEventsForPhase(ProfilePhase.TARGET_PATTERN_EVAL, filteredEvents))
         .hasSize(100); // thread1
-    assertThat(getTraceEventsForPhase(ProfilePhase.ANALYZE, jsonProfile.getTraceEvents()))
+    assertThat(getTraceEventsForPhase(ProfilePhase.ANALYZE, filteredEvents))
         .hasSize(101); // complex task and thread2a
-    assertThat(getTraceEventsForPhase(ProfilePhase.EXECUTE, jsonProfile.getTraceEvents()))
+    assertThat(getTraceEventsForPhase(ProfilePhase.EXECUTE, filteredEvents))
         .hasSize(102); // thread2b + last task + finishing
+  }
+
+  // Filter out CPU and memory usage events. These are non-deterministic depending on the duration
+  // of the profile.
+  private static List<TraceEvent> removeUsageEvents(List<TraceEvent> events) {
+    return events.stream().filter(e -> !e.name().contains("usage")).collect(Collectors.toList());
   }
 
   /**
@@ -587,7 +588,6 @@ public final class ProfilerTest {
         false,
         badClock,
         initialNanoTime,
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -646,7 +646,6 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -675,7 +674,6 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
@@ -700,7 +698,6 @@ public final class ProfilerTest {
         true,
         clock,
         clock.nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ true,
         /*includeTargetLabel=*/ false,
@@ -733,7 +730,6 @@ public final class ProfilerTest {
         true,
         clock,
         clock.nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         /*slimProfile=*/ false,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ true,
@@ -765,7 +761,6 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*enabledCpuUsageProfiling=*/ false,
         slimProfile,
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,

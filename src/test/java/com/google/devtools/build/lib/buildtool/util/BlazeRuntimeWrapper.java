@@ -319,7 +319,6 @@ public class BlazeRuntimeWrapper {
               /*recordAllDurations=*/ false,
               new JavaClock(),
               /*execStartTimeNanos=*/ 42,
-              /*enabledCpuUsageProfiling=*/ false,
               /*slimProfile=*/ false,
               /*includePrimaryOutput=*/ false,
               /*includeTargetLabel=*/ false,

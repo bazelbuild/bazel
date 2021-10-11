@@ -225,14 +225,6 @@ public class CommonCommandOptions extends OptionsBase {
   public TriState enableTracer;
 
   @Option(
-      name = "experimental_profile_cpu_usage",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
-  public boolean enableCpuUsageProfiling;
-
-  @Option(
       name = "experimental_profile_additional_tasks",
       converter = ProfilerTaskConverter.class,
       defaultValue = "null",

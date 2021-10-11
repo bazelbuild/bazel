@@ -478,6 +478,15 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         help = "No-op")
     public TriState enableTracerCompression;
+
+    @Option(
+        name = "experimental_profile_cpu_usage",
+        defaultValue = "true",
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        help = "No-op")
+    public boolean enableCpuUsageProfiling;
   }
 
   @Override

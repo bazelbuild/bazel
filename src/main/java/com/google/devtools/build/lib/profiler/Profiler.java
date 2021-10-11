@@ -366,7 +366,6 @@ public final class Profiler {
       boolean recordAllDurations,
       Clock clock,
       long execStartTimeNanos,
-      boolean enabledCpuUsageProfiling,
       boolean slimProfile,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
@@ -389,7 +388,7 @@ public final class Profiler {
         TASK_COUNT < 256,
         "The profiler implementation supports only up to 255 different ProfilerTask values.");
 
-    // reset state for the new profiling session
+    // Reset state for the new profiling session.
     taskId.set(0);
     this.recordAllDurations = recordAllDurations;
     FileWriter writer = null;
@@ -421,15 +420,14 @@ public final class Profiler {
     }
     this.writerRef.set(writer);
 
-    // activate profiler
+    // Activate profiler.
     profileStartTime = execStartTimeNanos;
     profileCpuStartTime = getProcessCpuTime();
 
-    if (enabledCpuUsageProfiling) {
-      cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
-      cpuUsageThread.setDaemon(true);
-      cpuUsageThread.start();
-    }
+    // Start collecting Bazel and system-wide CPU metric collection.
+    cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
+    cpuUsageThread.setDaemon(true);
+    cpuUsageThread.start();
   }
 
   /**
