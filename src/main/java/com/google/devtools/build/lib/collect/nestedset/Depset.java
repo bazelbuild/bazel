@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -92,13 +91,11 @@ import net.starlark.java.eval.StarlarkValue;
             + " these will be suppressed when iterating (using <code>to_list()</code>). Duplicates"
             + " may interfere with the ordering semantics.")
 @Immutable
-@AutoCodec
 public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttributes {
   private final ElementType elemType;
   private final NestedSet<?> set;
 
-  @AutoCodec.VisibleForSerialization
-  Depset(ElementType elemType, NestedSet<?> set) {
+  private Depset(ElementType elemType, NestedSet<?> set) {
     this.elemType = Preconditions.checkNotNull(elemType, "element type cannot be null");
     this.set = set;
   }

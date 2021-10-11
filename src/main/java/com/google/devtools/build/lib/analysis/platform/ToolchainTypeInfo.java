@@ -18,15 +18,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainTypeInfoApi;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
 
 /** A provider that supplies information about a specific toolchain type. */
 @Immutable
-@AutoCodec
 public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoApi {
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ToolchainTypeInfo";
@@ -41,8 +38,7 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
     return new ToolchainTypeInfo(typeLabel);
   }
 
-  @VisibleForSerialization
-  ToolchainTypeInfo(Label typeLabel) {
+  private ToolchainTypeInfo(Label typeLabel) {
     this.typeLabel = typeLabel;
   }
 

@@ -36,9 +36,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Optional;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -51,7 +48,6 @@ import net.starlark.java.eval.StarlarkThread;
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since package groups are
  * not really first-class Targets.
  */
-@AutoCodec
 @Immutable
 public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     implements PackageSpecificationProvider, Info {
@@ -81,8 +77,6 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     }
   }
 
-  @VisibleForSerialization
-  @Instantiator
   public PackageGroupConfiguredTarget(
       Label label,
       NestedSet<PackageGroupContents> visibility,

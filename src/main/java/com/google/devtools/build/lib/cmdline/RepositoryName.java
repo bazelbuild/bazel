@@ -18,7 +18,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -32,7 +31,6 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** The name of an external repository. */
-@AutoCodec
 public final class RepositoryName implements Serializable {
 
   static final String DEFAULT_REPOSITORY = "";
@@ -73,7 +71,6 @@ public final class RepositoryName implements Serializable {
    *
    * @throws LabelSyntaxException if the name is invalid
    */
-  @AutoCodec.Instantiator
   public static RepositoryName create(String name) throws LabelSyntaxException {
     if (name.isEmpty()) {
       return DEFAULT;

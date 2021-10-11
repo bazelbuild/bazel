@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** Dynamic transition to the host configuration. */
 public final class HostTransition implements PatchTransition {
 
-  @AutoCodec public static final HostTransition INSTANCE = new HostTransition();
+  @SerializationConstant @VisibleForSerialization
+  public static final HostTransition INSTANCE = new HostTransition();
 
   private HostTransition() {}
 

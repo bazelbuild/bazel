@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,7 +38,6 @@ import javax.annotation.Nullable;
  * Used to generate runfiles and fileset symlink farms.
  */
 @Immutable
-@AutoCodec
 public final class SymlinkTreeAction extends AbstractAction {
 
   private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
@@ -94,7 +92,6 @@ public final class SymlinkTreeAction extends AbstractAction {
    *     Symlink tree root will be set to the artifact's parent directory.
    * @param filesetRoot non-null if this is a fileset symlink tree,
    */
-  @AutoCodec.Instantiator
   public SymlinkTreeAction(
       ActionOwner owner,
       Artifact inputManifest,

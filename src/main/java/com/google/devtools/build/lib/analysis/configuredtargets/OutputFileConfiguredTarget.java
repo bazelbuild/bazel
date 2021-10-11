@@ -31,13 +31,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import net.starlark.java.eval.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
-@AutoCodec
 @Immutable
 public class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
@@ -58,9 +54,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
     Preconditions.checkArgument(targetContext.getTarget() == outputFile);
   }
 
-  @Instantiator
-  @VisibleForSerialization
-  OutputFileConfiguredTarget(
+  private OutputFileConfiguredTarget(
       Label label,
       BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,

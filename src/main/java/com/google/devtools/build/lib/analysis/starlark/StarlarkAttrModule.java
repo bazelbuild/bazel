@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -722,13 +721,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   /** A descriptor of an attribute defined in Starlark. */
-  @AutoCodec
   public static final class Descriptor implements StarlarkAttrModuleApi.Descriptor {
     private final ImmutableAttributeFactory attributeFactory;
     private final String name;
 
-    @AutoCodec.VisibleForSerialization
-    Descriptor(String name, ImmutableAttributeFactory attributeFactory) {
+    private Descriptor(String name, ImmutableAttributeFactory attributeFactory) {
       this.attributeFactory = Preconditions.checkNotNull(attributeFactory);
       this.name = name;
     }

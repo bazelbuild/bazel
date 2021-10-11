@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
@@ -33,7 +33,8 @@ import java.util.Map;
  */
 @AutoValue
 public abstract class BazelModuleResolutionValue implements SkyValue {
-  @AutoCodec public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;
+  @SerializationConstant
+  public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;
 
   public static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> depGraph,

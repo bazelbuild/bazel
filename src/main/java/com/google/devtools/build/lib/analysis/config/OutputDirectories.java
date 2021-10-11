@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -77,7 +76,6 @@ public class OutputDirectories {
    * so that the build works even if the two configurations are too close (which is common) and so
    * that the path of artifacts in the host configuration is a bit more readable.
    */
-  @AutoCodec.VisibleForSerialization
   public enum OutputDirectory {
     BIN("bin"),
     GENFILES("genfiles"),
@@ -108,7 +106,6 @@ public class OutputDirectories {
       this.middleman = false;
     }
 
-    @AutoCodec.VisibleForSerialization
     public ArtifactRoot getRoot(
         String outputDirName, BlazeDirectories directories, RepositoryName mainRepositoryName) {
       // e.g., execroot/repo1

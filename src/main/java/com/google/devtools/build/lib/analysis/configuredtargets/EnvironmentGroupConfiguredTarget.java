@@ -20,18 +20,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * Dummy ConfiguredTarget for environment groups. Contains no functionality, since environment
  * groups are not really first-class Targets.
  */
-@AutoCodec
 @Immutable
 public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTarget {
-  @AutoCodec.Instantiator
-  @AutoCodec.VisibleForSerialization
-  EnvironmentGroupConfiguredTarget(Label label) {
+
+  private EnvironmentGroupConfiguredTarget(Label label) {
     super(label, null);
   }
 
