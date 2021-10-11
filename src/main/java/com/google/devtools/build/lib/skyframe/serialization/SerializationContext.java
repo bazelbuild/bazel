@@ -130,8 +130,13 @@ public class SerializationContext {
     return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ false);
   }
 
+  /**
+   * Returns a {@link SerializationContext} that will memoize values as described in {@link
+   * #getMemoizingContext} and additionally permits attaching futures through {@link
+   * #addFutureToBlockWritingOn}.
+   */
   @CheckReturnValue
-  SerializationContext getMemoizingAndBlockingOnWriteContext() {
+  public SerializationContext getMemoizingAndBlockingOnWriteContext() {
     checkState(serializer == null, "Should only be called on base serializationContext");
     checkState(!allowFuturesToBlockWritingOn, "Should only be called on base serializationContext");
     return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ true);
