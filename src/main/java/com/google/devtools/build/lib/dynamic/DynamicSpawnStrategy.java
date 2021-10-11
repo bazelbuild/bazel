@@ -685,7 +685,12 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                                   DynamicSpawnStrategy.this.options,
                                   actionExecutionContext,
                                   spawn));
-                  delayLocalExecution.set(true);
+                  for (SpawnResult r : spawnResults) {
+                    if (r.isCacheHit()) {
+                      delayLocalExecution.set(true);
+                      break;
+                    }
+                  }
                   return spawnResults;
                 } catch (DynamicInterruptedException e) {
                   // This exception can be thrown due to races in stopBranch(), in which case
