@@ -1527,6 +1527,7 @@ java_library(
         ":config/invalid_configuration_exception",
         ":config/run_under",
         ":config/transitive_option_details",
+        ":platform_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -1543,6 +1544,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

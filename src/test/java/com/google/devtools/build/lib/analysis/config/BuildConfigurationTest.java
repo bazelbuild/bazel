@@ -367,6 +367,23 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         .runTests();
   }
 
+  @Test
+  public void testPlatformInOutputDir_defaultPlatform() throws Exception {
+    BuildConfiguration config = create("--experimental_platform_in_output_dir", "--cpu=k8");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/k8-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir() throws Exception {
+    BuildConfiguration config =
+        create("--experimental_platform_in_output_dir", "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/alpha-fastbuild");
+  }
+
   /**
    * Partial verification of deserialized BuildConfiguration.
    *

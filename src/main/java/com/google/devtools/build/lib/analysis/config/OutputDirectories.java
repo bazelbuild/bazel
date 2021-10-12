@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.util.OS;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.vfs.PathFragment.InvalidBaseNameException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Logic for figuring out what base directories to place outputs generated from a given
@@ -141,12 +144,13 @@ public class OutputDirectories {
   OutputDirectories(
       BlazeDirectories directories,
       CoreOptions options,
+      @Nullable PlatformOptions platformOptions,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
       RepositoryName mainRepositoryName,
       boolean siblingRepositoryLayout)
       throws InvalidMnemonicException {
     this.directories = directories;
-    this.mnemonic = buildMnemonic(options, fragments);
+    this.mnemonic = buildMnemonic(options, platformOptions, fragments);
     this.outputDirName = options.isHost ? "host" : mnemonic;
 
     this.outputDirectory =
@@ -201,7 +205,9 @@ public class OutputDirectories {
   }
 
   private static String buildMnemonic(
-      CoreOptions options, ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
+      CoreOptions options,
+      @Nullable PlatformOptions platformOptions,
+      ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
       throws InvalidMnemonicException {
     // See explanation at declaration for outputRoots.
     List<String> nameParts = new ArrayList<>();
@@ -232,10 +238,25 @@ public class OutputDirectories {
     String mnemonic = nameParts.stream().filter(not(Strings::isNullOrEmpty)).collect(joining("-"));
 
     // Replace the CPU idenfitier.
-    validateMnemonicPart(options.cpu, "CPU name '%s'");
-    mnemonic = mnemonic.replace("{CPU}", options.cpu);
+    String cpuIdentifier = buildCpuIdentifier(options, platformOptions);
+    validateMnemonicPart(cpuIdentifier, "CPU name '%s'");
+    mnemonic = mnemonic.replace("{CPU}", cpuIdentifier);
 
     return mnemonic;
+  }
+
+  private static String buildCpuIdentifier(
+      CoreOptions options, @Nullable PlatformOptions platformOptions) {
+    if (options.platformInOutputDir && platformOptions != null) {
+      Label targetPlatform = platformOptions.computeTargetPlatform();
+      // Only use non-default platforms.
+      if (!PlatformOptions.platformIsDefault(targetPlatform)) {
+        return targetPlatform.getName();
+      }
+    }
+
+    // Fall back to using the CPU.
+    return options.cpu;
   }
 
   private ArtifactRoot buildDerivedRoot(

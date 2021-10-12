@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -184,9 +185,18 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
     this.options = buildOptions.get(CoreOptions.class);
+    PlatformOptions platformOptions = null;
+    if (buildOptions.contains(PlatformOptions.class)) {
+      platformOptions = buildOptions.get(PlatformOptions.class);
+    }
     this.outputDirectories =
         new OutputDirectories(
-            directories, options, this.fragments, mainRepositoryName, siblingRepositoryLayout);
+            directories,
+            options,
+            platformOptions,
+            this.fragments,
+            mainRepositoryName,
+            siblingRepositoryLayout);
     this.mainRepositoryName = mainRepositoryName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
 
