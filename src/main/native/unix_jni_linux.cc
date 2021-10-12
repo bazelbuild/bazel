@@ -89,7 +89,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   return result;
 }
 
-int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
   errno = ENOSYS;
   return -1;
 }

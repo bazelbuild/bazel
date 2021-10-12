@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/native/unix_jni.h"
-
+#include <IOKit/IOMessage.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <IOKit/IOMessage.h>
-#include <IOKit/pwr_mgt/IOPMLib.h>
 #include <os/log.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +31,8 @@
 // absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
 #include <mutex>  // NOLINT
 #include <string>
+
+#include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 
@@ -50,9 +50,8 @@ string ErrorMessage(int error_number) {
   return string(buf);
 }
 
-
-int portable_fstatat(
-    int dirfd, char *name, portable_stat_struct *statbuf, int flags) {
+int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
+                     int flags) {
   char dirPath[PATH_MAX2];  // Have enough room for relative path
 
   // No fstatat under darwin, simulate it
@@ -70,13 +69,13 @@ int portable_fstatat(
     return -1;
   }
   int l = strlen(dirPath);
-  if (dirPath[l-1] != '/') {
+  if (dirPath[l - 1] != '/') {
     // dirPath is twice the PATH_MAX size, we always have room for the extra /
     dirPath[l] = '/';
-    dirPath[l+1] = 0;
+    dirPath[l + 1] = 0;
     l++;
   }
-  strncat(dirPath, name, PATH_MAX2-l-1);
+  strncat(dirPath, name, PATH_MAX2 - l - 1);
   char *newpath = realpath(dirPath, nullptr);  // this resolve the relative path
   if (newpath == nullptr) {
     return -1;
@@ -126,7 +125,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   return result;
 }
 
-int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
   return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
 }
 
