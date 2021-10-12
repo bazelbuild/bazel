@@ -307,15 +307,19 @@ int portable_suspend_count() {
   return suspend_state.suspend_count;
 }
 
-int portable_memory_pressure_warning_count() {
+static std::atomic_int pressure_warning_count{0};
+static std::atomic_int pressure_critical_count{0};
+
+static void RegisterMemoryPressureHandler() {
   // To test use:
   // log stream -level debug --predicate '(subsystem == "build.bazel")'
   // sudo memory_pressure -S -l warn
+  // sudo memory_pressure -S -l critical
   static dispatch_once_t once_token;
-  static std::atomic_int warning_count;
   dispatch_once(&once_token, ^{
     dispatch_source_t source = dispatch_source_create(
-        DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, DISPATCH_MEMORYPRESSURE_WARN,
+        DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0,
+        DISPATCH_MEMORYPRESSURE_WARN | DISPATCH_MEMORYPRESSURE_CRITICAL,
         JniDispatchQueue());
     CHECK(source != nullptr);
     dispatch_source_set_event_handler(source, ^{
@@ -323,36 +327,24 @@ int portable_memory_pressure_warning_count() {
           dispatch_source_get_data(source);
       if (pressureLevel == DISPATCH_MEMORYPRESSURE_WARN) {
         log_if_possible("memory pressure warning anomaly");
-        ++warning_count;
+        ++pressure_warning_count;
+      } else if (pressureLevel == DISPATCH_MEMORYPRESSURE_CRITICAL) {
+        log_if_possible("memory pressure critical anomaly");
+        ++pressure_critical_count;
       }
     });
     dispatch_resume(source);
   });
-  return warning_count;
+}
+
+int portable_memory_pressure_warning_count() {
+  RegisterMemoryPressureHandler();
+  return pressure_warning_count;
 }
 
 int portable_memory_pressure_critical_count() {
-  // To test use:
-  // log stream -level debug --predicate '(subsystem == "build.bazel")'
-  // sudo memory_pressure -S -l critical
-  static dispatch_once_t once_token;
-  static std::atomic_int critical_count;
-  dispatch_once(&once_token, ^{
-    dispatch_source_t source = dispatch_source_create(
-        DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0,
-        DISPATCH_MEMORYPRESSURE_CRITICAL, JniDispatchQueue());
-    CHECK(source != nullptr);
-    dispatch_source_set_event_handler(source, ^{
-      dispatch_source_memorypressure_flags_t pressureLevel =
-          dispatch_source_get_data(source);
-      if (pressureLevel == DISPATCH_MEMORYPRESSURE_CRITICAL) {
-        log_if_possible("memory pressure critical anomaly");
-        ++critical_count;
-      }
-    });
-    dispatch_resume(source);
-  });
-  return critical_count;
+  RegisterMemoryPressureHandler();
+  return pressure_critical_count;
 }
 
 }  // namespace blaze_jni
