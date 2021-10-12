@@ -517,6 +517,10 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addOptions(args);
   }
 
+  protected void addOptions(List<String> args) {
+    runtimeWrapper.addOptions(args);
+  }
+
   protected void addStarlarkOption(String label, Object value) {
     runtimeWrapper.addStarlarkOption(label, value);
   }
