@@ -81,6 +81,7 @@ pkg_tar(
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
+        "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
     strip_prefix = "external",

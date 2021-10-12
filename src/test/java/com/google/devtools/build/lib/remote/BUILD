@@ -103,7 +103,6 @@ java_test(
         "//third_party:netty",
         "//third_party:rxjava3",
         "//third_party:truth",
-        "//third_party:zstd-jni",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
@@ -116,5 +115,6 @@ java_test(
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",
+        "@zstd-jni//:zstd-jni",
     ],
 )
