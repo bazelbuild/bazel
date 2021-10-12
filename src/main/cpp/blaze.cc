@@ -1639,6 +1639,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   // than emit a help message.
   if (!workspace_layout->InWorkspace(workspace)) {
     startup_options->batch = true;
+    BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
+                       << " in batch mode since we are outside of a workspace.";
   }
 
   vector<string> archive_contents;
