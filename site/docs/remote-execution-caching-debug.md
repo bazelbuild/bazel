@@ -23,12 +23,14 @@ from a remote cache is displayed as `remote cache hit`.
 
 For example:
 
-        INFO: 7 processes: 3 remote cache hit, 4 remote.
+        INFO: 11 processes: 6 remote cache hit, 3 internal, 2 remote.
 
-In this example there were 3 remote cache hits, and 4 actions did not have
-cache hits and were executed remotely. Local cache hits are not included in this
-summary. If you are getting 0 processes (or a number lower than expected),
-run `bazel clean` followed by your build/test command.
+In this example there were 6 remote cache hits, and 2 actions did not have
+cache hits and were executed remotely. The 3 internal part can be ignored. 
+It is typically tiny internal actions, such as creating symbolic links. Local 
+cache hits are not included in this summary. If you are getting 0 processes 
+(or a number lower than expected), run `bazel clean` followed by your build/test 
+command.
 
 ## Troubleshooting cache hits
 
@@ -49,7 +51,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
    machine).
 
 4. Check the `INFO` line for cache hit rate. If you see no processes except
-   `remote cache hit`, then your cache is being correctly populated and
+   `remote cache hit` and `internal`, then your cache is being correctly populated and
    accessed. In that case, skip to the next section.
 
 5. A likely source of discrepancy is something non-hermetic in the build causing
@@ -59,9 +61,9 @@ If you are not getting the cache hit rate you are expecting, do the following:
    a. Re-run the build(s) or test(s) in question to obtain execution logs:
 
           bazel clean
-          bazel $YOUR_FLAGS build //your:target --execution_log_binary_file=/tmp/exec1.log
+          bazel $YOUR_FLAGS build //your:target --execution_log_json_file=/tmp/exec1.json
           bazel clean
-          bazel $YOUR_FLAGS build //your:target --execution_log_binary_file=/tmp/exec2.log
+          bazel $YOUR_FLAGS build //your:target --execution_log_json_file=/tmp/exec2.json
 
    b. [Compare the execution logs](#comparing-the-execution-logs) between the
       two runs. Ensure that the actions are identical across the two log files.
@@ -114,13 +116,13 @@ not happening across machines, do the following:
 2. Run the build on the first machine:
 
           bazel clean
-          bazel ... build ... --execution_log_binary_file=/tmp/exec1.log
+          bazel ... build ... --execution_log_json_file=/tmp/exec1.json
 
 3. Run the build on the second machine, ensuring the modification from step 1
    is included:
 
           bazel clean
-          bazel ... build ... --execution_log_binary_file=/tmp/exec2.log
+          bazel ... build ... --execution_log_json_file=/tmp/exec2.json
 
 4. [Compare the execution logs](#comparing-the-execution-logs) for the two
     runs. If the logs are not identical, investigate your build configurations
@@ -138,27 +140,8 @@ logs are identical then so are the action cache keys.
 To compare logs for two builds that are not sharing cache hits as expected,
 do the folowing:
 
-1. Get the execution logs from each build and store them as `/tmp/exec1.log` and
-   `/tmp/exec2.log`.
+1. Get the execution logs from each build and store them as `/tmp/exec1.json` and
+   `/tmp/exec2.json`.
 
-2. Download the Bazel source code and navigate to the Bazel folder by using
-    the command below. You need the source code to parse the
-    execution logs with the
-    [execlog parser](https://source.bazel.build/bazel/+/master:src/tools/execlog/).
-
-        git clone https://github.com/bazelbuild/bazel.git
-        cd bazel
-
-3. Use the execution log parser to convert the logs to text. The following
-   invocation also sorts the actions in the second log to match the action order
-   in the first log for ease of comparison.
-
-        bazel build src/tools/execlog:parser
-        bazel-bin/src/tools/execlog/parser \
-          --log_path=/tmp/exec1.log \
-          --log_path=/tmp/exec2.log \
-          --output_path=/tmp/exec1.log.txt \
-          --output_path=/tmp/exec2.log.txt
-
-4. Use your favourite text differ to diff `/tmp/exec1.log.txt` and
-   `/tmp/exec2.log.txt`.
+2. Use your favourite text differ to diff `/tmp/exec1.json` and
+   `/tmp/exec2.json`.
