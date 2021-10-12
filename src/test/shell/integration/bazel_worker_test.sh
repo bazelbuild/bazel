@@ -437,7 +437,7 @@ EOF
   assert_equals "$worker_uuid_1" "$worker_uuid_2"
 
   # Modify the example worker jar to trigger a rebuild of the worker.
-  tr -cd '[:alnum:]' < /dev/urandom | head -c32 > dummy_file
+  tr -cd '[:alnum:]' < /dev/urandom | head -c32 > dummy_file || true
   zip worker_lib.jar dummy_file
   rm dummy_file
 
