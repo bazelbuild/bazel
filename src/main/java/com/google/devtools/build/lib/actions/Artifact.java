@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -118,7 +119,6 @@ import net.starlark.java.eval.Starlark;
  * involving artifacts should always go through {@link Artifact#key} since ordinary derived
  * artifacts should not be requested directly from Skyframe.
  */
-@Immutable
 public abstract class Artifact
     implements FileType.HasFileType,
         ActionInput,
@@ -424,7 +424,9 @@ public abstract class Artifact
     @VisibleForTesting
     public final void setGeneratingActionKey(ActionLookupData generatingActionKey) {
       Preconditions.checkState(
-          this.owner instanceof ArtifactOwner,
+          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
+      Preconditions.checkState(
+          this.owner instanceof ActionLookupKey,
           "Already set generating action key: %s (%s %s)",
           this,
           this.owner,
@@ -435,7 +437,7 @@ public abstract class Artifact
           this,
           this.owner,
           generatingActionKey);
-      this.owner = Preconditions.checkNotNull(generatingActionKey, this);
+      this.owner = generatingActionKey;
     }
 
     @VisibleForTesting
@@ -451,6 +453,8 @@ public abstract class Artifact
 
     @Override
     public final ActionLookupKey getArtifactOwner() {
+      Preconditions.checkState(
+          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
       return owner instanceof ActionLookupData
           ? getGeneratingActionKey().getActionLookupKey()
           : (ActionLookupKey) owner;
@@ -463,8 +467,8 @@ public abstract class Artifact
 
     @Override
     public final String toDebugString() {
-      if (hasGeneratingActionKey()) {
-        return super.toDetailString() + " (" + getGeneratingActionKey() + ")";
+      if (hasGeneratingActionKey() || owner == OMITTED_FOR_SERIALIZATION) {
+        return super.toDetailString() + " (" + owner + ")";
       }
       return super.toDebugString();
     }
@@ -496,13 +500,39 @@ public abstract class Artifact
 
     SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
 
+    /**
+     * Whether to include the generating action key when serializing derived artifacts.
+     *
+     * <p>If {@code false} is returned, upon deserialization the generating action key is replaced
+     * with the marker {@link #OMITTED_FOR_SERIALIZATION}. The artifact is then only intended for
+     * use with {@link #equalsWithoutOwner} or {@link OwnerlessArtifactWrapper} - any operation
+     * accessing the generating action key will fail.
+     */
+    default boolean includeGeneratingActionKey() {
+      return true;
+    }
+
     default DerivedArtifact intern(DerivedArtifact original) {
       return original;
     }
   }
 
+  /**
+   * Marker stored in place of the generating action key for deserialized artifacts when {@link
+   * ArtifactSerializationContext#includeGeneratingActionKey} is {@code false}.
+   */
+  @SerializationConstant @VisibleForSerialization
+  static final Object OMITTED_FOR_SERIALIZATION =
+      new Object() {
+        @Override
+        public String toString() {
+          return "OMITTED_FOR_SERIALIZATION";
+        }
+      };
+
   @SuppressWarnings("unused") // Codec used by reflection.
-  private static class DerivedArtifactCodec implements ObjectCodec<DerivedArtifact> {
+  private static final class DerivedArtifactCodec implements ObjectCodec<DerivedArtifact> {
+
     @Override
     public Class<DerivedArtifact> getEncodedClass() {
       return DerivedArtifact.class;
@@ -514,7 +544,7 @@ public abstract class Artifact
         throws SerializationException, IOException {
       context.serialize(obj.getRoot(), codedOut);
       context.serialize(obj.getRootRelativePath(), codedOut);
-      context.serialize(obj.getGeneratingActionKey(), codedOut);
+      context.serialize(getGeneratingActionKeyForSerialization(obj, context), codedOut);
     }
 
     @Override
@@ -522,7 +552,7 @@ public abstract class Artifact
         throws SerializationException, IOException {
       ArtifactRoot root = context.deserialize(codedIn);
       PathFragment rootRelativePath = context.deserialize(codedIn);
-      ActionLookupData generatingActionKey = context.deserialize(codedIn);
+      Object generatingActionKey = context.deserialize(codedIn);
       DerivedArtifact artifact =
           new DerivedArtifact(
               root,
@@ -532,8 +562,15 @@ public abstract class Artifact
     }
   }
 
+  private static Object getGeneratingActionKeyForSerialization(
+      DerivedArtifact artifact, SerializationContext context) {
+    return context.getDependency(ArtifactSerializationContext.class).includeGeneratingActionKey()
+        ? artifact.getGeneratingActionKey()
+        : OMITTED_FOR_SERIALIZATION;
+  }
+
   private static PathFragment getExecPathForDeserialization(
-      ArtifactRoot root, PathFragment rootRelativePath, ActionLookupData generatingActionKey) {
+      ArtifactRoot root, PathFragment rootRelativePath, Object generatingActionKey) {
     Preconditions.checkArgument(
         !root.isSourceRoot(),
         "Root not derived: %s (rootRelativePath=%s, generatingActionKey=%s)",
@@ -972,6 +1009,36 @@ public abstract class Artifact
     }
   }
 
+  /** {@link ObjectCodec} for {@link SourceArtifact} */
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
+
+    @Override
+    public Class<SourceArtifact> getEncodedClass() {
+      return SourceArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getExecPath(), codedOut);
+      context.serialize(obj.getRoot(), codedOut);
+      context.serialize(obj.getArtifactOwner(), codedOut);
+    }
+
+    @Override
+    public SourceArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      PathFragment execPath = context.deserialize(codedIn);
+      ArtifactRoot artifactRoot = context.deserialize(codedIn);
+      ArtifactOwner owner = context.deserialize(codedIn);
+      return context
+          .getDependency(ArtifactSerializationContext.class)
+          .getSourceArtifact(execPath, artifactRoot.getRoot(), owner);
+    }
+  }
+
   /**
    * Special artifact types.
    *
@@ -1002,7 +1069,6 @@ public abstract class Artifact
    * order to save memory. The proportion of artifacts that are special is very small, and by not
    * having to keep around the attribute for the rest we save some memory.
    */
-  @Immutable
   public static final class SpecialArtifact extends DerivedArtifact {
     private final SpecialArtifactType type;
 
@@ -1056,8 +1122,9 @@ public abstract class Artifact
   }
 
   // Keep in sync with DerivedArtifactCodec.
-  @SuppressWarnings("unused") // Used by reflection
-  private static class SpecialArtifactCodec implements ObjectCodec<SpecialArtifact> {
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class SpecialArtifactCodec implements ObjectCodec<SpecialArtifact> {
+
     @Override
     public Class<SpecialArtifact> getEncodedClass() {
       return SpecialArtifact.class;
@@ -1069,7 +1136,7 @@ public abstract class Artifact
         throws SerializationException, IOException {
       context.serialize(obj.getRoot(), codedOut);
       context.serialize(obj.getRootRelativePath(), codedOut);
-      context.serialize(obj.getGeneratingActionKey(), codedOut);
+      context.serialize(getGeneratingActionKeyForSerialization(obj, context), codedOut);
       context.serialize(obj.type, codedOut);
     }
 
@@ -1078,7 +1145,7 @@ public abstract class Artifact
         throws SerializationException, IOException {
       ArtifactRoot root = context.deserialize(codedIn);
       PathFragment rootRelativePath = context.deserialize(codedIn);
-      ActionLookupData generatingActionKey = context.deserialize(codedIn);
+      Object generatingActionKey = context.deserialize(codedIn);
       SpecialArtifactType type = context.deserialize(codedIn);
       SpecialArtifact artifact =
           new SpecialArtifact(
@@ -1106,8 +1173,11 @@ public abstract class Artifact
     private final SpecialArtifact treeArtifact;
 
     private ArchivedTreeArtifact(
-        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
-      super(root, execPath, treeArtifact.getArtifactOwner());
+        SpecialArtifact treeArtifact,
+        ArtifactRoot root,
+        PathFragment execPath,
+        Object generatingActionKey) {
+      super(root, execPath, generatingActionKey);
       this.treeArtifact = treeArtifact;
     }
 
@@ -1119,10 +1189,8 @@ public abstract class Artifact
     /** Creates an archived tree artifact with a given {@code root} and {@code execPath}. */
     public static ArchivedTreeArtifact create(
         SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
-      ArchivedTreeArtifact archivedTreeArtifact =
-          new ArchivedTreeArtifact(treeArtifact, root, execPath);
-      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
-      return archivedTreeArtifact;
+      return new ArchivedTreeArtifact(
+          treeArtifact, root, execPath, treeArtifact.getGeneratingActionKey());
     }
 
     /**
@@ -1215,13 +1283,15 @@ public abstract class Artifact
       return rootPath.getFileSystem().getPath(execRootPath);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static ArchivedTreeArtifact createForDeserialization(
         SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
-      ArchivedTreeArtifact result = new ArchivedTreeArtifact(treeArtifact, root, execPath);
-      result.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
-      return result;
+      Object generatingActionKey =
+          treeArtifact.hasGeneratingActionKey()
+              ? treeArtifact.getGeneratingActionKey()
+              : OMITTED_FOR_SERIALIZATION;
+      return new ArchivedTreeArtifact(treeArtifact, root, execPath, generatingActionKey);
     }
   }
 
@@ -1248,8 +1318,6 @@ public abstract class Artifact
    *       return {@code false}.
    * </ol>
    */
-  @Immutable
-  @AutoCodec
   public static final class TreeFileArtifact extends DerivedArtifact {
     private final SpecialArtifact parent;
     private final PathFragment parentRelativePath;
@@ -1276,7 +1344,7 @@ public abstract class Artifact
           parent,
           generatingActionKey.getActionLookupKey(),
           parentRelativePath);
-      return createInternal(parent, parentRelativePath, generatingActionKey);
+      return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
     }
 
     /**
@@ -1331,15 +1399,6 @@ public abstract class Artifact
       this.parentRelativePath = parentRelativePath;
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static TreeFileArtifact createInternal(
-        SpecialArtifact parent,
-        PathFragment parentRelativePath,
-        ActionLookupData generatingActionKey) {
-      return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
-    }
-
     @Override
     public SpecialArtifact getParent() {
       return parent;
@@ -1365,33 +1424,30 @@ public abstract class Artifact
     }
   }
 
-  /** {@link ObjectCodec} for {@link SourceArtifact} */
-  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
-  private static class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class TreeFileArtifactCodec implements ObjectCodec<TreeFileArtifact> {
 
     @Override
-    public Class<SourceArtifact> getEncodedClass() {
-      return SourceArtifact.class;
+    public Class<TreeFileArtifact> getEncodedClass() {
+      return TreeFileArtifact.class;
     }
 
     @Override
     public void serialize(
-        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
+        SerializationContext context, TreeFileArtifact obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      context.serialize(obj.getExecPath(), codedOut);
-      context.serialize(obj.getRoot(), codedOut);
-      context.serialize(obj.getArtifactOwner(), codedOut);
+      context.serialize(obj.parent, codedOut);
+      context.serialize(obj.parentRelativePath, codedOut);
+      context.serialize(getGeneratingActionKeyForSerialization(obj, context), codedOut);
     }
 
     @Override
-    public SourceArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public TreeFileArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      PathFragment execPath = context.deserialize(codedIn);
-      ArtifactRoot artifactRoot = context.deserialize(codedIn);
-      ArtifactOwner owner = context.deserialize(codedIn);
-      return context
-          .getDependency(ArtifactSerializationContext.class)
-          .getSourceArtifact(execPath, artifactRoot.getRoot(), owner);
+      SpecialArtifact parent = context.deserialize(codedIn);
+      PathFragment parentRelativePath = context.deserialize(codedIn);
+      Object generatingActionKey = context.deserialize(codedIn);
+      return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
     }
   }
 
@@ -1601,10 +1657,7 @@ public abstract class Artifact
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("artifact", artifact)
-          .add("owner", artifact.getArtifactOwner())
-          .toString();
+      return MoreObjects.toStringHelper(this).add("artifact", artifact.toDebugString()).toString();
     }
   }
 }

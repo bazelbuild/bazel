@@ -396,6 +396,11 @@ public final class ActionsTestUtil {
         public Label getLabel() {
           return NULL_LABEL;
         }
+
+        @Override
+        public String toString() {
+          return "NULL_ARTIFACT_OWNER";
+        }
       };
 
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
