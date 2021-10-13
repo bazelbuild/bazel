@@ -15,6 +15,10 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
@@ -24,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -35,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -42,15 +48,20 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
@@ -58,7 +69,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /** Tests for {@link RemoteCache}. */
 @RunWith(JUnit4.class)
@@ -186,6 +200,46 @@ public class RemoteCacheTest {
     getFromFuture(remoteCache.uploadFile(context, emptyDigest, file));
     assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
+  }
+
+  @Test
+  public void ensureInputsPresent_interrupted_cancelInProgressUploadTasks() throws Exception {
+    // arrange
+    InMemoryRemoteCache remoteCache = spy(newRemoteCache());
+
+    CountDownLatch findMissingDigestsCalled = new CountDownLatch(1);
+    doAnswer(invocationOnMock -> {
+      findMissingDigestsCalled.countDown();
+      return SettableFuture.create();
+    }).when(remoteCache).findMissingDigests(any(), any());
+
+    Path path = fs.getPath("/execroot/foo");
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("foo"), path);
+    MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
+
+    CountDownLatch ensureInputsPresentReturned = new CountDownLatch(1);
+    Thread thread = new Thread(() -> {
+      try {
+        remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), false);
+      } catch (Exception ignored) {
+        // ignored
+      } finally {
+        ensureInputsPresentReturned.countDown();
+      }
+    });
+
+    // act
+    thread.start();
+    findMissingDigestsCalled.await();
+    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isNotEmpty();
+
+    thread.interrupt();
+    ensureInputsPresentReturned.await();
+
+    // assert
+    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
   }
 
   private InMemoryRemoteCache newRemoteCache() {

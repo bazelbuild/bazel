@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
@@ -102,8 +103,16 @@ public class RemoteExecutionCache extends RemoteCache {
       uploadFutures.add(RxFutures.toListenableFuture(upload));
     }
 
-    ImmutableSet<Digest> missingDigests =
-        getFromFuture(findMissingDigests(context, missingDigestSubjects.keySet()));
+    ImmutableSet<Digest> missingDigests;
+    try {
+      missingDigests = getFromFuture(findMissingDigests(context, missingDigestSubjects.keySet()));
+    } catch (IOException | InterruptedException e) {
+      for (Map.Entry<Digest, AsyncSubject<Boolean>> entry : missingDigestSubjects.entrySet()) {
+        entry.getValue().onError(e);
+      }
+      throw e;
+    }
+
     for (Map.Entry<Digest, AsyncSubject<Boolean>> entry : missingDigestSubjects.entrySet()) {
       AsyncSubject<Boolean> missingSubject = entry.getValue();
       if (missingDigests.contains(entry.getKey())) {
