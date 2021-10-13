@@ -466,7 +466,6 @@ java_test(
     name = "QueryIntegrationTest",
     srcs = ["QueryIntegrationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -482,8 +481,10 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

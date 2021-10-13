@@ -150,6 +150,9 @@ public class TestConstants {
   public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =
       TOOLS_REPOSITORY + "//tools/android:sdk_toolchain_type";
 
+  /** The launcher used by Bazel. */
+  public static final String LAUNCHER_PATH = "@bazel_tools//tools/launcher:launcher";
+
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {
     NORMAL
