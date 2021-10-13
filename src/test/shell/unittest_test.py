@@ -264,6 +264,45 @@ run_suite "bash errexit tests"
     result.assertLogMessage("Running tear_down")
     result.assertLogMessage("Running testenv_tear_down")
 
+  def test_set_bash_errexit_pipefail_propagates_failure_through_pipe(self):
+    self.write_file(
+        "thing.sh", """
+set -euo pipefail
+
+function test_pipefail() {
+  wrong_command | cat
+  echo after
+}
+
+run_suite "bash errexit tests"
+""")
+
+    result = self.execute_test("thing.sh")
+    result.assertNotSuccess("bash errexit tests")
+    result.assertTestFailed("test_pipefail")
+    result.assertLogMessage("wrong_command: command not found")
+    result.assertNotLogMessage("after")
+
+  def test_set_bash_errexit_no_pipefail_ignores_failure_before_pipe(self):
+    self.write_file(
+        "thing.sh", """
+set -eu
+set +o pipefail
+
+function test_nopipefail() {
+  wrong_command | cat
+  echo after
+}
+
+run_suite "bash errexit tests"
+""")
+
+    result = self.execute_test("thing.sh")
+    result.assertSuccess("bash errexit tests")
+    result.assertTestPassed("test_nopipefail")
+    result.assertLogMessage("wrong_command: command not found")
+    result.assertLogMessage("after")
+
   def test_set_bash_errexit_pipefail_long_testname_succeeds(self):
     test_name = "x" * 1000
     self.write_file(
