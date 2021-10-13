@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
 /**
@@ -36,13 +37,13 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    // TODO(b/195425240): Silently unsupported.
+    // TODO(b/195425240): Make real-filesystem mode work.
     return "";
   }
 
   @Override
   protected String[] getRealFilesystemTools(String crosstoolTop) {
-    // TODO(b/195425240): Silently unsupported.
+    // TODO(b/195425240): Make real-filesystem mode work.
     return new String[0];
   }
 
@@ -56,6 +57,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     writeMacroFile(config);
     setupRulesCc(config);
     setupCcToolchainConfig(config);
+    createDummyCppPackages(config);
     createParseHeadersAndLayeringCheckWhitelist(config);
     createStarlarkLooseHeadersWhitelist(config, "//...");
   }
@@ -73,5 +75,19 @@ public final class BazelMockCcSupport extends MockCcSupport {
   @Override
   public Predicate<String> labelNameFilter() {
     return BazelMockCcSupport::isNotCcLabel;
+  }
+
+  /** Creates bare-minimum filesystem state to support cpp rules. */
+  private static void createDummyCppPackages(MockToolsConfig config) throws IOException {
+    if (config.isRealFileSystem()) {
+      // TODO(b/195425240): Make real-filesystem test mode work in bazel - for now we fake out the
+      //  bare minimum targets to get by in at least the loading phase.
+      config.append(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
+          "exports_files(['toolchain', 'grep-includes', 'malloc'])");
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/toolchain", "");
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/grep-includes", "");
+      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/malloc", "");
+    }
   }
 }
