@@ -694,9 +694,9 @@ function run_suite() {
         # Remember -o pipefail value and disable it for the subshell result
         # collection.
         if [[ "${SHELLOPTS}" =~ (^|:)pipefail(:|$) ]]; then
-          __opt_switch=-o
+          local __opt_switch=-o
         else
-          __opt_switch=+o
+          local __opt_switch=+o
         fi
         set +o pipefail
         (
