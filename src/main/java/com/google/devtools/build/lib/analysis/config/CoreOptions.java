@@ -890,6 +890,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Pass archived tree artifacts filter.
     host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
+    host.enableAspectHints = enableAspectHints;
+
     return host;
   }
 
