@@ -213,30 +213,6 @@ run_suite "failure tests"
         "message=\"I'm a failure with &lt;&gt;&amp;&quot; escaped symbols\"")
     result.assertXmlMessage("I'm a failure with <>&\" escaped symbols")
 
-  def test_errexit_prints_stack_trace(self):
-    self.write_file(
-        "thing.sh", """
-enable_errexit
-
-function helper() {
-  echo before
-  false
-  echo after
-}
-
-function test_errexit() {
-  helper
-}
-
-run_suite "errexit tests"
-""")
-
-    result = self.execute_test("thing.sh")
-    result.assertNotSuccess("errexit tests")
-    result.assertTestFailed("test_errexit")
-    result.assertLogMessage(r"./thing.sh:[0-9]*: in call to helper")
-    result.assertLogMessage(r"./thing.sh:[0-9]*: in call to test_errexit")
-
   def test_set_bash_errexit_prints_stack_trace(self):
     self.write_file(
         "thing.sh", """

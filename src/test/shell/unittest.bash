@@ -84,22 +84,6 @@ export BAZEL_SHELL_TEST=1
 
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-#### Configuration variables (may be overridden by testenv.sh or the suite):
-
-# This function may be called by testenv.sh or a test suite to enable errexit
-# in a way that enables us to print pretty stack traces when something fails.
-function enable_errexit() {
-  set -o errtrace
-  set -eu
-  trap __test_terminated_err ERR
-}
-
-function disable_errexit() {
-  set +o errtrace
-  set +eu
-  trap - ERR
-}
-
 # Load the environment support utilities.
 source "${DIR}/unittest_utils.sh" || { echo "unittest_utils.sh not found" >&2; exit 1; }
 
