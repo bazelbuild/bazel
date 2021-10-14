@@ -1001,6 +1001,35 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void compressedDownloadBlobIsRetriedWithProgress()
+      throws IOException, InterruptedException {
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.cacheByteStreamCompression = true;
+    final GrpcCacheClient client = newClient(options, () -> mockBackoff);
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    ByteString blob = ByteString.copyFrom(Zstd.compress("abcdefg".getBytes(UTF_8)));
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            int off = (int) request.getReadOffset();
+            // Zstd header size is 9 bytes
+            ByteString data = off == 0 ? blob.substring(0, 9 + 1) : blob.substring(9 + off);
+            responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
+            if (off == 0) {
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+            } else {
+              responseObserver.onCompleted();
+            }
+          }
+        });
+    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+  }
+
+  @Test
   public void downloadBlobDoesNotRetryZeroLengthRequests()
       throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
