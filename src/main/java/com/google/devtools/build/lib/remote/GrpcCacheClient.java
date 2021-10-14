@@ -60,6 +60,7 @@ import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import org.apache.commons.compress.utils.CountingOutputStream;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -296,21 +297,24 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       out = digestOut;
     }
 
+    CountingOutputStream outputStream;
     if (options.cacheByteStreamCompression) {
       try {
-        out = new ZstdDecompressingOutputStream(out);
+        outputStream = new ZstdDecompressingOutputStream(out);
       } catch (IOException e) {
         return Futures.immediateFailedFuture(e);
       }
+    } else {
+      outputStream = new CountingOutputStream(out);
     }
 
-    return downloadBlob(context, digest, out, digestSupplier);
+    return downloadBlob(context, digest, outputStream, digestSupplier);
   }
 
   private ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
-      OutputStream out,
+      CountingOutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
     AtomicLong offset = new AtomicLong(0);
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
@@ -345,9 +349,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       AtomicLong offset,
       ProgressiveBackoff progressiveBackoff,
       Digest digest,
-      OutputStream out,
-      @Nullable Supplier<Digest> digestSupplier)
-      throws IOException {
+      CountingOutputStream out,
+      @Nullable Supplier<Digest> digestSupplier) {
     String resourceName =
         getResourceName(options.remoteInstanceName, digest, options.cacheByteStreamCompression);
     SettableFuture<Void> future = SettableFuture.create();
@@ -364,7 +367,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                 ByteString data = readResponse.getData();
                 try {
                   data.writeTo(out);
-                  offset.addAndGet(data.size());
+                  offset.set(out.getBytesWritten());
                 } catch (IOException e) {
                   // Cancel the call.
                   throw new RuntimeException(e);

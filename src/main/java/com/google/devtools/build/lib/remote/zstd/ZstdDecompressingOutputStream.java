@@ -2,15 +2,15 @@ package com.google.devtools.build.lib.remote.zstd;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.protobuf.ByteString;
+import org.apache.commons.compress.utils.CountingOutputStream;
 
 import java.io.ByteArrayInputStream;
-import java.io.FilterOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
 
-public class ZstdDecompressingOutputStream extends FilterOutputStream {
+public class ZstdDecompressingOutputStream extends CountingOutputStream {
   private ByteArrayInputStream inner;
   private final ZstdInputStream zis;
 
@@ -29,13 +29,18 @@ public class ZstdDecompressingOutputStream extends FilterOutputStream {
 
   @Override
   public void write(int b) throws IOException {
-    inner = new ByteArrayInputStream(new byte[]{(byte) b});
-    ByteString.readFrom(zis).writeTo(out);
+    write(new byte[]{(byte) b}, 0, 1);
+  }
+
+  @Override
+  public void write(byte[] b) throws IOException {
+    write(b, 0, b.length);
   }
 
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
     inner = new ByteArrayInputStream(b, off, len);
-    ByteString.readFrom(zis).writeTo(out);
+    byte[] data = ByteString.readFrom(zis).toByteArray();
+    super.write(data, 0, data.length);
   }
 }
