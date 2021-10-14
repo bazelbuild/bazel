@@ -175,19 +175,20 @@ public class NestedSetStore {
   }
 
   /**
-   * Computes and returns the fingerprint for the given NestedSet contents using the given {@link
-   * SerializationContext}, while also associating the contents with the computed fingerprint in the
-   * store. Recursively does the same for all transitive members (i.e. Object[] members) of the
+   * Computes and returns the fingerprint for the given {@link NestedSet} contents using the given
+   * {@link SerializationContext}, while also associating the contents with the computed fingerprint
+   * in the store. Recursively does the same for all transitive {@code Object[]} members of the
    * provided contents.
    *
-   * <p>We wish to serialize each nested set only once. However, this is not currently enforced, due
-   * to the check-then-act race below, where we check nestedSetCache and then, significantly later,
-   * insert a result into the cache. This is a bug, but since any thread that redoes unnecessary
-   * work will return the {@link FingerprintComputationResult} containing its own futures, the
-   * serialization work that must wait on remote storage writes to complete will wait on the correct
-   * futures. Thus it is a performance bug, not a correctness bug.
+   * <p>We wish to compute a fingerprint for each array only once. However, this is not currently
+   * enforced, due to the check-then-act race below, where we check {@link
+   * NestedSetSerializationCache#fingerprintForContents} and then, significantly later, call {@link
+   * NestedSetSerializationCache#putIfAbsent}. It is not straightforward to solve this with a
+   * typical cache loader because the fingerprint computation is recursive, and cache loaders must
+   * not attempt to update the cache while loading a result. Even if we duplicate fingerprint
+   * computation, only one thread will end up calling {@link NestedSetStorageEndpoint#put} (the one
+   * that wins the race to {@link NestedSetSerializationCache#putIfAbsent}).
    */
-  // TODO(janakr): fix this, if for no other reason than to make the semantics cleaner.
   FingerprintComputationResult computeFingerprintAndStore(
       Object[] contents, SerializationContext serializationContext)
       throws SerializationException, IOException {
@@ -228,7 +229,8 @@ public class NestedSetStore {
     byte[] serializedBytes = byteArrayOutputStream.toByteArray();
     ByteString fingerprint =
         ByteString.copyFrom(Hashing.md5().hashBytes(serializedBytes).asBytes());
-    futureBuilder.add(endpoint.put(fingerprint, serializedBytes));
+    SettableFuture<Void> localWriteFuture = SettableFuture.create();
+    futureBuilder.add(localWriteFuture);
 
     // If this is a NestedSet<NestedSet>, serialization of the contents will itself have writes.
     ListenableFuture<Void> innerWriteFutures =
@@ -239,12 +241,17 @@ public class NestedSetStore {
 
     ListenableFuture<Void> writeFuture =
         Futures.whenAllComplete(futureBuilder.build()).call(() -> null, directExecutor());
-    FingerprintComputationResult fingerprintComputationResult =
+    FingerprintComputationResult result =
         FingerprintComputationResult.create(fingerprint, writeFuture);
 
-    nestedSetCache.put(fingerprintComputationResult, contents);
+    FingerprintComputationResult existingResult = nestedSetCache.putIfAbsent(contents, result);
+    if (existingResult != null) {
+      return existingResult; // Another thread won the fingerprint computation race.
+    }
 
-    return fingerprintComputationResult;
+    // This fingerprint was not cached previously, so we must ensure that it is written to storage.
+    localWriteFuture.setFuture(endpoint.put(fingerprint, serializedBytes));
+    return result;
   }
 
   @SuppressWarnings("unchecked")
@@ -271,7 +278,7 @@ public class NestedSetStore {
   Object getContentsAndDeserialize(
       ByteString fingerprint, DeserializationContext deserializationContext) throws IOException {
     SettableFuture<Object[]> future = SettableFuture.create();
-    Object contents = nestedSetCache.putIfAbsent(fingerprint, future);
+    Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future);
     if (contents != null) {
       return contents;
     }

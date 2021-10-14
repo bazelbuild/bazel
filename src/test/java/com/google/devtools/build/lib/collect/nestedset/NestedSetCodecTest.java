@@ -298,7 +298,7 @@ public final class NestedSetCodecTest {
     doReturn(subset2Future)
         .when(nestedSetStorageEndpoint)
         .get(fingerprintCaptor.getAllValues().get(1));
-    when(emptyNestedSetCache.putIfAbsent(any(), any())).thenAnswer(invocation -> null);
+    when(emptyNestedSetCache.putFutureIfAbsent(any(), any())).thenReturn(null);
 
     @SuppressWarnings("unchecked")
     ListenableFuture<Object[]> deserializationFuture =
@@ -339,7 +339,7 @@ public final class NestedSetCodecTest {
               return result;
             })
         .when(nestedSetCache)
-        .putIfAbsent(eq(fingerprint), any());
+        .putFutureIfAbsent(eq(fingerprint), any());
     AtomicReference<ListenableFuture<Object[]>> asyncResult = new AtomicReference<>();
     Thread asyncThread =
         new Thread(
@@ -367,7 +367,7 @@ public final class NestedSetCodecTest {
   }
 
   @Test
-  public void bugInRacingSerialization() throws Exception {
+  public void racingSerialization() throws Exception {
     NestedSetStorageEndpoint nestedSetStorageEndpoint = mock(NestedSetStorageEndpoint.class);
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
@@ -406,10 +406,9 @@ public final class NestedSetCodecTest {
     NestedSetStore.FingerprintComputationResult result =
         nestedSetStore.computeFingerprintAndStore(contents, serializationContext);
     asyncThread.join();
-    // TODO(janakr): This should be one fetch, but we currently do two.
-    verify(nestedSetStorageEndpoint, times(2)).put(any(), any());
-    // TODO(janakr): These should be the same element.
-    assertThat(result).isNotEqualTo(asyncResult.get());
+
+    verify(nestedSetStorageEndpoint, times(1)).put(any(), any());
+    assertThat(result).isSameInstanceAs(asyncResult.get());
   }
 
   @Test
