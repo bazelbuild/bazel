@@ -108,11 +108,11 @@ DIST_DEPS = {
         ],
     },
     "protocolbuffers": {
-        "archive": "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
-        "sha256": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
+        "archive": "2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
+        "sha256": "6a5f67874af66b239b709c572ac1a5a00fdb1b29beaf13c3e6f79b1ba10dc7c4",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -120,16 +120,16 @@ DIST_DEPS = {
         ],
     },
     "com_github_grpc_grpc": {
-        "archive": "v1.33.1.tar.gz",
-        "sha256": "58eaee5c0f1bd0b92ebe1fa0606ec8f14798500620e7444726afcaf65041cb63",
-        "strip_prefix": "grpc-1.33.1",
+        "archive": "v1.41.0.tar.gz",
+        "sha256": "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
+        "strip_prefix": "grpc-1.41.0",
         "urls": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.33.1.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.33.1.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.41.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.41.0.tar.gz",
         ],
         "patch_args": ["-p1"],
         "patches": [
-            "//third_party/grpc:grpc_1.33.1.patch",
+            "//third_party/grpc:grpc_1.41.0.patch",
         ],
         "used_in": [
             "additional_distfiles",
@@ -161,11 +161,11 @@ DIST_DEPS = {
         ],
     },
     "abseil-cpp": {
-        "archive": "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
-        "sha256": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
+        "archive": "997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+        "sha256": "35f22ef5cb286f09954b7cc4c85b5a3f6221c9d4df6b8c4a1e9d399555b366ee",
         "urls": [
-            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
-            "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
+            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
