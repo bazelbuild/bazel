@@ -2,60 +2,68 @@ package com.google.devtools.build.lib.remote.zstd;
 
 import com.github.luben.zstd.ZstdOutputStream;
 
-import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 
-public class ZstdCompressingInputStream extends InputStream {
-    private final InputStream in;
-    private final ByteArrayOutputStream baos;
-    private final int size;
+public class ZstdCompressingInputStream extends FilterInputStream {
+    private final PipedInputStream pis;
     private ZstdOutputStream zos;
-    private byte[] buffer;
-    private int count;
+    private final int size;
 
     public ZstdCompressingInputStream(InputStream in) throws IOException {
         this(in, 512);
     }
 
     ZstdCompressingInputStream(InputStream in, int size) throws IOException {
-        this.in = in;
-        this.baos = new ByteArrayOutputStream();
-        this.zos = new ZstdOutputStream(baos);
-        this.count = 0;
+        super(in);
         this.size = size;
-        this.buffer = new byte[size];
+        this.pis = new PipedInputStream(size);
+        this.zos = new ZstdOutputStream(new PipedOutputStream(pis));
+    }
+
+    private void reFill() throws IOException {
+      byte[] buf = new byte[size];
+      int len = super.read(buf, 0 , Math.max(0, size - pis.available()));
+      if (len == -1) {
+        zos.close();
+        zos = null;
+      } else {
+        zos.write(buf, 0, len);
+        zos.flush();
+      }
     }
 
     @Override
     public int read() throws IOException {
-        if (zos == null && count >= baos.size()) {
-            return -1;
-        }
-        if (count == baos.size()) {
-            baos.reset();
-            count = 0;
-            int c = in.read(buffer, 0, buffer.length);
-            if (c == -1) {
-                if (zos == null) {
-                    return -1;
-                }
-                zos.close();
-                zos = null;
-            } else {
-                zos.write(buffer, 0, c);
-                zos.flush();
+        if (pis.available() == 0) {
+            if (zos == null) {
+                return -1;
             }
-            baos.flush();
-            if (baos.size() > buffer.length) {
-                // This can happen if the buffer size is smaller than Zstd header
-                // In that case, expand the buffer to fit it.
-                buffer = new byte[baos.size()];
-            }
-            System.arraycopy(baos.toByteArray(), 0, buffer, 0, baos.size());
+            reFill();
         }
-        return buffer[count++] & 255;
+        return pis.read();
+    }
+
+    @Override
+    public int read(byte[] b) throws IOException {
+        return read(b, 0, b.length);
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+        int count = 0;
+        int n = len > 0 ? -1 : 0;
+        while (count < len && (pis.available() > 0 || zos != null)) {
+            if (pis.available() == 0) {
+                reFill();
+            }
+            n = pis.read(b, count + off, len - count);
+            count += Math.max(0, n);
+        }
+        return count > 0 ? count : n;
     }
 
     @Override
@@ -63,7 +71,6 @@ public class ZstdCompressingInputStream extends InputStream {
         if (zos != null) {
             zos.close();
         }
-        baos.close();
         in.close();
     }
 }
