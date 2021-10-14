@@ -298,7 +298,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     }
 
     CountingOutputStream outputStream;
-    if (options.cacheByteStreamCompression) {
+    if (options.cacheCompression) {
       try {
         outputStream = new ZstdDecompressingOutputStream(out);
       } catch (IOException e) {
@@ -352,7 +352,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       CountingOutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
     String resourceName =
-        getResourceName(options.remoteInstanceName, digest, options.cacheByteStreamCompression);
+        getResourceName(options.remoteInstanceName, digest, options.cacheCompression);
     SettableFuture<Void> future = SettableFuture.create();
     bsAsyncStub(context)
         .read(
@@ -421,7 +421,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(digest.getSizeBytes(), path)
-            .setCompressed(options.cacheByteStreamCompression)
+            .setCompressed(options.cacheCompression)
             .build(),
         /* forceUpload= */ true);
   }
@@ -434,7 +434,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(data.toByteArray())
-            .setCompressed(options.cacheByteStreamCompression)
+            .setCompressed(options.cacheCompression)
             .build(),
         /* forceUpload= */ true);
   }

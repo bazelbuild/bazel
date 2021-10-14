@@ -1005,7 +1005,7 @@ public class GrpcCacheClientTest {
       throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.cacheByteStreamCompression = true;
+    options.cacheCompression = true;
     final GrpcCacheClient client = newClient(options, () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     ByteString blob = ByteString.copyFrom(Zstd.compress("abcdefg".getBytes(UTF_8)));
@@ -1122,7 +1122,7 @@ public class GrpcCacheClientTest {
   @Test
   public void testCompressedDownload() throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.cacheByteStreamCompression = true;
+    options.cacheCompression = true;
     final GrpcCacheClient client = newClient(options);
     final byte[] data = "abcdefg".getBytes();
     final Digest digest = DIGEST_UTIL.compute(data);
