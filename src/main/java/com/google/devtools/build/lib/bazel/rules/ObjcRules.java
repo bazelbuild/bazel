@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.objc.AppleBinaryBaseRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryBaseRule;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
-import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcImportBaseRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryBaseRule;
@@ -54,8 +53,6 @@ public class ObjcRules implements RuleSet {
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     String toolsRepository = checkNotNull(builder.getToolsRepository());
-
-    builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
 
     builder.addConfigurationFragment(ObjcConfiguration.class);
     builder.addConfigurationFragment(AppleConfiguration.class);
