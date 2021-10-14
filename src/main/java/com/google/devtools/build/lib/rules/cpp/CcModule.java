@@ -615,6 +615,8 @@ public abstract class CcModule
     Artifact resolvedSymlinkDynamicLibrary = null;
     Artifact resolvedSymlinkInterfaceLibrary = null;
     if (dynamicLibrary != null
+        && featureConfiguration != null
+        && ccToolchainProvider != null
         && !featureConfiguration
             .getFeatureConfiguration()
             .isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
@@ -644,6 +646,8 @@ public abstract class CcModule
       }
     }
     if (interfaceLibrary != null
+        && featureConfiguration != null
+        && ccToolchainProvider != null
         && !featureConfiguration
             .getFeatureConfiguration()
             .isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
