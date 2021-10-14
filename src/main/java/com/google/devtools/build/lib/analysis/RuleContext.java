@@ -1206,6 +1206,18 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
+  public Label targetPlatform() {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    PlatformInfo targetPlatform = toolchainContexts.getTargetPlatform();
+    if (targetPlatform == null) {
+      return null;
+    }
+    return targetPlatform.label();
+  }
+
+  @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
   }
