@@ -1319,4 +1319,49 @@ public interface CcModuleApi<
 
   @StarlarkMethod(name = "launcher_provider", documented = false, useStarlarkThread = true)
   ProviderApi getCcLauncherInfoProvider(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "strip",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            doc = "The rule context",
+            allowedTypes = @ParamType(type = StarlarkRuleContextApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "toolchain",
+            doc = "The cc toolchain",
+            allowedTypes = @ParamType(type = CcToolchainProviderApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "input",
+            doc = "The input artifact to strip",
+            allowedTypes = @ParamType(type = FileApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "output",
+            doc = "The stripped output artifact",
+            allowedTypes = @ParamType(type = FileApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "feature_configuration",
+            doc = "The set of enabled features and action configs",
+            allowedTypes = @ParamType(type = FeatureConfigurationApi.class),
+            named = true,
+            positional = false),
+      },
+      useStarlarkThread = true)
+  void createStripAction(
+      StarlarkRuleContextT ctx,
+      CcToolchainProviderT toolchain,
+      FileT input,
+      FileT output,
+      FeatureConfigurationT featureConfig,
+      StarlarkThread thread)
+      throws Exception;
 }

@@ -7552,4 +7552,43 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bar"));
     assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
   }
+
+  @Test
+  public void testCreateStripActionIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr.cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  cc_common.strip(",
+        "    ctx = ctx,",
+        "    toolchain = toolchain,",
+        "    input = ctx.actions.declare_file('in'),",
+        "    output = ctx.actions.declare_file('out'),",
+        "    feature_configuration = feature_configuration",
+        "  )",
+        "  return []",
+        "strip_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'cc_toolchain' : attr.label()},",
+        "  fragments= ['cpp']",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'strip_rule')",
+        "",
+        "cc_toolchain_alias(name = 'tc')",
+        "strip_rule(",
+        "  name = 'bar',",
+        "  cc_toolchain = ':tc',",
+        ")");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bar"));
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
+  }
 }

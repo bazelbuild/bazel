@@ -812,6 +812,25 @@ public abstract class CcModule
     return CcLauncherInfo.PROVIDER;
   }
 
+  @Override
+  public void createStripAction(
+      StarlarkRuleContext ctx,
+      CcToolchainProvider toolchain,
+      Artifact input,
+      Artifact output,
+      FeatureConfigurationForStarlark featureConfig,
+      StarlarkThread thread)
+      throws EvalException, RuleErrorException {
+    checkPrivateStarlarkificationAllowlist(thread);
+    CppHelper.createStripAction(
+        ctx.getRuleContext(),
+        toolchain,
+        ctx.getRuleContext().getFragment(CppConfiguration.class),
+        input,
+        output,
+        featureConfig.getFeatureConfiguration());
+  }
+
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
       throws EvalException {
     if (obj == Starlark.UNBOUND) {
