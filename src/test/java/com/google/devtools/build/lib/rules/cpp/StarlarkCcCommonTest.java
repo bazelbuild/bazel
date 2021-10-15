@@ -7534,4 +7534,22 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     .getFilesToBuild()))
         .containsExactly("build-info-redacted.h");
   }
+
+  @Test
+  public void testGetLauncherProviderIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.launcher_provider()",
+        "  return []",
+        "build_info_rule = rule(implementation = _impl,)");
+    scratch.file(
+        "foo/BUILD",
+        //
+        "load(':rule.bzl', 'build_info_rule')",
+        "build_info_rule(name = 'bar',)");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bar"));
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
+  }
 }

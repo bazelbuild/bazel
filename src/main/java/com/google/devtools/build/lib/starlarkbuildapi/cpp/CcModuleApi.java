@@ -1316,4 +1316,7 @@ public interface CcModuleApi<
       useStarlarkThread = true)
   Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
       throws EvalException, InterruptedException;
+
+  @StarlarkMethod(name = "launcher_provider", documented = false, useStarlarkThread = true)
+  ProviderApi getCcLauncherInfoProvider(StarlarkThread thread) throws EvalException;
 }
