@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
 /**
@@ -57,7 +56,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
     writeMacroFile(config);
     setupRulesCc(config);
     setupCcToolchainConfig(config);
-    createDummyCppPackages(config);
     createParseHeadersAndLayeringCheckWhitelist(config);
     createStarlarkLooseHeadersWhitelist(config, "//...");
   }
@@ -77,17 +75,9 @@ public final class BazelMockCcSupport extends MockCcSupport {
     return BazelMockCcSupport::isNotCcLabel;
   }
 
-  /** Creates bare-minimum filesystem state to support cpp rules. */
-  private static void createDummyCppPackages(MockToolsConfig config) throws IOException {
-    if (config.isRealFileSystem()) {
-      // TODO(b/195425240): Make real-filesystem test mode work in bazel - for now we fake out the
-      //  bare minimum targets to get by in at least the loading phase.
-      config.append(
-          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
-          "exports_files(['toolchain', 'grep-includes', 'malloc'])");
-      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/toolchain", "");
-      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/grep-includes", "");
-      config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/malloc", "");
-    }
+  @Override
+  protected boolean shouldUseRealFileSystemCrosstool() {
+    // TODO(b/195425240): Workaround for lack of real-filesystem support.
+    return false;
   }
 }

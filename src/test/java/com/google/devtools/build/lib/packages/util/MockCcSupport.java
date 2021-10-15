@@ -209,13 +209,17 @@ public abstract class MockCcSupport {
     }
   }
 
+  protected boolean shouldUseRealFileSystemCrosstool() {
+    return true;
+  }
+
   public void setupCcToolchainConfig(MockToolsConfig config) throws IOException {
     setupCcToolchainConfig(config, CcToolchainConfig.builder());
   }
 
   public void setupCcToolchainConfig(
       MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
-    if (config.isRealFileSystem()) {
+    if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
       config.linkTools(getRealFilesystemTools(crosstoolTopPath));
       writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
