@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -36,10 +37,10 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -140,38 +141,50 @@ public class NestedSetStore {
     abstract ListenableFuture<Void> writeStatus();
   }
 
-  private final NestedSetSerializationCache nestedSetCache;
+  public static final Function<SerializationDependencyProvider, ?> NO_CONTEXT = ctx -> "";
+
   private final NestedSetStorageEndpoint endpoint;
   private final Executor executor;
-
-  /** Creates a NestedSetStore with the provided {@link NestedSetStorageEndpoint} as a backend. */
-  @VisibleForTesting
-  public NestedSetStore(NestedSetStorageEndpoint endpoint) {
-    this(endpoint, directExecutor(), BugReporter.defaultInstance());
-  }
+  private final NestedSetSerializationCache nestedSetCache;
+  private final Function<SerializationDependencyProvider, ?> cacheContextFn;
 
   /**
    * Creates a NestedSetStore with the provided {@link NestedSetStorageEndpoint} and executor for
    * deserialization.
+   *
+   * <p>Takes a function that produces a caching context object from a {@link
+   * SerializationDependencyProvider}. The context should work as described in {@link
+   * NestedSetSerializationCache} to disambiguate different contents that have the same serialized
+   * representation. If a one-to-one correspondence between contents and serialized representation
+   * is guaranteed, use {@link #NO_CONTEXT}, which uses a constant object for the cache context.
    */
   public NestedSetStore(
-      NestedSetStorageEndpoint endpoint, Executor executor, BugReporter bugReporter) {
-    this(endpoint, new NestedSetSerializationCache(bugReporter), executor);
+      NestedSetStorageEndpoint endpoint,
+      Executor executor,
+      BugReporter bugReporter,
+      Function<SerializationDependencyProvider, ?> cacheContextFn) {
+    this(endpoint, executor, new NestedSetSerializationCache(bugReporter), cacheContextFn);
   }
 
   @VisibleForTesting
   NestedSetStore(
       NestedSetStorageEndpoint endpoint,
+      Executor executor,
       NestedSetSerializationCache nestedSetCache,
-      Executor executor) {
+      Function<SerializationDependencyProvider, ?> cacheContextFn) {
     this.endpoint = checkNotNull(endpoint);
-    this.nestedSetCache = checkNotNull(nestedSetCache);
     this.executor = checkNotNull(executor);
+    this.nestedSetCache = checkNotNull(nestedSetCache);
+    this.cacheContextFn = checkNotNull(cacheContextFn);
   }
 
-  /** Creates a NestedSetStore with an in-memory storage backend. */
+  /** Creates a NestedSetStore with an in-memory storage backend and no caching context. */
   public static NestedSetStore inMemory() {
-    return new NestedSetStore(new InMemoryNestedSetStorageEndpoint());
+    return new NestedSetStore(
+        new InMemoryNestedSetStorageEndpoint(),
+        directExecutor(),
+        BugReporter.defaultInstance(),
+        NO_CONTEXT);
   }
 
   /**
@@ -191,6 +204,13 @@ public class NestedSetStore {
    */
   FingerprintComputationResult computeFingerprintAndStore(
       Object[] contents, SerializationContext serializationContext)
+      throws SerializationException, IOException {
+    return computeFingerprintAndStore(
+        contents, serializationContext, cacheContextFn.apply(serializationContext));
+  }
+
+  private FingerprintComputationResult computeFingerprintAndStore(
+      Object[] contents, SerializationContext serializationContext, Object cacheContext)
       throws SerializationException, IOException {
     FingerprintComputationResult priorFingerprint = nestedSetCache.fingerprintForContents(contents);
     if (priorFingerprint != null) {
@@ -213,7 +233,7 @@ public class NestedSetStore {
       for (Object child : contents) {
         if (child instanceof Object[]) {
           FingerprintComputationResult fingerprintComputationResult =
-              computeFingerprintAndStore((Object[]) child, serializationContext);
+              computeFingerprintAndStore((Object[]) child, serializationContext, cacheContext);
           futureBuilder.add(fingerprintComputationResult.writeStatus());
           newSerializationContext.serialize(
               fingerprintComputationResult.fingerprint(), codedOutputStream);
@@ -244,9 +264,8 @@ public class NestedSetStore {
     FingerprintComputationResult result =
         FingerprintComputationResult.create(fingerprint, writeFuture);
 
-    // TODO(b/202438580): Pass through relevant context.
     FingerprintComputationResult existingResult =
-        nestedSetCache.putIfAbsent(contents, result, /*context=*/ "");
+        nestedSetCache.putIfAbsent(contents, result, cacheContext);
     if (existingResult != null) {
       return existingResult; // Another thread won the fingerprint computation race.
     }
@@ -275,13 +294,19 @@ public class NestedSetStore {
    * <p>The return value is either an {@code Object[]} or a {@code ListenableFuture<Object[]>},
    * which may be completed with a {@link MissingNestedSetException}.
    */
-  // All callers will test on type and check return value if it's a future.
-  @SuppressWarnings("FutureReturnValueIgnored")
   Object getContentsAndDeserialize(
       ByteString fingerprint, DeserializationContext deserializationContext) throws IOException {
+    return getContentsAndDeserialize(
+        fingerprint, deserializationContext, cacheContextFn.apply(deserializationContext));
+  }
+
+  // All callers will test on type and check return value if it's a future.
+  @SuppressWarnings("FutureReturnValueIgnored")
+  private Object getContentsAndDeserialize(
+      ByteString fingerprint, DeserializationContext deserializationContext, Object cacheContext)
+      throws IOException {
     SettableFuture<Object[]> future = SettableFuture.create();
-    // TODO(b/202438580): Pass through relevant context.
-    Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future, /*context=*/ "");
+    Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future, cacheContext);
     if (contents != null) {
       return contents;
     }
@@ -304,32 +329,25 @@ public class NestedSetStore {
                   deserializationContext.getNewMemoizingContext();
 
               // The elements of this list are futures for the deserialized values of these
-              // NestedSet contents.  For direct members, the futures complete immediately and yield
-              // an Object.  For transitive members (fingerprints), the futures complete with the
+              // NestedSet contents. For direct members, the futures complete immediately and yield
+              // an Object. For transitive members (fingerprints), the futures complete with the
               // underlying fetch, and yield Object[]s.
-              List<ListenableFuture<?>> deserializationFutures = new ArrayList<>();
+              ImmutableList.Builder<ListenableFuture<?>> deserializationFutures =
+                  ImmutableList.builderWithExpectedSize(numberOfElements);
               for (int i = 0; i < numberOfElements; i++) {
                 Object deserializedElement = newDeserializationContext.deserialize(codedIn);
                 if (deserializedElement instanceof ByteString) {
-                  deserializationFutures.add(
-                      maybeWrapInFuture(
-                          getContentsAndDeserialize(
-                              (ByteString) deserializedElement, deserializationContext)));
+                  Object innerContents =
+                      getContentsAndDeserialize(
+                          (ByteString) deserializedElement, deserializationContext, cacheContext);
+                  deserializationFutures.add(maybeWrapInFuture(innerContents));
                 } else {
                   deserializationFutures.add(Futures.immediateFuture(deserializedElement));
                 }
               }
 
-              return Futures.whenAllComplete(deserializationFutures)
-                  .call(
-                      () -> {
-                        Object[] deserializedContents = new Object[deserializationFutures.size()];
-                        for (int i = 0; i < deserializationFutures.size(); i++) {
-                          deserializedContents[i] = Futures.getDone(deserializationFutures.get(i));
-                        }
-                        return deserializedContents;
-                      },
-                      executor);
+              return Futures.transform(
+                  Futures.allAsList(deserializationFutures.build()), List::toArray, executor);
             },
             executor));
     return future;

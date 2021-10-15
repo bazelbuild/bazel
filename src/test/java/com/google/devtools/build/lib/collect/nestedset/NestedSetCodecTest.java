@@ -28,7 +28,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -38,17 +41,25 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNes
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.NestedSetStorageEndpoint;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
+import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -95,12 +106,12 @@ public final class NestedSetCodecTest {
           }
         };
 
-    ObjectCodecs serializer = createCodecs(new NestedSetStore(endpoint));
+    ObjectCodecs serializer = createCodecs(createStore(endpoint));
     ByteString serializedBase = serializer.serializeMemoizedAndBlocking(base).getObject();
     ByteString serializedTop = serializer.serializeMemoizedAndBlocking(top).getObject();
 
     // When deserializing top, we should perform 2 reads, one for each array in [[a, b], c].
-    ObjectCodecs deserializer = createCodecs(new NestedSetStore(endpoint));
+    ObjectCodecs deserializer = createCodecs(createStore(endpoint));
     NestedSet<?> deserializedTop = (NestedSet<?>) deserializer.deserializeMemoized(serializedTop);
     assertThat(deserializedTop.toList()).containsExactly("a", "b", "c");
     assertThat(reads.get()).isEqualTo(2);
@@ -115,6 +126,8 @@ public final class NestedSetCodecTest {
 
   @Test
   public void missingNestedSetException_hiddenUntilNestedSetIsConsumed() throws Exception {
+    MissingNestedSetException missingNestedSetException =
+        new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"));
     NestedSetStorageEndpoint storageEndpoint =
         new NestedSetStorageEndpoint() {
           @Override
@@ -124,12 +137,13 @@ public final class NestedSetCodecTest {
 
           @Override
           public ListenableFuture<byte[]> get(ByteString fingerprint) {
-            return immediateFailedFuture(
-                new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint")));
+            return immediateFailedFuture(missingNestedSetException);
           }
         };
-    ObjectCodecs serializer = createCodecs(new NestedSetStore(storageEndpoint));
-    ObjectCodecs deserializer = createCodecs(new NestedSetStore(storageEndpoint));
+    BugReporter bugReporter = mock(BugReporter.class);
+    ObjectCodecs serializer = createCodecs(createStore(storageEndpoint));
+    ObjectCodecs deserializer =
+        createCodecs(createStoreWithBugReporter(storageEndpoint, bugReporter));
 
     NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
     SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
@@ -138,6 +152,7 @@ public final class NestedSetCodecTest {
     assertThat(deserialized).isInstanceOf(NestedSet.class);
     assertThrows(
         MissingNestedSetException.class, ((NestedSet<?>) deserialized)::toListInterruptibly);
+    verify(bugReporter).sendBugReport(missingNestedSetException);
   }
 
   @Test
@@ -154,8 +169,8 @@ public final class NestedSetCodecTest {
             return immediateFailedFuture(new RuntimeException("Something went wrong"));
           }
         };
-    ObjectCodecs serializer = createCodecs(new NestedSetStore(storageEndpoint));
-    ObjectCodecs deserializer = createCodecs(new NestedSetStore(storageEndpoint));
+    ObjectCodecs serializer = createCodecs(createStore(storageEndpoint));
+    ObjectCodecs deserializer = createCodecs(createStore(storageEndpoint));
 
     NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
     SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
@@ -182,7 +197,7 @@ public final class NestedSetCodecTest {
         .thenReturn(innerWrite)
         // The write of the outer NestedSet {{"a", "b"}, {"c", "d"}}
         .thenReturn(outerWrite);
-    ObjectCodecs objectCodecs = createCodecs(new NestedSetStore(mockStorage));
+    ObjectCodecs objectCodecs = createCodecs(createStore(mockStorage));
 
     NestedSet<NestedSet<String>> nestedNestedSet =
         NestedSetBuilder.create(
@@ -212,7 +227,7 @@ public final class NestedSetCodecTest {
         .thenReturn(outerWrite)
         // The write of the inner NestedSet {"e", "f"}
         .thenReturn(immediateVoidFuture());
-    ObjectCodecs objectCodecs = createCodecs(new NestedSetStore(mockStorage));
+    ObjectCodecs objectCodecs = createCodecs(createStore(mockStorage));
 
     NestedSet<String> sharedInnerNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
     NestedSet<NestedSet<String>> nestedNestedSet1 =
@@ -255,7 +270,7 @@ public final class NestedSetCodecTest {
     // Avoid NestedSetBuilder.wrap/create - they use their own cache which interferes with what
     // we're testing.
     NestedSet<?> nestedSet = NestedSetBuilder.stableOrder().add("a").add("b").build();
-    ObjectCodecs codecs = createCodecs(new NestedSetStore(new InMemoryNestedSetStorageEndpoint()));
+    ObjectCodecs codecs = createCodecs(createStore(new InMemoryNestedSetStorageEndpoint()));
     codecs.serializeMemoizedAndBlocking(nestedSet);
     WeakReference<?> ref = new WeakReference<>(nestedSet);
     nestedSet = null;
@@ -267,7 +282,7 @@ public final class NestedSetCodecTest {
     NestedSetStorageEndpoint nestedSetStorageEndpoint = spy(new InMemoryNestedSetStorageEndpoint());
     NestedSetSerializationCache emptyNestedSetCache = mock(NestedSetSerializationCache.class);
     NestedSetStore nestedSetStore =
-        new NestedSetStore(nestedSetStorageEndpoint, emptyNestedSetCache, directExecutor());
+        createStoreWithCache(nestedSetStorageEndpoint, emptyNestedSetCache);
 
     ObjectCodecs objectCodecs = createCodecs(nestedSetStore);
 
@@ -321,8 +336,7 @@ public final class NestedSetCodecTest {
     NestedSetStorageEndpoint nestedSetStorageEndpoint = mock(NestedSetStorageEndpoint.class);
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
-    NestedSetStore nestedSetStore =
-        new NestedSetStore(nestedSetStorageEndpoint, nestedSetCache, directExecutor());
+    NestedSetStore nestedSetStore = createStoreWithCache(nestedSetStorageEndpoint, nestedSetCache);
     DeserializationContext deserializationContext = mock(DeserializationContext.class);
     ByteString fingerprint = ByteString.copyFromUtf8("fingerprint");
     // Future never completes, so we don't have to exercise that code in NestedSetStore.
@@ -371,8 +385,7 @@ public final class NestedSetCodecTest {
     NestedSetStorageEndpoint nestedSetStorageEndpoint = mock(NestedSetStorageEndpoint.class);
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
-    NestedSetStore nestedSetStore =
-        new NestedSetStore(nestedSetStorageEndpoint, nestedSetCache, directExecutor());
+    NestedSetStore nestedSetStore = createStore(nestedSetStorageEndpoint);
     SerializationContext serializationContext = mock(SerializationContext.class);
     Object[] contents = {new Object()};
     when(serializationContext.getNewMemoizingContext()).thenReturn(serializationContext);
@@ -414,7 +427,7 @@ public final class NestedSetCodecTest {
   @Test
   public void writeFuturesWaitForTransitiveWrites() throws Exception {
     NestedSetStorageEndpoint mockWriter = mock(NestedSetStorageEndpoint.class);
-    NestedSetStore store = new NestedSetStore(mockWriter);
+    NestedSetStore store = createStore(mockWriter);
     SerializationContext mockSerializationContext = mock(SerializationContext.class);
     when(mockSerializationContext.getNewMemoizingContext()).thenReturn(mockSerializationContext);
 
@@ -461,13 +474,137 @@ public final class NestedSetCodecTest {
     assertThat(topWriteFuture.isDone()).isTrue();
   }
 
-  private static ObjectCodecs createCodecs(NestedSetStore store) {
-    return new ObjectCodecs(
+  @AutoValue
+  abstract static class ColorfulThing {
+    abstract String thing();
+
+    abstract Color color();
+
+    static ColorfulThing of(String thing, Color color) {
+      return new AutoValue_NestedSetCodecTest_ColorfulThing(thing, color);
+    }
+  }
+
+  @Test
+  public void cacheContext_disambiguatesIdenticalSerializedRepresentation() throws Exception {
+    // Serializes ColorfulThing without color, reading the color as a deserialization dependency.
+    class BlackAndWhiteCodec implements ObjectCodec<ColorfulThing> {
+      @Override
+      public Class<ColorfulThing> getEncodedClass() {
+        return ColorfulThing.class;
+      }
+
+      @Override
+      public void serialize(
+          SerializationContext context, ColorfulThing obj, CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        context.serialize(obj.thing(), codedOut);
+      }
+
+      @Override
+      public ColorfulThing deserialize(DeserializationContext context, CodedInputStream codedIn)
+          throws SerializationException, IOException {
+        String thing = context.deserialize(codedIn);
+        Color color = context.getDependency(Color.class);
+        return ColorfulThing.of(thing, color);
+      }
+    }
+
+    ObjectCodecs codecs =
+        createCodecs(
+            createStoreWithCacheContext(
+                new InMemoryNestedSetStorageEndpoint(), ctx -> ctx.getDependency(Color.class)),
+            new BlackAndWhiteCodec());
+
+    List<String> stuff = ImmutableList.of("bird", "paint", "shoes");
+    NestedSet<ColorfulThing> redStuff =
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            Lists.transform(stuff, thing -> ColorfulThing.of(thing, Color.RED)));
+    NestedSet<ColorfulThing> blueStuff =
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            Lists.transform(stuff, thing -> ColorfulThing.of(thing, Color.BLUE)));
+
+    ByteString redSerialized =
+        ObjectCodecs.serialize(
+                redStuff,
+                codecs
+                    .getSerializationContext()
+                    .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.RED))
+                    .getMemoizingAndBlockingOnWriteContext())
+            .getObject();
+    ByteString blueSerialized =
+        ObjectCodecs.serialize(
+                blueStuff,
+                codecs
+                    .getSerializationContext()
+                    .withDependencyOverrides(
+                        ImmutableClassToInstanceMap.of(Color.class, Color.BLUE))
+                    .getMemoizingAndBlockingOnWriteContext())
+            .getObject();
+    assertThat(redSerialized).isEqualTo(blueSerialized);
+
+    Object redDeserialized =
+        ObjectCodecs.deserialize(
+            redSerialized.newCodedInput(),
+            codecs
+                .getDeserializationContext()
+                .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.RED))
+                .getMemoizingContext());
+    Object blueDeserialized =
+        ObjectCodecs.deserialize(
+            blueSerialized.newCodedInput(),
+            codecs
+                .getDeserializationContext()
+                .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.BLUE))
+                .getMemoizingContext());
+    assertThat(redDeserialized).isSameInstanceAs(redStuff);
+    assertThat(blueDeserialized).isSameInstanceAs(blueStuff);
+
+    // Test that we can deserialize in a context that was not previously serialized.
+    Object greenDeserialized =
+        ObjectCodecs.deserialize(
+            redSerialized.newCodedInput(),
+            codecs
+                .getDeserializationContext()
+                .withDependencyOverrides(ImmutableClassToInstanceMap.of(Color.class, Color.GREEN))
+                .getMemoizingContext());
+    assertThat(greenDeserialized).isInstanceOf(NestedSet.class);
+    assertThat(((NestedSet<?>) greenDeserialized).toList())
+        .isEqualTo(Lists.transform(stuff, thing -> ColorfulThing.of(thing, Color.GREEN)));
+  }
+
+  private static NestedSetStore createStore(NestedSetStorageEndpoint endpoint) {
+    return createStoreWithBugReporter(endpoint, BugReporter.defaultInstance());
+  }
+
+  private static NestedSetStore createStoreWithBugReporter(
+      NestedSetStorageEndpoint endpoint, BugReporter bugReporter) {
+    return new NestedSetStore(endpoint, directExecutor(), bugReporter, NestedSetStore.NO_CONTEXT);
+  }
+
+  private static NestedSetStore createStoreWithCache(
+      NestedSetStorageEndpoint endpoint, NestedSetSerializationCache cache) {
+    return new NestedSetStore(endpoint, directExecutor(), cache, NestedSetStore.NO_CONTEXT);
+  }
+
+  private static NestedSetStore createStoreWithCacheContext(
+      NestedSetStorageEndpoint endpoint,
+      Function<SerializationDependencyProvider, ?> cacheContextFn) {
+    return new NestedSetStore(
+        endpoint, directExecutor(), BugReporter.defaultInstance(), cacheContextFn);
+  }
+
+  private static ObjectCodecs createCodecs(NestedSetStore store, ObjectCodec<?>... codecs) {
+    ObjectCodecRegistry.Builder registry =
         AutoRegistry.get()
             .getBuilder()
             .setAllowDefaultCodec(true)
-            .add(new NestedSetCodecWithStore(store))
-            .build(),
-        /*dependencies=*/ ImmutableClassToInstanceMap.of());
+            .add(new NestedSetCodecWithStore(store));
+    for (ObjectCodec<?> codec : codecs) {
+      registry.add(codec);
+    }
+    return new ObjectCodecs(registry.build(), /*dependencies=*/ ImmutableClassToInstanceMap.of());
   }
 }

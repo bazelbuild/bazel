@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * thread-safe and should only be accessed on a single thread for deserializing one serialized
  * object (that may contain other serialized objects inside it).
  */
-public class DeserializationContext {
+public class DeserializationContext implements SerializationDependencyProvider {
   private final ObjectCodecRegistry registry;
   private final ImmutableClassToInstanceMap<Object> dependencies;
   @Nullable private final Memoizer.Deserializer deserializer;
@@ -113,6 +113,7 @@ public class DeserializationContext {
     }
   }
 
+  @Override
   public <T> T getDependency(Class<T> type) {
     return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);
   }

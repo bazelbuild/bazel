@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,7 +44,7 @@ import javax.annotation.Nullable;
  * should only be accessed on a single thread for serializing one object (that may involve
  * serializing other objects contained in it).
  */
-public class SerializationContext {
+public class SerializationContext implements SerializationDependencyProvider {
   private final ObjectCodecRegistry registry;
   private final ImmutableClassToInstanceMap<Object> dependencies;
   @Nullable private final Memoizer.Serializer serializer;
@@ -108,6 +109,7 @@ public class SerializationContext {
     }
   }
 
+  @Override
   public <T> T getDependency(Class<T> type) {
     return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);
   }
@@ -152,12 +154,31 @@ public class SerializationContext {
 
   private SerializationContext getNewMemoizingContext(boolean allowFuturesToBlockWritingOn) {
     return new SerializationContext(
-        this.registry, this.dependencies, new Memoizer.Serializer(), allowFuturesToBlockWritingOn);
+        registry, dependencies, new Memoizer.Serializer(), allowFuturesToBlockWritingOn);
   }
 
-  public SerializationContext getNewNonMemoizingContext() {
+  /**
+   * Returns a new {@link SerializationContext} mostly identical to this one, but with a dependency
+   * map composed by applying overrides to this context's dependencies.
+   *
+   * <p>The given {@code dependencyOverrides} may contain keys already present (in which case the
+   * dependency will be replaced) or new keys (in which case the dependency will be added).
+   *
+   * <p>Must only be called on a base context (no memoization state), since changing dependencies
+   * may change deserialization semantics.
+   */
+  @CheckReturnValue
+  public SerializationContext withDependencyOverrides(
+      ImmutableClassToInstanceMap<?> dependencyOverrides) {
+    checkState(serializer == null, "Must only be called on base SerializationContext");
     return new SerializationContext(
-        this.registry, this.dependencies, null, this.allowFuturesToBlockWritingOn);
+        registry,
+        ImmutableClassToInstanceMap.builder()
+            .putAll(Maps.filterKeys(dependencies, k -> !dependencyOverrides.containsKey(k)))
+            .putAll(dependencyOverrides)
+            .build(),
+        /*serializer=*/ null,
+        allowFuturesToBlockWritingOn);
   }
 
   /**
