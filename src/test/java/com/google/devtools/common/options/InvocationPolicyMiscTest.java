@@ -16,7 +16,6 @@ package com.google.devtools.common.options;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -62,7 +61,6 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
         .addFlagPoliciesBuilder()
         .setFlagName("test_deprecated")
         .getSetValueBuilder()
-        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_DEPRECATED_POLICY_VALUE);
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
@@ -100,7 +98,6 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
         .addFlagPoliciesBuilder()
         .setFlagName("test_deprecated")
         .getSetValueBuilder()
-        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_DEPRECATED_POLICY_VALUE);
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
