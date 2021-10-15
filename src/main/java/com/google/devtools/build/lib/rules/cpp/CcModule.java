@@ -1917,7 +1917,7 @@ public abstract class CcModule
     }
   }
 
-  private static boolean isBuiltIn(StarlarkThread thread) {
+  public static boolean isBuiltIn(StarlarkThread thread) {
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();

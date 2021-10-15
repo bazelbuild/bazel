@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -829,7 +831,7 @@ public final class CppConfiguration extends Fragment
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label()
             .getPackageName();
-    if (!EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
+    if (!isBuiltIn(thread) && !EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
       throw Starlark.errorf(
           "Rule in '%s' cannot use '%s' in CppConfiguration", rulePackage, feature);
     }
