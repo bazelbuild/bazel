@@ -337,10 +337,6 @@ hello_world(
     template = "file.cc.tpl",
 )
 
-cc_binary(
-    name = "hello_bin",
-    srcs = [":hello"],
-)
 ```
 
 If you don't want to expose the template to the end-user and always use the
