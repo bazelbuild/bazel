@@ -334,10 +334,15 @@ public class JavaStarlarkCommon
                                 output.getSourceJars()))
                     .collect(Collectors.toList()))
             .build();
-    return JavaInfo.Builder.create()
-        .addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider())
+    JavaInfo.Builder builder = JavaInfo.Builder.create();
+    if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
+      builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
+    }
+    if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
+      builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());
+    }
+    return builder
         .addProvider(JavaCcInfoProvider.class, javaInfo.getProvider(JavaCcInfoProvider.class))
-        .addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider())
         .addProvider(
             JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
