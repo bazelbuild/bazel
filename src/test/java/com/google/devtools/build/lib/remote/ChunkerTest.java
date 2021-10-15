@@ -215,7 +215,7 @@ public class ChunkerTest {
       chunker.seek(5);
       chunker.next();
       assertThat(chunker.hasNext()).isFalse();
-      assertThat(chunker.getFinalSize()).isEqualTo(expected);
+      assertThat(chunker.getOffset()).isEqualTo(expected);
     }
   }
 

@@ -131,23 +131,6 @@ public final class Chunker {
   }
 
   /**
-   * Closes the input stream and return the final size,
-   * that is the source size if the transfer is uncompressed,
-   * or the compressed size otherwise.
-   */
-  public long getFinalSize() throws IOException {
-    if (compressed && getSize() > 0) {
-      // If the source is compressed, we cannot know the final size
-      // until we have exhausted the whole input.
-      exhaust();
-      close();
-      return getOffset();
-    }
-    close();
-    return getSize();
-  }
-
-  /**
    * Reset the {@link Chunker} state to when it was newly constructed.
    *
    * <p>Closes any open resources (file handles, ...).
@@ -172,17 +155,6 @@ public final class Chunker {
     offset = toOffset;
     if (data.finished()) {
       close();
-    }
-  }
-
-  /**
-   * Consume the input stream and closes it
-   * @throws IOException
-   */
-  private void exhaust() throws IOException {
-    maybeInitialize();
-    while(hasNext()) {
-      next();
     }
   }
 

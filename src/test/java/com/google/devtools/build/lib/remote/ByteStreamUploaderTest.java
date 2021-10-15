@@ -363,7 +363,10 @@ public class ByteStreamUploaderTest {
     Chunker chunker = Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(CHUNK_SIZE).build();
     HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
 
-    long expectedSize = chunker.getFinalSize();
+    while (chunker.hasNext()) {
+      chunker.next();
+    }
+    long expectedSize = chunker.getOffset();
     chunker.reset();
 
     serviceRegistry.addService(
@@ -639,7 +642,7 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
-  public void incorrectCommittedSizeFailsUpload() throws Exception {
+  public void incorrectCommittedSizeFailsCompletedUpload() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
     ByteStreamUploader uploader =
@@ -660,10 +663,23 @@ public class ByteStreamUploaderTest {
         new ByteStreamImplBase() {
           @Override
           public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
-            streamObserver.onNext(
-                WriteResponse.newBuilder().setCommittedSize(blob.length + 1).build());
-            streamObserver.onCompleted();
-            return new NoopStreamObserver();
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                WriteResponse response =
+                    WriteResponse.newBuilder().setCommittedSize(blob.length + 1).build();
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+            };
           }
         });
 
@@ -677,6 +693,38 @@ public class ByteStreamUploaderTest {
     // This test should not have triggered any retries.
     Mockito.verifyNoInteractions(mockBackoff);
 
+    blockUntilInternalStateConsistent(uploader);
+  }
+
+  @Test
+  public void incorrectCommittedSizeDoesNotFailsIncompleteUpload() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channelConnectionFactory),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            300,
+            retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            streamObserver.onNext(WriteResponse.newBuilder().setCommittedSize(CHUNK_SIZE).build());
+            streamObserver.onCompleted();
+            return new NoopStreamObserver();
+          }
+        });
+
+    uploader.uploadBlob(context, hash, chunker, true);
     blockUntilInternalStateConsistent(uploader);
   }
 

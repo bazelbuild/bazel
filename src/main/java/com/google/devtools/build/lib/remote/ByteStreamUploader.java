@@ -432,13 +432,19 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       return Futures.transformAsync(
           callFuture,
           (result) -> {
-            long committedSize = committedOffset.get();
-            long expected = chunker.getFinalSize();
-            if (committedSize != expected) {
-              String message =
-                  format(
-                      "write incomplete: committed_size %d for %d total", committedSize, expected);
-              return Futures.immediateFailedFuture(new IOException(message));
+            if (!chunker.hasNext()) {
+              // Only check for matching committed size if we have completed the upload.
+              // If another client did, they might have used a different compression
+              // level/algorithm, so we cannot know the expected committed offset
+              long committedSize = committedOffset.get();
+              long expected = chunker.getOffset();
+              if (!chunker.hasNext() && committedSize != expected) {
+                String message =
+                    format(
+                        "write incomplete: committed_size %d for %d total",
+                        committedSize, expected);
+                return Futures.immediateFailedFuture(new IOException(message));
+              }
             }
             return Futures.immediateFuture(null);
           },
