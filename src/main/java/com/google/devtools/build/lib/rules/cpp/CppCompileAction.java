@@ -367,6 +367,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return cppConfiguration.getInmemoryDotdFiles();
   }
 
+  public boolean enabledCppCompileResourcesEstimation() {
+    return cppConfiguration.getExperimentalCppCompileResourcesEstimation();
+  }
+
   @Override
   public List<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
@@ -1245,7 +1249,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * estimation we are using form C + K * inputs, where C and K selected in such way, that more than
    * 95% of actions used less than C + K * inputs MB of memory during execution.
    */
-  public static ResourceSet estimateResourceConsumptionLocal(String mnemonic, OS os, int inputs) {
+  public static ResourceSet estimateResourceConsumptionLocal(
+      boolean enabled, String mnemonic, OS os, int inputs) {
+    if (!enabled) {
+      return AbstractAction.DEFAULT_RESOURCE_SET;
+    }
+
     if (mnemonic == null) {
       return AbstractAction.DEFAULT_RESOURCE_SET;
     }
@@ -1494,7 +1503,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           inputs,
           getOutputs(),
           estimateResourceConsumptionLocal(
-              getMnemonic(), OS.getCurrent(), inputs.memoizedFlattenAndGetSize()));
+              enabledCppCompileResourcesEstimation(),
+              getMnemonic(),
+              OS.getCurrent(),
+              inputs.memoizedFlattenAndGetSize()));
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(

@@ -814,6 +814,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalCcImplementationDeps;
   }
 
+  public boolean getExperimentalCppCompileResourcesEstimation() {
+    return cppOptions.experimentalCppCompileResourcesEstimation;
+  }
+
   @Override
   public boolean macosSetInstallName() {
     return cppOptions.macosSetInstallName;
