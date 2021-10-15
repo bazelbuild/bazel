@@ -298,7 +298,7 @@ public final class NestedSetCodecTest {
     doReturn(subset2Future)
         .when(nestedSetStorageEndpoint)
         .get(fingerprintCaptor.getAllValues().get(1));
-    when(emptyNestedSetCache.putFutureIfAbsent(any(), any())).thenReturn(null);
+    when(emptyNestedSetCache.putFutureIfAbsent(any(), any(), any())).thenReturn(null);
 
     @SuppressWarnings("unchecked")
     ListenableFuture<Object[]> deserializationFuture =
@@ -339,7 +339,7 @@ public final class NestedSetCodecTest {
               return result;
             })
         .when(nestedSetCache)
-        .putFutureIfAbsent(eq(fingerprint), any());
+        .putFutureIfAbsent(eq(fingerprint), any(), any());
     AtomicReference<ListenableFuture<Object[]>> asyncResult = new AtomicReference<>();
     Thread asyncThread =
         new Thread(

@@ -244,7 +244,9 @@ public class NestedSetStore {
     FingerprintComputationResult result =
         FingerprintComputationResult.create(fingerprint, writeFuture);
 
-    FingerprintComputationResult existingResult = nestedSetCache.putIfAbsent(contents, result);
+    // TODO(b/202438580): Pass through relevant context.
+    FingerprintComputationResult existingResult =
+        nestedSetCache.putIfAbsent(contents, result, /*context=*/ "");
     if (existingResult != null) {
       return existingResult; // Another thread won the fingerprint computation race.
     }
@@ -278,7 +280,8 @@ public class NestedSetStore {
   Object getContentsAndDeserialize(
       ByteString fingerprint, DeserializationContext deserializationContext) throws IOException {
     SettableFuture<Object[]> future = SettableFuture.create();
-    Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future);
+    // TODO(b/202438580): Pass through relevant context.
+    Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future, /*context=*/ "");
     if (contents != null) {
       return contents;
     }

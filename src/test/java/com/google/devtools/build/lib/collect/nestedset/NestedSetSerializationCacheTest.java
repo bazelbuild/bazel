@@ -34,6 +34,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class NestedSetSerializationCacheTest {
 
+  private static final Object DEFAULT_CONTEXT = new Object();
+
   private final NestedSetSerializationCache cache =
       new NestedSetSerializationCache(BugReporter.defaultInstance());
 
@@ -44,20 +46,20 @@ public final class NestedSetSerializationCacheTest {
     SettableFuture<Object[]> future1 = SettableFuture.create();
     SettableFuture<Object[]> future2 = SettableFuture.create();
 
-    assertThat(cache.putFutureIfAbsent(fingerprint1, future1)).isNull();
-    assertThat(cache.putFutureIfAbsent(fingerprint2, future2)).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint1, future1, DEFAULT_CONTEXT)).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint2, future2, DEFAULT_CONTEXT)).isNull();
   }
 
   @Test
   public void putFutureIfAbsent_existingFingerprint_returnsExistingFuture() {
     ByteString fingerprint = ByteString.copyFromUtf8("abc");
-    SettableFuture<Object[]> future1 = SettableFuture.create();
+    SettableFuture<Object[]> future = SettableFuture.create();
 
-    assertThat(cache.putFutureIfAbsent(fingerprint, future1)).isNull();
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create()))
-        .isSameInstanceAs(future1);
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create()))
-        .isSameInstanceAs(future1);
+    assertThat(cache.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT)).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isSameInstanceAs(future);
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isSameInstanceAs(future);
   }
 
   @Test
@@ -67,7 +69,8 @@ public final class NestedSetSerializationCacheTest {
     future.set(new Object[0]);
 
     assertThrows(
-        IllegalArgumentException.class, () -> cache.putFutureIfAbsent(fingerprint, future));
+        IllegalArgumentException.class,
+        () -> cache.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT));
   }
 
   @Test
@@ -77,10 +80,11 @@ public final class NestedSetSerializationCacheTest {
     SettableFuture<Object[]> future2 = SettableFuture.create();
     Object[] contents = new Object[0];
 
-    cache.putFutureIfAbsent(fingerprint, future1);
+    cache.putFutureIfAbsent(fingerprint, future1, DEFAULT_CONTEXT);
     future1.set(contents);
 
-    assertThat(cache.putFutureIfAbsent(fingerprint, future2)).isSameInstanceAs(contents);
+    assertThat(cache.putFutureIfAbsent(fingerprint, future2, DEFAULT_CONTEXT))
+        .isSameInstanceAs(contents);
   }
 
   @Test
@@ -89,7 +93,7 @@ public final class NestedSetSerializationCacheTest {
     SettableFuture<Object[]> future = SettableFuture.create();
     Object[] contents = new Object[0];
 
-    cache.putFutureIfAbsent(fingerprint, future);
+    cache.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT);
     future.set(contents);
 
     FingerprintComputationResult result = cache.fingerprintForContents(contents);
@@ -106,7 +110,7 @@ public final class NestedSetSerializationCacheTest {
     SettableFuture<Object[]> future = SettableFuture.create();
     Exception e = new MissingNestedSetException(fingerprint);
 
-    cacheWithCustomBugReporter.putFutureIfAbsent(fingerprint, future);
+    cacheWithCustomBugReporter.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT);
     future.setException(e);
 
     verify(mockBugReporter).sendBugReport(e);
@@ -123,13 +127,13 @@ public final class NestedSetSerializationCacheTest {
     FingerprintComputationResult result2 =
         FingerprintComputationResult.create(fingerprint2, SettableFuture.create());
 
-    assertThat(cache.putIfAbsent(contents1, result1)).isNull();
-    assertThat(cache.putIfAbsent(contents2, result2)).isNull();
+    assertThat(cache.putIfAbsent(contents1, result1, DEFAULT_CONTEXT)).isNull();
+    assertThat(cache.putIfAbsent(contents2, result2, DEFAULT_CONTEXT)).isNull();
     assertThat(cache.fingerprintForContents(contents1)).isSameInstanceAs(result1);
     assertThat(cache.fingerprintForContents(contents2)).isSameInstanceAs(result2);
-    assertThat(cache.putFutureIfAbsent(fingerprint1, SettableFuture.create()))
+    assertThat(cache.putFutureIfAbsent(fingerprint1, SettableFuture.create(), DEFAULT_CONTEXT))
         .isSameInstanceAs(contents1);
-    assertThat(cache.putFutureIfAbsent(fingerprint2, SettableFuture.create()))
+    assertThat(cache.putFutureIfAbsent(fingerprint2, SettableFuture.create(), DEFAULT_CONTEXT))
         .isSameInstanceAs(contents2);
   }
 
@@ -144,9 +148,9 @@ public final class NestedSetSerializationCacheTest {
     FingerprintComputationResult result3 =
         FingerprintComputationResult.create(fingerprint, SettableFuture.create());
 
-    assertThat(cache.putIfAbsent(contents, result1)).isNull();
-    assertThat(cache.putIfAbsent(contents, result2)).isSameInstanceAs(result1);
-    assertThat(cache.putIfAbsent(contents, result3)).isSameInstanceAs(result1);
+    assertThat(cache.putIfAbsent(contents, result1, DEFAULT_CONTEXT)).isNull();
+    assertThat(cache.putIfAbsent(contents, result2, DEFAULT_CONTEXT)).isSameInstanceAs(result1);
+    assertThat(cache.putIfAbsent(contents, result3, DEFAULT_CONTEXT)).isSameInstanceAs(result1);
   }
 
   @Test
@@ -157,16 +161,16 @@ public final class NestedSetSerializationCacheTest {
     FingerprintComputationResult result =
         FingerprintComputationResult.create(fingerprint, SettableFuture.create());
 
-    assertThat(cache.putFutureIfAbsent(fingerprint, future)).isNull();
-    assertThat(cache.putIfAbsent(contents, result)).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT)).isNull();
+    assertThat(cache.putIfAbsent(contents, result, DEFAULT_CONTEXT)).isNull();
     assertThat(cache.fingerprintForContents(contents)).isSameInstanceAs(result);
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create()))
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
         .isSameInstanceAs(contents);
 
     // After the future completes, the contents should still be cached (doesn't matter which array).
     Object[] deserializedContents = new Object[0];
     future.set(deserializedContents);
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create()))
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
         .isAnyOf(contents, deserializedContents);
 
     // Both arrays should have a FingerprintComputationResult.
@@ -182,11 +186,11 @@ public final class NestedSetSerializationCacheTest {
     ByteString fingerprint = ByteString.copyFromUtf8("abc");
     SettableFuture<Object[]> future = SettableFuture.create();
 
-    cache.putFutureIfAbsent(fingerprint, future);
+    cache.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT);
 
     // Before completing, still cached while future in memory.
     GcFinalization.awaitFullGc();
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create()))
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
         .isSameInstanceAs(future);
 
     // After completing, still cached while contents in memory even if future is gone.
@@ -195,7 +199,7 @@ public final class NestedSetSerializationCacheTest {
     future.set(contents);
     future = null;
     GcFinalization.awaitClear(futureRef);
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create()))
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
         .isSameInstanceAs(contents);
     FingerprintComputationResult result = cache.fingerprintForContents(contents);
     assertThat(result.fingerprint()).isEqualTo(fingerprint);
@@ -205,7 +209,8 @@ public final class NestedSetSerializationCacheTest {
     WeakReference<Object[]> contentsRef = new WeakReference<>(contents);
     contents = null;
     GcFinalization.awaitClear(contentsRef);
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create())).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isNull();
   }
 
   @Test
@@ -215,18 +220,111 @@ public final class NestedSetSerializationCacheTest {
     FingerprintComputationResult result =
         FingerprintComputationResult.create(fingerprint, immediateVoidFuture());
 
-    cache.putIfAbsent(contents, result);
+    cache.putIfAbsent(contents, result, DEFAULT_CONTEXT);
 
     // Still cached while in memory.
     GcFinalization.awaitFullGc();
     assertThat(cache.fingerprintForContents(contents)).isSameInstanceAs(result);
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create()))
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
         .isSameInstanceAs(contents);
 
     // Cleared after references are gone, and the cycle of putFutureIfAbsent starts over.
     WeakReference<Object[]> ref = new WeakReference<>(contents);
     contents = null;
     GcFinalization.awaitClear(ref);
-    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create())).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isNull();
+  }
+
+  @Test
+  public void putFutureIfAbsent_usesContextToDistinguish() {
+    ByteString fingerprint = ByteString.copyFromUtf8("abc");
+    String contextLower = "lower";
+    String contextUpper = "UPPER";
+    SettableFuture<Object[]> futureLower = SettableFuture.create();
+    SettableFuture<Object[]> futureUpper = SettableFuture.create();
+
+    assertThat(cache.putFutureIfAbsent(fingerprint, futureLower, contextLower)).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint, futureUpper, contextUpper)).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), contextLower))
+        .isSameInstanceAs(futureLower);
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), contextUpper))
+        .isSameInstanceAs(futureUpper);
+
+    Object[] contentsLower = new Object[] {"abc"};
+    Object[] contentsUpper = new Object[] {"ABC"};
+    futureLower.set(contentsLower);
+    futureUpper.set(contentsUpper);
+
+    FingerprintComputationResult resultLower = cache.fingerprintForContents(contentsLower);
+    FingerprintComputationResult resultUpper = cache.fingerprintForContents(contentsUpper);
+    assertThat(resultLower.fingerprint()).isEqualTo(fingerprint);
+    assertThat(resultUpper.fingerprint()).isEqualTo(fingerprint);
+    assertThat(resultLower.writeStatus().isDone()).isTrue();
+    assertThat(resultUpper.writeStatus().isDone()).isTrue();
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), contextLower))
+        .isSameInstanceAs(contentsLower);
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), contextUpper))
+        .isSameInstanceAs(contentsUpper);
+  }
+
+  @Test
+  public void putIfAbsent_usesContextToDistinguish() {
+    ByteString fingerprint = ByteString.copyFromUtf8("abc");
+    String contextLower = "lower";
+    String contextUpper = "UPPER";
+    Object[] contentsLower = new Object[] {"abc"};
+    Object[] contentsUpper = new Object[] {"ABC"};
+    FingerprintComputationResult resultLower1 =
+        FingerprintComputationResult.create(fingerprint, SettableFuture.create());
+    FingerprintComputationResult resultUpper1 =
+        FingerprintComputationResult.create(fingerprint, SettableFuture.create());
+    FingerprintComputationResult resultLower2 =
+        FingerprintComputationResult.create(fingerprint, SettableFuture.create());
+    FingerprintComputationResult resultUpper2 =
+        FingerprintComputationResult.create(fingerprint, SettableFuture.create());
+
+    assertThat(cache.putIfAbsent(contentsLower, resultLower1, contextLower)).isNull();
+    assertThat(cache.putIfAbsent(contentsUpper, resultUpper1, contextUpper)).isNull();
+    assertThat(cache.putIfAbsent(contentsLower, resultLower2, contextLower))
+        .isSameInstanceAs(resultLower1);
+    assertThat(cache.putIfAbsent(contentsUpper, resultUpper2, contextUpper))
+        .isSameInstanceAs(resultUpper1);
+
+    assertThat(cache.fingerprintForContents(contentsLower)).isSameInstanceAs(resultLower1);
+    assertThat(cache.fingerprintForContents(contentsUpper)).isSameInstanceAs(resultUpper1);
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), contextLower))
+        .isSameInstanceAs(contentsLower);
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), contextUpper))
+        .isSameInstanceAs(contentsUpper);
+  }
+
+  @Test
+  public void contextComparedByValueEquality() {
+    class Context {
+      @Override
+      public int hashCode() {
+        return 1;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        return o instanceof Context;
+      }
+    }
+    ByteString fingerprint = ByteString.copyFromUtf8("abc");
+    SettableFuture<Object[]> future = SettableFuture.create();
+    Object[] contents = new Object[0];
+    FingerprintComputationResult result1 =
+        FingerprintComputationResult.create(fingerprint, SettableFuture.create());
+    FingerprintComputationResult result2 =
+        FingerprintComputationResult.create(fingerprint, SettableFuture.create());
+
+    assertThat(cache.putFutureIfAbsent(fingerprint, future, new Context())).isNull();
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), new Context()))
+        .isSameInstanceAs(future);
+
+    assertThat(cache.putIfAbsent(contents, result1, new Context())).isNull();
+    assertThat(cache.putIfAbsent(contents, result2, new Context())).isSameInstanceAs(result1);
   }
 }
