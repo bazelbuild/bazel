@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -38,7 +36,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -99,18 +96,24 @@ public final class RequiredFragmentsUtil {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         getRequiredFragments(
             mode,
-            target.isBuildSetting() ? Optional.of(target.getLabel()) : Optional.empty(),
             configuration,
             universallyRequiredFragments,
             ruleClass.getConfigurationFragmentPolicy(),
             configConditions.values(),
-            getRuleTransitions(target, attributes),
             prerequisites);
     if (!ruleClass.isStarlark()) {
       ruleClass
           .getConfiguredTargetFactory(RuleConfiguredTargetFactory.class)
           .addRuleImplSpecificRequiredConfigFragments(requiredFragments, attributes, configuration);
     }
+    addRequiredFragmentsFromRuleTransitions(
+        requiredFragments, target, attributes, configuration.getOptions());
+
+    // We consider build settings (which are both targets and configuration) to require themselves.
+    if (target.isBuildSetting()) {
+      requiredFragments.addStarlarkOption(target.getLabel());
+    }
+
     return requiredFragments.build();
   }
 
@@ -144,29 +147,27 @@ public final class RequiredFragmentsUtil {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         getRequiredFragments(
             mode,
-            /*buildSettingLabel=*/ Optional.empty(),
             configuration,
             universallyRequiredFragments,
             aspect.getDefinition().getConfigurationFragmentPolicy(),
             configConditions.values(),
-            getAspectTransitions(
-                aspect,
-                ConfiguredAttributeMapper.of(
-                    associatedTarget, configConditions, configuration.checksum())),
             prerequisites);
     aspectFactory.addAspectImplSpecificRequiredConfigFragments(requiredFragments);
+    addRequiredFragmentsFromAspectTransitions(
+        requiredFragments,
+        aspect,
+        ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration.checksum()),
+        configuration.getOptions());
     return requiredFragments.build();
   }
 
-  /** Internal implementation that handles any source (target or aspect). */
+  /** Internal implementation that handles requirements common to both rules and aspects. */
   private static RequiredConfigFragmentsProvider.Builder getRequiredFragments(
       IncludeConfigFragmentsEnum mode,
-      Optional<Label> buildSettingLabel,
       BuildConfiguration configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
-      Collection<ConfigurationTransition> associatedTransitions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
@@ -193,19 +194,12 @@ public final class RequiredFragmentsUtil {
     // Fragments required by attached select()s.
     configConditions.forEach(
         configCondition -> requiredFragments.merge(configCondition.requiredFragmentOptions()));
-    // We consider build settings (which are both targets and configuration) to require themselves:
-    buildSettingLabel.ifPresent(requiredFragments::addStarlarkOption);
-
-    // Fragments required by attached configuration transitions.
-    for (ConfigurationTransition transition : associatedTransitions) {
-      transition.addRequiredFragments(requiredFragments, configuration.getOptions());
-    }
 
     return requiredFragments;
   }
 
   /**
-   * Returns the {@link ConfigurationTransition}s "attached" to a target.
+   * Adds required fragments from transitions "attached" to a target.
    *
    * <p>"Attached" means the transition is attached to the target itself or one of its attributes.
    *
@@ -214,15 +208,17 @@ public final class RequiredFragmentsUtil {
    * the configuration for the child is determined. We still consider these the child's requirements
    * because the child's properties determine that dependency.
    */
-  private static ImmutableList<ConfigurationTransition> getRuleTransitions(
-      Rule target, ConfiguredAttributeMapper attributeMap) {
-    ImmutableList.Builder<ConfigurationTransition> transitions = ImmutableList.builder();
+  private static void addRequiredFragmentsFromRuleTransitions(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      Rule target,
+      ConfiguredAttributeMapper attributeMap,
+      BuildOptions options) {
     if (target.getRuleClassObject().getTransitionFactory() != null) {
-      transitions.add(
-          target
-              .getRuleClassObject()
-              .getTransitionFactory()
-              .create(RuleTransitionData.create(target)));
+      target
+          .getRuleClassObject()
+          .getTransitionFactory()
+          .create(RuleTransitionData.create(target))
+          .addRequiredFragments(requiredFragments, options);
     }
     // We don't set the execution platform in this data because a) that doesn't affect which
     // fragments are required and b) it's one less parameter we have to pass to
@@ -231,29 +227,35 @@ public final class RequiredFragmentsUtil {
         AttributeTransitionData.builder().attributes(attributeMap).build();
     for (Attribute attribute : target.getRuleClassObject().getAttributes()) {
       if (attribute.getTransitionFactory() != null) {
-        transitions.add(attribute.getTransitionFactory().create(attributeTransitionData));
+        attribute
+            .getTransitionFactory()
+            .create(attributeTransitionData)
+            .addRequiredFragments(requiredFragments, options);
       }
     }
-    return transitions.build();
   }
 
   /**
-   * Returns the {@link ConfigurationTransition}s "attached" to an aspect.
+   * Adds required fragments from transitions "attached" to an aspect.
    *
    * <p>"Attached" means the transition is attached to one of the aspect's attributes. Transitions
-   * can'be attached directly to aspects themselves.
+   * can't be attached directly to aspects themselves.
    */
-  private static ImmutableList<ConfigurationTransition> getAspectTransitions(
-      Aspect aspect, ConfiguredAttributeMapper attributeMap) {
-    ImmutableList.Builder<ConfigurationTransition> transitions = ImmutableList.builder();
+  private static void addRequiredFragmentsFromAspectTransitions(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      Aspect aspect,
+      ConfiguredAttributeMapper attributeMap,
+      BuildOptions options) {
     AttributeTransitionData attributeTransitionData =
         AttributeTransitionData.builder().attributes(attributeMap).build();
     for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
       if (attribute.getTransitionFactory() != null) {
-        transitions.add(attribute.getTransitionFactory().create(attributeTransitionData));
+        attribute
+            .getTransitionFactory()
+            .create(attributeTransitionData)
+            .addRequiredFragments(requiredFragments, options);
       }
     }
-    return transitions.build();
   }
 
   private static void addTransitivelyRequiredFragments(
