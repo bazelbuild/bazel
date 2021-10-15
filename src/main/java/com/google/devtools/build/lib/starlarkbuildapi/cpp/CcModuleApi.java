@@ -1303,4 +1303,17 @@ public interface CcModuleApi<
   CompilationContextT mergeCompilationContexts(
       Sequence<?> compilationContexts) // <CcCompilationContextApi> expected
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_build_info",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            doc = "The rule context",
+            allowedTypes = @ParamType(type = StarlarkRuleContextApi.class))
+      },
+      useStarlarkThread = true)
+  Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException;
 }

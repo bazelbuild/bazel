@@ -796,6 +796,14 @@ public abstract class CcModule
         .build();
   }
 
+  @Override
+  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(
+        ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
+  }
+
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
       throws EvalException {
     if (obj == Starlark.UNBOUND) {
