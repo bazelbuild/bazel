@@ -573,6 +573,11 @@ EOF
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:my_rule .*//$pkg:my_flag" output
+
+  bazel cquery "//$pkg:all" --show_config_fragments=transitive > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:my_rule .*//$pkg:my_flag" output
 }
 
 function test_show_config_fragments_select_on_feature_flag_info_provider() {
