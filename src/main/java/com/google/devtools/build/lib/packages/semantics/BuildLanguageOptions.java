@@ -516,12 +516,12 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_java_common_parameters",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, the jar_file, and host_javabase parameters in pack_sources and "
+          "If set to true, the output_jar, and host_javabase parameters in pack_sources and "
               + "host_javabase in compile will all be removed.")
   public boolean incompatibleJavaCommonParameters;
 
@@ -691,7 +691,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
-      "-incompatible_java_common_parameters";
+      "+incompatible_java_common_parameters";
   public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
       "+incompatible_linkopts_to_linklibs";
   public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
