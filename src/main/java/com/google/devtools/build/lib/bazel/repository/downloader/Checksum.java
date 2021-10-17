@@ -31,7 +31,9 @@ public class Checksum {
     }
   }
 
-  public static final class ICExceptionExtended extends Exception {
+  /** Exception thrown to indicate that the user-provided checksum string is not valid. */
+  /** Also displays the correct checksum to the user. */
+  public static final class MismatchedChecksumException extends IOException {
     private ICExceptionExtended(KeyType keyType, String hash, String correctHash) {
       super("Invalid " + keyType + " checksum '" + hash + "'. The correct checksum is '" + correctHash + "'");
     }
@@ -53,9 +55,17 @@ public class Checksum {
     return new Checksum(keyType, HashCode.fromString(hash));
   }
 
-  public static void stringComparison(String hash, String correctHash) throws ICExceptionExtended {
-    if(hash != correctHash) {
-      throw new ICExceptionExtended(KeyType.SHA256, hash, correctHash);
+  /** Returns null if user-provided hash is invalid. */
+  /** Otherwise constructs a new Checksum for a given key type and hash, in hex format. */
+  @Nullable public static Checksum checksumOrNull(KeyType keyType, String hash) {
+    try {
+      if (keyType.isValid(hash)) {
+        return fromString(keyType, hash);
+      } else {
+        return null;
+      }
+    } catch(Checksum.InvalidChecksumException e) {
+      throw new IllegalStateException("Impossible exception from " + keyType + " and " + hash, e);
     }
   }
 
@@ -100,7 +110,7 @@ public class Checksum {
           "Invalid " + keyType + " SRI checksum '" + integrity + "'");
     }
 
-    return SuperChecksum.fromString(keyType, HashCode.fromBytes(hash).toString()).getChecksum();
+    return checksumOrNull(keyType, HashCode.fromBytes(hash).toString());
   }
 
   public String toSubresourceIntegrity() {
@@ -119,5 +129,12 @@ public class Checksum {
 
   public KeyType getKeyType() {
     return keyType;
+  }
+
+  /** Throws an error if the user-given hash is not the same as the correct hash. */
+  public static void stringComparison(String hash, String correctHash) throws MismatchedChecksumException {
+    if (!hash.equals(correctHash)) {
+      throw new MismatchedChecksumException(KeyType.SHA256, hash, correctHash);
+    }
   }
 }
