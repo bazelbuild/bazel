@@ -1,0 +1,99 @@
+// Copyright 2021 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.rules.cpp;
+
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkValue;
+
+/** Utility methods for Objc rules in Starlark Builtins */
+@StarlarkBuiltin(name = "cc_internal", category = DocCategory.BUILTIN, documented = false)
+public class CcStarlarkInternal implements StarlarkValue {
+
+  public static final String NAME = "cc_internal";
+
+  @StarlarkMethod(
+      name = "collect_compilation_prerequisites",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "compilation_context", positional = false, named = true),
+      })
+  public Depset collectCompilationPrerequisites(
+      StarlarkRuleContext starlarkRuleContext, CcCompilationContext compilationContext) {
+    return Depset.of(
+        Artifact.TYPE,
+        CcCommon.collectCompilationPrerequisites(
+            starlarkRuleContext.getRuleContext(), compilationContext));
+  }
+
+  @StarlarkMethod(
+      name = "create_common",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      })
+  public CcCommon createCommon(StarlarkRuleContext starlarkRuleContext) throws EvalException {
+    try {
+      return new CcCommon(starlarkRuleContext.getRuleContext());
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "create_cc_provider",
+      documented = false,
+      parameters = {
+        @Param(name = "cc_info", positional = false, named = true),
+      })
+  public CcStarlarkApiInfo createCcProvider(CcInfo ccInfo) {
+    return new CcStarlarkApiInfo(ccInfo);
+  }
+
+  @StarlarkMethod(
+      name = "collect_native_cc_libraries",
+      documented = false,
+      parameters = {
+        @Param(name = "deps", positional = false, named = true),
+        @Param(name = "libraries_to_link", positional = false, named = true),
+      })
+  public CcNativeLibraryInfo collectNativeCcLibraries(Sequence<?> deps, Sequence<?> librariesToLink)
+      throws EvalException {
+    return CppHelper.collectNativeCcLibraries(
+        Sequence.cast(deps, TransitiveInfoCollection.class, "deps"),
+        Sequence.cast(librariesToLink, LibraryToLink.class, "libraries_to_link"));
+  }
+
+  @StarlarkMethod(
+      name = "PackageGroupInfo",
+      documented = false,
+      structField = true,
+      parameters = {})
+  public Provider getPackageGroupInfo() {
+    return PackageGroupConfiguredTarget.PROVIDER;
+  }
+}

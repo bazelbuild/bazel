@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -197,22 +198,7 @@ final class RemoteSpawnCache implements SpawnCache {
             }
           }
 
-          try (SilentCloseable c = prof.profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
-            remoteExecutionService.uploadOutputs(action, result);
-          } catch (IOException e) {
-            String errorMessage;
-            if (!verboseFailures) {
-              errorMessage = Utils.grpcAwareErrorMessage(e);
-            } else {
-              // On --verbose_failures print the whole stack trace
-              errorMessage = Throwables.getStackTraceAsString(e);
-            }
-            if (isNullOrEmpty(errorMessage)) {
-              errorMessage = e.getClass().getSimpleName();
-            }
-            errorMessage = "Writing to Remote Cache:\n" + errorMessage;
-            report(Event.warn(errorMessage));
-          }
+          remoteExecutionService.uploadOutputs(action, result);
         }
 
         @Override

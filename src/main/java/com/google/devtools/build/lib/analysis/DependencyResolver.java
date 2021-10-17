@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -58,7 +59,9 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -390,13 +393,14 @@ public abstract class DependencyResolver {
       ImmutableList.Builder<Aspect> propagatingAspects = ImmutableList.builder();
       propagatingAspects.addAll(attribute.getAspects(fromRule));
       collectPropagatingAspects(
-          aspects,
+          ImmutableList.copyOf(aspects),
           attribute.getName(),
           config,
           entry.getKey().getOwningAspect(),
           propagatingAspects);
 
       Label executionPlatformLabel = null;
+      // TODO(jcater): refactor this nested if structure into something simpler.
       if (toolchainContexts != null) {
         if (attribute.getTransitionFactory() instanceof ExecutionTransitionFactory) {
           String execGroup =
@@ -412,6 +416,12 @@ public abstract class DependencyResolver {
             executionPlatformLabel =
                 toolchainContexts.getToolchainContext(execGroup).executionPlatform().label();
           }
+        } else {
+          executionPlatformLabel =
+              toolchainContexts
+                  .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
+                  .executionPlatform()
+                  .label();
         }
       }
 
@@ -680,7 +690,6 @@ public abstract class DependencyResolver {
     }
     if (Void.class.equals(fragmentClass)) {
       return lateBoundDefault.resolve(rule, attributeMap, null);
-
     }
     @SuppressWarnings("unchecked")
     FragmentT fragment =
@@ -711,7 +720,7 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Collects the aspects from {@code aspectPath} that need to be propagated along the attribute
+   * Collects the aspects from {@code aspectsPath} that need to be propagated along the attribute
    * {@code attributeName}.
    *
    * <p>It can happen that some of the aspects cannot be propagated if the dependency doesn't have a
@@ -719,12 +728,16 @@ public abstract class DependencyResolver {
    * dependency is known.
    */
   private static void collectPropagatingAspects(
-      Iterable<Aspect> aspectPath,
+      ImmutableList<Aspect> aspectsPath,
       String attributeName,
       BuildConfiguration config,
       @Nullable AspectClass aspectOwningAttribute,
-      ImmutableList.Builder<Aspect> filteredAspectPath) {
-    for (Aspect aspect : aspectPath) {
+      ImmutableList.Builder<Aspect> allFilteredAspects) {
+    int aspectsNum = aspectsPath.size();
+    ArrayList<Aspect> filteredAspectsPath = new ArrayList<>();
+
+    for (int i = aspectsNum - 1; i >= 0; i--) {
+      Aspect aspect = aspectsPath.get(i);
       if (!aspect.getDefinition().propagateViaAttribute().test(config, attributeName)) {
         // This condition is only included to support the migration to platform-based Android
         // toolchain selection. See DexArchiveAspect for details. One that migration is complete,
@@ -737,10 +750,25 @@ public abstract class DependencyResolver {
       }
 
       if (aspect.getDefinition().propagateAlong(attributeName)
-          || aspect.getDescriptor().inheritedPropagateAlong(attributeName)) {
-        filteredAspectPath.add(aspect);
+          || isAspectRequired(aspect, filteredAspectsPath)) {
+        // Add the aspect if it can propagate over this {@code attributeName} based on its
+        // attr_aspects or it is required by an aspect already in the {@code filteredAspectsPath}.
+        filteredAspectsPath.add(aspect);
       }
     }
+    // Reverse filteredAspectsPath to return it to the same order as the input aspectsPath.
+    Collections.reverse(filteredAspectsPath);
+    allFilteredAspects.addAll(filteredAspectsPath);
+  }
+
+  /** Checks if {@code aspect} is required by any aspect in the {@code aspectsPath}. */
+  private static boolean isAspectRequired(Aspect aspect, ArrayList<Aspect> aspectsPath) {
+    for (Aspect existingAspect : aspectsPath) {
+      if (existingAspect.getDefinition().requires(aspect)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Returns the attributes that should be visited for this rule/aspect combination. */
@@ -790,17 +818,24 @@ public abstract class DependencyResolver {
     }
 
     Rule toRule = (Rule) toTarget;
-    ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
+    ArrayList<Aspect> filteredAspectPath = new ArrayList<>();
     AdvertisedProviderSet advertisedProviders =
         toRule.getRuleClassObject().getAdvertisedProviders();
-    for (Aspect aspect : aspects) {
+
+    int aspectsNum = aspects.size();
+    for (int i = aspectsNum - 1; i >= 0; i--) {
+      Aspect aspect = aspects.get(i);
       if (aspect.getDefinition().getRequiredProviders().isSatisfiedBy(advertisedProviders)
-          || aspect.getDescriptor().satisfiesInheritedRequiredProviders(advertisedProviders)) {
+          || isAspectRequired(aspect, filteredAspectPath)) {
+        // Add the aspect if {@code advertisedProviders} satisfy its required providers or it is
+        // required by an aspect already in the {@code filteredAspectPath}.
         filteredAspectPath.add(aspect);
       }
     }
+
+    Collections.reverse(filteredAspectPath);
     try {
-      return AspectCollection.create(filteredAspectPath.build());
+      return AspectCollection.create(filteredAspectPath);
     } catch (AspectCycleOnPathException e) {
       throw new InconsistentAspectOrderException(toTarget, e);
     }

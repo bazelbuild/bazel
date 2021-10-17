@@ -27,12 +27,9 @@ def _objc_import_impl(ctx):
     common_variables = compilation_support.build_common_variables(
         ctx = ctx,
         toolchain = cc_toolchain,
-        use_pch = True,
-        deps = ctx.attr.deps,
         alwayslink = ctx.attr.alwayslink,
         extra_import_libraries = ctx.files.archives,
         empty_compilation_artifacts = True,
-        has_module_map = True,
     )
 
     (cc_compilation_context, _, _) = compilation_support.register_compile_and_archive_actions(
@@ -56,12 +53,10 @@ objc_import = rule(
             ),
         },
         common_attrs.LICENSES,
-        common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.INCLUDE_SCANNING_RULE,
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
-        common_attrs.COPTS_RULE,
-        common_attrs.X_C_RUNE_RULE,
+        common_attrs.XCRUN_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
     toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],

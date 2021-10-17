@@ -508,7 +508,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   private static Artifact.DerivedArtifact createArtifactOutput(
       TestRunnerAction action, PathFragment outputPath) {
     Artifact.DerivedArtifact testLog = (Artifact.DerivedArtifact) action.getTestLog();
-    return new DerivedArtifact(testLog.getRoot(), outputPath, testLog.getArtifactOwner());
+    return DerivedArtifact.create(testLog.getRoot(), outputPath, testLog.getArtifactOwner());
   }
 
   /**

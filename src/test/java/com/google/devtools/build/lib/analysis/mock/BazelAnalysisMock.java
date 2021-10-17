@@ -40,7 +40,6 @@ import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -51,7 +50,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   private BazelAnalysisMock() {}
 
   @Override
-  public List<String> getWorkspaceContents(MockToolsConfig config) {
+  public ImmutableList<String> getWorkspaceContents(MockToolsConfig config) {
     String xcodeWorkspace = config.getPath("local_config_xcode_workspace").getPathString();
     String protobufWorkspace = config.getPath("protobuf_workspace").getPathString();
     String bazelToolWorkspace = config.getPath("embedded_tools").getPathString();
@@ -60,26 +59,37 @@ public final class BazelAnalysisMock extends AnalysisMock {
     String localConfigPlatformWorkspace =
         config.getPath("local_config_platform_workspace").getPathString();
 
-    return new ArrayList<>(
-        ImmutableList.of(
-            "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
-            "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
-            "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
-            "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
-            "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
-            "register_toolchains('@rules_java//java/toolchains/runtime:all')",
-            "register_toolchains('@rules_java//java/toolchains/javac:all')",
-            "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
-            "register_toolchains('@bazel_tools//tools/cpp:all')",
-            "register_toolchains('@bazel_tools//tools/jdk:all')",
-            "register_toolchains('@bazel_tools//tools/android:all')",
-            // Note this path is created inside the test infrastructure in
-            // createAndroidBuildContents() below. It may not reflect a real depot path.
-            "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
-            "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
-            "local_repository(name = 'local_config_platform', path = '"
-                + localConfigPlatformWorkspace
-                + "')"));
+    return ImmutableList.of(
+        "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
+        "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
+        "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
+        "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
+        "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
+        "register_toolchains('@rules_java//java/toolchains/runtime:all')",
+        "register_toolchains('@rules_java//java/toolchains/javac:all')",
+        "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
+        "register_toolchains('@bazel_tools//tools/cpp:all')",
+        "register_toolchains('@bazel_tools//tools/jdk:all')",
+        "register_toolchains('@bazel_tools//tools/android:all')",
+        // Note this path is created inside the test infrastructure in
+        // createAndroidBuildContents() below. It may not reflect a real depot path.
+        "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
+        "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
+        "local_repository(name = 'local_config_platform', path = '"
+            + localConfigPlatformWorkspace
+            + "')");
+  }
+
+  /** Keep this in sync with the WORKSPACE content in {@link #getWorkspaceContents}. */
+  @Override
+  public ImmutableList<String> getWorkspaceRepos() {
+    return ImmutableList.of(
+        "bazel_tools",
+        "com_google_protobuf",
+        "local_config_platform",
+        "local_config_xcode",
+        "platforms",
+        "rules_java");
   }
 
   @Override

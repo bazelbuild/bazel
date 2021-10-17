@@ -57,6 +57,8 @@ in `//tests/BUILD`, but not by targets defined in `//tests/integration/BUILD`.
 As a special case, `package_group` targets themselves do not have a `visibility`
 attribute; they are always publicly visible.
 
+Visibility cannot be set to specific non-package_group targets. That triggers a "Label does not refer to a package group" or "cycle in dependency graph" error.
+
 ## Visibility of a rule target
 
 If a rule target does not set the `visibility` attribute, its visibility is

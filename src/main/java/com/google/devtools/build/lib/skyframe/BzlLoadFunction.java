@@ -24,9 +24,6 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -67,7 +64,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -792,18 +788,16 @@ public class BzlLoadFunction implements SkyFunction {
     Module module = Module.withPredeclared(builtins.starlarkSemantics, predeclared);
     module.setClientData(
         BazelModuleContext.create(
-            key.getLabel(), prog.getFilename(), ImmutableMap.copyOf(loadMap), transitiveDigest));
+            key.getLabel(),
+            repoMapping,
+            prog.getFilename(),
+            ImmutableMap.copyOf(loadMap),
+            transitiveDigest));
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the module.
     executeBzlFile(
-        prog,
-        key.getLabel(),
-        module,
-        loadMap,
-        builtins.starlarkSemantics,
-        env.getListener(),
-        repoMapping);
+        prog, key.getLabel(), module, loadMap, builtins.starlarkSemantics, env.getListener());
     return new BzlLoadValue(module, transitiveDigest);
   }
 
@@ -842,33 +836,18 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
 
-    if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      String canonicalRepoName = enclosingFileLabel.getRepository().strippedName();
-      if (canonicalRepoName.equals("bazel_tools")) {
-        // Special case: we're only here to get the @bazel_tools repo (for example, for
-        // http_archive). This repo shouldn't have visibility into anything else (during repo
-        // generation), so we just return an empty repo mapping.
-        // TODO(wyv): disallow fallback.
-        return RepositoryMapping.ALWAYS_FALLBACK;
-      }
-
-      // Otherwise, we must be trying to load a .bzl file from a repo corresponding to a Bazel
-      // module (repos created by module extensions can't themselves have repo rules or module
-      // extensions), or from the WORKSPACE file. This means that selection has finished running.
-      SelectionValue selectionValue = (SelectionValue) env.getValue(SelectionValue.KEY);
-      Objects.requireNonNull(
-          selectionValue,
-          "Internal error: trying to load a .bzl file for bzlmod before selection has finished");
-      ModuleKey moduleKey = selectionValue.getCanonicalRepoNameLookup().get(canonicalRepoName);
-      Objects.requireNonNull(moduleKey, "Internal error: unknown repo " + canonicalRepoName);
-      return selectionValue
-          .getDepGraph()
-          .get(moduleKey)
-          .getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY);
+    if (key instanceof BzlLoadValue.KeyForBzlmod
+        && enclosingFileLabel.getRepository().strippedName().equals("bazel_tools")) {
+      // Special case: we're only here to get the @bazel_tools repo (for example, for http_archive).
+      // This repo shouldn't have visibility into anything else (during repo generation), so we just
+      // return an empty repo mapping.
+      // TODO(wyv): disallow fallback.
+      return RepositoryMapping.ALWAYS_FALLBACK;
     }
 
-    // We are fully done with workspace evaluation so we should get the mappings from the
-    // final RepositoryMappingValue
+    // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod (in which case the
+    // .bzl file *has* to be from a Bazel module anyway). So we can just use the full repo mapping
+    // from RepositoryMappingFunction.
     PackageIdentifier packageIdentifier = enclosingFileLabel.getPackageIdentifier();
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
@@ -877,6 +856,21 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
     return repositoryMappingValue.getRepositoryMapping();
+  }
+
+  public static void checkValidLoadLabel(Label label, boolean fromBuiltinsRepo)
+      throws LabelSyntaxException {
+    if (!label.getName().endsWith(".bzl")) {
+      throw new LabelSyntaxException("The label must reference a file with extension '.bzl'");
+    }
+    if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
+      throw new LabelSyntaxException(
+          "Starlark files may not be loaded from the //external package");
+    }
+    if (fromBuiltinsRepo && !StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
+      throw new LabelSyntaxException(
+          ".bzl files in @_builtins cannot load from outside of @_builtins");
+    }
   }
 
   /**
@@ -905,18 +899,9 @@ public class BzlLoadFunction implements SkyFunction {
       // It must end in .bzl and not be in package "//external".
       try {
         Label label = buildLabel.getRelativeWithRemapping(load.first, repoMapping);
-        if (!label.getName().endsWith(".bzl")) {
-          throw new LabelSyntaxException("The label must reference a file with extension '.bzl'");
-        }
-        if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-          throw new LabelSyntaxException(
-              "Starlark files may not be loaded from the //external package");
-        }
-        if (StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository())
-            && !StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
-          throw new LabelSyntaxException(
-              ".bzl files in @_builtins cannot load from outside of @_builtins");
-        }
+        checkValidLoadLabel(
+            label,
+            /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()));
         loadLabels.add(label);
       } catch (LabelSyntaxException ex) {
         handler.handle(Event.error(load.second, "in load statement: " + ex.getMessage()));
@@ -1086,17 +1071,14 @@ public class BzlLoadFunction implements SkyFunction {
       Module module,
       Map<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
-      ExtendedEventHandler skyframeEventHandler,
-      RepositoryMapping repositoryMapping)
+      ExtendedEventHandler skyframeEventHandler)
       throws BzlLoadFailedException, InterruptedException {
     try (Mutability mu = Mutability.create("loading", label)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setLoader(loadedModules::get);
       StoredEventHandler starlarkEventHandler = new StoredEventHandler();
       thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
-      packageFactory
-          .getRuleClassProvider()
-          .setStarlarkThreadContext(thread, label, repositoryMapping);
+      packageFactory.getRuleClassProvider().setStarlarkThreadContext(thread, label);
       execAndExport(prog, label, starlarkEventHandler, module, thread);
 
       Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());
@@ -1243,7 +1225,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  static final class BzlLoadFailedException extends Exception implements SaneAnalysisException {
+  /** Indicates a failure to load a .bzl file. */
+  public static final class BzlLoadFailedException extends Exception
+      implements SaneAnalysisException {
     private final Transience transience;
     private final DetailedExitCode detailedExitCode;
 

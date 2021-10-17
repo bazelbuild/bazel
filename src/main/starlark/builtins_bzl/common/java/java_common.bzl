@@ -25,12 +25,19 @@ coverage_common = _builtins.toplevel.coverage_common
 def _filter_srcs(srcs, ext):
     return [f for f in srcs if f.extension == ext]
 
-def _base_common_impl(ctx, extra_resources, output_prefix):
+def _base_common_impl(ctx, extra_resources, output_prefix, enable_compile_jar_action = True):
     srcs = ctx.files.srcs
     source_files = _filter_srcs(srcs, "java")
     source_jars = _filter_srcs(srcs, "srcjar")
 
-    java_info, default_info, compilation_info = COMPILE_ACTION.call(ctx, extra_resources, source_files, source_jars, output_prefix)
+    java_info, default_info, compilation_info = COMPILE_ACTION.call(
+        ctx,
+        extra_resources,
+        source_files,
+        source_jars,
+        output_prefix,
+        enable_compile_jar_action,
+    )
     output_groups = dict(
         compilation_outputs = compilation_info.outputs,
         _source_jars = java_info.transitive_source_jars,

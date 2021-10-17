@@ -36,13 +36,13 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    // TODO(b/195425240): Silently unsupported.
+    // TODO(b/195425240): Make real-filesystem mode work.
     return "";
   }
 
   @Override
   protected String[] getRealFilesystemTools(String crosstoolTop) {
-    // TODO(b/195425240): Silently unsupported.
+    // TODO(b/195425240): Make real-filesystem mode work.
     return new String[0];
   }
 
@@ -73,5 +73,11 @@ public final class BazelMockCcSupport extends MockCcSupport {
   @Override
   public Predicate<String> labelNameFilter() {
     return BazelMockCcSupport::isNotCcLabel;
+  }
+
+  @Override
+  protected boolean shouldUseRealFileSystemCrosstool() {
+    // TODO(b/195425240): Workaround for lack of real-filesystem support.
+    return false;
   }
 }

@@ -173,10 +173,18 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     }
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
         topLevelTargetsWithConfigs.stream()
-            .map(TargetAndConfiguration::getConfiguredTargetKey)
+            .map(PrepareAnalysisPhaseFunction::getConfiguredTargetKey)
             .collect(ImmutableList.toImmutableList());
     return new PrepareAnalysisPhaseValue(
         hostConfigurationKey, targetConfigurationKeys, topLevelCtKeys);
+  }
+
+  private static ConfiguredTargetKey getConfiguredTargetKey(
+      TargetAndConfiguration targetAndConfiguration) {
+    return ConfiguredTargetKey.builder()
+        .setLabel(targetAndConfiguration.getLabel())
+        .setConfiguration(targetAndConfiguration.getConfiguration())
+        .build();
   }
 
   /**
@@ -248,7 +256,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       throws InterruptedException, TransitionException, OptionsParsingException {
     Multimap<DependencyKey, BuildConfiguration> builder = ArrayListMultimap.create();
 
-    FragmentClassSet allFragments = ruleClassProvider.getAllFragments();
+    FragmentClassSet allFragments = ruleClassProvider.getFragmentRegistry().getAllFragments();
 
     // Now get the configurations.
     PathFragment platformMappingPath = fromOptions.get(PlatformOptions.class).platformMappings;

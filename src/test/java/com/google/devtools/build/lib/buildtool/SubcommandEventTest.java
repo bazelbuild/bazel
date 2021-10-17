@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayOutputStream;
@@ -44,13 +42,6 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
     AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
 
     addOptions("--spawn_strategy=standalone");
-  }
-
-  @Override
-  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    BlazeRuntime.Builder builder = super.getRuntimeBuilder();
-    builder.addBlazeModule(new NoSpawnCacheModule());
-    return builder;
   }
 
   @Test

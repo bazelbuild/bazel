@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -402,6 +403,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       builder.addExecGroups(execGroupDict);
     }
+    if (test && !builder.hasExecGroup(TEST_RUNNER_EXEC_GROUP)) {
+      builder.addExecGroup(TEST_RUNNER_EXEC_GROUP);
+    }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw Starlark.errorf(
@@ -460,8 +464,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
-    if (compileOneFiletype instanceof String) {
-      builder.setPreferredDependencyPredicate(FileType.of((String) compileOneFiletype));
+    if (compileOneFiletype instanceof Sequence) {
+      if (!bzlModule.label().getRepository().getName().equals("@_builtins")) {
+        throw Starlark.errorf(
+            "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
+      }
+      ImmutableList<String> filesTypes =
+          Sequence.cast(compileOneFiletype, String.class, "compile_one_filetype")
+              .getImmutableList();
+      builder.setPreferredDependencyPredicate(FileType.of(filesTypes));
     }
 
     StarlarkRuleFunction starlarkRuleFunction =
@@ -546,10 +557,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
     BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     LabelConversionContext context =
         new LabelConversionContext(
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-            bazelStarlarkContext.getRepoMapping(),
+            moduleContext.label(),
+            moduleContext.repoMapping(),
             bazelStarlarkContext.getConvertedLabelsInPackage());
     for (String input : inputs) {
       try {
@@ -946,35 +959,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException {
-    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
-
+  public Label label(String labelString, StarlarkThread thread) throws EvalException {
     // This function is surprisingly complex.
     //
-    // Doc:
-    // "When relative_to_caller_repository is True and the calling thread is a
-    // rule's implementation function, then a repo-relative label //foo:bar is
-    // resolved relative to the rule's repository. For calls to Label from any
-    // other thread, or calls in which the relative_to_caller_repository flag is
-    // False, a repo-relative label is resolved relative to the file in which the
-    // Label() call appears.)"
-    //
-    // - The "and" conjunction in first line of the doc above doesn't match the code.
-    //   There are three cases to consider, not two, as parentLabel can be null or
-    //   in the relativeToCallerRepository branch.
-    //   Thus in a loading phase thread with relativeToCallerRepository=True,
-    //   the repo mapping is (I suspect) erroneously skipped.
-    //   TODO(adonovan): verify, and file a doc bug if so.
-    //
-    // - The deprecated relative_to_caller_repository semantics can be explained
-    //   as thread-local state, something we've embraced elsewhere in the build language.
-    //   (For example, in the loading phase, calling cc_binary creates a rule in the
-    //   package associated with the calling thread.)
-    //
-    //   By contrast, the default relative_to_caller_repository=False semantics
-    //   are more magical, using dynamic scope: introspection on the call stack.
-    //   This is an obstacle to removing GlobalFrame.
+    // - The logic to find the "current repo" is rather magical, using dynamic scope:
+    //   introspection on the call stack. This is an obstacle to removing GlobalFrame.
     //
     //   An alternative way to implement that would be to say that each BUILD/.bzl file
     //   has its own function value called Label that is a closure over the current
@@ -995,26 +984,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     //   and cache without needing four allocations (parseAbsoluteLabel,
     //   getRelativeWithRemapping, getUnambiguousCanonicalForm, parseAbsoluteLabel
     //   in labelCache)
-
-    Label parentLabel;
-    if (relativeToCallerRepository) {
-      // This is the label of the rule, if this is an analysis-phase
-      // rule or aspect implementation thread, or null otherwise.
-      parentLabel = context.getAnalysisRuleLabel();
-    } else {
-      // This is the label of the innermost BUILD/.bzl file on the current call stack.
-      parentLabel =
-          BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
-    }
-
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      if (parentLabel != null) {
-        LabelValidator.parseAbsoluteLabel(labelString);
-        labelString =
-            parentLabel
-                .getRelativeWithRemapping(labelString, context.getRepoMapping())
-                .getUnambiguousCanonicalForm();
-      }
+      LabelValidator.parseAbsoluteLabel(labelString);
+      labelString =
+          moduleContext
+              .label()
+              .getRelativeWithRemapping(labelString, moduleContext.repoMapping())
+              .getUnambiguousCanonicalForm();
       return labelCache.get(labelString);
     } catch (LabelValidator.BadLabelException | LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);

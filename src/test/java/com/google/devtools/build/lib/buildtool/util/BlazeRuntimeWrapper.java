@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -75,8 +76,10 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -97,7 +100,8 @@ public class BlazeRuntimeWrapper {
   private ImmutableSet<ConfiguredTarget> topLevelTargets;
 
   private OptionsParser optionsParser;
-  private ImmutableList.Builder<String> optionsToParse = new ImmutableList.Builder<>();
+  private final List<String> optionsToParse = new ArrayList<>();
+  private final Map<String, Object> starlarkOptions = new HashMap<>();
   private final List<Class<? extends OptionsBase>> additionalOptionsClasses = new ArrayList<>();
   private final List<String> crashMessages = new ArrayList<>();
 
@@ -174,7 +178,7 @@ public class BlazeRuntimeWrapper {
       Iterables.addAll(
           options, module.getCommandOptions(DummyBuildCommand.class.getAnnotation(Command.class)));
     }
-    options.addAll(runtime.getRuleClassProvider().getConfigurationOptions());
+    options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
     return OptionsParser.builder().optionsClasses(options).build();
   }
 
@@ -225,6 +229,7 @@ public class BlazeRuntimeWrapper {
     checkNotNull(
         optionsParser,
         "The options parser must be initialized before creating a new command environment");
+    optionsParser.setStarlarkOptions(starlarkOptions);
 
     env =
         runtime
@@ -253,7 +258,8 @@ public class BlazeRuntimeWrapper {
   }
 
   public void resetOptions() {
-    optionsToParse = new ImmutableList.Builder<>();
+    optionsToParse.clear();
+    starlarkOptions.clear();
   }
 
   public void addOptions(String... args) {
@@ -264,8 +270,12 @@ public class BlazeRuntimeWrapper {
     optionsToParse.addAll(args);
   }
 
+  public void addStarlarkOption(String label, Object value) {
+    starlarkOptions.put(Label.parseAbsoluteUnchecked(label).getCanonicalForm(), value);
+  }
+
   public ImmutableList<String> getOptions() {
-    return optionsToParse.build();
+    return ImmutableList.copyOf(optionsToParse);
   }
 
   public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
@@ -285,7 +295,7 @@ public class BlazeRuntimeWrapper {
   public void initializeOptionsParser() throws OptionsParsingException {
     // Create the options parser and parse all the options collected so far
     optionsParser = createOptionsParser();
-    optionsParser.parse(optionsToParse.build());
+    optionsParser.parse(optionsToParse);
     // Enforce the test invocation policy once the options have been added
     enforceTestInvocationPolicy(optionsParser);
   }
@@ -309,7 +319,6 @@ public class BlazeRuntimeWrapper {
               /*recordAllDurations=*/ false,
               new JavaClock(),
               /*execStartTimeNanos=*/ 42,
-              /*enabledCpuUsageProfiling=*/ false,
               /*slimProfile=*/ false,
               /*includePrimaryOutput=*/ false,
               /*includeTargetLabel=*/ false,

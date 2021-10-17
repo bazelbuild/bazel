@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.common.options.Converter;
@@ -31,7 +30,6 @@ import java.util.Objects;
  * Models options that can be added to a command line when a label matches a given {@link
  * RegexFilter}.
  */
-@AutoCodec
 public class PerLabelOptions implements Serializable {
   /** The filter used to match labels */
   private final RegexFilter regexFilter;

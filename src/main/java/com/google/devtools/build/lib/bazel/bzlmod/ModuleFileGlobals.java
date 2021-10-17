@@ -50,13 +50,17 @@ import net.starlark.java.syntax.Location;
 @DocumentMethods
 public class ModuleFileGlobals {
   private boolean moduleCalled = false;
-  private final Module.Builder module = Module.builder();
+  private final boolean ignoreDevDeps;
+  private final Module.Builder module;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionProxy> extensionProxies = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
-  public ModuleFileGlobals() {}
+  public ModuleFileGlobals(ModuleKey key, @Nullable Registry registry, boolean ignoreDevDeps) {
+    module = Module.builder().setKey(key).setRegistry(registry);
+    this.ignoreDevDeps = ignoreDevDeps;
+  }
 
   @AutoValue
   abstract static class RepoNameUsage {
@@ -175,6 +179,20 @@ public class ModuleFileGlobals {
     addRepoNameUsage(name, "as the current module name", thread.getCallerLocation());
   }
 
+  private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)
+      throws EvalException {
+    Sequence<String> list = Sequence.cast(iterable, String.class, where);
+    for (String item : list) {
+      if (!item.startsWith("//") && !item.startsWith("@")) {
+        throw Starlark.errorf(
+            "Expected absolute target patterns (must begin with '//' or '@') for '%s' argument, but"
+                + " got '%s' as an argument",
+            where, item);
+      }
+    }
+    return list.getImmutableList();
+  }
+
   @StarlarkMethod(
       name = "bazel_dep",
       doc = "Declares a direct dependency on another Bazel module.",
@@ -197,9 +215,18 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "''"),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this dependency will be ignored if the current module is not the root"
+                    + " module or `--ignore_dev_dependency` is enabled.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
-  public void bazelDep(String name, String version, String repoName, StarlarkThread thread)
+  public void bazelDep(
+      String name, String version, String repoName, boolean devDependency, StarlarkThread thread)
       throws EvalException {
     if (repoName.isEmpty()) {
       repoName = name;
@@ -211,7 +238,11 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
-    deps.put(repoName, ModuleKey.create(name, parsedVersion));
+
+    if (!(ignoreDevDeps && devDependency)) {
+      deps.put(repoName, ModuleKey.create(name, parsedVersion));
+    }
+
     addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
   }
 
@@ -229,10 +260,19 @@ public class ModuleFileGlobals {
             doc =
                 "The name of the module extension to use. A symbol with this name must be exported"
                     + " by the Starlark file."),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this usage of the module extension will be ignored if the current module"
+                    + " is not the root module or `--ignore_dev_dependency` is enabled.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
-      String extensionBzlFile, String extensionName, StarlarkThread thread) throws EvalException {
+      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread)
+      throws EvalException {
     for (ModuleExtensionProxy proxy : extensionProxies) {
       if (proxy.extensionBzlFile.equals(extensionBzlFile)
           && proxy.extensionName.equals(extensionName)) {
@@ -241,7 +281,11 @@ public class ModuleFileGlobals {
     }
     ModuleExtensionProxy proxy =
         new ModuleExtensionProxy(extensionBzlFile, extensionName, thread.getCallerLocation());
-    extensionProxies.add(proxy);
+
+    if (!(ignoreDevDeps && devDependency)) {
+      extensionProxies.add(proxy);
+    }
+
     return proxy;
   }
 
@@ -376,20 +420,6 @@ public class ModuleFileGlobals {
     }
 
     return result.build();
-  }
-
-  private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)
-      throws EvalException {
-    ImmutableList<String> list = checkAllStrings(iterable, where);
-    for (String item : list) {
-      if (!item.startsWith("//") && !item.startsWith("@")) {
-        throw Starlark.errorf(
-            "Expected absolute target patterns (must begin with '//' or '@') for '%s' argument, but"
-                + " got '%s' in the sequence",
-            where, item);
-      }
-    }
-    return list;
   }
 
   @StarlarkMethod(
@@ -661,10 +691,9 @@ public class ModuleFileGlobals {
     addOverride(moduleName, LocalPathOverride.create(path));
   }
 
-  public Module buildModule(Registry registry) {
+  public Module buildModule() {
     return module
         .setDeps(ImmutableMap.copyOf(deps))
-        .setRegistry(registry)
         .setExtensionUsages(
             extensionProxies.stream()
                 .map(ModuleExtensionProxy::buildUsage)

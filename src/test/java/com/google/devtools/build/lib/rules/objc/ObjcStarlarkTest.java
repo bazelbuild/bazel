@@ -344,8 +344,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def swift_binary_impl(ctx):",
         "   xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]",
-        "   cpu = ctx.fragments.apple.ios_cpu()",
-        "   platform = ctx.fragments.apple.ios_cpu_platform()",
+        "   cpu = ctx.fragments.apple.single_arch_cpu",
+        "   platform = ctx.fragments.apple.single_arch_platform",
         "   xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]",
         "   dead_code_report = ctx.attr._dead_code_report",
         "   env = apple_common.target_apple_env(xcode_config, platform)",
@@ -529,7 +529,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "examples/rule/apple_rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _test_rule_impl(ctx):",
-        "   platform = ctx.fragments.apple.ios_cpu_platform()",
+        "   platform = ctx.fragments.apple.single_arch_platform",
         "   return MyInfo(",
         "      name=platform.name_in_plist,",
         "   )",
@@ -546,7 +546,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   name='my_target',",
         ")");
 
-    useConfiguration("--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386", "--apple_platform_type=ios");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
 
     Object name = getMyInfoFromTarget(starlarkTarget).getValue("name");

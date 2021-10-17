@@ -1379,9 +1379,11 @@ public abstract class AbstractQueryTest<T> {
         "Fileset(name='x',",
         "        entries=[FilesetEntry(files=['a'])],",
         "        out='y')");
-    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)");
-    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
-    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
+    assertEqualsFiltered("//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)");
+    assertEqualsFiltered(
+        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
+    assertEqualsFiltered(
+        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
   }
 
   @Test

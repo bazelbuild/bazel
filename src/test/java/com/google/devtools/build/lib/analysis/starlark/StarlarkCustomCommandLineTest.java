@@ -205,7 +205,7 @@ public class StarlarkCustomCommandLineTest {
   }
 
   private SpecialArtifact createSpecialArtifact(String relativePath, SpecialArtifactType type) {
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(relativePath),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,

@@ -1020,8 +1020,10 @@ public interface CcModuleApi<
         @Param(
             name = "host_system_name",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The system name which is required by the toolchain to run."),
+            doc = "Ignored."),
         @Param(
             name = "target_system_name",
             positional = false,
@@ -1096,7 +1098,7 @@ public interface CcModuleApi<
       Sequence<?> artifactNamePatterns, // <StructApi> expected
       Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
-      String hostSystemName,
+      Object hostSystemName,
       String targetSystemName,
       String targetCpu,
       String targetLibc,
@@ -1301,4 +1303,65 @@ public interface CcModuleApi<
   CompilationContextT mergeCompilationContexts(
       Sequence<?> compilationContexts) // <CcCompilationContextApi> expected
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_build_info",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            doc = "The rule context",
+            allowedTypes = @ParamType(type = StarlarkRuleContextApi.class))
+      },
+      useStarlarkThread = true)
+  Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @StarlarkMethod(name = "launcher_provider", documented = false, useStarlarkThread = true)
+  ProviderApi getCcLauncherInfoProvider(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "strip",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            doc = "The rule context",
+            allowedTypes = @ParamType(type = StarlarkRuleContextApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "toolchain",
+            doc = "The cc toolchain",
+            allowedTypes = @ParamType(type = CcToolchainProviderApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "input",
+            doc = "The input artifact to strip",
+            allowedTypes = @ParamType(type = FileApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "output",
+            doc = "The stripped output artifact",
+            allowedTypes = @ParamType(type = FileApi.class),
+            named = true,
+            positional = false),
+        @Param(
+            name = "feature_configuration",
+            doc = "The set of enabled features and action configs",
+            allowedTypes = @ParamType(type = FeatureConfigurationApi.class),
+            named = true,
+            positional = false),
+      },
+      useStarlarkThread = true)
+  void createStripAction(
+      StarlarkRuleContextT ctx,
+      CcToolchainProviderT toolchain,
+      FileT input,
+      FileT output,
+      FeatureConfigurationT featureConfig,
+      StarlarkThread thread)
+      throws Exception;
 }

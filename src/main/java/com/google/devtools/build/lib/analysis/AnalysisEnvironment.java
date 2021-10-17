@@ -147,7 +147,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * Returns the options that affect the Starlark interpreter used for evaluating Starlark rule
    * implementation functions.
    */
-  StarlarkSemantics getStarlarkSemantics() throws InterruptedException;
+  StarlarkSemantics getStarlarkSemantics();
 
   /**
    * Returns the {@code exported_to_java} map defined by the Starlark {@code @_builtins}

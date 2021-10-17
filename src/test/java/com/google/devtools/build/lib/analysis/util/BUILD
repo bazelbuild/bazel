@@ -25,12 +25,7 @@ java_library(
 
 java_library(
     name = "util_internal",
-    srcs = glob(
-        [
-            "*.java",
-        ],
-        exclude = ["DefaultBuildOptionsForTesting.java"],
-    ),
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
@@ -70,7 +65,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis:package_specification_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
@@ -86,6 +80,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android",
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -102,7 +97,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
@@ -141,15 +136,5 @@ java_library(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-java_library(
-    name = "test-build-options",
-    srcs = ["DefaultBuildOptionsForTesting.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/common/options",
     ],
 )

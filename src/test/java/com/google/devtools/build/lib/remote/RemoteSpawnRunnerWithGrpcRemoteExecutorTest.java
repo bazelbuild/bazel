@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.GrpcCacheClient.getResourceName;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -53,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -67,6 +69,7 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
@@ -123,6 +126,7 @@ import org.mockito.stubbing.Answer;
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
+  private final Reporter reporter = new Reporter(new EventBus());
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
@@ -298,6 +302,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
+            directExecutor(),
+            reporter,
+            /*verboseFailures=*/ true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
@@ -306,7 +313,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteOptions,
             remoteCache,
             executor,
-            /* filesToDownload= */ ImmutableSet.of(),
+            ImmutableSet.of(),
             /* captureCorruptedOutputsDir= */ null);
     client =
         new RemoteSpawnRunner(

@@ -81,12 +81,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ j2objcLibrary();
 
   @StarlarkMethod(
-      name = "jre_library",
-      structField = true,
-      doc = "J2ObjC JRE emulation libraries and their dependencies.")
-  Depset /*<FileApiT>*/ jreLibrary();
-
-  @StarlarkMethod(
       name = "library",
       structField = true,
       doc = "Library (.a) files compiled by dependencies of the current target.")

@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -76,7 +77,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -205,15 +205,16 @@ public final class SkyframeActionExecutor {
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
-  private ProgressSupplier progressSupplier;
-  private ActionCompletedReceiver completionReceiver;
+  @Nullable private ProgressSupplier progressSupplier;
+
+  @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
-  private NestedSetExpander nestedSetExpander;
+  private DiscoveredModulesPruner discoveredModulesPruner;
   private final PathFragment relativeOutputPath;
 
   SkyframeActionExecutor(
@@ -250,7 +251,9 @@ public final class SkyframeActionExecutor {
 
       @Override
       public void actionCompleted() {
-        completionReceiver.actionCompleted(actionLookupData);
+        if (completionReceiver != null) {
+          completionReceiver.actionCompleted(actionLookupData);
+        }
       }
     };
   }
@@ -417,7 +420,9 @@ public final class SkyframeActionExecutor {
   }
 
   void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
-    this.completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
+    if (completionReceiver != null) {
+      completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
+    }
   }
 
   /**
@@ -554,7 +559,7 @@ public final class SkyframeActionExecutor {
         artifactExpander,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander,
+        discoveredModulesPruner,
         syscalls.get(),
         threadStateReceiverFactory.apply(actionLookupData));
   }
@@ -757,7 +762,7 @@ public final class SkyframeActionExecutor {
             clientEnv,
             env,
             actionFileSystem,
-            nestedSetExpander,
+            discoveredModulesPruner,
             syscalls.get(),
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
@@ -854,10 +859,10 @@ public final class SkyframeActionExecutor {
   public void configure(
       MetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
-      NestedSetExpander nestedSetExpander) {
+      DiscoveredModulesPruner discoveredModulesPruner) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
-    this.nestedSetExpander = nestedSetExpander;
+    this.discoveredModulesPruner = discoveredModulesPruner;
   }
 
   /**
@@ -913,7 +918,7 @@ public final class SkyframeActionExecutor {
     private final long actionStartTime;
     private final ActionExecutionContext actionExecutionContext;
     private final ActionLookupData actionLookupData;
-    private final ActionExecutionStatusReporter statusReporter;
+    @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
 
     ActionRunner(
@@ -972,7 +977,9 @@ public final class SkyframeActionExecutor {
           // that they can be reposted when rewinding and simplify this code path. Maybe also keep
           // track of the rewind attempt, so that listeners can use that to adjust their behavior.
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
-          statusReporter.updateStatus(event);
+          if (statusReporter != null) {
+            statusReporter.updateStatus(event);
+          }
           env.getListener().post(event);
           if (!actionFileSystemType().inMemoryFileSystem()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
@@ -1041,7 +1048,9 @@ public final class SkyframeActionExecutor {
 
     private void notifyActionCompletion(
         ExtendedEventHandler eventHandler, boolean postActionCompletionEvent) {
-      statusReporter.remove(action);
+      if (statusReporter != null) {
+        statusReporter.remove(action);
+      }
       if (postActionCompletionEvent) {
         eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
       }
@@ -1050,7 +1059,9 @@ public final class SkyframeActionExecutor {
         // Tell the receiver that the action has completed *before* telling the reporter.
         // This way the latter will correctly show the number of completed actions when task
         // completion messages are enabled (--show_task_finish).
-        completionReceiver.actionCompleted(actionLookupData);
+        if (completionReceiver != null) {
+          completionReceiver.actionCompleted(actionLookupData);
+        }
         reporter.finishTask(null, prependExecPhaseStats(message));
       }
     }
@@ -1337,9 +1348,15 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  /**
+   * Returns a progress message like:
+   *
+   * <p>[2608/6445] Compiling foo/bar.cc [host]
+   */
   private String prependExecPhaseStats(String message) {
-    // Prints a progress message like:
-    //   [2608/6445] Compiling foo/bar.cc [host]
+    if (progressSupplier == null) {
+      return "";
+    }
     return progressSupplier.getProgressString() + " " + message;
   }
 

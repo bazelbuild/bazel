@@ -57,7 +57,7 @@ public final class LinuxSandboxUtil {
   public static class CommandLineBuilder {
     private final Path linuxSandboxPath;
     private final List<String> commandArguments;
-
+    private Path hermeticSandboxPath;
     private Path workingDirectory;
     private Duration timeout;
     private Duration killDelay;
@@ -77,6 +77,15 @@ public final class LinuxSandboxUtil {
     private CommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
       this.linuxSandboxPath = linuxSandboxPath;
       this.commandArguments = commandArguments;
+    }
+
+    /**
+     * Sets the sandbox path to chroot to, required for the hermetic linux sandbox to figure out
+     * where the working directory is.
+     */
+    public CommandLineBuilder setHermeticSandboxPath(Path sandboxPath) {
+      this.hermeticSandboxPath = sandboxPath;
+      return this;
     }
 
     /** Sets the working directory to use, if any. */
@@ -220,6 +229,9 @@ public final class LinuxSandboxUtil {
       }
       if (statisticsPath != null) {
         commandLineBuilder.add("-S", statisticsPath.getPathString());
+      }
+      if (hermeticSandboxPath != null) {
+        commandLineBuilder.add("-h", hermeticSandboxPath.getPathString());
       }
       if (useFakeHostname) {
         commandLineBuilder.add("-H");

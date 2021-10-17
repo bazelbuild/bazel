@@ -366,7 +366,6 @@ public final class Profiler {
       boolean recordAllDurations,
       Clock clock,
       long execStartTimeNanos,
-      boolean enabledCpuUsageProfiling,
       boolean slimProfile,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
@@ -389,7 +388,7 @@ public final class Profiler {
         TASK_COUNT < 256,
         "The profiler implementation supports only up to 255 different ProfilerTask values.");
 
-    // reset state for the new profiling session
+    // Reset state for the new profiling session.
     taskId.set(0);
     this.recordAllDurations = recordAllDurations;
     FileWriter writer = null;
@@ -421,15 +420,14 @@ public final class Profiler {
     }
     this.writerRef.set(writer);
 
-    // activate profiler
+    // Activate profiler.
     profileStartTime = execStartTimeNanos;
     profileCpuStartTime = getProcessCpuTime();
 
-    if (enabledCpuUsageProfiling) {
-      cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
-      cpuUsageThread.setDaemon(true);
-      cpuUsageThread.start();
-    }
+    // Start collecting Bazel and system-wide CPU metric collection.
+    cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
+    cpuUsageThread.setDaemon(true);
+    cpuUsageThread.start();
   }
 
   /**
@@ -1102,7 +1100,9 @@ public final class Profiler {
 
             if (data.type == ProfilerTask.LOCAL_CPU_USAGE
                 || data.type == ProfilerTask.LOCAL_MEMORY_USAGE
-                || data.type == ProfilerTask.ACTION_COUNTS) {
+                || data.type == ProfilerTask.ACTION_COUNTS
+                || data.type == ProfilerTask.SYSTEM_CPU_USAGE
+                || data.type == ProfilerTask.SYSTEM_MEMORY_USAGE) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
               if ("0.0".equals(data.description)) {
                 continue;
@@ -1112,8 +1112,26 @@ public final class Profiler {
               writer.setIndent("");
               writer.name("name").value(data.type.description);
               if (data.type == ProfilerTask.LOCAL_MEMORY_USAGE) {
-                // Make this more distinct in comparison to other counter colors.
                 writer.name("cname").value("olive");
+              }
+
+              // Pick acceptable counter colors manually, unfortunately we have to pick from these
+              // weird reserved names.
+              switch (data.type) {
+                case LOCAL_CPU_USAGE:
+                  writer.name("cname").value("good");
+                  break;
+                case LOCAL_MEMORY_USAGE:
+                  writer.name("cname").value("olive");
+                  break;
+                case SYSTEM_CPU_USAGE:
+                  writer.name("cname").value("rail_load");
+                  break;
+                case SYSTEM_MEMORY_USAGE:
+                  writer.name("cname").value("bad");
+                  break;
+                default:
+                  // won't happen
               }
               writer.name("ph").value("C");
               writer
@@ -1134,6 +1152,12 @@ public final class Profiler {
                   break;
                 case ACTION_COUNTS:
                   writer.name("action").value(data.description);
+                  break;
+                case SYSTEM_CPU_USAGE:
+                  writer.name("system cpu").value(data.description);
+                  break;
+                case SYSTEM_MEMORY_USAGE:
+                  writer.name("system memory").value(data.description);
                   break;
                 default:
                   // won't happen

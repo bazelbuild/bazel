@@ -50,10 +50,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil.DummyWorkspaceStatusActionContext;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
+import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -78,28 +75,24 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.sandbox.SandboxModule;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
@@ -110,6 +103,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -119,6 +113,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
@@ -126,9 +121,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
@@ -286,7 +281,15 @@ public abstract class BuildIntegrationTestCase {
       throw new RuntimeException(subscriberException.getException());
     }
     LoggingUtil.installRemoteLoggerForTesting(null);
-    testRoot.deleteTreesBelow(); // (comment out during debugging)
+    try {
+      testRoot.deleteTreesBelow(); // (comment out during debugging)
+    } catch (IOException e) {
+      // Ignore any IO failures on Windows when deleting the test root during clean up, because
+      // the Bazel runtime still holds the file handle of windows_jni.dll.
+      if (OS.getCurrent() != OS.WINDOWS) {
+        throw e;
+      }
+    }
     // Make sure that a test which crashes with on a bug report does not taint following ones with
     // an unprocessed exception stored statically in BugReport.
     BugReport.maybePropagateUnprocessedThrowableIfInTest();
@@ -417,26 +420,6 @@ public abstract class BuildIntegrationTestCase {
   private static BlazeModule getMockBazelRepositoryModule() {
     return new BlazeModule() {
       @Override
-      public void workspaceInit(
-          BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-        ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
-            new ImmutableMap.Builder<String, RepositoryFunction>()
-                .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-                .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-                .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
-        builder.addSkyFunction(
-            SkyFunctions.REPOSITORY_DIRECTORY,
-            new RepositoryDelegatorFunction(
-                repositoryHandlers.build(),
-                null,
-                new AtomicBoolean(true),
-                ImmutableMap::of,
-                directories,
-                ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
-                BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-      }
-
-      @Override
       public ImmutableList<Injected> getPrecomputedValues() {
         ImmutableList.Builder<Injected> builder = ImmutableList.builder();
         return builder
@@ -484,6 +467,14 @@ public abstract class BuildIntegrationTestCase {
     if ("blaze".equals(TestConstants.PRODUCT_NAME)) {
       // include scanning isn't supported in bazel
       builder.addBlazeModule(new IncludeScanningModule());
+
+    } else {
+      // Add in modules implicitly added in internal integration test case.
+      builder
+          .addBlazeModule(new NoSpawnCacheModule())
+          .addBlazeModule(new WorkerModule())
+          .addBlazeModule(new SandboxModule())
+          .addBlazeModule(new BazelRepositoryModule());
     }
     return builder;
   }
@@ -524,6 +515,14 @@ public abstract class BuildIntegrationTestCase {
 
   protected void addOptions(String... args) {
     runtimeWrapper.addOptions(args);
+  }
+
+  protected void addOptions(List<String> args) {
+    runtimeWrapper.addOptions(args);
+  }
+
+  protected void addStarlarkOption(String label, Object value) {
+    runtimeWrapper.addStarlarkOption(label, value);
   }
 
   protected OptionsParser createOptionsParser() {
@@ -625,11 +624,9 @@ public abstract class BuildIntegrationTestCase {
       return baseConfiguration;
     }
     Set<BuildConfiguration> topLevelTargetConfigurations =
-        result
-            .getActualTargets()
-            .stream()
-            .map((ct) -> getConfiguration(ct))
-            .filter((config) -> config != null)
+        result.getActualTargets().stream()
+            .map(this::getConfiguration)
+            .filter(Objects::nonNull)
             .collect(toImmutableSet());
     if (topLevelTargetConfigurations.size() != 1) {
       return baseConfiguration;
@@ -752,7 +749,7 @@ public abstract class BuildIntegrationTestCase {
    * @throws IOException if the file could not be written.
    */
   public Path write(String relativePath, String... lines) throws IOException {
-    Path path = getWorkspace().getRelative(relativePath);
+    Path path = workspace.getRelative(relativePath);
     return writeAbsolute(path, lines);
   }
 
@@ -769,7 +766,7 @@ public abstract class BuildIntegrationTestCase {
    * {@code relativeLinkPath} (equivalent to {@code ln -s <target> <relativeLinkPath>}).
    */
   protected Path createSymlink(String target, String relativeLinkPath) throws IOException {
-    Path path = getWorkspace().getRelative(relativeLinkPath);
+    Path path = workspace.getRelative(relativeLinkPath);
     path.getParentDirectory().createDirectoryAndParents();
     path.createSymbolicLink(PathFragment.create(target));
     return path;

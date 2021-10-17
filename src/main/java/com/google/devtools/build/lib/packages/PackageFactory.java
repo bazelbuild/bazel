@@ -661,7 +661,6 @@ public final class PackageFactory {
               BazelStarlarkContext.Phase.LOADING,
               ruleClassProvider.getToolsRepository(),
               /*fragmentNameToClass=*/ null,
-              pkgBuilder.getRepositoryMapping(),
               pkgBuilder.getConvertedLabelsInPackage(),
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
               /*analysisRuleLabel=*/ null,

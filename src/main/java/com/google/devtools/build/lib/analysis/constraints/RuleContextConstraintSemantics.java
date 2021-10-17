@@ -1001,10 +1001,11 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     if (targetsResponsibleForIncompatibility != null) {
       builder.addNativeDeclaredProvider(
           IncompatiblePlatformProvider.incompatibleDueToTargets(
-              targetsResponsibleForIncompatibility));
+              ruleContext.targetPlatform(), targetsResponsibleForIncompatibility));
     } else if (violatedConstraints != null) {
       builder.addNativeDeclaredProvider(
-          IncompatiblePlatformProvider.incompatibleDueToConstraints(violatedConstraints));
+          IncompatiblePlatformProvider.incompatibleDueToConstraints(
+              ruleContext.targetPlatform(), violatedConstraints));
     } else {
       throw new IllegalArgumentException(
           "Both violatedConstraints and targetsResponsibleForIncompatibility are null");

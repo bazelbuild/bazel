@@ -42,8 +42,8 @@ public class FileContentsProxyTest {
 
     InjectedStat(long ctime, long nodeId) {
       this.ctime = ctime;
+      this.mtime = ctime;
       this.nodeId = nodeId;
-      this.mtime = 0;
       this.size = 0;
     }
 
@@ -108,6 +108,6 @@ public class FileContentsProxyTest {
     Fingerprint fingerprint = new Fingerprint();
     p1.addToFingerprint(fingerprint);
     assertThat(fingerprint.digestAndReset())
-        .isEqualTo(new Fingerprint().addLong(2L).addLong(4L).digestAndReset());
+        .isEqualTo(new Fingerprint().addLong(2L).addLong(1L).addLong(4L).digestAndReset());
   }
 }

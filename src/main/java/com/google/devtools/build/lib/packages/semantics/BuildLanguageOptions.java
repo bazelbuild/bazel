@@ -156,6 +156,17 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleEnableExportsProvider;
 
   @Option(
+      name = "incompatible_existing_rules_immutable_view",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, native.existing_rule and native.existing_rules return lightweight"
+              + " immutable view objects instead of mutable dicts.")
+  public boolean incompatibleExistingRulesImmutableView;
+
+  @Option(
       name = "experimental_google_legacy_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -313,7 +324,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_disable_depset_items",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -404,11 +415,10 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   @Option(
       name = "incompatible_applicable_licenses",
       defaultValue = "false",
-      // TODO(aiuto): change to OptionDocumentationCategory.STARLARK_SEMANTICS,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, enables the function `attr.applicable_licenses`.")
+      help = "No-op")
   public boolean incompatibleApplicableLicenses;
 
   @Option(
@@ -506,12 +516,12 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_java_common_parameters",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, the jar_file, and host_javabase parameters in pack_sources and "
+          "If set to true, the output_jar, and host_javabase parameters in pack_sources and "
               + "host_javabase in compile will all be removed.")
   public boolean incompatibleJavaCommonParameters;
 
@@ -549,7 +559,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "incompatible_top_level_aspects_dependency",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -559,17 +569,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " each aspect in the list will run independently and its required aspects will be"
               + " ignored.")
   public boolean incompatibleTopLevelAspectsDependOnAspects;
-
-  @Option(
-      name = "experimental_required_aspects",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If set to true, allows created aspect to require a list of aspects to be propagated"
-              + " before it.")
-  public boolean experimentalRequiredAspects;
 
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
@@ -592,6 +591,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER, incompatibleEnableExportsProvider)
+            .setBool(
+                INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
@@ -599,7 +600,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
             .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
-            .setBool(INCOMPATIBLE_APPLICABLE_LICENSES, incompatibleApplicableLicenses)
             .setBool(
                 INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS,
                 incompatibleDisableTargetProviderFields)
@@ -642,7 +642,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(
                 INCOMPATIBLE_TOP_LEVEL_ASPECTS_DEPENDENCY,
                 incompatibleTopLevelAspectsDependOnAspects)
-            .setBool(EXPERIMENTAL_REQUIRED_ASPECTS, experimentalRequiredAspects)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -666,6 +665,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-experimental_enable_android_migration_apis";
   public static final String INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER =
       "-incompatible_enable_exports_provider";
+  public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
+      "-incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_NINJA_ACTIONS = "-experimental_ninja_actions";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
@@ -676,11 +677,10 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_allow_tags_propagation";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
-  public static final String INCOMPATIBLE_APPLICABLE_LICENSES = "-incompatible_applicable_licenses";
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
       "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
-      "-incompatible_disable_depset_items";
+      "+incompatible_disable_depset_items";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
   public static final String INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING =
@@ -691,7 +691,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
-      "-incompatible_java_common_parameters";
+      "+incompatible_java_common_parameters";
   public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
       "+incompatible_linkopts_to_linklibs";
   public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
@@ -715,8 +715,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_DEPENDENCY =
-      "-incompatible_top_level_aspects_dependency";
-  public static final String EXPERIMENTAL_REQUIRED_ASPECTS = "-experimental_required_aspects";
+      "+incompatible_top_level_aspects_dependency";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

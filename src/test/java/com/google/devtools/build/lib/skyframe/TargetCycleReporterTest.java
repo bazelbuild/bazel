@@ -63,7 +63,7 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
                 + "target //foo:c");
 
     SkyKey aspectKey =
-        AspectValueKey.AspectKey.createAspectKey(
+        AspectKeyCreator.AspectKey.createAspectKey(
             ctKey, ImmutableList.of(), null, BuildConfigurationValue.key(targetConfig));
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, aspectKey, cycle))
         .contains(
@@ -71,7 +71,7 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
                 + "target //foo:c");
 
     SkyKey starlarkAspectKey =
-        AspectValueKey.createTopLevelAspectsKey(
+        AspectKeyCreator.createTopLevelAspectsKey(
             ImmutableList.of(
                 new StarlarkAspectClass(
                     Label.parseAbsoluteUnchecked("//foo:b"), "my Starlark key")),

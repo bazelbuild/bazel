@@ -139,23 +139,6 @@ public abstract class RepositoryFunction {
   }
 
   /**
-   * An exception thrown when a dependency is missing to notify the SkyFunction from an evaluation.
-   */
-  protected static class RepositoryMissingDependencyException extends EvalException {
-    RepositoryMissingDependencyException() {
-      super("Internal exception");
-    }
-  }
-
-  /**
-   * repository functions can throw the result of this function to notify the RepositoryFunction
-   * that a dependency was missing and the evaluation of the function must be restarted.
-   */
-  public static EvalException restart() {
-    return new RepositoryMissingDependencyException();
-  }
-
-  /**
    * Fetch the remote repository represented by the given rule.
    *
    * <p>When this method is called, it has already been determined that the repository is stale and
@@ -292,7 +275,7 @@ public abstract class RepositoryFunction {
     SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
     if (pkgLookupValue == null) {
-      throw RepositoryFunction.restart();
+      throw new NeedsSkyframeRestartException();
     }
     if (!pkgLookupValue.packageExists()) {
       String message = pkgLookupValue.getErrorMsg();

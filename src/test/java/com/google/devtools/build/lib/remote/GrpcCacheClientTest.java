@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -324,7 +325,7 @@ public class GrpcCacheClientTest {
         });
 
     // Upload all missing inputs (that is, the virtual action input from above)
-    client.ensureInputsPresent(context, merkleTree, ImmutableMap.of());
+    client.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), /*force=*/ true);
   }
 
   @Test
@@ -450,7 +451,13 @@ public class GrpcCacheClientTest {
 
     ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(fooFile, barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    // output files will have permission 0555 after action execution regardless the current
+    // permission
+    expectedResult
+        .addOutputFilesBuilder()
+        .setPath("a/foo")
+        .setDigest(fooDigest)
+        .setIsExecutable(true);
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result).isEqualTo(expectedResult.build());
   }
@@ -574,7 +581,7 @@ public class GrpcCacheClientTest {
             outputs,
             outErr,
             0);
-    return uploadManifest.upload(context, remoteCache);
+    return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
   }
 
   private ActionResult uploadDirectory(RemoteCache remoteCache, List<Path> outputs)
@@ -716,7 +723,13 @@ public class GrpcCacheClientTest {
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.setStdoutDigest(stdoutDigest);
     expectedResult.setStderrDigest(stderrDigest);
-    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    // output files will have permission 0555 after action execution regardless the current
+    // permission
+    expectedResult
+        .addOutputFilesBuilder()
+        .setPath("a/foo")
+        .setDigest(fooDigest)
+        .setIsExecutable(true);
     expectedResult
         .addOutputFilesBuilder()
         .setPath("bar")
@@ -775,7 +788,13 @@ public class GrpcCacheClientTest {
             command,
             ImmutableList.of(fooFile, barFile));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    // output files will have permission 0555 after action execution regardless the current
+    // permission
+    expectedResult
+        .addOutputFilesBuilder()
+        .setPath("a/foo")
+        .setDigest(fooDigest)
+        .setIsExecutable(true);
     expectedResult
         .addOutputFilesBuilder()
         .setPath("bar")
@@ -825,9 +844,11 @@ public class GrpcCacheClientTest {
           }
         });
     ActionResult.Builder rb = ActionResult.newBuilder();
-    rb.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    // output files will have permission 0555 after action execution regardless the current
+    // permission
+    rb.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest).setIsExecutable(true);
     rb.addOutputFilesBuilder().setPath("bar").setDigest(barDigest).setIsExecutable(true);
-    rb.addOutputFilesBuilder().setPath("baz").setDigest(bazDigest);
+    rb.addOutputFilesBuilder().setPath("baz").setDigest(bazDigest).setIsExecutable(true);
     ActionResult result = rb.build();
     serviceRegistry.addService(
         new ActionCacheImplBase() {

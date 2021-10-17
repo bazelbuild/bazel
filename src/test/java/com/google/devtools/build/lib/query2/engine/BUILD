@@ -30,7 +30,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util:test-build-options",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",

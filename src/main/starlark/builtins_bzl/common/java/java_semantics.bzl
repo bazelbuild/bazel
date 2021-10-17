@@ -34,9 +34,12 @@ def _preprocess(ctx):
 def _postprocess(ctx, base_info):
     return base_info.java_info
 
+def _postprocess_plugin(ctx, base_info):
+    return base_info.java_info, base_info.default_info
+
 semantics = struct(
     EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
-    EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = True,
+    EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = False,
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
@@ -45,7 +48,11 @@ semantics = struct(
     EXTRA_ATTRIBUTES = {
         "resource_strip_prefix": attr.string(),
     },
+    EXTRA_PLUGIN_ATTRIBUTES = {
+        "resource_strip_prefix": attr.string(),
+    },
     EXTRA_DEPS = [],
+    EXTRA_PLUGIN_DEPS = [],
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1
         "cc_library",
@@ -60,9 +67,11 @@ semantics = struct(
         "sh_library",
     ],
     ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
+    LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
     macro_preprocess = _macro_preprocess,
     check_rule = _check_rule,
     check_dependency_rule_kinds = _check_dependency_rule_kinds,
     preprocess = _preprocess,
     postprocess = _postprocess,
+    postprocess_plugin = _postprocess_plugin,
 )

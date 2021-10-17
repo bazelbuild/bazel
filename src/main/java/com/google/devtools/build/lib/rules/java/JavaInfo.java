@@ -581,7 +581,7 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
-    private Builder addTransitiveOnlyRuntimeJars(NestedSet<Artifact> runtimeJars) {
+    Builder addTransitiveOnlyRuntimeJars(NestedSet<Artifact> runtimeJars) {
       this.transitiveOnlyRuntimeJars.addTransitive(runtimeJars);
       return this;
     }

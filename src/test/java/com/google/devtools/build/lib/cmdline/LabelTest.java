@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.Starlark;
@@ -401,30 +400,6 @@ public class LabelTest {
   @Test
   public void testEmptyName() throws Exception {
     assertSyntaxError("invalid target name '': empty target name", "//foo/bar:");
-  }
-
-  @Test
-  public void testSerializationSimple() throws Exception {
-    checkSerialization("//a", 93);
-  }
-
-  @Test
-  public void testSerializationNested() throws Exception {
-    checkSerialization("//foo/bar:baz", 101);
-  }
-
-  @Test
-  public void testSerializationWithoutTargetName() throws Exception {
-    checkSerialization("//foo/bar", 101);
-  }
-
-  private void checkSerialization(String labelString, int expectedSize) throws Exception {
-    Label a = Label.parseAbsolute(labelString, ImmutableMap.of());
-    byte[] sa = TestUtils.serializeObject(a);
-    assertThat(sa).hasLength(expectedSize);
-
-    Label a2 = (Label) TestUtils.deserializeObject(sa);
-    assertThat(a2).isEqualTo(a);
   }
 
   @Test

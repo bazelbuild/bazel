@@ -166,6 +166,7 @@ public class NotifyingHelper {
     ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,
     GET_BATCH,
+    GET_VALUES,
     GET_TEMPORARY_DIRECT_DEPS,
     SIGNAL,
     SET_VALUE,
@@ -216,7 +217,7 @@ public class NotifyingHelper {
             e,
             "In NotifyingGraph: "
                 + Joiner.on(", ").join(key, type, order, context == null ? "null" : context));
-        throw e;
+        throw new IllegalStateException(e);
       }
     }
   }

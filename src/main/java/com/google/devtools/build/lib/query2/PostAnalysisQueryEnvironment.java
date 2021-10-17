@@ -58,7 +58,7 @@ import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCall
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
@@ -69,8 +69,6 @@ import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtrac
 import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCallback;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -249,10 +247,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected abstract T getValueFromKey(SkyKey key) throws InterruptedException;
 
   protected TargetPattern getPattern(String pattern) throws TargetParsingException {
-    TargetPatternKey targetPatternKey =
-        ((TargetPatternKey)
-            TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, parserPrefix).argument());
-    return targetPatternKey.getParsedPattern();
+    return TargetPattern.mainRepoParser(parserPrefix).parse(pattern);
   }
 
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {

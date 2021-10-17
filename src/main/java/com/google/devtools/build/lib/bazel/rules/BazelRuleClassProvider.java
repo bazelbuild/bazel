@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryPermissionsRule;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
+import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
@@ -263,16 +264,14 @@ public class BazelRuleClassProvider {
               .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
-              .addConfigurationOptions(ShellConfiguration.Options.class)
-              .addConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
-              .addConfigurationFragment(StrictActionEnvConfiguration.class)
               .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
 
           builder.addStarlarkBuiltinsInternal(
               ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
+          builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
           builder.addStarlarkBuiltinsInternal(
               BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
         }
@@ -287,7 +286,6 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addConfigurationOptions(ProtoConfiguration.Options.class);
           builder.addConfigurationFragment(ProtoConfiguration.class);
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());

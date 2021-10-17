@@ -62,7 +62,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   public void setDefaultBuildOptions() {
     defaultBuildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
-            ruleClassProvider.getConfigurationOptions());
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
   }
 
   @Test
@@ -210,7 +210,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
-  // Internal flags, such as "output directory name", cannot be set from the command-line, but
+  // Internal flags (OptionMetadataTag.INTERNAL) cannot be set from the command-line, but
   // platform mapping needs to access them.
   @Test
   public void ableToChangeInternalOption() throws Exception {
@@ -218,7 +218,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "my_mapping_file",
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
-        "    --output directory name=updated_output_dir");
+        "    --transition directory name fragment=updated_output_dir");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -228,7 +228,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).outputDirectoryName)
+    assertThat(mapped.getOptions().get(CoreOptions.class).transitionDirectoryNameFragment)
         .isEqualTo("updated_output_dir");
   }
 

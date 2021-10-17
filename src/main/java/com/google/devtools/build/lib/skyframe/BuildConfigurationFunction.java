@@ -17,15 +17,16 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -36,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -110,11 +112,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
     ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
         ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
-      BuildOptions trimmedOptions =
-          key.getOptions()
-              .trim(
-                  BuildConfiguration.getOptionsClasses(
-                      ImmutableList.of(fragmentClass), ruleClassProvider));
+      BuildOptions trimmedOptions = trimToRequiredOptions(key.getOptions(), fragmentClass);
       Fragment fragment;
       FragmentKey fragmentKey = FragmentKey.create(trimmedOptions, fragmentClass);
       try {
@@ -132,6 +130,22 @@ public final class BuildConfigurationFunction implements SkyFunction {
       }
     }
     return fragments.build();
+  }
+
+  private static BuildOptions trimToRequiredOptions(
+      BuildOptions original, Class<? extends Fragment> fragment) {
+    BuildOptions.Builder trimmed = BuildOptions.builder();
+    Set<Class<? extends FragmentOptions>> requiredOptions = Fragment.requiredOptions(fragment);
+    for (FragmentOptions options : original.getNativeOptions()) {
+      // CoreOptions is implicitly required by all fragments.
+      if (options instanceof CoreOptions || requiredOptions.contains(options.getClass())) {
+        trimmed.addFragmentOptions(options);
+      }
+    }
+    if (Fragment.requiresStarlarkOptions(fragment)) {
+      trimmed.addStarlarkOptions(original.getStarlarkOptions());
+    }
+    return trimmed.build();
   }
 
   @AutoValue

@@ -181,35 +181,35 @@ distrib_java_import(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.1.jar"],
-    srcjar = "asm/asm-9.1-sources.jar",
+    jars = ["asm/asm-9.2.jar"],
+    srcjar = "asm/asm-9.2-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.1.jar"],
-    srcjar = "asm/asm-analysis-9.1-sources.jar",
+    jars = ["asm/asm-analysis-9.2.jar"],
+    srcjar = "asm/asm-analysis-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.1.jar"],
-    srcjar = "asm/asm-commons-9.1-sources.jar",
+    jars = ["asm/asm-commons-9.2.jar"],
+    srcjar = "asm/asm-commons-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.1.jar"],
-    srcjar = "asm/asm-tree-9.1-sources.jar",
+    jars = ["asm/asm-tree-9.2.jar"],
+    srcjar = "asm/asm-tree-9.2-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.1.jar"],
-    srcjar = "asm/asm-util-9.1-sources.jar",
+    jars = ["asm/asm-util-9.2.jar"],
+    srcjar = "asm/asm-util-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -246,7 +246,7 @@ java_plugin(
 distrib_java_import(
     name = "auto_common",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-common-0.10.jar"],
+    jars = ["auto/auto-common-1.1.2.jar"],
 )
 
 java_library(
@@ -272,7 +272,10 @@ java_plugin(
 distrib_java_import(
     name = "auto_service_lib",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-service-1.0-rc4.jar"],
+    jars = [
+        "auto/auto-service-1.0-rc7.jar",
+        "auto/auto-service-annotations-1.0-rc7.jar",
+    ],
 )
 
 java_plugin(
@@ -306,8 +309,8 @@ distrib_java_import(
     name = "auto_value_value",
     enable_distributions = ["debian"],
     jars = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
 )
 
@@ -315,8 +318,8 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
     enable_distributions = ["debian"],
 )
@@ -648,7 +651,7 @@ distrib_java_import(
 
 java_import(
     name = "mockito",
-    jars = ["mockito/mockito-core-2.25.1.jar"],
+    jars = ["mockito/mockito-core-3.12.4.jar"],
     deps = [
         ":byte_buddy",
         ":objenesis",
@@ -698,7 +701,7 @@ java_import(
 distrib_java_import(
     name = "xz",
     enable_distributions = ["debian"],
-    jars = ["xz/xz-1.5.jar"],
+    jars = ["xz/xz-1.9.jar"],
 )
 
 # To be used by the skylark example.

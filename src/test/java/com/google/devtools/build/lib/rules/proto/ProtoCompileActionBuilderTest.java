@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -430,7 +431,7 @@ public class ProtoCompileActionBuilderTest {
   /** Creates a dummy artifact with the given path, that actually resides in /out/<path>. */
   private Artifact derivedArtifact(String path) {
     Artifact.DerivedArtifact derivedArtifact =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             derivedRoot,
             derivedRoot.getExecPath().getRelative(path),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);

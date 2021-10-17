@@ -1045,7 +1045,6 @@ public class CppOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = {
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.EXPERIMENTAL,
       },
@@ -1077,6 +1076,19 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, will create debug files associated with cc_shared_library.")
   public boolean experimentalCcSharedLibraryDebug;
+
+  @Option(
+      name = "experimental_cpp_compile_resource_estimation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, will estimate precise resource usage for local execution of"
+              + " CppCompileAction.")
+  public boolean experimentalCppCompileResourcesEstimation;
 
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override

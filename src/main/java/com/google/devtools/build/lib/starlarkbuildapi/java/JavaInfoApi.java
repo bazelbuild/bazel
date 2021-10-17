@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -45,7 +44,7 @@ public interface JavaInfoApi<
         FileT extends FileApi,
         JavaOutputT extends JavaOutputApi<FileT>,
         JavaPluginDataT extends JavaPluginDataApi>
-    extends StructApi, JavaPluginInfoApi<JavaPluginDataT> {
+    extends StructApi, JavaPluginInfoApi<FileT, JavaPluginDataT, JavaOutputT> {
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",
@@ -114,12 +113,6 @@ public interface JavaInfoApi<
   @Nullable
   @Deprecated
   JavaRuleOutputJarsProviderApi<?> getOutputJars();
-
-  @StarlarkMethod(
-      name = "java_outputs",
-      doc = "Returns information about outputs of this Java/Java-like target.",
-      structField = true)
-  ImmutableList<JavaOutputT> getJavaOutputs();
 
   @StarlarkMethod(
       name = "annotation_processing",

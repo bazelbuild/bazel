@@ -57,7 +57,8 @@ public final class AndroidPlatformsTransition implements PatchTransition {
   @Override
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
-    if (androidOptions.androidPlatforms.isEmpty()) {
+    if (!androidOptions.incompatibleUseToolchainResolution
+        || androidOptions.androidPlatforms.isEmpty()) {
       // No change.
       return options.underlying();
     }

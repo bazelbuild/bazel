@@ -18,8 +18,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -215,16 +215,14 @@ public class ActionExecutionValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (obj == null) {
-      return false;
-    }
-    if (!obj.getClass().equals(getClass())) {
+    if (!(obj instanceof ActionExecutionValue)) {
       return false;
     }
     ActionExecutionValue o = (ActionExecutionValue) obj;
     return artifactData.equals(o.artifactData)
         && treeArtifactData.equals(o.treeArtifactData)
-        && (outputSymlinks == null || outputSymlinks.equals(o.outputSymlinks));
+        && dataIsShareable() == o.dataIsShareable()
+        && Objects.equal(outputSymlinks, o.outputSymlinks);
   }
 
   @Override
@@ -255,6 +253,7 @@ public class ActionExecutionValue implements SkyValue {
   private static <V> ImmutableMap<Artifact, V> transformMap(
       ImmutableMap<Artifact, V> data,
       Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap,
+      Action action,
       BiFunction<Artifact, V, V> transform) {
     if (data.isEmpty()) {
       return data;
@@ -266,9 +265,9 @@ public class ActionExecutionValue implements SkyValue {
       Artifact newArtifact =
           Preconditions.checkNotNull(
               newArtifactMap.get(new OwnerlessArtifactWrapper(artifact)),
-              "Output artifact %s from one shared action not present in another's outputs (%s)",
+              "No output matching %s, cannot share with %s",
               artifact,
-              newArtifactMap);
+              action);
       result.put(newArtifact, transform.apply(newArtifact, entry.getValue()));
     }
     return result.build();
@@ -306,17 +305,29 @@ public class ActionExecutionValue implements SkyValue {
     return newTree.build();
   }
 
-  ActionExecutionValue transformForSharedAction(ImmutableSet<Artifact> outputs) {
+  /**
+   * Creates a new {@code ActionExecutionValue} by transforming this one's outputs so that artifact
+   * owners match the given action's outputs.
+   *
+   * <p>The given action must be {@linkplain
+   * com.google.devtools.build.lib.actions.Actions#canBeShared shareable} with the action that
+   * originally produced this {@code ActionExecutionValue}.
+   */
+  public ActionExecutionValue transformForSharedAction(Action action) {
+    Preconditions.checkArgument(
+        action.getOutputs().size() == artifactData.size() + treeArtifactData.size(),
+        "Cannot share %s with %s",
+        this,
+        action);
     Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
-        Maps.uniqueIndex(outputs, OwnerlessArtifactWrapper::new);
-    // This is only called for shared actions, so we'll almost certainly have to transform all keys
-    // in all sets.
-    // Discovered modules come from the action's inputs, and so don't need to be transformed.
+        Maps.uniqueIndex(action.getOutputs(), OwnerlessArtifactWrapper::new);
     return create(
-        transformMap(artifactData, newArtifactMap, (newArtifact, value) -> value),
-        transformMap(treeArtifactData, newArtifactMap, ActionExecutionValue::transformSharedTree),
+        transformMap(artifactData, newArtifactMap, action, (newArtifact, value) -> value),
+        transformMap(
+            treeArtifactData, newArtifactMap, action, ActionExecutionValue::transformSharedTree),
         outputSymlinks,
+        // Discovered modules come from the action's inputs, and so don't need to be transformed.
         discoveredModules,
-        this instanceof CrossServerUnshareableActionExecutionValue);
+        !dataIsShareable());
   }
 }

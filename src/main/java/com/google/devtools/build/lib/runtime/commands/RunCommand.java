@@ -498,12 +498,15 @@ public class RunCommand implements BlazeCommand  {
     }
 
     if (runOptions.scriptPath != null) {
-      String unisolatedCommand = CommandFailureUtils.describeCommand(
-          CommandDescriptionForm.COMPLETE_UNISOLATED,
-          /* prettyPrintArgs= */ false,
-          cmdLine,
-          runEnvironment,
-          workingDir.getPathString());
+      String unisolatedCommand =
+          CommandFailureUtils.describeCommand(
+              CommandDescriptionForm.COMPLETE_UNISOLATED,
+              /* prettyPrintArgs= */ false,
+              cmdLine,
+              runEnvironment,
+              workingDir.getPathString(),
+              configuration.checksum(),
+              /* executionPlatform= */ null);
 
       PathFragment shExecutable = ShToolchain.getPath(configuration);
       if (shExecutable.isEmpty()) {

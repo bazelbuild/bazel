@@ -205,10 +205,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       StarlarkSemantics semantics,
       Label parentLabel,
       Location location,
-      BazelStarlarkContext starlarkContext)
+      RepositoryMapping repoMapping)
       throws EvalException {
     return new RegularTransition(
-        impl, inputs, outputs, semantics, parentLabel, location, starlarkContext.getRepoMapping());
+        impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
   }
 
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
@@ -350,7 +350,6 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
                 Phase.ANALYSIS,
                 /*toolsRepository=*/ null,
                 /*fragmentNameToClass=*/ null,
-                repoMapping,
                 /*convertedLabelsInPackage=*/ new HashMap<>(),
                 dummySymbolGenerator,
                 parentLabel,

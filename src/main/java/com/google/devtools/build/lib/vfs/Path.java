@@ -32,6 +32,7 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -790,10 +791,21 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
+   * Opens the file denoted by this path, following symbolic links, for reading and writing and
+   * returns a file channel for it.
+   *
+   * <p>Truncates the file, therefore it cannot be used to read already existing files. Please use
+   * {@link #createReadableByteChannel} to get a {@linkplain ReadableByteChannel channel} for reads
+   * instead.
+   */
+  public SeekableByteChannel createReadWriteByteChannel() throws IOException {
+    return fileSystem.createReadWriteByteChannel(asFragment());
+  }
+
+  /**
    * Returns a java.io.File representation of this path.
    *
-   * <p>Caveat: the result may be useless if this path's getFileSystem() is not
-   * the UNIX filesystem.
+   * <p>Caveat: the result may be useless if this path's getFileSystem() is not the UNIX filesystem.
    */
   public File getPathFile() {
     return new File(getPathString());

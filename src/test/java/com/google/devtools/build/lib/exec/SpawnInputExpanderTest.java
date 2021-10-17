@@ -385,7 +385,7 @@ public class SpawnInputExpanderTest {
     Path outputPath = outputDir.getRelative(relPath);
     outputPath.createDirectoryAndParents();
     ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outputSegment);
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -455,7 +455,7 @@ public class SpawnInputExpanderTest {
   }
 
   private SpecialArtifact createFileset(String execPath) {
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         rootDir,
         PathFragment.create(execPath),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,

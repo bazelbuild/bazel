@@ -217,7 +217,7 @@ public class ActionExecutionFunction implements SkyFunction {
       }
       ActionExecutionValue actionExecutionValue = topDownActionCache.get(sketch, actionLookupData);
       if (actionExecutionValue != null) {
-        return actionExecutionValue.transformForSharedAction(action.getOutputs());
+        return actionExecutionValue.transformForSharedAction(action);
       }
     }
 

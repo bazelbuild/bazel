@@ -27,10 +27,12 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /** A {@link RemoteCacheClient} that stores its contents in memory. */
 public final class InMemoryCacheClient implements RemoteCacheClient {
@@ -41,6 +43,8 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
 
   private AtomicInteger numSuccess = new AtomicInteger();
   private AtomicInteger numFailures = new AtomicInteger();
+  private final ConcurrentMap<Digest, AtomicInteger> numFindMissingDigests =
+      new ConcurrentHashMap<>();
 
   public InMemoryCacheClient(Map<Digest, byte[]> casEntries) {
     this.cas = new ConcurrentHashMap<>();
@@ -63,6 +67,12 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
 
   public int getNumFailedDownloads() {
     return numFailures.get();
+  }
+
+  public Map<Digest, Integer> getNumFindMissingDigests() {
+    return numFindMissingDigests.entrySet().stream()
+        .map(entry -> new SimpleEntry<>(entry.getKey(), entry.getValue().get()))
+        .collect(Collectors.toMap(SimpleEntry::getKey, SimpleEntry::getValue));
   }
 
   @Override
@@ -134,6 +144,9 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
     ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
     for (Digest digest : digests) {
+      numFindMissingDigests
+          .computeIfAbsent(digest, (key) -> new AtomicInteger(0))
+          .incrementAndGet();
       if (!cas.containsKey(digest)) {
         missingBuilder.add(digest);
       }

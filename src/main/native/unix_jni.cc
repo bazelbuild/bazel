@@ -1175,7 +1175,7 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
     JNIEnv *env, jclass clazz, jstring name) {
   const char *name_chars = GetStringLatin1Chars(env, name);
-  long r;
+  int64_t r;
   size_t len = sizeof(r);
   if (portable_sysctlbyname(name_chars, &r, &len) == -1) {
     PostException(env, errno, std::string("sysctlbyname(") + name_chars + ")");

@@ -220,7 +220,7 @@ public class ByteStreamUploaderTest {
     uploader.uploadBlob(context, hash, chunker, true);
 
     // This test should not have triggered any retries.
-    Mockito.verifyZeroInteractions(mockBackoff);
+    Mockito.verifyNoInteractions(mockBackoff);
 
     blockUntilInternalStateConsistent(uploader);
   }
@@ -506,7 +506,7 @@ public class ByteStreamUploaderTest {
     uploader.uploadBlob(context, hash, chunker, true);
 
     // This test should not have triggered any retries.
-    Mockito.verifyZeroInteractions(mockBackoff);
+    Mockito.verifyNoInteractions(mockBackoff);
 
     blockUntilInternalStateConsistent(uploader);
   }
@@ -548,7 +548,7 @@ public class ByteStreamUploaderTest {
     }
 
     // This test should not have triggered any retries.
-    Mockito.verifyZeroInteractions(mockBackoff);
+    Mockito.verifyNoInteractions(mockBackoff);
 
     blockUntilInternalStateConsistent(uploader);
   }
@@ -1198,7 +1198,7 @@ public class ByteStreamUploaderTest {
     assertThat(numUploads.get()).isEqualTo(1);
 
     // This test should not have triggered any retries.
-    Mockito.verifyZeroInteractions(mockBackoff);
+    Mockito.verifyNoInteractions(mockBackoff);
 
     blockUntilInternalStateConsistent(uploader);
   }
@@ -1255,7 +1255,7 @@ public class ByteStreamUploaderTest {
     assertThat(numUploads.get()).isEqualTo(2);
 
     // This test should not have triggered any retries.
-    Mockito.verifyZeroInteractions(mockBackoff);
+    Mockito.verifyNoInteractions(mockBackoff);
 
     blockUntilInternalStateConsistent(uploader);
   }
@@ -1340,7 +1340,7 @@ public class ByteStreamUploaderTest {
     assertThat(numUploads.get()).isEqualTo(2);
 
     // This test should not have triggered any retries.
-    Mockito.verifyZeroInteractions(mockBackoff);
+    Mockito.verifyNoInteractions(mockBackoff);
 
     blockUntilInternalStateConsistent(uploader);
   }

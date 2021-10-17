@@ -60,12 +60,12 @@ class TestUtils {
       WorkerProtocolFormat protocolFormat,
       FileSystem fs,
       String mnemonic,
-      boolean proxied,
+      boolean multiplex,
       boolean sandboxed,
       boolean dynamic,
       String... args) {
     WorkerOptions workerOptions = new WorkerOptions();
-    workerOptions.workerMultiplex = proxied;
+    workerOptions.workerMultiplex = multiplex;
     workerOptions.workerSandboxing = sandboxed;
 
     Spawn spawn =
@@ -119,12 +119,12 @@ class TestUtils {
   }
 
   static WorkerKey createWorkerKey(
-      FileSystem fs, boolean proxied, boolean sandboxed, boolean dynamic) {
+      FileSystem fs, boolean multiplex, boolean sandboxed, boolean dynamic) {
     return createWorkerKey(
         WorkerProtocolFormat.PROTO,
         fs,
         /* mnemonic= */ "dummy",
-        proxied,
+        multiplex,
         sandboxed,
         dynamic,
         /* args...= */ "arg1",

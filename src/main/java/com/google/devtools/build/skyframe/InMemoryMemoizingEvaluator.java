@@ -209,7 +209,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
                                 evaluationContext.getParallelism(), "skyframe-evaluator")),
                 new SimpleCycleDetector(),
                 EvaluationVersionBehavior.GRAPH_VERSION,
-                evaluationContext.getCPUHeavySkyKeysThreadPoolSize());
+                evaluationContext.getCPUHeavySkyKeysThreadPoolSize(),
+                evaluationContext.getExecutionPhaseThreadPoolSize());
         result = evaluator.eval(roots);
       }
       return EvaluationResult.<T>builder()
@@ -299,7 +300,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public void postLoggingStats(ExtendedEventHandler eventHandler) {
-    eventHandler.post(new SkyframeGraphStatsEvent(graph.getValues().size()));
+    eventHandler.post(new SkyframeGraphStatsEvent(graph.valuesSize()));
   }
 
   @Override

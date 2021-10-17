@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -382,7 +382,7 @@ public class TestAspects {
           .add(
               attr("$dep", LABEL)
                   .value(Label.parseAbsoluteUnchecked("//extra:extra"))
-                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
+                  .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
           .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
@@ -496,6 +496,7 @@ public class TestAspects {
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder(STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+      builder.requireProviders(RequiredProvider.class);
       return builder.build();
     }
 
@@ -506,7 +507,9 @@ public class TestAspects {
         AspectParameters parameters,
         String toolsRepository)
         throws ActionConflictException, InterruptedException {
-      return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
+      return new ConfiguredAspect.Builder(ruleContext)
+          .addStarlarkTransitiveInfo("native_aspect_prov", "native_aspect_val")
+          .build();
     }
   }
 

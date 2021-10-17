@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.profiler;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.OutputStream;
@@ -31,17 +32,15 @@ import javax.annotation.Nullable;
 /**
  * Blaze memory profiler.
  *
- * <p>At each call to {@code profile} performs garbage collection and stores
- * heap and non-heap memory usage in an external file.
+ * <p>At each call to {@code profile} performs garbage collection and stores heap and non-heap
+ * memory usage in an external file.
  *
- * <p><em>Heap memory</em> is the runtime data area from which memory for all
- * class instances and arrays is allocated. <em>Non-heap memory</em> includes
- * the method area and memory required for the internal processing or
- * optimization of the JVM. It stores per-class structures such as a runtime
- * constant pool, field and method data, and the code for methods and
- * constructors. The Java Native Interface (JNI) code or the native library of
- * an application and the JVM implementation allocate memory from the
- * <em>native heap</em>.
+ * <p><em>Heap memory</em> is the runtime data area from which memory for all class instances and
+ * arrays is allocated. <em>Non-heap memory</em> includes the method area and memory required for
+ * the internal processing or optimization of the JVM. It stores per-class structures such as a
+ * runtime constant pool, field and method data, and the code for methods and constructors. The Java
+ * Native Interface (JNI) code or the native library of an application and the JVM implementation
+ * allocate memory from the <em>native heap</em>.
  *
  * <p>The script in /devtools/blaze/scripts/blaze-memchart.sh can be used for post processing.
  */
@@ -173,6 +172,14 @@ public final class MemoryProfiler {
       public String getTypeDescription() {
         return "two integers, separated by a comma";
       }
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("numTimesToDoGc", numTimesToDoGc)
+          .add("timeToSleepBetweenGcs", timeToSleepBetweenGcs)
+          .toString();
     }
   }
 

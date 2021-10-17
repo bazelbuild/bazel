@@ -225,26 +225,6 @@ public class CommonCommandOptions extends OptionsBase {
   public TriState enableTracer;
 
   @Option(
-      name = "json_trace_compression",
-      oldName = "experimental_json_trace_compression",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help =
-          "If enabled, Bazel compresses the JSON-format profile with gzip. "
-              + "By default, this is decided based on the extension of the file specified in "
-              + "--profile.")
-  public TriState enableTracerCompression;
-
-  @Option(
-      name = "experimental_profile_cpu_usage",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
-  public boolean enableCpuUsageProfiling;
-
-  @Option(
       name = "experimental_profile_additional_tasks",
       converter = ProfilerTaskConverter.class,
       defaultValue = "null",

@@ -265,7 +265,7 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
         .setDisallowValues(
             DisallowValues.newBuilder()
                 .addDisallowedValues("null")
-                .setUseDefault(UseDefault.newBuilder()));
+                .setUseDefault(UseDefault.getDefaultInstance()));
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     // Check the value before invocation policy enforcement.
     parser.parse("--test_string_null_by_default=null");

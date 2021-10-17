@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -66,7 +66,6 @@ import net.starlark.java.syntax.Location;
  * symlinks and root symlinks (outside of the source tree).
  */
 @Immutable
-@AutoCodec
 public final class Runfiles implements RunfilesApi {
 
   private static class DummyEmptyFilesSupplier implements EmptyFilesSupplier {
@@ -78,7 +77,7 @@ public final class Runfiles implements RunfilesApi {
     }
   }
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER = new DummyEmptyFilesSupplier();
 
   /**
@@ -110,16 +109,13 @@ public final class Runfiles implements RunfilesApi {
   // equals to the third one if they are not the same instance (which they almost never are)
   //
   // Goodnight, prince(ss)?, and sweet dreams.
-  @AutoCodec
-  @VisibleForSerialization
-  static final class SymlinkEntry implements SymlinkEntryApi {
+  private static final class SymlinkEntry implements SymlinkEntryApi {
 
     static final Depset.ElementType TYPE = Depset.ElementType.of(SymlinkEntry.class);
 
     private final PathFragment path;
     private final Artifact artifact;
 
-    @VisibleForSerialization
     SymlinkEntry(PathFragment path, Artifact artifact) {
       this.path = Preconditions.checkNotNull(path);
       this.artifact = Preconditions.checkNotNull(artifact);
@@ -235,9 +231,7 @@ public final class Runfiles implements RunfilesApi {
    */
   private final boolean legacyExternalRunfiles;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  Runfiles(
+  private Runfiles(
       PathFragment suffix,
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,

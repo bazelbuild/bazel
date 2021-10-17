@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -70,7 +68,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       return;
     }
 
-    BuildConfiguration config = create("--platform_suffix=-test");
+    BuildConfiguration config = create("--platform_suffix=test");
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(
             outputBase
@@ -85,11 +83,10 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       return;
     }
 
-    Map<String, String> env = create().getLocalShellEnvironment();
+    ImmutableMap<String, String> env = create().getLocalShellEnvironment();
     assertThat(env).containsEntry("LANG", "en_US");
     assertThat(env).containsKey("PATH");
     assertThat(env.get("PATH")).contains("/bin:/usr/bin");
-    assertThrows(UnsupportedOperationException.class, () -> env.put("FOO", "bar"));
   }
 
   @Test
@@ -200,20 +197,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     // Legitimately null option:
     assertThat(create().getTransitiveOptionDetails().getOptionValue("test_filter")).isNull();
-  }
-
-  @Test
-  public void testEqualsOrIsSupersetOf() throws Exception {
-    BuildConfiguration config = create();
-    BuildConfiguration trimmedConfig =
-        config.clone(
-            FragmentClassSet.of(ImmutableSet.of(CppConfiguration.class)),
-            analysisMock.createRuleClassProvider());
-    BuildConfiguration hostConfig = createHost();
-
-    assertThat(config.equalsOrIsSupersetOf(trimmedConfig)).isTrue();
-    assertThat(config.equalsOrIsSupersetOf(hostConfig)).isFalse();
-    assertThat(trimmedConfig.equalsOrIsSupersetOf(config)).isFalse();
   }
 
   @Test
@@ -354,9 +337,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         assertThrows(InvalidMnemonicException.class, () -> create("--cpu=//bad/cpu"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "Output directory name '//bad/cpu' specified by CppConfiguration is invalid as part of"
-                + " a path: must not contain /");
+        .isEqualTo("CPU name '//bad/cpu' is invalid as part of a path: must not contain /");
     e =
         assertThrows(
             InvalidMnemonicException.class, () -> create("--platform_suffix=//bad/suffix"));
@@ -384,6 +365,23 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
                 .collect(ImmutableList.toImmutableList()))
         .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
         .runTests();
+  }
+
+  @Test
+  public void testPlatformInOutputDir_defaultPlatform() throws Exception {
+    BuildConfiguration config = create("--experimental_platform_in_output_dir", "--cpu=k8");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/k8-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir() throws Exception {
+    BuildConfiguration config =
+        create("--experimental_platform_in_output_dir", "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/alpha-fastbuild");
   }
 
   /**

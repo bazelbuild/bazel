@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentProvider;
+import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -44,13 +44,13 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
@@ -59,19 +59,14 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -91,7 +86,7 @@ import net.starlark.java.eval.StarlarkThread;
  * configuration options is guaranteed not to change over the life time of the Blaze server.
  */
 // This class has no subclasses except those created by the evil that is mockery.
-public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
+public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   /**
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
@@ -142,8 +137,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     @Nullable private String builtinsBzlPackagePathInSource;
     private final List<Class<? extends Fragment>> configurationFragmentClasses = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
-    private final Set<Class<? extends FragmentOptions>> configurationOptions =
-        new LinkedHashSet<>();
+    private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
@@ -286,7 +280,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
      * no two different configuration fragments can share the same name.
      */
     public Builder addConfigurationFragment(Class<? extends Fragment> fragmentClass) {
-      this.configurationOptions.addAll(Fragment.requiredOptions(fragmentClass));
       configurationFragmentClasses.add(fragmentClass);
       return this;
     }
@@ -304,6 +297,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     public Builder addUniversalConfigurationFragment(Class<? extends Fragment> fragment) {
       this.universalFragments.add(fragment);
+      addConfigurationFragment(fragment);
       return this;
     }
 
@@ -417,7 +411,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
      * the given options diff.
      */
     @VisibleForTesting(/* for testing cache invalidation without relying on prod use */ )
-    public Builder overrideShouldInvalidateCacheForOptionDiffForTesting(
+    Builder overrideShouldInvalidateCacheForOptionDiffForTesting(
         OptionsDiffPredicate shouldInvalidateCacheForOptionDiff) {
       this.shouldInvalidateCacheForOptionDiff = OptionsDiffPredicate.ALWAYS_INVALIDATE;
       return this.setShouldInvalidateCacheForOptionDiff(shouldInvalidateCacheForOptionDiff);
@@ -553,12 +547,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(nativeAspectClassMap),
+          FragmentRegistry.create(
+              configurationFragmentClasses, universalFragments, configurationOptions),
           defaultWorkspaceFilePrefix.toString(),
           defaultWorkspaceFileSuffix.toString(),
           ImmutableList.copyOf(buildInfoFactories),
-          ImmutableList.copyOf(configurationOptions),
-          FragmentClassSet.of(configurationFragmentClasses),
-          FragmentClassSet.of(universalFragments),
           trimmingTransitionFactory,
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
@@ -631,18 +624,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   /** Maps aspect name to the aspect factory meta class. */
   private final ImmutableMap<String, NativeAspectClass> nativeAspectClassMap;
 
-  /** The configuration options that affect the behavior of the rules. */
-  private final ImmutableList<Class<? extends FragmentOptions>> configurationOptions;
-
-  /** The set of configuration fragment factories. */
-  private final FragmentClassSet configurationFragmentClasses;
-
-  /**
-   * Maps build option names to matching config fragments. This is used to determine correct
-   * fragment requirements for config_setting rules, which are unique in that their dependencies are
-   * triggered by string representations of option names.
-   */
-  private final Map<String, Class<? extends Fragment>> optionsToFragmentMap;
+  private final FragmentRegistry fragmentRegistry;
 
   /** The transition factory used to produce the transition that will trim targets. */
   @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
@@ -652,14 +634,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   /** The predicate used to determine whether a diff requires the cache to be invalidated. */
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
-
-  /**
-   * Configuration fragments that should be available to all rules even when they don't explicitly
-   * require it.
-   */
-  private final FragmentClassSet universalFragments;
-
-  private final FragmentClassSet allFragments;
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
 
@@ -695,12 +669,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
+      FragmentRegistry fragmentRegistry,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
-      ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
-      FragmentClassSet configurationFragmentClasses,
-      FragmentClassSet universalFragments,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
@@ -722,13 +694,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
+    this.fragmentRegistry = fragmentRegistry;
     this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
     this.buildInfoFactories = buildInfoFactories;
-    this.configurationOptions = configurationOptions;
-    this.configurationFragmentClasses = configurationFragmentClasses;
-    this.optionsToFragmentMap = computeOptionsToFragmentMap(configurationFragmentClasses);
-    this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
@@ -740,42 +709,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.configurationFragmentMap = createFragmentMap(configurationFragmentClasses);
+    this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
-    this.allFragments = FragmentClassSet.union(configurationFragmentClasses, universalFragments);
     this.networkAllowlistForTests = networkAllowlistForTests;
-  }
-
-  /**
-   * Computes the option name --> config fragments map. Note that this mapping is technically
-   * one-to-many: a single option may be required by multiple fragments (e.g. Java options are used
-   * by both JavaConfiguration and Jvm). In such cases, we arbitrarily choose one fragment since
-   * that's all that's needed to satisfy the config_setting.
-   */
-  private static Map<String, Class<? extends Fragment>> computeOptionsToFragmentMap(
-      FragmentClassSet configurationFragments) {
-    Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
-    Map<Class<? extends FragmentOptions>, Integer> visitedOptionsClasses = new HashMap<>();
-    for (Class<? extends Fragment> fragment : configurationFragments) {
-      Set<Class<? extends FragmentOptions>> requiredOpts = Fragment.requiredOptions(fragment);
-      for (Class<? extends FragmentOptions> optionsClass : requiredOpts) {
-        Integer previousBest = visitedOptionsClasses.get(optionsClass);
-        if (previousBest != null && previousBest <= requiredOpts.size()) {
-          // Multiple config fragments may require the same options class, but we only need one of
-          // them to guarantee that class makes it into the configuration. Pick one that depends
-          // on as few options classes as possible (not necessarily unique).
-          continue;
-        }
-        visitedOptionsClasses.put(optionsClass, requiredOpts.size());
-        for (Field field : optionsClass.getFields()) {
-          if (field.isAnnotationPresent(Option.class)) {
-            result.put(field.getAnnotation(Option.class).name(), fragment);
-          }
-        }
-      }
-    }
-    return result;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -824,23 +761,16 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return nativeAspectClassMap.get(key);
   }
 
+  public FragmentRegistry getFragmentRegistry() {
+    return fragmentRegistry;
+  }
+
   public Map<BuildInfoKey, BuildInfoFactory> getBuildInfoFactoriesAsMap() {
     ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
     return factoryMapBuilder.build();
-  }
-
-  /** Returns the set of configuration fragments provided by this module. */
-  @Override
-  public FragmentClassSet getConfigurationFragments() {
-    return configurationFragmentClasses;
-  }
-
-  @Nullable
-  public Class<? extends Fragment> getConfigurationFragmentForOption(String requiredOption) {
-    return optionsToFragmentMap.get(requiredOption);
   }
 
   /**
@@ -871,27 +801,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return shouldInvalidateCacheForOptionDiff.apply(newOptions, changedOption, oldValue, newValue);
   }
 
-  /** Returns the set of configuration options that are supported in this module. */
-  public ImmutableList<Class<? extends FragmentOptions>> getConfigurationOptions() {
-    return configurationOptions;
-  }
-
   /** Returns the definition of the rule class definition with the specified name. */
   public RuleDefinition getRuleClassDefinition(String ruleClassName) {
     return ruleDefinitionMap.get(ruleClassName);
-  }
-
-  /**
-   * Returns the configuration fragment that should be available to all rules even when they don't
-   * explicitly require it.
-   */
-  public FragmentClassSet getUniversalFragments() {
-    return universalFragments;
-  }
-
-  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
-  public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
-    return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
   private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(
@@ -947,13 +859,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   @Override
-  public void setStarlarkThreadContext(
-      StarlarkThread thread, Label fileLabel, RepositoryMapping repoMapping) {
+  public void setStarlarkThreadContext(StarlarkThread thread, Label fileLabel) {
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,
             toolsRepository,
             configurationFragmentMap,
-            repoMapping,
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(fileLabel),
             /*analysisRuleLabel=*/ null,
@@ -980,8 +890,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
    * Returns the symlink definitions introduced by the fragments registered with this rule class
    * provider.
    *
-   * <p>This only includes definitions added by {@link #addSymlinkDefinition}, not the standard
-   * symlinks in {@link ConvenienceSymlinks#getStandardLinkDefinitions}.
+   * <p>This only includes definitions added by {@link Builder#addSymlinkDefinition}, not the
+   * standard symlinks in {@link com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils}.
    *
    * <p>Note: Usages of custom symlink definitions should be rare. Currently it is only used to
    * implement the py2-bin / py3-bin symlinks.
@@ -997,11 +907,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   @Override
   public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
     return thirdPartyLicenseExistencePolicy;
-  }
-
-  /** Returns all registered {@link Fragment} classes. */
-  public FragmentClassSet getAllFragments() {
-    return allFragments;
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */

@@ -331,22 +331,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     UploadContext streamingContext = null;
     try {
       if (tracerEnabled) {
-        if (options.enableTracerCompression == TriState.YES
-            || (options.enableTracerCompression == TriState.AUTO
-                && (options.profilePath == null
-                    || options.profilePath.toString().endsWith(".gz")))) {
+        if (options.profilePath == null) {
+          profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
-        } else {
-          format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
-        }
-        if (options.profilePath != null) {
-          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
-        } else {
-          profileName = "command.profile";
-          if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
-            profileName = "command.profile.gz";
-          }
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
                 newUploader(env, bepOptions.buildEventUploadStrategy);
@@ -356,6 +343,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profilePath = workspace.getOutputBase().getRelative(profileName);
             out = profilePath.getOutputStream();
           }
+        } else {
+          format =
+              options.profilePath.toString().endsWith(".gz")
+                  ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
+                  : Format.JSON_TRACE_FILE_FORMAT;
+          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
         }
         if (profilePath != null && options.announceProfilePath) {
           eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
@@ -400,7 +394,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             recordFullProfilerData,
             clock,
             execStartTimeNanos,
-            options.enableCpuUsageProfiling,
             options.slimProfile,
             options.includePrimaryOutput,
             options.profileIncludeTargetLabel,
@@ -750,9 +743,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
+  /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
-    return ruleClassProvider.createBuildOptions(optionsProvider);
+    return BuildOptions.of(
+        ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsProvider);
   }
 
   /**

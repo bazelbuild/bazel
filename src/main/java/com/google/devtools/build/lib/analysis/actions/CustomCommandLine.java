@@ -745,6 +745,15 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
+     * Adds a single argument to the command line, which is lazily converted to string.
+     *
+     * <p>If the value is null, neither the arg nor the value is added.
+     */
+    public Builder addObject(@Nullable Object value) {
+      return addObjectInternal(value);
+    }
+
+    /**
      * Adds a dynamically calculated string.
      *
      * <p>Consider whether using another method could be more efficient. For instance, rather than
@@ -794,16 +803,6 @@ public final class CustomCommandLine extends CommandLine {
      */
     public Builder addPath(@Nullable PathFragment value) {
       return addObjectInternal(value);
-    }
-
-    /**
-     * Adds an artifact by calling {@link PathFragment#getCallablePathString}.
-     *
-     * <p>Prefer this over manually calling {@link PathFragment#getCallablePathString}, as it avoids
-     * storing a copy of the path string.
-     */
-    public Builder addCallablePath(@Nullable PathFragment value) {
-      return addObjectInternal(new CallablePathFragment(value));
     }
 
     /**
@@ -1205,7 +1204,7 @@ public final class CustomCommandLine extends CommandLine {
     builder.arguments.addAll(other.arguments);
     return builder;
   }
-  
+
   private final ImmutableList<Object> arguments;
 
   /**
@@ -1328,20 +1327,6 @@ public final class CustomCommandLine extends CommandLine {
       } else {
         fingerprint.addString(CommandLineItem.expandToCommandLine(substitutedArg));
       }
-    }
-  }
-
-  /** A {@link PathFragment} that is expanded with {@link PathFragment#getCallablePathString()}. */
-  private static final class CallablePathFragment {
-    public final PathFragment fragment;
-
-    CallablePathFragment(PathFragment fragment) {
-      this.fragment = fragment;
-    }
-
-    @Override
-    public String toString() {
-      return fragment.getCallablePathString();
     }
   }
 }

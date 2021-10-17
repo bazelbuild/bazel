@@ -41,7 +41,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
       case "file":
         return new IndexRegistry(uri, httpDownloader, clientEnvironmentSupplier.get());
       default:
-        throw new IllegalArgumentException("Unrecognized registry URL protocol: " + url);
+        throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
     }
   }
 }

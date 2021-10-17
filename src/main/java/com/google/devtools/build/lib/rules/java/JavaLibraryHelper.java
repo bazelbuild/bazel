@@ -208,6 +208,7 @@ public final class JavaLibraryHelper {
         outputJarsBuilder,
         createOutputSourceJar,
         outputSourceJar,
+        true,
         /* javaInfoBuilder= */ null,
         ImmutableList.of(), // ignored when javaInfoBuilder is null
         ImmutableList.of());
@@ -219,6 +220,7 @@ public final class JavaLibraryHelper {
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar,
+      boolean enableCompileJarAction,
       @Nullable JavaInfo.Builder javaInfoBuilder,
       List<JavaGenJarsProvider> transitiveJavaGenJars,
       ImmutableList<Artifact> additionalInputForDatabinding)
@@ -267,7 +269,11 @@ public final class JavaLibraryHelper {
     Artifact iJar = null;
     if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
       artifactsBuilder.addRuntimeJar(output);
-      iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+      if (enableCompileJarAction) {
+        iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+      } else {
+        artifactsBuilder.addCompileTimeJarAsFullJar(output);
+      }
     } else if (!resources.isEmpty()) {
       artifactsBuilder.addRuntimeJar(output);
     }

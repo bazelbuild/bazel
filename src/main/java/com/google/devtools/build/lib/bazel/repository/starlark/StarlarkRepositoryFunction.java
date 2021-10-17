@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -157,7 +158,6 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              rule.getPackage().getRepositoryMapping(),
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
               /*analysisRuleLabel=*/ null,
@@ -188,7 +188,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       // all label-arguments can be resolved to paths.
       try {
         starlarkRepositoryContext.enforceLabelAttributes();
-      } catch (RepositoryMissingDependencyException e) {
+      } catch (NeedsSkyframeRestartException e) {
         // Missing values are expected; just restart before we actually start the rule
         return null;
       } catch (EvalException e) {
@@ -246,7 +246,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
         }
       }
       env.getListener().post(resolved);
-    } catch (RepositoryMissingDependencyException e) {
+    } catch (NeedsSkyframeRestartException e) {
       // A dependency is missing, cleanup and returns null
       try {
         if (outputDirectory.exists()) {

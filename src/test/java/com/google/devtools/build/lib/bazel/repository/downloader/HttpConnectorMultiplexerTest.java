@@ -24,8 +24,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Function;
@@ -120,7 +120,7 @@ public class HttpConnectorMultiplexerTest {
     task.start();
     task.join();
     assertThat(wasInterrupted.get()).isTrue();
-    verifyZeroInteractions(connector);
+    verifyNoInteractions(connector);
   }
 
   @Test

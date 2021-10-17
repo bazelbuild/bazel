@@ -97,7 +97,6 @@ public final class CcToolchainProvider extends NativeInfo
   private final String abiGlibcVersion;
   private final String abi;
   private final String targetLibc;
-  private final String hostSystemName;
   private final String targetSystemName;
   private final Label ccToolchainLabel;
   private final String solibDirectory;
@@ -170,7 +169,6 @@ public final class CcToolchainProvider extends NativeInfo
       PathFragment defaultSysroot,
       PathFragment runtimeSysroot,
       String targetLibc,
-      String hostSystemName,
       Label ccToolchainLabel,
       String solibDirectory,
       String abi,
@@ -235,7 +233,6 @@ public final class CcToolchainProvider extends NativeInfo
     this.targetCpu = targetCpu;
     this.targetOS = targetOS;
     this.targetLibc = targetLibc;
-    this.hostSystemName = hostSystemName;
     this.ccToolchainLabel = ccToolchainLabel;
     this.solibDirectory = solibDirectory;
     this.abi = abi;
@@ -884,11 +881,6 @@ public final class CcToolchainProvider extends NativeInfo
   @Deprecated
   public String getTargetOS() {
     return targetOS;
-  }
-
-  /** Returns the system name which is required by the toolchain to run. */
-  public String getHostSystemName() {
-    return hostSystemName;
   }
 
   /** Returns the GNU System Name */

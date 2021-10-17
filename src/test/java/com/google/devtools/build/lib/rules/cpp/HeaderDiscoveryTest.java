@@ -81,7 +81,7 @@ public final class HeaderDiscoveryTest {
   }
 
   private SpecialArtifact treeArtifact(Path path) {
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         artifactRoot,
         artifactRoot.getExecPath().getRelative(artifactRoot.getRoot().relativize(path)),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,

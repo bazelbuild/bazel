@@ -242,9 +242,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static ImmutableList<String> compilationModeCopts(CompilationMode mode) {
     switch (mode) {
       case DBG:
-        return ImmutableList.<String>builder()
-            .addAll(ObjcConfiguration.DBG_COPTS)
-            .build();
+        return ImmutableList.copyOf(ObjcConfiguration.DBG_COPTS);
       case OPT:
         return ObjcConfiguration.OPT_COPTS;
       case FASTBUILD:

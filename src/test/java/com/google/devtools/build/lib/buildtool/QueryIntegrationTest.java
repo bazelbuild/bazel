@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -71,6 +73,11 @@ import org.w3c.dom.NodeList;
 public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private final CustomFileSystem fs = new CustomFileSystem();
   private final List<String> options = new ArrayList<>();
+
+  @Before
+  public void stageEmbeddedTools() throws Exception {
+    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
+  }
 
   @Override
   protected EventCollectionApparatus createEvents() {
@@ -416,46 +423,12 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testBinaries() throws Exception {
-    write(
-        "package/BUILD",
-        "sh_library(name='no1')",
-        "sh_binary(name='yes1', srcs = ['dummy.sh'])",
-        "cc_library(name='no2')",
-        "java_library(name='no3')",
-        "go_library(name='no4', srcs = ['dummy.go'])",
-        "py_library(name='no5')",
-        "cc_binary(name='yes2')",
-        "objc_library(name='no6')");
-
-    QueryOutput result = getQueryResult("binaries('package/...')");
-    assertSuccessfulExitCode(result);
-
-    assertQueryOutputContains(result, "//package:yes1", "//package:yes2");
-    assertQueryOutputDoesNotContain(result, "//package:no.");
-  }
-
-  @Test
   public void invalidQueryFailsParsing() throws Exception {
     QueryOutput result = getQueryResult("deps(\"--bad_target_name_from_bad_script\")");
 
     assertCommandLineErrorExitCode(result);
     assertThat(result.getStdout()).isEmpty();
     events.assertContainsError("target literal must not begin with (-)");
-  }
-
-  @Test
-  public void testLanguageDepsDoesNotFailHorribly() throws Exception {
-    write(
-        "peach/BUILD",
-        "cc_library(name='cc_lib')",
-        "java_library(name='java_lib')",
-        "go_library(name='go_lib', srcs = ['go_lib.go'])",
-        "py_library(name='py_lib')");
-
-    QueryOutput result = getQueryResult("deps(//peach:all)");
-    assertSuccessfulExitCode(result);
-    assertThat(result.getStdout()).isNotEmpty();
   }
 
   @Test
@@ -720,8 +693,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write("depth2/three.sh", "");
 
     QueryOutput oneDep = getQueryResult("deps(//depth:one, 1)");
-    assertQueryOutputContains(
-        oneDep, "//depth:one.sh", "//depth:two", "//tools/sh:sh_stub_template.txt");
+    assertQueryOutputContains(oneDep, "//depth:one.sh", "//depth:two", TestConstants.LAUNCHER_PATH);
     assertQueryOutputDoesNotContain(oneDep, "//depth2");
 
     // Ensure that the whole transitive closure wasn't pulled in earlier if not pre-loading.
@@ -744,7 +716,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:four",
         "//depth2:three",
         "//depth2:three.sh",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
 
     QueryOutput oneDepNonExperimental = getQueryResult("deps(//depth:one, 3)");
 
@@ -765,7 +737,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:four",
         "//depth2:three",
         "//depth2:three.sh",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
 
     QueryOutput twoDep =
         getQueryResult("deps(//depth:one, 2)", "--experimental_ui_debug_all_events");
@@ -783,7 +755,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:three",
         "//depth:div2",
         "//depth2:three",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
 
     // Same as above
     QueryOutput twoDepNonExperimental = getQueryResult("deps(//depth:one, 2)");
@@ -797,7 +769,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:three",
         "//depth:div2",
         "//depth2:three",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
   }
 
   @Test

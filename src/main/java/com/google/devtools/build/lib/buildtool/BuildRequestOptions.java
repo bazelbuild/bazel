@@ -468,6 +468,15 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
+  @Option(
+      name = "experimental_merged_skyframe_analysis_execution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
+  public boolean mergedSkyframeAnalysisExecution;
+
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter {
     public ThreadConverter() {

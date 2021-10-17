@@ -153,7 +153,7 @@ public final class TreeArtifactValueTest {
   @Test
   public void cannotCreateBuilderForNonTreeArtifact() {
     SpecialArtifact notTreeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             PathFragment.create("bin/not_tree"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -653,7 +653,7 @@ public final class TreeArtifactValueTest {
   public void multiBuilder_removeNotATreeArtifact_fails() {
     TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
     SpecialArtifact notATreeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             root.getExecPath().getRelative("bin/artifact"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,

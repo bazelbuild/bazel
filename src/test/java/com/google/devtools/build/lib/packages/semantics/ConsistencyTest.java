@@ -131,7 +131,6 @@ public class ConsistencyTest {
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--experimental_repo_remote_exec=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
-        "--incompatible_applicable_licenses=" + rand.nextBoolean(),
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
         "--incompatible_disable_target_provider_fields=" + rand.nextBoolean(),
         "--incompatible_disable_depset_items=" + rand.nextBoolean(),
@@ -147,6 +146,7 @@ public class ConsistencyTest {
         "--incompatible_no_rule_outputs_param=" + rand.nextBoolean(),
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_struct_has_no_methods=" + rand.nextBoolean(),
+        "--incompatible_top_level_aspects_dependency=" + rand.nextBoolean(),
         "--incompatible_visibility_private_attributes_at_definition=" + rand.nextBoolean(),
         "--incompatible_require_linker_input_cc_api=" + rand.nextBoolean(),
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
@@ -175,7 +175,6 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.INCOMPATIBLE_APPLICABLE_LICENSES, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
             rand.nextBoolean())
@@ -197,6 +196,7 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_STRUCT_HAS_NO_METHODS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_TOP_LEVEL_ASPECTS_DEPENDENCY, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION,
             rand.nextBoolean())

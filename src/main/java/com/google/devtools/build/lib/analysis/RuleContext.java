@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
@@ -51,11 +50,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -65,9 +62,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -78,7 +73,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.FileTarget;
-import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -133,10 +127,6 @@ import net.starlark.java.syntax.Location;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
 
-  public boolean isAllowTagsPropagation() {
-    return starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
-  }
-
   /** Custom dependency validation logic. */
   public interface PrerequisiteValidator {
     /**
@@ -148,40 +138,6 @@ public final class RuleContext extends TargetContext
      */
     void validate(
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
-  }
-
-  /** The configured version of FilesetEntry. */
-  @Immutable
-  public static final class ConfiguredFilesetEntry {
-    private final FilesetEntry entry;
-    private final TransitiveInfoCollection src;
-    private final ImmutableList<TransitiveInfoCollection> files;
-
-    ConfiguredFilesetEntry(FilesetEntry entry, TransitiveInfoCollection src) {
-      this.entry = entry;
-      this.src = src;
-      this.files = null;
-    }
-
-    ConfiguredFilesetEntry(FilesetEntry entry, ImmutableList<TransitiveInfoCollection> files) {
-      this.entry = entry;
-      this.src = null;
-      this.files = files;
-    }
-
-    public FilesetEntry getEntry() {
-      return entry;
-    }
-
-    public TransitiveInfoCollection getSrc() {
-      return src;
-    }
-
-    /** Targets from FilesetEntry.files, or null if the user omitted it. */
-    @Nullable
-    public ImmutableList<TransitiveInfoCollection> getFiles() {
-      return files;
-    }
   }
 
   private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
@@ -197,7 +153,6 @@ public final class RuleContext extends TargetContext
 
   private final ImmutableList<AspectDescriptor> aspectDescriptors;
   private final ListMultimap<String, ConfiguredTargetAndData> targetMap;
-  private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final AspectAwareAttributeMapper attributes;
   private final ImmutableSet<String> enabledFeatures;
@@ -205,11 +160,10 @@ public final class RuleContext extends TargetContext
   private final String ruleClassNameForLogging;
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-  private final FragmentClassSet universalFragments;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
   private final RuleErrorConsumer reporter;
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
-  private final ConstraintSemantics<RuleContext> constraintSemantics;
   @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
@@ -220,13 +174,6 @@ public final class RuleContext extends TargetContext
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
-
-  /**
-   * The StarlarkSemantics to use for rule analysis. Should be the same as what's reported by the
-   * AnalysisEnvironment, but saving it here is more convenient since {@link
-   * AnalysisEnvironment#getStarlarkSemantics()} can throw InterruptedException.
-   */
-  private final StarlarkSemantics starlarkSemantics;
 
   /**
    * Thread used for any Starlark evaluation during analysis, e.g. rule implementation function for
@@ -248,19 +195,7 @@ public final class RuleContext extends TargetContext
       Builder builder,
       AttributeMap attributes,
       ListMultimap<String, ConfiguredTargetAndData> targetMap,
-      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      FragmentClassSet universalFragments,
-      String ruleClassNameForLogging,
-      ActionLookupKey actionLookupKey,
-      ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      ExecGroupCollection execGroupCollection,
-      ConstraintSemantics<RuleContext> constraintSemantics,
-      @Nullable RequiredConfigFragmentsProvider requiredConfigFragments,
-      String toolsRepository,
-      StarlarkSemantics starlarkSemantics,
-      Mutability mutability) {
+      ExecGroupCollection execGroupCollection) {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -269,29 +204,25 @@ public final class RuleContext extends TargetContext
         builder.visibility);
     this.rule = builder.target.getAssociatedRule();
     this.aspects = builder.aspects;
-    this.aspectDescriptors =
-        builder.aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
+    this.aspectDescriptors = aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
-    this.universalFragments = universalFragments;
+    this.ruleClassProvider = builder.ruleClassProvider;
     this.targetMap = targetMap;
-    this.filesetEntryMap = filesetEntryMap;
-    this.configConditions = configConditions;
-    this.attributes = new AspectAwareAttributeMapper(attributes, aspectAttributes);
+    this.configConditions = builder.configConditions.asProviders();
+    this.attributes = new AspectAwareAttributeMapper(attributes, builder.aspectAttributes);
     Set<String> allEnabledFeatures = new HashSet<>();
     Set<String> allDisabledFeatures = new HashSet<>();
     getAllFeatures(allEnabledFeatures, allDisabledFeatures);
     this.enabledFeatures = ImmutableSortedSet.copyOf(allEnabledFeatures);
     this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
-    this.ruleClassNameForLogging = ruleClassNameForLogging;
+    this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
     this.hostConfiguration = builder.hostConfiguration;
-    this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
-    reporter = builder.reporter;
-    this.toolchainContexts = toolchainContexts;
+    this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
+    this.reporter = builder.reporter;
+    this.toolchainContexts = builder.toolchainContexts;
     this.execGroupCollection = execGroupCollection;
-    this.constraintSemantics = constraintSemantics;
-    this.requiredConfigFragments = requiredConfigFragments;
-    this.starlarkSemantics = starlarkSemantics;
-    this.starlarkThread = createStarlarkThread(toolsRepository, mutability); // uses above state
+    this.requiredConfigFragments = builder.requiredConfigFragments;
+    this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -331,6 +262,12 @@ public final class RuleContext extends TargetContext
         enabled.add(feature);
       }
     }
+  }
+
+  public boolean isAllowTagsPropagation() {
+    return getAnalysisEnvironment()
+        .getStarlarkSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
   }
 
   public RepositoryName getRepository() {
@@ -472,11 +409,6 @@ public final class RuleContext extends TargetContext
     return targetMap.get(attributeName);
   }
 
-  /** Returns an immutable map from attribute name to list of fileset entries. */
-  public ListMultimap<String, ConfiguredFilesetEntry> getFilesetEntryMap() {
-    return filesetEntryMap;
-  }
-
   @Override
   public ActionOwner getActionOwner() {
     return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
@@ -571,7 +503,7 @@ public final class RuleContext extends TargetContext
 
   public <T extends Fragment> boolean isLegalFragment(
       Class<T> fragment, ConfigurationTransition transition) {
-    return universalFragments.contains(fragment)
+    return ruleClassProvider.getFragmentRegistry().getUniversalFragments().contains(fragment)
         || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, transition);
   }
 
@@ -1187,19 +1119,14 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
-  public StarlarkSemantics getStarlarkSemantics() {
-    return starlarkSemantics;
-  }
-
-  private StarlarkThread createStarlarkThread(String toolsRepository, Mutability mutability) {
+  private StarlarkThread createStarlarkThread(Mutability mutability) {
     AnalysisEnvironment env = getAnalysisEnvironment();
-    StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+    StarlarkThread thread = new StarlarkThread(mutability, env.getStarlarkSemantics());
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.ANALYSIS,
-            toolsRepository,
+            ruleClassProvider.getToolsRepository(),
             /*fragmentNameToClass=*/ null,
-            getTarget().getPackage().getRepositoryMapping(),
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             getSymbolGenerator(),
             getLabel(),
@@ -1279,6 +1206,18 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
+  public Label targetPlatform() {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    PlatformInfo targetPlatform = toolchainContexts.getTargetPlatform();
+    if (targetPlatform == null) {
+      return null;
+    }
+    return targetPlatform.label();
+  }
+
+  @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
   }
@@ -1309,20 +1248,18 @@ public final class RuleContext extends TargetContext
     return toolchainContexts.getTargetPlatform().constraints().hasConstraintValue(constraintValue);
   }
 
-  public ConstraintSemantics<RuleContext> getConstraintSemantics() {
-    return constraintSemantics;
+  public ConfiguredRuleClassProvider getRuleClassProvider() {
+    return ruleClassProvider;
   }
 
   /** Returns the configuration fragments this rule uses. */
   public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
     RequiredConfigFragmentsProvider.Builder merged = null;
-    for (Expander makeVariableExpander : makeVariableExpanders) {
-      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
-        // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
-        // rule's package. Both are equivalent for these purposes, since in both cases setting
-        // "--define foo=bar" impacts the rule's output.
-        if (rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
-            || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable)) {
+
+    // Add variables accessed through ctx.var, if this is a Starlark rule.
+    if (starlarkRuleContext != null) {
+      for (String makeVariable : starlarkRuleContext.lookedUpVariables()) {
+        if (isUserDefinedMakeVariable(makeVariable)) {
           if (merged == null) {
             merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
           }
@@ -1330,7 +1267,28 @@ public final class RuleContext extends TargetContext
         }
       }
     }
+
+    // Add variables accessed through Make variable substitution.
+    for (Expander makeVariableExpander : makeVariableExpanders) {
+      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
+        if (isUserDefinedMakeVariable(makeVariable)) {
+          if (merged == null) {
+            merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
+          }
+          merged.addDefine(makeVariable);
+        }
+      }
+    }
+
     return merged == null ? requiredConfigFragments : merged.build();
+  }
+
+  private boolean isUserDefinedMakeVariable(String makeVariable) {
+    // User-defined make values may be set either in "--define foo=bar" or in a vardef in the rule's
+    // package. Both are equivalent for these purposes, since in both cases setting
+    // "--define foo=bar" impacts the rule's output.
+    return rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
+        || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable);
   }
 
   private void checkAttributeIsDependency(String attributeName) {
@@ -1668,30 +1626,24 @@ public final class RuleContext extends TargetContext
   }
 
   /** Builder class for a RuleContext. */
-  // TODO(bazel-team): I get the feeling we could delete much of the boilerplate by replacing some
-  // of these fields with a RuleClassProvider -- both in the builder and in the RuleContext itself.
   public static final class Builder implements RuleErrorConsumer {
     private final AnalysisEnvironment env;
     private final Target target;
-    private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private FragmentClassSet universalFragments;
+    private final ImmutableList<Aspect> aspects;
     private final BuildConfiguration configuration;
-    private final BuildConfiguration hostConfiguration;
-    private final ActionLookupKey actionOwnerSymbol;
-    private final PrerequisiteValidator prerequisiteValidator;
     private final RuleErrorConsumer reporter;
+    private ConfiguredRuleClassProvider ruleClassProvider;
+    private BuildConfiguration hostConfiguration;
+    private ConfigurationFragmentPolicy configurationFragmentPolicy;
+    private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
-    private String toolsRepository;
-    private StarlarkSemantics starlarkSemantics;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
-    private ImmutableMap<String, Attribute> aspectAttributes;
-    private final ImmutableList<Aspect> aspects;
+    private ImmutableMap<String, Attribute> aspectAttributes = ImmutableMap.of();
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
-    private ConstraintSemantics<RuleContext> constraintSemantics;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
 
     @VisibleForTesting
@@ -1699,19 +1651,11 @@ public final class RuleContext extends TargetContext
         AnalysisEnvironment env,
         Target target,
         ImmutableList<Aspect> aspects,
-        BuildConfiguration configuration,
-        BuildConfiguration hostConfiguration,
-        PrerequisiteValidator prerequisiteValidator,
-        ConfigurationFragmentPolicy configurationFragmentPolicy,
-        ActionLookupKey actionOwnerSymbol) {
+        BuildConfiguration configuration) {
       this.env = Preconditions.checkNotNull(env);
       this.target = Preconditions.checkNotNull(target);
-      this.aspects = aspects;
-      this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
+      this.aspects = Preconditions.checkNotNull(aspects);
       this.configuration = Preconditions.checkNotNull(configuration);
-      this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
-      this.prerequisiteValidator = prerequisiteValidator;
-      this.actionOwnerSymbol = Preconditions.checkNotNull(actionOwnerSymbol);
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
@@ -1723,13 +1667,14 @@ public final class RuleContext extends TargetContext
 
     @VisibleForTesting
     public RuleContext build() throws InvalidExecGroupException {
+      Preconditions.checkNotNull(ruleClassProvider);
+      Preconditions.checkNotNull(hostConfiguration);
+      Preconditions.checkNotNull(configurationFragmentPolicy);
+      Preconditions.checkNotNull(actionOwnerSymbol);
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
-      Preconditions.checkNotNull(toolsRepository);
-      Preconditions.checkNotNull(starlarkSemantics);
       Preconditions.checkNotNull(mutability);
       Preconditions.checkNotNull(visibility);
-      Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
           ConfiguredAttributeMapper.of(
               target.getAssociatedRule(), configConditions.asProviders(), configuration.checksum());
@@ -1745,26 +1690,12 @@ public final class RuleContext extends TargetContext
           validateDirectPrerequisite(configSettingAttr, condition);
         }
       }
-      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
-          createFilesetEntryMap(target.getAssociatedRule(), configConditions.asProviders());
 
       return new RuleContext(
           this,
           attributes,
           targetMap,
-          filesetEntryMap,
-          configConditions.asProviders(),
-          universalFragments,
-          getRuleClassNameForLogging(),
-          actionOwnerSymbol,
-          firstNonNull(aspectAttributes, ImmutableMap.of()),
-          toolchainContexts,
-          createExecGroupCollection(execGroupCollectionBuilder, attributes),
-          constraintSemantics,
-          requiredConfigFragments,
-          toolsRepository,
-          starlarkSemantics,
-          mutability);
+          createExecGroupCollection(execGroupCollectionBuilder, attributes));
     }
 
     private ExecGroupCollection createExecGroupCollection(
@@ -1803,15 +1734,23 @@ public final class RuleContext extends TargetContext
       }
     }
 
-    // TODO(bazel-team): This field is only used by BazelStarlarkContext. Investigate whether that's
-    // even needed in the analysis phase, and delete it if not.
-    public Builder setToolsRepository(String toolsRepository) {
-      this.toolsRepository = toolsRepository;
+    public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
+      this.ruleClassProvider = ruleClassProvider;
       return this;
     }
 
-    public Builder setStarlarkSemantics(StarlarkSemantics starlarkSemantics) {
-      this.starlarkSemantics = starlarkSemantics;
+    public Builder setHostConfiguration(BuildConfiguration hostConfiguration) {
+      this.hostConfiguration = hostConfiguration;
+      return this;
+    }
+
+    public Builder setConfigurationFragmentPolicy(ConfigurationFragmentPolicy policy) {
+      this.configurationFragmentPolicy = policy;
+      return this;
+    }
+
+    public Builder setActionOwnerSymbol(ActionLookupKey actionOwnerSymbol) {
+      this.actionOwnerSymbol = actionOwnerSymbol;
       return this;
     }
 
@@ -1847,16 +1786,6 @@ public final class RuleContext extends TargetContext
      */
     public Builder setConfigConditions(ConfigConditions configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
-      return this;
-    }
-
-    /** Sets the fragment that can be legally accessed even when not explicitly declared. */
-    public Builder setUniversalFragments(FragmentClassSet fragments) {
-      // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
-      // don't need separate logic specifically for checking this fragment. The challenge is
-      // that we need RuleClassProvider to figure out what this fragment is, and not every
-      // call state that creates ConfigurationFragmentPolicy has access to that.
-      this.universalFragments = fragments;
       return this;
     }
 
@@ -1898,96 +1827,12 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    public Builder setConstraintSemantics(ConstraintSemantics<RuleContext> constraintSemantics) {
-      this.constraintSemantics = constraintSemantics;
-      return this;
-    }
-
     public Builder setRequiredConfigFragments(
         @Nullable RequiredConfigFragmentsProvider requiredConfigFragments) {
       this.requiredConfigFragments = requiredConfigFragments;
       return this;
     }
 
-    private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
-      NestedSet<Artifact> filesToBuild =
-          src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
-      if (filesToBuild.isSingleton() && filesToBuild.getSingleton().isFileset()) {
-        return true;
-      }
-
-      if (filesetEntry.isSourceFileset()) {
-        return true;
-      }
-
-      Target srcTarget = src.getTarget();
-      if (!(srcTarget instanceof FileTarget)) {
-        attributeError(
-            "entries",
-            String.format(
-                "Invalid 'srcdir' target '%s'. Must be another Fileset or package",
-                srcTarget.getLabel()));
-        return false;
-      }
-
-      if (srcTarget instanceof OutputFile) {
-        attributeWarning(
-            "entries",
-            String.format(
-                "'srcdir' target '%s' is not an input file. "
-                    + "This forces the Fileset to be executed unconditionally",
-                srcTarget.getLabel()));
-      }
-
-      return true;
-    }
-
-    /**
-     * Determines and returns a map from attribute name to list of configured fileset entries, based
-     * on a PrerequisiteMap instance.
-     */
-    private ListMultimap<String, ConfiguredFilesetEntry> createFilesetEntryMap(
-        final Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
-      if (!target.getTargetKind().equals("Fileset rule")) {
-        return ImmutableSortedKeyListMultimap.<String, ConfiguredFilesetEntry>builder().build();
-      }
-
-      final ImmutableSortedKeyListMultimap.Builder<String, ConfiguredFilesetEntry> mapBuilder =
-          ImmutableSortedKeyListMultimap.builder();
-      for (Attribute attr : rule.getAttributes()) {
-        if (attr.getType() != BuildType.FILESET_ENTRY_LIST) {
-          continue;
-        }
-        String attributeName = attr.getName();
-        Map<Label, ConfiguredTargetAndData> ctMap = new HashMap<>();
-        for (ConfiguredTargetAndData prerequisite : prerequisiteMap.get(attr)) {
-          ctMap.put(
-              AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget()), prerequisite);
-        }
-        List<FilesetEntry> entries =
-            ConfiguredAttributeMapper.of(rule, configConditions, configuration.checksum())
-                .get(attributeName, BuildType.FILESET_ENTRY_LIST);
-        for (FilesetEntry entry : entries) {
-          if (entry.getFiles() == null) {
-            Label label = entry.getSrcLabel();
-            ConfiguredTargetAndData src = ctMap.get(label);
-            if (!validateFilesetEntry(entry, src)) {
-              continue;
-            }
-
-            mapBuilder.put(
-                attributeName, new ConfiguredFilesetEntry(entry, src.getConfiguredTarget()));
-          } else {
-            ImmutableList.Builder<TransitiveInfoCollection> files = ImmutableList.builder();
-            for (Label file : entry.getFiles()) {
-              files.add(ctMap.get(file).getConfiguredTarget());
-            }
-            mapBuilder.put(attributeName, new ConfiguredFilesetEntry(entry, files.build()));
-          }
-        }
-      }
-      return mapBuilder.build();
-    }
 
     /** Determines and returns a map from attribute name to list of configured targets. */
     private ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> createTargetMap() {
@@ -2024,15 +1869,6 @@ public final class RuleContext extends TargetContext
         }
       }
       return mapBuilder.build();
-    }
-
-    /**
-     * Post a raw event to the analysis environment's event handler. This circumvents normal error
-     * and warning reporting functionality to post events, and should only be used in rare cases
-     * where a custom event needs to be handled.
-     */
-    public void post(Postable event) {
-      env.getEventHandler().post(event);
     }
 
     @Override
@@ -2146,17 +1982,17 @@ public final class RuleContext extends TargetContext
     }
 
     /**
-     * Expose the Starlark semantics that governs the building of this rule (and the rest of the
-     * build)
+     * Returns the {@link StarlarkSemantics} governs the building of this rule (and the rest of the
+     * build).
      */
-    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() {
       return env.getStarlarkSemantics();
     }
 
     /**
      * Returns a rule class name suitable for log messages, including an aspect name if applicable.
      */
-    public String getRuleClassNameForLogging() {
+    private String getRuleClassNameForLogging() {
       if (aspects.isEmpty()) {
         return target.getAssociatedRule().getRuleClass();
       }
@@ -2347,7 +2183,7 @@ public final class RuleContext extends TargetContext
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {
-        prerequisiteValidator.validate(this, prerequisite, attribute);
+        ruleClassProvider.getPrerequisiteValidator().validate(this, prerequisite, attribute);
       }
     }
   }

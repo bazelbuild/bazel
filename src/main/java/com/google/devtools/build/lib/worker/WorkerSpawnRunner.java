@@ -542,7 +542,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 }
               } finally {
                 if (w != null) {
-                  workers.returnObject(key, w);
+                  try {
+                    workers.returnObject(key, w);
+                  } catch (IllegalStateException e3) {
+                    // The worker already not part of the pool
+                  }
                 }
               }
             },

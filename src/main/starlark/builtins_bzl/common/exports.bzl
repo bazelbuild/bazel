@@ -16,6 +16,7 @@
 
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/java/java_library_macro.bzl", "java_library")
+load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "cc_shared_library", "cc_shared_library_permissions")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
@@ -30,7 +31,8 @@ exported_toplevels = {
 }
 exported_rules = {
     "+cc_import": cc_import,
-    "-java_library": java_library,
+    "+java_library": java_library,
+    "+java_plugin": java_plugin,
     "objc_import": objc_import,
     "objc_library": objc_library,
     "+apple_static_library": apple_static_library,

@@ -105,16 +105,6 @@ public class AnalysisOptions extends OptionsBase {
   )
   public long versionWindowForDirtyNodeGc;
 
-  @Deprecated
-  @Option(
-    name = "experimental_interleave_loading_and_analysis",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "No-op."
-  )
-  public boolean interleaveLoadingAndAnalysis;
-
   @Option(
     name = "experimental_skyframe_prepare_analysis",
     defaultValue = "false",

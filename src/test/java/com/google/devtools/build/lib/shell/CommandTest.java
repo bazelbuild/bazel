@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.shell.TestUtil.assertArrayEquals;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
@@ -71,9 +70,9 @@ public class CommandTest {
     Map<String, String> env = Collections.singletonMap("foo", "bar");
     String[] commandArgs = new String[] { "command" };
     Command command = new Command(commandArgs, env, workingDir);
-    assertArrayEquals(commandArgs, command.getCommandLineElements());
+    assertThat(command.getArguments()).containsExactlyElementsIn(commandArgs);
     for (String key : env.keySet()) {
-      assertThat(command.getEnvironmentVariables()).containsEntry(key, env.get(key));
+      assertThat(command.getEnvironment()).containsEntry(key, env.get(key));
     }
     assertThat(command.getWorkingDirectory()).isEqualTo(workingDir);
   }
@@ -403,7 +402,7 @@ public class CommandTest {
 
   private static void checkCommandElements(CommandException e,
       String... expected) {
-    assertArrayEquals(expected, e.getCommand().getCommandLineElements());
+    assertThat(e.getCommand().getArguments()).containsExactlyElementsIn(expected);
   }
 
   private static void checkATE(final AbnormalTerminationException ate) {
@@ -423,7 +422,7 @@ public class CommandTest {
     Command command = new Command(new String[]{"relative/path/to/binary"},
         ImmutableMap.<String, String>of(),
         new File("/working/directory"));
-    assertThat(command.getCommandLineElements()[0])
+    assertThat(command.getArguments().get(0))
         .isEqualTo("/working/directory/relative/path/to/binary");
   }
 }

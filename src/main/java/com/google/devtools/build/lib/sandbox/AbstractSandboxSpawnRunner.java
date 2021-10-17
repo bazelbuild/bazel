@@ -131,6 +131,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       try (SilentCloseable c = Profiler.instance().profile("subprocess.run")) {
         result = run(originalSpawn, sandbox, context.getTimeout(), outErr);
       }
+      try (SilentCloseable c = Profiler.instance().profile("sandbox.verifyPostCondition")) {
+        verifyPostCondition(originalSpawn, sandbox, context);
+      }
 
       context.lockOutputFiles();
       try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
@@ -148,22 +151,18 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     }
   }
+  /** Override this method if you need to run a post condition after the action has executed */
+  public void verifyPostCondition(
+      Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
+      throws IOException, ForbiddenActionInputException {}
 
   private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
     if (sandboxOptions.sandboxDebug) {
       return CommandFailureUtils.describeCommandFailure(
-          true,
-          sandbox.getArguments(),
-          sandbox.getEnvironment(),
-          sandbox.getSandboxExecRoot().getPathString(),
-          null);
+          true, sandbox.getSandboxExecRoot().getPathString(), sandbox);
     } else {
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures,
-              originalSpawn.getArguments(),
-              originalSpawn.getEnvironment(),
-              sandbox.getSandboxExecRoot().getPathString(),
-              originalSpawn.getExecutionPlatform())
+              verboseFailures, sandbox.getSandboxExecRoot().getPathString(), originalSpawn)
           + SANDBOX_DEBUG_SUGGESTION;
     }
   }

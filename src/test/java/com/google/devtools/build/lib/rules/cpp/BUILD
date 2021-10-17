@@ -232,6 +232,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -273,6 +274,19 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "CcToolchainInputsTransitionFactoryTest",
+    srcs = ["CcToolchainInputsTransitionFactoryTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
@@ -663,6 +677,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",

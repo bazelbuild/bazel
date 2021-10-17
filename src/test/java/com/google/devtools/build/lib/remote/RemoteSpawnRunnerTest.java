@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -66,10 +68,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
@@ -80,6 +79,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -131,6 +131,7 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerTest {
 
+  private final Reporter reporter = new Reporter(new EventBus());
   private static final ImmutableMap<String, String> NO_CACHE =
       ImmutableMap.of(ExecutionRequirements.NO_CACHE, "");
   private ListeningScheduledExecutorService retryService;
@@ -259,7 +260,7 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     verify(localRunner).exec(spawn, policy);
-    verify(cache).ensureInputsPresent(any(), any(), any());
+    verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean());
     verifyNoMoreInteractions(cache);
   }
 
@@ -413,53 +414,6 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     verify(service).executeRemotely(any(), eq(false), any());
-  }
-
-  @Test
-  public void printWarningIfCacheIsDown() throws Exception {
-    // If we try to upload to a local cache, that is down a warning should be printed.
-
-    remoteOptions.remoteUploadLocalResults = true;
-    remoteOptions.remoteLocalFallback = true;
-
-    Reporter reporter = new Reporter(new EventBus());
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    reporter.addHandler(eventHandler);
-
-    RemoteSpawnRunner runner = newSpawnRunner(reporter);
-    RemoteExecutionService service = runner.getRemoteExecutionService();
-
-    // Trigger local fallback
-    when(executor.executeRemotely(
-            any(RemoteActionExecutionContext.class),
-            any(ExecuteRequest.class),
-            any(OperationObserver.class)))
-        .thenThrow(new IOException());
-
-    Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = getSpawnContext(spawn);
-
-    doThrow(new IOException("cache down")).when(service).lookupCache(any());
-    doThrow(new IOException("cache down")).when(service).uploadOutputs(any(), any());
-
-    SpawnResult res =
-        new SpawnResult.Builder()
-            .setStatus(Status.SUCCESS)
-            .setExitCode(0)
-            .setRunnerName("test")
-            .build();
-    when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);
-
-    assertThat(runner.exec(spawn, policy)).isEqualTo(res);
-
-    verify(localRunner).exec(eq(spawn), eq(policy));
-
-    assertThat(eventHandler.getEvents()).hasSize(1);
-
-    Event evt = eventHandler.getEvents().get(0);
-    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
-    assertThat(evt.getMessage()).contains("fail");
-    assertThat(evt.getMessage()).contains("upload");
   }
 
   @Test
@@ -1081,6 +1035,9 @@ public class RemoteSpawnRunnerTest {
     executionOptions.materializeParamFiles = true;
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
+            directExecutor(),
+            reporter,
+            /*verboseFailures=*/ true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
@@ -1595,49 +1552,29 @@ public class RemoteSpawnRunnerTest {
 
   private RemoteSpawnRunner newSpawnRunner() {
     return newSpawnRunner(
-        /* verboseFailures= */ false,
         executor,
-        /* reporter= */ null,
-        /* topLevelOutputs= */ ImmutableSet.of(),
-        RemotePathResolver.createDefault(execRoot));
-  }
-
-  private RemoteSpawnRunner newSpawnRunner(Reporter reporter) {
-    return newSpawnRunner(
-        /* verboseFailures= */ false,
-        executor,
-        reporter,
-        /* topLevelOutputs= */ ImmutableSet.of(),
+        /*topLevelOutputs=*/ ImmutableSet.of(),
         RemotePathResolver.createDefault(execRoot));
   }
 
   private RemoteSpawnRunner newSpawnRunner(ImmutableSet<ActionInput> topLevelOutputs) {
-    return newSpawnRunner(
-        /* verboseFailures= */ false,
-        executor,
-        /* reporter= */ null,
-        topLevelOutputs,
-        RemotePathResolver.createDefault(execRoot));
+    return newSpawnRunner(executor, topLevelOutputs, RemotePathResolver.createDefault(execRoot));
   }
 
   private RemoteSpawnRunner newSpawnRunner(RemotePathResolver remotePathResolver) {
-    return newSpawnRunner(
-        /* verboseFailures= */ false,
-        executor,
-        /* reporter= */ null,
-        /* topLevelOutputs= */ ImmutableSet.of(),
-        remotePathResolver);
+    return newSpawnRunner(executor, /*topLevelOutputs=*/ ImmutableSet.of(), remotePathResolver);
   }
 
   private RemoteSpawnRunner newSpawnRunner(
-      boolean verboseFailures,
       @Nullable RemoteExecutionClient executor,
-      @Nullable Reporter reporter,
       ImmutableSet<ActionInput> topLevelOutputs,
       RemotePathResolver remotePathResolver) {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
+                directExecutor(),
+                reporter,
+                /*verboseFailures=*/ true,
                 execRoot,
                 remotePathResolver,
                 "build-req-id",
@@ -1647,13 +1584,13 @@ public class RemoteSpawnRunnerTest {
                 cache,
                 executor,
                 topLevelOutputs,
-                /* captureCorruptedOutputsDir= */ null));
+                /*captureCorruptedOutputsDir=*/ null));
 
     return new RemoteSpawnRunner(
         execRoot,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
-        verboseFailures,
+        false,
         reporter,
         retryService,
         logDir,

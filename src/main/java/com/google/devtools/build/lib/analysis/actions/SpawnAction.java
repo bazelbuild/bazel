@@ -637,6 +637,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private boolean isShellCommand = false;
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
+    private Object executableArg;
     private CustomCommandLine.Builder executableArgs;
     private List<CommandLineAndParamFileInfo> commandLines = new ArrayList<>();
 
@@ -667,6 +668,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executionInfo = other.executionInfo;
       this.isShellCommand = other.isShellCommand;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
+      this.executableArg = other.executableArg;
       this.executableArgs = other.executableArgs;
       this.commandLines = new ArrayList<>(other.commandLines);
       this.progressMessage = other.progressMessage;
@@ -696,7 +698,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CheckReturnValue
     public SpawnAction build(ActionOwner owner, BuildConfiguration configuration) {
       CommandLines.Builder result = CommandLines.builder();
-      result.addCommandLine(executableArgs.build());
+      if (executableArg != null) {
+        result.addSingleArgument(executableArg);
+      } else {
+        result.addCommandLine(executableArgs.build());
+      }
       for (CommandLineAndParamFileInfo pair : this.commandLines) {
         result.addCommandLine(pair);
       }
@@ -714,7 +720,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CheckReturnValue
     SpawnAction buildForActionTemplate(ActionOwner owner) {
       CommandLines.Builder result = CommandLines.builder();
-      result.addCommandLine(executableArgs.build());
+      if (executableArg != null) {
+        result.addSingleArgument(executableArg);
+      } else {
+        result.addCommandLine(executableArgs.build());
+      }
       for (CommandLineAndParamFileInfo pair : commandLines) {
         result.addCommandLine(pair.commandLine);
       }
@@ -1009,7 +1019,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setExecutable(PathFragment executable) {
-      this.executableArgs = CustomCommandLine.builder().addPath(executable);
+      this.executableArg = executable;
+      this.executableArgs = null;
       this.isShellCommand = false;
       return this;
     }
@@ -1022,7 +1033,26 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     public Builder setExecutable(Artifact executable) {
       addTool(executable);
-      this.executableArgs = CustomCommandLine.builder().addCallablePath(executable.getExecPath());
+      this.executableArg = new CallablePathFragment(executable.getExecPath());
+      this.executableArgs = null;
+      this.isShellCommand = false;
+      return this;
+    }
+
+    /**
+     * Sets the executable as a String.
+     *
+     * <p><b>Caution</b>: this is an optimisation intended to be used only by {@link
+     * com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory}. It prevents reference
+     * duplication when passing {@link PathFragment} to Starlark as a String and then executing with
+     * it.
+     *
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     */
+    public Builder setExecutableAsString(String executable) {
+      this.executableArg = executable;
+      this.executableArgs = null;
       this.isShellCommand = false;
       return this;
     }
@@ -1050,9 +1080,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setExecutable(FilesToRunProvider executableProvider) {
       Preconditions.checkArgument(executableProvider.getExecutable() != null,
           "The target does not have an executable");
-      this.executableArgs =
-          CustomCommandLine.builder()
-              .addCallablePath(executableProvider.getExecutable().getExecPath());
+      this.executableArg =
+          new CallablePathFragment(executableProvider.getExecutable().getExecPath());
+      this.executableArgs = null;
       this.isShellCommand = false;
       return addTool(executableProvider);
     }
@@ -1067,6 +1097,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .addPath(javaExecutable)
               .addAll(jvmArgs)
               .addAll(ImmutableList.copyOf(launchArgs));
+      this.executableArg = null;
       toolsBuilder.add(deployJar);
       this.isShellCommand = false;
       return this;
@@ -1117,6 +1148,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       // 0=shell command switch, 1=command
       this.executableArgs =
           CustomCommandLine.builder().addPath(shExecutable).add("-c").addDynamicString(command);
+      this.executableArg = null;
       this.isShellCommand = true;
       return this;
     }
@@ -1127,6 +1159,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     public Builder setShellCommand(Iterable<String> command) {
       this.executableArgs = CustomCommandLine.builder().addAll(ImmutableList.copyOf(command));
+      this.executableArg = null;
       this.isShellCommand = true;
       return this;
     }
@@ -1134,27 +1167,27 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     /** Returns a {@link CustomCommandLine.Builder} for executable arguments. */
     public CustomCommandLine.Builder executableArguments() {
       if (executableArgs == null) {
-        executableArgs = CustomCommandLine.builder();
+        if (executableArg != null) {
+          executableArgs = CustomCommandLine.builder().addObject(executableArg);
+          executableArg = null;
+        } else {
+          executableArgs = CustomCommandLine.builder();
+        }
       }
       return this.executableArgs;
     }
 
     /** Appends the arguments to the list of executable arguments. */
     public Builder addExecutableArguments(String... arguments) {
+      if (executableArg != null) {
+        executableArgs = CustomCommandLine.builder().addObject(executableArg);
+        executableArg = null;
+      }
       Preconditions.checkState(executableArgs != null);
       this.executableArgs.addAll(ImmutableList.copyOf(arguments));
       return this;
     }
 
-    /**
-     * Add multiple arguments in the order they are returned by the collection to the list of
-     * executable arguments.
-     */
-    public Builder addExecutableArguments(Iterable<String> arguments) {
-      Preconditions.checkState(executableArgs != null);
-      this.executableArgs.addAll(ImmutableList.copyOf(arguments));
-      return this;
-    }
 
     /**
      * Adds a delegate to compute the command line at a later time.
@@ -1382,6 +1415,20 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       } catch (ExecException e) {
         throw e.toActionExecutionException(SpawnAction.this);
       }
+    }
+  }
+
+  /** A {@link PathFragment} that is expanded with {@link PathFragment#getCallablePathString()}. */
+  private static final class CallablePathFragment {
+    public final PathFragment fragment;
+
+    CallablePathFragment(PathFragment fragment) {
+      this.fragment = fragment;
+    }
+
+    @Override
+    public String toString() {
+      return fragment.getCallablePathString();
     }
   }
 }

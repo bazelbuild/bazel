@@ -885,6 +885,7 @@ public class AspectTest extends AnalysisTestCase {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
+    useConfiguration("--noincompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(
@@ -904,7 +905,6 @@ public class AspectTest extends AnalysisTestCase {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
-    useConfiguration("--incompatible_top_level_aspects_dependency");
     reporter.removeHandler(failFastHandler);
 
     assertThrows(
@@ -1159,6 +1159,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnNativeRule() throws Exception {
+    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     scratch.file(
         "aspect_hints/BUILD",
@@ -1179,6 +1180,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnStarlarkRule() throws Exception {
+    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     setupStarlarkRule();
     scratch.file(

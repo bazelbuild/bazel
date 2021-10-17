@@ -71,6 +71,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
     @StarlarkMethod(
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
+        useStarlarkThread = true,
         parameters = {
           @Param(
               name = "compilation_context",
@@ -101,11 +102,26 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               allowedTypes = {
                 @ParamType(type = CcDebugInfoContextApi.class),
                 @ParamType(type = NoneType.class)
+              }),
+          @Param(
+              name = "cc_native_library_info",
+              documented = false,
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              allowedTypes = {
+                @ParamType(type = CcNativeLibraryInfoApi.class),
+                @ParamType(type = NoneType.class)
               })
         },
         selfCall = true)
     @StarlarkConstructor
     CcInfoApi<FileT> createInfo(
-        Object ccCompilationContext, Object ccLinkingInfo, Object ccDebugInfo) throws EvalException;
+        Object ccCompilationContext,
+        Object ccLinkingInfo,
+        Object ccDebugInfo,
+        Object ccNativeLibraryInfo,
+        StarlarkThread thread)
+        throws EvalException;
   }
 }

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
@@ -48,6 +50,7 @@ public class DownloadManager {
   private UrlRewriter rewriter;
   private final Downloader downloader;
   private boolean disableDownload = false;
+  private int retries = 0;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -64,6 +67,11 @@ public class DownloadManager {
 
   public void setDisableDownload(boolean disableDownload) {
     this.disableDownload = disableDownload;
+  }
+
+  public void setRetries(int retries) {
+    checkArgument(retries >= 0, "Invalid retries");
+    this.retries = retries;
   }
 
   /**
@@ -102,8 +110,11 @@ public class DownloadManager {
     }
 
     List<URL> rewrittenUrls = originalUrls;
+    Map<URI, Map<String, String>> rewrittenAuthHeaders = authHeaders;
+
     if (rewriter != null) {
       rewrittenUrls = rewriter.amend(originalUrls);
+      rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrls, authHeaders);
     }
 
     URL mainUrl; // The "main" URL for this request
@@ -216,18 +227,25 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
     }
 
-    try {
-      downloader.download(
-          rewrittenUrls,
-          authHeaders,
-          checksum,
-          canonicalId,
-          destination,
-          eventHandler,
-          clientEnv,
-          type);
-    } catch (InterruptedIOException e) {
-      throw new InterruptedException(e.getMessage());
+    for (int attempt = 0; attempt <= retries; ++attempt) {
+      try {
+        downloader.download(
+            rewrittenUrls,
+            rewrittenAuthHeaders,
+            checksum,
+            canonicalId,
+            destination,
+            eventHandler,
+            clientEnv,
+            type);
+        break;
+      } catch (ContentLengthMismatchException e) {
+        if (attempt == retries) {
+          throw e;
+        }
+      } catch (InterruptedIOException e) {
+        throw new InterruptedException(e.getMessage());
+      }
     }
 
     if (isCachingByProvidedChecksum) {
@@ -235,15 +253,9 @@ public class DownloadManager {
           checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
     } else if (repositoryCache.isEnabled()) {
       String newSha256 = repositoryCache.put(destination, KeyType.SHA256, canonicalId);
-      eventHandler.handle(Event.info("SHA256 (" + rewrittenUrls.get(0) + ") = " + newSha256));
       
       if(!sha256.isEmpty()) {
-        try {
-          Checksum.stringComparison(sha256, newSha256);
-        }
-        catch (Checksum.ICExceptionExtended e) {
-          throw new IOException(e.getMessage());
-        }
+        Checksum.stringComparison(sha256, newSha256);
       }
     }
 

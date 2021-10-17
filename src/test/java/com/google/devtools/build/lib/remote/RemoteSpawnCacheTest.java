@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -207,6 +208,9 @@ public class RemoteSpawnCacheTest {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
+                directExecutor(),
+                reporter,
+                /*verboseFailures=*/ true,
                 execRoot,
                 remotePathResolver,
                 BUILD_REQUEST_ID,
@@ -474,34 +478,6 @@ public class RemoteSpawnCacheTest {
             .build();
     entry.store(result);
     verify(service, never()).uploadOutputs(any(), any());
-    assertThat(progressUpdates)
-        .containsExactly(
-            SpawnCheckingCacheEvent.create("remote-cache"),
-            SpawnExecutingEvent.create("remote-cache"));
-  }
-
-  @Test
-  public void printWarningIfUploadFails() throws Exception {
-    RemoteSpawnCache cache = createRemoteSpawnCache();
-    RemoteExecutionService service = cache.getRemoteExecutionService();
-    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
-    assertThat(entry.hasResult()).isFalse();
-    SpawnResult result =
-        new SpawnResult.Builder()
-            .setExitCode(0)
-            .setStatus(Status.SUCCESS)
-            .setRunnerName("test")
-            .build();
-
-    doThrow(new IOException("cache down")).when(service).uploadOutputs(any(), any());
-
-    entry.store(result);
-    verify(service).uploadOutputs(any(), eq(result));
-
-    assertThat(eventHandler.getEvents()).hasSize(1);
-    Event evt = eventHandler.getEvents().get(0);
-    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
-    assertThat(evt.getMessage()).contains("cache down");
     assertThat(progressUpdates)
         .containsExactly(
             SpawnCheckingCacheEvent.create("remote-cache"),

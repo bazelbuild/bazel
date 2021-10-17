@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.util.concurrent.AbstractFuture;
@@ -24,6 +25,10 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.CompletableEmitter;
 import io.reactivex.rxjava3.core.CompletableObserver;
 import io.reactivex.rxjava3.core.CompletableOnSubscribe;
+import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleEmitter;
+import io.reactivex.rxjava3.core.SingleObserver;
+import io.reactivex.rxjava3.core.SingleOnSubscribe;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.exceptions.Exceptions;
 import java.util.concurrent.Callable;
@@ -42,7 +47,7 @@ public class RxFutures {
    * Returns a {@link Completable} that is complete once the supplied {@link ListenableFuture} has
    * completed.
    *
-   * <p>A {@link ListenableFuture>} represents some computation that is already in progress. We use
+   * <p>A {@link ListenableFuture} represents some computation that is already in progress. We use
    * {@link Callable} here to defer the execution of the thing that produces ListenableFuture until
    * there is subscriber.
    *
@@ -111,13 +116,84 @@ public class RxFutures {
   }
 
   /**
+   * Returns a {@link Single} that is complete once the supplied {@link ListenableFuture} has
+   * completed.
+   *
+   * <p>A {@link ListenableFuture} represents some computation that is already in progress. We use
+   * {@link Callable} here to defer the execution of the thing that produces ListenableFuture until
+   * there is subscriber.
+   *
+   * <p>Errors are also propagated except for certain "fatal" exceptions defined by rxjava. Multiple
+   * subscriptions are not allowed.
+   *
+   * <p>Disposes the Single to cancel the underlying ListenableFuture.
+   */
+  public static <T> Single<T> toSingle(Callable<ListenableFuture<T>> callable, Executor executor) {
+    return Single.create(new OnceSingleOnSubscribe<>(callable, executor));
+  }
+
+  private static class OnceSingleOnSubscribe<T> implements SingleOnSubscribe<T> {
+    private final AtomicBoolean subscribed = new AtomicBoolean(false);
+
+    private final Callable<ListenableFuture<T>> callable;
+    private final Executor executor;
+
+    private OnceSingleOnSubscribe(Callable<ListenableFuture<T>> callable, Executor executor) {
+      this.callable = callable;
+      this.executor = executor;
+    }
+
+    @Override
+    public void subscribe(@NonNull SingleEmitter<T> emitter) throws Throwable {
+      try {
+        checkState(!subscribed.getAndSet(true), "This single cannot be subscribed to twice");
+        ListenableFuture<T> future = callable.call();
+        Futures.addCallback(
+            future,
+            new FutureCallback<T>() {
+              @Override
+              public void onSuccess(@Nullable T t) {
+                checkNotNull(t, "value in future onSuccess callback is null");
+                emitter.onSuccess(t);
+              }
+
+              @Override
+              public void onFailure(Throwable throwable) {
+                /*
+                 * CancellationException can be thrown in two cases:
+                 *   1. The ListenableFuture itself is cancelled.
+                 *   2. Single is disposed by downstream.
+                 *
+                 * This check is used to prevent propagating CancellationException to downstream
+                 * when it has already disposed the Single.
+                 */
+                if (throwable instanceof CancellationException && emitter.isDisposed()) {
+                  return;
+                }
+
+                emitter.onError(throwable);
+              }
+            },
+            executor);
+        emitter.setCancellable(() -> future.cancel(true));
+      } catch (Throwable t) {
+        // We failed to construct and listen to the LF. Following RxJava's own behaviour, prefer
+        // to pass RuntimeExceptions and Errors down to the subscriber except for certain
+        // "fatal" exceptions.
+        Exceptions.throwIfFatal(t);
+        executor.execute(() -> emitter.onError(t));
+      }
+    }
+  }
+
+  /**
    * Returns a {@link ListenableFuture} that is complete once the {@link Completable} has completed.
    *
    * <p>Errors are also propagated. If the {@link ListenableFuture} is canceled, the subscription to
    * the {@link Completable} will automatically be cancelled.
    */
   public static ListenableFuture<Void> toListenableFuture(Completable completable) {
-    CompletableFuture future = new CompletableFuture();
+    CompletableFuture<Void> future = new CompletableFuture<>();
     completable.subscribe(
         new CompletableObserver() {
           @Override
@@ -139,7 +215,35 @@ public class RxFutures {
     return future;
   }
 
-  private static final class CompletableFuture extends AbstractFuture<Void> {
+  /**
+   * Returns a {@link ListenableFuture} that is complete once the {@link Single} has succeeded.
+   *
+   * <p>Errors are also propagated. If the {@link ListenableFuture} is canceled, the subscription to
+   * the {@link Single} will automatically be cancelled.
+   */
+  public static <T> ListenableFuture<T> toListenableFuture(Single<T> single) {
+    CompletableFuture<T> future = new CompletableFuture<>();
+    single.subscribe(
+        new SingleObserver<T>() {
+          @Override
+          public void onSubscribe(Disposable d) {
+            future.setCancelCallback(d);
+          }
+
+          @Override
+          public void onSuccess(@NonNull T t) {
+            future.set(t);
+          }
+
+          @Override
+          public void onError(Throwable e) {
+            future.setException(e);
+          }
+        });
+    return future;
+  }
+
+  private static final class CompletableFuture<T> extends AbstractFuture<T> {
     private final AtomicReference<Disposable> cancelCallback = new AtomicReference<>();
 
     private void setCancelCallback(Disposable cancelCallback) {
@@ -164,7 +268,7 @@ public class RxFutures {
 
     // Allow set to be called by other members.
     @Override
-    protected boolean set(@Nullable Void t) {
+    protected boolean set(@Nullable T t) {
       return super.set(t);
     }
 

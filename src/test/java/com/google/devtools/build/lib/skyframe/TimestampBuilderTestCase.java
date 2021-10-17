@@ -39,10 +39,12 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -69,7 +71,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -80,7 +81,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
@@ -256,7 +257,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     MetadataProvider cache =
         new SingleBuildFileCache(rootDirectory.getPathString(), scratch.getFileSystem());
-    skyframeActionExecutor.configure(cache, ActionInputPrefetcher.NONE, NestedSetExpander.DEFAULT);
+    skyframeActionExecutor.configure(
+        cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
     final InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -477,7 +479,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   Artifact createDerivedArtifact(FileSystem fs, String name) {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new Artifact.DerivedArtifact(
+    return DerivedArtifact.create(
         ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"), execPath, ACTION_LOOKUP_KEY);
   }
 

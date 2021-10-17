@@ -19,8 +19,7 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -91,12 +90,6 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
   @Override
   public ProviderCollection getConfiguredObject() {
     return getConfiguredAspect();
-  }
-
-  @Override
-  @Nullable
-  public BuildConfigurationValue.Key getConfigurationKey() {
-    return key.getAspectConfigurationKey();
   }
 
   @Override

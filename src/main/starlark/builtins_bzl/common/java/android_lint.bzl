@@ -15,6 +15,7 @@
 """Creates the android lint action for java rules"""
 
 load(":common/rule_util.bzl", "create_dep")
+load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 
@@ -44,12 +45,15 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
     transitive_inputs = [linter.data]
     if executable.extension != "jar":
         tools = [linter.tool]
+        args_list = [args]
     else:
-        args.add_all(toolchain.jvm_opt)
-        args.add_all(linter.jvm_opts)
-        args.add("-jar", executable)
+        jvm_args = ctx.actions.args()
+        jvm_args.add_all(toolchain.jvm_opt)
+        jvm_args.add_all(linter.jvm_opts)
+        jvm_args.add("-jar", executable)
         executable = java_runtime.java_executable_exec_path
         tools = [java_runtime.files, linter.tool]
+        args_list = [jvm_args, args]
 
     for output in java_info.java_outputs:
         if output.generated_source_jar != None:
@@ -96,7 +100,7 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
     args.use_param_file(param_file_arg = "@%s", use_always = True)
     ctx.actions.run(
         mnemonic = "AndroidLint",
-        progress_message = "Running Android Lint for: %{label}",
+        progress_message = semantics.LINT_PROGRESS_MESSAGE,
         executable = executable,
         inputs = depset(
             source_files + source_jars,
@@ -104,7 +108,7 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
         ),
         outputs = [android_lint_out],
         tools = tools,
-        arguments = [args],
+        arguments = args_list,
         execution_requirements = {"supports-workers": "1"},
     )
     return android_lint_out

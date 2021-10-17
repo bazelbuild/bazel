@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
@@ -378,6 +380,26 @@ public final class Utils {
       return String.format("%s: %s", errStatus.getCode().name(), errStatus.getDescription());
     }
     return e.getMessage();
+  }
+
+  public static String grpcAwareErrorMessage(Throwable error, boolean verboseFailures) {
+    String errorMessage;
+    if (error instanceof IOException) {
+      errorMessage = grpcAwareErrorMessage((IOException) error);
+    } else {
+      errorMessage = error.getMessage();
+    }
+
+    if (isNullOrEmpty(errorMessage)) {
+      errorMessage = error.getClass().getSimpleName();
+    }
+
+    if (verboseFailures) {
+      // On --verbose_failures print the whole stack trace
+      errorMessage += "\n" + getStackTraceAsString(error);
+    }
+
+    return errorMessage;
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")

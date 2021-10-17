@@ -32,6 +32,6 @@ public class FakeConfigStarlarkCommon implements ConfigStarlarkCommonApi {
   @Override
   public StarlarkExposedRuleTransitionFactory createConfigFeatureFlagTransitionFactory(
       String attribute) {
-    return null;
+    return new FakeConfigFeatureFlagTransitionFactory();
   }
 }

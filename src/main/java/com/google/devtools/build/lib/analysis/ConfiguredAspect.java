@@ -125,15 +125,8 @@ public final class ConfiguredAspect implements ProviderCollection {
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
 
-    @Nullable
-    private final RequiredConfigFragmentsProvider.Builder aspectImplSpecificRequiredConfigFragments;
-
     public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
-      this.aspectImplSpecificRequiredConfigFragments =
-          ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
-              ? RequiredConfigFragmentsProvider.builder()
-              : null;
     }
 
     public <T extends TransitiveInfoProvider> Builder addProvider(
@@ -212,15 +205,6 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    /**
-     * If enabled, returns a {@link RequiredConfigFragmentsProvider.Builder} to supplement {@link
-     * #maybeAddRequiredConfigFragmentsProvider} with aspect implementation-specific requirements.
-     */
-    public RequiredConfigFragmentsProvider.Builder
-        getAspectImplSpecificRequiredConfigFragmentsBuilder() {
-      return Preconditions.checkNotNull(aspectImplSpecificRequiredConfigFragments);
-    }
-
     public ConfiguredAspect build() throws ActionConflictException, InterruptedException {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
@@ -258,15 +242,11 @@ public final class ConfiguredAspect implements ProviderCollection {
      *
      * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
      * description of the meaning of this provider's content. That class contains methods that
-     * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
-     * #aspectImplSpecificRequiredConfigFragments}.
+     * populate the results of {@link RuleContext#getRequiredConfigFragments}.
      */
     private void maybeAddRequiredConfigFragmentsProvider() {
       if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
-        addProvider(
-            RequiredConfigFragmentsProvider.merge(
-                ruleContext.getRequiredConfigFragments(),
-                aspectImplSpecificRequiredConfigFragments.build()));
+        addProvider(ruleContext.getRequiredConfigFragments());
       }
     }
   }

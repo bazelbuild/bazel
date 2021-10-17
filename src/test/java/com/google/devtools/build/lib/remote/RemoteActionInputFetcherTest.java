@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -210,7 +211,7 @@ public class RemoteActionInputFetcherTest {
         .isEqualTo("hello world");
     assertThat(a1.getPath().isExecutable()).isTrue();
     assertThat(a1.getPath().isReadable()).isTrue();
-    assertThat(a1.getPath().isWritable()).isTrue();
+    assertThat(a1.getPath().isWritable()).isFalse();
   }
 
   @Test
@@ -384,7 +385,7 @@ public class RemoteActionInputFetcherTest {
     return a;
   }
 
-  private static RemoteCache newCache(
+  private RemoteCache newCache(
       RemoteOptions options, DigestUtil digestUtil, Map<Digest, ByteString> cacheEntries) {
     Map<Digest, byte[]> cacheEntriesByteArray =
         Maps.newHashMapWithExpectedSize(cacheEntries.size());

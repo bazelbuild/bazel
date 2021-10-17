@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -133,10 +134,9 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     return Optional.of(ImmutableMap.copyOf(expectedValues));
   }
 
-  /** Returns the feature flags set by the given rule. */
-  public static Set<Label> getFeatureFlags(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
+  /** Returns the feature flags set by the rule with the given attributes. */
+  public static Set<Label> getFeatureFlags(AttributeMap attributes) {
+    return attributes
         .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
         .keySet();
   }

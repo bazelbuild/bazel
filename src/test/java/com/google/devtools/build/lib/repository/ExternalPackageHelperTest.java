@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.repository;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.mockito.Mockito.mock;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Rule;
@@ -413,11 +415,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredToolchains = RegisteredToolchainsFunction.getWorkspaceToolchains(env);
+      List<TargetPattern> registeredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(env);
       if (registeredToolchains == null) {
         return null;
       }
-      return GetRegisteredToolchainsValue.create(registeredToolchains);
+      return GetRegisteredToolchainsValue.create(
+          registeredToolchains.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
 
     @Nullable
@@ -447,12 +453,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredExecutionPlatforms =
+      List<TargetPattern> registeredExecutionPlatforms =
           RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
       if (registeredExecutionPlatforms == null) {
         return null;
       }
-      return GetRegisteredExecutionPlatformsValue.create(registeredExecutionPlatforms);
+      return GetRegisteredExecutionPlatformsValue.create(
+          registeredExecutionPlatforms.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
 
     @Nullable

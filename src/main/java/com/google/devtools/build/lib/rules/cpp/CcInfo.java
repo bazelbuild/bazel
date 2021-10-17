@@ -209,13 +209,17 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
     public CcInfoApi<Artifact> createInfo(
         Object starlarkCcCompilationContext,
         Object starlarkCcLinkingInfo,
-        Object starlarkCcDebugInfo)
+        Object starlarkCcDebugInfo,
+        Object starlarkCcNativeLibraryInfo,
+        StarlarkThread thread)
         throws EvalException {
       CcCompilationContext ccCompilationContext =
           nullIfNone(starlarkCcCompilationContext, CcCompilationContext.class);
       CcLinkingContext ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, CcLinkingContext.class);
       CcDebugInfoContext ccDebugInfoContext =
           nullIfNone(starlarkCcDebugInfo, CcDebugInfoContext.class);
+      CcNativeLibraryInfo ccNativeLibraryInfo =
+          nullIfNone(starlarkCcNativeLibraryInfo, CcNativeLibraryInfo.class);
       CcInfo.Builder ccInfoBuilder = CcInfo.builder();
       if (ccCompilationContext != null) {
         ccInfoBuilder.setCcCompilationContext(ccCompilationContext);
@@ -225,6 +229,10 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
       }
       if (ccDebugInfoContext != null) {
         ccInfoBuilder.setCcDebugInfoContext(ccDebugInfoContext);
+      }
+      if (ccNativeLibraryInfo != null) {
+        CcModule.checkPrivateStarlarkificationAllowlist(thread);
+        ccInfoBuilder.setCcNativeLibraryInfo(ccNativeLibraryInfo);
       }
       return ccInfoBuilder.build();
     }

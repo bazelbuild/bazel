@@ -103,6 +103,7 @@ public final class DepsetTest {
 
   @Test
   public void testGetSetItems() throws Exception {
+    ev.setSemantics("--incompatible_disable_depset_items=false");
     ev.exec("s = depset(items = ['a', 'b'])");
     assertThat(get("s").getSet(String.class).toList()).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class).toList()).containsExactly("a", "b").inOrder();
@@ -129,6 +130,7 @@ public final class DepsetTest {
 
   @Test
   public void testToListItems() throws Exception {
+    ev.setSemantics("--incompatible_disable_depset_items=false");
     ev.exec("s = depset(items = ['a', 'b'])");
     assertThat(get("s").toList(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toList(Object.class)).containsExactly("a", "b").inOrder();
@@ -150,6 +152,7 @@ public final class DepsetTest {
 
   @Test
   public void testOrderItems() throws Exception {
+    ev.setSemantics("--incompatible_disable_depset_items=false");
     ev.exec("s = depset(items = ['a', 'b'], order='postorder')");
     assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
   }
@@ -169,7 +172,7 @@ public final class DepsetTest {
 
   @Test
   public void testBadOrderItems() throws Exception {
-    ev.new Scenario()
+    ev.new Scenario("--incompatible_disable_depset_items=false")
         .testIfExactError(
             "Invalid order: non_existing", "depset(items = ['a'], order='non_existing')");
   }
@@ -182,25 +185,26 @@ public final class DepsetTest {
 
   @Test
   public void testHomogeneousGenericType() throws Exception {
-    ev.exec("s = depset(['a', 'b', 'c'])");
+    ev.exec("s = depset(direct = ['a', 'b', 'c'])");
     assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
   @Test
   public void testHomogeneousGenericTypeDirect() throws Exception {
-    ev.exec("s = depset(['a', 'b', 'c'], transitive = [])");
+    ev.exec("s = depset(direct = ['a', 'b', 'c'], transitive = [])");
     assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
   @Test
   public void testHomogeneousGenericTypeItems() throws Exception {
+    ev.setSemantics("--incompatible_disable_depset_items=false");
     ev.exec("s = depset(items = ['a', 'b', 'c'], transitive = [])");
     assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
   @Test
   public void testHomogeneousGenericTypeTransitive() throws Exception {
-    ev.exec("s = depset(['a', 'b', 'c'], transitive = [depset(['x'])])");
+    ev.exec("s = depset(direct = ['a', 'b', 'c'], transitive = [depset(['x'])])");
     assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
@@ -208,7 +212,7 @@ public final class DepsetTest {
   public void testTransitiveIncompatibleOrder() throws Exception {
     ev.checkEvalError(
         "Order 'postorder' is incompatible with order 'topological'",
-        "depset(['a', 'b'], order='postorder',",
+        "depset(direct = ['a', 'b'], order='postorder',",
         "       transitive = [depset(['c', 'd'], order='topological')])");
   }
 
@@ -229,7 +233,7 @@ public final class DepsetTest {
 
   @Test
   public void testBadGenericTypeItems() throws Exception {
-    ev.new Scenario()
+    ev.new Scenario("--incompatible_disable_depset_items=false")
         .testIfExactError(
             "cannot add an item of type 'int' to a depset of 'string'", "depset(items = ['a', 5])");
   }
@@ -244,7 +248,7 @@ public final class DepsetTest {
 
   @Test
   public void testLegacyAndNewApi() throws Exception {
-    ev.new Scenario()
+    ev.new Scenario("--incompatible_disable_depset_items=false")
         .testIfExactError(
             "Do not pass both 'direct' and 'items' argument to depset constructor.",
             "depset(['a', 'b'], direct = ['c', 'd'])");
@@ -252,7 +256,7 @@ public final class DepsetTest {
 
   @Test
   public void testItemsAndTransitive() throws Exception {
-    ev.new Scenario()
+    ev.new Scenario("--incompatible_disable_depset_items=false")
         .testIfExactError(
             "for items, got depset, want sequence",
             "depset(items = depset(), transitive = [depset()])");
@@ -269,6 +273,7 @@ public final class DepsetTest {
 
   @Test
   public void testTransitiveOrder() throws Exception {
+    ev.setSemantics("--incompatible_disable_depset_items=false");
     assertContainsInOrder("depset([], transitive=[depset(['a', 'b', 'c'])])", "a", "b", "c");
     assertContainsInOrder("depset(['a'], transitive = [depset(['b', 'c'])])", "b", "c", "a");
     assertContainsInOrder("depset(['a', 'b'], transitive = [depset(['c'])])", "c", "a", "b");
@@ -277,6 +282,7 @@ public final class DepsetTest {
 
   @Test
   public void testTransitiveOrderItems() throws Exception {
+    ev.setSemantics("--incompatible_disable_depset_items=false");
     assertContainsInOrder("depset(items=[], transitive=[depset(['a', 'b', 'c'])])", "a", "b", "c");
     assertContainsInOrder("depset(items=['a'], transitive = [depset(['b', 'c'])])", "b", "c", "a");
     assertContainsInOrder("depset(items=['a', 'b'], transitive = [depset(['c'])])", "c", "a", "b");
@@ -385,7 +391,9 @@ public final class DepsetTest {
   @Test
   public void testMutableDepsetElementsLegacyBehavior() throws Exception {
     // See b/144992997 and github.com/bazelbuild/bazel/issues/10313.
-    ev.setSemantics("--incompatible_always_check_depset_elements=false");
+    ev.setSemantics(
+        "--incompatible_always_check_depset_elements=false",
+        "--incompatible_disable_depset_items=false");
 
     // Test legacy depset(...) and new depset(direct=...) constructors.
 

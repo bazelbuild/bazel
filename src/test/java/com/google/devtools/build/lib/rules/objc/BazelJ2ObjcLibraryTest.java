@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -807,7 +807,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.DEFAULT,
+            DiscoveredModulesPruner.DEFAULT,
             UnixGlob.DEFAULT_SYSCALLS,
             ThreadStateReceiver.NULL_INSTANCE);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
@@ -867,7 +867,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.DEFAULT,
+            DiscoveredModulesPruner.DEFAULT,
             UnixGlob.DEFAULT_SYSCALLS,
             ThreadStateReceiver.NULL_INSTANCE);
 

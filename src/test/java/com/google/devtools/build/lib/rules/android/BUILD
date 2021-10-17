@@ -369,6 +369,7 @@ java_test(
 
 java_test(
     name = "AndroidDataBindingV2Test",
+    timeout = "long",
     srcs = ["AndroidDataBindingV2Test.java"],
     tags = ["manual"],
     deps = [

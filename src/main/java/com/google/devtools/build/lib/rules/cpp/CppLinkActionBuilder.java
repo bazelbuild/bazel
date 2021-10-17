@@ -1023,7 +1023,6 @@ public class CppLinkActionBuilder {
         toolchainEnv,
         ImmutableMap.copyOf(executionInfo),
         toolchain.getToolPathFragment(Tool.LD, ruleErrorConsumer),
-        toolchain.getHostSystemName(),
         toolchain.getTargetCpu());
   }
 

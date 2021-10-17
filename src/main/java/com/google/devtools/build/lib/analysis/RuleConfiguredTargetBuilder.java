@@ -90,15 +90,8 @@ public final class RuleConfiguredTargetBuilder {
   private Artifact executable;
   private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
 
-  @Nullable
-  private final RequiredConfigFragmentsProvider.Builder ruleImplSpecificRequiredConfigFragments;
-
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    this.ruleImplSpecificRequiredConfigFragments =
-        ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
-            ? RequiredConfigFragmentsProvider.builder()
-            : null;
     // Avoid building validations in analysis tests (b/143988346)
     add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
@@ -317,15 +310,11 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
    * description of the meaning of this provider's content. That class contains methods that
-   * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
-   * #ruleImplSpecificRequiredConfigFragments}.
+   * populate the results of {@link RuleContext#getRequiredConfigFragments}.
    */
   private void maybeAddRequiredConfigFragmentsProvider() {
     if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
-      addProvider(
-          RequiredConfigFragmentsProvider.merge(
-              ruleContext.getRequiredConfigFragments(),
-              ruleImplSpecificRequiredConfigFragments.build()));
+      addProvider(ruleContext.getRequiredConfigFragments());
     }
   }
 
@@ -439,7 +428,8 @@ public final class RuleConfiguredTargetBuilder {
     if (!ruleContext.getRule().getRuleClassObject().supportsConstraintChecking()) {
       return;
     }
-    ConstraintSemantics<RuleContext> constraintSemantics = ruleContext.getConstraintSemantics();
+    ConstraintSemantics<RuleContext> constraintSemantics =
+        ruleContext.getRuleClassProvider().getConstraintSemantics();
     EnvironmentCollection supportedEnvironments =
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
@@ -665,15 +655,6 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     return this;
-  }
-
-  /**
-   * If enabled, returns a {@link RequiredConfigFragmentsProvider.Builder} to supplement {@link
-   * #maybeAddRequiredConfigFragmentsProvider} with rule implementation-specific requirements.
-   */
-  public RequiredConfigFragmentsProvider.Builder
-      getRuleImplSpecificRequiredConfigFragmentsBuilder() {
-    return Preconditions.checkNotNull(ruleImplSpecificRequiredConfigFragments);
   }
 
   /**

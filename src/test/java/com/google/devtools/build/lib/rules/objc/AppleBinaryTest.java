@@ -1182,11 +1182,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(getRuleType());
-  }
-
-  @Test
   public void testMinimumOsDifferentTargets() throws Exception {
     checkMinimumOsDifferentTargets(getRuleType(), "_lipobin", "_bin");
   }

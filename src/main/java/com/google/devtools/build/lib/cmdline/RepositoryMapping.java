@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -36,25 +37,62 @@ public abstract class RepositoryMapping {
 
   abstract ImmutableMap<RepositoryName, RepositoryName> repositoryMapping();
 
-  abstract boolean fallback();
+  /**
+   * The owner repo of this repository mapping. It is for providing useful debug information when
+   * repository mapping fails due to enforcing strict dependency, therefore it's only recorded when
+   * we don't fallback to the requested repo name.
+   */
+  @Nullable
+  abstract String ownerRepo();
 
-  public static RepositoryMapping create(Map<RepositoryName, RepositoryName> repositoryMapping) {
+  public static RepositoryMapping create(
+      Map<RepositoryName, RepositoryName> repositoryMapping, String ownerRepo) {
     return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ false);
+        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)),
+        Preconditions.checkNotNull(ownerRepo));
   }
 
   public static RepositoryMapping createAllowingFallback(
       Map<RepositoryName, RepositoryName> repositoryMapping) {
     return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ true);
+        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), null);
   }
 
-  @Nullable
+  /**
+   * Create a new {@link RepositoryMapping} instance based on existing repo mappings and given
+   * additional mappings. If there are conflicts, existing mappings will take precedence.
+   */
+  public RepositoryMapping withAdditionalMappings(
+      Map<RepositoryName, RepositoryName> additionalMappings) {
+    HashMap<RepositoryName, RepositoryName> allMappings = new HashMap<>(additionalMappings);
+    allMappings.putAll(repositoryMapping());
+    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(allMappings), ownerRepo());
+  }
+
+  /**
+   * Create a new {@link RepositoryMapping} instance based on existing repo mappings and given
+   * additional mappings. If there are conflicts, existing mappings will take precedence. The owner
+   * repo of the given additional mappings is ignored.
+   */
+  public RepositoryMapping withAdditionalMappings(RepositoryMapping additionalMappings) {
+    return withAdditionalMappings(additionalMappings.repositoryMapping());
+  }
+
   public RepositoryName get(RepositoryName repositoryName) {
-    if (fallback()) {
+    // 1. Default repo ("") should always map to default repo
+    // 2. @bazel_tools is a special repo that should be visible to all repositories.
+    // 3. @local_config_platform is a special repo that should be visible to all repositories.
+    if (repositoryName.equals(RepositoryName.DEFAULT)
+        || repositoryName.equals(RepositoryName.BAZEL_TOOLS)
+        || repositoryName.equals(RepositoryName.LOCAL_CONFIG_PLATFORM)) {
+      return repositoryName;
+    }
+    // If the owner repo is not present, that means we should fallback to the requested repo name.
+    if (ownerRepo() == null) {
       return repositoryMapping().getOrDefault(repositoryName, repositoryName);
     } else {
-      return repositoryMapping().get(repositoryName);
+      return repositoryMapping()
+          .getOrDefault(repositoryName, repositoryName.toNonVisible(ownerRepo()));
     }
   }
 }

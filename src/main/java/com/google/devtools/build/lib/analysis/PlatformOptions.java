@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
@@ -42,6 +43,8 @@ public class PlatformOptions extends FragmentOptions {
       Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
   public static final Label DEFAULT_HOST_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+  public static final String DEFAULT_TARGET_PLATFORM_FALLBACK =
+      "@bazel_tools//platforms:target_platform";
 
   /**
    * Main workspace-relative location to use when the user does not explicitly set {@code
@@ -49,6 +52,13 @@ public class PlatformOptions extends FragmentOptions {
    */
   public static final PathFragment DEFAULT_PLATFORM_MAPPINGS =
       PathFragment.create("platform_mappings");
+
+  private static final ImmutableSet<String> DEFAULT_PLATFORM_NAMES =
+      ImmutableSet.of("host", "host_platform", "target_platform", "default_host", "default_target");
+
+  public static boolean platformIsDefault(Label platform) {
+    return DEFAULT_PLATFORM_NAMES.contains(platform.getName());
+  }
 
   @Option(
       name = "host_platform",
@@ -97,7 +107,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "target_platform_fallback",
       converter = EmptyToNullLabelConverter.class,
-      defaultValue = "@bazel_tools//platforms:target_platform",
+      defaultValue = DEFAULT_TARGET_PLATFORM_FALLBACK,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -216,7 +226,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_override_toolchain_transition",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

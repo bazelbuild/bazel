@@ -437,3 +437,31 @@ If you are adding toolchain support to an existing rule, use the
 provides verbose output for toolchain types that match the regex variable. You
 can use `.*` to output all information. Bazel will output names of toolchains it
 checks and skips during the resolution process.
+
+If you'd like to see which [`cquery`][cquery] dependencies are from toolchain
+resolution, use `cquery`'s [`--transitions`][cquery-transitions] flag:
+
+```
+# Find all direct dependencies of //cc:my_cc_lib. This includes explicitly
+# declared dependencies, implicit dependencies, and toolchain dependencies.
+$ bazel cquery 'deps(//cc:my_cc_lib, 1)'
+//cc:my_cc_lib (96d6638)
+@bazel_tools//tools/cpp:toolchain (96d6638)
+@bazel_tools//tools/def_parser:def_parser (HOST)
+//cc:my_cc_dep (96d6638)
+@local_config_platform//:host (96d6638)
+@bazel_tools//tools/cpp:toolchain_type (96d6638)
+//:default_host_platform (96d6638)
+@local_config_cc//:cc-compiler-k8 (HOST)
+//cc:my_cc_lib.cc (null)
+@bazel_tools//tools/cpp:grep-includes (HOST)
+
+# Which of these are from toolchain resolution?
+$ bazel cquery 'deps(//cc:my_cc_lib, 1)' --transitions=lite | grep "toolchain dependency"
+  [toolchain dependency]#@local_config_cc//:cc-compiler-k8#HostTransition -> b6df211
+```
+
+<!-- being-block:external
+[cquery]: cquery.html
+[cquery-transitions]: cquery.html#transitions
+

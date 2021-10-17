@@ -125,7 +125,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private final boolean isLtoIndexing;
 
   private final PathFragment ldExecutable;
-  private final String hostSystemName;
   private final String targetCpu;
 
 
@@ -151,7 +150,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       ImmutableMap<String, String> toolchainEnv,
       ImmutableMap<String, String> executionRequirements,
       PathFragment ldExecutable,
-      String hostSystemName,
       String targetCpu) {
     super(owner, inputs, outputs, env);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
@@ -164,17 +162,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
     this.ldExecutable = ldExecutable;
-    this.hostSystemName = hostSystemName;
     this.targetCpu = targetCpu;
   }
 
   @VisibleForTesting
   public String getTargetCpu() {
     return targetCpu;
-  }
-
-  public String getHostSystemName() {
-    return hostSystemName;
   }
 
   @Override

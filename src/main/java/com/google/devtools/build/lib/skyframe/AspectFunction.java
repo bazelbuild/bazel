@@ -71,14 +71,13 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -137,35 +136,12 @@ final class AspectFunction implements SkyFunction {
    * @throws AspectCreationException if the value loaded is not a {@link StarlarkDefinedAspect}.
    */
   @Nullable
-  private static StarlarkDefinedAspect loadStarlarkDefinedAspect(
+  public static StarlarkDefinedAspect loadStarlarkDefinedAspect(
       Environment env, StarlarkAspectClass starlarkAspectClass)
       throws AspectCreationException, InterruptedException {
     Label extensionLabel = starlarkAspectClass.getExtensionLabel();
     String starlarkValueName = starlarkAspectClass.getExportedName();
 
-    StarlarkAspect starlarkAspect = loadStarlarkAspect(env, extensionLabel, starlarkValueName);
-    if (starlarkAspect == null) {
-      return null;
-    }
-    if (!(starlarkAspect instanceof StarlarkDefinedAspect)) {
-      throw new AspectCreationException(
-          String.format(
-              "%s from %s is not a Starlark-defined aspect", starlarkValueName, extensionLabel),
-          extensionLabel);
-    } else {
-      return (StarlarkDefinedAspect) starlarkAspect;
-    }
-  }
-
-  /**
-   * Load Starlark aspect from an extension file. Is to be called from a SkyFunction.
-   *
-   * @return {@code null} if dependencies cannot be satisfied.
-   */
-  @Nullable
-  static StarlarkAspect loadStarlarkAspect(
-      Environment env, Label extensionLabel, String starlarkValueName)
-      throws AspectCreationException, InterruptedException {
     SkyKey importFileKey =
         StarlarkBuiltinsValue.isBuiltinsRepo(extensionLabel.getRepository())
             ? BzlLoadValue.keyForBuiltins(extensionLabel)
@@ -182,15 +158,13 @@ final class AspectFunction implements SkyFunction {
       Object starlarkValue = bzlLoadValue.getModule().getGlobal(starlarkValueName);
       if (starlarkValue == null) {
         throw new ConversionException(
-            String.format(
-                "%s is not exported from %s", starlarkValueName, extensionLabel.toString()));
+            String.format("%s is not exported from %s", starlarkValueName, extensionLabel));
       }
-      if (!(starlarkValue instanceof StarlarkAspect)) {
+      if (!(starlarkValue instanceof StarlarkDefinedAspect)) {
         throw new ConversionException(
-            String.format(
-                "%s from %s is not an aspect", starlarkValueName, extensionLabel.toString()));
+            String.format("%s from %s is not an aspect", starlarkValueName, extensionLabel));
       }
-      return (StarlarkAspect) starlarkValue;
+      return (StarlarkDefinedAspect) starlarkValue;
     } catch (BzlLoadFailedException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new AspectCreationException(e.getMessage(), extensionLabel, e.getDetailedExitCode());
@@ -212,12 +186,7 @@ final class AspectFunction implements SkyFunction {
     if (key.getAspectClass() instanceof NativeAspectClass) {
       NativeAspectClass nativeAspectClass = (NativeAspectClass) key.getAspectClass();
       aspectFactory = (ConfiguredAspectFactory) nativeAspectClass;
-      aspect =
-          Aspect.forNative(
-              nativeAspectClass,
-              key.getParameters(),
-              key.getInheritedRequiredProviders(),
-              key.getInheritedAttributeAspects());
+      aspect = Aspect.forNative(nativeAspectClass, key.getParameters());
     } else if (key.getAspectClass() instanceof StarlarkAspectClass) {
       StarlarkAspectClass starlarkAspectClass = (StarlarkAspectClass) key.getAspectClass();
       StarlarkDefinedAspect starlarkAspect;
@@ -235,9 +204,7 @@ final class AspectFunction implements SkyFunction {
           Aspect.forStarlark(
               starlarkAspect.getAspectClass(),
               starlarkAspect.getDefinition(key.getParameters()),
-              key.getParameters(),
-              key.getInheritedRequiredProviders(),
-              key.getInheritedAttributeAspects());
+              key.getParameters());
     } else {
       throw new IllegalStateException();
     }
@@ -328,7 +295,7 @@ final class AspectFunction implements SkyFunction {
     if (AliasProvider.isAlias(associatedTarget)) {
       return createAliasAspect(
           env,
-          view.getHostConfiguration(aspectConfiguration),
+          view.getHostConfiguration(),
           new TargetAndConfiguration(target, configuration),
           aspect,
           key,
@@ -459,7 +426,7 @@ final class AspectFunction implements SkyFunction {
                         .build(),
                 shouldUseToolchainTransition(configuration, aspect.getDefinition()),
                 ruleClassProvider,
-                view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
+                view.getHostConfiguration(),
                 transitivePackagesForPackageRootResolution,
                 transitiveRootCauses);
       } catch (ConfiguredValueCreationException e) {
@@ -761,7 +728,7 @@ final class AspectFunction implements SkyFunction {
         transitivePackagesForPackageRootResolution);
   }
 
-  private AspectValue createAliasAspect(
+  private static AspectValue createAliasAspect(
       Environment env,
       Target originalTarget,
       AspectKey originalKey,
@@ -812,7 +779,7 @@ final class AspectFunction implements SkyFunction {
         originalKey.getBaseKeys().stream()
             .map(baseKey -> buildAliasAspectKey(baseKey, aliasLabel, dep))
             .collect(toImmutableList());
-    return AspectValueKey.createAspectKey(
+    return AspectKeyCreator.createAspectKey(
         aliasLabel,
         dep.getConfiguration(),
         aliasedBaseKeys,
@@ -907,7 +874,7 @@ final class AspectFunction implements SkyFunction {
                     configConditions,
                     toolchainContext,
                     aspectConfiguration,
-                    view.getHostConfiguration(aspectConfiguration),
+                    view.getHostConfiguration(),
                     key);
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());

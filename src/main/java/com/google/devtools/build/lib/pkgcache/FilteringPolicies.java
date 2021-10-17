@@ -41,15 +41,15 @@ public final class FilteringPolicies {
     return new AndFilteringPolicy(x, y);
   }
 
-  public static FilteringPolicy ruleType(String ruleName, boolean keepExplicit) {
-    return RuleTypeFilter.create(ruleName, keepExplicit);
+  public static FilteringPolicy ruleTypeExplicit(String ruleName) {
+    return RuleTypeFilter.create(ruleName, /*keepExplicit=*/ true);
   }
 
   private FilteringPolicies() {
   }
 
   /** Base class for singleton filtering policies. */
-  private abstract static class AbstractFilteringPolicy extends FilteringPolicy {
+  private abstract static class AbstractFilteringPolicy implements FilteringPolicy {
     private final int hashCode = getClass().getSimpleName().hashCode();
 
     @Override
@@ -109,7 +109,7 @@ public final class FilteringPolicies {
   /** FilteringPolicy that only matches a specific rule name. */
   @AutoValue
   @AutoCodec
-  abstract static class RuleTypeFilter extends FilteringPolicy {
+  abstract static class RuleTypeFilter implements FilteringPolicy {
     abstract String ruleName();
 
     abstract boolean keepExplicit();
@@ -134,7 +134,7 @@ public final class FilteringPolicies {
   }
 
   /** FilteringPolicy for combining FilteringPolicies. */
-  public static class AndFilteringPolicy extends FilteringPolicy {
+  public static class AndFilteringPolicy implements FilteringPolicy {
     private final FilteringPolicy firstPolicy;
     private final FilteringPolicy secondPolicy;
 

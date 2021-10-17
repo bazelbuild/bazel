@@ -344,7 +344,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "compile_one_filetype",
             defaultValue = "None",
             allowedTypes = {
-              @ParamType(type = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
               @ParamType(type = NoneType.class),
             },
             named = true,
@@ -357,6 +357,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "None",
             positional = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             doc =
                 "The name of this rule, as understood by Bazel and reported in contexts such as"
                     + " logging, <code>native.existing_rule(...)[kind]</code>, and <code>bazel"
@@ -499,10 +500,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "requires",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkAspectApi.class)},
             named = true,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REQUIRED_ASPECTS,
             defaultValue = "[]",
-            valueWhenDisabled = "[]",
-            doc = "(Experimental) List of aspects required to be propagated before this aspect."),
+            doc = "List of aspects required to be propagated before this aspect."),
         @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -580,30 +579,17 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "Label",
       doc =
-          "Creates a Label referring to a BUILD target. Use "
-              + "this function only when you want to give a default value for the label "
-              + "attributes. The argument must refer to an absolute label. "
-              + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
+          "Creates a Label referring to a BUILD target. Use this function only when you want to"
+              + " give a default value for the label attributes. The argument must refer to an"
+              + " absolute label. The repo part of the label (or its absence) is interpreted in the"
+              + " context of the repo where this Label() call appears. Example: <br><pre"
+              + " class=language-python>Label(\"//tools:default\")</pre>",
       parameters = {
         @Param(name = "label_string", doc = "the label string."),
-        @Param(
-            name = "relative_to_caller_repository",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc =
-                "Deprecated. Do not use. "
-                    + "When relative_to_caller_repository is True and the calling thread is a "
-                    + "rule's implementation function, then a repo-relative label //foo:bar is "
-                    + "resolved relative to the rule's repository.  For calls to Label from any "
-                    + "other thread, or calls in which the relative_to_caller_repository flag is "
-                    + "False, a repo-relative label is resolved relative to the file in which the "
-                    + "Label() call appears.")
       },
       useStarlarkThread = true)
   @StarlarkConstructor
-  Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException;
+  Label label(String labelString, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "exec_group",

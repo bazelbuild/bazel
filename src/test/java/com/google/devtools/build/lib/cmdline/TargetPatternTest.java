@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory.ContainsResult;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -171,25 +172,26 @@ public class TargetPatternTest {
             ImmutableMap.of(
                 RepositoryName.create("@foo"), RepositoryName.create("@bar"),
                 RepositoryName.create("@myworkspace"), RepositoryName.create("@")));
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.createFromValidStrippedName("myrepo"),
+            renaming);
 
     // Expecting renaming
-    assertThat(TargetPattern.renameRepository("@foo//package:target", renaming))
-        .isEqualTo("@bar//package:target");
-    assertThat(TargetPattern.renameRepository("@myworkspace//package:target", renaming))
-        .isEqualTo("@//package:target");
-    assertThat(TargetPattern.renameRepository("@foo//foo/...", renaming))
-        .isEqualTo("@bar//foo/...");
-    assertThat(TargetPattern.renameRepository("@myworkspace//foo/...", renaming))
-        .isEqualTo("@//foo/...");
+    assertThat(parser.parse("@foo//package:target").getRepository().strippedName())
+        .isEqualTo("bar");
+    assertThat(parser.parse("@myworkspace//package:target").getRepository().isMain()).isTrue();
+    assertThat(parser.parse("@foo//foo/...").getRepository().strippedName()).isEqualTo("bar");
+    assertThat(parser.parse("@myworkspace//foo/...").getRepository().isMain()).isTrue();
 
     // No renaming should occur
-    assertThat(TargetPattern.renameRepository("@//package:target", renaming))
-        .isEqualTo("@//package:target");
-    assertThat(TargetPattern.renameRepository("@unrelated//package:target", renaming))
-        .isEqualTo("@unrelated//package:target");
-    assertThat(TargetPattern.renameRepository("foo/package:target", renaming))
-        .isEqualTo("foo/package:target");
-    assertThat(TargetPattern.renameRepository("foo/...", renaming)).isEqualTo("foo/...");
+    assertThat(parser.parse("@//package:target").getRepository().isMain()).isTrue();
+    assertThat(parser.parse("@unrelated//package:target").getRepository().strippedName())
+        .isEqualTo("unrelated");
+    assertThat(parser.parse("foo/package:target").getRepository().strippedName())
+        .isEqualTo("myrepo");
+    assertThat(parser.parse("foo/...").getRepository().strippedName()).isEqualTo("myrepo");
   }
 
   private static TargetPattern parse(String pattern) throws TargetParsingException {

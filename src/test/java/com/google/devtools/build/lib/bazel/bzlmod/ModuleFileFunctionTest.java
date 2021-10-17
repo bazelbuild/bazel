@@ -167,6 +167,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
   }
 
   @Test
@@ -200,6 +201,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .setCompatibilityLevel(4)
                 .setExecutionPlatformsToRegister(
                     ImmutableList.of("//my:platform", "//my:platform2"))
@@ -222,7 +224,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     "",
                     0));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
-        .containsExactly("E.", "E", "G.", "G");
+        .containsExactly("E", "E", "G", "G");
   }
 
   @Test
@@ -240,7 +242,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     }
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.getModule())
-        .isEqualTo(Module.builder().addDep("B", createModuleKey("B", "1.0")).build());
+        .isEqualTo(
+            Module.builder()
+                .setKey(ModuleKey.ROOT)
+                .addDep("B", createModuleKey("B", "1.0"))
+                .build());
     assertThat(rootModuleFileValue.getOverrides()).isEmpty();
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup()).isEmpty();
   }
@@ -292,6 +298,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .setRegistry(registry2)
                 .build());
@@ -332,6 +339,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", ""))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .build());
   }
@@ -370,6 +378,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .setCompatibilityLevel(6)
                 .addDep("C", createModuleKey("C", "3.0"))
                 .setRegistry(registry2)
@@ -411,6 +420,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("mymod")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("mymod", "1.0"))
                 .addDep("rules_jvm_external", createModuleKey("rules_jvm_external", "2.0"))
                 .setRegistry(registry)
                 .addExtensionUsage(
@@ -501,11 +511,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains("this extension is already being used at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent("this extension is already being used at");
   }
 
   @Test
@@ -521,11 +529,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains("The repo name 'mymod' is already being used as the current module name at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertContainsEvent(
+        "The repo name 'mymod' is already being used as the current module name at");
   }
 
   @Test
@@ -541,11 +549,34 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains(
-            "The repo exported as 'some_repo' by module extension 'myext' is already imported at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertContainsEvent(
+        "The repo exported as 'some_repo' by module extension 'myext' is already imported at");
+  }
+
+  @Test
+  public void testModuelFileExecute_syntaxError() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1',compatibility_level=4)",
+        "foo()");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertContainsEvent("name 'foo' is not defined");
+  }
+
+  @Test
+  public void testModuelFileExecute_evalError() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1',compatibility_level=\"4\")");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int'");
   }
 }

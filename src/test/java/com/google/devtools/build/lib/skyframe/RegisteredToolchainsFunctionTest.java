@@ -22,8 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
@@ -60,7 +62,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
     return ImmutableList.of(
         PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())));
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
   }
 
   @Before
@@ -188,23 +193,6 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             Label.parseAbsoluteUnchecked("//extra:extra_toolchain_impl_2"),
             Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"))
         .inOrder();
-  }
-
-  @Test
-  public void testRegisteredToolchains_invalidPattern() throws Exception {
-    rewriteWorkspace("register_toolchains('/:invalid:label:syntax')");
-
-    // Request the toolchains.
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
-    EvaluationResult<RegisteredToolchainsValue> result =
-        requestToolchainsFromSkyframe(toolchainsKey);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(toolchainsKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains(
-            "invalid registered toolchain '/:invalid:label:syntax': "
-                + "not a valid absolute pattern");
   }
 
   @Test

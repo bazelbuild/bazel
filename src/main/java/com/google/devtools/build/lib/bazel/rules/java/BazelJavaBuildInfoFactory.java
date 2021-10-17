@@ -20,12 +20,13 @@ import com.google.devtools.build.lib.rules.java.BuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.GenericBuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.JavaBuildInfoFactory;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * BuildInfoFactory for Java.
  */
 public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final GenericBuildInfoPropertiesTranslator VOLATILE_KEYS =
       new GenericBuildInfoPropertiesTranslator(
           ImmutableMap.<String, String>builder()
@@ -34,12 +35,12 @@ public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
               .put("build.timestamp", "%BUILD_TIMESTAMP%")
               .build());
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final GenericBuildInfoPropertiesTranslator NONVOLATILE_KEYS =
       new GenericBuildInfoPropertiesTranslator(
           ImmutableMap.of("build.label", "%" + BuildInfo.BUILD_EMBED_LABEL + "|%"));
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final GenericBuildInfoPropertiesTranslator REDACTED_KEYS =
       new GenericBuildInfoPropertiesTranslator(
           ImmutableMap.<String, String>builder()

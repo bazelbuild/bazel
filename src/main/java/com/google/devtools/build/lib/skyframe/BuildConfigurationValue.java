@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -112,7 +111,6 @@ public class BuildConfigurationValue implements SkyValue {
       this.hashCode = Objects.hash(fragments, options);
     }
 
-    @VisibleForTesting
     public FragmentClassSet getFragments() {
       return fragments;
     }

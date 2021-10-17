@@ -31,13 +31,6 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
     extends StarlarkValue {
 
   @StarlarkMethod(
-      name = "ios_cpu",
-      doc =
-          "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
-              + "The value of ios_cpu for this configuration.")
-  String getIosCpu();
-
-  @StarlarkMethod(
       name = "single_arch_cpu",
       structField = true,
       doc =
@@ -70,14 +63,6 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             doc = "The apple platform type.")
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
-      name = "ios_cpu_platform",
-      doc =
-          "<b>Deprecated. Use <a href='#single_arch_platform'>single_arch_platform</a> or "
-              + "<a href='#multi_arch_platform'>multi_arch_platform</a> instead.</b> "
-              + "The platform given by the ios_cpu flag.")
-  ApplePlatformApi getIosCpuPlatform();
 
   @StarlarkMethod(
       name = "bitcode_mode",

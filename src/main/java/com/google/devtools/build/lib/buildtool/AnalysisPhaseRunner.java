@@ -226,7 +226,9 @@ public final class AnalysisPhaseRunner {
             request.getLoadingPhaseThreadCount(),
             request.getTopLevelArtifactContext(),
             env.getReporter(),
-            env.getEventBus());
+            env.getEventBus(),
+            /*includeExecutionPhase=*/ false,
+            /*mergedPhasesExecutionJobsCount=*/ 0);
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus()
@@ -314,7 +316,7 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env, List<String> requestedTargetPatterns)
       throws ViewCreationFailedException {
     ImmutableSet.Builder<String> explicitTargetPatterns = ImmutableSet.builder();
-    TargetPattern.Parser parser = new TargetPattern.Parser(env.getRelativeWorkingDirectory());
+    TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
       if (requestedTargetPattern.startsWith("-")) {

@@ -204,7 +204,9 @@ public class TopLevelConstraintSemantics {
       }
     }
 
-    message += "   <-- target platform didn't satisfy constraint";
+    message +=
+        String.format(
+            "   <-- target platform (%s) didn't satisfy constraint", provider.targetPlatform());
     if (provider.constraintsResponsibleForIncompatibility().size() == 1) {
       message += " " + provider.constraintsResponsibleForIncompatibility().get(0).label();
       return message;

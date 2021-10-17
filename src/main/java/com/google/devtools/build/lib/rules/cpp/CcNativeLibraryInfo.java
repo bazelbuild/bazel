@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
 import java.util.List;
 
 /**
@@ -28,7 +29,7 @@ import java.util.List;
  */
 @Immutable
 @AutoCodec
-public final class CcNativeLibraryInfo {
+public final class CcNativeLibraryInfo implements CcNativeLibraryInfoApi {
 
   public static final CcNativeLibraryInfo EMPTY =
       new CcNativeLibraryInfo(NestedSetBuilder.emptySet(Order.LINK_ORDER));

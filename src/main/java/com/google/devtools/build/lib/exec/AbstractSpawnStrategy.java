@@ -199,12 +199,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       String message =
           !Strings.isNullOrEmpty(resultMessage)
               ? resultMessage
-              : CommandFailureUtils.describeCommandFailure(
-                  verboseFailures,
-                  spawn.getArguments(),
-                  spawn.getEnvironment(),
-                  cwd,
-                  spawn.getExecutionPlatform());
+              : CommandFailureUtils.describeCommandFailure(verboseFailures, cwd, spawn);
       throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
     }
     return ImmutableList.of(spawnResult);

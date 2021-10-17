@@ -21,6 +21,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,11 +37,11 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -50,7 +51,6 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -105,12 +104,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -187,7 +184,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * Used only during input discovery, when input discovery requires other actions to be executed
    * first.
    */
-  private Collection<Artifact.DerivedArtifact> usedModules;
+  private Set<DerivedArtifact> usedModules;
 
   /**
    * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
@@ -370,6 +367,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return cppConfiguration.getInmemoryDotdFiles();
   }
 
+  public boolean enabledCppCompileResourcesEstimation() {
+    return cppConfiguration.getExperimentalCppCompileResourcesEstimation();
+  }
+
   @Override
   public List<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
@@ -541,61 +542,18 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return additionalInputs;
     }
 
-    Map<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
+    ImmutableMap<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
         computeTransitivelyUsedModules(
             actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
     if (transitivelyUsedModules == null) {
       return null;
     }
 
-    // Compute top-level modules, i.e. used modules that aren't also dependencies of other
-    // used modules. Combining the NestedSets of transitive deps of the top-level modules also
-    // gives us an effective way to compute and store discoveredModules.
-    Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
+    Set<Artifact> topLevel =
+        actionExecutionContext
+            .getDiscoveredModulesPruner()
+            .computeTopLevelModules(this, usedModules, transitivelyUsedModules);
 
-    Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> iterator =
-        transitivelyUsedModules.entrySet().iterator();
-    while (iterator.hasNext()) {
-      // It is better to iterate over each nested set here instead of creating a joint one and
-      // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
-      // been iterated over before). Don't use Set.removeAll() here as that iterates over the
-      // smaller set (topLevel, which would support efficient lookup) and looks up in the larger one
-      // (transitive, which is a linear scan).
-      // We get a collection view of the NestedSet in a way that can throw an InterruptedException
-      // because a NestedSet may contain a future.
-      Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
-      Artifact dep = entry.getKey();
-      if (!topLevel.contains(dep)) {
-        // If this module was removed from topLevel because it is a dependency of another module,
-        // we can safely ignore it now as all of its dependants have also been removed.
-        continue;
-      }
-      NestedSet<? extends Artifact> transitive = entry.getValue();
-
-      List<? extends Artifact> modules;
-      try {
-        modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
-      } catch (TimeoutException | MissingNestedSetException e) {
-        DetailedExitCode code =
-            e instanceof TimeoutException
-                ? createDetailedExitCode(
-                    "Timed out expanding modules for " + dep, Code.MODULE_EXPANSION_TIMEOUT)
-                : createDetailedExitCode(
-                    "Missing data while expanding modules for " + dep,
-                    Code.MODULE_EXPANSION_MISSING_DATA);
-        if (actionExecutionContext.isRewindingEnabled()) {
-          // If rewinding is enabled, this error is recoverable.
-          throw lostInputsExceptionForFailedNestedSetExpansion(dep, iterator, e, code);
-        }
-        actionExecutionContext.getBugReporter().sendBugReport(e);
-        throw new ActionExecutionException(
-            code.getFailureDetail().getMessage(), e, this, /*catastrophe=*/ false, code);
-      }
-
-      for (Artifact module : modules) {
-        topLevel.remove(module);
-      }
-    }
     NestedSetBuilder<Artifact> topLevelModulesBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> discoveredModulesBuilder = NestedSetBuilder.stableOrder();
     for (Artifact module : topLevel) {
@@ -639,45 +597,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         additionalPrunableHeadersSet.contains(header)
             || FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)
             || isDeclaredIn(cppConfiguration, actionExecutionContext, header, looseHdrDirs.get());
-  }
-
-  /**
-   * Handles a failure (timeout or missing data) during expansion of transitively used modules.
-   *
-   * <p>A timeout may occur if a nested set of transitively used modules {@linkplain
-   * NestedSet#isFromStorage} but is not {@linkplain NestedSet#isReady ready}, while a {@link
-   * MissingNestedSetException} may occur if the data cannot be found.
-   *
-   * <p>Both cases are handled by throwing {@link LostInputsActionExecutionException} so that
-   * rewinding kicks in and rebuilds the nodes with the unavailable nested sets.
-   *
-   * <p>As soon as one failure is seen, any other nested sets of modules which are not ready are
-   * also treated as lost inputs.
-   *
-   * <p>Although the output {@link Artifact} (.pcm file) of dependent modules is not technically
-   * lost, it is treated as a lost input because rewinding will rebuild the corresponding action,
-   * thus reconstituting its nested set of transitively used modules. In lieu of an actual digest,
-   * we use the .pcm file's exec path since rewinding only uses the digest to detect multiple
-   * rewinds of the same input.
-   */
-  private LostInputsActionExecutionException lostInputsExceptionForFailedNestedSetExpansion(
-      Artifact timedOut,
-      Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
-      Exception e,
-      DetailedExitCode code) {
-    ImmutableMap.Builder<String, ActionInput> lostInputsBuilder = ImmutableMap.builder();
-    lostInputsBuilder.put(timedOut.getExecPathString(), timedOut);
-    remainingModules.forEachRemaining(
-        entry -> {
-          if (!entry.getValue().isReady()) {
-            Artifact alsoTimedOut = entry.getKey();
-            lostInputsBuilder.put(alsoTimedOut.getExecPathString(), alsoTimedOut);
-          }
-        });
-    ImmutableMap<String, ActionInput> lostInputs = lostInputsBuilder.build();
-    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap(lostInputs.values());
-    return new LostInputsActionExecutionException(
-        code.getFailureDetail().getMessage(), lostInputs, owners, this, e, code);
   }
 
   @Override
@@ -1330,7 +1249,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * estimation we are using form C + K * inputs, where C and K selected in such way, that more than
    * 95% of actions used less than C + K * inputs MB of memory during execution.
    */
-  public static ResourceSet estimateResourceConsumptionLocal(String mnemonic, OS os, int inputs) {
+  public static ResourceSet estimateResourceConsumptionLocal(
+      boolean enabled, String mnemonic, OS os, int inputs) {
+    if (!enabled) {
+      return AbstractAction.DEFAULT_RESOURCE_SET;
+    }
+
     if (mnemonic == null) {
       return AbstractAction.DEFAULT_RESOURCE_SET;
     }
@@ -1579,7 +1503,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           inputs,
           getOutputs(),
           estimateResourceConsumptionLocal(
-              getMnemonic(), OS.getCurrent(), inputs.memoizedFlattenAndGetSize()));
+              enabledCppCompileResourcesEstimation(),
+              getMnemonic(),
+              OS.getCurrent(),
+              inputs.memoizedFlattenAndGetSize()));
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -1815,23 +1742,21 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * thus {@link #discoveredModules} aren't known yet, returns null.
    */
   @Nullable
-  private static Map<Artifact, NestedSet<? extends Artifact>> computeTransitivelyUsedModules(
-      SkyFunction.Environment env, Collection<Artifact.DerivedArtifact> usedModules)
-      throws InterruptedException {
+  private static ImmutableMap<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
+      SkyFunction.Environment env, Set<DerivedArtifact> usedModules) throws InterruptedException {
     // Because this env.getValues call does not specify any exceptions, it is impossible for input
     // discovery to recover from exceptions thrown by spurious module deps (for instance, if a
     // commented-out include references a header file with an error in it). However, we generally
     // don't try to recover from errors around spurious includes discovered in the current build.
     // TODO(janakr): Can errors be aggregated here at least?
     Map<SkyKey, SkyValue> actionExecutionValues =
-        env.getValues(
-            Iterables.transform(usedModules, Artifact.DerivedArtifact::getGeneratingActionKey));
+        env.getValues(Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey));
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableMap.Builder<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
+    ImmutableMap.Builder<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
         ImmutableMap.builderWithExpectedSize(usedModules.size());
-    for (Artifact.DerivedArtifact module : usedModules) {
+    for (DerivedArtifact module : usedModules) {
       Preconditions.checkState(
           module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s", module);
       ActionExecutionValue value =

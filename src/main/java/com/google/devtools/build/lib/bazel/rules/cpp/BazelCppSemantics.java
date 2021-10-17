@@ -31,12 +31,15 @@ import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements AspectLegalCppSemantics {
-  @AutoCodec public static final BazelCppSemantics CPP = new BazelCppSemantics(Language.CPP);
-  @AutoCodec public static final BazelCppSemantics OBJC = new BazelCppSemantics(Language.OBJC);
+  @SerializationConstant
+  public static final BazelCppSemantics CPP = new BazelCppSemantics(Language.CPP);
+
+  @SerializationConstant
+  public static final BazelCppSemantics OBJC = new BazelCppSemantics(Language.OBJC);
 
   // TODO(#10338): We need to check for both providers. With and without the @rules_cc repo name.
   //  The reason for that is that when we are in a target inside @rules_cc, the provider won't have

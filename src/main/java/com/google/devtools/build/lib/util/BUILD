@@ -77,6 +77,16 @@ java_library(
 )
 
 java_library(
+    name = "describable_execution_unit",
+    srcs = ["DescribableExecutionUnit.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -85,6 +95,7 @@ java_library(
         "CommandUtils.java",
     ],
     deps = [
+        ":describable_execution_unit",
         ":os",
         ":shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -195,6 +206,7 @@ java_library(
     deps = [
         ":string",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

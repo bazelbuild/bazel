@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -113,8 +114,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, workspaceRoot))
-                .put(SkyFunctions.DISCOVERY, new DiscoveryFunction())
-                .put(SkyFunctions.SELECTION, new SelectionFunction())
+                .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     GET_REPO_SPEC_BY_NAME_FUNCTION,
                     new GetRepoSpecByNameFunction(new BzlmodRepoRuleHelperImpl()))
@@ -124,6 +124,9 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
+        differencer, CheckDirectDepsMode.WARNING);
   }
 
   @Test
@@ -173,19 +176,19 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.")), evaluationContext);
+        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
                     ImmutableMap.of(
-                        "name", "C.",
+                        "name", "C",
                         "path", "/foo/bar/C"))
                 .build());
   }

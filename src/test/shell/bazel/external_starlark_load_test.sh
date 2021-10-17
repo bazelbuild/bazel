@@ -139,17 +139,6 @@ EOF
 
   bazel build //:local &> $TEST_log || fail "Building local failed"
   expect_log "@r//foo:bar"
-
-  cat > $repo2/remote.bzl <<EOF
-def _impl(ctx):
-  print(Label("//foo:bar", relative_to_caller_repository = True))
-
-remote_rule = rule(
-    implementation = _impl,
-)
-EOF
-  bazel build //:local &> $TEST_log || fail "Building local failed"
-  expect_log "//foo:bar"
 }
 
 # Going one level deeper: if we have:
@@ -160,9 +149,8 @@ EOF
 # r2/
 #   BUILD
 #   remote.bzl
-# If //foo in local depends on //bar in r1, which is a Starlark rule
-# defined in r2/remote.bzl, then a Label in remote.bzl should either
-# resolve to @r2//whatever or @r1//whatever.
+# If //foo in local depends on //bar in r1, which is a Starlark rule defined in
+# r2/remote.bzl, then a Label in remote.bzl should resolve to @r2//whatever.
 function test_starlark_repository_nested_relative_label() {
   repo1=$TEST_TMPDIR/repo1
   repo2=$TEST_TMPDIR/repo2
@@ -212,17 +200,6 @@ EOF
 
   bazel build //:foo &> $TEST_log || fail "Building local failed"
   expect_log "@r2//foo:bar"
-
-  cat > $repo2/remote.bzl <<EOF
-def _impl(ctx):
-  print(Label("//foo:bar", relative_to_caller_repository = True))
-
-remote_rule = rule(
-    implementation = _impl,
-)
-EOF
-  bazel build //:foo &> $TEST_log || fail "Building local failed"
-  expect_log "@r1//foo:bar"
 }
 
 function test_aspects_and_starlark_repositories() {

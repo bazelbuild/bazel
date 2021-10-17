@@ -548,17 +548,19 @@ public final class Label
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
     HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
-    return getRelativeWithRemapping(relName, hrm.getRepoMapping());
+    return getRelativeWithRemapping(relName, hrm.getRepoMappingForCurrentBzlFile(thread));
   }
 
   /**
-   * An interface for retrieving a repository mapping.
+   * An interface for retrieving a repository mapping that's applicable for the repo containing the
+   * current .bzl file (more precisely, the .bzl file where the function at the innermost Starlark
+   * stack frame lives).
    *
    * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
    * that type here because logically it belongs in Bazel, above this package.
    */
   public interface HasRepoMapping {
-    RepositoryMapping getRepoMapping();
+    RepositoryMapping getRepoMappingForCurrentBzlFile(StarlarkThread thread);
   }
 
   /**

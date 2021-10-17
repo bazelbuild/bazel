@@ -25,6 +25,7 @@ java_library(
         "AspectFunction.java",
         "BazelSkyframeExecutorConstants.java",
         "BuildConfigurationFunction.java",
+        "BuildDriverFunction.java",
         "BuildInfoCollectionFunction.java",
         "BuildTopLevelAspectsDetailsFunction.java",
         "BzlLoadFunction.java",
@@ -39,7 +40,6 @@ java_library(
         "ExternalFilesHelper.java",
         "ExternalPackageFunction.java",
         "FileStateFunction.java",
-        "LoadStarlarkAspectFunction.java",
         "LocalRepositoryLookupFunction.java",
         "NonRuleConfiguredTargetValue.java",
         "PackageFunction.java",
@@ -82,7 +82,6 @@ java_library(
         "ToplevelStarlarkAspectFunction.java",
         "TransitiveTargetFunction.java",
         "WorkspaceFileFunction.java",
-        "actiongraph/ActionGraphDump.java",
         "actiongraph/v2/ActionGraphDump.java",
     ],
     deps = [
@@ -97,12 +96,6 @@ java_library(
         ":action_sketch_function",
         ":action_template_expansion_function",
         ":action_utils",
-        ":actiongraph/known_artifacts",
-        ":actiongraph/known_aspect_descriptors",
-        ":actiongraph/known_configurations",
-        ":actiongraph/known_nested_sets",
-        ":actiongraph/known_rule_class_strings",
-        ":actiongraph/known_targets",
         ":actiongraph/v2/aquery_output_handler",
         ":actiongraph/v2/known_artifacts",
         ":actiongraph/v2/known_aspect_descriptors",
@@ -115,8 +108,10 @@ java_library(
         ":artifact_nested_set_function",
         ":artifact_nested_set_key",
         ":aspect_creation_exception",
-        ":aspect_value_key",
+        ":aspect_key_creator",
         ":build_configuration_value",
+        ":build_driver_key",
+        ":build_driver_value",
         ":build_info_collection_value",
         ":bzl_compile",
         ":bzl_load_value",
@@ -262,6 +257,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/analysis:duplicate_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
@@ -330,7 +326,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
@@ -415,6 +410,7 @@ java_library(
     deps = [
         ":output_store",
         ":tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
@@ -575,75 +571,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "actiongraph/base_cache",
-    srcs = ["actiongraph/BaseCache.java"],
-    deps = ["//src/main/protobuf:analysis_java_proto"],
-)
-
-java_library(
-    name = "actiongraph/known_artifacts",
-    srcs = ["actiongraph/KnownArtifacts.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_aspect_descriptors",
-    srcs = ["actiongraph/KnownAspectDescriptors.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_configurations",
-    srcs = ["actiongraph/KnownConfigurations.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_nested_sets",
-    srcs = ["actiongraph/KnownNestedSets.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        ":actiongraph/known_artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_rule_class_strings",
-    srcs = ["actiongraph/KnownRuleClassStrings.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        "//src/main/protobuf:analysis_java_proto",
-    ],
-)
-
-java_library(
-    name = "actiongraph/known_targets",
-    srcs = ["actiongraph/KnownTargets.java"],
-    deps = [
-        ":actiongraph/base_cache",
-        ":actiongraph/known_rule_class_strings",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/protobuf:analysis_java_proto",
     ],
 )
 
@@ -851,6 +778,7 @@ java_library(
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
@@ -882,8 +810,8 @@ java_library(
 )
 
 java_library(
-    name = "aspect_value_key",
-    srcs = ["AspectValueKey.java"],
+    name = "aspect_key_creator",
+    srcs = ["AspectKeyCreator.java"],
     deps = [
         ":build_configuration_value",
         ":configured_target_key",
@@ -1018,7 +946,7 @@ java_library(
     name = "builder",
     srcs = ["Builder.java"],
     deps = [
-        ":aspect_value_key",
+        ":aspect_key_creator",
         ":configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -1030,6 +958,25 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "build_driver_key",
+    srcs = ["BuildDriverKey.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "build_driver_value",
+    srcs = ["BuildDriverValue.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 
@@ -2243,6 +2190,7 @@ java_library(
         ":package_value",
         ":repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -2629,7 +2577,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",

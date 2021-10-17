@@ -56,7 +56,18 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
 
   @Override
   public Map<SkyKey, SkyValue> getValues() {
+    notifyingHelper.graphListener.accept(
+        // Be gentle to tests that assume the key is not null
+        /*key=*/ () -> SkyFunctionName.FOR_TESTING,
+        NotifyingHelper.EventType.GET_VALUES,
+        NotifyingHelper.Order.BEFORE,
+        /*context=*/ null);
     return ((InMemoryGraph) delegate).getValues();
+  }
+
+  @Override
+  public int valuesSize() {
+    return ((InMemoryGraph) delegate).getValues().size();
   }
 
   @Override

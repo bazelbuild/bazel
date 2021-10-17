@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 
 /**
@@ -175,6 +176,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
     return delegateFs.createReadableByteChannel(toDelegatePath(path));
+  }
+
+  @Override
+  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+    return delegateFs.createReadWriteByteChannel(toDelegatePath(path));
   }
 
   @Override

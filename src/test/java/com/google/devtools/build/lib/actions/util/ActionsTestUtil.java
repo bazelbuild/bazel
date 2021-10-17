@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
@@ -70,7 +72,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -173,7 +174,7 @@ public final class ActionsTestUtil {
         (artifact, output) -> {},
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT,
+        DiscoveredModulesPruner.DEFAULT,
         UnixGlob.DEFAULT_SYSCALLS,
         ThreadStateReceiver.NULL_INSTANCE);
   }
@@ -199,7 +200,7 @@ public final class ActionsTestUtil {
         (artifact, output) -> {},
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT,
+        DiscoveredModulesPruner.DEFAULT,
         UnixGlob.DEFAULT_SYSCALLS,
         ThreadStateReceiver.NULL_INSTANCE);
   }
@@ -212,7 +213,7 @@ public final class ActionsTestUtil {
       Path execRoot,
       MetadataHandler metadataHandler,
       BuildDriver buildDriver,
-      NestedSetExpander nestedSetExpander) {
+      DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
@@ -226,7 +227,7 @@ public final class ActionsTestUtil {
         ImmutableMap.of(),
         new BlockingSkyFunctionEnvironment(buildDriver, eventHandler),
         /*actionFileSystem=*/ null,
-        nestedSetExpander,
+        discoveredModulesPruner,
         UnixGlob.DEFAULT_SYSCALLS,
         ThreadStateReceiver.NULL_INSTANCE);
   }
@@ -248,13 +249,13 @@ public final class ActionsTestUtil {
   public static Artifact createArtifactWithExecPath(ArtifactRoot root, PathFragment execPath) {
     return root.isSourceRoot()
         ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NULL_OWNER)
-        : new Artifact.DerivedArtifact(root, execPath, NULL_ARTIFACT_OWNER);
+        : DerivedArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
       ArtifactRoot root, PathFragment execPath) {
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
+        SpecialArtifact.create(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
     treeArtifact.setGeneratingActionKey(NULL_ACTION_LOOKUP_DATA);
     return treeArtifact;
   }
@@ -394,6 +395,11 @@ public final class ActionsTestUtil {
         @Override
         public Label getLabel() {
           return NULL_LABEL;
+        }
+
+        @Override
+        public String toString() {
+          return "NULL_ARTIFACT_OWNER";
         }
       };
 
@@ -914,23 +920,23 @@ public final class ActionsTestUtil {
    */
   public static class FakeArtifactResolverBase implements ArtifactResolver {
     @Override
-    public Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
+    public SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Artifact getSourceArtifact(PathFragment execPath, Root root) {
+    public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Artifact resolveSourceArtifact(
+    public SourceArtifact resolveSourceArtifact(
         PathFragment execPath, RepositoryName repositoryName) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<PathFragment, Artifact> resolveSourceArtifacts(
+    public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
         Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
       throw new UnsupportedOperationException();
     }

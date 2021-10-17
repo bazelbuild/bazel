@@ -95,8 +95,8 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
@@ -217,7 +217,9 @@ public class BuildViewForTesting {
         loadingPhaseThreads,
         topLevelOptions,
         eventHandler,
-        eventBus);
+        eventBus,
+        /*includeExecutionPhase=*/ false,
+        /*mergedPhasesExecutionJobsCount=*/ 0);
   }
 
   /** Sets the configurations. Not thread-safe. */
@@ -368,7 +370,7 @@ public class BuildViewForTesting {
           dependencyKey.getAspects().getUsedAspects().stream()
               .map(
                   aspect ->
-                      AspectValueKey.createAspectKey(
+                      AspectKeyCreator.createAspectKey(
                           dependencyKey.getLabel(), config, aspect.getAspect(), config))
               .collect(toImmutableList());
       ImmutableList<ConfiguredAspect> configuredAspects =
@@ -657,20 +659,16 @@ public class BuildViewForTesting {
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 
-    return new RuleContext.Builder(
-            env,
-            target,
-            ImmutableList.of(),
-            targetConfig,
-            configurations.getHostConfiguration(),
-            ruleClassProvider.getPrerequisiteValidator(),
-            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy(),
+    return new RuleContext.Builder(env, target, /*aspects=*/ ImmutableList.of(), targetConfig)
+        .setRuleClassProvider(ruleClassProvider)
+        .setHostConfiguration(configurations.getHostConfiguration())
+        .setConfigurationFragmentPolicy(
+            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
+        .setActionOwnerSymbol(
             ConfiguredTargetKey.builder()
                 .setConfiguredTarget(configuredTarget)
                 .setConfigurationKey(configuredTarget.getConfigurationKey())
                 .build())
-        .setToolsRepository(ruleClassProvider.getToolsRepository())
-        .setStarlarkSemantics(env.getStarlarkSemantics())
         .setMutability(Mutability.create("configured target"))
         .setVisibility(
             NestedSetBuilder.create(
@@ -678,10 +676,8 @@ public class BuildViewForTesting {
                 PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
         .setPrerequisites(ConfiguredTargetFactory.transformPrerequisiteMap(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
-        .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
-        .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
         .build();
   }
 

@@ -23,15 +23,35 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraver
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.LinkSupplier;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Factory of {@link FilesetTraversalParams}. */
 public final class FilesetTraversalParamsFactory {
+  /** SymlinkBehavior decides what to do when a source file of a FilesetEntry is a symlink. */
+  @Immutable
+  @ThreadSafe
+  public enum SymlinkBehavior {
+    /** Just copies the symlink as-is. May result in dangling links. */
+    COPY,
+    /** Follow the link and make the destination point to the absolute path of the final target. */
+    DEREFERENCE;
+
+    public static SymlinkBehavior parse(String value) throws IllegalArgumentException {
+      return valueOf(value.toUpperCase(Locale.ENGLISH));
+    }
+
+    @Override
+    public String toString() {
+      return super.toString().toLowerCase();
+    }
+  }
 
   /**
    * Creates parameters for a recursive traversal request in a package.

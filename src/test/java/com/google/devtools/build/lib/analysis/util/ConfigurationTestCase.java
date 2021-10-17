@@ -17,6 +17,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -85,7 +86,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected Path workspace;
   protected AnalysisMock analysisMock;
   protected SequencedSkyframeExecutor skyframeExecutor;
-  protected ImmutableList<Class<? extends FragmentOptions>> buildOptionClasses;
+  protected ImmutableSet<Class<? extends FragmentOptions>> buildOptionClasses;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
@@ -156,7 +157,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-    buildOptionClasses = ruleClassProvider.getConfigurationOptions();
+    buildOptionClasses = ruleClassProvider.getFragmentRegistry().getOptionsClasses();
   }
 
   protected void checkError(String expectedMessage, String... options) {

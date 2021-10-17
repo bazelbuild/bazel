@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.Attribute.AbstractLabelLateBoundDe
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -46,7 +45,6 @@ import net.starlark.java.eval.Printer;
  * target configuration.
  */
 @Immutable
-@AutoCodec
 public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT>
     implements LateBoundDefaultApi {
 
@@ -91,9 +89,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
         annotation.name());
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  StarlarkLateBoundDefault(
+  private StarlarkLateBoundDefault(
       Label defaultVal,
       Class<FragmentT> fragmentClass,
       Method method,
@@ -123,12 +119,6 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
   @Override
   public void repr(Printer printer) {
     printer.append("<late-bound default>");
-  }
-
-  /** For use by @AutoCodec since the {@link #defaultValue} field is hard for it to process. */
-  @AutoCodec.VisibleForSerialization
-  Label getDefaultVal() {
-    return getDefault();
   }
 
   /**

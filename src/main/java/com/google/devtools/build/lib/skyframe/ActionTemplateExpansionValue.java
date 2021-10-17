@@ -65,7 +65,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       return actionLookupKey.getLabel();
     }
 
-    ActionLookupKey getActionLookupKey() {
+    public ActionLookupKey getActionLookupKey() {
       return actionLookupKey;
     }
 
@@ -73,7 +73,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
      * Index of the action in question in the node keyed by {@link #getActionLookupKey}. Should be
      * passed to {@link com.google.devtools.build.lib.actions.ActionLookupValue#getAction}.
      */
-    int getActionIndex() {
+    public int getActionIndex() {
       return actionIndex;
     }
 

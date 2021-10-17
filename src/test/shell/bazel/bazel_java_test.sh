@@ -97,6 +97,13 @@ if [[ $# -gt 0 ]]; then
   JAVA_RUNTIME_VERSION="$1"; shift
   add_to_bazelrc "build --java_runtime_version=${JAVA_RUNTIME_VERSION}"
   add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
+  if [[ "${JAVA_RUNTIME_VERSION}" == 8 ]]; then
+    JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain_java8"
+  elif [[ "${JAVA_RUNTIME_VERSION}" == 11 ]]; then
+    JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain_java11"
+  else
+    JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain_jdk_${JAVA_RUNTIME_VERSION}"
+  fi
 fi
 
 export TESTENV_DONT_BAZEL_CLEAN=1
@@ -292,7 +299,6 @@ def _impl(ctx):
     resources = ctx.files.resources,
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   return struct(
     files = depset([output_jar]),
@@ -307,7 +313,6 @@ java_custom_library = rule(
     "exports": attr.label_list(),
     "resources": attr.label_list(allow_files=True),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
-    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
@@ -414,7 +419,7 @@ genrule(
 java_library(
   name = "test",
   srcs = ["A.java"],
-  javacopts = ["-sourcepath $(GENDIR)/$(location :stub)", "-implicit:none"],
+  javacopts = ["-sourcepath $(location :stub)", "-implicit:none"],
   deps = [":stub"]
 )
 EOF
@@ -468,7 +473,6 @@ def _impl(ctx):
     sourcepath = ctx.files.sourcepath,
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   return struct(
     files = depset([output_jar]),
@@ -481,7 +485,6 @@ java_custom_library = rule(
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
-    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
@@ -540,7 +543,6 @@ def _impl(ctx):
     sourcepath = ctx.files.sourcepath,
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
   return struct(
     files = depset([output_jar]),
@@ -553,7 +555,6 @@ java_custom_library = rule(
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
-    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
@@ -1441,7 +1442,6 @@ def _impl(ctx):
     source_files = ctx.files.srcs,
     output = compiled_jar,
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo],
   )
 
   imported_provider = JavaInfo(output_jar = imported_jar, compile_jar = imported_jar);
@@ -1462,7 +1462,6 @@ java_custom_library = rule(
     "srcs": attr.label_list(allow_files=True),
     "jar": attr.label(allow_files=True),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
-    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )

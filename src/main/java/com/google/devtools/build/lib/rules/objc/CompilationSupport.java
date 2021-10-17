@@ -180,8 +180,7 @@ public class CompilationSupport implements StarlarkValue {
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration,
-      CppSemantics cppSemantics,
-      boolean forSwiftModuleMap) {
+      CppSemantics cppSemantics) {
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
             .addAll(ruleContext.getFeatures())
@@ -203,16 +202,6 @@ public class CompilationSupport implements StarlarkValue {
     if (disableLayeringCheck) {
       disabledFeatures.add(CppRuleClasses.LAYERING_CHECK);
     }
-    if (forSwiftModuleMap) {
-      activatedCrosstoolSelectables
-          .add(CppRuleClasses.MODULE_MAPS)
-          .add(CppRuleClasses.COMPILE_ALL_MODULES)
-          .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
-          .add(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
-          .add(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE)
-          .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS);
-      disabledFeatures.add(CppRuleClasses.GENERATE_SUBMODULES);
-    }
 
     return CcCommon.configureFeaturesOrReportRuleError(
         ruleContext,
@@ -221,24 +210,6 @@ public class CompilationSupport implements StarlarkValue {
         disabledFeatures.build(),
         ccToolchain,
         cppSemantics);
-  }
-
-  private FeatureConfiguration getFeatureConfiguration(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfiguration configuration,
-      CppSemantics cppSemantics) {
-    return getFeatureConfiguration(
-        ruleContext, ccToolchain, configuration, cppSemantics, /* forSwiftModuleMap= */ false);
-  }
-
-  private FeatureConfiguration getFeatureConfigurationForSwiftModuleMap(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfiguration configuration,
-      CppSemantics cppSemantics) {
-    return getFeatureConfiguration(
-        ruleContext, ccToolchain, configuration, cppSemantics, /* forSwiftModuleMap= */ true);
   }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
@@ -655,7 +626,6 @@ public class CompilationSupport implements StarlarkValue {
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .addNonCodeLinkerInputs(bazelBuiltLibraries)
             .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
-            .addNonCodeLinkerInputs(ImmutableList.copyOf(prunedJ2ObjcArchives))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))

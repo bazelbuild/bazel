@@ -379,7 +379,7 @@ public class SpawnActionTemplateTest {
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     SpecialArtifact result =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             root.getExecPath().getRelative(relpath),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,

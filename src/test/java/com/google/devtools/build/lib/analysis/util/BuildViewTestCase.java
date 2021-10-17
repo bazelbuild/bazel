@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -113,7 +113,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -144,8 +143,8 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
@@ -435,7 +434,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .optionsClasses(
                 Iterables.concat(
                     Arrays.asList(ExecutionOptions.class, BuildRequestOptions.class),
-                    ruleClassProvider.getConfigurationOptions()))
+                    ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
             .build();
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
@@ -453,7 +452,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // to ensure that the values given in this map are the right types for their keys.
     optionsParser.setStarlarkOptions(starlarkOptions);
 
-    BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
+    BuildOptions buildOptions =
+        BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
     return skyframeExecutor.createConfigurations(reporter, buildOptions, ImmutableSet.of(), false);
   }
 
@@ -706,18 +706,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return null;
   }
 
-  /**
-   * Returns a BuildOptions with options in exclude trimmed away.
-   *
-   * <p>BuildOptions.trim actually retains the options passed to it so must reverse the logic.
-   */
+  /** Returns a {@link BuildOptions} with options in {@code exclude} trimmed away. */
   private static BuildOptions trimConfiguration(
-      BuildOptions input, Set<Class<? extends FragmentOptions>> exclude) {
-    Set<Class<? extends FragmentOptions>> include =
-        input.getFragmentClasses().stream()
-            .filter((x) -> !exclude.contains(x))
-            .collect(toImmutableSet());
-    return input.trim(include);
+      BuildOptions original, Set<Class<? extends FragmentOptions>> exclude) {
+    BuildOptions.Builder trimmed = original.toBuilder();
+    exclude.forEach(trimmed::removeFragmentOptions);
+    return trimmed.build();
   }
 
   /**
@@ -1311,7 +1305,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Given a list of PathFragments, returns a corresponding list of strings. Such strings make
    * assertions easier to write.
    */
-  protected List<String> pathfragmentsToStrings(List<PathFragment> pathFragments) {
+  protected static ImmutableList<String> pathfragmentsToStrings(List<PathFragment> pathFragments) {
     return pathFragments.stream().map(PathFragment::toString).collect(toImmutableList());
   }
 
@@ -1498,7 +1492,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
         (AspectKey)
-            AspectValueKey.createAspectKey(
+            AspectKeyCreator.createAspectKey(
                     owner.getLabel(),
                     getConfiguration(owner),
                     new AspectDescriptor(creatingAspectFactory, parameters),
@@ -1595,7 +1589,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
     return (AspectKey)
-        AspectValueKey.createAspectKey(
+        AspectKeyCreator.createAspectKey(
                 owner.getLabel(),
                 getConfiguration(owner),
                 new AspectDescriptor(creatingAspectFactory, params),
@@ -2473,7 +2467,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           artifactExpander,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null,
-          NestedSetExpander.DEFAULT,
+          DiscoveredModulesPruner.DEFAULT,
           UnixGlob.DEFAULT_SYSCALLS,
           ThreadStateReceiver.NULL_INSTANCE);
     }

@@ -49,6 +49,7 @@ public interface AqueryOutputHandler extends AutoCloseable {
           return TEXT;
         case "jsonproto":
           return JSON;
+        default: // fall out
       }
       throw new InvalidAqueryOutputFormatException("Invalid aquery output format: " + string);
     }

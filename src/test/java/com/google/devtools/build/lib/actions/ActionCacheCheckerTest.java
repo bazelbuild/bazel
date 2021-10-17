@@ -425,7 +425,7 @@ public class ActionCacheCheckerTest {
   @Test
   public void testDeletedConstantMetadataOutputCausesReexecution() throws Exception {
     SpecialArtifact output =
-        new Artifact.SpecialArtifact(
+        SpecialArtifact.create(
             artifactRoot,
             PathFragment.create("bin/dummy"),
             NULL_ARTIFACT_OWNER,

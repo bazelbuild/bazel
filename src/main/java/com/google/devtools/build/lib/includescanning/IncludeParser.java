@@ -266,7 +266,8 @@ class IncludeParser {
      */
     @Nullable
     ImmutableSet<Artifact> getPathLevelHintedInclusions(
-        ImmutableList<PathFragment> paths, Environment env) throws InterruptedException {
+        ImmutableList<PathFragment> paths, Environment env)
+        throws InterruptedException, IOException {
       ImmutableList<String> pathStrings =
           paths.stream()
               .map(PathFragment::getPathString)
@@ -359,15 +360,9 @@ class IncludeParser {
         return null;
       }
       for (Map.Entry<SkyKey, ValueOrException<IOException>> globEntry : globResults.entrySet()) {
-        GlobValue globValue;
         GlobDescriptor globKey = (GlobDescriptor) globEntry.getKey();
         PathFragment packageFragment = globKey.getPackageId().getPackageFragment();
-        try {
-          globValue = (GlobValue) globEntry.getValue().get();
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Error getting hints for %s", packageFragment);
-          continue;
-        }
+        GlobValue globValue = (GlobValue) globEntry.getValue().get();
         for (PathFragment file : globValue.getMatches().toList()) {
           hints.add(
               artifactFactory.getSourceArtifact(

@@ -15,6 +15,14 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.Attribute;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.syntax.Location;
+
 /** Utilities for bzlmod tests. */
 public final class BzlmodTestUtil {
   private BzlmodTestUtil() {}
@@ -26,5 +34,46 @@ public final class BzlmodTestUtil {
     } catch (Version.ParseException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  public static RepositoryMapping createRepositoryMapping(ModuleKey key, String... names) {
+    ImmutableMap.Builder<RepositoryName, RepositoryName> mappingBuilder = ImmutableMap.builder();
+    for (int i = 0; i < names.length; i += 2) {
+      mappingBuilder.put(
+          RepositoryName.createFromValidStrippedName(names[i]),
+          RepositoryName.createFromValidStrippedName(names[i + 1]));
+    }
+    return RepositoryMapping.create(mappingBuilder.build(), key.getCanonicalRepoName());
+  }
+
+  public static TagClass createTagClass(Attribute... attrs) {
+    return TagClass.create(ImmutableList.copyOf(attrs), "doc", Location.BUILTIN);
+  }
+
+  /** A builder for {@link Tag} for testing purposes. */
+  public static class TestTagBuilder {
+    private final Dict.Builder<String, Object> attrValuesBuilder = Dict.builder();
+    private final String tagName;
+
+    private TestTagBuilder(String tagName) {
+      this.tagName = tagName;
+    }
+
+    public TestTagBuilder addAttr(String attrName, Object attrValue) {
+      attrValuesBuilder.put(attrName, attrValue);
+      return this;
+    }
+
+    public Tag build() {
+      return Tag.builder()
+          .setTagName(tagName)
+          .setLocation(Location.BUILTIN)
+          .setAttributeValues(attrValuesBuilder.buildImmutable())
+          .build();
+    }
+  }
+
+  public static TestTagBuilder buildTag(String tagName) throws Exception {
+    return new TestTagBuilder(tagName);
   }
 }

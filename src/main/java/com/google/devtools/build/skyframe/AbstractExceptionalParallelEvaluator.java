@@ -97,7 +97,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
       EvaluationVersionBehavior evaluationVersionBehavior,
-      int cpuHeavySkyKeysThreadPoolSize) {
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionJobsThreadPoolSize) {
     super(
         graph,
         graphVersion,
@@ -112,7 +113,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         executorService,
         cycleDetector,
         evaluationVersionBehavior,
-        cpuHeavySkyKeysThreadPoolSize);
+        cpuHeavySkyKeysThreadPoolSize,
+        executionJobsThreadPoolSize);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)

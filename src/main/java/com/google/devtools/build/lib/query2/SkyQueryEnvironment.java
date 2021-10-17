@@ -40,6 +40,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
@@ -382,7 +383,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     if (constantUniverseScopeList.size() != 1) {
       return QueryExpressionMapper.identity();
     }
-    TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
+    TargetPattern.Parser targetPatternParser = TargetPattern.mainRepoParser(parserPrefix);
     String universeScopePatternString = Iterables.getOnlyElement(constantUniverseScopeList);
     TargetPattern absoluteUniverseScopePattern = null;
     try {
@@ -805,7 +806,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpression owner, String pattern, Callback<Target> callback) {
     TargetPatternKey targetPatternKey;
     try {
-      targetPatternKey = TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, parserPrefix);
+      targetPatternKey =
+          TargetPatternValue.key(
+              SignedTargetPattern.parse(pattern, TargetPattern.mainRepoParser(parserPrefix)),
+              FilteringPolicies.NO_FILTER);
     } catch (TargetParsingException tpe) {
       try {
         handleError(owner, tpe.getMessage(), tpe.getDetailedExitCode());

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -47,7 +47,7 @@ import org.junit.runner.RunWith;
  * artifacts.
  */
 @RunWith(TestParameterInjector.class)
-public class ActionExecutionValueTransformSharedTreeArtifactsTest {
+public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
   private static final PathFragment DERIVED_PATH_PREFIX = PathFragment.create("bazel-out");
 
@@ -74,7 +74,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
     SpecialArtifact tree2 = createTreeArtifact("dir", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(tree2));
+        actionExecutionValue.transformForSharedAction(new NullAction(tree2));
 
     assertThat(transformedValue.getAllFileValues()).isEmpty();
     assertThat(transformedValue.getAllTreeArtifactValues().keySet()).containsExactly(tree2);
@@ -90,7 +90,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
     SpecialArtifact tree2 = createTreeArtifact("dir", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(tree2));
+        actionExecutionValue.transformForSharedAction(new NullAction(tree2));
 
     assertThat(transformedValue.getAllFileValues()).isEmpty();
     assertThat(transformedValue.getAllTreeArtifactValues().keySet()).containsExactly(tree2);
@@ -109,7 +109,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
     SpecialArtifact sharedTree1 = createTreeArtifact("dir1", KEY_2);
     SpecialArtifact sharedTree2 = createTreeArtifact("dir2", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(sharedTree1, sharedTree2));
+        actionExecutionValue.transformForSharedAction(new NullAction(sharedTree1, sharedTree2));
 
     assertThat(transformedValue.getAllFileValues()).isEmpty();
     assertThat(transformedValue.getAllTreeArtifactValues().keySet())
@@ -134,7 +134,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
     SpecialArtifact sharedTree = createTreeArtifact("dir", KEY_2);
     DerivedArtifact sharedFile = createFileArtifact("file", KEY_2);
     ActionExecutionValue transformedValue =
-        actionExecutionValue.transformForSharedAction(ImmutableSet.of(sharedFile, sharedTree));
+        actionExecutionValue.transformForSharedAction(new NullAction(sharedFile, sharedTree));
 
     assertThat(transformedValue.getAllFileValues().keySet()).containsExactly(sharedFile);
     assertThat(transformedValue.getAllFileValues().get(sharedFile)).isSameInstanceAs(fileValue);
@@ -234,12 +234,13 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
   }
 
   private DerivedArtifact createFileArtifact(String relativePath, ActionLookupKey owner) {
-    return new DerivedArtifact(derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
+    return DerivedArtifact.create(
+        derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath, ActionLookupKey owner) {
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             derivedRoot,
             DERIVED_PATH_PREFIX.getRelative(relativePath),
             owner,

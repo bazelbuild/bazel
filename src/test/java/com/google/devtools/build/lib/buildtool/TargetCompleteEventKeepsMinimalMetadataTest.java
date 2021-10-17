@@ -22,11 +22,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,6 +39,11 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class TargetCompleteEventKeepsMinimalMetadataTest extends BuildIntegrationTestCase {
+
+  @Before
+  public void stageEmbeddedTools() throws Exception {
+    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
+  }
 
   @Test
   public void artifactsNotRetained() throws Exception {

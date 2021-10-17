@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -307,7 +306,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
    */
   private static Element createValueElement(Document doc, Type<?> type, Iterable<Object> values) {
     // "Import static" with method scope:
-    Type<?> FILESET_ENTRY = BuildType.FILESET_ENTRY;
     Type<?> LABEL_LIST = BuildType.LABEL_LIST;
     Type<?> LICENSE = BuildType.LICENSE;
     Type<?> STRING_LIST = Type.STRING_LIST;
@@ -350,26 +348,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         Element licenseTypes = createValueElement(doc, STRING_LIST, license.getLicenseTypes());
         licenseTypes.setAttribute("name", "license-types");
         elem.appendChild(licenseTypes);
-      }
-    } else if (type == FILESET_ENTRY) {
-      // Fileset entries: not configurable.
-      FilesetEntry filesetEntry = (FilesetEntry) Iterables.getOnlyElement(values);
-      elem = doc.createElement("fileset-entry");
-      elem.setAttribute("srcdir", filesetEntry.getSrcLabel().toString());
-      elem.setAttribute("destdir", filesetEntry.getDestDir().toString());
-      elem.setAttribute("symlinks", filesetEntry.getSymlinkBehavior().toString());
-      elem.setAttribute("strip_prefix", filesetEntry.getStripPrefix());
-
-      if (filesetEntry.getExcludes() != null) {
-        Element excludes =
-            createValueElement(doc, LABEL_LIST, filesetEntry.getExcludes());
-        excludes.setAttribute("name", "excludes");
-        elem.appendChild(excludes);
-      }
-      if (filesetEntry.getFiles() != null) {
-        Element files = createValueElement(doc, LABEL_LIST, filesetEntry.getFiles());
-        files.setAttribute("name", "files");
-        elem.appendChild(files);
       }
     } else { // INTEGER STRING LABEL DISTRIBUTION OUTPUT
       elem = createSingleValueElement(doc, type.toString(), hasMultipleValues);

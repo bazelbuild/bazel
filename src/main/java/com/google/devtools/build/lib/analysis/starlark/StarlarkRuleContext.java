@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -88,6 +89,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Dict.ImmutableKeyTrackingDict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -260,6 +262,17 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
 
       for (Attribute attribute : rule.getAttributes()) {
+        // The aspect_hints attribute is experimental. When not enabled through the
+        // --enable_aspect_hints flag, we don't add it to the list of attributes that the aspect
+        // has access to.
+        if (attribute.getName().equals("aspect_hints")
+            && !ruleContext
+                .getConfiguration()
+                .getOptions()
+                .get(CoreOptions.class)
+                .enableAspectHints) {
+          continue;
+        }
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         ruleBuilder.addAttribute(attribute, value);
       }
@@ -694,14 +707,28 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public Dict<String, String> var() throws EvalException {
     checkMutable("var");
     if (cachedMakeVariables == null) {
+      Dict.Builder<String, String> vars;
       try {
-        cachedMakeVariables =
-            ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+        vars = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
       } catch (ExpansionException e) {
-        throw Starlark.errorf("%s", e.getMessage());
+        throw new EvalException(e.getMessage());
       }
+
+      // When tracking required fragments, use a key-tracking dict to support lookedUpVariables().
+      cachedMakeVariables =
+          ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+              ? vars.buildImmutableWithKeyTracking()
+              : vars.buildImmutable();
     }
     return cachedMakeVariables;
+  }
+
+  /** Returns the set of variables accessed through {@code ctx.var}. */
+  public ImmutableSet<String> lookedUpVariables() {
+    Preconditions.checkState(ruleContext.shouldIncludeRequiredConfigFragmentsProvider(), this);
+    return cachedMakeVariables == null
+        ? ImmutableSet.of()
+        : ((ImmutableKeyTrackingDict<String, String>) cachedMakeVariables).getAccessedKeys();
   }
 
   @Override
@@ -1005,7 +1032,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   public StarlarkSemantics getStarlarkSemantics() {
-    return ruleContext.getStarlarkSemantics();
+    return ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
   }
 
   /**

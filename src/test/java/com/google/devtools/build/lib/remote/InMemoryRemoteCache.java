@@ -26,10 +26,12 @@ import com.google.protobuf.Message;
 import java.io.IOException;
 import java.util.Map;
 
-class InMemoryRemoteCache extends RemoteCache {
+class InMemoryRemoteCache extends RemoteExecutionCache {
 
   InMemoryRemoteCache(
-      Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
+      Map<Digest, byte[]> casEntries,
+      RemoteOptions options,
+      DigestUtil digestUtil) {
     super(new InMemoryCacheClient(casEntries), options, digestUtil);
   }
 
@@ -74,8 +76,7 @@ class InMemoryRemoteCache extends RemoteCache {
     return ((InMemoryCacheClient) cacheProtocol).getNumFailedDownloads();
   }
 
-  @Override
-  public void close() {
-    cacheProtocol.close();
+  Map<Digest, Integer> getNumFindMissingDigests() {
+    return ((InMemoryCacheClient) cacheProtocol).getNumFindMissingDigests();
   }
 }

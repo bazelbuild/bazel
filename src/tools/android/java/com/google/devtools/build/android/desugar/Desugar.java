@@ -455,7 +455,8 @@ public class Desugar {
         type -> resourceBasedClassFiles.getContent(type).sink(outputFileProvider));
 
     // 3. See if we need to copy StringConcats methods for Indify string desugaring.
-    if (classMemberUseCounter.getMemberUseCount(INVOKE_JDK11_STRING_CONCAT) > 0) {
+    if (!options.coreLibrary
+        && classMemberUseCounter.getMemberUseCount(INVOKE_JDK11_STRING_CONCAT) > 0) {
       String resourceName = "com/google/devtools/build/android/desugar/runtime/StringConcats.class";
       try (InputStream stream = Resources.getResource(resourceName).openStream()) {
         outputFileProvider.write(resourceName, ByteStreams.toByteArray(stream));
@@ -887,7 +888,7 @@ public class Desugar {
     }
 
     if (options.desugarIndifyStringConcat) {
-      visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor);
+      visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor, options.coreLibrary);
     }
 
     visitor = new LocalTypeAnnotationUse(visitor);

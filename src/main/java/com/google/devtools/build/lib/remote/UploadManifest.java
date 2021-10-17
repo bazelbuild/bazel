@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransfer;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
+import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
+import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -25,16 +29,19 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxUtils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
@@ -45,6 +52,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,11 +62,10 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/**
- * UploadManifest adds output metadata to a {@link ActionResult}.
- */
+/** UploadManifest adds output metadata to a {@link ActionResult}. */
 public class UploadManifest {
 
   private final DigestUtil digestUtil;
@@ -140,7 +149,7 @@ public class UploadManifest {
    * non-directory descendant files.
    */
   @VisibleForTesting
-  public void addFiles(Collection<Path> files) throws ExecException, IOException {
+  void addFiles(Collection<Path> files) throws ExecException, IOException {
     for (Path file : files) {
       // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
       // rely on the local spawn runner to stat the files, instead of statting here.
@@ -199,9 +208,7 @@ public class UploadManifest {
     digestToBlobs.put(action.getCommandDigest(), command.toByteString());
   }
 
-  /**
-   * Map of digests to file paths to upload.
-   */
+  /** Map of digests to file paths to upload. */
   public Map<Digest, Path> getDigestToFile() {
     return digestToFile;
   }
@@ -244,7 +251,8 @@ public class UploadManifest {
         .addOutputFilesBuilder()
         .setPath(remotePathResolver.localPathToOutputPath(file))
         .setDigest(digest)
-        .setIsExecutable(file.isExecutable());
+        // The permission of output file is changed to 0555 after action execution
+        .setIsExecutable(true);
 
     digestToFile.put(digest, file);
   }
@@ -292,15 +300,11 @@ public class UploadManifest {
         FileStatus statFollow = child.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
           throw new IOException(
-              String.format(
-                  "Action output %s is a dangling symbolic link to %s ", child, target));
+              String.format("Action output %s is a dangling symbolic link to %s ", child, target));
         }
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
           Digest digest = digestUtil.compute(child);
-          b.addFilesBuilder()
-              .setName(name)
-              .setDigest(digest)
-              .setIsExecutable(child.isExecutable());
+          b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
           digestToFile.put(digest, child);
         } else if (statFollow.isDirectory()) {
           Directory dir = computeDirectory(child, tree);
@@ -330,10 +334,11 @@ public class UploadManifest {
                 + "Change the file type or use --remote_allow_symlink_upload.",
             remotePathResolver.localPathToOutputPath(what), kind);
 
-    FailureDetail failureDetail = FailureDetail.newBuilder()
-        .setMessage(message)
-        .setRemoteExecution(RemoteExecution.newBuilder().setCode(Code.ILLEGAL_OUTPUT))
-        .build();
+    FailureDetail failureDetail =
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setRemoteExecution(RemoteExecution.newBuilder().setCode(Code.ILLEGAL_OUTPUT))
+            .build();
     throw new UserExecException(failureDetail);
   }
 
@@ -343,38 +348,121 @@ public class UploadManifest {
   }
 
   /** Uploads outputs and action result (if exit code is 0) to remote cache. */
-  public ActionResult upload(RemoteActionExecutionContext context, RemoteCache remoteCache)
+  public ActionResult upload(
+      RemoteActionExecutionContext context, RemoteCache remoteCache, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    Map<Digest, Path> digestToFile = getDigestToFile();
-    Map<Digest, ByteString> digestToBlobs = getDigestToBlobs();
+    try {
+      return uploadAsync(context, remoteCache, reporter).blockingGet();
+    } catch (RuntimeException e) {
+      throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throwIfInstanceOf(e.getCause(), IOException.class);
+      throw e;
+    }
+  }
+
+  private Completable upload(
+      RemoteActionExecutionContext context, RemoteCache remoteCache, Digest digest) {
+    Path file = digestToFile.get(digest);
+    if (file != null) {
+      return toCompletable(() -> remoteCache.uploadFile(context, digest, file), directExecutor());
+    }
+
+    ByteString blob = digestToBlobs.get(digest);
+    if (blob == null) {
+      String message = "FindMissingBlobs call returned an unknown digest: " + digest;
+      return Completable.error(new IOException(message));
+    }
+
+    return toCompletable(() -> remoteCache.uploadBlob(context, digest, blob), directExecutor());
+  }
+
+  private static void reportUploadStarted(
+      ExtendedEventHandler reporter,
+      @Nullable ActionExecutionMetadata action,
+      String prefix,
+      Iterable<Digest> digests) {
+    if (action != null) {
+      for (Digest digest : digests) {
+        reporter.post(ActionUploadStartedEvent.create(action, prefix + digest.getHash()));
+      }
+    }
+  }
+
+  private static void reportUploadFinished(
+      ExtendedEventHandler reporter,
+      @Nullable ActionExecutionMetadata action,
+      String resourceIdPrefix,
+      Iterable<Digest> digests) {
+    if (action != null) {
+      for (Digest digest : digests) {
+        reporter.post(
+            ActionUploadFinishedEvent.create(action, resourceIdPrefix + digest.getHash()));
+      }
+    }
+  }
+
+  /**
+   * Returns a {@link Single} which upon subscription will upload outputs and action result (if exit
+   * code is 0) to remote cache.
+   */
+  public Single<ActionResult> uploadAsync(
+      RemoteActionExecutionContext context,
+      RemoteCache remoteCache,
+      ExtendedEventHandler reporter) {
     Collection<Digest> digests = new ArrayList<>();
     digests.addAll(digestToFile.keySet());
     digests.addAll(digestToBlobs.keySet());
 
-    ImmutableSet<Digest> digestsToUpload =
-        getFromFuture(remoteCache.findMissingDigests(context, digests));
-    ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
-    for (Digest digest : digestsToUpload) {
-      Path file = digestToFile.get(digest);
-      if (file != null) {
-        uploads.add(remoteCache.uploadFile(context, digest, file));
-      } else {
-        ByteString blob = digestToBlobs.get(digest);
-        if (blob == null) {
-          String message = "FindMissingBlobs call returned an unknown digest: " + digest;
-          throw new IOException(message);
-        }
-        uploads.add(remoteCache.uploadBlob(context, digest, blob));
-      }
-    }
+    ActionExecutionMetadata action = context.getSpawnOwner();
 
-    waitForBulkTransfer(uploads.build(), /* cancelRemainingOnInterrupt=*/ false);
+    String outputPrefix = "cas/";
+    Flowable<RxUtils.TransferResult> bulkTransfers =
+        toSingle(() -> remoteCache.findMissingDigests(context, digests), directExecutor())
+            .doOnSubscribe(d -> reportUploadStarted(reporter, action, outputPrefix, digests))
+            .doOnError(error -> reportUploadFinished(reporter, action, outputPrefix, digests))
+            .doOnDispose(() -> reportUploadFinished(reporter, action, outputPrefix, digests))
+            .doOnSuccess(
+                missingDigests -> {
+                  List<Digest> existedDigests =
+                      digests.stream()
+                          .filter(digest -> !missingDigests.contains(digest))
+                          .collect(Collectors.toList());
+                  reportUploadFinished(reporter, action, outputPrefix, existedDigests);
+                })
+            .flatMapPublisher(Flowable::fromIterable)
+            .flatMapSingle(
+                digest ->
+                    toTransferResult(upload(context, remoteCache, digest))
+                        .doFinally(
+                            () ->
+                                reportUploadFinished(
+                                    reporter, action, outputPrefix, ImmutableList.of(digest))));
+    Completable uploadOutputs = mergeBulkTransfer(bulkTransfers);
 
     ActionResult actionResult = result.build();
+    Completable uploadActionResult = Completable.complete();
     if (actionResult.getExitCode() == 0 && actionKey != null) {
-      getFromFuture(remoteCache.uploadActionResult(context, actionKey, actionResult));
+      String actionResultPrefix = "ac/";
+      uploadActionResult =
+          toCompletable(
+                  () -> remoteCache.uploadActionResult(context, actionKey, actionResult),
+                  directExecutor())
+              .doOnSubscribe(
+                  d ->
+                      reportUploadStarted(
+                          reporter,
+                          action,
+                          actionResultPrefix,
+                          ImmutableList.of(actionKey.getDigest())))
+              .doFinally(
+                  () ->
+                      reportUploadFinished(
+                          reporter,
+                          action,
+                          actionResultPrefix,
+                          ImmutableList.of(actionKey.getDigest())));
     }
 
-    return actionResult;
+    return Completable.concatArray(uploadOutputs, uploadActionResult).toSingleDefault(actionResult);
   }
 }

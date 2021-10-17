@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
 
 /**
  * Utility methods relating to the {@link Command} class.
@@ -29,36 +27,9 @@ public class CommandUtils {
 
   private CommandUtils() {} // Prevent instantiation.
 
-  private static Collection<String> commandLine(Command command) {
-    return Arrays.asList(command.getCommandLineElements());
-  }
-
-  private static Map<String, String> env(Command command) {
-    return command.getEnvironmentVariables();
-  }
-
-  private static String cwd(Command command) {
+  @VisibleForTesting
+  static String cwd(Command command) {
     return command.getWorkingDirectory() == null ? null : command.getWorkingDirectory().getPath();
-  }
-
-  /**
-   * Construct an error message that describes a failed command invocation.
-   * Currently this returns a message of the form "error executing command foo
-   * bar baz".
-   */
-  public static String describeCommandError(boolean verbose, Command command) {
-    return CommandFailureUtils.describeCommandError(
-        verbose, commandLine(command), env(command), cwd(command), null);
-  }
-
-  /**
-   * Construct an error message that describes a failed command invocation.
-   * Currently this returns a message of the form "foo failed: error executing
-   * command /dir/foo bar baz".
-   */
-  public static String describeCommandFailure(boolean verbose, Command command) {
-    return CommandFailureUtils.describeCommandFailure(
-        verbose, commandLine(command), env(command), cwd(command), null);
   }
 
   /**
@@ -68,8 +39,11 @@ public class CommandUtils {
    * command's stdout and stderr output appended if available.
    */
   public static String describeCommandFailure(boolean verbose, CommandException exception) {
-    String message = describeCommandFailure(verbose, exception.getCommand()) + ": "
-        + exception.getMessage();
+    Command command = exception.getCommand();
+    String message =
+        CommandFailureUtils.describeCommandFailure(verbose, cwd(command), command)
+            + ": "
+            + exception.getMessage();
     if (exception instanceof AbnormalTerminationException) {
       CommandResult result = ((AbnormalTerminationException) exception).getResult();
       try {

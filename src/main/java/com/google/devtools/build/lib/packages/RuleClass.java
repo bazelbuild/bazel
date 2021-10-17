@@ -1566,6 +1566,11 @@ public class RuleClass {
       }
     }
 
+    /** Checks whether the rule class has an exec group with the given name. */
+    public boolean hasExecGroup(String name) {
+      return this.execGroups.containsKey(name);
+    }
+
     /**
      * Causes rules to use toolchain resolution to determine the execution platform and toolchains.
      * Rules that are part of configuring toolchains and platforms should set this to {@code
@@ -1893,10 +1898,8 @@ public class RuleClass {
     return transitionFactory;
   }
 
-  @SuppressWarnings("unchecked")
-  public <CT, RC, ACE extends Throwable>
-      ConfiguredTargetFactory<CT, RC, ACE> getConfiguredTargetFactory() {
-    return (ConfiguredTargetFactory<CT, RC, ACE>) configuredTargetFactory;
+  public <T extends ConfiguredTargetFactory<?, ?, ?>> T getConfiguredTargetFactory(Class<T> clazz) {
+    return clazz.cast(configuredTargetFactory);
   }
 
   /**

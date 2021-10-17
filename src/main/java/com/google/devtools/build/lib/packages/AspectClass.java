@@ -53,8 +53,7 @@ package com.google.devtools.build.lib.packages;
  *  {@link AspectClass}
  *   |
  *   V
- *  {@code AspectDescriptor} <- {@link AspectParameters}, {@code inheritedRequiredProviders},
- *   \                          {@code inheritedAttributeAspects}
+ *  {@code AspectDescriptor} <- {@link AspectParameters}
  *   \
  *   V
  *  {@link Aspect} <- {@link AspectDefinition} (might require loading Starlark files)
@@ -70,9 +69,8 @@ package com.google.devtools.build.lib.packages;
  *       label of .bzl file + symbol name.
  *   <li>{@link AspectParameters} is a (key,value) pair list that can be used to parameterize aspect
  *       classes
- *   <li>{@link AspectDescriptor} is a wrapper for {@code AspectClass}, {@link AspectParameters},
- *       {@code inheritedRequiredProviders} and {@code inheritedAttributeAspects}. It uniquely
- *       identifies the aspect and can be used in SkyKeys.
+ *   <li>{@link AspectDescriptor} is a pair of {@code AspectClass} and {@link AspectParameters}. It
+ *       uniquely identifies the aspect and can be used in SkyKeys.
  *   <li>{@link AspectDefinition} is a class encapsulating the aspect definition (what attributes
  *       aspoect has, and along which dependencies does it propagate.
  *   <li>{@link Aspect} is a fully instantiated instance of an Aspect after it is loaded. Getting an
@@ -84,10 +82,9 @@ package com.google.devtools.build.lib.packages;
  * </ul>
  *
  * {@link AspectDescriptor}, or in general, a tuple of ({@link AspectClass}, {@link
- * AspectParameters}), {@code inheritedRequiredProviders} and {@code inheritedAttributeAspects} is
- * an identifier that should be used in SkyKeys or in other contexts that need equality for aspects.
- * See also {@link com.google.devtools.build.lib.skyframe.AspectFunction} for details on Skyframe
- * treatment of Aspects.
+ * AspectParameters}) is an identifier that should be used in SkyKeys or in other contexts that need
+ * equality for aspects. See also {@link com.google.devtools.build.lib.skyframe.AspectFunction} for
+ * details on Skyframe treatment of Aspects.
  *
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.skyframe.AspectFunction
