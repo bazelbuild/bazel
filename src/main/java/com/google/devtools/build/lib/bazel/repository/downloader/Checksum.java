@@ -33,7 +33,7 @@ public class Checksum {
 
   public static final class ICExceptionExtended extends Exception {
     private ICExceptionExtended(KeyType keyType, String hash, String correctHash) {
-      super("Invalid " + keyType + " checksum '" + hash + "'. The correct checksum is '" + correctHash + "'.");
+      super("Invalid " + keyType + " checksum '" + hash + "'. The correct checksum is '" + correctHash + "'");
     }
   }
 
