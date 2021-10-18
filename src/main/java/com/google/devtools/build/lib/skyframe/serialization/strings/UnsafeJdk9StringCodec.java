@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe.serialization;
+package com.google.devtools.build.lib.skyframe.serialization.strings;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodec;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -28,23 +31,19 @@ import java.util.Arrays;
  * JDK9, where a String can be represented as a byte array together with a single byte (0 or 1) for
  * Latin-1 or UTF16 encoding.
  *
- * <p>Does not register itself by default because of the CodecRegisterer inner classes below.
+ * <p>This class does not get registered automatically due to the lack of a parameterless
+ * constructor. Instead, {@link StringCodec} conditionally registers an instance if possible.
  */
-public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
-  @VisibleForTesting
-  public static boolean canUseUnsafeCodec() {
-    return StringUnsafe.canUse();
-  }
+final class UnsafeJdk9StringCodec implements ObjectCodec<String> {
 
   private final StringUnsafe stringUnsafe;
 
-  @VisibleForTesting
-  public UnsafeJdk9StringCodec() {
-    stringUnsafe = StringUnsafe.getInstance();
+  UnsafeJdk9StringCodec(StringUnsafe stringUnsafe) {
+    this.stringUnsafe = checkNotNull(stringUnsafe);
   }
 
   @Override
-  public Class<? extends String> getEncodedClass() {
+  public Class<String> getEncodedClass() {
     return String.class;
   }
 
@@ -92,25 +91,6 @@ public class UnsafeJdk9StringCodec implements ObjectCodec<String> {
     } catch (ReflectiveOperationException e) {
       throw new SerializationException(
           "Could not instantiate string: " + Arrays.toString(value) + ", " + coder, e);
-    }
-  }
-
-  private static final StringCodec stringCodec = new StringCodec();
-
-  private static final UnsafeJdk9StringCodec unsafeCodec =
-      canUseUnsafeCodec() ? new UnsafeJdk9StringCodec() : null;
-
-  static class UnsafeStringCodecRegisterer implements CodecRegisterer<UnsafeJdk9StringCodec> {
-    @Override
-    public Iterable<? extends ObjectCodec<?>> getCodecsToRegister() {
-      return canUseUnsafeCodec() ? ImmutableList.of(unsafeCodec) : ImmutableList.of();
-    }
-  }
-
-  static class SimpleStringCodecRegisterer implements CodecRegisterer<StringCodec> {
-    @Override
-    public Iterable<StringCodec> getCodecsToRegister() {
-      return canUseUnsafeCodec() ? ImmutableList.of() : ImmutableList.of(stringCodec);
     }
   }
 }

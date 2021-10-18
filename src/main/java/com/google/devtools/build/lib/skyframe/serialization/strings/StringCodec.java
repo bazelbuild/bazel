@@ -15,23 +15,45 @@
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /**
- * Dead-simple serialization for {@link String}s. May not be used by default if a more performant
- * variant is available.
+ * Dead-simple serialization for {@link String}s.
+ *
+ * <p>Only used when the more performant {@link UnsafeJdk9StringCodec} is not available.
  */
 @VisibleForTesting
-public class StringCodec implements ObjectCodec<String> {
+public final class StringCodec implements ObjectCodec<String> {
+
+  /**
+   * Returns the best available codec for Strings.
+   *
+   * <p>{@link UnsafeJdk9StringCodec} is more performant than {@link StringCodec}, but is only
+   * available on JDK 9+.
+   */
+  @VisibleForTesting
+  public static ObjectCodec<String> getBestAvailable() {
+    return StringUnsafe.canUse()
+        ? new UnsafeJdk9StringCodec(StringUnsafe.getInstance())
+        : new StringCodec();
+  }
 
   @Override
   public Class<String> getEncodedClass() {
     return String.class;
+  }
+
+  @Override
+  public boolean autoRegister() {
+    return false; // StringCodecRegisterer below registers the best available codec.
   }
 
   @Override
@@ -53,5 +75,14 @@ public class StringCodec implements ObjectCodec<String> {
   public String deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws IOException {
     return codedIn.readString();
+  }
+
+  @SuppressWarnings("unused") // Used reflectively.
+  private static final class StringCodecRegisterer implements CodecRegisterer {
+
+    @Override
+    public ImmutableList<ObjectCodec<?>> getCodecsToRegister() {
+      return ImmutableList.of(getBestAvailable());
+    }
   }
 }

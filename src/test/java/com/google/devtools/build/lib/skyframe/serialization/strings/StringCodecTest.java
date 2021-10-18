@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.UnsafeJdk9StringCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.ByteString;
@@ -29,7 +28,8 @@ import org.junit.runners.JUnit4;
 
 /** Basic tests for {@link StringCodec} or {@link UnsafeJdk9StringCodec}. */
 @RunWith(JUnit4.class)
-public class StringCodecTest {
+public final class StringCodecTest {
+
   @Test
   public void testCodec() throws Exception {
     new SerializationTester("usually precomputed and supports weird unicodes: （╯°□°）╯︵┻━┻ ", "")
@@ -39,8 +39,7 @@ public class StringCodecTest {
   @Test
   public void sizeOk() throws Exception {
     ObjectCodec<String> slowCodec = new StringCodec();
-    ObjectCodec<String> fastCodec =
-        UnsafeJdk9StringCodec.canUseUnsafeCodec() ? new UnsafeJdk9StringCodec() : slowCodec;
+    ObjectCodec<String> fastCodec = StringCodec.getBestAvailable();
     for (String str :
         ImmutableList.of(
             "//a/b/c/d/e/f/g/h/ijklmn:opqrstuvw.xyz",
