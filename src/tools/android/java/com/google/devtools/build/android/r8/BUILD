@@ -41,6 +41,7 @@ java_library(
     }),
     visibility = ["//src/test/java/com/google/devtools/build/android/r8:__pkg__"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
