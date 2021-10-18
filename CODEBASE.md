@@ -738,8 +738,7 @@ The set of toolchains to be used for a configured target is determined by
 *   The set of toolchain types that are required by the configured target (in
     `UnloadedToolchainContextKey)`
 *   The set of execution platform constraints of the configured target (the
-    `exec_compatible_with` attribute) and the configuration
-    (`--experimental_add_exec_constraints_to_targets`), in
+    `exec_compatible_with` attribute), in
     `UnloadedToolchainContextKey`
 
 Its result is an `UnloadedToolchainContext`, which is essentially a map from

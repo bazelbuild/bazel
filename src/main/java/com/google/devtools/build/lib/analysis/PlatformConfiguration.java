@@ -36,7 +36,6 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   private final ImmutableList<String> extraExecutionPlatforms;
   private final Label targetPlatform;
   private final ImmutableList<String> extraToolchains;
-  private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
   private final RegexFilter toolchainResolutionDebugRegexFilter;
 
   public PlatformConfiguration(BuildOptions buildOptions) {
@@ -46,8 +45,6 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
     this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
     this.targetPlatform = platformOptions.computeTargetPlatform();
     this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);
-    this.targetFilterToAdditionalExecConstraints =
-        platformOptions.targetFilterToAdditionalExecConstraints;
     this.toolchainResolutionDebugRegexFilter = platformOptions.toolchainResolutionDebug;
   }
 
@@ -98,21 +95,6 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
    */
   public ImmutableList<String> getExtraToolchains() {
     return extraToolchains;
-  }
-
-  /**
-   * Returns a list of labels referring to additional constraint value targets which should be taken
-   * into account when resolving the toolchains/execution platform for the target with the given
-   * label.
-   */
-  public List<Label> getAdditionalExecutionConstraintsFor(Label label) {
-    ImmutableList.Builder<Label> constraints = ImmutableList.builder();
-    for (Map.Entry<RegexFilter, List<Label>> filter : targetFilterToAdditionalExecConstraints) {
-      if (filter.getKey().isIncluded(label.getCanonicalForm())) {
-        constraints.addAll(filter.getValue());
-      }
-    }
-    return constraints.build();
   }
 
   /**

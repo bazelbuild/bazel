@@ -208,23 +208,6 @@ public class PlatformOptions extends FragmentOptions {
   public PathFragment platformMappings;
 
   @Option(
-      name = "experimental_add_exec_constraints_to_targets",
-      converter = RegexFilterToLabelListConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      allowMultiple = true,
-      help =
-          "List of comma-separated regular expressions, each optionally prefixed by - (negative"
-              + " expression), assigned (=) to a list of comma-separated constraint value targets."
-              + " If a target matches no negative expression and at least one positive expression"
-              + " its toolchain resolution will be performed as if it had declared the constraint"
-              + " values as execution constraints. Example: //demo,-test=@platforms//cpus:x86_64"
-              + " will add 'x86_64' to any target under //demo except for those whose name contains"
-              + " 'test'.")
-  public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
-
-  @Option(
       name = "incompatible_override_toolchain_transition",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -283,23 +266,6 @@ public class PlatformOptions extends FragmentOptions {
     } else {
       // Use the legacy host platform.
       return LEGACY_DEFAULT_HOST_PLATFORM;
-    }
-  }
-
-  /** Converter of filter to label list valued flags. */
-  public static final class RegexFilterToLabelListConverter
-      extends Converters.AssignmentToListOfValuesConverter<RegexFilter, Label> {
-
-    public RegexFilterToLabelListConverter() {
-      super(
-          new RegexFilter.RegexFilterConverter(),
-          new CoreOptionConverters.LabelConverter(),
-          AllowEmptyKeys.NO);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a '<RegexFilter>=<label1>[,<label2>,...]' assignment";
     }
   }
 }
