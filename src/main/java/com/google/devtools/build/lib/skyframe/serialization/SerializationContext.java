@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -168,8 +169,7 @@ public class SerializationContext implements SerializationDependencyProvider {
    * may change deserialization semantics.
    */
   @CheckReturnValue
-  public SerializationContext withDependencyOverrides(
-      ImmutableClassToInstanceMap<?> dependencyOverrides) {
+  public SerializationContext withDependencyOverrides(ClassToInstanceMap<?> dependencyOverrides) {
     checkState(serializer == null, "Must only be called on base SerializationContext");
     return new SerializationContext(
         registry,

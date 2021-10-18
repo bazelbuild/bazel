@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
@@ -191,8 +192,7 @@ public final class DeserializationContextTest {
         new DeserializationContext(
             mock(ObjectCodecRegistry.class), ImmutableClassToInstanceMap.of());
     DeserializationContext memoizing = context.getMemoizingContext();
-    assertThrows(
-        IllegalStateException.class,
-        () -> memoizing.withDependencyOverrides(ImmutableClassToInstanceMap.of(Integer.class, 1)));
+    ClassToInstanceMap<?> overrides = ImmutableClassToInstanceMap.of(Integer.class, 1);
+    assertThrows(IllegalStateException.class, () -> memoizing.withDependencyOverrides(overrides));
   }
 }
