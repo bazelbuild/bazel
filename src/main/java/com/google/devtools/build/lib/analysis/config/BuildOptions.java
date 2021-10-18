@@ -684,7 +684,7 @@ public final class BuildOptions implements Cloneable, Serializable {
         throws IOException {
       String checksum = codedIn.readString();
       return checkNotNull(
-          context.getDependency(OptionsChecksumCache.class).getOptions(checksum, context),
+          context.getDependency(OptionsChecksumCache.class).getOptions(checksum),
           "No options instance for %s",
           checksum);
     }
@@ -699,7 +699,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     /**
      * Called during deserialization to transform a checksum into a {@link BuildOptions} instance.
      */
-    BuildOptions getOptions(String checksum, DeserializationContext context);
+    BuildOptions getOptions(String checksum);
 
     /**
      * Notifies the cache that it may be necessary to deserialize the given options diff's checksum.
@@ -718,7 +718,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     private final ConcurrentMap<String, BuildOptions> map = new ConcurrentHashMap<>();
 
     @Override
-    public BuildOptions getOptions(String checksum, DeserializationContext context) {
+    public BuildOptions getOptions(String checksum) {
       return map.get(checksum);
     }
 
