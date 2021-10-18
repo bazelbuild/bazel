@@ -25,9 +25,19 @@ import static java.lang.String.format;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -40,6 +50,7 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
@@ -73,8 +84,9 @@ public class RemoteExecutionCache extends RemoteCache {
       RemoteActionExecutionContext context,
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
+      String actionId,
       boolean force)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     ImmutableSet<Digest> allDigests =
         ImmutableSet.<Digest>builder()
             .addAll(merkleTree.getAllDigests())
@@ -91,7 +103,26 @@ public class RemoteExecutionCache extends RemoteCache {
             .flatMapSingle(
                 digest ->
                     uploadBlobIfMissing(
-                        context, merkleTree, additionalInputs, force, missingDigestFinder, digest));
+                        context, merkleTree, additionalInputs, force, missingDigestFinder, digest, actionId)
+                        .onErrorResumeNext(e -> {
+                          if (e instanceof FileNotFoundException) {
+                            PathOrBytes file = merkleTree.getFileByDigest(digest);
+                            if (file.getArtifact() != null) {
+                              ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap(
+                                  ImmutableList.of(file.getArtifact()));
+                              RemoteFileArtifactValue artifactValue = new RemoteFileArtifactValue(
+                                  DigestUtil.toBinaryDigest(digest),
+                                  digest.getSizeBytes(),
+                                  /*locationIndex=*/ 1,
+                                  actionId);
+                              owners.put(file.getArtifact(), artifactValue, file.getArtifact());
+                              return Single.error(new LostInputsExecException(
+                                  ImmutableMap.of(digest.getHash(), file.getArtifact()),
+                                  owners));
+                            }
+                          }
+                          return Single.error(e);
+                        }));
 
     try {
       mergeBulkTransfer(uploads).blockingAwait();
@@ -99,6 +130,7 @@ public class RemoteExecutionCache extends RemoteCache {
       Throwable cause = e.getCause();
       if (cause != null) {
         Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+        Throwables.throwIfInstanceOf(cause, LostInputsExecException.class);
         Throwables.throwIfInstanceOf(cause, IOException.class);
       }
       throw e;
@@ -111,7 +143,8 @@ public class RemoteExecutionCache extends RemoteCache {
       Map<Digest, Message> additionalInputs,
       boolean force,
       MissingDigestFinder missingDigestFinder,
-      Digest digest) {
+      Digest digest,
+      String actionId) {
     Completable upload =
         casUploadCache.execute(
             digest,
@@ -124,7 +157,7 @@ public class RemoteExecutionCache extends RemoteCache {
                             missingDigests -> {
                               if (missingDigests.contains(digest)) {
                                 return toCompletable(
-                                    () -> uploadBlob(context, digest, merkleTree, additionalInputs),
+                                    () -> uploadBlob(context, digest, merkleTree, additionalInputs, actionId),
                                     directExecutor());
                               } else {
                                 return Completable.complete();
@@ -139,7 +172,8 @@ public class RemoteExecutionCache extends RemoteCache {
       RemoteActionExecutionContext context,
       Digest digest,
       MerkleTree merkleTree,
-      Map<Digest, Message> additionalInputs) {
+      Map<Digest, Message> additionalInputs,
+      String actionId) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
       return cacheProtocol.uploadBlob(context, digest, node.toByteString());
@@ -150,7 +184,28 @@ public class RemoteExecutionCache extends RemoteCache {
       if (file.getBytes() != null) {
         return cacheProtocol.uploadBlob(context, digest, file.getBytes());
       }
-      return cacheProtocol.uploadFile(context, digest, file.getPath());
+      return Futures.catchingAsync(cacheProtocol.uploadFile(context, digest, file.getPath()),
+          // When we avoid downloads (e.g. with --remote_download_minimal), we end up not populating
+          // paths which may be read from when doing uploads.
+          // If this happens, the remote is missing a file we expect it to have, and we can identify
+          // which action produced the file, report that we lost inputs but that rewinding may be
+          // able to regenerate them.
+          FileNotFoundException.class, e -> {
+            if (file.getArtifact() != null) {
+              ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap(
+                  ImmutableList.of(file.getArtifact()));
+              RemoteFileArtifactValue artifactValue = new RemoteFileArtifactValue(
+                  DigestUtil.toBinaryDigest(digest),
+                  digest.getSizeBytes(),
+                  /*locationIndex=*/ 1,
+                  actionId);
+              owners.put(file.getArtifact(), artifactValue, file.getArtifact());
+              return Futures.immediateFailedFuture(new LostInputsExecException(
+                  ImmutableMap.of(digest.getHash(), file.getArtifact()),
+                  owners));
+            }
+            return Futures.immediateFailedFuture(e);
+          }, MoreExecutors.directExecutor());
     }
 
     Message message = additionalInputs.get(digest);

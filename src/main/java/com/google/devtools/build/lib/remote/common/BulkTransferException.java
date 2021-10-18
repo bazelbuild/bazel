@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.remote.common;
 
 import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Exception which represents a collection of IOExceptions for the purpose of distinguishing remote
@@ -50,6 +52,38 @@ public class BulkTransferException extends IOException {
   public static boolean isOnlyCausedByCacheNotFoundException(Exception e) {
     return e instanceof BulkTransferException
         && ((BulkTransferException) e).onlyCausedByCacheNotFoundException();
+  }
+
+  /**
+   * If all suppressed exceptions were caused by LostInputsExecExceptions,
+   * merge them and return that.
+   *
+   * Otherwise, return null.
+   */
+  @Nullable
+  public LostInputsExecException asLostInputsExecException() {
+    if (getSuppressed().length == 1 && getSuppressed()[0] instanceof LostInputsExecException) {
+      return (LostInputsExecException) getSuppressed()[0];
+    }
+    LostInputsExecException[] es = new LostInputsExecException[getSuppressed().length];
+    for (int i = 0; i < getSuppressed().length; ++i) {
+      Throwable suppressed = getSuppressed()[i];
+      if (suppressed == null) {
+        return null;
+      }
+      // BulkTransferException only allows IOExceptions as suppressed exceptions,
+      // so any LostInputsExecExceptions must be wrapped in one. Unwrap that wrapping.
+      Throwable cause = suppressed.getCause();
+      if (cause == null) {
+        return null;
+      }
+      if (cause instanceof LostInputsExecException) {
+        es[i] = (LostInputsExecException) cause;
+      } else {
+        return null;
+      }
+    }
+    return LostInputsExecException.combine(es);
   }
 
   @Override

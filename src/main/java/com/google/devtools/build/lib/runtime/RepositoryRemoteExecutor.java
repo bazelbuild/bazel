@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -70,5 +71,5 @@ public interface RepositoryRemoteExecutor {
       ImmutableMap<String, String> environment,
       String workingDirectory,
       Duration timeout)
-      throws IOException, InterruptedException;
+      throws ExecException, IOException, InterruptedException;
 }

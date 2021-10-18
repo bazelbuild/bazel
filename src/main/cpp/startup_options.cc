@@ -72,6 +72,7 @@ StartupOptions::StartupOptions(const string &product_name,
       block_for_lock(true),
       host_jvm_debug(false),
       autodetect_server_javabase(true),
+      experimental_rewind_missing_files(false),
       batch(false),
       batch_cpu_scheduling(false),
       io_nice_level(-1),
@@ -139,6 +140,8 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
   RegisterNullaryStartupFlag("autodetect_server_javabase",
                              &autodetect_server_javabase);
+  RegisterNullaryStartupFlag("experimental_rewind_missing_files",
+                             &experimental_rewind_missing_files);
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);

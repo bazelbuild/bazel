@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -299,8 +300,8 @@ public class RemoteCacheTest {
         new Thread(
             () -> {
               try {
-                remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), false);
-              } catch (IOException | InterruptedException ignored) {
+                remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), "", false);
+              } catch (ExecException | IOException | InterruptedException ignored) {
                 // ignored
               } finally {
                 ensureInputsPresentReturned.countDown();

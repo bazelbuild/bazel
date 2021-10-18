@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -126,6 +127,28 @@ public class RemoteRetrier extends Retrier {
     } catch (Exception e) {
       Throwables.throwIfInstanceOf(e, IOException.class);
       Throwables.throwIfInstanceOf(e, InterruptedException.class);
+      Throwables.throwIfUnchecked(e);
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * As {@link #execute(Callable)} but will also propagate {@link ExecException}s.
+   */
+  public <T> T executeWithExecException(Callable<T> call) throws ExecException, IOException, InterruptedException {
+    return executeWithExecException(call, newBackoff());
+  }
+
+  /**
+   * As {@link #execute(Callable, Backoff)} but will also propagate {@link ExecException}s.
+   */
+  public <T> T executeWithExecException(Callable<T> call, Backoff backoff) throws ExecException, IOException, InterruptedException {
+    try {
+      return super.execute(call, backoff);
+    } catch (Exception e) {
+      Throwables.throwIfInstanceOf(e, IOException.class);
+      Throwables.throwIfInstanceOf(e, InterruptedException.class);
+      Throwables.throwIfInstanceOf(e, ExecException.class);
       Throwables.throwIfUnchecked(e);
       throw new RuntimeException(e);
     }

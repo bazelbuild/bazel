@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -102,7 +103,7 @@ class DirectoryTreeBuilder {
           }
           Digest d = digestUtil.compute(input);
           boolean childAdded =
-              currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
+              currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d, null));
           return childAdded ? 1 : 0;
         });
   }
@@ -144,8 +145,12 @@ class DirectoryTreeBuilder {
             case REGULAR_FILE:
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
               Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
+              Artifact artifact = null;
+              if (input instanceof Artifact) {
+                artifact = (Artifact) input;
+              }
               boolean childAdded =
-                  currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
+                  currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d, artifact));
               return childAdded ? 1 : 0;
 
             case DIRECTORY:

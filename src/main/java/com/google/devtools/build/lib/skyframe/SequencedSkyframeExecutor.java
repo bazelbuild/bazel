@@ -161,6 +161,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
   private int numSourceFilesCheckedBecauseOfMissingDiffs;
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
+  private GraphInconsistencyReceiver graphInconsistencyReceiver;
 
   private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
 
@@ -182,7 +183,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      GraphInconsistencyReceiver graphInconsistencyReceiver) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -209,6 +211,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.repositoryHelpersHolder = repositoryHelpersHolder;
     this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
+    this.graphInconsistencyReceiver = graphInconsistencyReceiver;
   }
 
   @Override
@@ -227,7 +230,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         skyFunctions,
         recordingDiffer,
         progressReceiver,
-        GraphInconsistencyReceiver.THROWING,
+        graphInconsistencyReceiver,
         eventFilter,
         emittedEventState,
         trackIncrementalState);
@@ -1116,6 +1119,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredPackagePrefixesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
+    private GraphInconsistencyReceiver graphInconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache perCommandSyscallCache = null;
 
@@ -1132,6 +1136,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(ignoredPackagePrefixesFunction);
+      Preconditions.checkNotNull(graphInconsistencyReceiver);
 
       SequencedSkyframeExecutor skyframeExecutor =
           new SequencedSkyframeExecutor(
@@ -1152,7 +1157,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               repositoryHelpersHolder,
               actionOnIOExceptionReadingBuildFile,
               skyKeyStateReceiver,
-              bugReporter);
+              bugReporter,
+              graphInconsistencyReceiver);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -1184,6 +1190,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     public Builder setBugReporter(BugReporter bugReporter) {
       this.bugReporter = bugReporter;
+      return this;
+    }
+
+    public Builder setGraphInconsistencyReceiver(GraphInconsistencyReceiver graphInconsistencyReceiver) {
+      this.graphInconsistencyReceiver = graphInconsistencyReceiver;
       return this;
     }
 

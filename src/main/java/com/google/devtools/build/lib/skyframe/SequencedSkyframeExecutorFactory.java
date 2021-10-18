@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
@@ -39,7 +40,8 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       SyscallCache perCommandSyscallCache,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      GraphInconsistencyReceiver graphInconsistencyReceiver) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
@@ -52,6 +54,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
         .setRepositoryHelpersHolder(repositoryHelpersHolder)
         .setSkyKeyStateReceiver(skyKeyStateReceiver)
         .setBugReporter(bugReporter)
+        .setGraphInconsistencyReceiver(graphInconsistencyReceiver)
         .build();
   }
 }

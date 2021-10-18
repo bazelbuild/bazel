@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
@@ -334,7 +335,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Test
   public void executeRemotely_retryExecuteWhenUnauthenticated()
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenError(Code.UNAUTHENTICATED);
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
@@ -347,7 +348,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Test
   public void executeRemotely_retryWaitExecutionWhenUnauthenticated()
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.UNAUTHENTICATED);
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
@@ -361,7 +362,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
   }
 
   @Test
-  public void executeRemotely_retryExecuteIfNotFound() throws IOException, InterruptedException {
+  public void executeRemotely_retryExecuteIfNotFound() throws ExecException, IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
     executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.NOT_FOUND);
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
@@ -397,7 +398,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
   }
 
   @Test
-  public void executeRemotely_notifyObserver() throws IOException, InterruptedException {
+  public void executeRemotely_notifyObserver() throws ExecException, IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
     List<Operation> notified = new ArrayList<>();

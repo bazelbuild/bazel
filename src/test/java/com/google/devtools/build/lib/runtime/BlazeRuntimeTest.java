@@ -85,7 +85,7 @@ public class BlazeRuntimeTest {
             .setFileSystem(fs)
             .setProductName("foo product")
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
+            .setStartupOptionsProvider(OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .build();
     AtomicReference<String> shutdownMessage = new AtomicReference<>();
     BlazeDirectories directories =
@@ -139,7 +139,7 @@ public class BlazeRuntimeTest {
             .setFileSystem(fs)
             .setProductName("bazel")
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
+            .setStartupOptionsProvider(OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .build();
     BlazeDirectories directories =
         new BlazeDirectories(
