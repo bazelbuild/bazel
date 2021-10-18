@@ -1648,6 +1648,47 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testForwardingDefaultInfoRetainsDataRunfiles() throws Exception {
+    scratch.file(
+        "bar/rules.bzl",
+        "def _forward_default_info_impl(ctx):",
+        "    return [",
+        "        ctx.attr.target[DefaultInfo],",
+        "    ]",
+        "forward_default_info = rule(",
+        "    implementation = _forward_default_info_impl,",
+        "    attrs = {",
+        "        'target': attr.label(",
+        "            mandatory = True,",
+        "        ),",
+        "    },",
+        ")");
+    scratch.file("bar/i_am_a_runfile");
+    scratch.file(
+        "bar/BUILD",
+        "load(':rules.bzl', 'forward_default_info')",
+        "java_library(",
+        "    name = 'lib',",
+        "    data = ['i_am_a_runfile'],",
+        ")",
+        "forward_default_info(",
+        "    name = 'forwarded_lib',",
+        "    target = ':lib',",
+        ")");
+
+    ConfiguredTarget nativeTarget = getConfiguredTarget("//bar:lib");
+
+    ImmutableList<Artifact> nativeRunfiles =
+        getDataRunfiles(nativeTarget).getAllArtifacts().toList();
+    ConfiguredTarget forwardedTarget = getConfiguredTarget("//bar:forwarded_lib");
+    ImmutableList<Artifact> forwardedRunfiles =
+        getDataRunfiles(forwardedTarget).getAllArtifacts().toList();
+    assertThat(forwardedRunfiles).isEqualTo(nativeRunfiles);
+    assertThat(forwardedRunfiles).hasSize(1);
+    assertThat(forwardedRunfiles.get(0).getPath().getBaseName()).isEqualTo("i_am_a_runfile");
+  }
+
+  @Test
   public void runfiles_merge() throws Exception {
     scratch.file("test/a.py");
     scratch.file("test/b.py");
