@@ -93,6 +93,22 @@ function test_empty_strategy_means_default() {
   expect_not_log "\"FooBar\" = "
 }
 
+function test_dynamic_strategy_skip_first() {
+  # Remote strategy is "worker" to make the test work both internally and externally.
+  # Since nothing is built, the actual strategy doesn't matter.
+  bazel build --internal_spawn_scheduler --spawn_strategy=dynamic \
+    --dynamic_remote_strategy=worker \
+    --dynamic_local_strategy=standalone \
+    --experimental_dynamic_skip_first_build &> $TEST_log || fail
+  expect_log "Disabling dynamic execution"
+
+  bazel build --internal_spawn_scheduler --spawn_strategy=dynamic \
+    --dynamic_remote_strategy=worker \
+    --dynamic_local_strategy=standalone \
+    --experimental_dynamic_skip_first_build &> $TEST_log || fail
+  expect_not_log "Disabling dynamic execution"
+}
+
 # Runs a build, waits for the given dir and file to appear, and then kills
 # Bazel to check what happens with said files.
 function build_and_interrupt() {
