@@ -1082,7 +1082,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
