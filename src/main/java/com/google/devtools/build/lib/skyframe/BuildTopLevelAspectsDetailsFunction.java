@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -47,7 +45,6 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * SkyFunction to load top level aspects, build the dependency relation between them based on the
@@ -73,30 +70,9 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
 
     BuildTopLevelAspectsDetailsKey topLevelAspectsDetailsKey =
         (BuildTopLevelAspectsDetailsKey) skyKey.argument();
-    ImmutableList<AspectClass> topLevelAspectsClasses =
-        topLevelAspectsDetailsKey.getTopLevelAspectsClasses();
 
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
-    boolean buildTopLevelAspectsDependency =
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_TOP_LEVEL_ASPECTS_DEPENDENCY);
-    if (!buildTopLevelAspectsDependency) {
-      // If building a relation between top-level aspects is not required, then we can remove
-      // duplicate aspects by keeping the first occurrence of each aspect.
-      topLevelAspectsClasses = ImmutableSet.copyOf(topLevelAspectsClasses).asList();
-
-      // Then return a list of indenpendent aspects to be applied on the top-level targets
-      ImmutableList<AspectDetails> aspectsDetailsList =
-          getIndependentTopLevelAspects(env, topLevelAspectsClasses);
-      if (aspectsDetailsList == null) {
-        return null; // some aspects are not loaded
-      }
-      return new BuildTopLevelAspectsDetailsValue(aspectsDetailsList);
-    }
-
-    ImmutableList<Aspect> topLevelAspects = getTopLevelAspects(env, topLevelAspectsClasses);
+    ImmutableList<Aspect> topLevelAspects =
+        getTopLevelAspects(env, topLevelAspectsDetailsKey.getTopLevelAspectsClasses());
 
     if (topLevelAspects == null) {
       return null; // some aspects are not loaded
@@ -152,31 +128,6 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     }
 
     return starlarkAspect;
-  }
-
-  @Nullable
-  private static ImmutableList<AspectDetails> getIndependentTopLevelAspects(
-      Environment env, ImmutableList<AspectClass> topLevelAspectsClasses)
-      throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
-
-    ImmutableList.Builder<AspectDetails> aspectDetailsList = ImmutableList.builder();
-
-    for (AspectClass aspectClass : topLevelAspectsClasses) {
-      if (aspectClass instanceof StarlarkAspectClass) {
-        StarlarkAspect starlarkAspect = loadStarlarkAspect(env, (StarlarkAspectClass) aspectClass);
-        if (starlarkAspect == null) {
-          return null;
-        }
-        aspectDetailsList.add(
-            new AspectDetails(
-                ImmutableList.of(), new AspectDescriptor(starlarkAspect.getAspectClass())));
-      } else {
-        aspectDetailsList.add(
-            new AspectDetails(ImmutableList.of(), new AspectDescriptor(aspectClass)));
-      }
-    }
-
-    return aspectDetailsList.build();
   }
 
   @Nullable

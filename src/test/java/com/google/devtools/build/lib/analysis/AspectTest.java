@@ -881,26 +881,6 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void duplicateTopLevelAspects_duplicateAspectsIgnored() throws Exception {
-    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
-    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
-    pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
-    useConfiguration("--noincompatible_top_level_aspects_dependency");
-
-    AnalysisResult analysisResult =
-        update(
-            new EventBus(),
-            defaultFlags(),
-            ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
-            "//a:x_deploy.jar");
-
-    ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
-    AspectApplyingToFiles.Provider provider =
-        aspect.getProvider(AspectApplyingToFiles.Provider.class);
-    assertThat(provider.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
-  }
-
-  @Test
   public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
