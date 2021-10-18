@@ -78,7 +78,7 @@ public class LostInputsExecException extends ExecException {
         .build();
   }
 
-  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+  public static LostInputsExecException combine(LostInputsExecException... es) {
     // This uses a HashMap when merging the two lostInputs maps because key collisions are expected.
     // In contrast, ImmutableMap.Builder treats collisions as errors. Collisions will happen when
     // the two sources of the original exceptions shared knowledge of what was lost. For example,
@@ -86,11 +86,18 @@ public class LostInputsExecException extends ExecException {
     // also lost. The SpawnRunner and the filesystem may then each throw a LostInputsExecException
     // with the same information.
     Map<String, ActionInput> map = new HashMap<>();
-    map.putAll(lostInputs);
-    map.putAll(other.lostInputs);
-    LostInputsExecException combined =
-        new LostInputsExecException(
-            ImmutableMap.copyOf(map), new MergedActionInputDepOwners(owners, other.owners), this);
+    ActionInputDepOwners mergedOwners = new ActionInputDepOwnerMap(ImmutableSet.of());
+
+    for (LostInputsExecException other : es) {
+      map.putAll(other.lostInputs);
+      mergedOwners = new MergedActionInputDepOwners(mergedOwners, other.owners);
+    }
+    return new LostInputsExecException(ImmutableMap.copyOf(map), mergedOwners);
+  }
+
+  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+    LostInputsExecException combined = combine(this, other);
+    combined.addSuppressed(this);
     combined.addSuppressed(other);
     throw combined;
   }

@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -70,7 +71,7 @@ public class RemoteRepositoryRemoteExecutorTest {
   }
 
   @Test
-  public void testZeroExitCodeFromCache() throws IOException, InterruptedException {
+  public void testZeroExitCodeFromCache() throws ExecException, IOException, InterruptedException {
     // Test that an ActionResult with exit code zero is accepted as cached.
 
     // Arrange
@@ -97,7 +98,7 @@ public class RemoteRepositoryRemoteExecutorTest {
   }
 
   @Test
-  public void testNoneZeroExitCodeFromCache() throws IOException, InterruptedException {
+  public void testNoneZeroExitCodeFromCache() throws ExecException, IOException, InterruptedException {
     // Test that an ActionResult with a none-zero exit code is not accepted as cached.
 
     // Arrange
@@ -127,7 +128,7 @@ public class RemoteRepositoryRemoteExecutorTest {
   }
 
   @Test
-  public void testInlineStdoutStderr() throws IOException, InterruptedException {
+  public void testInlineStdoutStderr() throws ExecException, IOException, InterruptedException {
     // Test that
 
     // Arrange

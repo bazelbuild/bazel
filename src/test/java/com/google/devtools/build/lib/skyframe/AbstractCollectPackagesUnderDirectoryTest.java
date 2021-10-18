@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -297,7 +298,8 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 SyscallCache.NO_CACHE,
                 /*repositoryHelpersHolder=*/ null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
-                BugReporter.defaultInstance());
+                BugReporter.defaultInstance(),
+                GraphInconsistencyReceiver.THROWING);
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(

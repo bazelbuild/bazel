@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -151,7 +152,8 @@ class DirectoryTreeBuilder {
                         path.getBaseName(),
                         virtualActionInput.getBytes(),
                         d,
-                        toolInputs.contains(path)));
+                        toolInputs.contains(path),
+                        null));
             return childAdded ? 1 : 0;
           }
 
@@ -165,10 +167,14 @@ class DirectoryTreeBuilder {
               {
                 Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
                 Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
+                Artifact artifact = null;
+                if (input instanceof Artifact) {
+                  artifact = (Artifact) input;
+                }
                 boolean childAdded =
                     currDir.addChild(
                         FileNode.createExecutable(
-                            path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+                            path.getBaseName(), inputPath, d, toolInputs.contains(path), artifact));
                 return childAdded ? 1 : 0;
               }
 

@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
@@ -34,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,16 +81,18 @@ public abstract class DirectoryTreeTest {
     assertThat(directoriesAtDepth(2, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
+        FileNode.createExecutable("foo.cc", foo, digestUtil.computeAsUtf8("foo"), artifactFor(foo));
     FileNode expectedBarNode =
-        FileNode.createExecutable("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
+        FileNode.createExecutable("bar.cc", bar, digestUtil.computeAsUtf8("bar"), artifactFor(bar));
     FileNode expectedBuzzNode =
-        FileNode.createExecutable("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
+        FileNode.createExecutable("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"), artifactFor(buzz));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBuzzNode);
   }
 
+  @Nullable
+  abstract Artifact artifactFor(Path path);
 
   @Test
   public void testLexicographicalOrder() throws Exception {

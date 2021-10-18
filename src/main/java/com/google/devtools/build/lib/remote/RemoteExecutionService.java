@@ -1337,7 +1337,7 @@ public class RemoteExecutionService {
    * <p>Must be called before calling {@link #executeRemotely}.
    */
   public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 
@@ -1352,6 +1352,7 @@ public class RemoteExecutionService {
             .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
         action.getMerkleTree(),
         additionalInputs,
+        action.getActionKey().toString(),
         force);
   }
 
@@ -1363,7 +1364,7 @@ public class RemoteExecutionService {
    */
   public RemoteActionResult executeRemotely(
       RemoteAction action, boolean acceptCachedResult, OperationObserver observer)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 

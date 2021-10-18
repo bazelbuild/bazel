@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /** Tests for {@link DirectoryTreeBuilder#fromPaths}. */
 public class PathDirectoryTreeTest extends DirectoryTreeTest {
@@ -29,5 +31,11 @@ public class PathDirectoryTreeTest extends DirectoryTreeTest {
       inputFiles.put(path.relativeTo(execRoot), path);
     }
     return DirectoryTreeBuilder.fromPaths(inputFiles, digestUtil);
+  }
+
+  @Override
+  @Nullable
+  Artifact artifactFor(Path path) {
+    return null;
   }
 }

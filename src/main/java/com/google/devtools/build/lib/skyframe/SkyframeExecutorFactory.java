@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
@@ -53,6 +54,7 @@ public interface SkyframeExecutorFactory {
       SyscallCache perCommandSyscallCache,
       SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter)
+      BugReporter bugReporter,
+      GraphInconsistencyReceiver graphInconsistencyReceiver)
       throws AbruptExitException;
 }

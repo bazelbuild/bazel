@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -1048,7 +1049,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       }
 
       return new StarlarkExecutionResult(result.exitCode(), stdout, stderr);
-    } catch (IOException e) {
+    } catch (ExecException | IOException e) {
       throw Starlark.errorf("remote_execute failed: %s", e.getMessage());
     }
   }

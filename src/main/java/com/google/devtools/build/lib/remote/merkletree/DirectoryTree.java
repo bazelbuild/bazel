@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedSet;
+import javax.annotation.Nullable;
 
 /**
  * Intermediate tree representation of a list of lexicographically sorted list of files. Each node
@@ -78,6 +80,7 @@ final class DirectoryTree {
     private final Digest digest;
     private final boolean isExecutable;
     private final boolean toolInput;
+    @Nullable private final Artifact artifact;
 
     /**
      * Create a FileNode with its executable bit set.
@@ -88,27 +91,28 @@ final class DirectoryTree {
      * https://github.com/bazelbuild/bazel/issues/13262 for more details.
      */
     static FileNode createExecutable(String pathSegment, Path path, Digest digest) {
-      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, false);
+      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, false, null);
     }
 
     static FileNode createExecutable(
-        String pathSegment, Path path, Digest digest, boolean toolInput) {
-      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, toolInput);
+        String pathSegment, Path path, Digest digest, boolean toolInput, @Nullable Artifact artifact) {
+      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, toolInput, artifact);
     }
 
     static FileNode createExecutable(
-        String pathSegment, ByteString data, Digest digest, boolean toolInput) {
-      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true, toolInput);
+        String pathSegment, ByteString data, Digest digest, boolean toolInput, @Nullable Artifact artifact) {
+      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true, toolInput, artifact);
     }
 
     private FileNode(
-        String pathSegment, Path path, Digest digest, boolean isExecutable, boolean toolInput) {
+        String pathSegment, Path path, Digest digest, boolean isExecutable, boolean toolInput, @Nullable Artifact artifact) {
       super(pathSegment);
       this.path = Preconditions.checkNotNull(path, "path");
       this.data = null;
       this.digest = Preconditions.checkNotNull(digest, "digest");
       this.isExecutable = isExecutable;
       this.toolInput = toolInput;
+      this.artifact = artifact;
     }
 
     private FileNode(
@@ -116,13 +120,15 @@ final class DirectoryTree {
         ByteString data,
         Digest digest,
         boolean isExecutable,
-        boolean toolInput) {
+        boolean toolInput,
+        @Nullable Artifact artifact) {
       super(pathSegment);
       this.path = null;
       this.data = Preconditions.checkNotNull(data, "data");
       this.digest = Preconditions.checkNotNull(digest, "digest");
       this.isExecutable = isExecutable;
       this.toolInput = toolInput;
+      this.artifact = artifact;
     }
 
     Digest getDigest() {
@@ -145,9 +151,14 @@ final class DirectoryTree {
       return toolInput;
     }
 
+    @Nullable
+    Artifact getArtifact() {
+      return artifact;
+    }
+
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), path, data, digest, toolInput, isExecutable);
+      return Objects.hash(super.hashCode(), path, data, digest, toolInput, isExecutable, artifact);
     }
 
     @Override
@@ -159,7 +170,8 @@ final class DirectoryTree {
             && Objects.equals(data, other.data)
             && Objects.equals(digest, other.digest)
             && toolInput == other.toolInput
-            && isExecutable == other.isExecutable;
+            && isExecutable == other.isExecutable
+            && Objects.equals(artifact, other.artifact);
       }
       return false;
     }
