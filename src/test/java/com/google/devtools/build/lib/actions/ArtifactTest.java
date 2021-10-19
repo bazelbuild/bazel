@@ -238,7 +238,7 @@ public final class ArtifactTest {
           }
 
           @Override
-          public boolean includeGeneratingActionKey() {
+          public boolean includeGeneratingActionKey(DerivedArtifact artifact) {
             return includeGeneratingActionKey;
           }
         };

@@ -501,14 +501,14 @@ public abstract class Artifact
     SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
 
     /**
-     * Whether to include the generating action key when serializing derived artifacts.
+     * Whether to include the generating action key when serializing the given derived artifact.
      *
      * <p>If {@code false} is returned, upon deserialization the generating action key is replaced
      * with the marker {@link #OMITTED_FOR_SERIALIZATION}. The artifact is then only intended for
      * use with {@link #equalsWithoutOwner} or {@link OwnerlessArtifactWrapper} - any operation
      * accessing the generating action key will fail.
      */
-    default boolean includeGeneratingActionKey() {
+    default boolean includeGeneratingActionKey(DerivedArtifact artifact) {
       return true;
     }
 
@@ -564,7 +564,9 @@ public abstract class Artifact
 
   private static Object getGeneratingActionKeyForSerialization(
       DerivedArtifact artifact, SerializationContext context) {
-    return context.getDependency(ArtifactSerializationContext.class).includeGeneratingActionKey()
+    return context
+            .getDependency(ArtifactSerializationContext.class)
+            .includeGeneratingActionKey(artifact)
         ? artifact.getGeneratingActionKey()
         : OMITTED_FOR_SERIALIZATION;
   }
