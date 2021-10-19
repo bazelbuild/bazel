@@ -30,7 +30,6 @@ import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.desugar.DependencyCollector;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
 import com.google.devtools.common.options.Option;

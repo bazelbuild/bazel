@@ -376,8 +376,8 @@ java_test(
     tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
-        "//src/tools/android/java/com/google/devtools/build/android/desugar:deps_collector_api",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:deps_collector_api",
         "//third_party:asm",
         "//third_party:asm-tree",
         "//third_party:guava",
