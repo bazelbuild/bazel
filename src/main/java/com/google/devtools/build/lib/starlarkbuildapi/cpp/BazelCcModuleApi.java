@@ -143,6 +143,13 @@ public interface BazelCcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "loose_includes",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = NoneType.class)}),
+        @Param(
             name = "quote_includes",
             doc =
                 "Search paths for header files referenced by quotes, "
@@ -222,6 +229,16 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]"),
+        @Param(
+            name = "implementation_compilation_contexts",
+            documented = false,
+            positional = false,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = CcCompilationContextApi.class),
+              @ParamType(type = NoneType.class)
+            },
+            named = true),
         @Param(
             name = "name",
             doc =
@@ -321,17 +338,24 @@ public interface BazelCcModuleApi<
               @ParamType(type = FileApi.class),
               @ParamType(type = NoneType.class),
             }),
+        @Param(
+            name = "copts_filter",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
       CcToolchainProviderT starlarkCcToolchainProvider,
-      Sequence<?> sources, // <FileT> expected
-      Sequence<?> publicHeaders, // <FileT> expected
-      Sequence<?> privateHeaders, // <FileT> expected
+      Sequence<?> sources, // <FileT> or Tuple<FileT,Label> expected
+      Sequence<?> publicHeaders, // <FileT> or Tuple<FileT,Label> expected
+      Sequence<?> privateHeaders, // <FileT> or Tuple<FileT,Label> expected
       Object textualHeaders,
       Object additionalExportedHeaders,
       Sequence<?> includes, // <String> expected
+      Object starlarkLooseIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
       Sequence<?> frameworkIncludes, // <String> expected
@@ -341,6 +365,7 @@ public interface BazelCcModuleApi<
       String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CompilationContextT> expected
+      Object implementationCcCompilationContexts,
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
@@ -355,6 +380,7 @@ public interface BazelCcModuleApi<
       Object language,
       Object purpose,
       Object grepIncludes,
+      Object coptsFilter,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
