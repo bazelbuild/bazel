@@ -102,7 +102,7 @@ function test_mtls_fails_if_client_has_no_cert() {
       --tls_certificate="${cert_path}/ca.crt" \
       //a:foo 2> $TEST_log \
       && fail "Expected bazel to fail without a client cert" || true
-  expect_log "ALERT_HANDSHAKE_FAILURE"
+  expect_log "Failed to query remote execution capabilities:"
 }
 
 function test_remote_grpc_cache() {
