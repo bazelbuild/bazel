@@ -72,7 +72,7 @@ public abstract class BuildCompletingEvent implements BuildEvent {
             .setCode(exitCode.getNumericExitCode())
             .build();
 
-    BuildEventStreamProtos.BuildFinished.AnomalyReport protoAnamolyReport =
+    BuildEventStreamProtos.BuildFinished.AnomalyReport protoAnomalyReport =
         BuildEventStreamProtos.BuildFinished.AnomalyReport.newBuilder()
             .setWasSuspended(wasSuspended)
             .build();
@@ -83,7 +83,7 @@ public abstract class BuildCompletingEvent implements BuildEvent {
             .setExitCode(protoExitCode)
             .setFinishTime(Timestamps.fromMillis(finishTimeMillis))
             .setFinishTimeMillis(finishTimeMillis)
-            .setAnomalyReport(protoAnamolyReport)
+            .setAnomalyReport(protoAnomalyReport)
             .build();
     return GenericBuildEvent.protoChaining(this).setFinished(finished).build();
   }
