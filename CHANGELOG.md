@@ -1,3 +1,15 @@
+## Release 5.0.0-pre.20211006.1 (2021-10-19)
+
+```
+Baseline: 681886de2901a2f7920288253674927cf13f1585
+```
+
+Important changes:
+
+  - incompatible_disable_depset_items is flipped
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley, Thomas Carmet, Timothe Peignier.
+
 ## Release 5.0.0-pre.20210929.1 (2021-10-07)
 
 ```
