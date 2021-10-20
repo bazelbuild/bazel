@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -163,7 +164,7 @@ public abstract class DependencyResolver {
    * <p>The values are not simply labels because this also implements the first step of applying
    * configuration transitions, namely, split transitions. This needs to be done before the labels
    * are resolved because late bound attributes depend on the configuration. A good example for this
-   * is @{code :cc_toolchain}.
+   * is {@code :cc_toolchain}.
    *
    * <p>The long-term goal is that most configuration transitions be applied here. However, in order
    * to do that, we first have to eliminate transitions that depend on the rule class of the
@@ -219,7 +220,7 @@ public abstract class DependencyResolver {
    *
    * <p>This also implements the first step of applying configuration transitions, namely, split
    * transitions. This needs to be done before the labels are resolved because late bound attributes
-   * depend on the configuration. A good example for this is @{code :cc_toolchain}.
+   * depend on the configuration. A good example for this is {@code :cc_toolchain}.
    *
    * <p>The long-term goal is that most configuration transitions be applied here. However, in order
    * to do that, we first have to eliminate transitions that depend on the rule class of the
@@ -279,6 +280,11 @@ public abstract class DependencyResolver {
     if (targetMap == null) {
       // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
       return OrderedSetMultimap.create();
+    }
+
+    // This check makes sure that visibility labels actually refer to package groups.
+    if (fromRule != null) {
+      checkPackageGroupVisibility(fromRule, targetMap);
     }
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
@@ -845,6 +851,22 @@ public abstract class DependencyResolver {
       TargetAndConfiguration node, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
     Target target = node.getTarget();
     outgoingLabels.putAll(VISIBILITY_DEPENDENCY, target.getVisibility().getDependencyLabels());
+  }
+
+  private void checkPackageGroupVisibility(Rule fromRule, Map<Label, Target> targetMap)
+      throws Failure {
+    if (!(fromRule.getVisibility() instanceof PackageGroupsRuleVisibility)) {
+      return;
+    }
+
+    for (Label label : fromRule.getVisibility().getDependencyLabels()) {
+      if (targetMap.get(label) != null
+          && !targetMap.get(label).getTargetKind().equals(PackageGroup.targetKind())) {
+        throw new Failure(
+            fromRule.getLocation(),
+            String.format("Label '%s' does not refer to a package group.", label));
+      }
+    }
   }
 
   /**
