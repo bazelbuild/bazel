@@ -159,8 +159,6 @@ public class ManifestMergerAction {
   private static final StdLogger stdLogger = new StdLogger(StdLogger.Level.WARNING);
   private static final Logger logger = Logger.getLogger(ManifestMergerAction.class.getName());
 
-  private static Options options;
-
   private static Path removePermissions(Path manifest, Path outputDir)
       throws IOException, ParserConfigurationException, TransformerConfigurationException,
           TransformerException, TransformerFactoryConfigurationError, SAXException {
@@ -191,7 +189,7 @@ public class ManifestMergerAction {
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
-    options = optionsParser.getOptions(Options.class);
+    Options options = optionsParser.getOptions(Options.class);
 
     try {
       Path mergedManifest;
