@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -124,7 +123,7 @@ public abstract class DependencyResolver {
     abstract ImmutableList<Aspect> getPropagatingAspects();
 
     @Nullable
-    abstract ToolchainContextKey getToolchainContextKey();
+    abstract Label getExecutionPlatformLabel();
 
     /** A Builder to create instances of PartiallyResolvedDependency. */
     @AutoValue.Builder
@@ -135,7 +134,7 @@ public abstract class DependencyResolver {
 
       abstract Builder setPropagatingAspects(List<Aspect> propagatingAspects);
 
-      abstract Builder setToolchainContextKey(@Nullable ToolchainContextKey toolchainContextKey);
+      abstract Builder setExecutionPlatformLabel(@Nullable Label executionPlatformLabel);
 
       abstract PartiallyResolvedDependency build();
     }
@@ -148,7 +147,7 @@ public abstract class DependencyResolver {
     public DependencyKey.Builder getDependencyKeyBuilder() {
       return DependencyKey.builder()
           .setLabel(getLabel())
-          .setToolchainContextKey(getToolchainContextKey());
+          .setExecutionPlatformLabel(getExecutionPlatformLabel());
     }
   }
 
@@ -346,7 +345,7 @@ public abstract class DependencyResolver {
               PartiallyResolvedDependency.builder()
                   .setLabel(toLabel)
                   .setTransition(NoTransition.INSTANCE)
-                  .setToolchainContextKey(toolchainContext.key())
+                  .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
                   .build());
         } else {
           // Legacy approach: use a HostTransition.

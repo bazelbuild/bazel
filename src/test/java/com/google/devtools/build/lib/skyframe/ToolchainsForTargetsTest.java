@@ -115,7 +115,7 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
                 env,
                 stateProvider.lateBoundRuleClassProvider(),
                 key.targetAndConfiguration(),
-                key.configuredTargetKey().getToolchainContextKey());
+                key.configuredTargetKey().getExecutionPlatformLabel());
         if (env.valuesMissing()) {
           return null;
         }
@@ -457,19 +457,14 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
         "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
 
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a").getTargetsToBuild());
-    ToolchainContextKey parentKey =
-        ToolchainContextKey.key()
-            .configurationKey(target.getConfigurationKey())
-            // Force the constraint label, to make the exec platform be local_platform_b.
-            .execConstraintLabels(Label.parseAbsoluteUnchecked("//platforms:local_value_b"))
-            .build();
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
         getToolchainCollection(
             target,
             ConfiguredTargetKey.builder()
                 .setLabel(target.getOriginalLabel())
                 .setConfigurationKey(target.getConfigurationKey())
-                .setToolchainContextKey(parentKey)
+                .setExecutionPlatformLabel(
+                    Label.parseAbsoluteUnchecked("//platforms:local_platform_b"))
                 .build());
 
     assertThat(toolchainCollection).isNotNull();

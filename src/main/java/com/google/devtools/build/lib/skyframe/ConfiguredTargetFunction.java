@@ -275,7 +275,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Determine what toolchains are needed by this target.
       ComputedToolchainContexts result =
           computeUnloadedToolchainContexts(
-              env, ruleClassProvider, ctgValue, configuredTargetKey.getToolchainContextKey());
+              env, ruleClassProvider, ctgValue, configuredTargetKey.getExecutionPlatformLabel());
       if (env.valuesMissing()) {
         return null;
       }
@@ -464,7 +464,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       RuleClassProvider ruleClassProvider,
       TargetAndConfiguration targetAndConfig,
-      @Nullable ToolchainContextKey parentToolchainContextKey)
+      @Nullable Label parentExecutionPlatformLabel)
       throws InterruptedException, ToolchainException {
     if (!(targetAndConfig.getTarget() instanceof Rule)) {
       return new ComputedToolchainContexts();
@@ -542,20 +542,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .execConstraintLabels(defaultExecConstraintLabels)
             .debugTarget(debugTarget);
 
-    if (parentToolchainContextKey != null) {
+    if (parentExecutionPlatformLabel != null) {
       // Find out what execution platform the parent used, and force that.
-      // This key should always be present, but check just in case.
-      ToolchainContext parentToolchainContext =
-          (ToolchainContext)
-              env.getValueOrThrow(parentToolchainContextKey, ToolchainException.class);
-      if (env.valuesMissing()) {
-        return null;
-      }
-
-      Label execPlatform = parentToolchainContext.executionPlatform().label();
-      if (execPlatform != null) {
-        toolchainContextKeyBuilder.forceExecutionPlatform(execPlatform);
-      }
+      // This should only be set for direct toolchain dependencies.
+      toolchainContextKeyBuilder.forceExecutionPlatform(parentExecutionPlatformLabel);
     }
 
     ToolchainContextKey toolchainContextKey = toolchainContextKeyBuilder.build();

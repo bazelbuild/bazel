@@ -109,7 +109,7 @@ public abstract class Util {
               ConfiguredTargetKey.builder()
                   .setLabel(toolchain)
                   .setConfiguration(targetConfiguration)
-                  .setToolchainContextKey(toolchainContext.key())
+                  .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
                   .build());
         } else {
           maybeImplicitDeps.add(

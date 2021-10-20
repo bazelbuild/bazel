@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import javax.annotation.Nullable;
 
 /**
@@ -70,11 +69,10 @@ public abstract class Dependency {
     public abstract Builder setTransitionKeys(ImmutableList<String> keys);
 
     /**
-     * Sets the {@link ToolchainContextKey} that this dependency should use for toolchain
-     * resolution.
+     * Sets the execution platform {@link Label} that this dependency should use as an override for
+     * toolchain resolution.
      */
-    public abstract Builder setToolchainContextKey(
-        @Nullable ToolchainContextKey toolchainContextKey);
+    public abstract Builder setExecutionPlatformLabel(@Nullable Label executionPlatformLabel);
 
     // Not public.
     abstract Dependency autoBuild();
@@ -150,18 +148,18 @@ public abstract class Dependency {
   public abstract ImmutableList<String> getTransitionKeys();
 
   /**
-   * Returns the {@link ToolchainContextKey} that this dependency should use for toolchain
-   * resolution.
+   * Returns the execution platform {@link Label} that this dependency should use as an override for
+   * toolchain resolution.
    */
   @Nullable
-  public abstract ToolchainContextKey getToolchainContextKey();
+  public abstract Label getExecutionPlatformLabel();
 
   /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
   public ConfiguredTargetKey getConfiguredTargetKey() {
     ConfiguredTargetKey.Builder configuredTargetKeyBuilder =
         ConfiguredTargetKey.builder().setLabel(getLabel()).setConfiguration(getConfiguration());
-    if (getToolchainContextKey() != null) {
-      configuredTargetKeyBuilder.setToolchainContextKey(getToolchainContextKey());
+    if (getExecutionPlatformLabel() != null) {
+      configuredTargetKeyBuilder.setExecutionPlatformLabel(getExecutionPlatformLabel());
     }
     return configuredTargetKeyBuilder.build();
   }
