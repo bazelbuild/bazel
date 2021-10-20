@@ -7555,4 +7555,72 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bar"));
     assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
   }
+
+  @Test
+  public void testMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink()
+      throws Exception {
+    scratch.file(
+        "b/BUILD",
+        "load('//b:rule.bzl', 'cc_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_rule(name='foo')");
+
+    runTestMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink(
+        "None,", "feature_configuration,", "ctx.file._artifact,", "None,");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("If you pass 'dynamic_library', you must also pass a 'cc_toolchain'");
+
+    runTestMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink(
+        "toolchain,", "None,", "ctx.file._artifact,", "None,");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("If you pass 'dynamic_library', you must also pass a 'feature_configuration'");
+
+    runTestMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink(
+        "None,", "feature_configuration,", "None,", "ctx.file._artifact,");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("If you pass 'interface_library', you must also pass a 'cc_toolchain'");
+
+    runTestMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink(
+        "toolchain,", "None,", "None,", "ctx.file._artifact,");
+    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("If you pass 'interface_library', you must also pass a 'feature_configuration'");
+  }
+
+  private void runTestMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink(
+      String toolchain, String featureConfiguration, String dynamicLibrary, String interfaceLibrary)
+      throws Exception {
+    scratch.overwriteFile(
+        "b/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  cc_common.create_library_to_link(",
+        "    actions=ctx.actions, ",
+        "    cc_toolchain = " + toolchain,
+        "    feature_configuration = " + featureConfiguration,
+        "    dynamic_library =" + dynamicLibrary,
+        "    interface_library =" + interfaceLibrary,
+        "  )",
+        "  return [DefaultInfo()]",
+        "cc_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = { ",
+        "    '_artifact': attr.label(allow_single_file=True, default=Label('//b:foo.soifso')),",
+        "    '_cc_toolchain': attr.label(default=Label('//b:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ")");
+    invalidatePackages();
+  }
 }

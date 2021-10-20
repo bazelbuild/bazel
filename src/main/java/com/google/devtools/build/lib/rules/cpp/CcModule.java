@@ -601,6 +601,17 @@ public abstract class CcModule
       }
       notNullArtifactForIdentifier = interfaceLibrary;
     }
+    if (dynamicLibrary != null || interfaceLibrary != null) {
+      String library = (dynamicLibrary != null) ? "dynamic" : "interface";
+      if (ccToolchainProvider == null) {
+        throw Starlark.errorf(
+            "If you pass '%s_library', you must also pass a 'cc_toolchain'", library);
+      }
+      if (featureConfiguration == null) {
+        throw Starlark.errorf(
+            "If you pass '%s_library', you must also pass a 'feature_configuration'", library);
+      }
+    }
     if (nopicObjects != null && staticLibrary == null) {
       throw Starlark.errorf("If you pass 'objects' you must also pass a 'static_library'");
     }
@@ -618,8 +629,6 @@ public abstract class CcModule
     Artifact resolvedSymlinkDynamicLibrary = null;
     Artifact resolvedSymlinkInterfaceLibrary = null;
     if (dynamicLibrary != null
-        && featureConfiguration != null
-        && ccToolchainProvider != null
         && !featureConfiguration
             .getFeatureConfiguration()
             .isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
@@ -649,8 +658,6 @@ public abstract class CcModule
       }
     }
     if (interfaceLibrary != null
-        && featureConfiguration != null
-        && ccToolchainProvider != null
         && !featureConfiguration
             .getFeatureConfiguration()
             .isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {

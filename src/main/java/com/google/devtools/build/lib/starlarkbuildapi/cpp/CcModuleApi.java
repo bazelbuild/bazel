@@ -549,11 +549,13 @@ public interface CcModuleApi<
         @Param(
             name = "feature_configuration",
             doc = "<code>feature_configuration</code> to be queried.",
+            defaultValue = "None",
             positional = false,
             named = true),
         @Param(
             name = "cc_toolchain",
             doc = "<code>CcToolchainInfo</code> provider to be used.",
+            defaultValue = "None",
             positional = false,
             named = true),
         @Param(
