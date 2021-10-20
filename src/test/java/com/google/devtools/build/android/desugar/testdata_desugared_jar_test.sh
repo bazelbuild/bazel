@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -e
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -18,6 +18,8 @@
 # file.  This makes sure that output is deterministic and the resulting Jar
 # doesn't contain any unwanted files, such as lambdas generated as part of
 # running the desugaring tool.
+
+set -o errexit
 
 progdir="$(dirname "$0")"
 

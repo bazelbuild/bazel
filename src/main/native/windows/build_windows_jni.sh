@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -eu
+#!/usr/bin/env bash
 
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -18,6 +18,9 @@
 # JVM, so we need to build it with Visual Studio. However, Bazel doesn't
 # support multiple compilers in the same build yet, so we need to hack around
 # this limitation using a genrule.
+
+set -o errexit
+set -o nounset
 
 DLL="$1"
 shift 1

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -e
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -13,6 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+set -o errexit
 
 # Test whether Desugar runs static initializers of interfaces.
 if grep "THIS STRING IS NOT EXPECTED TO APPEAR IN THE OUTPUT OF DESUGAR!!!" "${1}" ; then

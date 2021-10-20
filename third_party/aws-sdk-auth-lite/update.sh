@@ -1,4 +1,6 @@
-#!/usr/bin/env bash -e
+#!/usr/bin/env bash
+
+set -o errexit
 
 readonly SDK_VERSION='1.11.297'
 readonly MVN_REPO='repo1.maven.org/maven2'

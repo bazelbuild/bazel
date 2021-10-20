@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,9 @@
 
 # TODO(bazel-team) test that modifying the source in a non-interface
 #   changing way results in the same -interface.jar.
+
+set -o errexit
+set -o nounset
 
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
