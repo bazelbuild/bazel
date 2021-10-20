@@ -7623,4 +7623,21 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
     invalidatePackages();
   }
+
+  @Test
+  public void testCcInternalIsNotAccessibleFromOutsideBuiltins() throws Exception {
+    scratch.file("a/BUILD", "load(':rule.bzl', 'crule')", "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  cc_internal",
+        "  return DefaultInfo()",
+        "crule = rule(",
+        "  _impl,",
+        ")");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
+    assertThat(e).hasMessageThat().contains("name 'cc_internal' is not defined");
+  }
 }
