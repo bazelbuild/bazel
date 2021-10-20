@@ -48,25 +48,11 @@ genrule(
     outs = ["ZstdVersion.java"],
 )
 
-genrule(
-    name = "native-patched",
-    srcs = ["src/main/java/com/github/luben/zstd/util/Native.java"],
-    cmd_bash = "sed 's/String resourceName = resourceName();/String resourceName = \"\\/libzstd-jni.so\";/' $< > $@",
-    cmd_ps = "$$PSDefaultParameterValues.Remove('*:Encoding'); $$(Get-Content $<) -Replace 'String resourceName = resourceName\\(\\);', 'String resourceName = \"/libzstd-jni.so\";' | Set-Content $@",
-    outs = ["Native.java"],
-)
-
 java_library(
     name = "zstd-jni",
-    srcs = glob(
-        [
-            "src/main/java/**/*.java",
-        ],
-        exclude = [
-            "src/main/java/com/github/luben/zstd/util/Native.java",
-        ],
-    ) + [
-        ":native-patched",
+    srcs = glob([
+        "src/main/java/**/*.java",
+    ]) + [
         ":version-java",
     ],
     resources = [":libzstd-jni.so"],

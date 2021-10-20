@@ -174,6 +174,10 @@ DIST_DEPS = {
     },
     "zstd-jni": {
         "archive": "v1.5.0-4.zip",
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party:zstd-jni/Native.java.patch",
+        ],
         "sha256": "d320d59b89a163c5efccbe4915ae6a49883ce653cdc670643dfa21c6063108e4",
         "urls": [
             "https://github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
