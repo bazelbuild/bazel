@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -108,7 +108,7 @@ function test_extra_action() {
   # hardcoding it here. The extra sed pass is so we can selectively expand that
   # one var while keeping the rest of the heredoc literal.
   sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > mypkg/echoer.sh << 'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then

@@ -32,7 +32,7 @@ import org.junit.runners.JUnit4;
 public class TestTargetPropertiesTest extends BuildViewTestCase {
   @Test
   public void testTestWithCpusTagHasCorrectLocalResourcesEstimate() throws Exception {
-    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file("tests/test.sh", "#!/usr/bin/env bash", "exit 0");
     scratch.file(
         "tests/BUILD",
         "sh_test(",
@@ -54,7 +54,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
 
   @Test
   public void testTestWithExclusiveRunLocallyByDefault() throws Exception {
-    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file("tests/test.sh", "#!/usr/bin/env bash", "exit 0");
     scratch.file(
         "tests/BUILD",
         "sh_test(",
@@ -74,7 +74,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   @Test
   public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
     useConfiguration("--incompatible_exclusive_test_sandboxed");
-    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file("tests/test.sh", "#!/usr/bin/env bash", "exit 0");
     scratch.file(
         "tests/BUILD",
         "sh_test(",
@@ -94,7 +94,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   @Test
   public void testTestWithExclusiveAndLocalRunLocally() throws Exception {
     useConfiguration("--incompatible_exclusive_test_sandboxed");
-    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file("tests/test.sh", "#!/usr/bin/env bash", "exit 0");
     scratch.file(
         "tests/BUILD",
         "sh_test(",

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -403,7 +403,7 @@ function write_test_xml_timeout_files() {
   mkdir -p dir
 
   cat <<'EOF' > dir/test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 echo "xmltest"
 echo -n "before "
 # Invalid XML character

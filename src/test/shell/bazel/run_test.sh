@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -79,7 +79,7 @@ def _impl(ctx):
     out = ctx.actions.declare_file("%s.bat" % ctx.label.name)
     ctx.actions.write(
         output = out,
-        content = "@echo my_test" if $IsWindows else "#!/bin/bash\necho my_test\n",
+        content = "@echo my_test" if $IsWindows else "#!/usr/bin/env bash\necho my_test\n",
         is_executable = True,
     )
     return [DefaultInfo(executable = out,

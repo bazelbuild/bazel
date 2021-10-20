@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -243,7 +243,7 @@ function test_a_test_rule_with_input_from_stdin() {
   mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
   echo 'sh_test(name = "x", srcs = ["x.sh"])' > "$pkg/BUILD"
   cat > "$pkg/x.sh" <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 read -n5 FOO
 echo "foo=($FOO)"
 eof

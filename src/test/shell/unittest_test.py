@@ -30,7 +30,7 @@ import unittest
 # The test setup for this external test is forwarded to the internal bash test.
 # This allows the internal test to use the same runfiles to load unittest.bash.
 _TEST_PREAMBLE = """
-#!/bin/bash
+#!/usr/bin/env bash
 # --- begin runfiles.bash initialization ---
 if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
   source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -113,7 +113,7 @@ function test_target_exec_properties_starlark_test() {
     script_content="@echo off\necho hello\n"
   else
     script_name="test_script.sh"
-    script_content="#!/bin/bash\necho hello\n"
+    script_content="#!/usr/bin/env bash\necho hello\n"
   fi
   cat > ${pkg}/rules.bzl <<EOF
 def _impl(ctx):
@@ -232,7 +232,7 @@ function test_target_test_properties_sh_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo hello
 EOF
   chmod u+x ${pkg}/a.sh
@@ -306,7 +306,7 @@ function test_starlark_test_has_test_execgroup_by_default() {
     script_content="@echo off\necho hello\n"
   else
     script_name="test_script.sh"
-    script_content="#!/bin/bash\necho hello\n"
+    script_content="#!/usr/bin/env bash\necho hello\n"
   fi
 
   cat > ${pkg}/defs.bzl <<EOF
@@ -355,7 +355,7 @@ function test_starlark_test_can_define_test_execgroup_manually() {
     script_content="@echo off\necho hello\n"
   else
     script_name="test_script.sh"
-    script_content="#!/bin/bash\necho hello\n"
+    script_content="#!/usr/bin/env bash\necho hello\n"
   fi
 
   cat > ${pkg}/defs.bzl <<EOF

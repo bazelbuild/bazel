@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash -eu
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -157,7 +157,7 @@ cc_binary(
 )
 EOF
   cat > "ta_headers/mygen.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -669,7 +669,7 @@ function test_aspect_accessing_args_link_action_with_tree_artifact() {
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
   cat > "${package}/makes_tree_artifacts.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 my_dir=\$1
 
 echo "int a() { return 0; }" > \$my_dir/a.cc
@@ -679,7 +679,7 @@ EOF
   chmod 755 "${package}/makes_tree_artifacts.sh"
 
   cat > "${package}/write.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 output_file=\$1
 shift;
 

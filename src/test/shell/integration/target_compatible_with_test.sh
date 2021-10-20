@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -66,13 +66,13 @@ fi
 function set_up() {
   mkdir -p target_skipping || fail "couldn't create directory"
   cat > target_skipping/pass.sh <<EOF || fail "couldn't create pass.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
   cat > target_skipping/fail.sh <<EOF|| fail "couldn't create fail.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 1
 EOF
   chmod +x target_skipping/fail.sh

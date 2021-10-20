@@ -33,7 +33,7 @@ write_file(
             "@exit /B 1",
         ],
         "//conditions:default": [
-            "#!/bin/bash",
+            "#!/usr/bin/env bash",
             "echo >&2 'ERROR: 2to3 is not implemented.'",
             "echo >&2 'Please either build this target for PY2 or else set srcs_version to PY2ONLY instead of PY2.'",
             "echo >&2 'See https://github.com/bazelbuild/bazel/issues/1393#issuecomment-431110617'",

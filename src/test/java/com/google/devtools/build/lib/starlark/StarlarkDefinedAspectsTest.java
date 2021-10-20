@@ -1525,7 +1525,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   },",
         ")");
 
-    scratch.file("foo/tool.sh", "#!/bin/bash");
+    scratch.file("foo/tool.sh", "#!/usr/bin/env bash");
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl',  'my_rule')",

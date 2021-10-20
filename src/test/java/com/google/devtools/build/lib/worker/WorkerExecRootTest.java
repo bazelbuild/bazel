@@ -54,7 +54,7 @@ public class WorkerExecRootTest {
   public void cleanFileSystem() throws Exception {
     SandboxHelper sandboxHelper =
         new SandboxHelper(execRoot, workDir)
-            .addAndCreateInputFile("worker.sh", "worker.sh", "#!/bin/bash")
+            .addAndCreateInputFile("worker.sh", "worker.sh", "#!/usr/bin/env bash")
             .addOutput("very/output.txt")
             .addWorkerFile("worker.sh");
     Path workerSh = execRoot.getRelative("worker.sh");

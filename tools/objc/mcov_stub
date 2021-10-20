@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 (
   printf 'Bazel does not yet support coverage.\n'

@@ -43,7 +43,7 @@ public final class BashCommandConstructor implements CommandConstructor {
   @Override
   public Artifact commandAsScript(RuleContext ruleContext, String command) {
     String scriptFileName = ruleContext.getTarget().getName() + scriptNameSuffix;
-    String scriptFileContents = "#!/bin/bash\n" + command;
+    String scriptFileContents = "#!/usr/bin/env bash\n" + command;
     return FileWriteAction.createFile(
         ruleContext, scriptFileName, scriptFileContents, /*executable=*/ true);
   }

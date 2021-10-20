@@ -288,7 +288,7 @@ class LauncherTest(test_base.TestBase):
             ')',
         ])
     foo_sh = self.ScratchFile('foo/foo.sh', [
-        '#!/bin/bash',
+        '#!/usr/bin/env bash',
         'echo hello shell',
         'echo runfiles_manifest_only=${RUNFILES_MANIFEST_ONLY:-}',
         'echo runfiles_manifest_file=${RUNFILES_MANIFEST_FILE:-}',
@@ -313,7 +313,7 @@ class LauncherTest(test_base.TestBase):
         ')',
     ])
     foo_sh = self.ScratchFile('foo/bin.sh', [
-        '#!/bin/bash',
+        '#!/usr/bin/env bash',
         '# Store arguments in a array',
         'args=("$@")',
         '# Get the number of arguments',

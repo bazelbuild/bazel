@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -136,7 +136,7 @@ dir /s /b /o:n *.dat>>%out%
 eof
   else
     cat > "toolchains/rc-src.bat" <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 for a in $*; do
   if [[ "$a" =~ /fo.* ]]; then
     out="${a#/fo}"

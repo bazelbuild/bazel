@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -21,7 +21,7 @@
 # A typical test suite looks like so:
 #
 #   ------------------------------------------------------------------------
-#   #!/bin/bash
+#   #!/usr/bin/env bash
 #
 #   source path/to/unittest.bash || exit 1
 #

@@ -262,7 +262,7 @@ public class ZipWriterTest {
     byte[] content = "content".getBytes(UTF_8);
     try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
       writer.startPrefixFile();
-      writer.write("#!/bin/bash\necho 'hello world'\n".getBytes(UTF_8));
+      writer.write("#!/usr/bin/env bash\necho 'hello world'\n".getBytes(UTF_8));
       writer.endPrefixFile();
 
       crc.update(content);

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -74,7 +74,7 @@ WORKING_DIR="$PWD"
   TMP_BIN=/tmp/bazel.bisect
 
   cat >$BISECT_SCRIPT <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 "$BAZEL_BINARY" build //src:bazel >/dev/null 2>&1 || exit 1
 cp -f bazel-bin/src/bazel "$TMP_BIN"

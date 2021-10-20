@@ -115,7 +115,7 @@ public class SandboxHelpersTest {
     SandboxHelpers sandboxHelpers = new SandboxHelpers(/*delayVirtualInputMaterialization=*/ false);
     BinTools.PathActionInput tool =
         new BinTools.PathActionInput(
-            scratch.file("tool", "#!/bin/bash", "echo hello"),
+            scratch.file("tool", "#!/usr/bin/env bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
     SandboxInputs inputs =
@@ -126,7 +126,7 @@ public class SandboxHelpersTest {
             PathFragment.create("_bin/say_hello"), execRoot.getRelative("_bin/say_hello"));
     assertThat(inputs.getSymlinks()).isEmpty();
     assertThat(FileSystemUtils.readLines(execRoot.getRelative("_bin/say_hello"), UTF_8))
-        .containsExactly("#!/bin/bash", "echo hello")
+        .containsExactly("#!/usr/bin/env bash", "echo hello")
         .inOrder();
     assertThat(execRoot.getRelative("_bin/say_hello").isExecutable()).isTrue();
   }

@@ -83,7 +83,7 @@ public class TargetCompleteEventKeepsMinimalMetadataTest extends BuildIntegratio
         "        cfg = \"host\"),",
         "  }",
         ")");
-    write("validation_actions/validation_tool", "#!/bin/bash", "echo \"validation output\" > $1")
+    write("validation_actions/validation_tool", "#!/usr/bin/env bash", "echo \"validation output\" > $1")
         .setExecutable(true);
     write(
         "validation_actions/BUILD",

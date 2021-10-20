@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -94,7 +94,7 @@ function test_nobuild_runfile_links() {
   create_workspace_with_default_repos WORKSPACE foo
 
 cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/foo/data/hello ]]
 [[ -f ${RUNFILES_DIR}/foo/data/world ]]

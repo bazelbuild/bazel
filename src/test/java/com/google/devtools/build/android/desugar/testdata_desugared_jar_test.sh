@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env bash -e
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #

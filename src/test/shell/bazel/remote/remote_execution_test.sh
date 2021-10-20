@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -712,7 +712,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 for i in {1..3}
 do
     echo "Sleeping $i..."
@@ -1967,7 +1967,7 @@ workspace(name = "foo")
 EOF
 
   cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/foo/data/hello ]]
 [[ -f ${RUNFILES_DIR}/foo/data/world ]]
@@ -3048,7 +3048,7 @@ java_test(
 EOF
 
   cat > a/test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo 'Hello'
 EOF
   chmod a+x a/test.sh

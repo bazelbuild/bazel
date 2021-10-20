@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -47,7 +47,7 @@ wrapper=$(rlocation io_bazel/scripts/packages/bazel.sh)
 mock_bazel() {
   {
     cat <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 if [[ ${1:-""} == "--version" ]]; then
   echo "bazel BAZEL_VERSION"
@@ -234,7 +234,7 @@ test_delegates_to_wrapper_if_present() {
 
   mkdir tools
   cat > tools/bazel <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 echo "Hello from the wrapper tools/bazel!"
 echo "BAZEL_REAL = ${BAZEL_REAL}"
@@ -261,7 +261,7 @@ test_gracefully_handles_bogus_bazelversion() {
 
   mkdir tools
   cat > tools/bazel <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 echo "Hello from the wrapper tools/bazel!"
 echo "My args: $@"

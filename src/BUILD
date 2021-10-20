@@ -340,10 +340,7 @@ genrule(
     name = "package_bazel_on_host_platform",
     srcs = ["package-bazel.sh"],
     outs = ["package-bazel-on-host-platform.sh"],
-    cmd = select({
-        "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
-        "//conditions:default": "cp $(SRCS) $@",
-    }),
+    cmd = "cp $(SRCS) $@",
 )
 
 genrule(

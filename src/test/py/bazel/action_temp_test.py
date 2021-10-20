@@ -140,7 +140,7 @@ class ActionTempTest(test_base.TestBase):
     else:
       toolname = 'foo.sh'
       toolsrc = [
-          '#!/bin/bash',
+          '#!/usr/bin/env bash',
           'set -eu',
           'if [ -n "${TMPDIR:-}" ]; then',
           '  sleep 1',

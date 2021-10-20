@@ -1593,7 +1593,7 @@ either to the terminal, or to additional log files.
 <p>Example program on Linux using Git:</p>
 
 <pre>
-#!/bin/bash
+#!/usr/bin/env bash
 echo "CURRENT_TIME $(date +%s)"
 echo "RANDOM_HASH $(cat /proc/sys/kernel/random/uuid)"
 echo "STABLE_GIT_COMMIT $(git rev-parse HEAD)"

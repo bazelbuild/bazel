@@ -337,8 +337,8 @@ public class IncrementalLoadingTest {
   @Test
   public void testIrrelevantFileInSubdirDoesntReloadPackage() throws Exception {
     tester.addFile("pkg/BUILD", "sh_library(name = 'pkg', srcs = glob(['**/*.sh']))");
-    tester.addFile("pkg/pkg.sh", "#!/bin/bash");
-    tester.addFile("pkg/bar/bar.sh", "#!/bin/bash");
+    tester.addFile("pkg/pkg.sh", "#!/usr/bin/env bash");
+    tester.addFile("pkg/bar/bar.sh", "#!/usr/bin/env bash");
     Package pkg = tester.getTarget("//pkg:pkg").getPackage();
 
     // Write file in directory to force reload of top-level glob.

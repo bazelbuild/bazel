@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -66,7 +66,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 function test_workspace_status_with_stderr() {
   local ok="$TEST_TMPDIR/ok.sh"
   cat > "$ok" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo "This is stderr" >&2
 exit 0
 EOF

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # -*- coding: utf-8 -*-
 
 # Copyright 2019 The Bazel Authors. All rights reserved.
