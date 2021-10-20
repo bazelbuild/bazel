@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
@@ -257,6 +258,11 @@ public class LocalSpawnRunnerTest {
 
     @Override
     public ArtifactExpander getArtifactExpander() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SpawnInputExpander getSpawnInputExpander() {
       throw new UnsupportedOperationException();
     }
 

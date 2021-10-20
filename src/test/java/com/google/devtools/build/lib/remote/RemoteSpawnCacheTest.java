@@ -147,6 +147,11 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
+        public SpawnInputExpander getSpawnInputExpander() {
+          return new SpawnInputExpander(execRoot, /*strict*/ false);
+        }
+
+        @Override
         public Duration getTimeout() {
           return Duration.ZERO;
         }
@@ -159,7 +164,7 @@ public class RemoteSpawnCacheTest {
         @Override
         public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
             throws IOException, ForbiddenActionInputException {
-          return new SpawnInputExpander(execRoot, /*strict*/ false)
+          return getSpawnInputExpander()
               .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory, fakeFileCache);
         }
 
