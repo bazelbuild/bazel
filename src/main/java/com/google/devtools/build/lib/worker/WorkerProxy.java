@@ -35,10 +35,7 @@ final class WorkerProxy extends Worker {
   private final Path workDir;
 
   WorkerProxy(
-      WorkerKey workerKey,
-      int workerId,
-      Path logFile,
-      WorkerMultiplexer workerMultiplexer) {
+      WorkerKey workerKey, int workerId, Path logFile, WorkerMultiplexer workerMultiplexer) {
     super(workerKey, workerId, logFile);
     this.workDir = workerKey.getExecRoot();
     this.workerMultiplexer = workerMultiplexer;
@@ -104,5 +101,10 @@ final class WorkerProxy extends Worker {
   @Override
   public String toString() {
     return workerKey.getMnemonic() + " proxy worker #" + workerId;
+  }
+
+  @Override
+  public long getProcessId() {
+    return workerMultiplexer.getProcessId();
   }
 }

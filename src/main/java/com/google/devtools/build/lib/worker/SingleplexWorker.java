@@ -186,4 +186,13 @@ class SingleplexWorker extends Worker {
   public String toString() {
     return workerKey.getMnemonic() + " worker #" + workerId;
   }
+
+  @Override
+  public long getProcessId() {
+    if (process == null) {
+      return -1;
+    }
+
+    return process.getProcessId();
+  }
 }
