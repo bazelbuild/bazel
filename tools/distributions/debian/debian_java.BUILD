@@ -15,8 +15,8 @@
 package(default_visibility = ["//visibility:public"])
 
 # libnetty-java
-# TODO: The netty-all.java/jar is empty in Debian distribution, we have to list
-# all netty jars here. Replace them with netty-all.java/jar once it's fixed.
+# TODO: The netty-all.jar is empty in Debian distribution, we have to list
+# all netty jars here. Replace them with netty-all.jar once it's fixed.
 java_import(
     name = "netty",
     jars = [
