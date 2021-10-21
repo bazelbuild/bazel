@@ -81,7 +81,7 @@ public final class StringLiteral extends Expression {
     // independent of the Lexer, which should only validate string literals
     // but not unquote them. Clients (e.g. the compiler) can unquote on demand.
     ArrayList<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(ParserInput.fromLines(s), FileOptions.DEFAULT, errors);
+    Lexer lexer = new Lexer(ParserInput.fromLines(s), errors);
     lexer.nextToken();
     if (!errors.isEmpty()) {
       throw new IllegalArgumentException(errors.get(0).message());
