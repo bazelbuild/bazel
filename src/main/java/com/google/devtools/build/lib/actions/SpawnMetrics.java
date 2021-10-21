@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
@@ -254,7 +255,7 @@ public final class SpawnMetrics {
       // Return "not available" string if total is 0 and result is undefined.
       return "N/A";
     }
-    return String.format("%.2f%%", duration.toMillis() * 100.0 / total.toMillis());
+    return String.format(Locale.US, "%.2f%%", duration.toMillis() * 100.0 / total.toMillis());
   }
 
   /** Builder class for SpawnMetrics. */

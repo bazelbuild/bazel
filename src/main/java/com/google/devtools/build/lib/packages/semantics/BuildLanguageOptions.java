@@ -495,15 +495,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
   @Option(
-      name = "incompatible_restrict_string_escapes",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, unknown string escapes like `\\a` become rejected.")
-  public boolean incompatibleRestrictStringEscapes;
-
-  @Option(
       name = "incompatible_linkopts_to_linklibs",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -595,7 +586,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 incompatibleDisableThirdPartyLicenseChecking)
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
-            .setBool(INCOMPATIBLE_DISABLE_DEPSET_ITEMS, incompatibleDisableDepsetItems)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
             .setBool(
                 INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
@@ -619,7 +609,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
                 incompatibleDepsetForLibrariesToLinkGetter)
             .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
-            .setBool(INCOMPATIBLE_RESTRICT_STRING_ESCAPES, incompatibleRestrictStringEscapes)
             .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
@@ -663,8 +652,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
       "+incompatible_depset_for_libraries_to_link_getter";
-  public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
-      "+incompatible_disable_depset_items";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
   public static final String INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING =
@@ -686,8 +673,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_no_rule_outputs_param";
   public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
       "+incompatible_require_linker_input_cc_api";
-  public static final String INCOMPATIBLE_RESTRICT_STRING_ESCAPES =
-      "+incompatible_restrict_string_escapes";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =
       "+incompatible_run_shell_command_string";
   public static final String INCOMPATIBLE_STRUCT_HAS_NO_METHODS =

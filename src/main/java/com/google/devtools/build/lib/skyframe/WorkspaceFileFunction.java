@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -136,9 +135,6 @@ public class WorkspaceFileFunction implements SkyFunction {
             // WORKSPACE files followed BUILD norms, but this should
             // probably be flipped.
             .allowToplevelRebinding(true)
-            .restrictStringEscapes(
-                starlarkSemantics.getBool(
-                    BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
 
     // Accumulate workspace files (prefix + main + suffix).

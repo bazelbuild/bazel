@@ -356,7 +356,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     for (String inputArchive : inputArchives) {
       // Verify each input archive is present in the action inputs.
-      getFirstArtifactEndingWith(binAction.getInputs(), inputArchive);
+      assertThat(getFirstArtifactEndingWith(binAction.getInputs(), inputArchive)).isNotNull();
     }
     ImmutableList.Builder<String> frameworkPathFragmentParents = ImmutableList.builder();
     ImmutableList.Builder<String> frameworkPathBaseNames = ImmutableList.builder();
@@ -638,7 +638,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         binArtifact,
         objList,
         "x86_64",
-        ImmutableList.of("x/libx.a", "libobjc_lib.a"),
+        ImmutableList.of("libobjc_lib.a"),
         ImmutableList.of(PathFragment.create("libs/buzzbuzz")),
         extraLinkArgs);
   }
@@ -1069,12 +1069,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         getFirstArtifactEndingWith(getGeneratingAction(x8664BinArtifact).getInputs(),
             x8664Filelist);
 
-    ImmutableList<String> archiveNames =
-        ImmutableList.of("x/libx.a", "lib1/liblib1.a", "lib2/liblib2.a");
-    verifyLinkAction(i386BinArtifact, i386FilelistArtifact, "i386", archiveNames,
-        ImmutableList.of(PathFragment.create("fx/MyFramework")), extraLinkArgs);
-    verifyLinkAction(x8664BinArtifact, x8664FilelistArtifact,
-        "x86_64", archiveNames,  ImmutableList.of(PathFragment.create("fx/MyFramework")),
+    verifyLinkAction(
+        i386BinArtifact,
+        i386FilelistArtifact,
+        "i386",
+        ImmutableList.of(),
+        ImmutableList.of(PathFragment.create("fx/MyFramework")),
+        extraLinkArgs);
+    verifyLinkAction(
+        x8664BinArtifact,
+        x8664FilelistArtifact,
+        "x86_64",
+        ImmutableList.of(),
+        ImmutableList.of(PathFragment.create("fx/MyFramework")),
         extraLinkArgs);
   }
 
