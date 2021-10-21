@@ -18,6 +18,8 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 
 /**
  * Metric data for {@code description} object. Contains count, average, standard deviation, max and
@@ -70,7 +72,7 @@ public final class MetricData {
     if (count == 0) {
       return "'" + description + "'. Zero data recorded";
     }
-    DecimalFormat fmt = new DecimalFormat("0.###");
+    DecimalFormat fmt = new DecimalFormat("0.###", new DecimalFormatSymbols(Locale.US));
     return "'"
         + description
         + "'. "
