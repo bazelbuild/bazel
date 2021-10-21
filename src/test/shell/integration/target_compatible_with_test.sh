@@ -942,6 +942,9 @@ EOF
   expect_log 'Target //target_skipping:custom2 was skipped'
 }
 
+# Validates that if a target is "directly incompatible" then its dependencies
+# are not evaluated. I.e. there should be no need to guard the dependencies
+# with a select() statement.
 function test_invalid_deps_are_ignored_when_incompatible() {
   cat >> target_skipping/BUILD <<EOF
 cc_binary(
