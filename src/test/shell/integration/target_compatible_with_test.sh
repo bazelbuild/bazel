@@ -199,6 +199,77 @@ function tear_down() {
   bazel shutdown
 }
 
+function set_up_custom_toolchain() {
+  mkdir -p target_skipping/custom_tools/
+  cat > target_skipping/custom_tools/BUILD <<EOF
+load(":toolchain.bzl", "custom_toolchain")
+
+toolchain_type(name = "toolchain_type")
+
+custom_toolchain(
+    name = "toolchain",
+    compiler_path = "customc",
+)
+
+toolchain(
+    name = "custom_foo3_toolchain",
+    exec_compatible_with = [
+        "//target_skipping:foo3",
+    ],
+    target_compatible_with = [
+        "//target_skipping:foo3",
+    ],
+    toolchain = ":toolchain",
+    toolchain_type = ":toolchain_type",
+)
+EOF
+
+  cat > target_skipping/custom_tools/toolchain.bzl <<EOF
+def _custom_binary_impl(ctx):
+    info = ctx.toolchains["//target_skipping/custom_tools:toolchain_type"].custom_info
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "%s %s" % (info.compiler_path, ctx.file.src.short_path))
+
+custom_binary = rule(
+    implementation = _custom_binary_impl,
+    attrs = {
+        "src": attr.label(allow_single_file=True),
+    },
+    toolchains = ["//target_skipping/custom_tools:toolchain_type"],
+)
+
+CustomInfo = provider(
+    fields = {
+        "compiler_path": "The path to the compiler binary",
+    },
+)
+
+def _custom_toolchain_impl(ctx):
+    return [platform_common.ToolchainInfo(
+        custom_info = CustomInfo(
+            compiler_path = ctx.attr.compiler_path,
+        ),
+    )]
+
+custom_toolchain = rule(
+    implementation = _custom_toolchain_impl,
+    attrs = {
+        "compiler_path": attr.string(),
+    },
+)
+
+def _compiler_flag_impl(ctx):
+    toolchain = ctx.toolchains["//target_skipping/custom_tools:toolchain_type"].custom_info
+    return [config_common.FeatureFlagInfo(value = toolchain.compiler_path)]
+
+compiler_flag = rule(
+    implementation = _compiler_flag_impl,
+    toolchains = ["//target_skipping/custom_tools:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+)
+EOF
+}
+
 # Validates that we get a good error message when passing a config_setting into
 # the target_compatible_with attribute. This is a regression test for
 # https://github.com/bazelbuild/bazel/issues/13250.
@@ -811,7 +882,15 @@ EOF
 # current platform will not cause an analysis error. This is a regression test
 # for https://github.com/bazelbuild/bazel/issues/12897.
 function test_incompatible_with_missing_toolchain() {
+  set_up_custom_toolchain
+
   cat >> target_skipping/BUILD <<EOF
+load(
+    "//target_skipping/custom_tools:toolchain.bzl",
+    "compiler_flag",
+    "custom_binary",
+)
+
 objc_library(
     name = "objc",
     target_compatible_with = select({
@@ -819,17 +898,48 @@ objc_library(
         "//conditions:default": ["//target_skipping:foo2"],
     }),
 )
+
+custom_binary(
+    name = "custom1",
+    src = "custom.txt",
+    target_compatible_with = ["//target_skipping:foo1"],
+)
+
+compiler_flag(name = "compiler_flag")
+
+config_setting(
+    name = "using_custom_toolchain",
+    flag_values = {
+        ":compiler_flag": "customc",
+    },
+)
+
+custom_binary(
+    name = "custom2",
+    src = "custom.txt",
+    target_compatible_with = select({
+        ":using_custom_toolchain": [":not_compatible"],
+        "//conditions:default": [],
+    }),
+)
+EOF
+
+  cat > target_skipping/custom.txt <<EOF
+This is a custom dummy file.
 EOF
 
   cd target_skipping || fail "couldn't cd into workspace"
 
   bazel build --define=foo=1 \
     --show_result=10 \
+    --extra_toolchains=//target_skipping/custom_tools:custom_foo3_toolchain \
     --host_platform=@//target_skipping:foo3_platform \
     --platforms=@//target_skipping:foo3_platform \
     //target_skipping/... &> "${TEST_log}" \
     || fail "Bazel build failed unexpectedly."
   expect_log 'Target //target_skipping:objc was skipped'
+  expect_log 'Target //target_skipping:custom1 was skipped'
+  expect_log 'Target //target_skipping:custom2 was skipped'
 }
 
 # Validates that a tool compatible with the host platform, but incompatible
