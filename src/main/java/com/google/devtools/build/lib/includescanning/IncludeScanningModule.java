@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -61,6 +62,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -220,7 +224,7 @@ public class IncludeScanningModule extends BlazeModule {
    */
   private static final class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
-    private final BuildRequest buildRequest;
+    private final IncludeScanningOptions options;
 
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
     private IncludeScannerSupplier includeScannerSupplier;
@@ -231,9 +235,8 @@ public class IncludeScanningModule extends BlazeModule {
         BuildRequest buildRequest,
         MutableSupplier<SpawnIncludeScanner> spawnScannerSupplier) {
       this.env = env;
-      this.buildRequest = buildRequest;
+      this.options = buildRequest.getOptions(IncludeScanningOptions.class);
 
-      IncludeScanningOptions options = buildRequest.getOptions(IncludeScanningOptions.class);
       spawnScannerSupplier.set(
           new SpawnIncludeScanner(
               env.getExecRoot(),
@@ -278,15 +281,34 @@ public class IncludeScanningModule extends BlazeModule {
     }
 
     @Override
-    public void executionPhaseEnding() {}
+    public void executionPhaseEnding() {
+      if (options.experimentalReuseIncludeScanningThreads) {
+        if (includePool != null && !includePool.isShutdown()) {
+          ExecutorUtil.uninterruptibleShutdownNow(includePool);
+        }
+        includePool = null;
+      }
+    }
 
     @Override
     public void executorCreated() {
-      IncludeScanningOptions options = buildRequest.getOptions(IncludeScanningOptions.class);
       int threads = options.includeScanningParallelism;
       if (threads > 0) {
         logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
-        includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        if (options.experimentalReuseIncludeScanningThreads) {
+          includePool =
+              new ThreadPoolExecutor(
+                  threads,
+                  threads,
+                  0L,
+                  TimeUnit.SECONDS,
+                  new SynchronousQueue<Runnable>(),
+                  new ThreadFactoryBuilder().setNameFormat("Include scanner" + " %d").build(),
+                  (r, e) -> r.run());
+        } else {
+          includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        }
+
       } else {
         logger.atInfo().log("Include scanning configured to use a direct executor");
         includePool = MoreExecutors.newDirectExecutorService();
