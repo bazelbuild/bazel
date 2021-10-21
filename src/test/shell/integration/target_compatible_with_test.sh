@@ -942,6 +942,30 @@ EOF
   expect_log 'Target //target_skipping:custom2 was skipped'
 }
 
+function test_invalid_deps_are_ignored_when_incompatible() {
+  cat >> target_skipping/BUILD <<EOF
+cc_binary(
+    name = "incompatible_tool",
+    deps = [
+        "//nonexistent_dep",
+    ],
+    target_compatible_with = [
+        ":foo1",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" \
+    || fail "Bazel build failed unexpectedly."
+  expect_log 'Target //target_skipping:incompatible_tool was skipped'
+}
+
 # Validates that a tool compatible with the host platform, but incompatible
 # with the target platform can still be used as a host tool.
 function test_host_tool() {
