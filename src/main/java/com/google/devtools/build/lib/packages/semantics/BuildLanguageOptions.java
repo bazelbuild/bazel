@@ -595,7 +595,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 incompatibleDisableThirdPartyLicenseChecking)
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
-            .setBool(INCOMPATIBLE_DISABLE_DEPSET_ITEMS, incompatibleDisableDepsetItems)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
             .setBool(
                 INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
@@ -663,8 +662,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
       "+incompatible_depset_for_libraries_to_link_getter";
-  public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
-      "+incompatible_disable_depset_items";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
   public static final String INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING =
