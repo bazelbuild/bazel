@@ -878,6 +878,38 @@ EOF
   expect_log '^//target_skipping:pass_on_everything_but_foo1_and_foo2  *  PASSED in'
 }
 
+function test_incompatible_with_aliased_constraint() {
+  cat >> target_skipping/BUILD <<EOF
+alias(
+    name = "also_foo3",
+    actual = ":foo3",
+)
+
+alias(
+    name = "again_foo3",
+    actual = ":foo3",
+)
+
+cc_library(
+    name = "some_library",
+    target_compatible_with = select({
+        ":also_foo3": [":again_foo3"],
+        "//conditions:default": [":not_compatible"],
+    }),
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" \
+    || fail "Bazel build failed unexpectedly."
+  expect_log 'Target //target_skipping:some_library up-to-date'
+}
+
 # Validate that an incompatible target with a toolchain not available for the
 # current platform will not cause an analysis error. This is a regression test
 # for https://github.com/bazelbuild/bazel/issues/12897.
