@@ -281,11 +281,6 @@ dist_http_archive(
 load("@bazelci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
 rbe_preconfig(
-    name = "rbe_ubuntu1604_java8",
-    toolchain = "ubuntu1604-bazel-java8",
-)
-
-rbe_preconfig(
     name = "rbe_ubuntu1804_java11",
     toolchain = "ubuntu1804-bazel-java11",
 )
