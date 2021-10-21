@@ -1456,8 +1456,6 @@ public class PackageFunction implements SkyFunction {
             // as in .bzl files. One can always use a renaming load statement.
             .loadBindsGlobally(true)
             .allowToplevelRebinding(true)
-            .restrictStringEscapes(
-                semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
 
     // parse

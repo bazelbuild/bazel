@@ -202,7 +202,7 @@ platform(
     parents = ["@local_config_platform//:host"],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
+REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
 
 [
     platform(

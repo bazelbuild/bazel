@@ -20,7 +20,7 @@ if [ -d derived/jars ]; then
   ADDITIONAL_JARS=derived/jars
 else
   DISTRIBUTION=${BAZEL_DISTRIBUTION:-debian}
-  ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/java/|g')"
+  ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/|g')"
 fi
 
 # Parse third_party/googleapis/BUILD.bazel to find the proto files we need to compile from googleapis

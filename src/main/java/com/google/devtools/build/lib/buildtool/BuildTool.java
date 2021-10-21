@@ -609,6 +609,7 @@ public class BuildTool {
         env.getReporter().handle(Event.error("Build interrupted during command completion"));
         ie = e;
       }
+      env.getEventBus().post(new CollectMetricsEvent());
       env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(
