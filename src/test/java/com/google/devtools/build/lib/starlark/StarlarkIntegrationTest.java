@@ -3387,8 +3387,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testUnknownStringEscapesForbidden() throws Exception {
-    setBuildLanguageOptions("--incompatible_restrict_string_escapes=true");
-
     scratch.file("test/extension.bzl", "y = \"\\z\"");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3396,17 +3394,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent("invalid escape sequence: \\z");
-  }
-
-  @Test
-  public void testUnknownStringEscapes() throws Exception {
-    setBuildLanguageOptions("--incompatible_restrict_string_escapes=false");
-
-    scratch.file("test/extension.bzl", "y = \"\\z\"");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
   }
 
   @Test

@@ -100,4 +100,16 @@ public class IncludeScanningOptions extends OptionsBase {
               + " \"auto\" means to use a reasonable value derived from the machine's hardware"
               + " profile (e.g. the number of processors).")
   public int includeScanningParallelism;
+
+  @Option(
+      name = "experimental_reuse_include_scanning_threads",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      defaultValue = "false",
+      help = "If enabled core threads of include scanner pool will not die during execution.")
+  public boolean experimentalReuseIncludeScanningThreads;
 }

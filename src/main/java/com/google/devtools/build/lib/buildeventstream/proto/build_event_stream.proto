@@ -1006,6 +1006,35 @@ message BuildMetrics {
   }
 
   BuildGraphMetrics build_graph_metrics = 8;
+
+  // Information about all workers that were alive during the invocation.
+  message WorkerMetrics {
+    // Unique id of worker.
+    int32 worker_id = 1;
+    // Worker process id. If there is no process for worker, equals to zero.
+    uint32 process_id = 2;
+    // Mnemonic of running worker.
+    string mnemonic = 3;
+    // Multiplex or singleplex worker.
+    bool is_multiplex = 4;
+    // Using worker sandbox file system or not.
+    bool is_sandbox = 5;
+    // Shows is worker stats measured at the end of invocation.
+    bool is_measurable = 6;
+
+    // Information collected from worker at some point.
+    message WorkerStats {
+      // Epoch unix time of collection of metrics.
+      int64 collect_time_in_ms = 1;
+      // RSS size of worker process.
+      int32 worker_memory_in_kb = 2;
+    }
+
+    // Combined workers statistics.
+    repeated WorkerStats worker_stats = 7;
+  }
+
+  repeated WorkerMetrics worker_metrics = 9;
 }
 
 // Event providing additional statistics/logs after completion of the build.

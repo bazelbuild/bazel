@@ -1,6 +1,6 @@
 ---
 tasks:
-  centos7:
+  centos7_java11_devtoolset10:
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -42,40 +42,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-  ubuntu1604:
-    shards: 4
-    shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
-    build_flags:
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-    test_flags:
-      - "--sandbox_default_allow_network=false"
-      - "--sandbox_writable_path=$HOME/bazeltest"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-    test_targets:
-      - "//scripts/..."
-      - "//src/java_tools/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//tools/android/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/python/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
   ubuntu1804:
     shards: 4
     shell_commands:
@@ -214,8 +180,6 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/13636
-      - "-//src/test/shell/bazel:stardoc_deps_test"
   windows:
     shards: 4
     batch_commands:
@@ -278,15 +242,15 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote/..."
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
-
-  rbe_ubuntu1604:
+  rbe_ubuntu1804:
+    platform: ubuntu1804
     shell_commands:
       - sed -i.bak
         -e 's/^# android_sdk_repository/android_sdk_repository/'
         -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
     build_flags:
-      - "--config=ubuntu1604_java8"
+      - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_download_outputs=minimal"
@@ -296,7 +260,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
     test_flags:
-      - "--config=ubuntu1604_java8"
+      - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_download_outputs=minimal"

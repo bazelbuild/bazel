@@ -219,6 +219,12 @@ public abstract class MockCcSupport {
 
   public void setupCcToolchainConfig(
       MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
+    setupCcToolchainConfig(config, ImmutableList.of(ccToolchainConfig.build()));
+  }
+
+  void setupCcToolchainConfig(
+      MockToolsConfig config, ImmutableList<CcToolchainConfig> ccToolchainConfigs)
+      throws IOException {
     if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
       config.linkTools(getRealFilesystemTools(crosstoolTopPath));
@@ -227,7 +233,7 @@ public abstract class MockCcSupport {
       new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(getCrosstoolArchs())
-          .setToolchainConfigs(ImmutableList.of(ccToolchainConfig.build()))
+          .setToolchainConfigs(ccToolchainConfigs)
           .setSupportsHeaderParsing(true)
           .write();
     }

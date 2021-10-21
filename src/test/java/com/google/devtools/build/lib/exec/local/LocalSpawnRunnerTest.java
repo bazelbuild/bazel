@@ -200,6 +200,11 @@ public class LocalSpawnRunnerTest {
     public void close() {
       // Do nothing.
     }
+
+    @Override
+    public long getProcessId() {
+      return 0;
+    }
   }
 
   private static final Spawn SIMPLE_SPAWN =
@@ -307,19 +312,20 @@ public class LocalSpawnRunnerTest {
   @Before
   public final void suppressLogging() {
     logger = Logger.getLogger(TestedLocalSpawnRunner.class.getName());
-    logger.setFilter(new Filter() {
-      @Override
-      public boolean isLoggable(LogRecord record) {
-        return false;
-      }
-    });
+    logger.setFilter(
+        new Filter() {
+          @Override
+          public boolean isLoggable(LogRecord record) {
+            return false;
+          }
+        });
   }
 
   private FileSystem setupEnvironmentForFakeExecution() {
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
+        ResourceSet.create(/*memoryMb=*/ 1, /*cpuUsage=*/ 1, /*localTestCount=*/ 1));
     return new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
@@ -639,22 +645,24 @@ public class LocalSpawnRunnerTest {
 
     SubprocessFactory factory = mock(SubprocessFactory.class);
     ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
-    when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(3) {
-      private boolean destroyed;
+    when(factory.create(captor.capture()))
+        .thenReturn(
+            new FinishedSubprocess(3) {
+              private boolean destroyed;
 
-      @Override
-      public boolean destroy() {
-        destroyed = true;
-        return true;
-      }
+              @Override
+              public boolean destroy() {
+                destroyed = true;
+                return true;
+              }
 
-      @Override
-      public void waitFor() throws InterruptedException {
-        if (!destroyed) {
-          throw new InterruptedException();
-        }
-      }
-    });
+              @Override
+              public void waitFor() throws InterruptedException {
+                if (!destroyed) {
+                  throw new InterruptedException();
+                }
+              }
+            });
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
@@ -802,8 +810,10 @@ public class LocalSpawnRunnerTest {
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
 
-    Spawn spawn = new SpawnBuilder("/bin/echo", "Hi!")
-        .withExecutionInfo(ExecutionRequirements.DISABLE_LOCAL_PREFETCH, "").build();
+    Spawn spawn =
+        new SpawnBuilder("/bin/echo", "Hi!")
+            .withExecutionInfo(ExecutionRequirements.DISABLE_LOCAL_PREFETCH, "")
+            .build();
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     runner.execAsync(spawn, policy).get();
     assertThat(policy.prefetchCalled).isFalse();
@@ -834,10 +844,7 @@ public class LocalSpawnRunnerTest {
 
     runner.execAsync(SIMPLE_SPAWN, policy).get();
     verify(localEnvProvider)
-        .rewriteLocalEnv(
-            any(),
-            any(),
-            matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"));
+        .rewriteLocalEnv(any(), any(), matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"));
   }
 
   /**
@@ -906,8 +913,7 @@ public class LocalSpawnRunnerTest {
     return getTemporaryRoot(fs, "execRoot");
   }
 
-
-  private Path getTemporaryEmbeddedBin(FileSystem fs) throws  IOException {
+  private Path getTemporaryEmbeddedBin(FileSystem fs) throws IOException {
     return getTemporaryRoot(fs, "embedded_bin");
   }
 
@@ -935,8 +941,8 @@ public class LocalSpawnRunnerTest {
 
     Path execRoot = getTemporaryExecRoot(fs);
     Path embeddedBinaries = getTemporaryEmbeddedBin(fs);
-    BinTools binTools = BinTools.forEmbeddedBin(embeddedBinaries,
-        ImmutableList.of("process-wrapper"));
+    BinTools binTools =
+        BinTools.forEmbeddedBin(embeddedBinaries, ImmutableList.of("process-wrapper"));
     Path processWrapperPath = binTools.getEmbeddedPath("process-wrapper");
     copyProcessWrapperIntoExecRoot(processWrapperPath);
     Path cpuTimeSpenderPath = copyCpuTimeSpenderIntoExecRoot(execRoot);
@@ -1000,8 +1006,8 @@ public class LocalSpawnRunnerTest {
 
     Path execRoot = getTemporaryExecRoot(fs);
     Path embeddedBinaries = getTemporaryEmbeddedBin(fs);
-    BinTools binTools = BinTools.forEmbeddedBin(embeddedBinaries,
-        ImmutableList.of("process-wrapper"));
+    BinTools binTools =
+        BinTools.forEmbeddedBin(embeddedBinaries, ImmutableList.of("process-wrapper"));
     Path processWrapperPath = binTools.getEmbeddedPath("process-wrapper");
     copyProcessWrapperIntoExecRoot(processWrapperPath);
     Path cpuTimeSpenderPath = copyCpuTimeSpenderIntoExecRoot(execRoot);

@@ -158,7 +158,8 @@ public class WorkerModule extends BlazeModule {
             env.getLocalResourceManager(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE,
-            env.getOptions().getOptions(WorkerOptions.class));
+            env.getOptions().getOptions(WorkerOptions.class),
+            env.getEventBus());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(
