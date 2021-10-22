@@ -75,7 +75,7 @@ else
   else
     cp lib/libdt_socket.so lib/libjdwp.so reduced/lib
   fi
-  GZIP=-9 tar -zcf ../reduced.tgz reduced
+  tar -I '/bin/bash -c "exec gzip -9"' -cf ../reduced.tgz reduced
   cd ..
   mv reduced.tgz "$out"
 fi
