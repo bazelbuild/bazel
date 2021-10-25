@@ -536,7 +536,7 @@ distrib_java_import(
 distrib_java_import(
     name = "rxjava3",
     enable_distributions = ["debian"],
-    jars = ["rxjava3/rxjava-3.0.9.jar"],
+    jars = ["rxjava3/rxjava-3.1.2.jar"],
     exports = [":reactive_streams"],
     deps = [":reactive_streams"],
 )
