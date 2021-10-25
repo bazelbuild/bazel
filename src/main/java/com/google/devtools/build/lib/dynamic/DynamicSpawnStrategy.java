@@ -506,7 +506,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   @FormatMethod
   private void debugLog(String fmt, Object... args) {
-    stepLog(Level.FINE, null, fmt, args);
+    if (options.debugSpawnScheduler) {
+      stepLog(Level.FINE, null, fmt, args);
+    }
   }
 
   @Override
