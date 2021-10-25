@@ -19,7 +19,6 @@ load("//tools/distributions:distribution_rules.bzl", "distrib_cc_binary", "distr
 licenses(["notice"])  # Apache v2
 
 exports_files([
-    "grpc_1.31.1.patch",
     "grpc_1.41.0.patch",
 ])
 
