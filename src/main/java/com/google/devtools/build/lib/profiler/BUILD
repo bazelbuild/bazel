@@ -15,6 +15,7 @@ java_library(
         "CollectLocalResourceUsage.java",
         "MemoryProfiler.java",
         "MetricData.java",
+        "MnemonicData.java",
         "PredicateBasedStatRecorder.java",
         "ProfilePhase.java",
         "Profiler.java",

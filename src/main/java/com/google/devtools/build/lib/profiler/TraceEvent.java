@@ -40,9 +40,10 @@ public abstract class TraceEvent {
       @Nullable Duration duration,
       long threadId,
       @Nullable String primaryOutputPath,
-      @Nullable String targetLabel) {
+      @Nullable String targetLabel,
+      @Nullable String mnemonic) {
     return new AutoValue_TraceEvent(
-        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel);
+        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel, mnemonic);
   }
 
   @Nullable
@@ -65,6 +66,9 @@ public abstract class TraceEvent {
   @Nullable
   public abstract String targetLabel();
 
+  @Nullable
+  public abstract String mnemonic();
+
   private static TraceEvent createFromJsonReader(JsonReader reader) throws IOException {
     String category = null;
     String name = null;
@@ -73,6 +77,7 @@ public abstract class TraceEvent {
     long threadId = -1;
     String primaryOutputPath = null;
     String targetLabel = null;
+    String mnemonic = null;
 
     reader.beginObject();
     while (reader.hasNext()) {
@@ -100,6 +105,8 @@ public abstract class TraceEvent {
           ImmutableMap<String, Object> args = parseMap(reader);
           Object target = args.get("target");
           targetLabel = target instanceof String ? (String) target : null;
+          Object mnemonicValue = args.get("mnemonic");
+          mnemonic = mnemonicValue instanceof String ? (String) mnemonicValue : null;
           break;
         default:
           reader.skipValue();
@@ -107,7 +114,7 @@ public abstract class TraceEvent {
     }
     reader.endObject();
     return TraceEvent.create(
-        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel);
+        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel, mnemonic);
   }
 
   private static ImmutableMap<String, Object> parseMap(JsonReader reader) throws IOException {
