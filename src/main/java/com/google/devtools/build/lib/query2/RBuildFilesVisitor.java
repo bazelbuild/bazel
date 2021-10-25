@@ -173,6 +173,9 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
    * of SkyKeys whose transitive reverse dependencies must contain the exact same set of packages.
    *
    * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
+   *
+   * <p>Note also that we assume there'll be a PackageLookupValue node for some ancestor directory
+   * of every file to which a symlink could possibly point otherwise the file will not be included.
    */
   private static Collection<SkyKey> getSkyKeysForFileFragments(
       WalkableGraph graph, Iterable<PathFragment> pathFragments) throws InterruptedException {
