@@ -311,6 +311,25 @@ java_test(
 )
 
 java_test(
+    name = "KeepGoingTest",
+    srcs = ["KeepGoingTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "LabelCrossesPackageBoundaryTest",
     srcs = ["LabelCrossesPackageBoundaryTest.java"],
     tags = [
