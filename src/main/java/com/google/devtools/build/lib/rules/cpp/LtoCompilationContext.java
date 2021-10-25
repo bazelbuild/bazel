@@ -71,7 +71,7 @@ public final class LtoCompilationContext {
         return false;
       }
       BitcodeInfo that = (BitcodeInfo) o;
-      return minimizedBitcode.equals(that.minimizedBitcode) && copts.equals(that.copts);
+      return Objects.equals(minimizedBitcode, that.minimizedBitcode) && copts.equals(that.copts);
     }
 
     @Override
