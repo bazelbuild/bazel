@@ -30,9 +30,11 @@ jobs:
         # As of 2021, these are chosen to be quite long to make the transition
         # to this bot less disruptive.
         # Later, we might want to reduce the times when this has stabilized.
-        # The number of days old an issue can be before marking it stale.
+        # The number of days since the last update before marking it stale.
         days-before-stale: 365
-        # Number of days of inactivity before a stale issue is closed
+        # Number of days of inactivity before a stale issue is closed.
+        # If there's an update during this period, the bot will remove
+        # the stale label, and the first timer starts again.
         days-before-close: 60
 
         #######################
@@ -53,6 +55,7 @@ jobs:
           It will be closed if no further activity occurs in 60 days.
           Collaborators can keep it open indefinitely by assigning it, or by adding
           the "under investigation" label.
+
           Thanks for your contributions to Bazel!
 
         stale-pr-message: >
@@ -61,14 +64,17 @@ jobs:
           It will be closed if no further activity occurs in 60 days.
           Collaborators can keep it open indefinitely by assigning it, or by adding
           the "under investigation" label.
+
           Thanks for your contributions to Bazel!
 
         close-issue-message: >
           This issue was automatically closed because it went 60 days without a reply
-          since it was labeled "Can Close?"
+          since it was labeled "Can Close?".
+
           Thanks for your contributions to Bazel!
 
         close-pr-message: >
           This PR was automatically closed because it went 60 days without a reply
-          since it was labeled "Can Close?"
+          since it was labeled "Can Close?".
+
           Thanks for your contributions to Bazel!
