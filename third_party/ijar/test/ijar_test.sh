@@ -204,6 +204,8 @@ function test_ijar_output() {
   check_eq 5 $lines "Input jar should have 5 method bodies!"
   lines=$($JAVAP -c -private -classpath $A_INTERFACE_JAR A | grep -c Code: || true)
   check_eq 0 $lines "Interface jar should have no method bodies!"
+  lines=$($JAVAP -c -private -classpath $A_INTERFACE_JAR A | grep native | wc -l)
+  check_eq 3 $lines "Interface jar should have 3 native methods!"
 
   # Check that constants from code are no longer present:
   $JAVAP -c -private -classpath $A_JAR A | grep -sq foofoofoofoo ||

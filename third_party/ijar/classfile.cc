@@ -82,9 +82,10 @@ enum ACCESS {
   ACC_BRIDGE = 0x0040,
   ACC_VOLATILE = 0x0040,
   ACC_TRANSIENT = 0x0080,
+  ACC_NATIVE = 0x0100,
   ACC_INTERFACE = 0x0200,
   ACC_ABSTRACT = 0x0400,
-  ACC_SYNTHETIC = 0x1000
+  ACC_SYNTHETIC = 0x1000,
 };
 
 // See Table 4.7.20-A in Java 8 JVM Spec.
@@ -1764,6 +1765,14 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
       // declaring compilation unit
       continue;
     }
+
+    // Mark non-abstract methods native since we drop the "Code attribute" and
+    // JVMS 4.7.3 says every method is either native or abstract if it doesn't have
+    // the "Code attribute"
+    if ((method->access_flags & ACC_ABSTRACT) != ACC_ABSTRACT) {
+      method->access_flags |= ACC_NATIVE;
+    }
+
     clazz->methods.push_back(method);
   }
 
