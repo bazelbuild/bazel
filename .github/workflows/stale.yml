@@ -1,0 +1,74 @@
+# Automate part of our PR/issue workflow by marking them as stale after
+# a long period of inactivity, and then automatically closing them after
+# another long period.
+#
+# Ideally, we would have resources to merge or close all pull requests
+# and reply and resolve all issues. However as that is never the case,
+# it's better to set contributors' expectations than to leave things
+# open and unreplied forever.
+#
+# See https://github.com/marketplace/actions/close-stale-issues
+
+name: Mark stale issues and pull requests
+
+on:
+  schedule:
+  # run at 00:45 UTC daily
+  - cron: "45 0 * * *"
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/stale@v3
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+        ######################
+        # Time periods
+        # As of 2021, these are chosen to be quite long to make the transition
+        # to this bot less disruptive.
+        # Later, we might want to reduce the times when this has stabilized.
+        # The number of days old an issue can be before marking it stale.
+        days-before-stale: 365
+        # Number of days of inactivity before a stale issue is closed
+        days-before-close: 60
+
+        #######################
+        # Policies for which PRs or issues are considered
+        # If an issue/PR is assigned, trust the assignee to stay involved
+        # We can revisit this if these get stale
+        exempt-all-assignees: true
+        # Issues with these labels will never be considered stale
+        exempt-issue-labels: "under investigation"
+
+        # Label to use when marking an issue as stale
+        stale-issue-label: 'Can Close?'
+        stale-pr-label: 'Can Close?'
+
+        stale-issue-message: >
+          This issue has been automatically marked as stale because it has not had
+          any activity for one year.
+          It will be closed if no further activity occurs in 60 days.
+          Collaborators can keep it open indefinitely by assigning it, or by adding
+          the "under investigation" label.
+          Thanks for your contributions to Bazel!
+
+        stale-pr-message: >
+          This Pull Request has been automatically marked as stale because it has not had
+          any activity for one year.
+          It will be closed if no further activity occurs in 60 days.
+          Collaborators can keep it open indefinitely by assigning it, or by adding
+          the "under investigation" label.
+          Thanks for your contributions to Bazel!
+
+        close-issue-message: >
+          This issue was automatically closed because it went 60 days without a reply
+          since it was labeled "Can Close?"
+          Thanks for your contributions to Bazel!
+
+        close-pr-message: >
+          This PR was automatically closed because it went 60 days without a reply
+          since it was labeled "Can Close?"
+          Thanks for your contributions to Bazel!
