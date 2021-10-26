@@ -347,7 +347,7 @@ java_import(
 distrib_java_import(
     name = "gson",
     enable_distributions = ["debian"],
-    jars = ["gson/gson-2.8.0.jar"],
+    jars = ["gson/gson-2.8.6.jar"],
 )
 
 java_import(
