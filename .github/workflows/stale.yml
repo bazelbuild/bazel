@@ -49,6 +49,13 @@ jobs:
         stale-issue-label: 'Can Close?'
         stale-pr-label: 'Can Close?'
 
+        # Throttling how many GitHub API calls the bot makes.
+        # In practice, this helps repo maintainers by limiting the flood
+        # of notifications as the stale bot catches up with the repo.
+        # This makes it possible to review actions the bot took and proactively
+        # take action on those issues/PRs.
+        operations-per-run: 30
+
         stale-issue-message: >
           This issue has been automatically marked as stale because it has not had
           any activity for one year.
