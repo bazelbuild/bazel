@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -228,13 +227,13 @@ final class DirectoryTree {
           StringBuilder sb = new StringBuilder();
 
           if (!dirname.equals(PathFragment.EMPTY_FRAGMENT)) {
-            sb.append(Strings.repeat("  ", depth));
+            sb.append(" ".repeat(2 * depth));
             sb.append(dirname.getBaseName());
             sb.append("\n");
           }
           if (!files.isEmpty()) {
             for (FileNode file : files) {
-              sb.append(Strings.repeat("  ", depth + 1));
+              sb.append(" ".repeat(2 * (depth + 1)));
               sb.append(formatFile(file));
               sb.append("\n");
             }

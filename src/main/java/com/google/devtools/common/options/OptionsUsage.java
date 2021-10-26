@@ -17,7 +17,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
@@ -57,7 +56,7 @@ class OptionsUsage {
    * wrapping lines at 'width'.  Returns the formatted result.
    */
   static String paragraphFill(String in, int indent, int width) {
-    String indentString = Strings.repeat(" ", indent);
+    String indentString = " ".repeat(indent);
     StringBuilder out = new StringBuilder();
     String sep = "";
     for (String paragraph : NEWLINE_SPLITTER.split(in)) {

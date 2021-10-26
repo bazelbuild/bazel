@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
@@ -152,7 +151,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       synchronized (this) {
         if (checksum == null) {
           if (fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty()) {
-            checksum = Strings.repeat("0", 64); // Make empty build options easy to distinguish.
+            checksum = "0".repeat(64); // Make empty build options easy to distinguish.
           } else {
             Fingerprint fingerprint = new Fingerprint();
             for (FragmentOptions options : fragmentOptionsMap.values()) {

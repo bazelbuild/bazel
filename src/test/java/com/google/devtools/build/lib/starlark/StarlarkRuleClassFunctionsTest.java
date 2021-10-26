@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -278,7 +277,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev,
         "def impl(ctx): return;",
-        "r = rule(impl, attrs = { '" + Strings.repeat("x", 150) + "': attr.int() })");
+        "r = rule(impl, attrs = { '" + "x".repeat(150) + "': attr.int() })");
 
     assertThat(ev.getEventCollector()).hasSize(1);
     Event event = ev.getEventCollector().iterator().next();
