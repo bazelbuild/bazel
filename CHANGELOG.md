@@ -1,3 +1,52 @@
+## Release 6.0.0-pre.20211019.1 (2021-10-26)
+
+```
+Baseline: 406fc1ba5fae98843c99f89a43dcbdbca0d90274
+```
+
+Incompatible changes:
+
+  - Remove `--experimental_profile_cpu_usage`.
+  - flipped --incompatible_java_common_parameters (see #12373)
+
+This release contains contributions from many people at Google, as well as ecngtng, Fabian Meumertzheim, Keith Smiley, Mauricio Galindo, Thaler Benedek.
+
+## Release 5.0.0-pre.20211011.2 (2021-10-20)
+
+```
+Baseline: 3b3bad9e774891856c198738c46d547de954b84a
+
+Cherry picks:
+
+   + d8c23189c9118f99cfc3eaac98976b7c6fdacae0:
+     Automated rollback of commit
+     2571ce2d9e72ee60326ef524fee1702cb2dd07e7.
+```
+
+Incompatible changes:
+
+  - Removed --action_graph from the dump command.
+  - Remove `--{experimental_,}json_trace_compression` option.
+
+Important changes:
+
+  - The --experimental_existing_rules_immutable_view flag has been
+    renamed to  --incompatible_existing_rules_immutable_view
+
+This release contains contributions from many people at Google, as well as Alex Eagle, hvadehra, Keith Smiley, Torgil Svensson, Yuval.
+
+## Release 5.0.0-pre.20211006.1 (2021-10-19)
+
+```
+Baseline: 681886de2901a2f7920288253674927cf13f1585
+```
+
+Important changes:
+
+  - incompatible_disable_depset_items is flipped
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley, Thomas Carmet, Timothe Peignier.
+
 ## Release 5.0.0-pre.20210929.1 (2021-10-07)
 
 ```
