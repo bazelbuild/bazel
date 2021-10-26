@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,45 +15,29 @@
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
- * Dead-simple serialization for {@link String}s.
- *
- * <p>Only used when the more performant {@link UnsafeJdk9StringCodec} is not available.
+ * A high-performance {@link ObjectCodec} for {@link String} objects specialized for Strings in
+ * JDK9+, where a String can be represented as a byte array together with a single byte (0 or 1) for
+ * Latin-1 or UTF16 encoding.
  */
 @VisibleForTesting
-public final class StringCodec implements ObjectCodec<String> {
+public final class UnsafeStringCodec implements ObjectCodec<String> {
 
-  /**
-   * Returns the best available codec for Strings.
-   *
-   * <p>{@link UnsafeJdk9StringCodec} is more performant than {@link StringCodec}, but is only
-   * available on JDK 9+.
-   */
-  @VisibleForTesting
-  public static ObjectCodec<String> getBestAvailable() {
-    return StringUnsafe.canUse()
-        ? new UnsafeJdk9StringCodec(StringUnsafe.getInstance())
-        : new StringCodec();
-  }
+  private final StringUnsafe stringUnsafe = StringUnsafe.getInstance();
 
   @Override
   public Class<String> getEncodedClass() {
     return String.class;
-  }
-
-  @Override
-  public boolean autoRegister() {
-    return false; // StringCodecRegisterer below registers the best available codec.
   }
 
   @Override
@@ -66,23 +50,40 @@ public final class StringCodec implements ObjectCodec<String> {
   }
 
   @Override
-  public void serialize(SerializationContext context, String str, CodedOutputStream codedOut)
-      throws IOException {
-    codedOut.writeStringNoTag(str);
+  public void serialize(SerializationContext context, String obj, CodedOutputStream codedOut)
+      throws SerializationException, IOException {
+    byte coder = stringUnsafe.getCoder(obj);
+    byte[] value = stringUnsafe.getByteArray(obj);
+    // Optimize for the case that coder == 0, in which case we can just write the length here,
+    // potentially using just one byte. If coder != 0, we'll use 4 bytes, but that's vanishingly
+    // rare.
+    if (coder == 0) {
+      codedOut.writeInt32NoTag(value.length);
+    } else if (coder == 1) {
+      codedOut.writeInt32NoTag(-value.length);
+    } else {
+      throw new SerializationException("Unexpected coder value: " + coder + " for " + obj);
+    }
+    codedOut.writeRawBytes(value);
   }
 
   @Override
   public String deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws IOException {
-    return codedIn.readString();
-  }
-
-  @SuppressWarnings("unused") // Used reflectively.
-  private static final class StringCodecRegisterer implements CodecRegisterer {
-
-    @Override
-    public ImmutableList<ObjectCodec<?>> getCodecsToRegister() {
-      return ImmutableList.of(getBestAvailable());
+      throws SerializationException, IOException {
+    int length = codedIn.readInt32();
+    byte coder;
+    if (length >= 0) {
+      coder = 0;
+    } else {
+      coder = 1;
+      length = -length;
+    }
+    byte[] value = codedIn.readRawBytes(length);
+    try {
+      return stringUnsafe.newInstance(value, coder);
+    } catch (ReflectiveOperationException e) {
+      throw new SerializationException(
+          "Could not instantiate string: " + Arrays.toString(value) + ", " + coder, e);
     }
   }
 }
