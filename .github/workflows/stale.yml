@@ -52,8 +52,9 @@ jobs:
         stale-issue-message: >
           This issue has been automatically marked as stale because it has not had
           any activity for one year.
+
           It will be closed if no further activity occurs in 60 days.
-          Collaborators can keep it open indefinitely by assigning it, or by adding
+          People with "Triage" permission can keep it open indefinitely by assigning it, or by adding
           the "under investigation" label.
 
           Thanks for your contributions to Bazel!
@@ -61,8 +62,9 @@ jobs:
         stale-pr-message: >
           This Pull Request has been automatically marked as stale because it has not had
           any activity for one year.
+
           It will be closed if no further activity occurs in 60 days.
-          Collaborators can keep it open indefinitely by assigning it, or by adding
+          People with "Triage" permission can keep it open indefinitely by assigning it, or by adding
           the "under investigation" label.
 
           Thanks for your contributions to Bazel!
