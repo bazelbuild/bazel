@@ -22,14 +22,17 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
-/** Utility methods for Objc rules in Starlark Builtins */
+/** Utility methods for rules in Starlark Builtins */
 @StarlarkBuiltin(name = "cc_internal", category = DocCategory.BUILTIN, documented = false)
 public class CcStarlarkInternal implements StarlarkValue {
 
@@ -95,5 +98,46 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {})
   public Provider getPackageGroupInfo() {
     return PackageGroupConfiguredTarget.PROVIDER;
+  }
+
+  @StarlarkMethod(
+      name = "strip",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", named = true, positional = false),
+        @Param(name = "toolchain", named = true, positional = false),
+        @Param(name = "input", named = true, positional = false),
+        @Param(name = "output", named = true, positional = false),
+        @Param(name = "feature_configuration", named = true, positional = false),
+      })
+  public void createStripAction(
+      StarlarkRuleContext ctx,
+      CcToolchainProvider toolchain,
+      Artifact input,
+      Artifact output,
+      FeatureConfigurationForStarlark featureConfig)
+      throws EvalException, RuleErrorException {
+    CppHelper.createStripAction(
+        ctx.getRuleContext(),
+        toolchain,
+        ctx.getRuleContext().getFragment(CppConfiguration.class),
+        input,
+        output,
+        featureConfig.getFeatureConfiguration());
+  }
+
+  @StarlarkMethod(
+      name = "get_build_info",
+      documented = false,
+      parameters = {@Param(name = "ctx")})
+  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext)
+      throws EvalException, InterruptedException {
+    return StarlarkList.immutableCopyOf(
+        ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
+  }
+
+  @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
+  public ProviderApi getCcLauncherInfoProvider() throws EvalException {
+    return CcLauncherInfo.PROVIDER;
   }
 }

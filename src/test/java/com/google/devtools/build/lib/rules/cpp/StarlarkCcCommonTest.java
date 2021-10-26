@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -7469,92 +7467,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             ")");
   }
 
-  @Test
-  public void testBuildInfoArtifacts() throws Exception {
-    scratch.file(
-        "bazel_internal/test_rules/cc/rule.bzl",
-        "def _impl(ctx):",
-        "  artifacts = cc_common.get_build_info(ctx)",
-        "  return [DefaultInfo(files = depset(artifacts))]",
-        "build_info_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'stamp': attr.int()},",
-        ")");
-    scratch.file(
-        "bazel_internal/test_rules/cc/BUILD",
-        "load(':rule.bzl', 'build_info_rule')",
-        "build_info_rule(name = 'stamped', stamp = 1,)",
-        "build_info_rule(name = 'unstamped', stamp = 0,)");
-    assertThat(
-            prettyArtifactNames(
-                getConfiguredTarget("//bazel_internal/test_rules/cc:stamped")
-                    .getProvider(FileProvider.class)
-                    .getFilesToBuild()))
-        .containsExactly("build-info-nonvolatile.h", "build-info-volatile.h");
-    assertThat(
-            prettyArtifactNames(
-                getConfiguredTarget("//bazel_internal/test_rules/cc:unstamped")
-                    .getProvider(FileProvider.class)
-                    .getFilesToBuild()))
-        .containsExactly("build-info-redacted.h");
-  }
-
-  @Test
-  public void testGetLauncherProviderIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  cc_common.launcher_provider()",
-        "  return []",
-        "build_info_rule = rule(implementation = _impl,)");
-    scratch.file(
-        "foo/BUILD",
-        //
-        "load(':rule.bzl', 'build_info_rule')",
-        "build_info_rule(name = 'bar',)");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bar"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testCreateStripActionIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  toolchain = ctx.attr.cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(",
-        "      ctx = ctx,",
-        "      cc_toolchain = toolchain,",
-        "      requested_features = ctx.features,",
-        "      unsupported_features = ctx.disabled_features,",
-        "  )",
-        "  cc_common.strip(",
-        "    ctx = ctx,",
-        "    toolchain = toolchain,",
-        "    input = ctx.actions.declare_file('in'),",
-        "    output = ctx.actions.declare_file('out'),",
-        "    feature_configuration = feature_configuration",
-        "  )",
-        "  return []",
-        "strip_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'cc_toolchain' : attr.label()},",
-        "  fragments= ['cpp']",
-        ")");
-    scratch.file(
-        "foo/BUILD",
-        "load(':rule.bzl', 'strip_rule')",
-        "",
-        "cc_toolchain_alias(name = 'tc')",
-        "strip_rule(",
-        "  name = 'bar',",
-        "  cc_toolchain = ':tc',",
-        ")");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bar"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
-  }
 
   @Test
   public void testMissingToolchainAndFeatureConfigurationRaisesErrorInCreateLibraryToLink()
