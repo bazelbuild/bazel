@@ -879,17 +879,13 @@ public class ExecutionTool {
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    ResourceSet resources;
-    resources = ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
+    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
-
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            resources.getMemoryMb(),
-            resources.getCpuUsage(),
-            request.getExecutionOptions().usingLocalTestJobs()
-                ? request.getExecutionOptions().localTestJobs
-                : Integer.MAX_VALUE));
+            options.localRamResources,
+            options.localCpuResources,
+            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 
   /**

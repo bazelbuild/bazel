@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -136,7 +137,12 @@ public class LocalSpawnRunner implements SpawnRunner {
       ActionExecutionMetadata owner = spawn.getResourceOwner();
       context.report(SpawnSchedulingEvent.create(getName()));
       try (ResourceHandle handle =
-          resourceManager.acquireResources(owner, spawn.getLocalResources())) {
+          resourceManager.acquireResources(
+              owner,
+              spawn.getLocalResources(),
+              context.speculating()
+                  ? ResourcePriority.DYNAMIC_STANDALONE
+                  : ResourcePriority.LOCAL)) {
         context.report(SpawnExecutingEvent.create(getName()));
         if (!localExecutionOptions.localLockfreeOutput) {
           context.lockOutputFiles();
