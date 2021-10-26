@@ -187,6 +187,10 @@ for more details.
 `load` statements are currently not subject to visibility. It is possible to
 load a `bzl` file anywhere in the workspace.
 
+However, users may choose to run the Buildifier linter.
+The [bzl-visibility](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility) check
+provides a warning if users `load` from beneath a subdirectory named `internal` or `private`.
+
 ## Visibility of implicit dependencies
 
 Some rules have implicit dependencies. For example, a C++ rule might implicitly
