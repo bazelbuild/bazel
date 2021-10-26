@@ -413,15 +413,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleNoAttrLicense;
 
   @Option(
-      name = "incompatible_applicable_licenses",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op")
-  public boolean incompatibleApplicableLicenses;
-
-  @Option(
       name = "incompatible_no_implicit_file_export",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
