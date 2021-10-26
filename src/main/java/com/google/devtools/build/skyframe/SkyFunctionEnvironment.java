@@ -56,12 +56,6 @@ import javax.annotation.Nullable;
 class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final SkyValue NULL_MARKER = new SkyValue() {};
-  private static final boolean PREFETCH_OLD_DEPS =
-      Boolean.parseBoolean(
-          System.getProperty("skyframe.ParallelEvaluator.PrefetchOldDeps", "true"));
-  private static final boolean PREFETCH_AND_RETAIN_OLD_DEPS =
-      Boolean.parseBoolean(
-          System.getProperty("skyframe.SkyFunctionEnvironment.PrefetchAndRetainOldDeps", "false"));
 
   private boolean building = true;
   private SkyKey depErrorKey = null;
@@ -96,14 +90,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * map.
    */
   @Nullable private final Map<SkyKey, ValueWithMetadata> bubbleErrorInfo;
-
-  /**
-   * The current entries of the direct deps this node had at the previous version.
-   *
-   * <p>Used only when {@link #PREFETCH_AND_RETAIN_OLD_DEPS} is {@code true}, and used only for the
-   * values stored in the entries; do not do any NodeEntry operations on these.
-   */
-  private ImmutableMap<SkyKey, ? extends NodeEntry> oldDepsEntries = ImmutableMap.of();
 
   /**
    * The values previously declared as dependencies.
@@ -221,21 +207,15 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private ImmutableMap<SkyKey, SkyValue> batchPrefetch(
       SkyKey requestor, GroupedList<SkyKey> depKeys, Set<SkyKey> oldDeps, boolean assertDone)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
-    QueryableGraph.PrefetchDepsRequest request = null;
-    if (PREFETCH_OLD_DEPS) {
-      request = new QueryableGraph.PrefetchDepsRequest(requestor, oldDeps, depKeys);
-      evaluatorContext.getGraph().prefetchDeps(request);
-    } else if (PREFETCH_AND_RETAIN_OLD_DEPS) {
-      // TODO(b/175215425): Make PREFETCH_AND_RETAIN_OLD_DEPS the only behavior.
-      this.oldDepsEntries =
-          ImmutableMap.copyOf(evaluatorContext.getBatchValues(requestor, Reason.PREFETCH, oldDeps));
-    }
+    QueryableGraph.PrefetchDepsRequest prefetchDepsRequest =
+        new QueryableGraph.PrefetchDepsRequest(requestor, oldDeps, depKeys);
+    evaluatorContext.getGraph().prefetchDeps(prefetchDepsRequest);
     Map<SkyKey, ? extends NodeEntry> batchMap =
         evaluatorContext.getBatchValues(
             requestor,
             Reason.PREFETCH,
-            (request != null && request.excludedKeys != null)
-                ? request.excludedKeys
+            prefetchDepsRequest.excludedKeys != null
+                ? prefetchDepsRequest.excludedKeys
                 : depKeys.getAllElementsAsIterable());
     if (batchMap.size() != depKeys.numElements()) {
       Set<SkyKey> difference = Sets.difference(depKeys.toSet(), batchMap.keySet());
@@ -476,7 +456,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@link #bubbleErrorInfo}
    *   <li>{@link #previouslyRequestedDepsValues}
    *   <li>{@link #newlyRequestedDepsValues}
-   *   <li>{@link #oldDepsEntries}
    *   <li>{@link #evaluatorContext}'s graph accessing methods
    * </ol>
    *
@@ -560,7 +539,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@code bubbleErrorInfo}
    *   <li>{@link #previouslyRequestedDepsValues}
    *   <li>{@link #newlyRequestedDepsValues}
-   *   <li>{@link #oldDepsEntries}
    * </ol>
    *
    * <p>Returns {@code null} if no entries for {@code key} were found in any of those three maps.
@@ -581,10 +559,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     SkyValue newlyRequestedDepsValue = newlyRequestedDepsValues.get(key);
     if (newlyRequestedDepsValue != null) {
       return newlyRequestedDepsValue;
-    }
-    SkyValue oldDepsValueOrNullMarker = getValueOrNullMarker(oldDepsEntries.get(key));
-    if (oldDepsValueOrNullMarker != NULL_MARKER) {
-      return oldDepsValueOrNullMarker;
     }
     return null;
   }
