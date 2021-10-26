@@ -1,3 +1,16 @@
+## Release 6.0.0-pre.20211019.1 (2021-10-26)
+
+```
+Baseline: 406fc1ba5fae98843c99f89a43dcbdbca0d90274
+```
+
+Incompatible changes:
+
+  - Remove `--experimental_profile_cpu_usage`.
+  - flipped --incompatible_java_common_parameters (see #12373)
+
+This release contains contributions from many people at Google, as well as ecngtng, Fabian Meumertzheim, Keith Smiley, Mauricio Galindo, Thaler Benedek.
+
 ## Release 5.0.0-pre.20211011.2 (2021-10-20)
 
 ```
