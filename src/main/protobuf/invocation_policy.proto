@@ -100,18 +100,8 @@ message SetValue {
   // may fail to parse or result in an unexpected value.
   repeated string flag_value = 1;
 
-  // Whether to allow this policy to be overridden by user-specified values.
-  // When set, if the user specified a value for this flag, use the value
-  // from the user, otherwise use the value specified in this policy.
-  // This value is redundant to behavior -- please keep it in sync with it.
-  optional bool overridable = 2;
-
-  // If true, and if the flag named in the policy is a repeatable flag, then
-  // the values listed in flag_value do not replace all the user-set or default
-  // values of the flag, but instead append to them. If the flag is not
-  // repeatable, then this has no effect.
-  // This value is redundant to behavior -- please keep it in sync with it.
-  optional bool append = 3;
+  // Obsolete overridable and append fields.
+  reserved 2, 3;
 
   enum Behavior {
     UNDEFINED = 0;
@@ -134,8 +124,6 @@ message SetValue {
   // For the time being, it coexists with overridable and append with duplicate
   // semantics.Please fill both of the values as we migrate to use behavior
   // only.
-  // TODO(b/186167747): Deprecate and remove append and overridable flag in
-  // favor of this one.
   optional Behavior behavior = 4;
 }
 
