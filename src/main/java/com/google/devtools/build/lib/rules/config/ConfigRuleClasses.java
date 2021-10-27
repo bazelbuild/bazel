@@ -182,10 +182,6 @@ public class ConfigRuleClasses {
              <code>bazel build --copt=foo --copt=bar --copt=baz ...</code>), a match occurs if
              <i>any</i> of those settings match.
           <p>
-
-          <p>This and <a href="${link config_setting.define_values}"><code>define_values</code></a>
-             cannot both be empty.
-          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(SETTINGS_ATTRIBUTE, STRING_DICT)
