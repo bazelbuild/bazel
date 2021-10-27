@@ -53,7 +53,8 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
 
     return include_dirs
 
-def _compile_cc_file(repository_ctx, src_name, out_name):
+# TODO: Remove once Xcode 12 is the minimum supported version
+def _compile_cc_file_single_arch(repository_ctx, src_name, out_name):
     env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
@@ -82,6 +83,56 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
         fail(out_name + " failed to generate. Please file an issue at " +
              "https://github.com/bazelbuild/bazel/issues with the following:\n" +
              error_msg)
+
+def _compile_cc_file(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
+    xcrun_result = repository_ctx.execute([
+        "env",
+        "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-mmacosx-version-min=10.9",
+        "-std=c++11",
+        "-lc++",
+        "-arch",
+        "arm64",
+        "-arch",
+        "x86_64",
+        "-Wl,-no_adhoc_codesign",
+        "-O3",
+        "-o",
+        out_name,
+        src_name,
+    ], 30)
+
+    if xcrun_result.return_code == 0:
+        xcrun_result = repository_ctx.execute([
+            "env",
+            "-i",
+            "codesign",
+            "--identifier",  # Required to be reproducible across archs
+            out_name,
+            "--force",
+            "--sign",
+            "-",
+            out_name,
+        ], 30)
+        if xcrun_result.return_code != 0:
+            error_msg = (
+                "codesign return code {code}, stderr: {err}, stdout: {out}"
+            ).format(
+                code = xcrun_result.return_code,
+                err = xcrun_result.stderr,
+                out = xcrun_result.stdout,
+            )
+            fail(out_name + " failed to generate. Please file an issue at " +
+                 "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+                 error_msg)
+    else:
+        _compile_cc_file_single_arch(repository_ctx, src_name, out_name)
 
 def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on macOS.
