@@ -1,4 +1,4 @@
-# Copy this file to replace the original WORKSPACE file.
+# Replace the original WORKSPACE file with this file to build Bazel with bzlmod.
 # We still need the bind rules to make protobuf work.
 workspace(name = "io_bazel")
 

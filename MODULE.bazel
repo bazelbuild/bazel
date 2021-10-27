@@ -4,7 +4,7 @@
 
 module(
   name = "bazel",
-  version = "5.0.0-pre",
+  version = "6.0.0-pre",
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.0.3")
