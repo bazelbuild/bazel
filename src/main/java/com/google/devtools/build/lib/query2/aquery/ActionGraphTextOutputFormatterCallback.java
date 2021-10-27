@@ -47,6 +47,7 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -264,7 +265,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* environment= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
-                  action.getExecutionPlatform()))
+                  action.getExecutionPlatform() == null
+                      ? null
+                      : Objects.toString(action.getExecutionPlatform().label())))
           .append("\n");
     }
 
