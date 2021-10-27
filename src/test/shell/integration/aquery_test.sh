@@ -1406,6 +1406,89 @@ EOF
   expect_log "-fastbuild: 1"
 }
 
+function test_aquery_include_template_substitution_for_template_expand_of_py_binary() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+py_binary(
+    name='foo',
+    srcs=['foo.py']
+)
+EOF
+
+  # aquery returns template content and substitutions in TemplateExpand actions
+  # of py_binary targets.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "PYTHON_BINARY = '%python_binary%'" output
+  assert_contains "{%python_binary%:" output
+
+  bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "\"templateContent\":" output
+  assert_contains "\"key\": \"%python_binary%\"" output
+}
+
+function test_aquery_include_template_substitution_for_template_expand_action() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  cat > "$pkg/template.txt" <<'EOF'
+The token should be substituted: {TOKEN1}
+EOF
+
+  cat > "$pkg/test.bzl" <<'EOF'
+def test_template(**kwargs):
+    _test_template(
+        **kwargs
+    )
+def _test_template_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.template,
+        output = ctx.outputs.output,
+        substitutions = {
+            "{TOKEN1}": "123456",
+        },
+    )
+_test_template = rule(
+    implementation = _test_template_impl,
+    attrs = {
+        "template": attr.label(
+            allow_single_file = True,
+        ),
+        "output": attr.output(mandatory = True),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load('test.bzl', 'test_template')
+test_template(name='foo', template='template.txt', output='output.txt')
+EOF
+
+  # aquery returns template content and substitutions of TemplateExpand actions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Template: ARTIFACT: $pkg/template.txt" output
+  assert_contains "{{TOKEN1}: 123456}" output
+
+  bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "\"templateContent\": \"ARTIFACT: $pkg/template.txt\"" output
+  assert_contains "\"key\": \"{TOKEN1}\"" output
+  assert_contains "\"value\": \"123456\"" output
+}
+
 # Usage: assert_matches expected_pattern actual
 function assert_matches() {
   [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"
