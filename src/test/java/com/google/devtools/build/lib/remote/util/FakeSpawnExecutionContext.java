@@ -123,7 +123,12 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public ArtifactExpander getArtifactExpander() {
-    throw new UnsupportedOperationException();
+    return this::artifactExpander;
+  }
+
+  @Override
+  public SpawnInputExpander getSpawnInputExpander() {
+    return new SpawnInputExpander(execRoot, /*strict*/ false);
   }
 
   @Override
@@ -139,7 +144,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   @Override
   public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
       throws IOException, ForbiddenActionInputException {
-    return new SpawnInputExpander(execRoot, /*strict*/ false)
+    return getSpawnInputExpander()
         .getInputMapping(spawn, this::artifactExpander, baseDirectory, metadataProvider);
   }
 
