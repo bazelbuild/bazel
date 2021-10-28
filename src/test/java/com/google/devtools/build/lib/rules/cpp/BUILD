@@ -212,6 +212,7 @@ java_test(
 
 java_test(
     name = "CcLibraryConfiguredTargetTest",
+    timeout = "long",
     srcs = ["CcLibraryConfiguredTargetTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
