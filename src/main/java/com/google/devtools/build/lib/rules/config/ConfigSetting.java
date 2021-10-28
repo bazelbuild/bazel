@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
@@ -148,7 +148,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   public void addRuleImplSpecificRequiredConfigFragments(
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       AttributeMap attributes,
-      BuildConfiguration configuration) {
+      BuildConfigurationValue configuration) {
     // values
     attributes
         .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT)

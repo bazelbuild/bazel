@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -46,7 +46,7 @@ public abstract class Dependency {
     public abstract Builder setLabel(Label label);
 
     /** Sets the configuration intended for this dependency. */
-    public abstract Builder setConfiguration(BuildConfiguration configuration);
+    public abstract Builder setConfiguration(BuildConfigurationValue configuration);
 
     /** Explicitly set the configuration for this dependency to null. */
     public Builder withNullConfiguration() {
@@ -92,7 +92,7 @@ public abstract class Dependency {
     protected abstract Label getLabel();
 
     @Nullable
-    protected abstract BuildConfiguration getConfiguration();
+    protected abstract BuildConfigurationValue getConfiguration();
 
     protected abstract AspectCollection getAspects();
 
@@ -120,7 +120,7 @@ public abstract class Dependency {
 
   /** Returns the explicit configuration intended for this dependency. */
   @Nullable
-  public abstract BuildConfiguration getConfiguration();
+  public abstract BuildConfigurationValue getConfiguration();
 
   /**
    * Returns the set of aspects which should be evaluated and combined with the configured target
@@ -132,7 +132,7 @@ public abstract class Dependency {
 
   /** Returns the configuration an aspect should be evaluated with. */
   @Nullable
-  public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
+  public BuildConfigurationValue getAspectConfiguration(AspectDescriptor aspect) {
     return getConfiguration();
   }
 

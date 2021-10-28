@@ -25,7 +25,7 @@ import java.util.Objects;
 
 /**
  * Encapsulation of {@link BuildEvent} info associated with a {@link
- * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
+ * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
  */
 @AutoCodec
 public class BuildConfigurationEvent implements BuildEvent {

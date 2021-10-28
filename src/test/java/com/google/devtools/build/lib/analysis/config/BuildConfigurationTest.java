@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
@@ -36,9 +35,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link BuildConfiguration}.
- */
+/** Tests for {@link BuildConfigurationValue}. */
 @RunWith(JUnit4.class)
 public class BuildConfigurationTest extends ConfigurationTestCase {
 
@@ -48,7 +45,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       return;
     }
 
-    BuildConfiguration config = create("--cpu=piii");
+    BuildConfigurationValue config = create("--cpu=piii");
     String outputDirPrefix =
         outputBase + "/execroot/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
 
@@ -68,7 +65,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       return;
     }
 
-    BuildConfiguration config = create("--platform_suffix=test");
+    BuildConfigurationValue config = create("--platform_suffix=test");
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(
             outputBase
@@ -96,11 +93,11 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     }
 
     BuildConfigurationCollection configs = createCollection("--cpu=piii");
-    BuildConfiguration config = Iterables.getOnlyElement(configs.getTargetConfigurations());
+    BuildConfigurationValue config = Iterables.getOnlyElement(configs.getTargetConfigurations());
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
 
-    BuildConfiguration hostConfig = configs.getHostConfiguration();
+    BuildConfigurationValue hostConfig = configs.getHostConfiguration();
     assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
   }
@@ -159,25 +156,25 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testTargetEnvironment() throws Exception {
-    BuildConfiguration oneEnvConfig = create("--target_environment=//foo");
+    BuildConfigurationValue oneEnvConfig = create("--target_environment=//foo");
     assertThat(oneEnvConfig.getTargetEnvironments())
         .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
 
-    BuildConfiguration twoEnvsConfig =
+    BuildConfigurationValue twoEnvsConfig =
         create("--target_environment=//foo", "--target_environment=//bar");
     assertThat(twoEnvsConfig.getTargetEnvironments())
         .containsExactly(
             Label.parseAbsolute("//foo", ImmutableMap.of()),
             Label.parseAbsolute("//bar", ImmutableMap.of()));
 
-    BuildConfiguration noEnvsConfig = create();
+    BuildConfigurationValue noEnvsConfig = create();
     assertThat(noEnvsConfig.getTargetEnvironments()).isEmpty();
   }
 
   @Test
   public void testGlobalMakeVariableOverride() throws Exception {
     assertThat(create().getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fastbuild");
-    BuildConfiguration config = create("--define", "COMPILATION_MODE=fluttershy");
+    BuildConfigurationValue config = create("--define", "COMPILATION_MODE=fluttershy");
     assertThat(config.getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fluttershy");
   }
 
@@ -203,9 +200,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testConfigFragmentsAreShareableAcrossConfigurations() throws Exception {
     // Note we can't use any fragments that load files (e.g. CROSSTOOL) because those get
     // Skyframe-invalidated between create() calls.
-    BuildConfiguration config1 = create("--javacopt=foo");
-    BuildConfiguration config2 = create("--javacopt=bar");
-    BuildConfiguration config3 = create("--j2objc_translation_flags=baz");
+    BuildConfigurationValue config1 = create("--javacopt=foo");
+    BuildConfigurationValue config2 = create("--javacopt=bar");
+    BuildConfigurationValue config3 = create("--j2objc_translation_flags=baz");
     // Shared because all j2objc options are the same:
     assertThat(config1.getFragment(J2ObjcConfiguration.class))
         .isSameInstanceAs(config2.getFragment(J2ObjcConfiguration.class));
@@ -216,8 +213,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testCommandLineVariables() throws Exception {
-    BuildConfiguration config = create(
-        "--define", "a=b/c:d", "--define", "b=FOO", "--define", "DEFUN=Nope");
+    BuildConfigurationValue config =
+        create("--define", "a=b/c:d", "--define", "b=FOO", "--define", "DEFUN=Nope");
     assertThat(config.getCommandLineBuildVariables().get("a")).isEqualTo("b/c:d");
     assertThat(config.getCommandLineBuildVariables().get("b")).isEqualTo("FOO");
     assertThat(config.getCommandLineBuildVariables().get("DEFUN")).isEqualTo("Nope");
@@ -227,14 +224,14 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   // "--define in blazerc overrides --define from command line"
   @Test
   public void testCommandLineVariablesOverride() throws Exception {
-    BuildConfiguration config = create("--define", "a=b", "--define", "a=c");
+    BuildConfigurationValue config = create("--define", "a=b", "--define", "a=c");
     assertThat(config.getCommandLineBuildVariables().get("a")).isEqualTo("c");
   }
 
   @Test
   public void testNormalization_definesWithSameName_collapseDuplicateDefinesDisabled()
       throws Exception {
-    BuildConfiguration config =
+    BuildConfigurationValue config =
         create("--nocollapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableListMultimap.copyOf(options.commandLineBuildVariables))
@@ -245,7 +242,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testNormalization_definesWithDifferentNames() throws Exception {
-    BuildConfiguration config =
+    BuildConfigurationValue config =
         create("--collapse_duplicate_defines", "--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
@@ -254,7 +251,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testNormalization_definesWithSameName() throws Exception {
-    BuildConfiguration config =
+    BuildConfigurationValue config =
         create("--collapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
@@ -265,13 +262,14 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   // semantics.
   @Test
   public void testCommandLineVariablesWithFunnyCharacters() throws Exception {
-    BuildConfiguration config = create(
-        "--define", "foo=#foo",
-        "--define", "comma=a,b",
-        "--define", "space=foo bar",
-        "--define", "thing=a \"quoted\" thing",
-        "--define", "qspace=a\\ quoted\\ space",
-        "--define", "#a=pounda");
+    BuildConfigurationValue config =
+        create(
+            "--define", "foo=#foo",
+            "--define", "comma=a,b",
+            "--define", "space=foo bar",
+            "--define", "thing=a \"quoted\" thing",
+            "--define", "qspace=a\\ quoted\\ space",
+            "--define", "#a=pounda");
     assertThat(config.getCommandLineBuildVariables().get("foo")).isEqualTo("#foo");
     assertThat(config.getCommandLineBuildVariables().get("comma")).isEqualTo("a,b");
     assertThat(config.getCommandLineBuildVariables().get("space")).isEqualTo("foo bar");
@@ -282,33 +280,33 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testHostDefine() throws Exception {
-    BuildConfiguration cfg = createHost("--define=foo=bar");
+    BuildConfigurationValue cfg = createHost("--define=foo=bar");
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
   }
 
   @Test
   public void testHostCompilationModeDefault() throws Exception {
-    BuildConfiguration cfg = createHost();
+    BuildConfigurationValue cfg = createHost();
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 
   @Test
   public void testHostCompilationModeNonDefault() throws Exception {
-    BuildConfiguration cfg = createHost("--host_compilation_mode=dbg");
+    BuildConfigurationValue cfg = createHost("--host_compilation_mode=dbg");
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.DBG);
   }
 
   @Test
   public void testIncompatibleMergeGenfilesDirectory() throws Exception {
-    BuildConfiguration target = create("--incompatible_merge_genfiles_directory");
-    BuildConfiguration host = createHost("--incompatible_merge_genfiles_directory");
+    BuildConfigurationValue target = create("--incompatible_merge_genfiles_directory");
+    BuildConfigurationValue host = createHost("--incompatible_merge_genfiles_directory");
     assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
         .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
     assertThat(host.getGenfilesDirectory(RepositoryName.MAIN))
         .isEqualTo(host.getBinDirectory(RepositoryName.MAIN));
   }
 
-  private ImmutableList<BuildConfiguration> getTestConfigurations() throws Exception {
+  private ImmutableList<BuildConfigurationValue> getTestConfigurations() throws Exception {
     return ImmutableList.of(
         create(),
         create("--cpu=piii"),
@@ -361,7 +359,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testKeyCodec() throws Exception {
     new SerializationTester(
             getTestConfigurations().stream()
-                .map(BuildConfigurationValue::key)
+                .map(BuildConfigurationValue::getKey)
                 .collect(ImmutableList.toImmutableList()))
         .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
         .runTests();
@@ -369,7 +367,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir_defaultPlatform() throws Exception {
-    BuildConfiguration config = create("--experimental_platform_in_output_dir", "--cpu=k8");
+    BuildConfigurationValue config = create("--experimental_platform_in_output_dir", "--cpu=k8");
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/k8-fastbuild");
@@ -377,7 +375,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testPlatformInOutputDir() throws Exception {
-    BuildConfiguration config =
+    BuildConfigurationValue config =
         create("--experimental_platform_in_output_dir", "--platforms=//platform:alpha");
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
@@ -385,13 +383,14 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   /**
-   * Partial verification of deserialized BuildConfiguration.
+   * Partial verification of deserialized BuildConfigurationValue.
    *
    * <p>Direct comparison of deserialized to subject doesn't work because Fragment classes do not
-   * implement equals. This runs the part of BuildConfiguration.equals that has equals definitions.
+   * implement equals. This runs the part of BuildConfigurationValue.equals that has equals
+   * definitions.
    */
   private static void verifyDeserialized(
-      BuildConfiguration subject, BuildConfiguration deserialized) {
+      BuildConfigurationValue subject, BuildConfigurationValue deserialized) {
     assertThat(deserialized.getOptions()).isEqualTo(subject.getOptions());
   }
 }

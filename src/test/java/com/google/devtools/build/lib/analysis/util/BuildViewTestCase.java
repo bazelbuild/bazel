@@ -88,8 +88,8 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -146,7 +146,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -219,7 +219,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationCollection masterConfig;
-  protected BuildConfiguration targetConfig; // "target" or "build" config
+  protected BuildConfigurationValue targetConfig; // "target" or "build" config
   private List<String> configurationArgs;
 
   protected OptionsParser optionsParser;
@@ -234,7 +234,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private MutableActionGraph mutableActionGraph;
 
   private LoadingOptions customLoadingOptions = null;
-  protected BuildConfigurationValue.Key targetConfigKey;
+  protected BuildConfigurationKey targetConfigKey;
 
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
@@ -613,7 +613,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     masterConfig = createConfigurations(starlarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();
-    targetConfigKey = BuildConfigurationValue.key(targetConfig);
+    targetConfigKey = targetConfig.getKey();
     configurationArgs = actualArgs;
     createBuildView();
   }
@@ -725,8 +725,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * contained within the {@link BuildOptions} inside the given configurations.
    */
   protected static void assertConfigurationsEqual(
-      BuildConfiguration config1,
-      BuildConfiguration config2,
+      BuildConfigurationValue config1,
+      BuildConfigurationValue config2,
       Set<Class<? extends FragmentOptions>> excludeFragmentOptions) {
     // BuildOptions and crosstool files determine a configuration's content. Within the context
     // of these tests only the former actually change.
@@ -736,7 +736,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected static void assertConfigurationsEqual(
-      BuildConfiguration config1, BuildConfiguration config2) {
+      BuildConfigurationValue config1, BuildConfigurationValue config2) {
     assertConfigurationsEqual(config1, config2, /*excludeFragmentOptions=*/ ImmutableSet.of());
   }
 
@@ -973,7 +973,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * configuration. If the label corresponds to a target with a top-level configuration transition,
    * that transition is applied to the given config in the returned ConfiguredTarget.
    *
-   * <p>May return null on error; see {@link #getConfiguredTarget(Label, BuildConfiguration)}.
+   * <p>May return null on error; see {@link #getConfiguredTarget(Label, BuildConfigurationValue)}.
    */
   @Nullable
   public ConfiguredTarget getConfiguredTarget(String label) throws LabelSyntaxException {
@@ -985,10 +985,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the label corresponds to a target with a top-level configuration transition, that transition is
    * applied to the given config in the returned ConfiguredTarget.
    *
-   * <p>May return null on error; see {@link #getConfiguredTarget(Label, BuildConfiguration)}.
+   * <p>May return null on error; see {@link #getConfiguredTarget(Label, BuildConfigurationValue)}.
    */
   @Nullable
-  protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
+  protected ConfiguredTarget getConfiguredTarget(String label, BuildConfigurationValue config)
       throws LabelSyntaxException {
     return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
   }
@@ -1008,7 +1008,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // TODO(bazel-team): Should we work around b/26382502 by asserting here that the result is not
   // null?
   @Nullable
-  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
+  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue config) {
     try {
       return view.getConfiguredTargetForTesting(
           reporter, BlazeTestUtils.convertLabel(label), config);
@@ -1023,7 +1023,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns a ConfiguredTargetAndData for the specified label, using the given build configuration.
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
-      Label label, BuildConfiguration config)
+      Label label, BuildConfigurationValue config)
       throws StarlarkTransition.TransitionException, InvalidConfigurationException,
           InterruptedException {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
@@ -1116,7 +1116,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @return the configured target instance for the created rule.
    */
   protected ConfiguredTarget scratchConfiguredTarget(
-      String packageName, String ruleName, BuildConfiguration config, String... lines)
+      String packageName, String ruleName, BuildConfigurationValue config, String... lines)
       throws Exception {
     ConfiguredTargetAndData ctad =
         scratchConfiguredTargetAndData(packageName, ruleName, config, lines);
@@ -1146,7 +1146,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @return the ConfiguredTargetAndData instance for the created rule.
    */
   protected ConfiguredTargetAndData scratchConfiguredTargetAndData(
-      String packageName, String ruleName, BuildConfiguration config, String... lines)
+      String packageName, String ruleName, BuildConfigurationValue config, String... lines)
       throws Exception {
     Target rule = scratchRule(packageName, ruleName, lines);
     return view.getConfiguredTargetAndDataForTesting(reporter, rule.getLabel(), config);
@@ -1386,7 +1386,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a Tree Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So to
+   * BuildConfigurationValue#getBinDirectory} corresponding to the package of {@code owner}. So to
    * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
    * "foo.o".
    */
@@ -1430,10 +1430,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Gets a derived Artifact for testing in the {@link BuildConfiguration#getBinDirectory}. This
-   * method should only be used for tests that do no analysis, and so there is no ConfiguredTarget
-   * to own this artifact. If the test runs the analysis phase, {@link #getBinArtifact(String,
-   * ConfiguredTarget)} or its convenience methods should be used instead.
+   * Gets a derived Artifact for testing in the {@link BuildConfigurationValue#getBinDirectory}.
+   * This method should only be used for tests that do no analysis, and so there is no
+   * ConfiguredTarget to own this artifact. If the test runs the analysis phase, {@link
+   * #getBinArtifact(String, ConfiguredTarget)} or its convenience methods should be used instead.
    */
   protected Artifact.DerivedArtifact getBinArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
@@ -1444,7 +1444,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So to
+   * BuildConfigurationValue#getBinDirectory} corresponding to the package of {@code owner}. So to
    * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
    * "foo.o".
    */
@@ -1461,8 +1461,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}, where the
-   * given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
+   * BuildConfigurationValue#getBinDirectory} corresponding to the package of {@code owner}, where
+   * the given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
    * specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect, {@code
    * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
    * method is necessary when an Aspect of the target, not the target itself, is creating an
@@ -1476,8 +1476,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}, where the
-   * given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
+   * BuildConfigurationValue#getBinDirectory} corresponding to the package of {@code owner}, where
+   * the given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
    * specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect, {@code
    * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
    * method is necessary when an Aspect of the target, not the target itself, is creating an
@@ -1501,11 +1501,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Gets a derived Artifact for testing in the {@link BuildConfiguration#getGenfilesDirectory}.
-   * This method should only be used for tests that do no analysis, and so there is no
-   * ConfiguredTarget to own this artifact. If the test runs the analysis phase, {@link
-   * #getGenfilesArtifact(String, ConfiguredTarget)} or its convenience methods should be used
-   * instead.
+   * Gets a derived Artifact for testing in the {@link
+   * BuildConfigurationValue#getGenfilesDirectory}. This method should only be used for tests that
+   * do no analysis, and so there is no ConfiguredTarget to own this artifact. If the test runs the
+   * analysis phase, {@link #getGenfilesArtifact(String, ConfiguredTarget)} or its convenience
+   * methods should be used instead.
    */
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
@@ -1516,12 +1516,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
-   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
-   * "foo.o".
+   * BuildConfigurationValue#getGenfilesDirectory} corresponding to the package of {@code owner}. So
+   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
+   * be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, String owner) {
-    BuildConfiguration config = getConfiguration(owner);
+    BuildConfigurationValue config = getConfiguration(owner);
     return getGenfilesArtifact(
         packageRelativePath,
         ConfiguredTargetKey.builder()
@@ -1533,12 +1533,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
-   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
-   * "foo.o".
+   * BuildConfigurationValue#getGenfilesDirectory} corresponding to the package of {@code owner}. So
+   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
+   * be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey());
     ConfiguredTargetKey configKey =
         ConfiguredTargetKey.builder()
@@ -1550,9 +1550,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}, where
-   * the given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
-   * specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect, {@code
+   * BuildConfigurationValue#getGenfilesDirectory} corresponding to the package of {@code owner},
+   * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
+   * So to specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect, {@code
    * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
    * method is necessary when an Apsect of the target, not the target itself, is creating an
    * Artifact.
@@ -1576,12 +1576,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
-   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
-   * "foo.o".
+   * BuildConfigurationValue#getGenfilesDirectory} corresponding to the package of {@code owner}. So
+   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
+   * be "foo.o".
    */
   private Artifact getGenfilesArtifact(
-      String packageRelativePath, ArtifactOwner owner, BuildConfiguration config) {
+      String packageRelativePath, ArtifactOwner owner, BuildConfigurationValue config) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
   }
@@ -1599,9 +1599,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}. So to
-   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
-   * "foo.h".
+   * BuildConfigurationValue#getIncludeDirectory} corresponding to the package of {@code owner}. So
+   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
+   * be "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
     return getIncludeArtifact(packageRelativePath, makeConfiguredTargetKey(owner));
@@ -1609,9 +1609,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}. So to
-   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
-   * "foo.h".
+   * BuildConfigurationValue#getIncludeDirectory} corresponding to the package of {@code owner}. So
+   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
+   * be "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
     return getPackageRelativeDerivedArtifact(
@@ -1891,11 +1891,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return target.getProvider(RunfilesProvider.class).getDataRunfiles();
   }
 
-  protected BuildConfiguration getTargetConfiguration() {
+  protected BuildConfigurationValue getTargetConfiguration() {
     return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
   }
 
-  protected BuildConfiguration getHostConfiguration() {
+  protected BuildConfigurationValue getHostConfiguration() {
     return masterConfig.getHostConfiguration();
   }
 
@@ -1904,8 +1904,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    *
    * @throws AssertionError if the transition couldn't be evaluated
    */
-  protected BuildConfiguration getConfiguration(
-      BuildConfiguration fromConfig, PatchTransition transition) throws InterruptedException {
+  protected BuildConfigurationValue getConfiguration(
+      BuildConfigurationValue fromConfig, PatchTransition transition) throws InterruptedException {
     if (transition == NoTransition.INSTANCE) {
       return fromConfig;
     } else if (transition == NullTransition.INSTANCE) {
@@ -1924,8 +1924,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  private BuildConfiguration getConfiguration(String label) {
-    BuildConfiguration config;
+  private BuildConfigurationValue getConfiguration(String label) {
+    BuildConfigurationValue config;
     try {
       config = getConfiguration(getConfiguredTarget(label));
       config = view.getConfigurationForTesting(getTarget(label), config, reporter);
@@ -1938,12 +1938,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return config;
   }
 
-  protected final BuildConfiguration getConfiguration(
-      BuildConfigurationValue.Key configurationKey) {
+  protected final BuildConfigurationValue getConfiguration(BuildConfigurationKey configurationKey) {
     return skyframeExecutor.getConfiguration(reporter, configurationKey);
   }
 
-  protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
     return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
   }
 
@@ -2225,7 +2224,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfiguration config) {
+        boolean stamp, BuildInfoKey key, BuildConfigurationValue config) {
       throw new UnsupportedOperationException();
     }
 

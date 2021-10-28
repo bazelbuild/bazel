@@ -39,14 +39,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Core options affecting a {@link BuildConfiguration} that don't belong in domain-specific {@link
- * FragmentOptions}. All options defined here should be universal in that they affect configuration
- * regardless of which languages a build uses. In other words, this should only contain options that
- * aren't suitable for Starlark configuration.
+ * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
+ * {@link FragmentOptions}. All options defined here should be universal in that they affect
+ * configuration regardless of which languages a build uses. In other words, this should only
+ * contain options that aren't suitable for Starlark configuration.
  *
  * <p>(Note: any client that creates a view will also need to declare BuildView.Options, which
  * affect the <i>mechanism</i> of view construction, even if they don't affect the value of the
- * BuildConfiguration instances.)
+ * BuildConfigurationValue instances.)
  *
  * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
  * propagated to the host configuration or not.

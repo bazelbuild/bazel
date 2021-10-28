@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -81,7 +81,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
    */
   private ConfiguredTarget getConfiguredTargetInAppleBinaryTransition(String label)
       throws Exception {
-    BuildConfiguration childConfig =
+    BuildConfigurationValue childConfig =
         Iterables.getOnlyElement(
             getSplitConfigurations(
                 targetConfig,

@@ -58,7 +58,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ToolchainsForTargetsTest extends AnalysisTestCase {
-  /** Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair. */
+  /** Returns a {@link SkyKey} for a given <Target, BuildConfigurationValue> pair. */
   private static Key key(
       TargetAndConfiguration targetAndConfiguration, ConfiguredTargetKey configuredTargetKey) {
     return new AutoValue_ToolchainsForTargetsTest_Key(targetAndConfiguration, configuredTargetKey);

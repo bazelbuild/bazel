@@ -35,15 +35,16 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
@@ -51,28 +52,26 @@ import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
- * Instances of BuildConfiguration represent a collection of context information which may affect a
- * build (for example: the target platform for compilation, or whether or not debug tables are
- * required). In fact, all "environmental" information (e.g. from the tool's command-line, as
- * opposed to the BUILD file) that can affect the output of any build tool should be explicitly
- * represented in the BuildConfiguration instance.
+ * Represents a collection of context information which may affect a build (for example: the target
+ * platform for compilation, or whether or not debug tables are required). In fact, all
+ * "environmental" information (e.g. from the tool's command-line, as opposed to the BUILD file)
+ * that can affect the output of any build tool should be explicitly represented in the {@code
+ * BuildConfigurationValue} instance.
  *
  * <p>A single build may require building tools to run on a variety of platforms: when compiling a
  * server application for production, we must build the build tools (like compilers) to run on the
  * host platform, but cross-compile the application for the production environment.
  *
- * <p>There is always at least one BuildConfiguration instance in any build: the one representing
- * the host platform. Additional instances may be created, in a cross-compilation build, for
- * example.
+ * <p>There is always at least one {@code BuildConfigurationValue} instance in any build: the one
+ * representing the host platform. Additional instances may be created, in a cross-compilation
+ * build, for example.
  *
- * <p>Instances of BuildConfiguration are canonical:
+ * <p>Instances of {@code BuildConfigurationValue} are canonical:
  *
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
-// TODO(janakr): If overhead of fragments class names is too high, add constructor that just takes
-// fragments and gets names from them.
 @AutoCodec
-public class BuildConfiguration implements BuildConfigurationApi {
+public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue {
 
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
@@ -109,8 +108,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
-  private final int hashCode; // We can precompute the hash code as all its inputs are immutable.
-
   /** Data for introspecting the options used by this configuration. */
   private final TransitiveOptionDetails transitiveOptionDetails;
 
@@ -119,34 +116,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final boolean siblingRepositoryLayout;
 
   /**
-   * Returns {@code true} if this configuration is semantically equal to the other, including
-   * checking that both have the same sets of fragments and options.
-   */
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof BuildConfiguration)) {
-      return false;
-    }
-    BuildConfiguration otherConfig = (BuildConfiguration) other;
-    return fragments.values().asList().equals(otherConfig.fragments.values().asList())
-        && buildOptions.equals(otherConfig.buildOptions);
-  }
-
-  private int computeHashCode() {
-    return Objects.hash(fragments, buildOptions.getNativeOptions());
-  }
-
-  @Override
-  public int hashCode() {
-    return hashCode;
-  }
-
-  /**
-   * Validates the options for this BuildConfiguration. Issues warnings for the use of deprecated
-   * options, and warnings or errors for any option settings that conflict.
+   * Validates the options for this BuildConfigurationValue. Issues warnings for the use of
+   * deprecated options, and warnings or errors for any option settings that conflict.
    */
   public void reportInvalidOptions(EventHandler reporter) {
     for (Fragment fragment : fragments.values()) {
@@ -168,7 +139,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return ActionEnvironment.split(testEnv);
   }
 
-  public BuildConfiguration(
+  public BuildConfigurationValue(
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
       FragmentClassSet fragmentClassSet,
@@ -215,25 +186,18 @@ public class BuildConfiguration implements BuildConfigurationApi {
         TransitiveOptionDetails.forOptions(
             buildOptions.getNativeOptions(), buildOptions.getStarlarkOptions());
 
-    ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
-
+    // These should be documented in the build encyclopedia.
     // TODO(configurability-team): Deprecate TARGET_CPU in favor of platforms.
-    globalMakeEnvBuilder.put("TARGET_CPU", options.cpu);
-    globalMakeEnvBuilder.put("COMPILATION_MODE", options.compilationMode.toString());
-
-    /*
-     * Attention! Document these in the build-encyclopedia
-     */
-    // the bin directory and the genfiles directory
-    // These variables will be used on Windows as well, so we need to make sure
-    // that paths use the correct system file-separator.
-    globalMakeEnvBuilder.put(
-        "BINDIR", getBinDirectory(RepositoryName.MAIN).getExecPath().getPathString());
-    globalMakeEnvBuilder.put(
-        "GENDIR", getGenfilesDirectory(RepositoryName.MAIN).getExecPath().getPathString());
-    globalMakeEnv = globalMakeEnvBuilder.build();
-
-    hashCode = computeHashCode();
+    globalMakeEnv =
+        ImmutableMap.of(
+            "TARGET_CPU",
+            options.cpu,
+            "COMPILATION_MODE",
+            options.compilationMode.toString(),
+            "BINDIR",
+            getBinDirectory(RepositoryName.MAIN).getExecPathString(),
+            "GENDIR",
+            getGenfilesDirectory(RepositoryName.MAIN).getExecPathString());
 
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
@@ -250,6 +214,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
       }
     }
     return builder.build();
+  }
+
+  /**
+   * Returns the {@link BuildConfigurationKey} for this configuration.
+   *
+   * <p>Note that this method does not apply a platform mapping. It is assumed that this
+   * configuration was created with a platform mapping and thus its key does not need to be mapped
+   * again.
+   */
+  public BuildConfigurationKey getKey() {
+    return BuildConfigurationKey.withoutPlatformMapping(fragmentClassSet, buildOptions);
   }
 
   /**
@@ -396,8 +371,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /**
    * Returns the configuration-dependent string for this configuration. This is also the name of the
-   * configuration's base output directory unless {@link CoreOptions#outputDirectoryName} overrides
-   * it.
+   * configuration's base output directory unless {@link #isHostConfiguration} is {@code true}, in
+   * which case the output directory is named {@code host}.
    */
   public String getMnemonic() {
     return outputDirectories.getMnemonic();

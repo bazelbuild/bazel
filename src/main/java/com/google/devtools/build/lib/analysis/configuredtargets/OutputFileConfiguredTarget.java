@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import net.starlark.java.eval.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
@@ -56,7 +56,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
   private OutputFileConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
       ConfiguredTarget generatingRule) {

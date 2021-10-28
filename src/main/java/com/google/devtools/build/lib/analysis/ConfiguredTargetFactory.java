@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil;
@@ -174,8 +174,8 @@ public final class ConfiguredTargetFactory {
       AnalysisEnvironment analysisEnvironment,
       ArtifactFactory artifactFactory,
       Target target,
-      BuildConfiguration config,
-      BuildConfiguration hostConfig,
+      BuildConfigurationValue config,
+      BuildConfigurationValue hostConfig,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
@@ -275,8 +275,8 @@ public final class ConfiguredTargetFactory {
   private ConfiguredTarget createRule(
       AnalysisEnvironment env,
       Rule rule,
-      BuildConfiguration configuration,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue configuration,
+      BuildConfigurationValue hostConfiguration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
@@ -484,8 +484,8 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ResolvedToolchainContext toolchainContext,
-      BuildConfiguration aspectConfiguration,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue aspectConfiguration,
+      BuildConfigurationValue hostConfiguration,
       AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     RuleContext ruleContext =

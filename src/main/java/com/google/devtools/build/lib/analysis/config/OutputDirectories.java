@@ -48,7 +48,7 @@ public class OutputDirectories {
    * Directories in the output tree.
    *
    * <p>The computation of the output directory should be a non-injective mapping from
-   * BuildConfiguration instances to strings. The result should identify the aspects of the
+   * BuildConfigurationValue instances to strings. The result should identify the aspects of the
    * configuration that should be reflected in the output file names. Furthermore the returned
    * string must not contain shell metacharacters.
    *
@@ -368,4 +368,3 @@ public class OutputDirectories {
     }
   }
 }
-

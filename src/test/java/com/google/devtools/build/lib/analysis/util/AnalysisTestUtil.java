@@ -43,8 +43,8 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -206,7 +206,8 @@ public final class AnalysisTestUtil {
 
     @Override
     public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfiguration config) throws InterruptedException {
+        boolean stamp, BuildInfoKey key, BuildConfigurationValue config)
+        throws InterruptedException {
       return original.getBuildInfo(stamp, key, config);
     }
 
@@ -441,7 +442,7 @@ public final class AnalysisTestUtil {
 
     @Override
     public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfiguration config) {
+        boolean stamp, BuildInfoKey key, BuildConfigurationValue config) {
       return ImmutableList.of();
     }
 
@@ -508,9 +509,9 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(
       BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
-    BuildConfiguration targetConfiguration =
+    BuildConfigurationValue targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
-    BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
+    BuildConfigurationValue hostConfiguration = configurations.getHostConfiguration();
     return artifactsToStrings(targetConfiguration, hostConfiguration, artifacts);
   }
 
@@ -521,8 +522,8 @@ public final class AnalysisTestUtil {
    * <p>The returned set preserves the order of the input.
    */
   public static Set<String> artifactsToStrings(
-      BuildConfiguration targetConfiguration,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue targetConfiguration,
+      BuildConfigurationValue hostConfiguration,
       Iterable<? extends Artifact> artifacts) {
     Map<String, String> rootMap = new HashMap<>();
     computeRootPaths(

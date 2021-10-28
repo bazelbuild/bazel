@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.analysis.testing.ExecGroupCollection
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
@@ -143,9 +143,9 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "MyInfo");
-    BuildConfiguration dep =
+    BuildConfigurationValue dep =
         getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
-    BuildConfiguration execGroupDep =
+    BuildConfigurationValue execGroupDep =
         getConfiguration(
             (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("exec_group_dep"));
 

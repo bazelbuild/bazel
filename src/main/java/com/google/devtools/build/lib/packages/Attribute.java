@@ -1471,7 +1471,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
-  // TODO(b/65746853): Remove documentation about accepting BuildConfiguration when uses are cleaned
+  // TODO(b/65746853): Remove documentation about accepting BuildConfigurationValue when uses are
+  // cleaned
   // up.
   /**
    * Provider of values for late-bound attributes. See {@link Attribute#value(LateBoundDefault<?, ?
@@ -1481,8 +1482,8 @@ public final class Attribute implements Comparable<Attribute> {
    * confuse users.
    *
    * @param <FragmentT> The type of value that is used to compute this value. This is usually a
-   *     subclass of BuildConfiguration.Fragment. It may also be Void to receive null, or
-   *     BuildConfiguration itself to receive the entire configuration.
+   *     subclass of BuildConfigurationValue.Fragment. It may also be Void to receive null, or
+   *     BuildConfigurationValue itself to receive the entire configuration.
    * @param <ValueT> The type of value returned by this class. Must be either {@link Void}, a {@link
    *     Label}, or a {@link List} of {@link Label} objects.
    */
@@ -1550,8 +1551,9 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>It may also be {@link Void} to receive null. This is rarely necessary, but can be used,
      * e.g., if the attribute is named to match an attribute in another rule which is late-bound.
      *
-     * <p>It may also be BuildConfiguration to receive the entire configuration. This is deprecated,
-     * and only necessary when the default is computed from methods of BuildConfiguration itself.
+     * <p>It may also be BuildConfigurationValue to receive the entire configuration. This is
+     * deprecated, and only necessary when the default is computed from methods of
+     * BuildConfigurationValue itself.
      */
     public final Class<FragmentT> getFragmentClass() {
       return fragmentClass;
@@ -1637,8 +1639,9 @@ public final class Attribute implements Comparable<Attribute> {
      * attribute on another rule which is late-bound, use {@link #alwaysNull}.
      *
      * @param fragmentClass The fragment to receive from the target configuration. May also be
-     *     BuildConfiguration.class to receive the entire configuration (deprecated) - in this case,
-     *     you must only use methods of BuildConfiguration itself, and not use any fragments.
+     *     BuildConfigurationValue.class to receive the entire configuration (deprecated) - in this
+     *     case, you must only use methods of BuildConfigurationValue itself, and not use any
+     *     fragments.
      * @param defaultValue The default {@link Label} to return at loading time, when the
      *     configuration is not available.
      * @param resolver A function which will compute the actual value with the configuration.
@@ -1665,10 +1668,10 @@ public final class Attribute implements Comparable<Attribute> {
      * dependency will be analyzed in the host configuration.
      *
      * @param fragmentClass The fragment to receive from the host configuration. May also be
-     *     BuildConfiguration.class to receive the entire configuration (deprecated) - in this case,
-     *     you must only use methods of BuildConfiguration itself, and not use any fragments. It is
-     *     very rare that a LateBoundDefault should need a host configuration fragment; use {@link
-     *     #fromTargetConfiguration} in most cases.
+     *     BuildConfigurationValue.class to receive the entire configuration (deprecated) - in this
+     *     case, you must only use methods of BuildConfigurationValue itself, and not use any
+     *     fragments. It is very rare that a LateBoundDefault should need a host configuration
+     *     fragment; use {@link #fromTargetConfiguration} in most cases.
      * @param defaultValue The default {@link Label} to return at loading time, when the
      *     configuration is not available.
      * @param resolver A function which will compute the actual value with the configuration.

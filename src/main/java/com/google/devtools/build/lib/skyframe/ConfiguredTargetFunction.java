@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -199,7 +199,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
     Label label = configuredTargetKey.getLabel();
-    BuildConfiguration configuration = null;
+    BuildConfigurationValue configuration = null;
     ImmutableSet<SkyKey> packageAndMaybeConfiguration;
     SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
     SkyKey configurationKeyMaybe = configuredTargetKey.getConfigurationKey();
@@ -216,8 +216,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
     if (configurationKeyMaybe != null) {
       configuration =
-          ((BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe))
-              .getConfiguration();
+          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
     }
 
     // TODO(ulfjack): This tries to match the logic in TransitiveTargetFunction /
@@ -470,7 +469,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return new ComputedToolchainContexts();
     }
     Rule rule = ((Rule) targetAndConfig.getTarget());
-    BuildConfiguration configuration = targetAndConfig.getConfiguration();
+    BuildConfigurationValue configuration = targetAndConfig.getConfiguration();
 
     ImmutableSet<Label> requiredDefaultToolchains =
         rule.getRuleClassObject().getRequiredToolchains();
@@ -522,8 +521,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 toolchainTaggedTrimmingTransition.requiresOptionFragments()),
             env.getListener());
 
-    BuildConfigurationValue.Key toolchainConfig =
-        BuildConfigurationValue.keyWithoutPlatformMapping(
+    BuildConfigurationKey toolchainConfig =
+        BuildConfigurationKey.withoutPlatformMapping(
             configuration.fragmentClasses(), toolchainOptions);
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
@@ -639,14 +638,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       boolean useToolchainTransition,
       RuleClassProvider ruleClassProvider,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
       NestedSetBuilder<Cause> transitiveRootCauses)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, transition) pairs.
     OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
-    BuildConfiguration configuration = ctgValue.getConfiguration();
+    BuildConfigurationValue configuration = ctgValue.getConfiguration();
     Label label = ctgValue.getLabel();
     try {
       initialDependencies =
@@ -891,12 +890,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               }
             }
             try {
-              BuildConfiguration depConfiguration = dep.getConfiguration();
-              BuildConfigurationValue.Key depKey =
-                  depValue.getConfiguredTarget().getConfigurationKey();
-              if (depKey != null && !depKey.equals(BuildConfigurationValue.key(depConfiguration))) {
-                depConfiguration =
-                    ((BuildConfigurationValue) env.getValue(depKey)).getConfiguration();
+              BuildConfigurationValue depConfiguration = dep.getConfiguration();
+              BuildConfigurationKey depKey = depValue.getConfiguredTarget().getConfigurationKey();
+              if (depKey != null && !depKey.equals(depConfiguration.getKey())) {
+                depConfiguration = (BuildConfigurationValue) env.getValue(depKey);
               }
               result.put(
                   key,
@@ -959,7 +956,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredValueCreationException, InterruptedException {
     Target target = ctgValue.getTarget();
-    BuildConfiguration configuration = ctgValue.getConfiguration();
+    BuildConfigurationValue configuration = ctgValue.getConfiguration();
 
     // Should be successfully evaluated and cached from the loading phase.
     StarlarkBuiltinsValue starlarkBuiltinsValue =

@@ -17,7 +17,7 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -38,21 +38,21 @@ public final class AspectKeyCreator {
 
   public static AspectKey createAspectKey(
       Label label,
-      @Nullable BuildConfiguration baseConfiguration,
+      @Nullable BuildConfigurationValue baseConfiguration,
       ImmutableList<AspectKey> baseKeys,
       AspectDescriptor aspectDescriptor,
-      @Nullable BuildConfiguration aspectConfiguration) {
+      @Nullable BuildConfigurationValue aspectConfiguration) {
     return AspectKey.createAspectKey(
         ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         baseKeys,
         aspectDescriptor,
-        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
+        aspectConfiguration == null ? null : aspectConfiguration.getKey());
   }
 
   public static AspectKey createAspectKey(
       AspectDescriptor aspectDescriptor,
       ImmutableList<AspectKey> baseKeys,
-      BuildConfigurationValue.Key aspectConfigurationKey,
+      BuildConfigurationKey aspectConfigurationKey,
       ConfiguredTargetKey baseConfiguredTargetKey) {
     return AspectKey.createAspectKey(
         baseConfiguredTargetKey, baseKeys, aspectDescriptor, aspectConfigurationKey);
@@ -60,20 +60,20 @@ public final class AspectKeyCreator {
 
   public static AspectKey createAspectKey(
       Label label,
-      @Nullable BuildConfiguration baseConfiguration,
+      @Nullable BuildConfigurationValue baseConfiguration,
       AspectDescriptor aspectDescriptor,
-      @Nullable BuildConfiguration aspectConfiguration) {
+      @Nullable BuildConfigurationValue aspectConfiguration) {
     return AspectKey.createAspectKey(
         ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         ImmutableList.of(),
         aspectDescriptor,
-        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
+        aspectConfiguration == null ? null : aspectConfiguration.getKey());
   }
 
   public static TopLevelAspectsKey createTopLevelAspectsKey(
       ImmutableList<AspectClass> topLevelAspectsClasses,
       Label targetLabel,
-      @Nullable BuildConfiguration configuration) {
+      @Nullable BuildConfigurationValue configuration) {
     return TopLevelAspectsKey.createInternal(
         topLevelAspectsClasses,
         targetLabel,
@@ -110,14 +110,14 @@ public final class AspectKeyCreator {
   @AutoCodec
   public static final class AspectKey extends AspectBaseKey {
     private final ImmutableList<AspectKey> baseKeys;
-    @Nullable private final BuildConfigurationValue.Key aspectConfigurationKey;
+    @Nullable private final BuildConfigurationKey aspectConfigurationKey;
     private final AspectDescriptor aspectDescriptor;
 
     private AspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
-        @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
+        @Nullable BuildConfigurationKey aspectConfigurationKey,
         int hashCode) {
       super(baseConfiguredTargetKey, hashCode);
       this.baseKeys = baseKeys;
@@ -131,7 +131,7 @@ public final class AspectKeyCreator {
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
-        @Nullable BuildConfigurationValue.Key aspectConfigurationKey) {
+        @Nullable BuildConfigurationKey aspectConfigurationKey) {
       return aspectKeyInterner.intern(
           new AspectKey(
               baseConfiguredTargetKey,
@@ -207,7 +207,7 @@ public final class AspectKeyCreator {
      * base target's configuration.
      */
     @Nullable
-    public BuildConfigurationValue.Key getAspectConfigurationKey() {
+    public BuildConfigurationKey getAspectConfigurationKey() {
       return aspectConfigurationKey;
     }
 

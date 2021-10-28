@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -158,7 +158,7 @@ public final class RuleContext extends TargetContext
   private final ImmutableSet<String> enabledFeatures;
   private final ImmutableSet<String> disabledFeatures;
   private final String ruleClassNameForLogging;
-  private final BuildConfiguration hostConfiguration;
+  private final BuildConfigurationValue hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final RuleErrorConsumer reporter;
@@ -362,7 +362,7 @@ public final class RuleContext extends TargetContext
   }
 
   /** Returns the host configuration for this rule. */
-  public BuildConfiguration getHostConfiguration() {
+  public BuildConfigurationValue getHostConfiguration() {
     return hostConfiguration;
   }
 
@@ -456,8 +456,8 @@ public final class RuleContext extends TargetContext
       String name,
       String additionalErrorMessage,
       ConfigurationTransition transition) {
-    // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
-    // Can we lock that down somehow?
+    // TODO(bazel-team): The fragments can also be accessed directly through
+    // BuildConfigurationValue. Can we lock that down somehow?
     Preconditions.checkArgument(
         isLegalFragment(fragment, transition),
         "%s has to declare '%s' as a required fragment in %s configuration in order to access"
@@ -512,7 +512,7 @@ public final class RuleContext extends TargetContext
     return isLegalFragment(fragment, NoTransition.INSTANCE);
   }
 
-  private BuildConfiguration getConfiguration(ConfigurationTransition transition) {
+  private BuildConfigurationValue getConfiguration(ConfigurationTransition transition) {
     return transition.isHostTransition() ? hostConfiguration : getConfiguration();
   }
 
@@ -531,7 +531,7 @@ public final class RuleContext extends TargetContext
   public static ActionOwner createActionOwner(
       Rule rule,
       ImmutableList<AspectDescriptor> aspectDescriptors,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       ImmutableMap<String, String> execProperties,
       @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
@@ -714,7 +714,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getPackageRelativeArtifact(PathFragment, ArtifactRoot)} but includes the option
    * option to use a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   private Artifact.DerivedArtifact getPackageRelativeArtifact(
       PathFragment relative, ArtifactRoot root, boolean contentBasedPath) {
@@ -732,7 +732,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getPackageRelativeArtifact(String, ArtifactRoot)} but includes the option to
    * use a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   private Artifact getPackageRelativeArtifact(
       String relative, ArtifactRoot root, boolean contentBasedPath) {
@@ -762,7 +762,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot)} but includes the option to use
    * a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
@@ -923,15 +923,16 @@ public final class RuleContext extends TargetContext
 
   /**
    * For a given attribute, returns all declared provider provided by targets of that attribute.
-   * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
-   * created.
+   * Each declared provider is keyed by the {@link BuildConfigurationValue} under which the provider
+   * was created.
    */
   public <C extends Info>
-      ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+      ImmutableListMultimap<BuildConfigurationValue, C> getPrerequisitesByConfiguration(
           String attributeName, BuiltinProvider<C> provider) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, C> result = ImmutableListMultimap.builder();
+    ImmutableListMultimap.Builder<BuildConfigurationValue, C> result =
+        ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
       if (prerequisiteProvider != null) {
@@ -944,13 +945,13 @@ public final class RuleContext extends TargetContext
   /**
    * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets of
    * that attribute. Each {@link TransitiveInfoCollection} is keyed by the {@link
-   * BuildConfiguration} under which the collection was created.
+   * BuildConfigurationValue} under which the collection was created.
    */
-  public ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection>
+  public ImmutableListMultimap<BuildConfigurationValue, TransitiveInfoCollection>
       getPrerequisitesByConfiguration(String attributeName) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, TransitiveInfoCollection> result =
+    ImmutableListMultimap.Builder<BuildConfigurationValue, TransitiveInfoCollection> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       result.put(prerequisite.getConfiguration(), prerequisite.getConfiguredTarget());
@@ -1472,7 +1473,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getImplicitOutputArtifact(ImplicitOutputsFunction)} but includes the option to
    * use a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   public Artifact getImplicitOutputArtifact(
       ImplicitOutputsFunction function, boolean contentBasedPath) throws InterruptedException {
@@ -1496,7 +1497,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getImplicitOutputArtifact(String)} but includes the option to use a a
    * content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   // TODO(bazel-team): Consider removing contentBasedPath stuff, which is unused as of 18 months
   // after its introduction in cl/252148134.
@@ -1630,10 +1631,10 @@ public final class RuleContext extends TargetContext
     private final AnalysisEnvironment env;
     private final Target target;
     private final ImmutableList<Aspect> aspects;
-    private final BuildConfiguration configuration;
+    private final BuildConfigurationValue configuration;
     private final RuleErrorConsumer reporter;
     private ConfiguredRuleClassProvider ruleClassProvider;
-    private BuildConfiguration hostConfiguration;
+    private BuildConfigurationValue hostConfiguration;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
@@ -1651,7 +1652,7 @@ public final class RuleContext extends TargetContext
         AnalysisEnvironment env,
         Target target,
         ImmutableList<Aspect> aspects,
-        BuildConfiguration configuration) {
+        BuildConfigurationValue configuration) {
       this.env = Preconditions.checkNotNull(env);
       this.target = Preconditions.checkNotNull(target);
       this.aspects = Preconditions.checkNotNull(aspects);
@@ -1739,7 +1740,7 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    public Builder setHostConfiguration(BuildConfiguration hostConfiguration) {
+    public Builder setHostConfiguration(BuildConfigurationValue hostConfiguration) {
       this.hostConfiguration = hostConfiguration;
       return this;
     }
@@ -2003,7 +2004,7 @@ public final class RuleContext extends TargetContext
           + target.getAssociatedRule().getRuleClass();
     }
 
-    public BuildConfiguration getConfiguration() {
+    public BuildConfigurationValue getConfiguration() {
       return configuration;
     }
 
@@ -2192,12 +2193,12 @@ public final class RuleContext extends TargetContext
   private static final class ErrorReporter extends EventHandlingErrorReporter
       implements RuleErrorConsumer {
     private final Rule rule;
-    private final BuildConfiguration configuration;
+    private final BuildConfigurationValue configuration;
 
     ErrorReporter(
         AnalysisEnvironment env,
         Rule rule,
-        BuildConfiguration configuration,
+        BuildConfigurationValue configuration,
         String ruleClassNameForLogging) {
       super(ruleClassNameForLogging, env);
       this.rule = rule;
@@ -2229,7 +2230,7 @@ public final class RuleContext extends TargetContext
     }
 
     @Override
-    protected BuildConfiguration getConfiguration() {
+    protected BuildConfigurationValue getConfiguration() {
       return configuration;
     }
 

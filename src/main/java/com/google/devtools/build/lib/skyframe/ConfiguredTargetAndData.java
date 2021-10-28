@@ -19,7 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -30,25 +30,26 @@ import javax.annotation.Nullable;
 
 /**
  * A container class for a {@link ConfiguredTarget} and associated data, {@link Target}, {@link
- * BuildConfiguration}, and transition keys. In the future, {@link ConfiguredTarget} objects will no
- * longer contain their associated {@link BuildConfiguration}. Consumers that need the {@link
- * Target} or {@link BuildConfiguration} must therefore have access to one of these objects.
+ * BuildConfigurationValue}, and transition keys. In the future, {@link ConfiguredTarget} objects
+ * will no longer contain their associated {@link BuildConfigurationValue}. Consumers that need the
+ * {@link Target} or {@link BuildConfigurationValue} must therefore have access to one of these
+ * objects.
  *
  * <p>These objects are intended to be short-lived, never stored in Skyframe, since they pair three
  * heavyweight objects, a {@link ConfiguredTarget}, a {@link Target} (which holds a {@link
- * com.google.devtools.build.lib.packages.Package}), and a {@link BuildConfiguration}.
+ * com.google.devtools.build.lib.packages.Package}), and a {@link BuildConfigurationValue}.
  */
 public class ConfiguredTargetAndData {
   private final ConfiguredTarget configuredTarget;
   private final Target target;
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue configuration;
   private final ImmutableList<String> transitionKeys;
 
   @VisibleForTesting
   public ConfiguredTargetAndData(
       ConfiguredTarget configuredTarget,
       Target target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       ImmutableList<String> transitionKeys) {
     this.configuredTarget = configuredTarget;
     this.target = target;
@@ -60,7 +61,7 @@ public class ConfiguredTargetAndData {
             + " ConfiguredTarget's label %s is not equal to Target's label %s",
         configuredTarget.getLabel(),
         target.getLabel());
-    BuildConfigurationValue.Key innerConfigurationKey = configuredTarget.getConfigurationKey();
+    BuildConfigurationKey innerConfigurationKey = configuredTarget.getConfigurationKey();
     if (configuration == null) {
       Preconditions.checkState(
           innerConfigurationKey == null,
@@ -68,7 +69,7 @@ public class ConfiguredTargetAndData {
           configuredTarget,
           target);
     } else {
-      BuildConfigurationValue.Key configurationKey = BuildConfigurationValue.key(configuration);
+      BuildConfigurationKey configurationKey = configuration.getKey();
       Preconditions.checkState(
           innerConfigurationKey.equals(configurationKey),
           "Configurations don't match: %s %s %s (%s %s)",
@@ -83,10 +84,10 @@ public class ConfiguredTargetAndData {
   @Nullable
   static ConfiguredTargetAndData fromConfiguredTargetInSkyframe(
       ConfiguredTarget ct, SkyFunction.Environment env) throws InterruptedException {
-    BuildConfiguration configuration = null;
+    BuildConfigurationValue configuration = null;
     ImmutableSet<SkyKey> packageAndMaybeConfiguration;
     PackageValue.Key packageKey = PackageValue.key(ct.getLabel().getPackageIdentifier());
-    BuildConfigurationValue.Key configurationKeyMaybe = ct.getConfigurationKey();
+    BuildConfigurationKey configurationKeyMaybe = ct.getConfigurationKey();
     if (configurationKeyMaybe == null) {
       packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
     } else {
@@ -100,12 +101,11 @@ public class ConfiguredTargetAndData {
       return null;
     }
     if (configurationKeyMaybe != null) {
-      BuildConfigurationValue buildConfigurationValue =
+      configuration =
           (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
-      if (buildConfigurationValue == null) {
+      if (configuration == null) {
         return null;
       }
-      configuration = buildConfigurationValue.getConfiguration();
     }
     try {
       return new ConfiguredTargetAndData(
@@ -130,7 +130,7 @@ public class ConfiguredTargetAndData {
     return target;
   }
 
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
 

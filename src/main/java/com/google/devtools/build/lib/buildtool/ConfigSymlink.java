@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -30,7 +30,7 @@ import java.util.function.Function;
 class ConfigSymlink implements SymlinkDefinition {
   @FunctionalInterface
   interface ConfigPathGetter {
-    ArtifactRoot apply(BuildConfiguration configuration, RepositoryName repositoryName);
+    ArtifactRoot apply(BuildConfigurationValue configuration, RepositoryName repositoryName);
   }
 
   private final String suffix;
@@ -49,8 +49,8 @@ class ConfigSymlink implements SymlinkDefinition {
   @Override
   public ImmutableSet<Path> getLinkPaths(
       BuildRequestOptions buildRequestOptions,
-      Set<BuildConfiguration> targetConfigs,
-      Function<BuildOptions, BuildConfiguration> configGetter,
+      Set<BuildConfigurationValue> targetConfigs,
+      Function<BuildOptions, BuildConfigurationValue> configGetter,
       RepositoryName repositoryName,
       Path outputPath,
       Path execRoot) {

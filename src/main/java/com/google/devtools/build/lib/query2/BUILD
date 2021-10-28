@@ -80,7 +80,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/monolithic_output_handler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/streamed_output_handler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",

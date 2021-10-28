@@ -60,11 +60,11 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             ImmutableMap.of(), ImmutableMap.of(), BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key key =
-        BuildConfigurationValue.keyWithoutPlatformMapping(
+    BuildConfigurationKey key =
+        BuildConfigurationKey.withoutPlatformMapping(
             PLATFORM_FRAGMENT_CLASS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(key);
+    BuildConfigurationKey mapped = mappingValue.map(key);
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -82,7 +82,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getFragments()).isEqualTo(PLATFORM_FRAGMENT_CLASS);
 
@@ -102,7 +102,7 @@ public final class PlatformMappingValueTest {
     modifiedOptions.get(CoreOptions.class).cpu = "one";
     modifiedOptions.get(CoreOptions.class).compilationMode = CompilationMode.DBG;
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getFragments()).isEqualTo(PLATFORM_FRAGMENT_CLASS);
 
@@ -123,7 +123,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "foo";
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms).containsExactly(PLATFORM2);
   }
@@ -140,7 +140,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "bar";
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -174,7 +174,7 @@ public final class PlatformMappingValueTest {
     PlatformMappingValue mappingValue =
         new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(keyForOptions(modifiedOptions)).isEqualTo(mapped);
   }
@@ -192,7 +192,7 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             ImmutableMap.of(), flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(keyForOptions(modifiedOptions)).isEqualTo(mapped);
   }
@@ -214,8 +214,7 @@ public final class PlatformMappingValueTest {
     assertThat(key.wasExplicitlySetByUser()).isTrue();
   }
 
-  private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
-    return BuildConfigurationValue.keyWithoutPlatformMapping(
-        PLATFORM_FRAGMENT_CLASS, modifiedOptions);
+  private static BuildConfigurationKey keyForOptions(BuildOptions modifiedOptions) {
+    return BuildConfigurationKey.withoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, modifiedOptions);
   }
 }

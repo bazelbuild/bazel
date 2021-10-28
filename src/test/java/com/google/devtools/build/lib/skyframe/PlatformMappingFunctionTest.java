@@ -81,11 +81,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(null));
 
-    BuildConfigurationValue.Key key =
-        BuildConfigurationValue.keyWithoutPlatformMapping(
-            PLATFORM_FRAGMENT_CLASS, defaultBuildOptions);
+    BuildConfigurationKey key =
+        BuildConfigurationKey.withoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, defaultBuildOptions);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(key);
+    BuildConfigurationKey mapped = platformMappingValue.map(key);
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -116,7 +115,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -138,7 +137,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -158,7 +157,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -179,7 +178,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -205,7 +204,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -226,7 +225,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).transitionDirectoryNameFragment)
         .isEqualTo("updated_output_dir");
@@ -247,8 +246,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     return result.get(key);
   }
 
-  private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
-    return BuildConfigurationValue.keyWithoutPlatformMapping(
-        PLATFORM_FRAGMENT_CLASS, modifiedOptions);
+  private static BuildConfigurationKey keyForOptions(BuildOptions modifiedOptions) {
+    return BuildConfigurationKey.withoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, modifiedOptions);
   }
 }

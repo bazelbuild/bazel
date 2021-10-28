@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -83,7 +83,7 @@ public abstract class NativeDepsHelper {
         public Artifact create(
             ActionConstructionContext actionConstructionContext,
             RepositoryName repositoryName,
-            BuildConfiguration configuration,
+            BuildConfigurationValue configuration,
             PathFragment rootRelativePath) {
           return actionConstructionContext.getShareableArtifact(
               rootRelativePath, configuration.getBinDirectory(repositoryName));
@@ -119,7 +119,7 @@ public abstract class NativeDepsHelper {
   public static Artifact linkAndroidNativeDepsIfPresent(
       final RuleContext ruleContext,
       CcInfo ccInfo,
-      final BuildConfiguration configuration,
+      final BuildConfigurationValue configuration,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics)
       throws InterruptedException, RuleErrorException {
@@ -183,7 +183,7 @@ public abstract class NativeDepsHelper {
       final RuleContext ruleContext,
       CcInfo ccInfo,
       Collection<String> extraLinkOpts,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CcToolchainProvider toolchain,
       Artifact nativeDeps,
       ArtifactRoot bindirIfShared,

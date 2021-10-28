@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -89,7 +89,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Returns the configuration obtained by applying the apple crosstool configuration transtion to
    * this {@code BuildViewTestCase}'s target configuration.
    */
-  protected BuildConfiguration getAppleCrosstoolConfiguration() throws InterruptedException {
+  protected BuildConfigurationValue getAppleCrosstoolConfiguration() throws InterruptedException {
     return getConfiguration(targetConfig, AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION);
   }
 
@@ -303,10 +303,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Returns all child configurations resulting from a given split transition on a given
    * configuration.
    */
-  protected List<BuildConfiguration> getSplitConfigurations(
-      BuildConfiguration configuration, SplitTransition splitTransition)
+  protected List<BuildConfigurationValue> getSplitConfigurations(
+      BuildConfigurationValue configuration, SplitTransition splitTransition)
       throws InterruptedException, OptionsParsingException, InvalidConfigurationException {
-    ImmutableList.Builder<BuildConfiguration> splitConfigs = ImmutableList.builder();
+    ImmutableList.Builder<BuildConfigurationValue> splitConfigs = ImmutableList.builder();
 
     BuildOptionsView fragmentRestrictedOptions =
         new BuildOptionsView(configuration.getOptions(), splitTransition.requiresOptionFragments());
@@ -714,7 +714,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected List<String> rootedIncludePaths(
-      BuildConfiguration configuration, String... unrootedPaths) {
+      BuildConfigurationValue configuration, String... unrootedPaths) {
     ImmutableList.Builder<String> rootedPaths = new ImmutableList.Builder<>();
     for (String unrootedPath : unrootedPaths) {
       rootedPaths

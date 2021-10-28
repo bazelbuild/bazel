@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptContinuation;
@@ -108,7 +108,7 @@ public class TestRunnerAction extends AbstractAction
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue configuration;
   private final TestConfiguration testConfiguration;
   private final Artifact testLog;
   private final Artifact cacheStatus;
@@ -196,7 +196,7 @@ public class TestRunnerAction extends AbstractAction
       TestTargetExecutionSettings executionSettings,
       int shardNum,
       int runNumber,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       String workspaceName,
       @Nullable PathFragment shExecutable,
       boolean cancelConcurrentTestsOnSuccess,
@@ -303,7 +303,7 @@ public class TestRunnerAction extends AbstractAction
     return lcovMergerRunfilesSupplier;
   }
 
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
 

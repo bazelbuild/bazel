@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -243,7 +243,7 @@ public final class TestResultAggregatorTest {
 
     return new TestResultAggregator(
         mockTarget,
-        mock(BuildConfiguration.class),
+        mock(BuildConfigurationValue.class),
         new AggregationPolicy(
             new EventBus(), /*testCheckUpToDate=*/ false, /*testVerboseTimeoutWarnings=*/ false),
         /*skippedThisTest=*/ false);

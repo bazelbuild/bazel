@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -99,8 +99,8 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         ")");
   }
 
-  private ImmutableSortedMap<Label, String> getFlagMapFromConfiguration(BuildConfiguration config)
-      throws Exception {
+  private ImmutableSortedMap<Label, String> getFlagMapFromConfiguration(
+      BuildConfigurationValue config) throws Exception {
     return FeatureFlagValue.getFlagValues(config.getOptions());
   }
 
@@ -542,7 +542,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:target");
     RuleContext ruleContext = getRuleContext(target);
-    BuildConfiguration childConfiguration =
+    BuildConfigurationValue childConfiguration =
         Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargets("exports_flag"))
             .getConfiguration();
 

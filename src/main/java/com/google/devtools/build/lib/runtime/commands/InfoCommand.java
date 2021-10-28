@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.runtime.commands.info.BlazeTestlogsInfoItem
 import com.google.devtools.build.lib.runtime.commands.info.BuildLanguageInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.CharacterEncodingInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ClientEnv;
-import com.google.devtools.build.lib.runtime.commands.info.CommitedHeapSizeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.CommittedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.DefaultPackagePathInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.DefaultsPackageInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ExecutionRootInfoItem;
@@ -148,13 +148,15 @@ public class InfoCommand implements BlazeCommand {
     env.getReporter().switchToAnsiAllowingHandler();
     Options infoOptions = optionsParsingResult.getOptions(Options.class);
     OutErr outErr = env.getReporter().getOutErr();
-    // Creating a BuildConfiguration is expensive and often unnecessary. Delay the creation until
+    // Creating a BuildConfigurationValue is expensive and often unnecessary. Delay the creation
+    // until
     // it is needed. We memoize so that it's cached intra-command (it's still created freshly on
     // every command since the configuration can change across commands).
-    Supplier<BuildConfiguration> configurationSupplier =
+    Supplier<BuildConfigurationValue> configurationSupplier =
         Suppliers.memoize(
             () -> {
-              try (SilentCloseable c = Profiler.instance().profile("Creating BuildConfiguration")) {
+              try (SilentCloseable c =
+                  Profiler.instance().profile("Creating BuildConfigurationValue")) {
                 // In order to be able to answer configuration-specific queries, we need to set up
                 // the package path. Since info inherits all the build options, all the necessary
                 // information is available here.
@@ -291,7 +293,7 @@ public class InfoCommand implements BlazeCommand {
             new PackagePathInfoItem(commandOptions),
             new UsedHeapSizeInfoItem(),
             new UsedHeapSizeAfterGcInfoItem(),
-            new CommitedHeapSizeInfoItem(),
+            new CommittedHeapSizeInfoItem(),
             new MaxHeapSizeInfoItem(),
             new GcTimeInfoItem(),
             new GcCountInfoItem(),

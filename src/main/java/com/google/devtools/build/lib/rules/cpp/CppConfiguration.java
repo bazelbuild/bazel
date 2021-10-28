@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -52,7 +52,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
+ * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable

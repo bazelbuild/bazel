@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,14 +38,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 /** Implementation for the {@code java_runtime} rule. */
 public class JavaRuntime implements RuleConfiguredTargetFactory {
   // TODO(lberki): This is incorrect but that what the Jvm configuration fragment did. We'd have the
-  // the ability to do better if we knew what OS the BuildConfiguration refers to.
+  // the ability to do better if we knew what OS the BuildConfigurationValue refers to.
   private static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
-    BuildConfiguration configuration = checkNotNull(ruleContext.getConfiguration());
+    BuildConfigurationValue configuration = checkNotNull(ruleContext.getConfiguration());
     filesBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(ruleContext, "srcs"));
     boolean siblingRepositoryLayout = configuration.isSiblingRepositoryLayout();
     PathFragment javaHome = defaultJavaHome(ruleContext.getLabel(), siblingRepositoryLayout);

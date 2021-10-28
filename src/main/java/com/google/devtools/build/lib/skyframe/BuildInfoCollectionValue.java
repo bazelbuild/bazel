@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -50,9 +50,9 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
     return getStringHelper().add("collection", collection).toString();
   }
 
-  public static BuildInfoKeyAndConfig key(BuildInfoKey key, @Nullable BuildConfiguration config) {
-    return BuildInfoKeyAndConfig.create(
-        key, config == null ? null : BuildConfigurationValue.key(config));
+  public static BuildInfoKeyAndConfig key(
+      BuildInfoKey key, @Nullable BuildConfigurationValue config) {
+    return BuildInfoKeyAndConfig.create(key, config == null ? null : config.getKey());
   }
 
   /** Key for BuildInfoCollectionValues. */
@@ -62,16 +62,15 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
         BlazeInterners.newWeakInterner();
 
     private final BuildInfoKey infoKey;
-    private final BuildConfigurationValue.Key configKey;
+    private final BuildConfigurationKey configKey;
 
-    private BuildInfoKeyAndConfig(BuildInfoKey key, BuildConfigurationValue.Key configKey) {
+    private BuildInfoKeyAndConfig(BuildInfoKey key, BuildConfigurationKey configKey) {
       this.infoKey = Preconditions.checkNotNull(key, configKey);
       this.configKey = Preconditions.checkNotNull(configKey, key);
     }
 
     @AutoCodec.Instantiator
-    static BuildInfoKeyAndConfig create(
-        BuildInfoKey infoKey, BuildConfigurationValue.Key configKey) {
+    static BuildInfoKeyAndConfig create(BuildInfoKey infoKey, BuildConfigurationKey configKey) {
       return keyInterner.intern(new BuildInfoKeyAndConfig(infoKey, configKey));
     }
 
@@ -84,7 +83,7 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
       return infoKey;
     }
 
-    BuildConfigurationValue.Key getConfigKey() {
+    BuildConfigurationKey getConfigKey() {
       return configKey;
     }
 

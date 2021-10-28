@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -622,14 +622,14 @@ public class ExecutionTool {
   }
 
   /**
-   * Obtains the {@link BuildConfiguration} for a given {@link BuildOptions} for the purpose of
+   * Obtains the {@link BuildConfigurationValue} for a given {@link BuildOptions} for the purpose of
    * symlink creation.
    *
    * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
    * returned.
    */
   @Nullable
-  private static BuildConfiguration getConfiguration(
+  private static BuildConfigurationValue getConfiguration(
       SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
     try {
       return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
@@ -677,7 +677,7 @@ public class ExecutionTool {
     Reporter reporter = env.getReporter();
 
     // Gather configurations to consider.
-    Set<BuildConfiguration> targetConfigurations =
+    Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
             ? analysisResult.getTargetsToBuild().stream()
                 .map(ConfiguredTarget::getConfigurationKey)

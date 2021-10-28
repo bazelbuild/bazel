@@ -82,7 +82,7 @@ public final class RequiredFragmentsUtil {
   @Nullable
   public static RequiredConfigFragmentsProvider getRuleRequiredFragmentsIfEnabled(
       Rule target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
@@ -136,7 +136,7 @@ public final class RequiredFragmentsUtil {
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
       Rule associatedTarget,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
@@ -164,7 +164,7 @@ public final class RequiredFragmentsUtil {
   /** Internal implementation that handles requirements common to both rules and aspects. */
   private static RequiredConfigFragmentsProvider.Builder getRequiredFragments(
       IncludeConfigFragmentsEnum mode,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
@@ -290,7 +290,8 @@ public final class RequiredFragmentsUtil {
     }
   }
 
-  private static IncludeConfigFragmentsEnum getRequiredFragmentsMode(BuildConfiguration config) {
+  private static IncludeConfigFragmentsEnum getRequiredFragmentsMode(
+      BuildConfigurationValue config) {
     return checkNotNull(
         config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider);
   }

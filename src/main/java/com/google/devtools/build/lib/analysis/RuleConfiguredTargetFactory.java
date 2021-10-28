@@ -14,9 +14,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 
 /**
  * A shortcut class to the appropriate specialization of {@code RuleClass.ConfiguredTargetFactory}.
@@ -26,12 +27,11 @@ import com.google.devtools.build.lib.packages.RuleClass;
  * <p>Actions (i.e. commands that are run during the build) are created by configured targets (see
  * {@link ConfiguredTarget}), which are a pair of a {@link
  * com.google.devtools.build.lib.cmdline.Label} (e.g. <code>//src:bazel</code>) and a {@link
- * com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key}, which is a key for a {@link
- * com.google.devtools.build.lib.analysis.config.BuildConfiguration}, which is a blob of data that
- * contains extra information about how the target should be built (for example, for which platform
- * or with which C++ preprocessor definitions). Accordingly, a target can give rise to multiple
- * configured targets, for example, if it needs to be built both for the host and the target
- * configuration.
+ * BuildConfigurationKey}, which is a key for a {@link BuildConfigurationValue}, which is a blob of
+ * data that contains extra information about how the target should be built (for example, for which
+ * platform or with which C++ preprocessor definitions). Accordingly, a target can give rise to
+ * multiple configured targets, for example, if it needs to be built both for the host and the
+ * target configuration.
  *
  * <p>The process of creating the appropriate {@link com.google.devtools.build.lib.actions.Action}s
  * for a configured target is called "analysis". The analysis of a configured target is composed of
@@ -129,5 +129,5 @@ public interface RuleConfiguredTargetFactory
   default void addRuleImplSpecificRequiredConfigFragments(
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       AttributeMap attributes,
-      BuildConfiguration configuration) {}
+      BuildConfigurationValue configuration) {}
 }

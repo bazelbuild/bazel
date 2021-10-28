@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -462,7 +462,7 @@ public class CppHelper {
   public static Artifact getLinkedArtifact(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType)
       throws RuleErrorException {
     return getLinkedArtifact(
@@ -473,7 +473,7 @@ public class CppHelper {
   public static Artifact getLinkedArtifact(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix)
       throws RuleErrorException {
@@ -506,7 +506,7 @@ public class CppHelper {
       Label label,
       ActionConstructionContext actionConstructionContext,
       ArtifactRoot artifactRoot,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix,
       PathFragment name) {
@@ -535,7 +535,7 @@ public class CppHelper {
   private static Artifact getLinuxLinkedArtifact(
       Label label,
       ActionConstructionContext actionConstructionContext,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
     PathFragment name = PathFragment.create(label.getName());
@@ -591,7 +591,7 @@ public class CppHelper {
    */
   public static CppModuleMap createDefaultCppModuleMap(
       ActionConstructionContext actionConstructionContext,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Label label) {
     // Create the module map artifact as a genfile.
     Artifact mapFile =
@@ -722,7 +722,7 @@ public class CppHelper {
       ActionConstructionContext actionConstructionContext,
       Label label,
       String outputName,
-      BuildConfiguration config) {
+      BuildConfigurationValue config) {
     PathFragment objectDir = getObjDirectory(label, config.isSiblingRepositoryLayout());
     return actionConstructionContext.getDerivedArtifact(
         objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));

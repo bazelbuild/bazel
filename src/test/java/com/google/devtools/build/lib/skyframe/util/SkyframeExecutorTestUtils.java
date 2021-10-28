@@ -20,7 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -87,7 +87,7 @@ public class SkyframeExecutorTestUtils {
    */
   @Nullable
   public static ConfiguredTargetValue getExistingConfiguredTargetValue(
-      SkyframeExecutor skyframeExecutor, Label label, BuildConfiguration config)
+      SkyframeExecutor skyframeExecutor, Label label, BuildConfigurationValue config)
       throws InterruptedException {
     SkyKey key = ConfiguredTargetKey.builder().setLabel(label).setConfiguration(config).build();
     return (ConfiguredTargetValue) getExistingValue(skyframeExecutor, key);
@@ -101,7 +101,7 @@ public class SkyframeExecutorTestUtils {
    */
   @Nullable
   public static ConfiguredTarget getExistingConfiguredTarget(
-      SkyframeExecutor skyframeExecutor, Label label, BuildConfiguration config)
+      SkyframeExecutor skyframeExecutor, Label label, BuildConfigurationValue config)
       throws InterruptedException {
     ConfiguredTargetValue value = getExistingConfiguredTargetValue(skyframeExecutor, label, config);
     if (value == null) {
@@ -113,8 +113,8 @@ public class SkyframeExecutorTestUtils {
   /**
    * Returns all configured targets currently in the graph with the given label.
    *
-   * <p>Unlike {@link #getExistingConfiguredTarget(SkyframeExecutor, Label, BuildConfiguration)},
-   * this doesn't make the caller request a specific configuration.
+   * <p>Unlike {@link #getExistingConfiguredTarget(SkyframeExecutor, Label,
+   * BuildConfigurationValue)}, this doesn't make the caller request a specific configuration.
    */
   public static Iterable<ConfiguredTarget> getExistingConfiguredTargets(
       SkyframeExecutor skyframeExecutor, final Label label) {

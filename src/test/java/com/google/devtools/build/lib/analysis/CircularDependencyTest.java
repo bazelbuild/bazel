@@ -24,7 +24,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -229,9 +229,9 @@ public class CircularDependencyTest extends BuildViewTestCase {
 
   /** A late bound dependency which depends on the 'dep' label if the 'define' is in --defines. */
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
-  private static final LabelLateBoundDefault<BuildConfiguration> LATE_BOUND_DEP =
+  private static final LabelLateBoundDefault<BuildConfigurationValue> LATE_BOUND_DEP =
       LabelLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           null,
           (rule, attributes, config) ->
               config.getCommandLineBuildVariables().containsKey(attributes.get("define", STRING))

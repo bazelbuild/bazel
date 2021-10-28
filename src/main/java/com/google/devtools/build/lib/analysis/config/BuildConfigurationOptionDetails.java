@@ -15,19 +15,19 @@
 package com.google.devtools.build.lib.analysis.config;
 
 /**
- * Retrieves {@link TransitiveOptionDetails} from {@link BuildConfiguration} instances.
+ * Retrieves {@link TransitiveOptionDetails} from {@link BuildConfigurationValue} instances.
  *
  * <p>This class's existence allows for the use of Blaze visibility to limit access to option data
  * to only the configuration-specific rules which need to access or manipulate the configuration in
  * such a meta way - in most cases, there should be no need to use this class. Instead, access
- * desired configuration fragments via {@link BuildConfiguration#getFragment(Class)}.
+ * desired configuration fragments via {@link BuildConfigurationValue#getFragment(Class)}.
  */
 public class BuildConfigurationOptionDetails {
 
   /** Utility class - no need to instantiate. */
   private BuildConfigurationOptionDetails() {}
 
-  public static TransitiveOptionDetails get(BuildConfiguration configuration) {
+  public static TransitiveOptionDetails get(BuildConfigurationValue configuration) {
     return configuration.getTransitiveOptionDetails();
   }
 }

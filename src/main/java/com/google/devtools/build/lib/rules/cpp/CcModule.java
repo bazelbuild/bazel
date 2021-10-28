@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
@@ -1943,7 +1943,7 @@ public abstract class CcModule
     }
   }
 
-  private static boolean isStampingEnabled(int stamp, BuildConfiguration config)
+  private static boolean isStampingEnabled(int stamp, BuildConfigurationValue config)
       throws EvalException {
     if (stamp == 0) {
       return false;
@@ -2093,7 +2093,8 @@ public abstract class CcModule
     SourceCategory sourceCategory =
         (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
     CcCommon common = new CcCommon(actions.getRuleContext(), ccToolchainProvider);
-    BuildConfiguration configuration = actions.getActionConstructionContext().getConfiguration();
+    BuildConfigurationValue configuration =
+        actions.getActionConstructionContext().getConfiguration();
     CcCompilationHelper helper =
         new CcCompilationHelper(
             actions.asActionRegistry(actions),

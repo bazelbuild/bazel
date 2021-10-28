@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -796,9 +796,9 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /**
-   * Returns a map of additional make variables for use by {@link BuildConfiguration}. These are to
-   * used to allow some build rules to avoid the limits on stack frame sizes and variable-length
-   * arrays.
+   * Returns a map of additional make variables for use by {@link BuildConfigurationValue}. These
+   * are to used to allow some build rules to avoid the limits on stack frame sizes and
+   * variable-length arrays.
    *
    * <p>The returned map must contain an entry for {@code STACK_FRAME_UNLIMITED}, though the entry
    * may be an empty string.

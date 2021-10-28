@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
@@ -63,13 +63,13 @@ import java.util.stream.Collectors;
 @ThreadSafe
 @AutoCodec
 public final class PrepareAnalysisPhaseValue implements SkyValue {
-  private final BuildConfigurationValue.Key hostConfigurationKey;
-  private final ImmutableList<BuildConfigurationValue.Key> targetConfigurationKeys;
+  private final BuildConfigurationKey hostConfigurationKey;
+  private final ImmutableList<BuildConfigurationKey> targetConfigurationKeys;
   private final ImmutableList<ConfiguredTargetKey> topLevelCtKeys;
 
   PrepareAnalysisPhaseValue(
-      BuildConfigurationValue.Key hostConfigurationKey,
-      ImmutableList<BuildConfigurationValue.Key> targetConfigurationKeys,
+      BuildConfigurationKey hostConfigurationKey,
+      ImmutableList<BuildConfigurationKey> targetConfigurationKeys,
       ImmutableList<ConfiguredTargetKey> topLevelCtKeys) {
     this.hostConfigurationKey = Preconditions.checkNotNull(hostConfigurationKey);
     this.targetConfigurationKeys = Preconditions.checkNotNull(targetConfigurationKeys);
@@ -83,9 +83,9 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
   public BuildConfigurationCollection getConfigurations(
       ExtendedEventHandler eventHandler, SkyframeExecutor skyframeExecutor)
           throws InvalidConfigurationException {
-    BuildConfiguration hostConfiguration =
+    BuildConfigurationValue hostConfiguration =
         skyframeExecutor.getConfiguration(eventHandler, hostConfigurationKey);
-    ImmutableList<BuildConfiguration> targetConfigurations =
+    ImmutableList<BuildConfigurationValue> targetConfigurations =
         ImmutableList.copyOf(
             skyframeExecutor.getConfigurations(eventHandler, targetConfigurationKeys).values());
     return new BuildConfigurationCollection(targetConfigurations, hostConfiguration);
@@ -102,7 +102,7 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
   public TopLevelTargetsAndConfigsResult getTopLevelCts(
       ExtendedEventHandler eventHandler, SkyframeExecutor skyframeExecutor) {
     List<TargetAndConfiguration> result = new ArrayList<>();
-    Map<BuildConfigurationValue.Key, BuildConfiguration> configs =
+    Map<BuildConfigurationKey, BuildConfigurationValue> configs =
         skyframeExecutor.getConfigurations(
             eventHandler,
             topLevelCtKeys.stream()
@@ -124,7 +124,7 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
         hasError = true;
         continue;
       }
-      BuildConfiguration config =
+      BuildConfigurationValue config =
           key.getConfigurationKey() == null ? null : configs.get(key.getConfigurationKey());
       result.add(new TargetAndConfiguration(target, config));
     }

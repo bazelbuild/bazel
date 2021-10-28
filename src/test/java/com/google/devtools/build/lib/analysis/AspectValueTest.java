@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AttributeAspect;
@@ -39,8 +39,8 @@ public class AspectValueTest extends AnalysisTestCase {
   @Test
   public void keyEquality() throws Exception {
     update();
-    BuildConfiguration c1 = getTargetConfiguration();
-    BuildConfiguration c2 = getHostConfiguration();
+    BuildConfigurationValue c1 = getTargetConfiguration();
+    BuildConfigurationValue c2 = getHostConfiguration();
     Label l1 = Label.parseAbsolute("//a:l1", ImmutableMap.of());
     Label l1b = Label.parseAbsolute("//a:l1", ImmutableMap.of());
     Label l2 = Label.parseAbsolute("//a:l2", ImmutableMap.of());
@@ -216,8 +216,11 @@ public class AspectValueTest extends AnalysisTestCase {
   }
 
   private static SkyKey createKey(
-      Label label, BuildConfiguration baseConfiguration, NativeAspectClass aspectClass,
-      AspectParameters parameters, BuildConfiguration aspectConfiguration) {
+      Label label,
+      BuildConfigurationValue baseConfiguration,
+      NativeAspectClass aspectClass,
+      AspectParameters parameters,
+      BuildConfigurationValue aspectConfiguration) {
     return AspectKeyCreator.createAspectKey(
         label,
         baseConfiguration,
@@ -226,11 +229,14 @@ public class AspectValueTest extends AnalysisTestCase {
   }
 
   private static SkyKey createDerivedKey(
-      Label label, BuildConfiguration baseConfiguration,
-      NativeAspectClass aspectClass1, AspectParameters parameters1,
-      BuildConfiguration aspectConfiguration1,
-      NativeAspectClass aspectClass2, AspectParameters parameters2,
-      BuildConfiguration aspectConfiguration2) {
+      Label label,
+      BuildConfigurationValue baseConfiguration,
+      NativeAspectClass aspectClass1,
+      AspectParameters parameters1,
+      BuildConfigurationValue aspectConfiguration1,
+      NativeAspectClass aspectClass2,
+      AspectParameters parameters2,
+      BuildConfigurationValue aspectConfiguration2) {
     AspectKey baseKey =
         AspectKeyCreator.createAspectKey(
             label,

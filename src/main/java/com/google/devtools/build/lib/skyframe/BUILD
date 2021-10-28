@@ -109,7 +109,7 @@ java_library(
         ":artifact_nested_set_key",
         ":aspect_creation_exception",
         ":aspect_key_creator",
-        ":build_configuration_value",
+        ":build_configuration",
         ":build_driver_key",
         ":build_driver_value",
         ":build_info_collection_value",
@@ -815,7 +815,7 @@ java_library(
     name = "aspect_key_creator",
     srcs = ["AspectKeyCreator.java"],
     deps = [
-        ":build_configuration_value",
+        ":build_configuration",
         ":configured_target_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -900,14 +900,13 @@ java_library(
 )
 
 java_library(
-    name = "build_configuration_value",
+    name = "build_configuration",
     srcs = [
-        "BuildConfigurationValue.java",
+        "BuildConfigurationKey.java",
         "PlatformMappingValue.java",
     ],
     deps = [
         ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
@@ -928,7 +927,7 @@ java_library(
     name = "build_info_collection_value",
     srcs = ["BuildInfoCollectionValue.java"],
     deps = [
-        ":build_configuration_value",
+        ":build_configuration",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -1140,7 +1139,7 @@ java_library(
     name = "configured_target_and_data",
     srcs = ["ConfiguredTargetAndData.java"],
     deps = [
-        ":build_configuration_value",
+        ":build_configuration",
         ":package_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -1156,7 +1155,7 @@ java_library(
     name = "configured_target_key",
     srcs = ["ConfiguredTargetKey.java"],
     deps = [
-        ":build_configuration_value",
+        ":build_configuration",
         ":sky_functions",
         ":toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -2511,7 +2510,7 @@ java_library(
     name = "toolchain_context_key",
     srcs = ["ToolchainContextKey.java"],
     deps = [
-        ":build_configuration_value",
+        ":build_configuration",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

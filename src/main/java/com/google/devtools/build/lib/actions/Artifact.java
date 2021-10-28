@@ -383,7 +383,7 @@ public abstract class Artifact
     /**
      * Content-based output paths are experimental. Only derived artifacts that are explicitly opted
      * in by their creating rules should use them and only when {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}
+     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}
      * is on.
      */
     private final boolean contentBasedPath;
@@ -397,7 +397,7 @@ public abstract class Artifact
     /**
      * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKey)} but includes the option
      * to use a content-based path for this artifact (see {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}).
+     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
      */
     public static DerivedArtifact create(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, boolean contentBasedPath) {

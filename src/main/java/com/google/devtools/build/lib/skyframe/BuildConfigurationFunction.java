@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -67,7 +67,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return null;
     }
 
-    BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
+    BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
     ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
     try {
       fragments = getConfigurationFragments(key);
@@ -91,23 +91,21 @@ public final class BuildConfigurationFunction implements SkyFunction {
 
     try {
       return new BuildConfigurationValue(
-          new BuildConfiguration(
-              directories,
-              fragments,
-              fragmentClasses,
-              key.getOptions(),
-              ruleClassProvider.getReservedActionMnemonics(),
-              actionEnvironment,
-              RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
-              starlarkSemantics.getBool(
-                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
+          directories,
+          fragments,
+          fragmentClasses,
+          key.getOptions(),
+          ruleClassProvider.getReservedActionMnemonics(),
+          actionEnvironment,
+          RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
+          starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     } catch (InvalidMnemonicException e) {
       throw new BuildConfigurationFunctionException(e);
     }
   }
 
   private ImmutableSortedMap<Class<? extends Fragment>, Fragment> getConfigurationFragments(
-      BuildConfigurationValue.Key key) throws InvalidConfigurationException {
+      BuildConfigurationKey key) throws InvalidConfigurationException {
     FragmentClassSet fragmentClasses = key.getFragments();
     ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
         ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);

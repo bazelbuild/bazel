@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -161,7 +161,7 @@ public final class TargetCompleteEvent
     this.isTest = isTest;
     this.announceTargetSummary = announceTargetSummary;
     this.testTimeoutSeconds = isTest ? getTestTimeoutSeconds(targetAndData) : null;
-    BuildConfiguration configuration = targetAndData.getConfiguration();
+    BuildConfigurationValue configuration = targetAndData.getConfiguration();
     this.configEventId =
         configuration != null ? configuration.getEventId() : BuildEventIdUtil.nullConfigurationId();
     this.configurationEvent = configuration != null ? configuration.toBuildEvent() : null;
@@ -538,7 +538,7 @@ public final class TargetCompleteEvent
    * category and configuration.
    */
   private static Long getTestTimeoutSeconds(ConfiguredTargetAndData targetAndData) {
-    BuildConfiguration configuration = targetAndData.getConfiguration();
+    BuildConfigurationValue configuration = targetAndData.getConfiguration();
     Rule associatedRule = targetAndData.getTarget().getAssociatedRule();
     TestTimeout categoricalTimeout = TestTimeout.getTestTimeout(associatedRule);
     return configuration

@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
@@ -67,7 +67,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws RegisteredExecutionPlatformsFunctionException, InterruptedException {
 
-    BuildConfigurationValue buildConfigurationValue =
+    BuildConfigurationValue configuration =
         (BuildConfigurationValue)
             env.getValue(((RegisteredExecutionPlatformsValue.Key) skyKey).getConfigurationKey());
     RepositoryMappingValue mainRepoMapping =
@@ -75,7 +75,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    BuildConfiguration configuration = buildConfigurationValue.getConfiguration();
 
     TargetPattern.Parser mainRepoParser =
         new TargetPattern.Parser(
@@ -186,7 +185,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   }
 
   private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
-      Environment env, BuildConfiguration configuration, List<Label> labels)
+      Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
     ImmutableList<ConfiguredTargetKey> keys =
         labels.stream()

@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -145,7 +145,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
                           fromTarget.getLabel(), label, label.getRepository(), e.getMessage())));
           continue;
         }
-        @Nullable BuildConfiguration configuration = fromNode.getConfiguration();
+        @Nullable BuildConfigurationValue configuration = fromNode.getConfiguration();
         @Nullable ConfigurationId configId = null;
         if (configuration != null) {
           configId =  configuration.getEventId().getConfiguration();

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis.buildinfo;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 
@@ -52,7 +52,7 @@ public interface BuildInfoFactory extends Serializable {
   /** Create actions and artifacts for language-specific build-info files. */
   BuildInfoCollection create(
       BuildInfoContext context,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       Artifact buildInfo,
       Artifact buildChangelist);
 
@@ -65,5 +65,5 @@ public interface BuildInfoFactory extends Serializable {
    * Returns false if this build info factory is disabled based on the configuration (usually by
    * checking if all required configuration fragments are present).
    */
-  boolean isEnabled(BuildConfiguration config);
+  boolean isEnabled(BuildConfigurationValue config);
 }

@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -68,7 +68,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   private final ObjcProvider objcProvider;
   private final Artifact fullyLinkArchive;
   private final IntermediateArtifacts intermediateArtifacts;
-  private final BuildConfiguration buildConfiguration;
+  private final BuildConfigurationValue buildConfiguration;
   private final ImmutableList<String> frameworkSearchPaths;
   private final Set<String> frameworkNames;
   private final ImmutableList<String> libraryNames;
@@ -85,7 +85,7 @@ class ObjcVariablesExtension implements VariablesExtension {
       ObjcProvider objcProvider,
       Artifact fullyLinkArchive,
       IntermediateArtifacts intermediateArtifacts,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       ImmutableList<String> frameworkSearchPaths,
       Set<String> frameworkNames,
       ImmutableList<String> libraryNames,
@@ -246,7 +246,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     private ObjcProvider objcProvider;
     private Artifact fullyLinkArchive;
     private IntermediateArtifacts intermediateArtifacts;
-    private BuildConfiguration buildConfiguration;
+    private BuildConfigurationValue buildConfiguration;
     private ImmutableList<String> frameworkSearchPaths;
     private Set<String> frameworkNames;
     private ImmutableSet<Artifact> forceLoadArtifacts;
@@ -285,7 +285,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
 
     /** Sets the configuration for this extension. */
-    public Builder setConfiguration(BuildConfiguration buildConfiguration) {
+    public Builder setConfiguration(BuildConfigurationValue buildConfiguration) {
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
       return this;
     }
@@ -356,7 +356,7 @@ class ObjcVariablesExtension implements VariablesExtension {
           activeVariableCategoriesBuilder.build();
 
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
-      Preconditions.checkNotNull(buildConfiguration, "missing BuildConfiguration");
+      Preconditions.checkNotNull(buildConfiguration, "missing BuildConfigurationValue");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
       if (activeVariableCategories.contains(VariableCategory.FULLY_LINK_VARIABLES)) {
         Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");

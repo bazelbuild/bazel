@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -82,7 +82,7 @@ public class TestSummaryTest {
   }
 
   private TestSummary.Builder getTemplateBuilder() {
-    BuildConfiguration configuration = Mockito.mock(BuildConfiguration.class);
+    BuildConfigurationValue configuration = Mockito.mock(BuildConfigurationValue.class);
     when(configuration.checksum()).thenReturn("abcdef");
     return TestSummary.newBuilder(stubTarget)
         .setConfiguration(configuration)

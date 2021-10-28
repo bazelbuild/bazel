@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -179,7 +179,7 @@ public class CompilationSupport implements StarlarkValue {
   private FeatureConfiguration getFeatureConfiguration(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CppSemantics cppSemantics) {
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
@@ -287,7 +287,7 @@ public class CompilationSupport implements StarlarkValue {
   }
 
   private final RuleContext ruleContext;
-  private final BuildConfiguration buildConfiguration;
+  private final BuildConfigurationValue buildConfiguration;
   private final ObjcConfiguration objcConfiguration;
   private final AppleConfiguration appleConfiguration;
   private final CppSemantics cppSemantics;
@@ -319,7 +319,7 @@ public class CompilationSupport implements StarlarkValue {
    */
   private CompilationSupport(
       RuleContext ruleContext,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       CppSemantics cppSemantics,
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes,
@@ -356,7 +356,7 @@ public class CompilationSupport implements StarlarkValue {
   public static class Builder {
     private final RuleContext ruleContext;
     private final CppSemantics cppSemantics;
-    private BuildConfiguration buildConfiguration;
+    private BuildConfigurationValue buildConfiguration;
     private IntermediateArtifacts intermediateArtifacts;
     private CompilationAttributes compilationAttributes;
     private CcToolchainProvider toolchain;
@@ -368,8 +368,8 @@ public class CompilationSupport implements StarlarkValue {
       this.cppSemantics = cppSemantics;
     }
 
-    /** Sets the {@link BuildConfiguration} for the calling target. */
-    public Builder setConfig(BuildConfiguration buildConfiguration) {
+    /** Sets the {@link BuildConfigurationValue} for the calling target. */
+    public Builder setConfig(BuildConfigurationValue buildConfiguration) {
       this.buildConfiguration = buildConfiguration;
       return this;
     }

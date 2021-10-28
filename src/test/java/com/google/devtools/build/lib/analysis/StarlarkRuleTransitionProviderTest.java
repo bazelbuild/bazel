@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -114,7 +114,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -151,7 +151,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("pre-transition->post-transition");
   }
@@ -332,7 +332,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -387,7 +387,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -411,7 +411,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -538,7 +538,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().getStarlarkOptions())
         .doesNotContainKey(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
   }
@@ -556,7 +556,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -580,7 +580,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -713,7 +713,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -982,7 +982,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--nullable_option=", "--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -1015,7 +1015,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file("test/BUILD");
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//neverland:test"));
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//neverland:test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -1050,7 +1051,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file("neverland/BUILD");
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }

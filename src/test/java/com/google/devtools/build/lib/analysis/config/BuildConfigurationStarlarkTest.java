@@ -27,7 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link BuildConfiguration}'s integration with Starlark. */
+/** Tests for {@link BuildConfigurationValue}'s integration with Starlark. */
 @RunWith(JUnit4.class)
 public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
 

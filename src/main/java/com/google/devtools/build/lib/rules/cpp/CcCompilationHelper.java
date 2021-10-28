@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -231,7 +231,7 @@ public final class CcCompilationHelper {
   }
 
   private final CppSemantics semantics;
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue configuration;
   private final ImmutableMap<String, String> executionInfo;
   private final CppConfiguration cppConfiguration;
   private final boolean shouldProcessHeaders;
@@ -299,7 +299,7 @@ public final class CcCompilationHelper {
       SourceCategory sourceCategory,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       ImmutableMap<String, String> executionInfo,
       boolean shouldProcessHeaders) {
     this.semantics = Preconditions.checkNotNull(semantics);
@@ -2038,7 +2038,7 @@ public final class CcCompilationHelper {
 
   /** Returns true iff code coverage is enabled for the given target. */
   public static boolean isCodeCoverageEnabled(RuleContext ruleContext) {
-    BuildConfiguration configuration = ruleContext.getConfiguration();
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
     if (configuration.isCodeCoverageEnabled()) {
       // If rule is matched by the instrumentation filter, enable instrumentation
       if (InstrumentedFilesCollector.shouldIncludeLocalSources(

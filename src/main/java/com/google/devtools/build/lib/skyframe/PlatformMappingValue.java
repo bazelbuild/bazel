@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
 
 /**
  * Stores contents of a platforms/flags mapping file for transforming one {@link
- * BuildConfigurationValue.Key} into another.
+ * BuildConfigurationKey} into another.
  *
  * <p>See <a href=https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls>
  * the design</a> for more details on how the mapping can be defined and the desired logic on how it
@@ -140,7 +140,7 @@ public final class PlatformMappingValue implements SkyValue {
   private final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
   private final LoadingCache<ImmutableSet<String>, OptionsParsingResult> parserCache;
-  private final LoadingCache<BuildConfigurationValue.Key, BuildConfigurationValue.Key> mappingCache;
+  private final LoadingCache<BuildConfigurationKey, BuildConfigurationKey> mappingCache;
 
   /**
    * Creates a new mapping value which will match on the given platforms (if a target platform is
@@ -167,7 +167,7 @@ public final class PlatformMappingValue implements SkyValue {
   }
 
   /**
-   * Maps one {@link BuildConfigurationValue.Key} to another by way of mappings provided in a file.
+   * Maps one {@link BuildConfigurationKey} to another by way of mappings provided in a file.
    *
    * <p>The <a href=https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls>
    * full design</a> contains the details for the mapping logic but in short:
@@ -186,8 +186,7 @@ public final class PlatformMappingValue implements SkyValue {
    * @throws IllegalArgumentException if the original does not contain a {@link PlatformOptions}
    *     fragment
    */
-  public BuildConfigurationValue.Key map(BuildConfigurationValue.Key original)
-      throws OptionsParsingException {
+  public BuildConfigurationKey map(BuildConfigurationKey original) throws OptionsParsingException {
     try {
       return mappingCache.get(original);
     } catch (CompletionException e) {
@@ -196,7 +195,7 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private BuildConfigurationValue.Key computeMapping(BuildConfigurationValue.Key original)
+  private BuildConfigurationKey computeMapping(BuildConfigurationKey original)
       throws OptionsParsingException {
     BuildOptions originalOptions = original.getOptions();
 
@@ -238,8 +237,7 @@ public final class PlatformMappingValue implements SkyValue {
       }
     }
 
-    return BuildConfigurationValue.keyWithoutPlatformMapping(
-        original.getFragments(), modifiedOptions);
+    return BuildConfigurationKey.withoutPlatformMapping(original.getFragments(), modifiedOptions);
   }
 
   private OptionsParsingResult parseWithCache(ImmutableSet<String> args)

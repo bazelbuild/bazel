@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.TemplateVariableInfoBackedMakeVariableSupplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
@@ -68,14 +68,14 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
       ImmutableList.of("toolchains", ":cc_toolchain", "$toolchains");
 
   public ConfigurationMakeVariableContext(
-      RuleContext ruleContext, Package pkg, BuildConfiguration configuration) {
+      RuleContext ruleContext, Package pkg, BuildConfigurationValue configuration) {
     this(ruleContext, pkg, configuration, ImmutableList.<MakeVariableSupplier>of());
   }
 
   public ConfigurationMakeVariableContext(
       RuleContext ruleContext,
       Package pkg,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
     this(
         getRuleTemplateVariableProviders(ruleContext, DEFAULT_MAKE_VARIABLE_ATTRIBUTES),
@@ -87,7 +87,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
   private ConfigurationMakeVariableContext(
       ImmutableList<TemplateVariableInfo> ruleTemplateVariableProviders,
       Package pkg,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Iterable<? extends MakeVariableSupplier> extraMakeVariableSuppliers) {
     this.allMakeVariableSuppliers =
         ImmutableList.<MakeVariableSupplier>builder()

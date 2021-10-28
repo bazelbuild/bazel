@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -116,7 +116,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
 
   protected abstract PostAnalysisQueryEnvironment<T> getQueryEnvironment(
       BuildRequest request,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph)
@@ -124,7 +124,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
 
   private void doPostAnalysisQuery(
       BuildRequest request,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,

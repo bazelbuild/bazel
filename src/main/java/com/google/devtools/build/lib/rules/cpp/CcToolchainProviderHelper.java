@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -62,7 +62,8 @@ public class CcToolchainProviderHelper {
   public static CcToolchainProvider getCcToolchainProvider(
       RuleContext ruleContext, CcToolchainAttributesProvider attributes)
       throws RuleErrorException, InterruptedException {
-    BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
+    BuildConfigurationValue configuration =
+        Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
 

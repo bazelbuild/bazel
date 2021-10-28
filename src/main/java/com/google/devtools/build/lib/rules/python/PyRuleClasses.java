@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
@@ -124,8 +124,8 @@ public class PyRuleClasses {
     @Override
     public ImmutableSet<Path> getLinkPaths(
         BuildRequestOptions buildRequestOptions,
-        Set<BuildConfiguration> targetConfigs,
-        Function<BuildOptions, BuildConfiguration> configGetter,
+        Set<BuildConfigurationValue> targetConfigs,
+        Function<BuildOptions, BuildConfigurationValue> configGetter,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {

@@ -53,8 +53,8 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -144,7 +144,7 @@ public final class SkyframeBuildView {
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
   // The host configuration containing all fragments used by this build's transitive closure.
-  private BuildConfiguration topLevelHostConfiguration;
+  private BuildConfigurationValue topLevelHostConfiguration;
 
   private BuildConfigurationCollection configurations;
 
@@ -206,15 +206,16 @@ public final class SkyframeBuildView {
       return null;
     }
 
-    ImmutableList<BuildConfiguration> oldTargetConfigs =
+    ImmutableList<BuildConfigurationValue> oldTargetConfigs =
         this.configurations.getTargetConfigurations();
-    ImmutableList<BuildConfiguration> newTargetConfigs = configurations.getTargetConfigurations();
+    ImmutableList<BuildConfigurationValue> newTargetConfigs =
+        configurations.getTargetConfigurations();
 
     // TODO(schmitt): We are only checking the first of the new configurations, even though (through
     //  split transitions) we could have more than one. There is some special handling for
     //  --cpu changing below but other options may also be changed and should be covered.
-    BuildConfiguration oldConfig = oldTargetConfigs.get(0);
-    BuildConfiguration newConfig = newTargetConfigs.get(0);
+    BuildConfigurationValue oldConfig = oldTargetConfigs.get(0);
+    BuildConfigurationValue newConfig = newTargetConfigs.get(0);
     OptionsDiff diff = BuildOptions.diff(oldConfig.getOptions(), newConfig.getOptions());
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
@@ -264,9 +265,9 @@ public final class SkyframeBuildView {
   // TODO(schmitt): This method assumes that the only option that can cause multiple target
   //  configurations is --cpu which (with the presence of split transitions) is no longer true.
   private ImmutableSet<OptionDefinition> getNativeCacheInvalidatingDifferences(
-      ImmutableList<BuildConfiguration> oldTargetConfigs,
-      ImmutableList<BuildConfiguration> newTargetConfigs,
-      BuildConfiguration newConfig,
+      ImmutableList<BuildConfigurationValue> oldTargetConfigs,
+      ImmutableList<BuildConfigurationValue> newTargetConfigs,
+      BuildConfigurationValue newConfig,
       OptionsDiff diff) {
     Stream<OptionDefinition> nativeCacheInvalidatingDifferences =
         diff.getFirst().keySet().stream()
@@ -292,9 +293,9 @@ public final class SkyframeBuildView {
           nativeCacheInvalidatingDifferences.filter(
               (definition) -> !CoreOptions.CPU.equals(definition));
       ImmutableSet<String> oldCpus =
-          oldTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
+          oldTargetConfigs.stream().map(BuildConfigurationValue::getCpu).collect(toImmutableSet());
       ImmutableSet<String> newCpus =
-          newTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
+          newTargetConfigs.stream().map(BuildConfigurationValue::getCpu).collect(toImmutableSet());
       if (!Objects.equals(oldCpus, newCpus)) {
         // --experimental_multi_cpu has changed, so inject that in the diff stream.
         nativeCacheInvalidatingDifferences =
@@ -347,7 +348,7 @@ public final class SkyframeBuildView {
    * Sets the host configuration consisting of all fragments that will be used by the top level
    * targets' transitive closures.
    */
-  private void setTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {
+  private void setTopLevelHostConfiguration(BuildConfigurationValue topLevelHostConfiguration) {
     if (!topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
       this.topLevelHostConfiguration = topLevelHostConfiguration;
     }
@@ -375,7 +376,7 @@ public final class SkyframeBuildView {
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
       boolean keepGoing,
@@ -565,7 +566,7 @@ public final class SkyframeBuildView {
           }
           AnalysisFailedCause failedCause =
               makeArtifactConflictAnalysisFailedCause(configurationLookupSupplier, e.get());
-          BuildConfigurationValue.Key configKey =
+          BuildConfigurationKey configKey =
               ctKey instanceof ConfiguredTargetKey
                   ? ((ConfiguredTargetKey) ctKey).getConfigurationKey()
                   : ((AspectKey) ctKey).getAspectConfigurationKey();
@@ -695,7 +696,7 @@ public final class SkyframeBuildView {
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       ConflictException e) {
     try {
       throw e.rethrowTyped();
@@ -707,16 +708,16 @@ public final class SkyframeBuildView {
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       ActionConflictException ace) {
     DetailedExitCode detailedExitCode = ace.getDetailedExitCode();
     Label causeLabel = ace.getArtifact().getArtifactOwner().getLabel();
-    BuildConfigurationValue.Key causeConfigKey = null;
+    BuildConfigurationKey causeConfigKey = null;
     if (ace.getArtifact().getArtifactOwner() instanceof ConfiguredTargetKey) {
       causeConfigKey =
           ((ConfiguredTargetKey) ace.getArtifact().getArtifactOwner()).getConfigurationKey();
     }
-    BuildConfiguration causeConfig =
+    BuildConfigurationValue causeConfig =
         causeConfigKey == null ? null : configurationLookupSupplier.get().get(causeConfigKey);
     return new AnalysisFailedCause(
         causeLabel,
@@ -797,14 +798,15 @@ public final class SkyframeBuildView {
    * keepGoing} is false.
    *
    * <p>Visible only for use by tests via {@link
-   * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler, BuildConfiguration,
-   * Iterable)}. When called there, {@code eventBus} must be null to indicate that this is a test,
-   * and so there may be additional {@link SkyKey}s in the {@code result} that are not {@link
-   * AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will be ignored.
+   * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler,
+   * BuildConfigurationValue, Iterable)}. When called there, {@code eventBus} must be null to
+   * indicate that this is a test, and so there may be additional {@link SkyKey}s in the {@code
+   * result} that are not {@link AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will
+   * be ignored.
    */
   static Pair<Boolean, ViewCreationFailedException> processErrors(
       EvaluationResult<? extends SkyValue> result,
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
@@ -897,7 +899,7 @@ public final class SkyframeBuildView {
       } else if (cause instanceof NoSuchPackageException) {
         // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
         // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
-        BuildConfiguration configuration =
+        BuildConfigurationValue configuration =
             configurationLookupSupplier.get().get(label.getConfigurationKey());
         ConfigurationId configId = configuration.getEventId().getConfiguration();
         AnalysisFailedCause analysisFailedCause =
@@ -922,7 +924,7 @@ public final class SkyframeBuildView {
       }
 
       if (!inTest) {
-        BuildConfiguration configuration =
+        BuildConfigurationValue configuration =
             configurationLookupSupplier.get().get(label.getConfigurationKey());
         eventBus.post(
             new AnalysisFailureEvent(
@@ -1067,7 +1069,7 @@ public final class SkyframeBuildView {
       ActionLookupKey owner,
       ExtendedEventHandler eventHandler,
       Environment env,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       StarlarkBuiltinsValue starlarkBuiltinsValue) {
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
     boolean allowAnalysisFailures = config != null && config.allowAnalysisFailures();
@@ -1092,7 +1094,7 @@ public final class SkyframeBuildView {
   @Nullable
   ConfiguredTarget createConfiguredTarget(
       Target target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CachingAnalysisEnvironment analysisEnvironment,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
@@ -1124,7 +1126,7 @@ public final class SkyframeBuildView {
    * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the correct host
    * configuration at the top-level.
    */
-  public BuildConfiguration getHostConfiguration() {
+  public BuildConfigurationValue getHostConfiguration() {
     return topLevelHostConfiguration;
   }
 

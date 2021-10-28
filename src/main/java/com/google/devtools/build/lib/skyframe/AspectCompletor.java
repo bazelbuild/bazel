@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -92,8 +93,8 @@ class AspectCompletor
   }
 
   @Nullable
-  private BuildEventId getConfigurationEventIdFromAspectKey(AspectKey aspectKey, Environment env)
-      throws InterruptedException {
+  private static BuildEventId getConfigurationEventIdFromAspectKey(
+      AspectKey aspectKey, Environment env) throws InterruptedException {
     if (aspectKey.getBaseConfiguredTargetKey().getConfigurationKey() == null) {
       return BuildEventIdUtil.nullConfigurationId();
     } else {
@@ -103,7 +104,7 @@ class AspectCompletor
       if (buildConfigurationValue == null) {
         return null;
       }
-      return buildConfigurationValue.getConfiguration().getEventId();
+      return buildConfigurationValue.getEventId();
     }
   }
 

@@ -18,14 +18,15 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Structure;
 
 /**
  * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled with the
  * {@link com.google.devtools.build.lib.packages.Target} and {@link
- * com.google.devtools.build.lib.analysis.config.BuildConfiguration} objects it was created from.
+ * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue} objects it was created
+ * from.
  *
  * <p>This interface is supposed to only be used in {@link BuildView} and above. In particular, rule
  * implementations should not be able to access the {@link ConfiguredTarget} objects associated with
@@ -46,15 +47,16 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   }
 
   /**
-   * Returns the {@link BuildConfigurationValue.Key} naming the {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration} for which this configured
-   * target is defined. Configuration is defined for all configured targets with exception of {@link
+   * Returns the {@link BuildConfigurationKey} naming the {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue} for which this
+   * configured target is defined. Configuration is defined for all configured targets with
+   * exception of {@link
    * com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget} and {@link
    * com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget} for
    * which it is always <b>null</b>.
    */
   @Nullable
-  BuildConfigurationValue.Key getConfigurationKey();
+  BuildConfigurationKey getConfigurationKey();
 
   /** Returns keys for a legacy Starlark provider. */
   @Override

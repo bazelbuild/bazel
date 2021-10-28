@@ -31,7 +31,7 @@ import java.util.Objects;
 public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
 
   /** Returns the {@link SkyKey} for {@link RegisteredExecutionPlatformsValue}s. */
-  public static SkyKey key(BuildConfigurationValue.Key configurationKey) {
+  public static SkyKey key(BuildConfigurationKey configurationKey) {
     return Key.of(configurationKey);
   }
 
@@ -41,15 +41,15 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
   static class Key implements SkyKey {
     private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
 
-    private final BuildConfigurationValue.Key configurationKey;
+    private final BuildConfigurationKey configurationKey;
 
-    private Key(BuildConfigurationValue.Key configurationKey) {
+    private Key(BuildConfigurationKey configurationKey) {
       this.configurationKey = configurationKey;
     }
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(BuildConfigurationValue.Key configurationKey) {
+    static Key of(BuildConfigurationKey configurationKey) {
       return interners.intern(new Key(configurationKey));
     }
 
@@ -58,7 +58,7 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
       return SkyFunctions.REGISTERED_EXECUTION_PLATFORMS;
     }
 
-    BuildConfigurationValue.Key getConfigurationKey() {
+    BuildConfigurationKey getConfigurationKey() {
       return configurationKey;
     }
 

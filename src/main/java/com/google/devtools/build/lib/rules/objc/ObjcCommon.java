@@ -41,7 +41,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -98,7 +98,7 @@ public final class ObjcCommon implements StarlarkValue {
     private final Purpose purpose;
     private final RuleContext context;
     private final StarlarkSemantics semantics;
-    private final BuildConfiguration buildConfiguration;
+    private final BuildConfigurationValue buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private Iterable<ObjcProvider> objcProviders = ImmutableList.of();
@@ -129,7 +129,7 @@ public final class ObjcCommon implements StarlarkValue {
      * configuration data from the given configuration object for use in situations where a single
      * target's outputs are under multiple configurations.
      */
-    Builder(Purpose purpose, RuleContext context, BuildConfiguration buildConfiguration)
+    Builder(Purpose purpose, RuleContext context, BuildConfigurationValue buildConfiguration)
         throws InterruptedException {
       this.purpose = purpose;
       this.context = Preconditions.checkNotNull(context);

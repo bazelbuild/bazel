@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -52,20 +52,20 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests {@link ConfiguredTargetFunction}'s logic for determining each target's
- * {@link BuildConfiguration}.
+ * Tests {@link ConfiguredTargetFunction}'s logic for determining each target's {@link
+ * BuildConfigurationValue}.
  *
- * <p>This is essentially an integration test for
- * {@link ConfiguredTargetFunction#computeDependencies} and {@link DependencyResolver}. These
- * methods form the core logic that figures out what a target's deps are, how their configurations
- * should differ from their parent, and how to instantiate those configurations as tangible
- * {@link BuildConfiguration} objects.
+ * <p>This is essentially an integration test for {@link
+ * ConfiguredTargetFunction#computeDependencies} and {@link DependencyResolver}. These methods form
+ * the core logic that figures out what a target's deps are, how their configurations should differ
+ * from their parent, and how to instantiate those configurations as tangible {@link
+ * BuildConfigurationValue} objects.
  *
  * <p>{@link ConfiguredTargetFunction} is a complicated class that does a lot of things. This test
- * focuses purely on the task of determining configurations for deps. So instead of evaluating
- * full {@link ConfiguredTargetFunction} instances, it evaluates a mock {@link SkyFunction} that
- * just wraps the {@link ConfiguredTargetFunction#computeDependencies} part. This keeps focus tight
- * and integration dependencies narrow.
+ * focuses purely on the task of determining configurations for deps. So instead of evaluating full
+ * {@link ConfiguredTargetFunction} instances, it evaluates a mock {@link SkyFunction} that just
+ * wraps the {@link ConfiguredTargetFunction#computeDependencies} part. This keeps focus tight and
+ * integration dependencies narrow.
  *
  * <p>We can't just call {@link ConfiguredTargetFunction#computeDependencies} directly because that
  * method needs a {@link SkyFunction.Environment} and Blaze's test infrastructure doesn't support
@@ -88,8 +88,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       this.stateProvider = lateBoundStateProvider;
     }
 
-    /** Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair. */
-    private static Key key(Target target, BuildConfiguration config) {
+    /** Returns a {@link SkyKey} for a given <Target, BuildConfigurationValue> pair. */
+    private static Key key(Target target, BuildConfigurationValue config) {
       return new Key(new TargetAndConfiguration(target, config));
     }
 
@@ -160,7 +160,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     RuleClassProvider lateBoundRuleClassProvider() {
       return ruleClassProvider;
     }
-    BuildConfiguration lateBoundHostConfig() {
+
+    BuildConfigurationValue lateBoundHostConfig() {
       return getHostConfiguration();
     }
   }
@@ -258,7 +259,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "cc_binary(name = 'binary', srcs = ['main.cc'], deps = [':dep1', ':dep2'])");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:binary", "deps");
     assertThat(deps).hasSize(2);
-    BuildConfiguration topLevelConfiguration =
+    BuildConfigurationValue topLevelConfiguration =
         getConfiguration(Iterables.getOnlyElement(update("//a:binary").getTargetsToBuild()));
     for (ConfiguredTarget dep : deps) {
       assertThat(topLevelConfiguration).isEqualTo(getConfiguration(dep));

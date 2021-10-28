@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -91,7 +91,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       BitcodeFiles allBitcodeFiles,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
@@ -146,7 +146,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       Artifact bitcodeFile,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
@@ -222,7 +222,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       LinkArtifactFactory linkArtifactFactory,
       List<String> userCompileFlags,
       @Nullable BitcodeFiles bitcodeFiles)

@@ -32,7 +32,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.runtime.commands.ConfigCommandOutputFormatt
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -119,7 +119,8 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   /**
-   * Data structure defining a {@link BuildConfiguration} for the purpose of this command's output.
+   * Data structure defining a {@link BuildConfigurationValue} for the purpose of this command's
+   * output.
    *
    * <p>Includes all data representing a "configuration" and defines their relative structure and
    * list order.
@@ -258,8 +259,8 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   /**
-   * Data structure defining the difference between two {@link BuildConfiguration}s from the point
-   * of this command's output.
+   * Data structure defining the difference between two {@link BuildConfigurationValue}s from the
+   * point of this command's output.
    *
    * <p>See {@link ConfigurationForOutput} for further details.
    */
@@ -293,7 +294,7 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   /**
-   * Data structure defining the difference between two {@link BuildConfiguration}s for a given
+   * Data structure defining the difference between two {@link BuildConfigurationValue}s for a given
    * {@link FragmentOptions}from the point of this command's output.
    *
    * <p>See {@link ConfigurationForOutput} for further details.
@@ -330,7 +331,7 @@ public class ConfigCommand implements BlazeCommand {
    */
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    ImmutableSortedMap<BuildConfigurationValue.Key, BuildConfiguration> configurations =
+    ImmutableSortedMap<BuildConfigurationKey, BuildConfigurationValue> configurations =
         findConfigurations(env);
 
     try (PrintWriter writer =
@@ -375,10 +376,10 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   /**
-   * Returns all {@link BuildConfiguration}s in Skyframe as a map from their {@link
-   * BuildConfigurationValue.Key} to instance.
+   * Returns all {@link BuildConfigurationValue}s in Skyframe as a map from their {@link
+   * BuildConfigurationKey} to instance.
    */
-  private static ImmutableSortedMap<BuildConfigurationValue.Key, BuildConfiguration>
+  private static ImmutableSortedMap<BuildConfigurationKey, BuildConfigurationValue>
       findConfigurations(CommandEnvironment env) {
     InMemoryMemoizingEvaluator evaluator =
         (InMemoryMemoizingEvaluator)
@@ -387,9 +388,9 @@ public class ConfigCommand implements BlazeCommand {
         .filter(e -> SkyFunctions.BUILD_CONFIGURATION.equals(e.getKey().functionName()))
         .collect(
             toImmutableSortedMap(
-                comparing(BuildConfigurationValue.Key::toComparableString),
-                e -> (BuildConfigurationValue.Key) e.getKey(),
-                e -> ((BuildConfigurationValue) e.getValue()).getConfiguration()));
+                comparing(BuildConfigurationKey::toComparableString),
+                e -> (BuildConfigurationKey) e.getKey(),
+                e -> (BuildConfigurationValue) e.getValue()));
   }
 
   /**
@@ -397,8 +398,8 @@ public class ConfigCommand implements BlazeCommand {
    * runtime.
    *
    * <p>These are the fragments that Blaze "knows about", not necessarily the fragments in a {@link
-   * BuildConfiguration}. Trimming, in particular, strips fragments out of actual configurations.
-   * It's safe to assume untrimmed configuration have all fragments listed here.
+   * BuildConfigurationValue}. Trimming, in particular, strips fragments out of actual
+   * configurations. It's safe to assume untrimmed configuration have all fragments listed here.
    */
   private static ImmutableSortedMap<
           Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
@@ -418,16 +419,15 @@ public class ConfigCommand implements BlazeCommand {
    * instances.
    */
   private static ImmutableSortedSet<ConfigurationForOutput> forOutput(
-      ImmutableSortedMap<BuildConfigurationValue.Key, BuildConfiguration> asSkyKeyMap,
+      ImmutableSortedMap<BuildConfigurationKey, BuildConfigurationValue> asSkyKeyMap,
       ImmutableSortedMap<
               Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
           fragmentDefs) {
     ImmutableSortedSet.Builder<ConfigurationForOutput> ans =
         ImmutableSortedSet.orderedBy(comparing(e -> e.configHash));
-    for (Map.Entry<BuildConfigurationValue.Key, BuildConfiguration> entry :
-        asSkyKeyMap.entrySet()) {
-      BuildConfigurationValue.Key key = entry.getKey();
-      BuildConfiguration config = entry.getValue();
+    for (Map.Entry<BuildConfigurationKey, BuildConfigurationValue> entry : asSkyKeyMap.entrySet()) {
+      BuildConfigurationKey key = entry.getKey();
+      BuildConfigurationValue config = entry.getValue();
       ans.add(getConfigurationForOutput(key, config.checksum(), config, fragmentDefs));
     }
     return ans.build();
@@ -435,9 +435,9 @@ public class ConfigCommand implements BlazeCommand {
 
   /** Constructs a {@link ConfigurationForOutput} from the given input daata. */
   private static ConfigurationForOutput getConfigurationForOutput(
-      BuildConfigurationValue.Key skyKey,
+      BuildConfigurationKey skyKey,
       String configHash,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       ImmutableSortedMap<
               Class<? extends Fragment>, ImmutableSortedSet<Class<? extends FragmentOptions>>>
           fragmentDefs) {
@@ -547,7 +547,7 @@ public class ConfigCommand implements BlazeCommand {
    * output from interpreting them more deeply than we want for simple "name=value" output.
    */
   private static ImmutableSortedMap<String, String> getOrderedUserDefinedOptions(
-      BuildConfiguration config) {
+      BuildConfigurationValue config) {
     ImmutableSortedMap.Builder<String, String> ans = ImmutableSortedMap.naturalOrder();
 
     // Starlark-defined options:

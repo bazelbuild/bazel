@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -65,8 +65,8 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     WorkspaceStatusValue infoArtifactValue =
         (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
 
-    BuildConfiguration config =
-        ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey())).getConfiguration();
+    BuildConfigurationValue config =
+        (BuildConfigurationValue) result.get(keyAndConfig.getConfigKey());
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories = BUILD_INFO_FACTORIES.get(env);
     BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
     Preconditions.checkState(buildInfoFactory.isEnabled(config));

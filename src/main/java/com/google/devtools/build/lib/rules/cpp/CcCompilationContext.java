@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -726,7 +726,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   /** Creates a new builder for a {@link CcCompilationContext} instance. */
   public static Builder builder(
       ActionConstructionContext actionConstructionContext,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Label label) {
     return new Builder(actionConstructionContext, configuration, label);
   }
@@ -763,13 +763,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** The rule that owns the context */
     private final ActionConstructionContext actionConstructionContext;
 
-    private final BuildConfiguration configuration;
+    private final BuildConfigurationValue configuration;
     private final Label label;
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
     private Builder(
         ActionConstructionContext actionConstructionContext,
-        BuildConfiguration configuration,
+        BuildConfigurationValue configuration,
         Label label) {
       this.actionConstructionContext = actionConstructionContext;
       this.configuration = configuration;

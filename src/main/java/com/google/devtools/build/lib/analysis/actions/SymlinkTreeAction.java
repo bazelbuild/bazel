@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -63,7 +63,7 @@ public final class SymlinkTreeAction extends AbstractAction {
    */
   public SymlinkTreeAction(
       ActionOwner owner,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       Artifact inputManifest,
       @Nullable Runfiles runfiles,
       Artifact outputManifest,
@@ -82,8 +82,8 @@ public final class SymlinkTreeAction extends AbstractAction {
 
   /**
    * Creates SymlinkTreeAction instance. Prefer the constructor that takes a {@link
-   * BuildConfiguration} instance; it is less likely to require changes in the future if we add more
-   * command-line flags that affect this action.
+   * BuildConfigurationValue} instance; it is less likely to require changes in the future if we add
+   * more command-line flags that affect this action.
    *
    * @param owner action owner
    * @param inputManifest the input runfiles manifest

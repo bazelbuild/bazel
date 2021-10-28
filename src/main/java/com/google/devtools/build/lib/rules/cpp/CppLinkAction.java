@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -89,7 +89,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     Artifact create(
         ActionConstructionContext actionConstructionContext,
         RepositoryName repositoryName,
-        BuildConfiguration configuration,
+        BuildConfigurationValue configuration,
         PathFragment rootRelativePath);
   }
 
@@ -103,7 +103,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         public Artifact create(
             ActionConstructionContext actionConstructionContext,
             RepositoryName repositoryName,
-            BuildConfiguration configuration,
+            BuildConfigurationValue configuration,
             PathFragment rootRelativePath) {
           return actionConstructionContext.getDerivedArtifact(
               rootRelativePath, configuration.getBinDirectory(repositoryName));

@@ -43,8 +43,8 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -582,7 +582,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected ConfiguredTarget getConfiguredTarget(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
+      ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue config)
       throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getSkyframeExecutor().getConfiguredTargetForTesting(eventHandler, label, config);
   }
@@ -616,14 +616,14 @@ public abstract class BuildIntegrationTestCase {
    * If they used multiple different configurations, or if none of them had a configuration, then
    * falls back to the base top-level configuration.
    */
-  protected BuildConfiguration getTargetConfiguration() {
-    BuildConfiguration baseConfiguration =
+  protected BuildConfigurationValue getTargetConfiguration() {
+    BuildConfigurationValue baseConfiguration =
         Iterables.getOnlyElement(getConfigurationCollection().getTargetConfigurations());
     BuildResult result = getResult();
     if (result == null) {
       return baseConfiguration;
     }
-    Set<BuildConfiguration> topLevelTargetConfigurations =
+    Set<BuildConfigurationValue> topLevelTargetConfigurations =
         result.getActualTargets().stream()
             .map(this::getConfiguration)
             .filter(Objects::nonNull)
@@ -634,7 +634,7 @@ public abstract class BuildIntegrationTestCase {
     return Iterables.getOnlyElement(topLevelTargetConfigurations);
   }
 
-  protected BuildConfiguration getHostConfiguration() {
+  protected BuildConfigurationValue getHostConfiguration() {
     return getConfigurationCollection().getHostConfiguration();
   }
 
@@ -852,7 +852,7 @@ public abstract class BuildIntegrationTestCase {
     return target.getProvider(FileProvider.class).getFilesToBuild();
   }
 
-  protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
     return getSkyframeExecutor()
         .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
@@ -883,7 +883,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
+      ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue config)
       throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getSkyframeExecutor().getConfiguredTargetAndDataForTesting(eventHandler, label, config);
   }
