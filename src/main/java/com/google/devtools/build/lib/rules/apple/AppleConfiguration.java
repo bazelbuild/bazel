@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
+import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -77,7 +78,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public static final String IOS_FORCED_SIMULATOR_CPU_PREFIX = "sim_";
 
   /** Default cpu for iOS builds. */
-  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
+  @VisibleForTesting
+  static final String DEFAULT_IOS_CPU = CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
 
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;
