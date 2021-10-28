@@ -1386,6 +1386,97 @@ public class RemoteExecutionServiceTest {
     }
   }
 
+  @Test
+  public void buildMerkleTree_withMemoization_works() throws Exception {
+    // Test that Merkle tree building can be memoized.
+
+    // TODO: Would like to check that NestedSet.getNonLeaves() is only called once per node, but
+    //       cannot Mockito.spy on NestedSet as it is final.
+
+    // arrange
+    /*
+     * First:
+     *   /bar/file
+     *   /foo1/file
+     * Second:
+     *   /bar/file
+     *   /foo2/file
+     */
+
+    // arrange
+    // Single node NestedSets are folded, so always add a dummy file everywhere.
+    ActionInput dummyFile = ActionInputHelper.fromPath("dummy");
+    fakeFileCache.createScratchInput(dummyFile, "dummy");
+
+    ActionInput barFile = ActionInputHelper.fromPath("bar/file");
+    NestedSet<ActionInput> nodeBar =
+        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, barFile);
+    fakeFileCache.createScratchInput(barFile, "bar");
+
+    ActionInput foo1File = ActionInputHelper.fromPath("foo1/file");
+    NestedSet<ActionInput> nodeFoo1 =
+        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo1File);
+    fakeFileCache.createScratchInput(foo1File, "foo1");
+
+    ActionInput foo2File = ActionInputHelper.fromPath("foo2/file");
+    NestedSet<ActionInput> nodeFoo2 =
+        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
+    fakeFileCache.createScratchInput(foo2File, "foo2");
+
+    NestedSet<ActionInput> nodeRoot1 =
+        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+            .add(dummyFile)
+            .addTransitive(nodeBar)
+            .addTransitive(nodeFoo1)
+            .build();
+    NestedSet<ActionInput> nodeRoot2 =
+        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+            .add(dummyFile)
+            .addTransitive(nodeBar)
+            .addTransitive(nodeFoo2)
+            .build();
+
+    Spawn spawn1 =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(),
+            /*inputs=*/ nodeRoot1,
+            /*outputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
+    Spawn spawn2 =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(),
+            /*inputs=*/ nodeRoot2,
+            /*outputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
+
+    FakeSpawnExecutionContext context1 = newSpawnExecutionContext(spawn1);
+    FakeSpawnExecutionContext context2 = newSpawnExecutionContext(spawn2);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteMerkleTreeCache = true;
+    remoteOptions.remoteMerkleTreeCacheSize = 0;
+    RemoteExecutionService service = spy(newRemoteExecutionService(remoteOptions));
+
+    // act first time
+    service.buildRemoteAction(spawn1, context1);
+
+    // assert first time
+    // Called for: manifests, runfiles, nodeRoot1, nodeFoo1 and nodeBar.
+    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any());
+
+    // act second time
+    service.buildRemoteAction(spawn2, context2);
+
+    // assert second time
+    // Called again for: manifests, runfiles, nodeRoot2 and nodeFoo2 but not nodeBar (cached).
+    verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any());
+  }
+
   private Spawn newSpawnFromResult(RemoteActionResult result) {
     return newSpawnFromResult(ImmutableMap.of(), result);
   }

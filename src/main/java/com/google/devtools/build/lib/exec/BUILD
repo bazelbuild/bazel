@@ -275,6 +275,7 @@ java_library(
         "SpawnSchedulingEvent.java",
     ],
     deps = [
+        ":spawn_input_expander",
         ":tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
