@@ -288,10 +288,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // package twice (first time loading to find load()ed bzl files and declare Skyframe
   // dependencies).
   private final Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
-      newPkgFunctionCache();
+      Caffeine.newBuilder().build();
   // Cache of parsed BUILD files, for PackageFunction. Same motivation as above.
   private final Cache<PackageIdentifier, PackageFunction.CompiledBuildFile> compiledBuildFileCache =
-      newCompiledBuildFileCache();
+      Caffeine.newBuilder().build();
 
   // Cache of parsed bzl files, for use when we're inlining BzlCompileFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
@@ -1195,15 +1195,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     for (PrecomputedValue.Injected injected : extraPrecomputedValues) {
       injected.inject(injectable());
     }
-  }
-
-  protected Cache<PackageIdentifier, LoadedPackageCacheEntry> newPkgFunctionCache() {
-    return Caffeine.newBuilder().build();
-  }
-
-  protected Cache<PackageIdentifier, PackageFunction.CompiledBuildFile>
-      newCompiledBuildFileCache() {
-    return Caffeine.newBuilder().build();
   }
 
   private void setShowLoadingProgress(boolean showLoadingProgressValue) {
