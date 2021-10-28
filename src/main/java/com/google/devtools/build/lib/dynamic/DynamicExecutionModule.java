@@ -160,7 +160,9 @@ public class DynamicExecutionModule extends BlazeModule {
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
     if (firstBuild && options.skipFirstBuild) {
       reporter.handle(
-          Event.info("Disabling dynamic execution until we have seen a successful build"));
+          Event.info(
+              "Disabling dynamic execution until we have seen a successful build, see"
+                  + " --experimental_dynamic_skip_first_build."));
     } else {
       registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
     }
