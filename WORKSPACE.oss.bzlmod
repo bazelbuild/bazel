@@ -1,0 +1,31 @@
+# Replace the original WORKSPACE file with this file to build Bazel with bzlmod.
+# We still need the bind rules to make protobuf work.
+workspace(name = "io_bazel")
+
+# Required by @com_google_protobuf//java/util:util in protobuf 3.19.0
+# TODO(pcloudy): Remove those bind rules, when com_google_protobuf can
+# fetch jar dependencies via rules_jvm_external with module extension.
+bind(
+  name = "error_prone_annotations",
+  actual = "//third_party:error_prone_annotations",
+)
+
+bind(
+  name = "j2objc_annotations",
+  actual = "//third_party/java/j2objc-annotations:j2objc-annotations",
+)
+
+bind(
+  name = "gson",
+  actual = "//third_party:gson",
+)
+
+bind(
+  name = "jsr305",
+  actual = "//third_party:jsr305",
+)
+
+bind(
+  name = "guava",
+  actual = "//third_party:guava",
+)
