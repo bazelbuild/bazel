@@ -714,7 +714,7 @@ public class CppHelper {
   public static void maybeAddStaticLinkMarkerProvider(
       RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
     if (ruleContext.getFeatures().contains("fully_static_link")) {
-      builder.add(StaticallyLinkedMarkerProvider.class, new StaticallyLinkedMarkerProvider(true));
+      builder.addNativeDeclaredProvider(new StaticallyLinkedMarkerProvider(true));
     }
   }
 

@@ -1019,8 +1019,8 @@ java_library(
     name = "statically_linked_marker_provider",
     srcs = ["StaticallyLinkedMarkerProvider.java"],
     deps = [
-        ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
