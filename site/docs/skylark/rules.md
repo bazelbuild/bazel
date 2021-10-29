@@ -903,6 +903,158 @@ if (ctx.configuration.coverage_enabled and
     # Do something to turn on coverage for this compile action
 ```
 
+### Validation Actions
+
+Sometimes you need to validate something about the build, and the
+information required to do that validation is available only in artifacts
+(source files or generated files). Because this information is in artifacts,
+rules cannot do this validation at analysis time because rules cannot read
+files. Instead, actions must do this validation at execution time. When
+validation fails, the action will fail, and hence so will the build.
+
+Examples of validations that might be run are static analysis, linting,
+dependency and consistency checks, and style checks.
+
+Validation actions can also help to improve build performance by moving parts
+of actions that are not required for building artifacts into separate actions.
+For example, if a single action that does compilation and linting can be
+separated into a compilation action and a linting action, then the linting
+action can be run as a validation action and run in parallel with other actions.
+
+These "validation actions" often don't produce anything that is used elsewhere
+in the build, since they only need to assert things about their inputs. This
+presents a problem though: If a validation action does not produce anything that
+is used elsewhere in the build, how does a rule get the action to run?
+Historically, the approach was to have the validation action output an empty
+file, and artificially add that output to the inputs of some other important
+action in the build:
+
+<img src="../images/validation_action_historical.svg" width="35%" />
+
+This works, because Bazel will always run the validation action when the compile
+action is run, but this has significant drawbacks:
+
+1. The validation action is in the critical path of the build. Because Bazel
+thinks the empty output is required to run the compile action, it will run the
+validation action first, even though the compile action will ignore the input.
+This reduces parallelism and slows down builds.
+
+2. If other actions in the build might run instead of the
+compile action, then the empty outputs of validation actions need to be added to
+those actions as well (`java_library`'s source jar output, for example). This is
+also a problem if new actions that might run instead of the compile action are
+added later, and the empty validation output is accidentally left off.
+
+The solution to these problems is to use the Validations Output Group.
+
+#### Validations Output Group
+
+The Validations Output Group is an output group designed to hold the otherwise
+unused outputs of validation actions, so that they don't need to be artificially
+added to the inputs of other actions.
+
+This group is special in that its outputs are always requested, regardless of
+the value of the `--output_groups` flag, and regardless of how the target is
+depended upon (for example, on the command line, as a dependency, or through
+implicit outputs of the target). Note that normal caching and incrementality
+still apply: if the inputs to the validation action have not changed and the
+validation action previously succeeded, then the validation action will not be
+run.
+
+<img src="../images/validation_action.svg" width="35%" />
+
+Using this output group still requires that validation actions output some file,
+even an empty one. This might require wrapping some tools that normally don't
+create outputs so that a file is created.
+
+A target's validation actions are not run in three cases:
+
+*    When the target is depended upon as a tool
+*    When the target is depended upon as an implicit dependency (for example, an
+     attribute that starts with "_")
+*    When the target is built in the host or exec configuration.
+
+It is assumed that these targets have their own
+separate builds and tests that would uncover any validation failures.
+
+#### Using the Validations Output Group
+
+The Validations Output Group is named `_validation` and is used like any other
+output group:
+
+```python
+def _rule_with_validation_impl(ctx):
+
+  ctx.actions.write(ctx.outputs.main, "main output\n")
+
+  ctx.actions.write(ctx.outputs.implicit, "implicit output\n")
+
+  validation_output = ctx.actions.declare_file(ctx.attr.name + ".validation")
+  ctx.actions.run(
+      outputs = [validation_output],
+      executable = ctx.executable._validation_tool,
+      arguments = [validation_output.path])
+
+  return [
+    DefaultInfo(files = depset([ctx.outputs.main])),
+    OutputGroupInfo(_validation = depset([validation_output])),
+  ]
+
+
+rule_with_validation = rule(
+  implementation = _rule_with_validation_impl,
+  outputs = {
+    "main": "%{name}.main",
+    "implicit": "%{name}.implicit",
+  },
+  attrs = {
+    "_validation_tool": attr.label(
+        default = Label("//validation_actions:validation_tool"),
+        executable = True,
+        cfg = "exec"),
+  }
+)
+```
+
+Notice that the validation output file is not added to the `DefaultInfo` or the
+inputs to any other action. The validation action for a target of this rule kind
+will still run if the target is depended upon by label, or any of the target's
+implicit outputs are directly or indirectly depended upon.
+
+It is usually important that the outputs of validation actions only go into the
+validation output group, and are not added to the inputs of other actions, as
+this could defeat parallelism gains. Note however that Bazel does not currently
+have any special checking to enforce this. Therefore, you should test
+that validation action outputs are not added to the inputs of any actions in the
+tests for Starlark rules. For example:
+
+```python
+load("@bazel_skylib//lib:unittest.bzl", "analysistest")
+
+def _validation_outputs_test_impl(ctx):
+  env = analysistest.begin(ctx)
+
+  actions = analysistest.target_actions(env)
+  target = analysistest.target_under_test(env)
+  validation_outputs = target.output_groups._validation.to_list()
+  for action in actions:
+    for validation_output in validation_outputs:
+      if validation_output in action.inputs.to_list():
+        analysistest.fail(env,
+            "%s is a validation action output, but is an input to action %s" % (
+                validation_output, action))
+
+  return analysistest.end(env)
+
+validation_outputs_test = analysistest.make(_validation_outputs_test_impl)
+```
+
+#### Validation Actions Flag
+
+Running validation actions is controlled by the `--run_validations` command line
+flag, which defaults to true.
+
+
 ## Deprecated features
 
 ### Deprecated predeclared outputs
