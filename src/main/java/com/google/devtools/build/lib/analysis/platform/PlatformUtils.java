@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -78,7 +79,19 @@ public final class PlatformUtils {
     Platform.Builder platformBuilder = Platform.newBuilder();
 
     if (!spawn.getCombinedExecProperties().isEmpty()) {
-      for (Map.Entry<String, String> entry : spawn.getCombinedExecProperties().entrySet()) {
+      Map<String, String> combinedExecProperties;
+      // Apply default exec properties if the execution platform does not already set
+      // exec_properties
+      if (spawn.getExecutionPlatform() == null
+          || spawn.getExecutionPlatform().execProperties().isEmpty()) {
+        combinedExecProperties = new HashMap<>();
+        combinedExecProperties.putAll(defaultExecProperties);
+        combinedExecProperties.putAll(spawn.getCombinedExecProperties());
+      } else {
+        combinedExecProperties = spawn.getCombinedExecProperties();
+      }
+
+      for (Map.Entry<String, String> entry : combinedExecProperties.entrySet()) {
         platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
       }
     } else if (spawn.getExecutionPlatform() != null
