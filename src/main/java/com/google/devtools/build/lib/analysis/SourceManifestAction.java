@@ -54,7 +54,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
   private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
-      (path1, path2) -> path1.getKey().compareTo(path2.getKey());
+      (path1, path2) -> path1.getKey().getPathString().compareTo(path2.getKey().getPathString());
 
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
@@ -167,8 +167,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   private void writeFile(OutputStream out, Map<PathFragment, Artifact> output) throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
-    Collections.sort(sortedManifest, ENTRY_COMPARATOR);
-
+    sortedManifest.sort(ENTRY_COMPARATOR);
     for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
       manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue());
     }
