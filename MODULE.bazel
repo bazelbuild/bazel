@@ -8,7 +8,7 @@ module(
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.0.3")
-bazel_dep(name = "com_google_protobuf", version = "3.19.0")
+bazel_dep(name = "protobuf", version = "3.19.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.41.0", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "0.0.4")
 bazel_dep(name = "rules_pkg", version = "0.5.1")
