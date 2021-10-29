@@ -1052,9 +1052,6 @@ public final class SkyframeActionExecutor {
       }
       String message = action.getProgressMessage();
       if (message != null) {
-        // Tell the receiver that the action has completed *before* telling the reporter.
-        // This way the latter will correctly show the number of completed actions when task
-        // completion messages are enabled (--show_task_finish).
         if (completionReceiver != null) {
           completionReceiver.actionCompleted(actionLookupData);
         }
