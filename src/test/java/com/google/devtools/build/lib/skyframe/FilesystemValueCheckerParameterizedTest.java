@@ -218,8 +218,7 @@ public final class FilesystemValueCheckerParameterizedTest extends FilesystemVal
 
   private ArchivedTreeArtifact createArchivedTreeArtifactWithContent(
       SpecialArtifact treeArtifact, String... contentLines) throws IOException {
-    ArchivedTreeArtifact artifact =
-        ArchivedTreeArtifact.createForTree(treeArtifact, PathFragment.create("bin"));
+    ArchivedTreeArtifact artifact = ArchivedTreeArtifact.createForTree(treeArtifact);
     writeFile(artifact.getPath(), contentLines);
     return artifact;
   }

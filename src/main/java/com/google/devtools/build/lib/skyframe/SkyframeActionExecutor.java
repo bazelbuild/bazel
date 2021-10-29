@@ -102,7 +102,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -215,7 +214,6 @@ public final class SkyframeActionExecutor {
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
-  private final PathFragment relativeOutputPath;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -223,7 +221,6 @@ public final class SkyframeActionExecutor {
       MetadataConsumerForMetrics outputArtifactsFromActionCache,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
-      PathFragment relativeOutputPath,
       AtomicReference<FilesystemCalls> syscalls,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
     this.actionKeyContext = actionKeyContext;
@@ -231,7 +228,6 @@ public final class SkyframeActionExecutor {
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.relativeOutputPath = relativeOutputPath;
     this.syscalls = syscalls;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
   }
@@ -990,7 +986,7 @@ public final class SkyframeActionExecutor {
                   actionExecutionContext.getExecRoot(),
                   actionExecutionContext.getPathResolver(),
                   outputService != null ? outputService.bulkDeleter() : null,
-                  useArchivedTreeArtifacts(action) ? relativeOutputPath : null);
+                  useArchivedTreeArtifacts(action));
             } catch (IOException e) {
               logger.atWarning().withCause(e).log(
                   "failed to delete output files before executing action: '%s'", action);

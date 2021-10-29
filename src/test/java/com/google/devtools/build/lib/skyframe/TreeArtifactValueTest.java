@@ -54,11 +54,10 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class TreeArtifactValueTest {
 
-  private static final PathFragment BIN_PATH = PathFragment.create("bin");
-
   private final Scratch scratch = new Scratch();
   private final ArtifactRoot root =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), RootType.Output, BIN_PATH);
+      ArtifactRoot.asDerivedRoot(
+          scratch.resolve("root"), RootType.Output, PathFragment.create("bin"));
 
   @Test
   public void createsCorrectValue() {
@@ -687,7 +686,7 @@ public final class TreeArtifactValueTest {
   }
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(SpecialArtifact specialArtifact) {
-    return ArchivedTreeArtifact.createForTree(specialArtifact, BIN_PATH);
+    return ArchivedTreeArtifact.createForTree(specialArtifact);
   }
 
   private SpecialArtifact createTreeArtifact(String execPath) {
