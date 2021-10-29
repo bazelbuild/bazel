@@ -457,13 +457,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             outputArtifactsFromActionCache,
             statusReporterRef,
             this::getPathEntries,
-            PathFragment.create(directories.getRelativeOutputPath()),
             syscalls,
             skyKeyStateReceiver::makeThreadStateReceiver);
     this.artifactFactory =
         new ArtifactFactory(
-            /* execRootParent= */ directories.getExecRootBase(),
-            directories.getRelativeOutputPath());
+            /*execRootParent=*/ directories.getExecRootBase(), directories.getRelativeOutputPath());
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =

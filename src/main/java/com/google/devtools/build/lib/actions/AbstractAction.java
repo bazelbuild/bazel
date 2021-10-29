@@ -401,19 +401,17 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    *
    * @param execRoot the exec root in which this action is executed
    * @param bulkDeleter a helper to bulk delete outputs to avoid delegating to the filesystem
-   * @param outputPrefixForArchivedArtifactsCleanup derived output prefix to construct archived tree
-   *     artifacts to be cleaned up. If null, no cleanup is needed.
+   * @param cleanupArchivedArtifacts whether to clean up archived tree artifacts
    */
   protected final void deleteOutputs(
       Path execRoot,
       ArtifactPathResolver pathResolver,
       @Nullable BulkDeleter bulkDeleter,
-      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
+      boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException {
     Iterable<Artifact> artifactsToDelete =
-        outputPrefixForArchivedArtifactsCleanup != null
-            ? Iterables.concat(
-                outputs, archivedTreeArtifactOutputs(outputPrefixForArchivedArtifactsCleanup))
+        cleanupArchivedArtifacts
+            ? Iterables.concat(outputs, archivedTreeArtifactOutputs())
             : outputs;
     Iterable<PathFragment> additionalPathOutputsToDelete = getAdditionalPathOutputsToDelete();
     Iterable<PathFragment> directoryOutputsToDelete = getDirectoryOutputsToDelete();
@@ -452,10 +450,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return ImmutableList.of();
   }
 
-  private Iterable<Artifact> archivedTreeArtifactOutputs(PathFragment derivedPathPrefix) {
+  private Iterable<Artifact> archivedTreeArtifactOutputs() {
     return Iterables.transform(
         Iterables.filter(outputs, Artifact::isTreeArtifact),
-        tree -> ArchivedTreeArtifact.createForTree((SpecialArtifact) tree, derivedPathPrefix));
+        tree -> ArchivedTreeArtifact.createForTree((SpecialArtifact) tree));
   }
 
   /**
@@ -581,9 +579,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       Path execRoot,
       ArtifactPathResolver pathResolver,
       @Nullable BulkDeleter bulkDeleter,
-      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
+      boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException {
-    deleteOutputs(execRoot, pathResolver, bulkDeleter, outputPrefixForArchivedArtifactsCleanup);
+    deleteOutputs(execRoot, pathResolver, bulkDeleter, cleanupArchivedArtifacts);
   }
 
   @Override

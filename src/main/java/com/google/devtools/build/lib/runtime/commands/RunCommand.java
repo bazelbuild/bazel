@@ -444,7 +444,7 @@ public class RunCommand implements BlazeCommand  {
             env.getExecRoot(),
             ArtifactPathResolver.IDENTITY,
             /*bulkDeleter=*/ null,
-            /*outputPrefixForArchivedArtifactsCleanup=*/ null);
+            /*cleanupArchivedArtifacts=*/ false);
       } catch (IOException e) {
         return reportAndCreateFailureResult(
             env,

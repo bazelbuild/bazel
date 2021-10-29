@@ -743,7 +743,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
               actionExecutionContext.getPathResolver(),
               /*bulkDeleter=*/ null,
               // We don't create any tree artifacts anyway.
-              /*outputPrefixForArchivedArtifactsCleanup=*/ null);
+              /*cleanupArchivedArtifacts=*/ false);
         } catch (IOException e) {
           throw new EnvironmentalExecException(
                   e,

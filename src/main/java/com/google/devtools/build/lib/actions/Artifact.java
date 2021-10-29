@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -309,7 +308,7 @@ public abstract class Artifact
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
-  protected final ArtifactRoot root;
+  private final ArtifactRoot root;
 
   private final int hashCode;
   private final PathFragment execPath;
@@ -978,7 +977,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      return root.isExternal() ? getExecPath().subFragment(2) : getExecPath();
+      return getRoot().isExternal() ? getExecPath().subFragment(2) : getExecPath();
     }
 
     @Override
@@ -1168,10 +1167,10 @@ public abstract class Artifact
    * TreeFileArtifact children} (and nothing else) of the tree artifact with their filesystem
    * structure, relative to the {@linkplain SpecialArtifact#getExecPath() tree artifact directory}.
    */
-  @AutoCodec
   public static final class ArchivedTreeArtifact extends DerivedArtifact {
-    private static final PathFragment ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT =
+    private static final PathFragment DEFAULT_DERIVED_TREE_ROOT =
         PathFragment.create(":archived_tree_artifacts");
+
     private final SpecialArtifact treeArtifact;
 
     private ArchivedTreeArtifact(
@@ -1180,19 +1179,14 @@ public abstract class Artifact
         PathFragment execPath,
         Object generatingActionKey) {
       super(root, execPath, generatingActionKey);
+      Preconditions.checkArgument(
+          treeArtifact.isTreeArtifact(), "Not a tree artifact: %s", treeArtifact);
       this.treeArtifact = treeArtifact;
     }
 
     @Override
     public SpecialArtifact getParent() {
       return treeArtifact;
-    }
-
-    /** Creates an archived tree artifact with a given {@code root} and {@code execPath}. */
-    public static ArchivedTreeArtifact create(
-        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
-      return new ArchivedTreeArtifact(
-          treeArtifact, root, execPath, treeArtifact.getGeneratingActionKey());
     }
 
     /**
@@ -1206,13 +1200,12 @@ public abstract class Artifact
      * {@linkplain ArchivedTreeArtifact artifact} of: {@code
      * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
      */
-    public static ArchivedTreeArtifact createForTree(
-        SpecialArtifact treeArtifact, PathFragment derivedPathPrefix) {
-      return createWithCustomDerivedTreeRoot(
+    public static ArchivedTreeArtifact createForTree(SpecialArtifact treeArtifact) {
+      return createInternal(
           treeArtifact,
-          derivedPathPrefix,
-          ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT,
-          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"));
+          DEFAULT_DERIVED_TREE_ROOT,
+          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"),
+          treeArtifact.getGeneratingActionKey());
     }
 
     /**
@@ -1221,31 +1214,30 @@ public abstract class Artifact
      *
      * <p>Example: for a tree artifact with root of {@code bazel-out/k8-fastbuild/bin} returns an
      * {@linkplain ArchivedTreeArtifact artifact} of: {@code
-     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin/{rootRelativePath}} with root of: {@code
-     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     * bazel-out/{derivedTreeRoot}/k8-fastbuild/bin/{rootRelativePath}} with root of: {@code
+     * bazel-out/{derivedTreeRoot}/k8-fastbuild/bin}.
+     *
+     * <p>Such artifacts should only be used as outputs of intermediate spawns. Action execution
+     * results must come from {@link #createForTree}.
      */
     public static ArchivedTreeArtifact createWithCustomDerivedTreeRoot(
-        SpecialArtifact treeArtifact,
-        PathFragment derivedPathPrefix,
-        PathFragment customDerivedTreeRoot,
-        PathFragment rootRelativePath) {
-      ArtifactRoot artifactRoot =
-          createRootForArchivedArtifact(
-              treeArtifact.getRoot(), derivedPathPrefix, customDerivedTreeRoot);
-      return create(
-          treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
+        SpecialArtifact treeArtifact, PathFragment derivedTreeRoot, PathFragment rootRelativePath) {
+      return createInternal(
+          treeArtifact, derivedTreeRoot, rootRelativePath, treeArtifact.getGeneratingActionKey());
     }
 
-    private static ArtifactRoot createRootForArchivedArtifact(
-        ArtifactRoot treeArtifactRoot,
-        PathFragment derivedPathPrefix,
-        PathFragment customDerivedTreeRoot) {
-      return ArtifactRoot.asDerivedRoot(
-          getExecRoot(treeArtifactRoot),
-          // e.g. bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
-          RootType.Output,
-          getExecPathWithinCustomDerivedRoot(
-              derivedPathPrefix, customDerivedTreeRoot, treeArtifactRoot.getExecPath()));
+    private static ArchivedTreeArtifact createInternal(
+        SpecialArtifact treeArtifact,
+        PathFragment derivedTreeRoot,
+        PathFragment rootRelativePath,
+        Object generatingActionKey) {
+      ArtifactRoot treeRoot = treeArtifact.getRoot();
+      PathFragment archiveRoot = embedDerivedTreeRoot(treeRoot.getExecPath(), derivedTreeRoot);
+      return new ArchivedTreeArtifact(
+          treeArtifact,
+          ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.Output, archiveRoot),
+          archiveRoot.getRelative(rootRelativePath),
+          generatingActionKey);
     }
 
     /**
@@ -1255,23 +1247,22 @@ public abstract class Artifact
      * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
      * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
      */
-    public static PathFragment getExecPathWithinArchivedArtifactsTree(
-        PathFragment derivedPathPrefix, PathFragment execPath) {
-      return getExecPathWithinCustomDerivedRoot(
-          derivedPathPrefix, ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT, execPath);
+    public static PathFragment getExecPathWithinArchivedArtifactsTree(PathFragment execPath) {
+      return embedDerivedTreeRoot(execPath, DEFAULT_DERIVED_TREE_ROOT);
     }
 
     /**
      * Translates provided output {@code execPath} to one under provided derived tree root.
      *
      * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
-     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     * bazel-out/{derivedTreeRoot}/k8-fastbuild/bin}.
      */
-    private static PathFragment getExecPathWithinCustomDerivedRoot(
-        PathFragment derivedPathPrefix, PathFragment customDerivedTreeRoot, PathFragment execPath) {
-      return derivedPathPrefix
-          .getRelative(customDerivedTreeRoot)
-          .getRelative(execPath.relativeTo(derivedPathPrefix));
+    private static PathFragment embedDerivedTreeRoot(
+        PathFragment execPath, PathFragment derivedTreeRoot) {
+      return execPath
+          .subFragment(0, 1)
+          .getRelative(derivedTreeRoot)
+          .getRelative(execPath.subFragment(1));
     }
 
     private static Path getExecRoot(ArtifactRoot artifactRoot) {
@@ -1284,16 +1275,42 @@ public abstract class Artifact
               0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
       return rootPath.getFileSystem().getPath(execRootPath);
     }
+  }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static ArchivedTreeArtifact createForDeserialization(
-        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+  @SuppressWarnings("unused") // Codec used by reflection.
+  private static final class ArchivedTreeArtifactCodec
+      implements ObjectCodec<ArchivedTreeArtifact> {
+
+    @Override
+    public Class<ArchivedTreeArtifact> getEncodedClass() {
+      return ArchivedTreeArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ArchivedTreeArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      PathFragment derivedTreeRoot = obj.getRoot().getExecPath().subFragment(1, 2);
+
+      context.serialize(obj.getParent(), codedOut);
+      context.serialize(derivedTreeRoot, codedOut);
+      context.serialize(obj.getRootRelativePath(), codedOut);
+    }
+
+    @Override
+    public ArchivedTreeArtifact deserialize(
+        DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SpecialArtifact treeArtifact = context.deserialize(codedIn);
+      PathFragment derivedTreeRoot = context.deserialize(codedIn);
+      PathFragment rootRelativePath = context.deserialize(codedIn);
       Object generatingActionKey =
           treeArtifact.hasGeneratingActionKey()
               ? treeArtifact.getGeneratingActionKey()
               : OMITTED_FOR_SERIALIZATION;
-      return new ArchivedTreeArtifact(treeArtifact, root, execPath, generatingActionKey);
+
+      return ArchivedTreeArtifact.createInternal(
+          treeArtifact, derivedTreeRoot, rootRelativePath, generatingActionKey);
     }
   }
 

@@ -865,8 +865,7 @@ public class ExecutionTool {
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
-                .build(),
-            PathFragment.create(env.getDirectories().getRelativeOutputPath())),
+                .build()),
         env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
             ? modifiedOutputFiles
