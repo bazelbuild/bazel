@@ -37,7 +37,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link BuildConfigurationValue}. */
 @RunWith(JUnit4.class)
-public class BuildConfigurationTest extends ConfigurationTestCase {
+public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testBasics() throws Exception {
@@ -351,7 +351,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     new SerializationTester(ImmutableList.copyOf(getTestConfigurations()))
         .addDependency(FileSystem.class, getScratch().getFileSystem())
         .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
-        .setVerificationFunction(BuildConfigurationTest::verifyDeserialized)
+        .setVerificationFunction(BuildConfigurationValueTest::verifyDeserialized)
         .runTests();
   }
 
