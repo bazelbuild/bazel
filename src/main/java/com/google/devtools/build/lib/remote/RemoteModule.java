@@ -367,7 +367,8 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.remoteProxy,
                   authAndTlsOptions,
                   interceptors.build(),
-                  maxConcurrencyPerConnection));
+                  maxConcurrencyPerConnection),
+              remoteOptions.remoteMaxConnections);
 
       // Create a separate channel if --remote_executor and --remote_cache point to different
       // endpoints.
@@ -390,7 +391,8 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.remoteProxy,
                   authAndTlsOptions,
                   interceptors.build(),
-                  maxConcurrencyPerConnection));
+                  maxConcurrencyPerConnection),
+              remoteOptions.remoteMaxConnections);
     }
 
     if (enableRemoteDownloader) {
@@ -411,7 +413,8 @@ public final class RemoteModule extends BlazeModule {
                     remoteOptions.remoteProxy,
                     authAndTlsOptions,
                     interceptors.build(),
-                    maxConcurrencyPerConnection));
+                    maxConcurrencyPerConnection),
+                remoteOptions.remoteMaxConnections);
       }
     }
 
