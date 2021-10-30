@@ -365,8 +365,8 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.strictFilesetOutput;
   }
 
-  public String getMainRepositoryName() {
-    return mainRepositoryName.strippedName();
+  public RepositoryName getMainRepositoryName() {
+    return mainRepositoryName;
   }
 
   /**

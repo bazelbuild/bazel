@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static java.util.stream.Collectors.joining;
 
@@ -82,31 +83,36 @@ public class OutputDirectories {
   public enum OutputDirectory {
     BIN("bin"),
     GENFILES("genfiles"),
-    MIDDLEMAN(true),
+    MIDDLEMAN("internal"),
     TESTLOGS("testlogs"),
     COVERAGE("coverage-metadata"),
     INCLUDE(BlazeDirectories.RELATIVE_INCLUDE_DIR),
-    OUTPUT(false);
-
-    private final String nameFragment;
-    private final boolean middleman;
+    OUTPUT("");
 
     /**
-     * This constructor is for roots without suffixes, e.g.,
-     * [[execroot/repo]/bazel-out/local-fastbuild].
+     * Returns the {@link OutputDirectory} matching the given name.
      *
-     * @param isMiddleman whether the root should be a middleman root or a "normal" derived root.
+     * <p>Throws {@link IllegalArgumentException} if the given name does not match any directory in
+     * the output tree.
      */
-    OutputDirectory(boolean isMiddleman) {
-      this.nameFragment = isMiddleman ? "internal" : "";
-      this.middleman = isMiddleman;
+    public static OutputDirectory forName(String name) {
+      checkNotNull(name);
+      for (OutputDirectory directory : values()) {
+        if (directory.name.equals(name)) {
+          return directory;
+        }
+      }
+      throw new IllegalArgumentException(name);
     }
 
+    private final String name;
+
     OutputDirectory(String name) {
-      this.nameFragment = name;
-      // Must be a legal basename for root: no segments allowed.
-      FileSystemUtils.checkBaseName(nameFragment);
-      this.middleman = false;
+      // Must be a legal basename for root - multiple segments not allowed.
+      if (!name.isEmpty()) {
+        FileSystemUtils.checkBaseName(name);
+      }
+      this.name = name;
     }
 
     public ArtifactRoot getRoot(
@@ -116,10 +122,10 @@ public class OutputDirectories {
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
           execRoot,
-          middleman ? RootType.Middleman : RootType.Output,
+          this == MIDDLEMAN ? RootType.Middleman : RootType.Output,
           directories.getRelativeOutputPath(),
           outputDirName,
-          nameFragment);
+          name);
     }
   }
 

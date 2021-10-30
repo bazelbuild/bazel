@@ -47,7 +47,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
     BuildConfigurationValue config = create("--cpu=piii");
     String outputDirPrefix =
-        outputBase + "/execroot/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
+        outputBase
+            + "/execroot/"
+            + config.getMainRepositoryName().strippedName()
+            + "/blaze-out/.*piii-fastbuild";
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix);
@@ -70,7 +73,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .matches(
             outputBase
                 + "/execroot/"
-                + config.getMainRepositoryName()
+                + config.getMainRepositoryName().strippedName()
                 + "/blaze-out/.*k8-fastbuild-test");
   }
 
