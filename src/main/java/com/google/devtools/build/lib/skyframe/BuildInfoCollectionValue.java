@@ -79,12 +79,13 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
       return SkyFunctions.BUILD_INFO_COLLECTION;
     }
 
-    BuildInfoKey getInfoKey() {
-      return infoKey;
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return configKey;
     }
 
-    BuildConfigurationKey getConfigKey() {
-      return configKey;
+    BuildInfoKey getInfoKey() {
+      return infoKey;
     }
 
     @Override

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
@@ -415,6 +416,11 @@ public final class ArtifactTest {
           }
 
           @Override
+          public BuildConfigurationKey getConfigurationKey() {
+            return null;
+          }
+
+          @Override
           public SkyFunctionName functionName() {
             return null;
           }
@@ -423,6 +429,11 @@ public final class ArtifactTest {
         new ActionLookupKey() {
           @Override
           public Label getLabel() {
+            return null;
+          }
+
+          @Override
+          public BuildConfigurationKey getConfigurationKey() {
             return null;
           }
 

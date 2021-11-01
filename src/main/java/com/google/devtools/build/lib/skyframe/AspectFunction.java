@@ -221,11 +221,11 @@ final class AspectFunction implements SkyFunction {
           new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
     }
 
-    boolean aspectHasConfiguration = key.getAspectConfigurationKey() != null;
+    boolean aspectHasConfiguration = key.getConfigurationKey() != null;
 
     ImmutableSet<SkyKey> keys =
         aspectHasConfiguration
-            ? ImmutableSet.of(key.getBaseConfiguredTargetKey(), key.getAspectConfigurationKey())
+            ? ImmutableSet.of(key.getBaseConfiguredTargetKey(), key.getConfigurationKey())
             : ImmutableSet.of(key.getBaseConfiguredTargetKey());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> baseAndAspectValues =
@@ -248,11 +248,12 @@ final class AspectFunction implements SkyFunction {
     if (aspectHasConfiguration) {
       try {
         aspectConfiguration =
-            (BuildConfigurationValue)
-                baseAndAspectValues.get(key.getAspectConfigurationKey()).get();
+            (BuildConfigurationValue) baseAndAspectValues.get(key.getConfigurationKey()).get();
       } catch (ConfiguredValueCreationException e) {
-        throw new IllegalStateException("Unexpected exception from BuildConfigurationFunction when "
-            + "computing " + key.getAspectConfigurationKey(), e);
+        throw new IllegalStateException(
+            "Unexpected exception from BuildConfigurationFunction when computing "
+                + key.getConfigurationKey(),
+            e);
       }
     }
 

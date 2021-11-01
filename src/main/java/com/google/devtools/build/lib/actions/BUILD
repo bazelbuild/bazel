@@ -168,8 +168,10 @@ java_library(
     srcs = ["ActionLookupKey.java"],
     deps = [
         ":artifact_owner",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:jsr305",
     ],
 )
 

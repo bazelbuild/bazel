@@ -60,6 +60,12 @@ public class FilesystemValueCheckerTestBase {
         public Label getLabel() {
           return null;
         }
+
+        @Nullable
+        @Override
+        public BuildConfigurationKey getConfigurationKey() {
+          return null;
+        }
       };
 
   final MockFileSystem fs = new MockFileSystem();

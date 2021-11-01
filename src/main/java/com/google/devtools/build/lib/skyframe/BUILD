@@ -553,6 +553,7 @@ java_library(
     name = "action_template_expansion_value",
     srcs = ["ActionTemplateExpansionValue.java"],
     deps = [
+        ":build_configuration",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -1226,6 +1227,7 @@ java_library(
     name = "coverage_report_value",
     srcs = ["CoverageReportValue.java"],
     deps = [
+        ":build_configuration",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -2768,6 +2770,7 @@ java_library(
     name = "workspace_status_value",
     srcs = ["WorkspaceStatusValue.java"],
     deps = [
+        ":build_configuration",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",

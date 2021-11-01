@@ -659,6 +659,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             return null;
           }
 
+          @Nullable
+          @Override
+          public BuildConfigurationKey getConfigurationKey() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;

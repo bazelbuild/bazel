@@ -561,15 +561,12 @@ public final class SkyframeBuildView {
       for (ActionLookupKey ctKey : Iterables.concat(ctKeys, aspectKeys)) {
         if (!topLevelActionConflictReport.isErrorFree(ctKey)) {
           Optional<ConflictException> e = topLevelActionConflictReport.getConflictException(ctKey);
-          if (!e.isPresent()) {
+          if (e.isEmpty()) {
             continue;
           }
           AnalysisFailedCause failedCause =
               makeArtifactConflictAnalysisFailedCause(configurationLookupSupplier, e.get());
-          BuildConfigurationKey configKey =
-              ctKey instanceof ConfiguredTargetKey
-                  ? ((ConfiguredTargetKey) ctKey).getConfigurationKey()
-                  : ((AspectKey) ctKey).getAspectConfigurationKey();
+          BuildConfigurationKey configKey = ctKey.getConfigurationKey();
           eventBus.post(
               new AnalysisFailureEvent(
                   ctKey,

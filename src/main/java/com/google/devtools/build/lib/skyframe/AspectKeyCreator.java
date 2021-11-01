@@ -192,22 +192,10 @@ public final class AspectKeyCreator {
     /**
      * Returns the key of the configured target of the aspect; that is, the configuration in which
      * the aspect will be evaluated.
-     *
-     * <p>In trimmed configuration mode, the aspect may require more fragments than the target on
-     * which it is being evaluated; in addition to configuration fragments required by the target
-     * and its dependencies, an aspect has configuration fragment requirements of its own, as well
-     * as dependencies of its own with their own configuration fragment requirements.
-     *
-     * <p>The aspect configuration contains all of these fragments, and is used to create the
-     * aspect's RuleContext and to retrieve the dependencies. Note that dependencies will have their
-     * configurations trimmed from this one as normal.
-     *
-     * <p>Because of these properties, this configuration is always a superset of the base target's
-     * configuration. In untrimmed configuration mode, this configuration will be equivalent to the
-     * base target's configuration.
      */
+    @Override
     @Nullable
-    public BuildConfigurationKey getAspectConfigurationKey() {
+    public BuildConfigurationKey getConfigurationKey() {
       return aspectConfigurationKey;
     }
 
@@ -303,6 +291,11 @@ public final class AspectKeyCreator {
       return SkyFunctions.TOP_LEVEL_ASPECTS;
     }
 
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return getBaseConfiguredTargetKey().getConfigurationKey();
+    }
+
     ImmutableList<AspectClass> getTopLevelAspectsClasses() {
       return topLevelAspectsClasses;
     }
@@ -313,7 +306,7 @@ public final class AspectKeyCreator {
     }
 
     String getDescription() {
-      return topLevelAspectsClasses + " on " + getLabel();
+      return topLevelAspectsClasses + " on " + targetLabel;
     }
 
     @Override

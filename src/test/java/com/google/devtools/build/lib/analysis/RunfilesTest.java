@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -71,7 +72,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksCatchesBadObscurer() throws Exception {
+  public void testFilterListForObscuringSymlinksCatchesBadObscurer() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -84,7 +85,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksCatchesBadGrandParentObscurer() throws Exception {
+  public void testFilterListForObscuringSymlinksCatchesBadGrandParentObscurer() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -97,7 +98,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksCatchesBadObscurerNoListener() throws Exception {
+  public void testFilterListForObscuringSymlinksCatchesBadObscurerNoListener() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -109,7 +110,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksIgnoresOkObscurer() throws Exception {
+  public void testFilterListForObscuringSymlinksIgnoresOkObscurer() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -123,7 +124,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksNoObscurers() throws Exception {
+  public void testFilterListForObscuringSymlinksNoObscurers() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -169,6 +170,12 @@ public class RunfilesTest extends FoundationTestCase {
     @Nullable
     @Override
     public Label getLabel() {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
       return null;
     }
   }

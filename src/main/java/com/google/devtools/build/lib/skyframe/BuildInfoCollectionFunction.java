@@ -57,7 +57,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
         ImmutableSet.of(
             WorkspaceStatusValue.BUILD_INFO_KEY,
             WorkspaceNameValue.key(),
-            keyAndConfig.getConfigKey());
+            keyAndConfig.getConfigurationKey());
     Map<SkyKey, SkyValue> result = env.getValues(keysToRequest);
     if (env.valuesMissing()) {
       return null;
@@ -66,7 +66,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
         (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
 
     BuildConfigurationValue config =
-        (BuildConfigurationValue) result.get(keyAndConfig.getConfigKey());
+        (BuildConfigurationValue) result.get(keyAndConfig.getConfigurationKey());
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories = BUILD_INFO_FACTORIES.get(env);
     BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
     Preconditions.checkState(buildInfoFactory.isEnabled(config));

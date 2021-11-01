@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.shell.Command;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -341,6 +342,12 @@ public final class AnalysisTestUtil {
           @Nullable
           @Override
           public Label getLabel() {
+            return null;
+          }
+
+          @Nullable
+          @Override
+          public BuildConfigurationKey getConfigurationKey() {
             return null;
           }
 
