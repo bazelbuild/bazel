@@ -30,6 +30,9 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
@@ -1691,5 +1694,68 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
                 .get(PlatformOptions.class)
                 .platforms)
         .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
+  }
+
+  @Test
+  public void testTransitionsStillTriggerWhenOnlyRuleAttributesChange() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//command_line_option:foo': attr.my_attr,",
+        "  }",
+        "_my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = [",
+        "    '//command_line_option:foo',",
+        "  ]",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = _my_transition,",
+        "  attrs = {",
+        "    'my_attr': attr.string(),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  },",
+        ")");
+    writeAllowlistFile();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'buildme',",
+        "  my_attr = 'first build',",
+        ")");
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:buildme"))
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .foo)
+        .isEqualTo("first build");
+
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'buildme',",
+        "  my_attr = 'second build',",
+        ")");
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
+        ModifiedFileSet.builder().modify(PathFragment.create("test/BUILD")).build(),
+        Root.fromPath(rootDirectory));
+
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:buildme"))
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .foo)
+        .isEqualTo("second build");
   }
 }
