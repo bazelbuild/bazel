@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -71,13 +70,13 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
    */
   private static class CacheKey {
     private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
-    private final Label ruleLabel;
+    private final Rule rule;
     private final int hashCode;
 
     CacheKey(StarlarkDefinedConfigTransition starlarkDefinedConfigTransition, Rule rule) {
       this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
-      this.ruleLabel = rule.getLabel();
-      this.hashCode = Objects.hash(starlarkDefinedConfigTransition, ruleLabel);
+      this.rule = rule;
+      this.hashCode = Objects.hash(starlarkDefinedConfigTransition, rule);
     }
 
     @Override
@@ -90,7 +89,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
       }
       return (this.starlarkDefinedConfigTransition.equals(
               ((CacheKey) other).starlarkDefinedConfigTransition)
-          && this.ruleLabel.equals(((CacheKey) other).ruleLabel));
+          && this.rule.equals(((CacheKey) other).rule));
     }
 
     @Override
