@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static java.util.stream.Collectors.joining;
 
@@ -88,22 +87,6 @@ public class OutputDirectories {
     COVERAGE("coverage-metadata"),
     INCLUDE(BlazeDirectories.RELATIVE_INCLUDE_DIR),
     OUTPUT("");
-
-    /**
-     * Returns the {@link OutputDirectory} matching the given name.
-     *
-     * <p>Throws {@link IllegalArgumentException} if the given name does not match any directory in
-     * the output tree.
-     */
-    public static OutputDirectory forName(String name) {
-      checkNotNull(name);
-      for (OutputDirectory directory : values()) {
-        if (directory.name.equals(name)) {
-          return directory;
-        }
-      }
-      throw new IllegalArgumentException(name);
-    }
 
     private final String name;
 
