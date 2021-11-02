@@ -540,7 +540,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         Thread.interrupted();
       }
       // TODO(b/166268889, b/172223413): remove when fixed.
-      if (completedRun && error.getException() instanceof IOException) {
+      if (completedRun
+          && error.getException() != null
+          && (error.getException() instanceof IOException
+              || error.getException().getClass().getName().endsWith("SourceArtifactException"))) {
         logger.atInfo().log(
             "SkyFunction did not rethrow error, may be a bug that it did not expect one: %s"
                 + " via %s, %s (%s)",
