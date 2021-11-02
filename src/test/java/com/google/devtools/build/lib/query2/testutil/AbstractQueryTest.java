@@ -1068,8 +1068,8 @@ public abstract class AbstractQueryTest<T> {
     // Works for implicit edges too.  This is for consistency with --output
     // xml, which exposes them too.
     String toolsRepository = helper.getToolsRepository();
-    assertThat(eval("labels(\"$python2to3\", //k)"))
-        .isEqualTo(eval(toolsRepository + "//tools/python:2to3"));
+    assertThat(eval("labels(\"$py_toolchain_type\", //k)"))
+        .isEqualTo(eval(toolsRepository + "//tools/python:toolchain_type"));
 
     // Configurable deps:
     if (testConfigurableAttributes()) {
