@@ -131,7 +131,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testRepoNameMapping_asMainModule() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='A',version='0.1')",
+        "module(name='A',version='0.1', workspace_name = 'com_foo_bar_a')",
         "bazel_dep(name='B',version='1.0', repo_name = 'com_foo_bar_b')");
     registry.addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')");
 
@@ -146,6 +146,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             withMappingForRootModule(
                 ImmutableMap.of(
                     RepositoryName.create("@"),
+                    RepositoryName.create("@"),
+                    RepositoryName.create("@com_foo_bar_a"),
                     RepositoryName.create("@"),
                     RepositoryName.create("@A"),
                     RepositoryName.create("@"),
@@ -165,7 +167,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')")
         .addModule(
             createModuleKey("C", "1.0"),
-            "module(name='C', version='1.0')",
+            "module(name='C', version='1.0', workspace_name = 'com_foo_bar_c')",
             "bazel_dep(name='B', version='1.0', repo_name='com_foo_bar_b')");
 
     RepositoryName name = RepositoryName.create("@C.1.0");
@@ -179,6 +181,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             withMapping(
                 ImmutableMap.of(
                     RepositoryName.create("@C"),
+                    RepositoryName.create("@C.1.0"),
+                    RepositoryName.create("@com_foo_bar_c"),
                     RepositoryName.create("@C.1.0"),
                     RepositoryName.create("@com_foo_bar_b"),
                     RepositoryName.create("@B.1.0")),

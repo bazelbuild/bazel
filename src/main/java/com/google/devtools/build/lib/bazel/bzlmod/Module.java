@@ -47,6 +47,12 @@ public abstract class Module {
    */
   public abstract Version getVersion();
 
+  /*
+   * The preferred workspace name of this module. If specified, the module can access its own
+   * targets with this repository name.
+   */
+  public abstract String getWorkspaceName();
+
   /**
    * The key of this module in the dependency graph. Note that, although a {@link ModuleKey} is also
    * just a (name, version) pair, its semantics differ from {@link #getName} and {@link
@@ -109,6 +115,13 @@ public abstract class Module {
           RepositoryName.createFromValidStrippedName(getName()),
           RepositoryName.createFromValidStrippedName(getCanonicalRepoName()));
     }
+    // If workspace name is specified, this module should be able to access its own targets
+    // with the preferred workspace name.
+    if (!getWorkspaceName().isEmpty()) {
+      mapping.put(
+          RepositoryName.createFromValidStrippedName(getWorkspaceName()),
+          RepositoryName.createFromValidStrippedName(getCanonicalRepoName()));
+    }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
@@ -138,6 +151,7 @@ public abstract class Module {
         .setName("")
         .setVersion(Version.EMPTY)
         .setKey(ModuleKey.ROOT)
+        .setWorkspaceName("")
         .setCompatibilityLevel(0)
         .setExecutionPlatformsToRegister(ImmutableList.of())
         .setToolchainsToRegister(ImmutableList.of());
@@ -161,6 +175,9 @@ public abstract class Module {
 
     /** Optional; defaults to {@link Version#EMPTY}. */
     public abstract Builder setVersion(Version value);
+
+    /** Optional; defaults to the empty string. */
+    public abstract Builder setWorkspaceName(String value);
 
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);

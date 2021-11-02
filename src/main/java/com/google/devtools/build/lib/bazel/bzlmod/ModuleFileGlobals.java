@@ -106,6 +106,15 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "''"),
+          @Param(
+              name = "workspace_name",
+              doc =
+                  "When specified, the module can refer to its own targets under this repository name."
+                      + "This attribute is only for migration purpose when the current workspace "
+                      + "name is different from the module name.",
+              named = true,
+              positional = false,
+              defaultValue = "''"),
         @Param(
             name = "compatibility_level",
             // TODO(wyv): See X for more details
@@ -151,6 +160,7 @@ public class ModuleFileGlobals {
   public void module(
       String name,
       String version,
+      String workspaceName,
       StarlarkInt compatibilityLevel,
       Iterable<?> executionPlatformsToRegister,
       Iterable<?> toolchainsToRegister,
@@ -170,6 +180,7 @@ public class ModuleFileGlobals {
     module
         .setName(name)
         .setVersion(parsedVersion)
+        .setWorkspaceName(workspaceName)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
         .setExecutionPlatformsToRegister(
             checkAllAbsolutePatterns(
@@ -177,6 +188,9 @@ public class ModuleFileGlobals {
         .setToolchainsToRegister(
             checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
     addRepoNameUsage(name, "as the current module name", thread.getCallerLocation());
+    if (!workspaceName.isEmpty()) {
+      addRepoNameUsage(workspaceName, "as the workspace name", thread.getCallerLocation());
+    }
   }
 
   private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)
