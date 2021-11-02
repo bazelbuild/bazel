@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
@@ -965,6 +967,11 @@ public class AspectTest extends AnalysisTestCase {
         .containsMatch(
             "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
                 + " attempted action: action 'Action for aspect .'");
+    MoreAsserts.assertContainsEvent(
+        eventCollector,
+        Pattern.compile(
+            "Aspects: \\[//foo:aspect.bzl%aspect[12]], \\[//foo:aspect.bzl%aspect[12]]"),
+        EventKind.ERROR);
 
     // Fix bzl file so actions are shared: analysis should succeed now.
     scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "1"));
@@ -995,6 +1002,47 @@ public class AspectTest extends AnalysisTestCase {
         .containsMatch(
             "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
                 + " attempted action: action 'Action for aspect .'");
+  }
+
+  @Test
+  public void conflictBetweenTargetAndAspect() throws Exception {
+    scratch.file(
+        "foo/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  outfile = ctx.actions.declare_file('conflict.out')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [outfile],",
+        "    progress_message = 'Action for aspect',",
+        "    command = 'echo \"aspect\" > ' + outfile.path,",
+        "  )",
+        "  return [OutputGroupInfo(files = [outfile])]",
+        "",
+        "def _rule_impl(ctx):",
+        "  outfile = ctx.actions.declare_file('conflict.out')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [outfile],",
+        "    progress_message = 'Action for target',",
+        "    command = 'echo \"target\" > ' + outfile.path,",
+        "  )",
+        "  return [DefaultInfo(files = depset([outfile]))]",
+        "my_aspect = aspect(implementation = _aspect_impl)",
+        "my_rule = rule(implementation = _rule_impl, attrs = {'deps' : attr.label_list(aspects ="
+            + " [my_aspect])})");
+    scratch.file(
+        "foo/BUILD",
+        "load('//foo:aspect.bzl', 'my_aspect', 'my_rule')",
+        "my_rule(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', srcs = ['dep.sh'])");
+    // Expect errors.
+    reporter.removeHandler(failFastHandler);
+    ViewCreationFailedException exception =
+        assertThrows(ViewCreationFailedException.class, () -> update("//foo:foo"));
+    assertThat(exception).hasMessageThat().containsMatch("ConflictException: for foo/conflict.out");
+    MoreAsserts.assertContainsEvent(
+        eventCollector,
+        Pattern.compile(
+            "Aspects: (\\[], \\[//foo:aspect.bzl%my_aspect]|\\[//foo:aspect.bzl%my_aspect], \\[])"),
+        EventKind.ERROR);
   }
 
   @Test
