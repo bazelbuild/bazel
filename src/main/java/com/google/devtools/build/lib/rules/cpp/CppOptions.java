@@ -1142,6 +1142,7 @@ public class CppOptions extends FragmentOptions {
     host.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
     host.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
     host.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
+    host.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();

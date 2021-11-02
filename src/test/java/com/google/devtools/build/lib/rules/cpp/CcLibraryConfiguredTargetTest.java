@@ -1992,6 +1992,37 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testImplementationDepsConfigurationHostSucceeds() throws Exception {
+    useConfiguration("--experimental_cc_implementation_deps");
+    scratch.file(
+        "foo/BUILD",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.cc'],",
+        "    deps = ['lib'],",
+        ")",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['public_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'public_dep',",
+        "    srcs = ['public_dep.cc'],",
+        "    hdrs = ['public_dep.h'],",
+        "    implementation_deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
+        ")");
+
+    getHostConfiguredTarget("//foo:bin");
+    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
+  }
+
+  @Test
   public void testImplementationDepsFailsWithoutFlag() throws Exception {
     scratch.file(
         "foo/BUILD",
