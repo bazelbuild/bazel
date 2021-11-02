@@ -29,12 +29,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import sun.reflect.ReflectionFactory;
 
-/**
- * A codec that serializes arbitrary types.
- *
- * <p>TODO(shahan): replace Unsafe with VarHandle once it's available.
- */
-public class DynamicCodec implements ObjectCodec<Object> {
+/** A codec that serializes arbitrary types. */
+public final class DynamicCodec implements ObjectCodec<Object> {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Class<?> type;
@@ -261,11 +258,11 @@ public class DynamicCodec implements ObjectCodec<Object> {
     return offsetsArr;
   }
 
-  private static class TypeAndOffset {
+  private static final class TypeAndOffset {
     public final Class<?> type;
     public final long offset;
 
-    public TypeAndOffset(Class<?> type, long offset) {
+    TypeAndOffset(Class<?> type, long offset) {
       this.type = type;
       this.offset = offset;
     }
@@ -279,7 +276,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
     return constructor;
   }
 
-  private static class FieldComparator implements Comparator<Field> {
+  private static final class FieldComparator implements Comparator<Field> {
 
     @Override
     public int compare(Field f1, Field f2) {
