@@ -535,13 +535,21 @@ public class StandaloneTestStrategy extends TestStrategy {
       envBuilder.put("TEST_SHARD_INDEX", "0");
       envBuilder.put("TEST_TOTAL_SHARDS", "0");
     }
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    executionInfo.putAll(action.getExecutionInfo());
+    if (result.exitCode() != 0) {
+      // If the test is failed, the spawn shouldn't use remote cache as the test.xml file is renamed immediately after
+      // the spawn execution if there is another test attempt which will cause upload failures for remote async upload
+      // because it cannot read the file at original position.
+      executionInfo.put(ExecutionRequirements.NO_REMOTE_CACHE, "");
+    }
     return new SimpleSpawn(
         action,
         args,
         envBuilder.build(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
-        ImmutableMap.copyOf(action.getExecutionInfo()),
+        executionInfo.build(),
         null,
         ImmutableMap.of(),
         /*inputs=*/ NestedSetBuilder.create(

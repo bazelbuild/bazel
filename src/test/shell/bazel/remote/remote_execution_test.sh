@@ -3171,4 +3171,31 @@ EOF
   expect_log "-r-xr-xr-x"
 }
 
+function test_async_upload_works_for_flaky_tests() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  cat > a/test.sh <<EOF
+#!/bin/sh
+echo "it always fails"
+exit 1
+EOF
+  chmod +x a/test.sh
+
+  # Check the error message when failed to upload
+  bazel test --remote_cache=http://nonexistent.example.org //a:test >& $TEST_log && fail "expected failure" || true
+  expect_log "WARNING: Writing to Remote Cache:"
+
+  bazel test \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --experimental_remote_cache_async \
+    --flaky_test_attempts=2 \
+    //a:test >& $TEST_log  && fail "expected failure" || true
+  expect_not_log "WARNING: Writing to Remote Cache:"
+}
+
 run_suite "Remote execution and remote cache tests"
