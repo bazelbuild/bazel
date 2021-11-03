@@ -11,7 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""List the distribution dependencies we need to build Bazel."""
+"""
+List the distribution dependencies we need to build Bazel.
+
+Note for Bazel users: This list is not intended to tell you what version
+you should use for each dependency. Indeed in this list you will find that
+some dependencies do not use official releases but specific commits.
+This is something that in general we discourage but in Bazel itself sometimes
+it is necessary.
+Our recomendation is always to use the latest version of the dependency that
+has been released and it works for the Bazel version that you are using.
+"""
 
 DIST_DEPS = {
     ########################################
