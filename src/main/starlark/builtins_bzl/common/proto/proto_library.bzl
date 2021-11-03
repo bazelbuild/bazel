@@ -64,6 +64,10 @@ proto_library = rule(
             providers = [ProtoInfo],
         ),
         "strip_import_prefix": attr.string(),
+        "data": attr.label_list(
+            allow_files = True,
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
+        ),
         "_proto_compiler": attr.label(
             cfg = "exec",
             executable = True,
