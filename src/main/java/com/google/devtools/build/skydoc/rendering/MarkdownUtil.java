@@ -35,21 +35,47 @@ public final class MarkdownUtil {
   private static final int MAX_LINE_LENGTH = 100;
 
   /**
-   * Return a string that formats the input string so it is displayable in a markdown table cell.
-   * This performs the following operations:
+   * Wrapper around {@link #markdownCellFormatWithRenderedHtml}, calling it with HTML rendering disabled.
    *
+   * @return The formatted string, upon which the following operations have been performed:
    * <ul>
-   *   <li>Trims the string of leading/trailing whitespace.
-   *   <li>Transforms the string using {@link #htmlEscape}.
-   *   <li>Transforms multline code (```) tags into preformatted code HTML tags.
-   *   <li>Transforms single-tick code (`) tags into code HTML tags.
-   *   <li>Transforms 'new paraphgraph' patterns (two or more sequential newline characters) into
+   *   <li>Trim the string of leading/trailing whitespace.
+   *   <li>Transform the string using {@link #htmlEscape}.
+   *   <li>Transform multline code (```) tags into preformatted code HTML tags.
+   *   <li>Transform single-tick code (`) tags into code HTML tags.
+   *   <li>Transform 'new paraphgraph' patterns (two or more sequential newline characters) into
    *       line break HTML tags.
-   *   <li>Turns lingering new line tags into spaces (as they generally indicate intended line wrap.
+   *   <li>Turn lingering new line tags into spaces (as they generally indicate intended line wrap.
    * </ul>
    */
   public String markdownCellFormat(String docString) {
-    String resultString = htmlEscape(docString.trim());
+    return markdownCellFormatWithRenderedHtml(docString, false);
+  }
+
+  /**
+   * Return a string that formats the input string, possibly containing HTML, so it is displayable in a 
+   * markdown table cell.
+   * 
+   * @param docString The input string
+   * @param renderHtml If set to true, rendering HTML in markdown table cells will be enabled.
+   *                   Otherwise, the string will be transformed using {@link #htmlEscape}.
+   *
+   * @return The formatted string, upon which the following operations have been performed:
+   * <ul>
+   *   <li>Trim the string of leading/trailing whitespace.
+   *   <li>If <code>renderHtml</code> is false, transform the string using {@link #htmlEscape}.
+   *   <li>Transform multline code (```) tags into preformatted code HTML tags.
+   *   <li>Transform single-tick code (`) tags into code HTML tags.
+   *   <li>Transform 'new paraphgraph' patterns (two or more sequential newline characters) into
+   *       line break HTML tags.
+   *   <li>Turn lingering new line tags into spaces (as they generally indicate intended line wrap.
+   * </ul>
+   */
+  public String markdownCellFormatWithRenderedHtml(String docString, Boolean renderHtml) {
+    String resultString = docString.trim();
+    if (!renderHtml) {
+      resultString = htmlEscape(resultString);
+    }
 
     resultString = replaceWithTag(resultString, "```", "<pre><code>", "</code></pre>");
     resultString = replaceWithTag(resultString, "`", "<code>", "</code>");

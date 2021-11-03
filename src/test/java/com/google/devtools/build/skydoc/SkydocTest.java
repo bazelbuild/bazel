@@ -30,6 +30,7 @@ import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
+import com.google.devtools.build.skydoc.rendering.MarkdownUtil;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
@@ -53,6 +54,7 @@ import org.junit.runners.JUnit4;
 public final class SkydocTest extends BuildViewTestCase {
 
   private SkydocMain skydocMain;
+  private MarkdownUtil util;
 
   @Before
   public void setUp() throws IOException {
@@ -83,6 +85,7 @@ public final class SkydocTest extends BuildViewTestCase {
             },
             "io_bazel",
             ImmutableList.of("/other_root", "."));
+    util = new MarkdownUtil();
   }
 
   @Test
@@ -828,5 +831,43 @@ public final class SkydocTest extends BuildViewTestCase {
             .build();
     String moduleDoc = moduleInfo.getModuleDocstring();
     assertThat(moduleDoc).isEqualTo("Should be displayed.");
+  }
+
+  @Test
+  public void testMarkdownCellFormat() throws Exception {
+    // Exercises all the operations of markdownCellFormat()
+    String testData = " test_start <a></a>:\n"
+                        + " Test<br>\n"
+                        + " `test`\n"
+                        + " ``` \n"
+                        + " test\n"
+                        + " ```\n\n"
+                        + " test\n    \n"
+                        + " test_end ";
+
+    String expected = "test_start &lt;a&gt;&lt;/a&gt;:  "
+                        + "Test&lt;br&gt;  <code>test</code>  <pre><code>   "
+                        + "test  </code></pre><br><br> test<br><br> test_end";
+
+    assertThat(util.markdownCellFormat(testData)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testMarkdownCellFormatWithRenderedHtml() throws Exception {
+    // Exercises markdownCellFormatWithRenderedHtml() with renderHtml set to true
+    String testData = " test_start <a></a>:\n"
+                        + " Test<br>\n"
+                        + " `test`\n"
+                        + " ``` \n"
+                        + " test\n"
+                        + " ```\n\n"
+                        + " test\n    \n"
+                        + " test_end ";
+
+    String expected = "test_start <a></a>:  "
+                        + "Test<br>  <code>test</code>  <pre><code>   "
+                        + "test  </code></pre><br><br> test<br><br> test_end";
+
+    assertThat(util.markdownCellFormatWithRenderedHtml(testData, true)).isEqualTo(expected);
   }
 }
