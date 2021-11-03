@@ -70,17 +70,13 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    */
   protected abstract boolean isStampingEnabled(RuleContext ruleContext);
 
-  private ImmutableMap<Label, NestedSet<Artifact>> collectSources(
+  /** Collects sources from src attribute. */
+  protected ImmutableMap<Label, NestedSet<Artifact>> collectSources(
       List<? extends TransitiveInfoCollection> srcs) {
     ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
 
     for (TransitiveInfoCollection dep : srcs) {
-      // This target provides specific types of files for genrules.
-      GenRuleSourcesProvider provider = dep.getProvider(GenRuleSourcesProvider.class);
-      NestedSet<Artifact> files =
-          (provider != null)
-              ? provider.getGenruleFiles()
-              : dep.getProvider(FileProvider.class).getFilesToBuild();
+      NestedSet<Artifact> files = dep.getProvider(FileProvider.class).getFilesToBuild();
       labelMap.put(AliasProvider.getDependencyLabel(dep), files);
     }
 
