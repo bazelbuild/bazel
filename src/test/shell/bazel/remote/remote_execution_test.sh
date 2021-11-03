@@ -3178,6 +3178,12 @@ sh_test(
     name = "test",
     srcs = ["test.sh"],
 )
+
+genrule(
+  name = "foo",
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
 EOF
   cat > a/test.sh <<EOF
 #!/bin/sh
@@ -3187,7 +3193,7 @@ EOF
   chmod +x a/test.sh
 
   # Check the error message when failed to upload
-  bazel test --remote_cache=http://nonexistent.example.org //a:test >& $TEST_log && fail "expected failure" || true
+  bazel build --remote_cache=http://nonexistent.example.org //a:foo >& $TEST_log || fail "Failed to build"
   expect_log "WARNING: Writing to Remote Cache:"
 
   bazel test \
