@@ -1,3 +1,29 @@
+## Release 6.0.0-pre.20211025.1 (2021-11-03)
+
+```
+Baseline: 5c04973b000b6e1819d6b51d238498a0b507c7af
+```
+
+Important changes:
+
+  - Bazel no longer supports Java 8. From this version on, the
+    minimum required JDK is OpenJDK 11.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, John Laxson, Keith Smiley, Thi Don.
+
+## Release 6.0.0-pre.20211019.1 (2021-10-26)
+
+```
+Baseline: 406fc1ba5fae98843c99f89a43dcbdbca0d90274
+```
+
+Incompatible changes:
+
+  - Remove `--experimental_profile_cpu_usage`.
+  - flipped --incompatible_java_common_parameters (see #12373)
+
+This release contains contributions from many people at Google, as well as ecngtng, Fabian Meumertzheim, Keith Smiley, Mauricio Galindo, Thaler Benedek.
+
 ## Release 5.0.0-pre.20211011.2 (2021-10-20)
 
 ```
