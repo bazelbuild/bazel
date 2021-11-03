@@ -67,8 +67,8 @@ public final class RemoteOptions extends OptionsBase {
               + " value is 100. Setting this to 0 means no limitation.\n"
               + "For HTTP remote cache, one TCP connection could handle one request at one time, so"
               + " it could open up to --remote_max_connections TCP connections.\n"
-              + "If --incompatible_remote_max_connections_grpc is set, this also applies to the"
-              + " gRPC remote cache/executor. One gRPC channel could usually handle 100+ concurrent"
+              + "If --incompatible_remote_max_connections_grpc is set, this also applies to gRPC"
+              + " remote cache/executor. One gRPC channel could usually handle 100+ concurrent"
               + " requests. We assume the number is 100, so it could open up to"
               + " `--remote_max_connections / 100` gRPC channels. Each gRPC channel could open 1 or"
               + " more TCP connections depending on the number of resolved server IPs.")
