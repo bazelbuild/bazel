@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -36,7 +37,9 @@ public class BazelProtoCommon implements ProtoCommonApi {
       name = "create_proto_info",
       documented = false,
       parameters = {@Param(name = "ctx", doc = "The rule context")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
   public ProtoInfo createProtoInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
       throws EvalException {
     Label label =
