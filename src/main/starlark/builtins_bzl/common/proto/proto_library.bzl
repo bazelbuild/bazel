@@ -68,6 +68,7 @@ proto_library = rule(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_proto_compiler": attr.label(
             cfg = "exec",
             executable = True,
