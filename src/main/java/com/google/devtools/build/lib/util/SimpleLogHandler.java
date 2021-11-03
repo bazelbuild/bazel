@@ -28,7 +28,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStreamWriter;
-import java.lang.management.ManagementFactory;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -90,7 +89,7 @@ public final class SimpleLogHandler extends Handler {
    */
   private final Optional<Path> symlinkPath;
   /** Absolute path to common base name of log files. */
-  @VisibleForTesting final Path baseFilePath;
+  private final Path baseFilePath;
   /** Log file currently in use. */
   @GuardedBy("this")
   private final Output output = new Output();
@@ -204,8 +203,8 @@ public final class SimpleLogHandler extends Handler {
      * <p>If unset, the value of "symlink" from the JVM logging configuration for {@link
      * SimpleLogHandler} will be used; and if that's unset, the prefix will be used.
      *
-     * @param symlink either symlink filename without a directory part, or an absolute path whose
-     *     directory part matches the prefix
+     * @param symlinkName either symlink filename without a directory part, or an absolute path
+     *     whose directory part matches the prefix
      * @return this {@code Builder} object
      */
     public Builder setSymlinkName(String symlinkName) {
@@ -224,7 +223,7 @@ public final class SimpleLogHandler extends Handler {
      * @return this {@code Builder} object
      */
     public Builder setCreateSymlink(boolean createSymlink) {
-      this.createSymlink = Boolean.valueOf(createSymlink);
+      this.createSymlink = createSymlink;
       return this;
     }
 
@@ -238,7 +237,7 @@ public final class SimpleLogHandler extends Handler {
      * @return this {@code Builder} object
      */
     public Builder setRotateLimitBytes(int rotateLimitBytes) {
-      this.rotateLimitBytes = Integer.valueOf(rotateLimitBytes);
+      this.rotateLimitBytes = rotateLimitBytes;
       return this;
     }
 
@@ -256,7 +255,7 @@ public final class SimpleLogHandler extends Handler {
      * @return this {@code Builder} object
      */
     public Builder setTotalLimitBytes(int totalLimitBytes) {
-      this.totalLimitBytes = Integer.valueOf(totalLimitBytes);
+      this.totalLimitBytes = totalLimitBytes;
       return this;
     }
 
@@ -367,7 +366,9 @@ public final class SimpleLogHandler extends Handler {
             ? Optional.of(
                 getSymlinkAbsolutePath(this.baseFilePath.getParent(), configuredSymlinkName))
             : Optional.empty();
-    this.extension = getConfiguredStringProperty(extension, "extension", getPidString());
+    this.extension =
+        getConfiguredStringProperty(
+            extension, "extension", Long.toString(ProcessHandle.current().pid()));
     this.isStaticExtension = (getConfiguredStringProperty(extension, "extension", null) != null);
     this.rotateLimitBytes = getConfiguredIntProperty(rotateLimitBytes, "rotate_limit_bytes", 0);
     checkArgument(this.rotateLimitBytes >= 0, "File size limits cannot be negative");
@@ -524,7 +525,7 @@ public final class SimpleLogHandler extends Handler {
   /** Matches java.logging.* configuration behavior; configured strings are trimmed. */
   private static String getConfiguredStringProperty(
       String builderValue, String configuredName, String fallbackValue) {
-    return getConfiguredProperty(builderValue, configuredName, val -> val.trim(), fallbackValue);
+    return getConfiguredProperty(builderValue, configuredName, String::trim, fallbackValue);
   }
 
   /**
@@ -545,13 +546,13 @@ public final class SimpleLogHandler extends Handler {
                 return true;
               } else if ("false".equals(val) || "0".equals(val)) {
                 return false;
-              } else if (val.length() == 0) {
+              } else if (val.isEmpty()) {
                 return null;
               }
               throw new IllegalArgumentException("Cannot parse boolean property value");
             },
             null);
-    return value != null ? value.booleanValue() : fallbackValue;
+    return value != null ? value : fallbackValue;
   }
 
   /**
@@ -567,10 +568,10 @@ public final class SimpleLogHandler extends Handler {
             configuredName,
             val -> {
               val = val.trim();
-              return val.length() > 0 ? Integer.parseInt(val) : null;
+              return !val.isEmpty() ? Integer.parseInt(val) : null;
             },
             null);
-    return value != null ? value.intValue() : fallbackValue;
+    return value != null ? value : fallbackValue;
   }
 
   /**
@@ -586,7 +587,7 @@ public final class SimpleLogHandler extends Handler {
             configuredName,
             val -> {
               val = val.trim();
-              return val.length() > 0 ? Level.parse(val) : null;
+              return !val.isEmpty() ? Level.parse(val) : null;
             },
             null);
     return value != null ? value : fallbackValue;
@@ -605,7 +606,7 @@ public final class SimpleLogHandler extends Handler {
         configuredName,
         val -> {
           val = val.trim();
-          if (val.length() > 0) {
+          if (!val.isEmpty()) {
             try {
               return (Formatter)
                   ClassLoader.getSystemClassLoader()
@@ -620,19 +621,6 @@ public final class SimpleLogHandler extends Handler {
           }
         },
         fallbackValue);
-  }
-
-  @VisibleForTesting
-  static String getPidString() {
-    long pid;
-    try {
-      // TODO(b/78168359): Replace with ProcessHandle.current().pid() in Java 9
-      pid = Long.parseLong(ManagementFactory.getRuntimeMXBean().getName().split("@", -1)[0]);
-    } catch (NumberFormatException e) {
-      // getRuntimeMXBean().getName() output is implementation-specific, may be unparseable.
-      pid = 0;
-    }
-    return Long.toString(pid);
   }
 
   @VisibleForTesting
@@ -707,7 +695,7 @@ public final class SimpleLogHandler extends Handler {
    */
   private static Path getSymlinkAbsolutePath(Path logDir, String symlink) {
     checkNotNull(symlink);
-    checkArgument(symlink.length() > 0);
+    checkArgument(!symlink.isEmpty());
     File symlinkFile = new File(symlink);
     if (!symlinkFile.isAbsolute()) {
       symlinkFile = new File(logDir + File.separator + symlink);
@@ -800,7 +788,7 @@ public final class SimpleLogHandler extends Handler {
      * @throws NullPointerException if not open
      * @throws IOException if an underlying IO operation failed
      */
-    public void closeIfByteCountAtleast(int limit) throws IOException {
+    void closeIfByteCountAtleast(int limit) throws IOException {
       if (stream.getCount() < limit && stream.getCount() + 8192L >= limit) {
         // The writer and its internal encoder buffer output before writing to the output stream.
         // The default size of the encoder's buffer is 8192 bytes. To count the bytes in the output
@@ -892,9 +880,7 @@ public final class SimpleLogHandler extends Handler {
     return timestamp;
   }
 
-  /**
-   * File path ordered by timestamp.
-   */
+  /** File path ordered by timestamp. */
   private static final class PathByTimestamp implements Comparable<PathByTimestamp> {
     private final Path path;
     private final Date timestamp;
