@@ -59,14 +59,25 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "remote_max_connections",
-      defaultValue = "0",
+      defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "The max. number of concurrent network connections to the remote cache/executor. By"
-              + " default the value is set to 0 which will make Bazel choose the number of"
-              + " connections automatically.")
+          "The max. number of concurrent network requests to the HTTP remote cache. By default the"
+              + " value is 100. Setting this to 0 will make Bazel choose the number of connections"
+              + " automatically.\n"
+              + "If --incompatible_remote_max_connections_grpc is set, this also applies"
+              + " to the gRPC remote cache/executor.")
   public int remoteMaxConnections;
+
+  @Option(
+      name = "incompatible_remote_max_connections_grpc",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, --remote_max_connections also applies to gRPC cache/executor.")
+  public boolean incompatibleRemoteMaxConnectionsGrpc;
 
   @Option(
       name = "remote_executor",

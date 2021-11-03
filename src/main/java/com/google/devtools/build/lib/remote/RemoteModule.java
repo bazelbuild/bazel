@@ -352,6 +352,17 @@ public final class RemoteModule extends BlazeModule {
     // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
     // max concurrency per connection is 100.
     int maxConcurrencyPerConnection = 100;
+    int maxConnections = 0;
+    if (remoteOptions.incompatibleRemoteMaxConnectionsGrpc
+        && remoteOptions.remoteMaxConnections > 0) {
+      maxConnections =
+          (int)
+              Math.ceil(
+                  (double) remoteOptions.remoteMaxConnections
+                      / (double) maxConcurrencyPerConnection);
+      maxConcurrencyPerConnection =
+          (int) Math.ceil((double) remoteOptions.remoteMaxConnections / (double) maxConnections);
+    }
 
     if (enableRemoteExecution) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
@@ -368,7 +379,7 @@ public final class RemoteModule extends BlazeModule {
                   authAndTlsOptions,
                   interceptors.build(),
                   maxConcurrencyPerConnection),
-              remoteOptions.remoteMaxConnections);
+              maxConnections);
 
       // Create a separate channel if --remote_executor and --remote_cache point to different
       // endpoints.
@@ -392,7 +403,7 @@ public final class RemoteModule extends BlazeModule {
                   authAndTlsOptions,
                   interceptors.build(),
                   maxConcurrencyPerConnection),
-              remoteOptions.remoteMaxConnections);
+              maxConnections);
     }
 
     if (enableRemoteDownloader) {
@@ -414,7 +425,7 @@ public final class RemoteModule extends BlazeModule {
                     authAndTlsOptions,
                     interceptors.build(),
                     maxConcurrencyPerConnection),
-                remoteOptions.remoteMaxConnections);
+                maxConnections);
       }
     }
 
