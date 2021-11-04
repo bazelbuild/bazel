@@ -103,9 +103,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             .setFilesToBuild(filesToBuild)
             .setRunfilesSupport(null, getExecutable(filesToBuild))
             .addNativeDeclaredProvider(instrumentedFilesProvider)
-            .addProvider(
-                FilegroupPathProvider.class,
-                new FilegroupPathProvider(getFilegroupPath(ruleContext)));
+            .addNativeDeclaredProvider(new FilegroupPathProvider(getFilegroupPath(ruleContext)));
 
     return builder.build();
   }
