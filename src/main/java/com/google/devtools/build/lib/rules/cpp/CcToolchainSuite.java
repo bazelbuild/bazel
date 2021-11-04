@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
@@ -45,7 +45,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
 
     String transformedCpu = ruleContext.getConfiguration().getCpu();
     String compiler = cppConfiguration.getCompilerFromOptions();
-    String key = transformedCpu + (compiler == null ? "" : ("|" + compiler));
+    String key = transformedCpu + (Strings.isNullOrEmpty(compiler) ? "" : ("|" + compiler));
     Map<String, Label> toolchains =
         ruleContext.attributes().get("toolchains", BuildType.LABEL_DICT_UNARY);
     Label selectedCcToolchain = toolchains.get(key);
