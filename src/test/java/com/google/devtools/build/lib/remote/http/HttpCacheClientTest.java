@@ -314,7 +314,7 @@ public class HttpCacheClientTest {
   }
 
   @Test
-  public void testUploadAtMostOnce() throws Exception {
+  public void testUpload() throws Exception {
     ServerChannel server = null;
     try {
       ConcurrentHashMap<String, byte[]> cacheContents = new ConcurrentHashMap<>();
@@ -332,15 +332,6 @@ public class HttpCacheClientTest {
       String cacheKey = "/cas/" + digest.getHash();
       assertThat(cacheContents).containsKey(cacheKey);
       assertThat(cacheContents.get(cacheKey)).isEqualTo(data.toByteArray());
-
-      // Clear the remote cache contents
-      cacheContents.clear();
-
-      blobStore.uploadBlob(remoteActionExecutionContext, digest, data).get();
-
-      // Nothing should have been uploaded again.
-      assertThat(cacheContents).isEmpty();
-
     } finally {
       testServer.stop(server);
     }

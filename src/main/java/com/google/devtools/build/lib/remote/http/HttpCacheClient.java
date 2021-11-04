@@ -122,8 +122,6 @@ public final class HttpCacheClient implements RemoteCacheClient {
   private static final Pattern INVALID_TOKEN_ERROR =
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
 
-  private final ConcurrentHashMap<String, Boolean> storedBlobs = new ConcurrentHashMap<>();
-
   private final EventLoopGroup eventLoop;
   private final ChannelPool channelPool;
   private final URI uri;
@@ -597,58 +595,53 @@ public final class HttpCacheClient implements RemoteCacheClient {
           }
         };
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
-    if (storedBlobs.putIfAbsent((casUpload ? CAS_PREFIX : AC_PREFIX) + key, true) == null) {
-      SettableFuture<Void> result = SettableFuture.create();
-      acquireUploadChannel()
-          .addListener(
-              (Future<Channel> channelPromise) -> {
-                if (!channelPromise.isSuccess()) {
-                  result.setException(channelPromise.cause());
-                  return;
-                }
+    SettableFuture<Void> result = SettableFuture.create();
+    acquireUploadChannel()
+        .addListener(
+            (Future<Channel> channelPromise) -> {
+              if (!channelPromise.isSuccess()) {
+                result.setException(channelPromise.cause());
+                return;
+              }
 
-                Channel ch = channelPromise.getNow();
-                ch.writeAndFlush(upload)
-                    .addListener(
-                        (f) -> {
-                          releaseUploadChannel(ch);
-                          if (f.isSuccess()) {
-                            result.set(null);
-                          } else {
-                            Throwable cause = f.cause();
-                            if (cause instanceof HttpException) {
-                              HttpResponse response = ((HttpException) cause).response();
-                              try {
-                                // If the error is due to an expired auth token and we can reset
-                                // the input stream, then try again.
-                                if (authTokenExpired(response) && reset(in)) {
-                                  try {
-                                    refreshCredentials();
-                                    uploadAfterCredentialRefresh(upload, result);
-                                  } catch (IOException e) {
-                                    result.setException(e);
-                                  } catch (RuntimeException e) {
-                                    logger.atWarning().withCause(e).log("Unexpected exception");
-                                    result.setException(e);
-                                  }
-                                } else {
-                                  result.setException(cause);
+              Channel ch = channelPromise.getNow();
+              ch.writeAndFlush(upload)
+                  .addListener(
+                      (f) -> {
+                        releaseUploadChannel(ch);
+                        if (f.isSuccess()) {
+                          result.set(null);
+                        } else {
+                          Throwable cause = f.cause();
+                          if (cause instanceof HttpException) {
+                            HttpResponse response = ((HttpException) cause).response();
+                            try {
+                              // If the error is due to an expired auth token and we can reset
+                              // the input stream, then try again.
+                              if (authTokenExpired(response) && reset(in)) {
+                                try {
+                                  refreshCredentials();
+                                  uploadAfterCredentialRefresh(upload, result);
+                                } catch (IOException e) {
+                                  result.setException(e);
+                                } catch (RuntimeException e) {
+                                  logger.atWarning().withCause(e).log("Unexpected exception");
+                                  result.setException(e);
                                 }
-                              } catch (IOException e) {
-                                result.setException(e);
+                              } else {
+                                result.setException(cause);
                               }
-                            } else {
-                              result.setException(cause);
+                            } catch (IOException e) {
+                              result.setException(e);
                             }
+                          } else {
+                            result.setException(cause);
                           }
-                        });
-              });
-      result.addListener(() -> Closeables.closeQuietly(in), MoreExecutors.directExecutor());
-      return result;
-    } else {
-      Closeables.closeQuietly(in);
-      return Futures.immediateFuture(null);
-    }
+                        }
+                      });
+            });
+    result.addListener(() -> Closeables.closeQuietly(in), MoreExecutors.directExecutor());
+    return result;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
