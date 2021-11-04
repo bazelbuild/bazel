@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
@@ -66,8 +67,10 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Failure;
@@ -192,6 +195,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -1081,6 +1085,26 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
       throws LabelSyntaxException {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
+  }
+
+  /**
+   * Returns the {@link ConfiguredAspect} with the given label. For example: {@code
+   * //my:base_target%my_aspect}.
+   *
+   * <p>Assumes only one configured aspect exists for this label. If this isn't true, or you need
+   * finer grained selection for different configurations, you'll need to expand this method.
+   */
+  protected ConfiguredAspect getAspect(String label) throws Exception {
+    AspectValue aspect =
+        (AspectValue)
+            skyframeExecutor.getEvaluatorForTesting().getDoneValues().entrySet().stream()
+                .filter(
+                    entry ->
+                        entry.getKey() instanceof AspectKey
+                            && ((AspectKey) entry.getKey()).getAspectName().equals(label))
+                .map(Map.Entry::getValue)
+                .collect(onlyElement());
+    return aspect.getConfiguredAspect();
   }
 
   /**

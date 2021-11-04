@@ -514,7 +514,7 @@ public final class ConfiguredTargetFactory {
                     aspectConfiguration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions.asProviders(),
-                    prerequisiteMap.values()))
+                    Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors
