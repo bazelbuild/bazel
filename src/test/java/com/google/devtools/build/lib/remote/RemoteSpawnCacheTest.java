@@ -226,7 +226,7 @@ public class RemoteSpawnCacheTest {
                 null,
                 ImmutableSet.of(),
                 /* captureCorruptedOutputsDir= */ null));
-    return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, reporter, service);
+    return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, service);
   }
 
   @Before
