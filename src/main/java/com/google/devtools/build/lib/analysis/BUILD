@@ -52,7 +52,6 @@ java_library(
         ":common_prerequisite_validator",
         ":config/auto_cpu_converter",
         ":config/build_configuration",
-        ":config/build_configuration_option_details",
         ":config/build_options",
         ":config/build_options_cache",
         ":config/compilation_mode",
@@ -308,6 +307,7 @@ java_library(
         ":config/transitions/split_transition",
         ":config/transitions/starlark_exposed_rule_transition_factory",
         ":config/transitions/transition_factory",
+        ":config/transitive_option_details",
         ":configurations_collector",
         ":configured_target",
         ":constraints/constraint_constants",
@@ -1549,15 +1549,6 @@ java_library(
 )
 
 java_library(
-    name = "config/build_configuration_option_details",
-    srcs = ["config/BuildConfigurationOptionDetails.java"],
-    deps = [
-        ":config/build_configuration",
-        ":config/transitive_option_details",
-    ],
-)
-
-java_library(
     name = "config/build_options",
     srcs = [
         "config/BuildOptions.java",
@@ -1845,6 +1836,7 @@ java_library(
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
         ":config/transitions/null_transition",
+        ":config/transitive_option_details",
         ":required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
@@ -1874,6 +1866,7 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/fragment_options",
+        ":config/transitive_option_details",
         ":required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",

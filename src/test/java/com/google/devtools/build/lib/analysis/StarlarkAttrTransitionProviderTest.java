@@ -55,9 +55,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for StarlarkAttributeTransitionProvider. */
+/** Tests for {@link StarlarkAttributeTransitionProvider}. */
 @RunWith(JUnit4.class)
-public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
+public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -1976,7 +1976,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             .create(AttributeTransitionData.builder().attributes(attributes).build());
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
-    attrTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
+    attrTransition.addRequiredFragments(
+        requiredFragments, ct.getConfiguration().getTransitiveOptionDetails());
     assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 

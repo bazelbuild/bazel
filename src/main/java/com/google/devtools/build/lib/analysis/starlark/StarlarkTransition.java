@@ -25,10 +25,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
+import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.OptionInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -72,30 +73,30 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   // Get the inputs of the starlark transition as a list of canonicalized labels strings.
-  private List<String> getInputs() {
+  private ImmutableList<String> getInputs() {
     return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet().asList();
   }
 
   // Get the outputs of the starlark transition as a list of canonicalized labels strings.
-  private List<String> getOutputs() {
+  private ImmutableList<String> getOutputs() {
     return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet().asList();
   }
 
   @Override
   public void addRequiredFragments(
-      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptions buildOptions) {
-    // TODO(bazel-team): complexity cleanup: merge buildOptionInfo with TransitiveOptionDetails.
-    Map<String, OptionInfo> optionToFragment = FunctionTransitionUtil.buildOptionInfo(buildOptions);
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      TransitiveOptionDetails optionDetails) {
     for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
       if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         requiredFragments.addStarlarkOption(Label.parseAbsoluteUnchecked(optionStarlarkName));
       } else {
         String optionNativeName = optionStarlarkName.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        OptionInfo optionInfo = optionToFragment.get(optionNativeName);
-        // A null optionInfo means the flag is invalid. Starlark transitions independently catch and
-        // report that (search the code for "do not correspond to valid settings").
-        if (optionInfo != null) {
-          requiredFragments.addOptionsClass(optionInfo.getOptionClass());
+        // A null optionsClass means the flag is invalid. Starlark transitions independently catch
+        // and report that (search the code for "do not correspond to valid settings").
+        Class<? extends FragmentOptions> optionsClass =
+            optionDetails.getOptionClass(optionNativeName);
+        if (optionsClass != null) {
+          requiredFragments.addOptionsClass(optionsClass);
         }
       }
     }

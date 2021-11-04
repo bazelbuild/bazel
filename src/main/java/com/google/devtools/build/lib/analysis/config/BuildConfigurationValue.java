@@ -229,10 +229,8 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   /**
    * Retrieves the {@link TransitiveOptionDetails} containing data on this configuration's options.
-   *
-   * @see BuildConfigurationOptionDetails
    */
-  TransitiveOptionDetails getTransitiveOptionDetails() {
+  public TransitiveOptionDetails getTransitiveOptionDetails() {
     return transitiveOptionDetails;
   }
 

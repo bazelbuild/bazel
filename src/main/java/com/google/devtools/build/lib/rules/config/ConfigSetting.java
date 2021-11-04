@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -110,8 +109,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     }
 
     TransitiveOptionDetails optionDetails =
-        BuildConfigurationOptionDetails.get(ruleContext.getConfiguration());
-
+        ruleContext.getConfiguration().getTransitiveOptionDetails();
     boolean nativeFlagsMatch =
         matchesConfig(nativeFlagSettings.entries(), optionDetails, ruleContext);
 
@@ -160,7 +158,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     equalsIndex > 0 ? value.substring(0, equalsIndex) : value);
               } else {
                 Class<? extends FragmentOptions> optionsClass =
-                    BuildConfigurationOptionDetails.get(configuration).getOptionClass(optionName);
+                    configuration.getTransitiveOptionDetails().getOptionClass(optionName);
                 if (optionsClass != null) {
                   requiredFragments.addOptionsClass(optionsClass);
                 }

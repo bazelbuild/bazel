@@ -107,7 +107,7 @@ public final class RequiredFragmentsUtil {
           .addRuleImplSpecificRequiredConfigFragments(requiredFragments, attributes, configuration);
     }
     addRequiredFragmentsFromRuleTransitions(
-        requiredFragments, target, attributes, configuration.getOptions());
+        requiredFragments, target, attributes, configuration.getTransitiveOptionDetails());
 
     // We consider build settings (which are both targets and configuration) to require themselves.
     if (target.isBuildSetting()) {
@@ -157,7 +157,7 @@ public final class RequiredFragmentsUtil {
         requiredFragments,
         aspect,
         ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration.checksum()),
-        configuration.getOptions());
+        configuration.getTransitiveOptionDetails());
     return requiredFragments.build();
   }
 
@@ -212,13 +212,13 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Rule target,
       ConfiguredAttributeMapper attributeMap,
-      BuildOptions options) {
+      TransitiveOptionDetails optionDetails) {
     if (target.getRuleClassObject().getTransitionFactory() != null) {
       target
           .getRuleClassObject()
           .getTransitionFactory()
           .create(RuleTransitionData.create(target))
-          .addRequiredFragments(requiredFragments, options);
+          .addRequiredFragments(requiredFragments, optionDetails);
     }
     // We don't set the execution platform in this data because a) that doesn't affect which
     // fragments are required and b) it's one less parameter we have to pass to
@@ -230,7 +230,7 @@ public final class RequiredFragmentsUtil {
         attribute
             .getTransitionFactory()
             .create(attributeTransitionData)
-            .addRequiredFragments(requiredFragments, options);
+            .addRequiredFragments(requiredFragments, optionDetails);
       }
     }
   }
@@ -245,7 +245,7 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Aspect aspect,
       ConfiguredAttributeMapper attributeMap,
-      BuildOptions options) {
+      TransitiveOptionDetails optionDetails) {
     AttributeTransitionData attributeTransitionData =
         AttributeTransitionData.builder().attributes(attributeMap).build();
     for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
@@ -253,7 +253,7 @@ public final class RequiredFragmentsUtil {
         attribute
             .getTransitionFactory()
             .create(attributeTransitionData)
-            .addRequiredFragments(requiredFragments, options);
+            .addRequiredFragments(requiredFragments, optionDetails);
       }
     }
   }

@@ -42,7 +42,8 @@ import org.junit.runner.RunWith;
 
 /** Tests for StarlarkRuleTransitionProvider. */
 @RunWith(TestParameterInjector.class)
-public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
+public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -1420,7 +1421,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
             .create(RuleTransitionData.create(testTarget));
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
-    ruleTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
+    ruleTransition.addRequiredFragments(
+        requiredFragments, ct.getConfiguration().getTransitiveOptionDetails());
     assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 

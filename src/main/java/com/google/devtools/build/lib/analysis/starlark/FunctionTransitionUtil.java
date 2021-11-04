@@ -76,7 +76,7 @@ public class FunctionTransitionUtil {
    * @return the post-transition build options, or null if errors were reported to handler.
    */
   @Nullable
-  static Map<String, BuildOptions> applyAndValidate(
+  static ImmutableMap<String, BuildOptions> applyAndValidate(
       BuildOptions buildOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
       StructImpl attrObject,
@@ -85,8 +85,8 @@ public class FunctionTransitionUtil {
     try {
       checkForDenylistedOptions(starlarkTransition);
 
-      // TODO(waltl): consider building this once and use it across different split
-      // transitions.
+      // TODO(waltl): Consider building this once and using it across different split transitions,
+      // or reusing TransitiveOptionDetails.
       Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
       Dict<String, Object> settings =
           buildSettings(buildOptions, optionInfoMap, starlarkTransition);
@@ -159,7 +159,7 @@ public class FunctionTransitionUtil {
   }
 
   /** For all the options in the BuildOptions, build a map from option name to its information. */
-  static ImmutableMap<String, OptionInfo> buildOptionInfo(BuildOptions buildOptions) {
+  private static ImmutableMap<String, OptionInfo> buildOptionInfo(BuildOptions buildOptions) {
     ImmutableMap.Builder<String, OptionInfo> builder = new ImmutableMap.Builder<>();
 
     ImmutableSet<Class<? extends FragmentOptions>> optionClasses =
@@ -190,7 +190,7 @@ public class FunctionTransitionUtil {
    * @throws ValidationException if any of the specified transition inputs do not correspond to a
    *     valid build setting
    */
-  static Dict<String, Object> buildSettings(
+  private static Dict<String, Object> buildSettings(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
@@ -347,7 +347,7 @@ public class FunctionTransitionUtil {
           } else if (optionValue == null || def.getType().isInstance(optionValue)) {
             convertedValue = optionValue;
           } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
-            convertedValue = ((Boolean) optionValue).booleanValue();
+            convertedValue = optionValue;
           } else if (optionValue instanceof String) {
             convertedValue = def.getConverter().convert((String) optionValue);
           } else {
@@ -486,11 +486,11 @@ public class FunctionTransitionUtil {
   }
 
   /** Stores option info useful to a FunctionSplitTransition. */
-  static class OptionInfo {
+  private static final class OptionInfo {
     private final Class<? extends FragmentOptions> optionClass;
     private final OptionDefinition definition;
 
-    public OptionInfo(Class<? extends FragmentOptions> optionClass, OptionDefinition definition) {
+    OptionInfo(Class<? extends FragmentOptions> optionClass, OptionDefinition definition) {
       this.optionClass = optionClass;
       this.definition = definition;
     }
