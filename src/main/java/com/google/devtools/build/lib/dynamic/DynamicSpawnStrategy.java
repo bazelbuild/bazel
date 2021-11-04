@@ -102,20 +102,28 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private final Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution;
 
+  /** If true, this is the first build since the server started. */
+  private final boolean firstBuild;
+
+  private boolean skipBuildWarningShown;
+
   /**
    * Constructs a {@code DynamicSpawnStrategy}.
    *
    * @param executorService an {@link ExecutorService} that will be used to run Spawn actions.
+   * @param firstBuild True if this is the first build since the server started.
    */
   public DynamicSpawnStrategy(
       ExecutorService executorService,
       DynamicExecutionOptions options,
       Function<Spawn, ExecutionPolicy> getExecutionPolicy,
-      Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution) {
+      Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution,
+      boolean firstBuild) {
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.options = options;
     this.getExecutionPolicy = getExecutionPolicy;
     this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
+    this.firstBuild = firstBuild;
   }
 
   /**
@@ -577,6 +585,17 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           dynamicStrategyRegistry.getDynamicSpawnActionContexts(
               spawn, DynamicStrategyRegistry.DynamicMode.REMOTE));
       return runLocally(spawn, actionExecutionContext, null);
+    } else if (options.skipFirstBuild && firstBuild) {
+      if (!skipBuildWarningShown) {
+        skipBuildWarningShown = true;
+        actionExecutionContext
+            .getEventHandler()
+            .handle(
+                Event.info(
+                    "Disabling dynamic execution until we have seen a successful build, see"
+                        + " --experimental_dynamic_skip_first_build."));
+      }
+      return runRemotely(spawn, actionExecutionContext, null);
     }
     // Extra logging to debug b/194373457
     logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
@@ -812,7 +831,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
         if (results == null) {
           logger.atWarning().log(
-              "Local stategy %s for %s target %s returned null, which it shouldn't do.",
+              "Local strategy %s for %s target %s returned null, which it shouldn't do.",
               strategy, spawn.getMnemonic(), spawn.getResourceOwner().prettyPrint());
         }
         return results;
