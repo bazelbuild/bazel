@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static java.lang.Math.min;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -71,7 +69,6 @@ import javax.annotation.Nullable;
  * result. Derived classes should do this.
  */
 abstract class AbstractParallelEvaluator {
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
@@ -644,19 +641,6 @@ abstract class AbstractParallelEvaluator {
                 evaluatorContext
                     .getErrorInfoManager()
                     .fromException(skyKey, reifiedBuilderException, isTransitivelyTransient);
-            // TODO(b/166268889): Remove when resolved. ActionExecutionValues are ending up with
-            //  IOExceptions in them.
-            if (isTransitivelyTransient
-                && !shouldFailFast
-                && errorInfo.getException() instanceof IOException) {
-              // This is essentially unconditionally logged, and not often. Ok to evaluate eagerly.
-              String keyString = skyKey.toString();
-              String errorString = errorInfo.toString();
-              logger.atInfo().log(
-                  "Got IOException for %s (%s)",
-                  keyString.substring(0, min(1000, keyString.length())),
-                  errorString.substring(0, min(1000, errorString.length())));
-            }
             env.setError(state, errorInfo);
             Set<SkyKey> rdepsToBubbleUpTo = env.commitAndGetParents(state);
             if (shouldFailFast) {
