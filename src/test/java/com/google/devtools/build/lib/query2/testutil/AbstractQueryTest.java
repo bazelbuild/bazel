@@ -76,9 +76,9 @@ public abstract class AbstractQueryTest<T> {
   private static final String DEFAULT_UNIVERSE = "//...:*";
 
   protected static final String BAD_PACKAGE_NAME =
-      "package names may contain "
-          + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
-          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
+          "package names may contain "
+                  + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
+                  + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
 
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
@@ -142,17 +142,17 @@ public abstract class AbstractQueryTest<T> {
   }
 
   protected final void overwriteFile(String pathName, ImmutableList<String> lines)
-      throws IOException {
+          throws IOException {
     helper.overwriteFile(pathName, lines.toArray(new String[0]));
   }
 
   protected final void appendToWorkspace(String... lines) throws IOException {
     overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add(lines)
-            .build());
+            "WORKSPACE",
+            new ImmutableList.Builder<String>()
+                    .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+                    .add(lines)
+                    .build());
   }
 
   protected void assertContainsEvent(String expectedMessage) {
@@ -179,15 +179,15 @@ public abstract class AbstractQueryTest<T> {
     ResultAndTargets<T> result = helper.evaluateQuery(query);
     assertWithMessage(
             "evaluateQuery failed: " + query + "\n" + Iterables.toString(helper.getEvents()))
-        .that(result.getQueryEvalResult().getSuccess())
-        .isTrue();
+            .that(result.getQueryEvalResult().getSuccess())
+            .isTrue();
     return result.getResultSet();
   }
 
   // Like eval(), but asserts that evaluation completes abruptly with a QueryException, whose
   // message and FailureDetail is returned.
   protected EvalThrowsResult evalThrows(String query, boolean unconditionallyThrows)
-      throws Exception {
+          throws Exception {
     try {
       helper.evaluateQuery(query);
       fail("evaluateQuery completed normally: " + query);
@@ -231,10 +231,10 @@ public abstract class AbstractQueryTest<T> {
 
   protected ImmutableList<String> resultSetToListOfStrings(Set<T> results) {
     return results.stream()
-        .map(node -> helper.getLabel(node))
-        .distinct()
-        .sorted(Ordering.natural())
-        .collect(toImmutableList());
+            .map(node -> helper.getLabel(node))
+            .distinct()
+            .sorted(Ordering.natural())
+            .collect(toImmutableList());
   }
 
   protected void assertContains(Set<T> x, Set<T> y) throws Exception {
@@ -249,7 +249,7 @@ public abstract class AbstractQueryTest<T> {
 
   protected static void assertPackageLoadingCode(ResultAndTargets<Target> result, Code code) {
     FailureDetail failureDetail =
-        result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
+            result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
     assertThat(failureDetail).isNotNull();
     assertPackageLoadingCode(failureDetail, code);
   }
@@ -260,7 +260,7 @@ public abstract class AbstractQueryTest<T> {
 
   protected static void assertQueryCode(ResultAndTargets<Target> result, Query.Code code) {
     FailureDetail failureDetail =
-        result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
+            result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
     assertThat(failureDetail).isNotNull();
     assertQueryCode(failureDetail, code);
   }
@@ -269,15 +269,19 @@ public abstract class AbstractQueryTest<T> {
     assertThat(failureDetail.getQuery().getCode()).isEqualTo(code);
   }
 
+  protected static boolean isWindows() {
+    return System.getProperty("os.name").startsWith("Windows");
+  }
+
   @Test
   public void testTargetLiteralWithMissingTargets() throws Exception {
     writeFile("a/BUILD");
     assertThat(evalThrows("//a:b", false).getMessage())
-        .isEqualTo(
-            "no such target '//a:b': target 'b' not declared in package 'a' "
-                + "defined by "
-                + helper.getRootDirectory().getPathString()
-                + "/a/BUILD");
+            .isEqualTo(
+                    "no such target '//a:b': target 'b' not declared in package 'a' "
+                            + "defined by "
+                            + helper.getRootDirectory().getPathString()
+                            + "/a/BUILD");
   }
 
   protected void writeBuildFiles1() throws Exception {
@@ -309,7 +313,7 @@ public abstract class AbstractQueryTest<T> {
     EvalThrowsResult result = evalThrows("bad:*:*", false);
     if (checkDetailedCode) {
       assertThat(result.getFailureDetail().getTargetPatterns().getCode())
-          .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
+              .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
     }
     assertThat(result.getMessage()).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
   }
@@ -325,7 +329,7 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("a/b/...:* except a/...:*")).isEmpty();
 
     assertThat(evalToString("(a/...:* union a/b/...:*) except //a/b:p"))
-        .isEqualTo("//a/b:BUILD //a/b:q " + A_FILES);
+            .isEqualTo("//a/b:BUILD //a/b:q " + A_FILES);
     assertThat(evalToString("a/...:* union (a/b/...:* except //a/b:p)")).isEqualTo(A_AB_FILES);
 
     // Test - + ^ variants:
@@ -337,54 +341,83 @@ public abstract class AbstractQueryTest<T> {
   public void testAlgebraicSetOperations_manyOperands() throws Exception {
     writeBuildFiles1();
     assertThat(evalToString("//a:BUILD + //a:x + //a:y + //a:z + //a/b:BUILD + //a/b:p + //a/b:q"))
-        .isEqualTo(A_AB_FILES);
+            .isEqualTo(A_AB_FILES);
     assertThat(
             evalToString(
-                "a/...:* - //a:BUILD - //a:x - //a:y - //a:z - //a/b:BUILD - //a/b:p - //a/b:q"))
-        .isEmpty();
+                    "a/...:* - //a:BUILD - //a:x - //a:y - //a:z - //a/b:BUILD - //a/b:p - //a/b:q"))
+            .isEmpty();
     assertThat(
             evalToString(
-                "(//a:x + //a:y) ^ (//a:x + //a:z) ^ (//a:x + //a/b:p) ^ (//a:x + //a/b:q)"))
-        .isEqualTo("//a:x");
+                    "(//a:x + //a:y) ^ (//a:x + //a:z) ^ (//a:x + //a/b:p) ^ (//a:x + //a/b:q)"))
+            .isEqualTo("//a:x");
   }
 
   private void writeBuildFiles2() throws Exception {
     writeFile(
-        "c/BUILD",
-        "genrule(name='c', srcs=['p', 'q'], outs=['r', 's'], cmd=':')",
-        "cc_binary(name='d', srcs=['e.cc'], data=['r'])");
+            "c/BUILD",
+            "genrule(name='c', srcs=['p', 'q'], outs=['r', 's'], cmd=':')",
+            "cc_binary(name='d', srcs=['e.cc'], data=['r'])");
   }
 
   @Test
   public void testKindOperator() throws Exception {
     writeBuildFiles2();
-    assertThat(evalToString("c:*"))
-        .isEqualTo(
-            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-    assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d");
-    assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
-    assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
-    assertThat(evalToString("kind(file, c:*)"))
-        .isEqualTo("//c:BUILD //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-    assertThat(evalToString("kind(gener.*, c:*)"))
-        .isEqualTo("//c:d.dwp //c:d.stripped //c:r //c:s");
-    assertThat(evalToString("kind(gen.*, c:*)"))
-        .isEqualTo("//c:c //c:d.dwp //c:d.stripped //c:r //c:s");
-    assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
-    assertThat(evalToString("kind('source file', c:*)"))
-        .isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+    if (isWindows()) {
+      assertThat(evalToString("c:*"))
+              .isEqualTo(
+                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d");
+      assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
+      assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("kind(file, c:*)"))
+              .isEqualTo("//c:BUILD //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("kind(gener.*, c:*)"))
+              .isEqualTo("//c:d.dwp //c:d.stripped.exe //c:r //c:s");
+      assertThat(evalToString("kind(gen.*, c:*)"))
+              .isEqualTo("//c:c //c:d.dwp //c:d.stripped.exe //c:r //c:s");
+      assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+      assertThat(evalToString("kind('source file', c:*)"))
+              .isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+    } else {
+      assertThat(evalToString("c:*"))
+              .isEqualTo(
+                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d");
+      assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
+      assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("kind(file, c:*)"))
+              .isEqualTo("//c:BUILD //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("kind(gener.*, c:*)"))
+              .isEqualTo("//c:d.dwp //c:d.stripped //c:r //c:s");
+      assertThat(evalToString("kind(gen.*, c:*)"))
+              .isEqualTo("//c:c //c:d.dwp //c:d.stripped //c:r //c:s");
+      assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+      assertThat(evalToString("kind('source file', c:*)"))
+              .isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+    }
+
   }
 
   @Test
   public void testFilterOperator() throws Exception {
     writeBuildFiles2();
-    assertThat(evalToString("c:*"))
-        .isEqualTo(
-            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-    assertThat(evalToString("filter(BUILD, c:*)")).isEqualTo("//c:BUILD");
-    assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc");
-    assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc");
-    assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:p //c:q //c:r //c:s");
+    if (isWindows()) {
+      assertThat(evalToString("c:*"))
+              .isEqualTo(
+                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("filter(BUILD, c:*)")).isEqualTo("//c:BUILD");
+      assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc");
+      assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc");
+      assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:p //c:q //c:r //c:s");
+    } else {
+      assertThat(evalToString("c:*"))
+              .isEqualTo(
+                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("filter(BUILD, c:*)")).isEqualTo("//c:BUILD");
+      assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc");
+      assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc");
+      assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:p //c:q //c:r //c:s");
+    }
   }
 
   @Test
@@ -404,24 +437,42 @@ public abstract class AbstractQueryTest<T> {
     writeBuildFiles2();
     writeBuildFilesWithConfigurableAttributes();
 
-    assertThat(evalToString("c:*"))
-        .isEqualTo(
-            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-    assertThat(evalToString("attr(cmd,':', c:*)")).isEqualTo("//c:c");
-    // Using "empty" pattern will just check existence of the attribute.
-    assertThat(evalToString("attr(cmd,'', c:*)")).isEqualTo("//c:c");
-    assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d");
-    assertThat(evalToString("attr('data', 'r', c:*)")).isEqualTo("//c:d");
-    // Empty list attribute value always resolves to '[]'. If list attribute has
-    // more than one value, the will be delimited with ','.
-    assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d");
-    assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d");
-    assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d");
+    if (isWindows()) {
+      assertThat(evalToString("c:*"))
+              .isEqualTo(
+                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("attr(cmd,':', c:*)")).isEqualTo("//c:c");
+      // Using "empty" pattern will just check existence of the attribute.
+      assertThat(evalToString("attr(cmd,'', c:*)")).isEqualTo("//c:c");
+      assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("attr('data', 'r', c:*)")).isEqualTo("//c:d");
+      // Empty list attribute value always resolves to '[]'. If list attribute has
+      // more than one value, the will be delimited with ','.
+      assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d");
+
+    } else {
+      assertThat(evalToString("c:*"))
+              .isEqualTo(
+                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
+      assertThat(evalToString("attr(cmd,':', c:*)")).isEqualTo("//c:c");
+      // Using "empty" pattern will just check existence of the attribute.
+      assertThat(evalToString("attr(cmd,'', c:*)")).isEqualTo("//c:c");
+      assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("attr('data', 'r', c:*)")).isEqualTo("//c:d");
+      // Empty list attribute value always resolves to '[]'. If list attribute has
+      // more than one value, the will be delimited with ','.
+      assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d");
+      assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d");
+
+    }
 
     // Configurable attributes:
     if (testConfigurableAttributes()) {
       assertThat(evalToString("attr('deps', 'bdep', //configurable/...)"))
-          .isEqualTo("//configurable:main");
+              .isEqualTo("//configurable:main");
       assertThat(evalToString("attr('deps', 'nomatch', //configurable/...)")).isEmpty();
     }
   }
@@ -436,9 +487,9 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testAttrOperatorOnBooleans() throws Exception {
     writeFile(
-        "t/BUILD",
-        "cc_library(name='t', srcs=['t.cc'], data=['r'], testonly=0)",
-        "cc_library(name='t_test', srcs=['t.cc'], data=['r'], testonly=1)");
+            "t/BUILD",
+            "cc_library(name='t', srcs=['t.cc'], data=['r'], testonly=0)",
+            "cc_library(name='t_test', srcs=['t.cc'], data=['r'], testonly=1)");
 
     // Assure that integers query correctly for BOOLEAN values.
     assertThat(evalToString("attr(testonly, 0, t:*)")).isEqualTo("//t:t");
@@ -448,9 +499,9 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testAttrOnPackageDefaultVisibility() throws Exception {
     writeFile(
-        "t/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "cc_library(name='t', srcs=['t.cc'])");
+            "t/BUILD",
+            "package(default_visibility=['//visibility:public'])",
+            "cc_library(name='t', srcs=['t.cc'])");
 
     assertThat(evalToString("attr(visibility, public, t:*)")).isEqualTo("//t:t");
   }
@@ -469,9 +520,9 @@ public abstract class AbstractQueryTest<T> {
 
   protected void writeBuildFiles3() throws Exception {
     writeFile(
-        "a/BUILD",
-        "genrule(name='a', srcs=['//b', '//c'], outs=['out'], cmd=':')",
-        "exports_files(['a2'])");
+            "a/BUILD",
+            "genrule(name='a', srcs=['//b', '//c'], outs=['out'], cmd=':')",
+            "exports_files(['a2'])");
     writeFile("b/BUILD", "genrule(name='b', srcs=['//d'], outs=['out'], cmd=':')");
     writeFile("c/BUILD", "genrule(name='c', srcs=['//d'], outs=['out'], cmd=':')");
     writeFile("d/BUILD", "exports_files(['d'])");
@@ -479,32 +530,32 @@ public abstract class AbstractQueryTest<T> {
 
   protected void writeBuildFilesWithConfigurableAttributesUnconditionally() throws Exception {
     writeFile(
-        "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'foo': 'a'})",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'foo': 'b'})");
+            "conditions/BUILD",
+            "config_setting(",
+            "    name = 'a',",
+            "    values = {'foo': 'a'})",
+            "config_setting(",
+            "    name = 'b',",
+            "    values = {'foo': 'b'})");
     writeFile(
-        "configurable/BUILD",
-        "cc_binary(",
-        "    name = 'main',",
-        "    srcs = ['main.cc'],",
-        "    deps = select({",
-        "        '//conditions:a': [':adep'],",
-        "        '//conditions:b': [':bdep'],",
-        "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [':defaultdep'],",
-        "    }))",
-        "cc_library(",
-        "    name = 'adep',",
-        "    srcs = ['adep.cc'])",
-        "cc_library(",
-        "    name = 'bdep',",
-        "    srcs = ['bdep.cc'])",
-        "cc_library(",
-        "    name = 'defaultdep',",
-        "    srcs = ['defaultdep.cc'])");
+            "configurable/BUILD",
+            "cc_binary(",
+            "    name = 'main',",
+            "    srcs = ['main.cc'],",
+            "    deps = select({",
+            "        '//conditions:a': [':adep'],",
+            "        '//conditions:b': [':bdep'],",
+            "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [':defaultdep'],",
+            "    }))",
+            "cc_library(",
+            "    name = 'adep',",
+            "    srcs = ['adep.cc'])",
+            "cc_library(",
+            "    name = 'bdep',",
+            "    srcs = ['bdep.cc'])",
+            "cc_library(",
+            "    name = 'defaultdep',",
+            "    srcs = ['defaultdep.cc'])");
   }
 
   private void writeBuildFilesWithConfigurableAttributes() throws Exception {
@@ -531,16 +582,16 @@ public abstract class AbstractQueryTest<T> {
     // Configurable attributes:
     if (testConfigurableAttributes()) {
       assertThat(eval("somepath(//configurable:main, //configurable:bdep.cc)"))
-          .isEqualTo(eval("//configurable:main + //configurable:bdep + //configurable:bdep.cc"));
+              .isEqualTo(eval("//configurable:main + //configurable:bdep + //configurable:bdep.cc"));
     }
   }
 
   @Test
   public void testSomePathOperatorOrdering() throws Exception {
     writeFile(
-        "a/BUILD",
-        "genrule(name='a1', srcs=['//b', '//c'], outs=['out1'], cmd=':')",
-        "genrule(name='a0', srcs=[':a1'], outs=['out0'], cmd=':')");
+            "a/BUILD",
+            "genrule(name='a1', srcs=['//b', '//c'], outs=['out1'], cmd=':')",
+            "genrule(name='a0', srcs=[':a1'], outs=['out0'], cmd=':')");
     writeFile("b/BUILD", "genrule(name='b', srcs=['//d'], outs=['out'], cmd=':')");
     writeFile("c/BUILD", "genrule(name='c', srcs=['//d'], outs=['out'], cmd=':')");
     writeFile("d/BUILD", "exports_files(['d'])");
@@ -570,7 +621,7 @@ public abstract class AbstractQueryTest<T> {
     // Configurable attributes:
     if (testConfigurableAttributes()) {
       assertThat(eval("allpaths(//configurable:main, //configurable:bdep.cc)"))
-          .isEqualTo(eval("//configurable:main + //configurable:bdep + //configurable:bdep.cc"));
+              .isEqualTo(eval("//configurable:main + //configurable:bdep + //configurable:bdep.cc"));
     }
   }
 
@@ -592,11 +643,11 @@ public abstract class AbstractQueryTest<T> {
 
     assertThat(eval("deps(//d)")).isEqualTo(eval("//d"));
     assertThat(eval("deps(//c)" + getDependencyCorrectionWithGen()))
-        .isEqualTo(eval("//c union //d"));
+            .isEqualTo(eval("//c union //d"));
     assertThat(eval("deps(//b)" + getDependencyCorrectionWithGen()))
-        .isEqualTo(eval("//b union //d"));
+            .isEqualTo(eval("//b union //d"));
     assertThat(eval("deps(//a)" + getDependencyCorrectionWithGen()))
-        .isEqualTo(eval("//a union //b union //c union //d"));
+            .isEqualTo(eval("//a union //b union //c union //d"));
 
     assertThat(eval("deps(//c:out)")).isEqualTo(eval("deps(//c) union //c:out"));
     assertThat(eval("deps(//b:out)")).isEqualTo(eval("deps(//b) union //b:out"));
@@ -605,9 +656,9 @@ public abstract class AbstractQueryTest<T> {
     // Test depth-bounded variant:
     assertThat(eval("deps(//a, 0)" + getDependencyCorrectionWithGen())).isEqualTo(eval("//a"));
     assertThat(eval("deps(//a, 1)" + getDependencyCorrectionWithGen()))
-        .isEqualTo(eval("//a union //b union //c"));
+            .isEqualTo(eval("//a union //b union //c"));
     assertThat(eval("deps(//a, 2)" + getDependencyCorrectionWithGen()))
-        .isEqualTo(eval("//a + //b + //c + //d"));
+            .isEqualTo(eval("//a + //b + //c + //d"));
 
     // Regression coverage for bug #1561800:
     // "blaze query 'deps(<output file>, 1)' returns the output file,
@@ -615,28 +666,28 @@ public abstract class AbstractQueryTest<T> {
     assertThat(eval("deps(//a:out, 0)")).isEqualTo(eval("//a:out"));
     assertThat(eval("deps(//a:out, 1)")).isEqualTo(eval("//a:out + //a"));
     assertThat(eval("deps(//a:out, 2)" + getDependencyCorrectionWithGen()))
-        .isEqualTo(eval("//a:out + //a + //b + //c"));
+            .isEqualTo(eval("//a:out + //a + //b + //c"));
 
     // Configurable attributes:
     if (testConfigurableAttributes()) {
       String implicitDeps = "";
       if (analysisMock.isThisBazel()) {
         implicitDeps =
-            " + "
-                + helper.getToolsRepository()
-                + "//tools/def_parser:def_parser"
-                + " + "
-                + helper.getToolsRepository()
-                + "//tools/cpp:grep-includes";
+                " + "
+                        + helper.getToolsRepository()
+                        + "//tools/def_parser:def_parser"
+                        + " + "
+                        + helper.getToolsRepository()
+                        + "//tools/cpp:grep-includes";
       }
       assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
-          .containsExactlyElementsIn(
-              eval(
-                  helper.getToolsRepository()
-                      + "//tools/cpp:malloc + //configurable:main + "
-                      + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-                      + "//configurable:defaultdep + //conditions:a + //conditions:b"
-                      + implicitDeps));
+              .containsExactlyElementsIn(
+                      eval(
+                              helper.getToolsRepository()
+                                      + "//tools/cpp:malloc + //configurable:main + "
+                                      + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
+                                      + "//configurable:defaultdep + //conditions:a + //conditions:b"
+                                      + implicitDeps));
     }
   }
 
@@ -644,59 +695,59 @@ public abstract class AbstractQueryTest<T> {
   public void testDepsDoesNotIncludeBuildFiles() throws Exception {
     writeFile("deps/BUILD", "exports_files(['build_def', 'starlark.bzl'])");
     writeFile(
-        "deps/starlark.bzl",
-        "def macro():",
-        "  native.genrule(name = 'dep2', outs = ['dep2.txt'], cmd = 'echo Hi >$@')");
+            "deps/starlark.bzl",
+            "def macro():",
+            "  native.genrule(name = 'dep2', outs = ['dep2.txt'], cmd = 'echo Hi >$@')");
 
     writeFile(
-        "s/BUILD",
-        "load('//deps:starlark.bzl', 'macro')",
-        "macro()",
-        "genrule(name = 'my_rule',",
-        "        outs = ['my.txt'],",
-        "        srcs = [':dep1.txt', ':dep2.txt'],",
-        "        cmd = 'echo $(SRCS) >$@')");
+            "s/BUILD",
+            "load('//deps:starlark.bzl', 'macro')",
+            "macro()",
+            "genrule(name = 'my_rule',",
+            "        outs = ['my.txt'],",
+            "        srcs = [':dep1.txt', ':dep2.txt'],",
+            "        cmd = 'echo $(SRCS) >$@')");
 
     List<String> result = evalToListOfStrings("deps(//s:my_rule)");
     assertThat(result).containsAtLeast("//s:dep2", "//s:dep1.txt", "//s:dep2.txt", "//s:my_rule");
     assertThat(result)
-        .containsNoneOf("//deps:BUILD", "//deps:build_def", "//deps:starlark.bzl", "//s:BUILD");
+            .containsNoneOf("//deps:BUILD", "//deps:build_def", "//deps:starlark.bzl", "//s:BUILD");
   }
 
   protected void writeAspectDefinition(String aspectAttrs) throws Exception {
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     writeFile(
-        "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_aspect_impl,",
-        "   attr_aspects=['deps'],",
-        "   attrs = ",
-        aspectAttrs,
-        ")",
-        "aspect_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : ",
-        "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]),",
-        "             'param' : attr.string(),",
-        "           },",
-        ")",
-        "plain_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : ",
-        "             attr.label_list(mandatory=False, allow_files=True) ",
-        "           },",
-        ")");
+            "test/aspect.bzl",
+            "def _aspect_impl(target, ctx):",
+            "   return struct()",
+            "def _rule_impl(ctx):",
+            "   return struct()",
+            "",
+            "MyAspect = aspect(",
+            "   implementation=_aspect_impl,",
+            "   attr_aspects=['deps'],",
+            "   attrs = ",
+            aspectAttrs,
+            ")",
+            "aspect_rule = rule(",
+            "   implementation=_rule_impl,",
+            "   attrs = { 'attr' : ",
+            "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]),",
+            "             'param' : attr.string(),",
+            "           },",
+            ")",
+            "plain_rule = rule(",
+            "   implementation=_rule_impl,",
+            "   attrs = { 'attr' : ",
+            "             attr.label_list(mandatory=False, allow_files=True) ",
+            "           },",
+            ")");
     writeFile(
-        "prod/BUILD",
-        "load('//test:aspect.bzl', 'plain_rule')",
-        "plain_rule(",
-        "     name = 'zzz'",
-        ")");
+            "prod/BUILD",
+            "load('//test:aspect.bzl', 'plain_rule')",
+            "plain_rule(",
+            "     name = 'zzz'",
+            ")");
   }
 
   @Test
@@ -704,11 +755,11 @@ public abstract class AbstractQueryTest<T> {
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     writeAspectDefinition("{'_extra_deps' : attr.label(default = Label('//test:z'))}");
     writeFile(
-        "test/BUILD",
-        "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
-        "aspect_rule(name='a', attr=[':b'])",
-        "plain_rule(name='b')",
-        "plain_rule(name='z')");
+            "test/BUILD",
+            "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
+            "aspect_rule(name='a', attr=[':b'])",
+            "plain_rule(name='b')",
+            "plain_rule(name='z')");
 
     assertThat(eval("deps(//test:a)")).containsAtLeastElementsIn(eval("//test:b + //test:z"));
   }
@@ -718,19 +769,19 @@ public abstract class AbstractQueryTest<T> {
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     writeAspectDefinition("{'_extra_deps' : attr.label(default = Label('//prod:zzz'))}");
     writeFile(
-        "test/BUILD",
-        "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
-        "plain_rule(",
-        "     name = 'yyy',",
-        ")",
-        "aspect_rule(",
-        "     name = 'xxx',",
-        "     attr = [':yyy'],",
-        ")",
-        "aspect_rule(",
-        "     name = 'qqq',",
-        "     attr = ['//external:yyy'],",
-        ")");
+            "test/BUILD",
+            "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
+            "plain_rule(",
+            "     name = 'yyy',",
+            ")",
+            "aspect_rule(",
+            "     name = 'xxx',",
+            "     attr = [':yyy'],",
+            ")",
+            "aspect_rule(",
+            "     name = 'qqq',",
+            "     attr = ['//external:yyy'],",
+            ")");
     appendToWorkspace("bind(name = 'yyy', actual = '//test:yyy')");
 
     assertThat(eval("deps(//test:xxx)")).containsAtLeastElementsIn(eval("//prod:zzz + //test:yyy"));
@@ -741,24 +792,24 @@ public abstract class AbstractQueryTest<T> {
   public void testQueryStarlarkAspectWithParameters() throws Exception {
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     writeAspectDefinition(
-        "{'_extra_deps' : attr.label(default = Label('//prod:zzz')),"
-            + "'param' : attr.string(values=['a', 'b']) }");
+            "{'_extra_deps' : attr.label(default = Label('//prod:zzz')),"
+                    + "'param' : attr.string(values=['a', 'b']) }");
     writeFile(
-        "test/BUILD",
-        "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
-        "plain_rule(",
-        "     name = 'yyy',",
-        ")",
-        "aspect_rule(",
-        "     name = 'xxx',",
-        "     attr = [':yyy'],",
-        "     param = 'a',",
-        ")",
-        "aspect_rule(",
-        "     name = 'qqq',",
-        "     attr = ['//external:yyy'],",
-        "     param = 'b',",
-        ")");
+            "test/BUILD",
+            "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
+            "plain_rule(",
+            "     name = 'yyy',",
+            ")",
+            "aspect_rule(",
+            "     name = 'xxx',",
+            "     attr = [':yyy'],",
+            "     param = 'a',",
+            ")",
+            "aspect_rule(",
+            "     name = 'qqq',",
+            "     attr = ['//external:yyy'],",
+            "     param = 'b',",
+            ")");
     appendToWorkspace("bind(name = 'yyy', actual = '//test:yyy')");
 
     assertThat(eval("deps(//test:xxx)")).containsAtLeastElementsIn(eval("//prod:zzz + //test:yyy"));
@@ -770,15 +821,15 @@ public abstract class AbstractQueryTest<T> {
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     writeAspectDefinition("{'_extra_deps':attr.label(default = Label('//prod:zzz'))}");
     writeFile(
-        "test/BUILD",
-        "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
-        "plain_rule(",
-        "     name = 'yyy',",
-        ")",
-        "aspect_rule(",
-        "     name = 'xxx',",
-        "     attr = [':yyy'],",
-        ")");
+            "test/BUILD",
+            "load('//test:aspect.bzl', 'aspect_rule', 'plain_rule')",
+            "plain_rule(",
+            "     name = 'yyy',",
+            ")",
+            "aspect_rule(",
+            "     name = 'xxx',",
+            "     attr = [':yyy'],",
+            ")");
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
 
     assertThat(eval("deps(//test:xxx)")).containsNoneIn(eval("//prod:zzz"));
@@ -787,29 +838,29 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testStarlarkDiamondEquality() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "load('//foo:a.bzl', 'A')",
-        "load('//foo:b.bzl', 'B')",
-        "load('//foo:checker.bzl', 'check')",
-        "check(A.c, B.c)",
-        "check(B.a, A)",
-        "sh_library(name = 'foo')");
+            "foo/BUILD",
+            "load('//foo:a.bzl', 'A')",
+            "load('//foo:b.bzl', 'B')",
+            "load('//foo:checker.bzl', 'check')",
+            "check(A.c, B.c)",
+            "check(B.a, A)",
+            "sh_library(name = 'foo')");
     writeFile(
-        "foo/a.bzl",
-        "load('//foo:c.bzl', 'C')",
-        "A = struct(c = C)",
-        "# comment to make sure this formats properly");
+            "foo/a.bzl",
+            "load('//foo:c.bzl', 'C')",
+            "A = struct(c = C)",
+            "# comment to make sure this formats properly");
     writeFile(
-        "foo/b.bzl",
-        "load('//foo:a.bzl', 'A')",
-        "load('//foo:c.bzl', 'C')",
-        "B = struct(a = A, c = C)");
+            "foo/b.bzl",
+            "load('//foo:a.bzl', 'A')",
+            "load('//foo:c.bzl', 'C')",
+            "B = struct(a = A, c = C)");
     writeFile("foo/c.bzl", "C = struct()");
     writeFile(
-        "foo/checker.bzl",
-        "def check(arg1, arg2):",
-        "  if arg1 != arg2:",
-        "    fail('Long error message just saying that the two args passed in were not equal')");
+            "foo/checker.bzl",
+            "def check(arg1, arg2):",
+            "  if arg1 != arg2:",
+            "    fail('Long error message just saying that the two args passed in were not equal')");
     // Check no errors.
     assertThat(evalToString("//foo:foo")).isEqualTo("//foo:foo");
   }
@@ -820,33 +871,33 @@ public abstract class AbstractQueryTest<T> {
     writeBuildFilesWithConfigurableAttributes();
 
     assertThat(eval("rdeps(//a, //d)" + getDependencyCorrection()))
-        .isEqualTo(eval("//a union //b union //c union //d"));
+            .isEqualTo(eval("//a union //b union //c union //d"));
     assertThat(eval("rdeps(//b, //d)" + getDependencyCorrection()))
-        .isEqualTo(eval("//b union //d"));
+            .isEqualTo(eval("//b union //d"));
     assertThat(eval("rdeps(//b union //c, //d)" + getDependencyCorrection()))
-        .isEqualTo(eval("//b union //c union //d"));
+            .isEqualTo(eval("//b union //c union //d"));
     assertThat(eval("rdeps(//a union //c, //b)" + getDependencyCorrection()))
-        .isEqualTo(eval("//a union //b"));
+            .isEqualTo(eval("//a union //b"));
     assertThat(eval("rdeps(//a:out union //c:out, //b)" + getDependencyCorrection()))
-        .isEqualTo(eval("//a union //a:out union //b"));
+            .isEqualTo(eval("//a union //a:out union //b"));
     assertThat(eval("rdeps(//d, //a)" + getDependencyCorrection())).isEqualTo(EMPTY);
 
     // Test depth-bounded variant:
     assertThat(eval("rdeps(//a, //d, 1)" + getDependencyCorrection()))
-        .isEqualTo(eval("//b union //c union //d"));
+            .isEqualTo(eval("//b union //c union //d"));
     assertThat(eval("rdeps(//a, //d, 0)" + getDependencyCorrection())).isEqualTo(eval("//d"));
 
     // Configurable attributes:
     if (testConfigurableAttributes()) {
       assertThat(eval("rdeps(//configurable:all, //configurable:adep.cc)"))
-          .isEqualTo(eval("//configurable:main + //configurable:adep + //configurable:adep.cc"));
+              .isEqualTo(eval("//configurable:main + //configurable:adep + //configurable:adep.cc"));
       assertThat(eval("rdeps(//configurable:all, //configurable:bdep.cc)"))
-          .isEqualTo(eval("//configurable:main + //configurable:bdep + //configurable:bdep.cc"));
+              .isEqualTo(eval("//configurable:main + //configurable:bdep + //configurable:bdep.cc"));
       assertThat(eval("rdeps(//configurable:all, //configurable:defaultdep.cc)"))
-          .isEqualTo(
-              eval(
-                  "//configurable:main + //configurable:defaultdep + "
-                      + "//configurable:defaultdep.cc"));
+              .isEqualTo(
+                      eval(
+                              "//configurable:main + //configurable:defaultdep + "
+                                      + "//configurable:defaultdep.cc"));
     }
   }
 
@@ -855,8 +906,8 @@ public abstract class AbstractQueryTest<T> {
     writeBuildFiles3();
 
     assertContains(
-        eval("//b + //c + //d"),
-        eval("let x = //a in deps($x) except $x" + getDependencyCorrectionWithGen()));
+            eval("//b + //c + //d"),
+            eval("let x = //a in deps($x) except $x" + getDependencyCorrectionWithGen()));
     EvalThrowsResult result = evalThrows("$undefined", true);
     assertThat(result.getMessage()).isEqualTo("undefined variable 'undefined'");
     assertQueryCode(result.getFailureDetail(), Query.Code.VARIABLE_UNDEFINED);
@@ -914,11 +965,11 @@ public abstract class AbstractQueryTest<T> {
     writeFile("a/BUILD", "exports_files(['f1', 'f2'])");
     writeFile("b/BUILD", "exports_files(['f1', 'f2'])");
     String letQuery =
-        "let x1 = //a:f1 in "
-            + "let x2 = //a:f2 in "
-            + "let x1 = //b:f1 in "
-            + "let x2 = //b:f2 in "
-            + "$x1 + $x2";
+            "let x1 = //a:f1 in "
+                    + "let x2 = //a:f2 in "
+                    + "let x1 = //b:f1 in "
+                    + "let x2 = //b:f2 in "
+                    + "$x1 + $x2";
     assertThat(eval(letQuery)).containsExactlyElementsIn(eval("//b:f1 + //b:f2"));
   }
 
@@ -942,9 +993,9 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testBuildFilesDoesNotReturnVisibilityOfBUILD() throws Exception {
     writeFile(
-        "fruit/BUILD",
-        "sh_library(name='fruit', srcs=['fruit.sh'])",
-        "exports_files(['BUILD'], visibility=['//fruit/lemon:lemon'])");
+            "fruit/BUILD",
+            "sh_library(name='fruit', srcs=['fruit.sh'])",
+            "exports_files(['BUILD'], visibility=['//fruit/lemon:lemon'])");
     writeFile("fruit/lemon/BUILD", "package_group(name='lemon', packages=['//fruit/...'])");
 
     assertThat(eval("buildfiles(//fruit:all)")).isEqualTo(eval("//fruit:BUILD"));
@@ -962,44 +1013,44 @@ public abstract class AbstractQueryTest<T> {
     String implicitDepsExpr = "";
     if (analysisMock.isThisBazel()) {
       implicitDepsExpr +=
-          " + "
-              + helper.getToolsRepository()
-              + "//tools/def_parser:def_parser"
-              + " + "
-              + helper.getToolsRepository()
-              + "//tools/def_parser:def_parser.exe"
-              + " + "
-              + helper.getToolsRepository()
-              + "//tools/cpp:grep-includes";
+              " + "
+                      + helper.getToolsRepository()
+                      + "//tools/def_parser:def_parser"
+                      + " + "
+                      + helper.getToolsRepository()
+                      + "//tools/def_parser:def_parser.exe"
+                      + " + "
+                      + helper.getToolsRepository()
+                      + "//tools/cpp:grep-includes";
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
     assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr,
-        "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
+            targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr,
+            "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
     assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr,
-        "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION,
-        Setting.ONLY_TARGET_DEPS);
+            targetDepsExpr + " + " + hostDepsExpr,
+            "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION,
+            Setting.ONLY_TARGET_DEPS);
     assertEqualsFiltered(targetDepsExpr, "deps(//x)", Setting.NO_IMPLICIT_DEPS);
     assertEqualsFiltered(
-        targetDepsExpr, "deps(//x)", Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
+            targetDepsExpr, "deps(//x)", Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
   }
 
   protected void assertEqualsFiltered(String expected, String actual, Setting... settings)
-      throws Exception {
+          throws Exception {
     helper.setQuerySettings(settings);
     assertThat(eval(actual)).containsExactlyElementsIn(eval(expected));
   }
 
   private void runNodepDepsTest(boolean expectVisibilityDep, Setting... settings) throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 't1', deps = [':t2'], visibility = [':pg'])",
-        "sh_library(name = 't2')",
-        "package_group(name = 'pg')");
+            "foo/BUILD",
+            "sh_library(name = 't1', deps = [':t2'], visibility = [':pg'])",
+            "sh_library(name = 't2')",
+            "package_group(name = 'pg')");
 
     helper.setQuerySettings(settings);
 
@@ -1035,7 +1086,7 @@ public abstract class AbstractQueryTest<T> {
     //  engines' event non-determinism is probably hard.
     if (checkFailureDetail) {
       assertThat(result.getFailureDetail().getTargetPatterns().getCode())
-          .isEqualTo(TargetPatterns.Code.CYCLE);
+              .isEqualTo(TargetPatterns.Code.CYCLE);
     }
   }
 
@@ -1069,12 +1120,12 @@ public abstract class AbstractQueryTest<T> {
     // xml, which exposes them too.
     String toolsRepository = helper.getToolsRepository();
     assertThat(eval("labels(\"$py_toolchain_type\", //k)"))
-        .isEqualTo(eval(toolsRepository + "//tools/python:toolchain_type"));
+            .isEqualTo(eval(toolsRepository + "//tools/python:toolchain_type"));
 
     // Configurable deps:
     if (testConfigurableAttributes()) {
       assertThat(eval("labels(\"deps\", //configurable:main)"))
-          .isEqualTo(eval("//configurable:adep + //configurable:bdep + //configurable:defaultdep"));
+              .isEqualTo(eval("//configurable:adep + //configurable:bdep + //configurable:defaultdep"));
     }
   }
 
@@ -1083,25 +1134,25 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testTestsOperatorExpandsTestsAndExcludesNonTests() throws Exception {
     writeFile(
-        "a/BUILD",
-        "test_suite(name='a')",
-        "sh_test(name='sh_test', srcs=['sh_test.sh'])",
-        "py_test(name='py_test', srcs=['py_test.py'])",
-        "cc_test(name='cc_test')",
-        "cc_binary(name='cc_binary')");
+            "a/BUILD",
+            "test_suite(name='a')",
+            "sh_test(name='sh_test', srcs=['sh_test.sh'])",
+            "py_test(name='py_test', srcs=['py_test.py'])",
+            "cc_test(name='cc_test')",
+            "cc_binary(name='cc_binary')");
     assertThat(eval("tests(//a)")).isEqualTo(eval("//a:sh_test + //a:py_test + //a:cc_test"));
   }
 
   @Test
   public void testTestsOperatorFiltersByTagSizeAndEnv() throws Exception {
     writeFile(
-        "b/BUILD",
-        "test_suite(name='large_tests', tags=['large'])",
-        "test_suite(name='prod_tests', tags=['prod'])",
-        "test_suite(name='foo_tests', tags=['foo'])",
-        "sh_test(name='sh_test', size='large', srcs=['sh_test.sh'])",
-        "py_test(name='py_test', tags=['prod'], srcs=['py_test.py'])",
-        "cc_test(name='cc_test', tags=['foo'])");
+            "b/BUILD",
+            "test_suite(name='large_tests', tags=['large'])",
+            "test_suite(name='prod_tests', tags=['prod'])",
+            "test_suite(name='foo_tests', tags=['foo'])",
+            "sh_test(name='sh_test', size='large', srcs=['sh_test.sh'])",
+            "py_test(name='py_test', tags=['prod'], srcs=['py_test.py'])",
+            "cc_test(name='cc_test', tags=['foo'])");
 
     assertThat(eval("tests(//b:large_tests)")).isEqualTo(eval("//b:sh_test"));
     assertThat(eval("tests(//b:prod_tests)")).isEqualTo(eval("//b:py_test"));
@@ -1111,14 +1162,14 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testTestsOperatorFiltersByNegativeTag() throws Exception {
     writeFile(
-        "b/BUILD",
-        "test_suite(name='foo_tests', tags=['foo'])",
-        "test_suite(name='bar_tests', tags=['bar'])",
-        "test_suite(name='foo_notbar_tests', tags=['foo', '-bar'])",
-        "py_test(name='py_test', tags=['blah', 'prod'], srcs=['py_test.py'])",
-        "cc_test(name='cc_test', tags=['foo'])",
-        "cc_test(name='cc_test2', tags=['bar'])",
-        "cc_test(name='cc_test3', tags=['foo', 'bar'])");
+            "b/BUILD",
+            "test_suite(name='foo_tests', tags=['foo'])",
+            "test_suite(name='bar_tests', tags=['bar'])",
+            "test_suite(name='foo_notbar_tests', tags=['foo', '-bar'])",
+            "py_test(name='py_test', tags=['blah', 'prod'], srcs=['py_test.py'])",
+            "cc_test(name='cc_test', tags=['foo'])",
+            "cc_test(name='cc_test2', tags=['bar'])",
+            "cc_test(name='cc_test3', tags=['foo', 'bar'])");
 
     assertThat(eval("tests(//b:foo_notbar_tests)")).isEqualTo(eval("//b:cc_test"));
     assertThat(eval("tests(//b:foo_tests)")).isEqualTo(eval("//b:cc_test + //b:cc_test3"));
@@ -1129,7 +1180,7 @@ public abstract class AbstractQueryTest<T> {
   public void testTestsOperatorCrossesPackages() throws Exception {
     writeFile("c/BUILD", "test_suite(name='c', tests=['//d:suite'])");
     writeFile(
-        "d/BUILD", "test_suite(name='suite')", "sh_test(name='sh_test', srcs=['sh_test.sh'])");
+            "d/BUILD", "test_suite(name='suite')", "sh_test(name='sh_test', srcs=['sh_test.sh'])");
 
     assertThat(eval("tests(//c)")).isEqualTo(eval("//d:sh_test"));
   }
@@ -1145,14 +1196,14 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testTestSuiteInTestsAttributeAndViceVersa() throws Exception {
     writeFile(
-        "cherry/BUILD",
-        "test_suite(name='cherry', tests=[':suite', ':direct'])",
-        "test_suite(name='suite', tests=[':indirect'])",
-        "sh_test(name='direct', srcs=['direct.sh'])",
-        "sh_test(name='indirect', srcs=['indirect.sh'])");
+            "cherry/BUILD",
+            "test_suite(name='cherry', tests=[':suite', ':direct'])",
+            "test_suite(name='suite', tests=[':indirect'])",
+            "sh_test(name='direct', srcs=['direct.sh'])",
+            "sh_test(name='indirect', srcs=['indirect.sh'])");
 
     assertThat(eval("tests(//cherry:cherry)"))
-        .isEqualTo(eval("//cherry:direct + //cherry:indirect"));
+            .isEqualTo(eval("//cherry:direct + //cherry:indirect"));
   }
 
   @Test
@@ -1162,8 +1213,8 @@ public abstract class AbstractQueryTest<T> {
 
     EvalThrowsResult result = evalThrows("tests(//c)", false);
     assertStartsWith(
-        "couldn't expand 'tests' attribute of test_suite //c:c: " + "no such target '//d:d'",
-        result.getMessage());
+            "couldn't expand 'tests' attribute of test_suite //c:c: " + "no such target '//d:d'",
+            result.getMessage());
     assertPackageLoadingCode(result.getFailureDetail(), Code.TARGET_MISSING);
   }
 
@@ -1171,9 +1222,9 @@ public abstract class AbstractQueryTest<T> {
   public void testDotDotDotWithUnrelatedCycle() throws Exception {
     writeFile("a/BUILD", "sh_library(name = 'a')");
     writeFile(
-        "cycle/BUILD",
-        "sh_library(name = 'cycle1', deps = ['cycle2'])",
-        "sh_library(name = 'cycle2', deps = ['cycle1'])");
+            "cycle/BUILD",
+            "sh_library(name = 'cycle1', deps = ['cycle2'])",
+            "sh_library(name = 'cycle2', deps = ['cycle1'])");
     assertThat(eval("//a:a")).isEqualTo(eval("//a/..."));
   }
 
@@ -1181,9 +1232,9 @@ public abstract class AbstractQueryTest<T> {
   public void testDotDotDotWithCycle() throws Exception {
     writeFile("a/BUILD", "sh_library(name = 'a')");
     writeFile(
-        "a/b/BUILD",
-        "sh_library(name = 'cycle1', deps = ['cycle2'])",
-        "sh_library(name = 'cycle2', deps = ['cycle1'])");
+            "a/b/BUILD",
+            "sh_library(name = 'cycle1', deps = ['cycle2'])",
+            "sh_library(name = 'cycle2', deps = ['cycle1'])");
     assertThat(eval("//a:a + //a/b:cycle1 + //a/b:cycle2")).isEqualTo(eval("//a/..."));
   }
 
@@ -1217,7 +1268,7 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testDefaultVisibilityReturnedInDeps() throws Exception {
     writeFile(
-        "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
+            "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
 
     Set<T> result = eval("deps(//kiwi:kiwi)" + getDependencyCorrection());
@@ -1227,7 +1278,7 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testDefaultVisibilityReturnedInDeps_nonEmptyDependencyFilter() throws Exception {
     writeFile(
-        "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
+            "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
 
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS);
@@ -1239,9 +1290,9 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testDefaultVisibilityReturnedInDepsForInputFiles() throws Exception {
     writeFile(
-        "kiwi/BUILD",
-        "package(default_visibility=['//mango:mango'])",
-        "sh_library(name='kiwi', srcs=['kiwi.sh'])");
+            "kiwi/BUILD",
+            "package(default_visibility=['//mango:mango'])",
+            "sh_library(name='kiwi', srcs=['kiwi.sh'])");
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
 
     Set<T> result = eval("deps(//kiwi:kiwi.sh)");
@@ -1253,19 +1304,19 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testIncludesReturnedInDeps() throws Exception {
     writeFile(
-        "peach/BUILD",
-        "package_group(name='peach',",
-        "              includes=[':seed'])",
-        "package_group(name='seed',",
-        "              includes=[':cyanide'])",
-        "package_group(name='cyanide',",
-        "              packages=['//hydrogen', '//nitrogen', '//carbon'])",
-        "sh_library(name='dessert',",
-        "           visibility=[':peach'])");
+            "peach/BUILD",
+            "package_group(name='peach',",
+            "              includes=[':seed'])",
+            "package_group(name='seed',",
+            "              includes=[':cyanide'])",
+            "package_group(name='cyanide',",
+            "              packages=['//hydrogen', '//nitrogen', '//carbon'])",
+            "sh_library(name='dessert',",
+            "           visibility=[':peach'])");
 
     Set<T> result = eval("deps(//peach:dessert)" + getDependencyCorrection());
     assertThat(result)
-        .isEqualTo(eval("//peach:peach + //peach:seed + //peach:cyanide + //peach:dessert"));
+            .isEqualTo(eval("//peach:peach + //peach:seed + //peach:cyanide + //peach:dessert"));
   }
 
   // Regression test for #1267510, modification of result of subexpression
@@ -1306,15 +1357,15 @@ public abstract class AbstractQueryTest<T> {
   public void testGraphOrderOfWildcards() throws Exception {
     // TODO(blaze-team): (2009) we could use some helpers for graph order tests.
     writeFile(
-        "x/BUILD",
-        "genrule(name='x', srcs=['y'], outs=['x.out'], cmd=':')",
-        "genrule(name='y', outs=['y.out'], cmd=':')");
+            "x/BUILD",
+            "genrule(name='x', srcs=['y'], outs=['x.out'], cmd=':')",
+            "genrule(name='y', outs=['y.out'], cmd=':')");
     helper.setOrderedResults(true); // This query needs a graph.
 
     ResultAndTargets<T> resultAndTargets = helper.evaluateQuery("//x:*");
     @SuppressWarnings("unchecked")
     DigraphQueryEvalResult<T> digraphResult =
-        (DigraphQueryEvalResult<T>) resultAndTargets.getQueryEvalResult();
+            (DigraphQueryEvalResult<T>) resultAndTargets.getQueryEvalResult();
     Set<T> results = resultAndTargets.getResultSet();
     Digraph<T> subgraph = digraphResult.getGraph().extractSubgraph(results);
 
@@ -1335,14 +1386,14 @@ public abstract class AbstractQueryTest<T> {
       // TODO(blaze-team): (2009) make this a utility method of Digraph.
       System.err.println("Expected:");
       expected.visitNodesBeforeEdges(
-          AbstractQueryTest.<T>createVisitor(
-              new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)))),
-          null);
+              AbstractQueryTest.<T>createVisitor(
+                      new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)))),
+              null);
       System.err.println("Was:");
       subgraph.visitNodesBeforeEdges(
-          AbstractQueryTest.<T>createVisitor(
-              new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)))),
-          null);
+              AbstractQueryTest.<T>createVisitor(
+                      new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)))),
+              null);
       fail();
     }
   }
@@ -1362,10 +1413,10 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testRegression1352570() throws Exception {
     writeFile(
-        "x/BUILD",
-        "cc_library(name='x', deps=['z'])",
-        "cc_library(name='y', deps=['z'])",
-        "cc_library(name='z')");
+            "x/BUILD",
+            "cc_library(name='x', deps=['z'])",
+            "cc_library(name='y', deps=['z'])",
+            "cc_library(name='z')");
     Set<T> result = eval("deps(//x:x + //x:y, 2) intersect //x:*"); // no crash
     assertThat(result).isEqualTo(eval("//x:x + //x:y + //x:z"));
   }
@@ -1375,27 +1426,27 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testRegressionBug1686119() throws Exception {
     writeFile(
-        "x/BUILD",
-        "Fileset(name='x',",
-        "        entries=[FilesetEntry(files=['a'])],",
-        "        out='y')");
+            "x/BUILD",
+            "Fileset(name='x',",
+            "        entries=[FilesetEntry(files=['a'])],",
+            "        out='y')");
     assertEqualsFiltered("//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)");
     assertEqualsFiltered(
-        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
+            "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
     assertEqualsFiltered(
-        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
+            "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
   }
 
   @Test
   public void testFilesetPackageDeps() throws Exception {
     writeFile(
-        "x/BUILD",
-        "Fileset(name='glob',",
-        "        entries=[FilesetEntry()],",
-        "        out='glob')",
-        "Fileset(name='noglob',",
-        "        entries=[FilesetEntry(files=['a'])],",
-        "        out='noglob')");
+            "x/BUILD",
+            "Fileset(name='glob',",
+            "        entries=[FilesetEntry()],",
+            "        out='glob')",
+            "Fileset(name='noglob',",
+            "        entries=[FilesetEntry(files=['a'])],",
+            "        out='noglob')");
 
     Set<T> globResult = eval("deps(//x:glob)");
     Set<T> noglobResult = eval("deps(//x:noglob)");
@@ -1408,10 +1459,10 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testHdrsCheck() throws Exception {
     writeFile(
-        "x/BUILD",
-        "package(default_hdrs_check='strict')",
-        "cc_library(name='a')",
-        "cc_library(name='b', hdrs_check='loose')");
+            "x/BUILD",
+            "package(default_hdrs_check='strict')",
+            "cc_library(name='a')",
+            "cc_library(name='b', hdrs_check='loose')");
 
     assertThat(eval("attr('hdrs_check', 'strict', //x:all)")).isEqualTo(eval("//x:a"));
     assertThat(eval("attr('hdrs_check', 'loose', //x:all)")).isEqualTo(eval("//x:b"));
@@ -1437,9 +1488,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("x/BUILD", "test_suite(name='a', tests=['a.txt'])");
     EvalThrowsResult result = evalThrows("tests(//x:a)", false);
     assertThat(result.getMessage())
-        .isEqualTo(
-            "The label '//x:a.txt' in the test_suite '//x:a' does not refer to a test or "
-                + "test_suite rule!");
+            .isEqualTo(
+                    "The label '//x:a.txt' in the test_suite '//x:a' does not refer to a test or "
+                            + "test_suite rule!");
     assertQueryCode(result.getFailureDetail(), Query.Code.INVALID_LABEL_IN_TEST_SUITE);
   }
 
@@ -1447,15 +1498,15 @@ public abstract class AbstractQueryTest<T> {
   public void testAmbiguousAllResolvesToTestSuiteNamedAll() throws Exception {
     helper.setQuerySettings(Setting.TESTS_EXPRESSION_STRICT);
     writeFile(
-        "x/BUILD",
-        "cc_test(name='one')",
-        "cc_test(name='two')",
-        "test_suite(name='all', tests=[':one'])");
+            "x/BUILD",
+            "cc_test(name='one')",
+            "cc_test(name='two')",
+            "test_suite(name='all', tests=[':one'])");
     assertThat(eval("tests(//x:all)")).isEqualTo(eval("//x:one"));
     // Expect an ambiguity warning in the event handler.
     assertContainsEvent(
-        "The target pattern '//x:all' is ambiguous: ':all' is both a wildcard, and "
-            + "the name of an existing test_suite rule; using the latter interpretation");
+            "The target pattern '//x:all' is ambiguous: ':all' is both a wildcard, and "
+                    + "the name of an existing test_suite rule; using the latter interpretation");
   }
 
   // Test that long expressions can be parsed and evaluated (without stackoverflow)
@@ -1520,7 +1571,7 @@ public abstract class AbstractQueryTest<T> {
     // Then an exception is thrown that says that the pattern matched nothing.
     assertThat(s).containsMatch("no targets found beneath '" + missingPackage + "'");
     assertThat(result.getFailureDetail().getTargetPatterns().getCode())
-        .isEqualTo(TargetPatterns.Code.TARGETS_MISSING);
+            .isEqualTo(TargetPatterns.Code.TARGETS_MISSING);
   }
 
   @Test
@@ -1538,13 +1589,13 @@ public abstract class AbstractQueryTest<T> {
 
   private void useExtendedSetOfRules() throws Exception {
     helper.useRuleClassProvider(
-        setRuleClassProviders(
-                TestAspects.BASE_RULE,
-                TestAspects.ASPECT_REQUIRING_RULE,
-                TestAspects.EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_RULE,
-                TestAspects.HONEST_RULE,
-                TestAspects.SIMPLE_RULE)
-            .build());
+            setRuleClassProviders(
+                    TestAspects.BASE_RULE,
+                    TestAspects.ASPECT_REQUIRING_RULE,
+                    TestAspects.EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_RULE,
+                    TestAspects.HONEST_RULE,
+                    TestAspects.SIMPLE_RULE)
+                    .build());
   }
 
   private void useReducedSetOfRules() throws Exception {
@@ -1556,9 +1607,9 @@ public abstract class AbstractQueryTest<T> {
   public void testHaveDepsOnAspectsAttributes() throws Exception {
     useExtendedSetOfRules();
     writeFile(
-        "a/BUILD",
-        "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
-        "honest(name='b', foo=[])");
+            "a/BUILD",
+            "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
+            "honest(name='b', foo=[])");
     writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
     Truth.assertThat(evalToString("deps(//a:a)")).contains("//extra:extra");
@@ -1568,11 +1619,11 @@ public abstract class AbstractQueryTest<T> {
   public void testNoDepsOnAspectAttributeWhenAspectMissing() throws Exception {
     useExtendedSetOfRules();
     writeFile(
-        "a/BUILD",
-        "aspect(name='a', foo=[':b'])",
-        "honest(name='b', foo=[])",
-        "extra_attribute_aspect_requiring_provider(name='c', foo=[':d'])",
-        "simple(name='d', foo=[])");
+            "a/BUILD",
+            "aspect(name='a', foo=[':b'])",
+            "honest(name='b', foo=[])",
+            "extra_attribute_aspect_requiring_provider(name='c', foo=[':d'])",
+            "simple(name='d', foo=[])");
     writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
     assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
@@ -1584,9 +1635,9 @@ public abstract class AbstractQueryTest<T> {
     useExtendedSetOfRules();
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     writeFile(
-        "a/BUILD",
-        "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
-        "honest(name='b', foo=[])");
+            "a/BUILD",
+            "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
+            "honest(name='b', foo=[])");
     writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
     Truth.assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
@@ -1597,7 +1648,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
-        "b/BUILD", "filegroup(name = 'b', srcs = ['b.txt'], visibility = ['" + visibility + "'])");
+            "b/BUILD", "filegroup(name = 'b', srcs = ['b.txt'], visibility = ['" + visibility + "'])");
     String actual = evalToString("visible(//a, somepath(//a, //b))");
     if (expectVisible) {
       assertThat(actual).isEqualTo("//a:a //b:b");
@@ -1636,9 +1687,9 @@ public abstract class AbstractQueryTest<T> {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
-        "a/BUILD",
-        "filegroup(name = 'a', srcs = [':b'], visibility = ['//visibility:private'])",
-        "filegroup(name = 'b', srcs = ['b.txt'], visibility = ['//visibility:private'])");
+            "a/BUILD",
+            "filegroup(name = 'a', srcs = [':b'], visibility = ['//visibility:private'])",
+            "filegroup(name = 'b', srcs = ['b.txt'], visibility = ['//visibility:private'])");
     assertThat(evalToString("visible(//a:a, somepath(//a:a, //a:b))")).isEqualTo("//a:a //a:b");
   }
 
@@ -1648,9 +1699,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
-        "b/BUILD",
-        "package_group(name = 'friends', packages = ['//a', '//b'])",
-        "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
+            "b/BUILD",
+            "package_group(name = 'friends', packages = ['//a', '//b'])",
+            "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
     assertThat(evalToString("visible(//a, somepath(//a, //b))")).isEqualTo("//a:a //b:b");
   }
 
@@ -1660,9 +1711,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
-        "b/BUILD",
-        "package_group(name = 'friends', packages = ['//c'])",
-        "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
+            "b/BUILD",
+            "package_group(name = 'friends', packages = ['//c'])",
+            "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
     writeFile("c/BUILD");
     assertThat(evalToString("visible(//a, somepath(//a, //b))")).isEqualTo("//a:a");
   }
@@ -1673,10 +1724,10 @@ public abstract class AbstractQueryTest<T> {
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
-        "b/BUILD",
-        "package_group(name = 'friends', packages = ['//c'], includes = [':friends_of_friends'])",
-        "package_group(name = 'friends_of_friends', packages = ['//a'])",
-        "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
+            "b/BUILD",
+            "package_group(name = 'friends', packages = ['//c'], includes = [':friends_of_friends'])",
+            "package_group(name = 'friends_of_friends', packages = ['//a'])",
+            "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
     writeFile("c/BUILD");
     assertThat(evalToString("visible(//a, somepath(//a, //b))")).isEqualTo("//a:a //b:b");
   }
@@ -1686,17 +1737,17 @@ public abstract class AbstractQueryTest<T> {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
-        "java/com/google/a/BUILD",
-        "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
+            "java/com/google/a/BUILD",
+            "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
     writeFile(
-        "javatests/com/google/a/BUILD",
-        "filegroup(name = 'a', srcs = ['//java/com/google/a:a'],"
-            + " visibility = ['//visibility:private'])");
+            "javatests/com/google/a/BUILD",
+            "filegroup(name = 'a', srcs = ['//java/com/google/a:a'],"
+                    + " visibility = ['//visibility:private'])");
     assertThat(
             evalToString(
-                "visible(//javatests/com/google/a,"
-                    + " somepath(//javatests/com/google/a, //java/com/google/a))"))
-        .isEqualTo("//java/com/google/a:a //javatests/com/google/a:a");
+                    "visible(//javatests/com/google/a,"
+                            + " somepath(//javatests/com/google/a, //java/com/google/a))"))
+            .isEqualTo("//java/com/google/a:a //javatests/com/google/a:a");
   }
 
   @Test
@@ -1704,17 +1755,17 @@ public abstract class AbstractQueryTest<T> {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
-        "java/com/google/a/BUILD",
-        "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
+            "java/com/google/a/BUILD",
+            "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
     writeFile(
-        "javatests/com/google/b/BUILD",
-        "filegroup(name = 'b', srcs = ['//java/com/google/a:a'],"
-            + " visibility = ['//visibility:private'])");
+            "javatests/com/google/b/BUILD",
+            "filegroup(name = 'b', srcs = ['//java/com/google/a:a'],"
+                    + " visibility = ['//visibility:private'])");
     assertThat(
             evalToString(
-                "visible(//javatests/com/google/b,"
-                    + " somepath(//javatests/com/google/b, //java/com/google/a))"))
-        .isEqualTo("//javatests/com/google/b:b");
+                    "visible(//javatests/com/google/b,"
+                            + " somepath(//javatests/com/google/b, //java/com/google/a))"))
+            .isEqualTo("//javatests/com/google/b:b");
   }
 
   // java cannot see javatests
@@ -1723,17 +1774,17 @@ public abstract class AbstractQueryTest<T> {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
-        "javatests/com/google/a/BUILD",
-        "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
+            "javatests/com/google/a/BUILD",
+            "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
     writeFile(
-        "java/com/google/a/BUILD",
-        "filegroup(name = 'a', srcs = ['//javatests/com/google/a:a'],"
-            + " visibility = ['//visibility:private'])");
+            "java/com/google/a/BUILD",
+            "filegroup(name = 'a', srcs = ['//javatests/com/google/a:a'],"
+                    + " visibility = ['//visibility:private'])");
     assertThat(
             evalToString(
-                "visible(//java/com/google/a,"
-                    + " somepath(//java/com/google/a, //javatests/com/google/a))"))
-        .isEqualTo("//java/com/google/a:a");
+                    "visible(//java/com/google/a,"
+                            + " somepath(//java/com/google/a, //javatests/com/google/a))"))
+            .isEqualTo("//java/com/google/a:a");
   }
 
   @Test
@@ -1742,9 +1793,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
-        "b/BUILD",
-        "package(default_visibility = ['//visibility:private'])",
-        "filegroup(name = 'b', srcs = ['b.txt'])");
+            "b/BUILD",
+            "package(default_visibility = ['//visibility:private'])",
+            "filegroup(name = 'b', srcs = ['b.txt'])");
     assertThat(evalToString("visible(//a, somepath(//a, //b))")).isEqualTo("//a:a");
   }
 
@@ -1754,9 +1805,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
-        "b/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "filegroup(name = 'b', srcs = ['b.txt'])");
+            "b/BUILD",
+            "package(default_visibility = ['//visibility:public'])",
+            "filegroup(name = 'b', srcs = ['b.txt'])");
     assertThat(evalToString("visible(//a, somepath(//a, //b))")).isEqualTo("//a:a //b:b");
   }
 
@@ -1766,22 +1817,22 @@ public abstract class AbstractQueryTest<T> {
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
-        "b/BUILD",
-        "package_group(name = 'friends', packages = ['//a/...'])",
-        "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
+            "b/BUILD",
+            "package_group(name = 'friends', packages = ['//a/...'])",
+            "filegroup(name = 'b', srcs = ['b.txt'], visibility = [':friends'])");
     assertThat(evalToString("visible(//a, somepath(//a, //b))")).isEqualTo("//a:a //b:b");
   }
 
   @Test
   public void testBuildfilesWithDuplicates() throws Exception {
     writeFile(
-        "foo/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'foo', deps = ['//baz'])");
+            "foo/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'foo', deps = ['//baz'])");
     writeFile(
-        "bar/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'bar', deps = ['//baz'])");
+            "bar/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'bar', deps = ['//baz'])");
     writeFile("baz/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'baz')");
     writeFile("baz/baz.bzl", "x = 2");
     assertThat(evalToString("buildfiles(deps(//foo)) + buildfiles(deps(//bar))"))
-        .isEqualTo("//bar:BUILD //baz:BUILD //baz:baz.bzl //foo:BUILD");
+            .isEqualTo("//bar:BUILD //baz:BUILD //baz:baz.bzl //foo:BUILD");
   }
 
   @Test
@@ -1790,7 +1841,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("bar/BUILD", "load('//noexist:noexist.bzl', 'bad')");
     writeFile("bar/bar.bzl", "sym = 0");
     assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
-        .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+            .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
   }
 
   @Test
@@ -1799,7 +1850,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("bar/BUILD", "malformed syntax");
     writeFile("bar/bar.bzl", "sym = 0");
     assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
-        .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+            .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
   }
 
   @Test
@@ -1808,21 +1859,21 @@ public abstract class AbstractQueryTest<T> {
     writeFile("bar/bar.bzl", "sym = 0");
     writeFile("foo/BUILD.bazel", "load('//bar:bar.bzl', 'sym')");
     assertThat(evalToListOfStrings("buildfiles(foo:*)"))
-        .containsExactly("//foo:BUILD.bazel", "//bar:bar.bzl", "//bar:BUILD.bazel");
+            .containsExactly("//foo:BUILD.bazel", "//bar:bar.bzl", "//bar:BUILD.bazel");
   }
 
   @Test
   public void testTargetsFromBuildfilesAndRealTargets() throws Exception {
     writeFile(
-        "foo/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'foo', deps = ['//baz'])");
+            "foo/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'foo', deps = ['//baz'])");
     writeFile(
-        "baz/BUILD",
-        "load('//baz:baz.bzl', 'x')",
-        "exports_files(['baz.bzl'])",
-        "sh_library(name = 'baz')");
+            "baz/BUILD",
+            "load('//baz:baz.bzl', 'x')",
+            "exports_files(['baz.bzl'])",
+            "sh_library(name = 'baz')");
     writeFile("baz/baz.bzl", "x = 2");
     assertThat(evalToString("buildfiles(deps(//foo)) + //baz:BUILD + //baz:baz.bzl"))
-        .isEqualTo("//baz:BUILD //baz:baz.bzl //foo:BUILD");
+            .isEqualTo("//baz:BUILD //baz:baz.bzl //foo:BUILD");
     assertThat(evalToString("buildfiles(deps(//foo)) ^ //baz:BUILD")).isEqualTo("//baz:BUILD");
     assertThat(evalToString("buildfiles(deps(//foo)) ^ //baz:baz.bzl")).isEqualTo("//baz:baz.bzl");
   }
@@ -1835,33 +1886,33 @@ public abstract class AbstractQueryTest<T> {
     writeFile("bar/BUILD");
     writeFile("bar/bar.bzl", "x = 2");
     assertThat(evalToString("buildfiles(//foo)"))
-        .isEqualTo("//baz:BUILD //baz:baz.bzl //foo:BUILD");
+            .isEqualTo("//baz:BUILD //baz:baz.bzl //foo:BUILD");
     assertThat(evalToString("buildfiles(buildfiles(//foo))"))
-        .isEqualTo("//baz:BUILD //baz:baz.bzl //foo:BUILD");
+            .isEqualTo("//baz:BUILD //baz:baz.bzl //foo:BUILD");
   }
 
   @Test
   public void testBoundedDepsStreaming() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 'a', deps = [':b'])",
-        "sh_library(name = 'b', deps = [':c'])",
-        "sh_library(name = 'c', deps = [':d'])",
-        "sh_library(name = 'd')");
+            "foo/BUILD",
+            "sh_library(name = 'a', deps = [':b'])",
+            "sh_library(name = 'b', deps = [':c'])",
+            "sh_library(name = 'c', deps = [':d'])",
+            "sh_library(name = 'd')");
     assertThat(evalToString("deps(//foo:a + //foo:b, 1)" + getDependencyCorrection()))
-        .isEqualTo("//foo:a //foo:b //foo:c");
+            .isEqualTo("//foo:a //foo:b //foo:c");
   }
 
   @Test
   public void testBoundedRdepsStreaming() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 'a', deps = [':b'])",
-        "sh_library(name = 'b', deps = [':c'])",
-        "sh_library(name = 'c', deps = [':d'])",
-        "sh_library(name = 'd')");
+            "foo/BUILD",
+            "sh_library(name = 'a', deps = [':b'])",
+            "sh_library(name = 'b', deps = [':c'])",
+            "sh_library(name = 'c', deps = [':d'])",
+            "sh_library(name = 'd')");
     assertThat(evalToString("rdeps(//foo:a, //foo:d + //foo:c, 1)" + getDependencyCorrection()))
-        .isEqualTo("//foo:b //foo:c //foo:d");
+            .isEqualTo("//foo:b //foo:c //foo:d");
   }
 
   @Test
@@ -1878,43 +1929,43 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testSiblings_simple() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 'a')",
-        "sh_library(name = 'b')",
-        "sh_library(name = 'c')",
-        "sh_library(name = 'd')");
+            "foo/BUILD",
+            "sh_library(name = 'a')",
+            "sh_library(name = 'b')",
+            "sh_library(name = 'c')",
+            "sh_library(name = 'd')");
     assertThat(evalToString("siblings(//foo:a)"))
-        .isEqualTo("//foo:BUILD //foo:a //foo:b //foo:c //foo:d");
+            .isEqualTo("//foo:BUILD //foo:a //foo:b //foo:c //foo:d");
   }
 
   @Test
   public void testSiblings_duplicatePackages() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 'a')",
-        "sh_library(name = 'b')",
-        "sh_library(name = 'c')",
-        "sh_library(name = 'd')");
+            "foo/BUILD",
+            "sh_library(name = 'a')",
+            "sh_library(name = 'b')",
+            "sh_library(name = 'c')",
+            "sh_library(name = 'd')");
     assertThat(evalToString("siblings(//foo:a + //foo:b + //foo:c + //foo:d)"))
-        .isEqualTo("//foo:BUILD //foo:a //foo:b //foo:c //foo:d");
+            .isEqualTo("//foo:BUILD //foo:a //foo:b //foo:c //foo:d");
   }
 
   @Test
   public void testSiblings_samePackageRdeps() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 'a', deps = [':b'])",
-        "sh_library(name = 'b', deps = [':c', ':d'])",
-        "sh_library(name = 'c', deps = [':d'])",
-        "sh_library(name = 'd')");
+            "foo/BUILD",
+            "sh_library(name = 'a', deps = [':b'])",
+            "sh_library(name = 'b', deps = [':c', ':d'])",
+            "sh_library(name = 'c', deps = [':d'])",
+            "sh_library(name = 'd')");
     writeFile(
-        "bar/BUILD",
-        "sh_library(name = 'e', deps = ['//foo:d'])",
-        "sh_library(name = 'f', deps = ['//foo:d'])");
+            "bar/BUILD",
+            "sh_library(name = 'e', deps = ['//foo:d'])",
+            "sh_library(name = 'f', deps = ['//foo:d'])");
     assertThat(evalToString("rdeps(//foo:* + //bar:*, //foo:d, 1)"))
-        .isEqualTo("//bar:e //bar:f //foo:b //foo:c //foo:d");
+            .isEqualTo("//bar:e //bar:f //foo:b //foo:c //foo:d");
     assertThat(evalToString("rdeps(siblings(//foo:d), //foo:d, 1)"))
-        .isEqualTo("//foo:b //foo:c //foo:d");
+            .isEqualTo("//foo:b //foo:c //foo:d");
     // 'same_pkg_direct_rdeps(//foo:d)' is supposed to have the same semantics as
     // 'rdeps(siblings(//foo:d), //foo:d, 1) - //foo:d'
     assertThat(evalToString("same_pkg_direct_rdeps(//foo:d)")).isEqualTo("//foo:b //foo:c");
@@ -1923,15 +1974,15 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testSiblings_matchesTargetNamedAll() throws Exception {
     writeFile(
-        "foo/BUILD",
-        // NOTE: target named 'all' collides with, takes precedence over the ':all' wildcard
-        "sh_library(name = 'all')",
-        "sh_library(name = 'ball')",
-        "sh_library(name = 'call')",
-        "sh_library(name = 'doll')");
+            "foo/BUILD",
+            // NOTE: target named 'all' collides with, takes precedence over the ':all' wildcard
+            "sh_library(name = 'all')",
+            "sh_library(name = 'ball')",
+            "sh_library(name = 'call')",
+            "sh_library(name = 'doll')");
     assertThat(evalToString("//foo:all")).isEqualTo("//foo:all");
     assertThat(evalToString("kind(' rule', siblings(//foo:BUILD))"))
-        .isEqualTo("//foo:all //foo:ball //foo:call //foo:doll");
+            .isEqualTo("//foo:all //foo:ball //foo:call //foo:doll");
   }
 
   // Explicit test for the interaction of 'siblings' on operands coming from 'buildfiles' or
@@ -1950,47 +2001,47 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testSamePackageRdeps_simple() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "java_library(name = 'a', srcs = ['A.java'])",
-        "java_library(name = 'b', srcs = ['B.java'], deps = [':a'])",
-        "java_library(name = 'c', srcs = ['C.java'], deps = [':b'])");
+            "foo/BUILD",
+            "java_library(name = 'a', srcs = ['A.java'])",
+            "java_library(name = 'b', srcs = ['B.java'], deps = [':a'])",
+            "java_library(name = 'c', srcs = ['C.java'], deps = [':b'])");
     assertThat(evalToString("same_pkg_direct_rdeps(//foo:A.java)")).isEqualTo("//foo:a");
   }
 
   @Test
   public void testSamePackageRdeps_duplicate() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "java_library(name = 'a', srcs = ['A.java'])",
-        "java_library(name = 'b', srcs = ['B.java'], deps = [':a'])",
-        "java_library(name = 'c', srcs = ['C.java'], deps = [':b'])");
+            "foo/BUILD",
+            "java_library(name = 'a', srcs = ['A.java'])",
+            "java_library(name = 'b', srcs = ['B.java'], deps = [':a'])",
+            "java_library(name = 'c', srcs = ['C.java'], deps = [':b'])");
     assertThat(evalToString("same_pkg_direct_rdeps(//foo:A.java + //foo:A.java)"))
-        .isEqualTo("//foo:a");
+            .isEqualTo("//foo:a");
   }
 
   @Test
   public void testSamePackageRdeps_two() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 'a', deps = [':b'])",
-        "sh_library(name = 'b', deps = [':c', ':d'])",
-        "sh_library(name = 'c', deps = [':d'])",
-        "sh_library(name = 'd')");
+            "foo/BUILD",
+            "sh_library(name = 'a', deps = [':b'])",
+            "sh_library(name = 'b', deps = [':c', ':d'])",
+            "sh_library(name = 'c', deps = [':d'])",
+            "sh_library(name = 'd')");
     writeFile(
-        "bar/BUILD",
-        "sh_library(name = 'e', deps = ['//foo:d'])",
-        "sh_library(name = 'f', deps = ['//foo:d'])");
+            "bar/BUILD",
+            "sh_library(name = 'e', deps = ['//foo:d'])",
+            "sh_library(name = 'f', deps = ['//foo:d'])");
     assertThat(evalToString("kind(rule, same_pkg_direct_rdeps(//foo:d))"))
-        .isEqualTo("//foo:b //foo:c");
+            .isEqualTo("//foo:b //foo:c");
   }
 
   @Test
   public void testSamePackageRdeps_twoPackages() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "java_library(name = 'a', srcs = ['A.java'])",
-        "java_library(name = 'b', srcs = ['B.java'], deps = [':a'])",
-        "java_library(name = 'c', srcs = ['C.java'], deps = [':b'])");
+            "foo/BUILD",
+            "java_library(name = 'a', srcs = ['A.java'])",
+            "java_library(name = 'b', srcs = ['B.java'], deps = [':a'])",
+            "java_library(name = 'c', srcs = ['C.java'], deps = [':b'])");
     // //bar:d directly depends on //foo:a but is in the wrong package
     writeFile("bar/BUILD", "java_library(name = 'd', srcs = ['D.java'], deps = ['//foo:a'])");
     assertThat(evalToString("kind(rule, same_pkg_direct_rdeps(//foo:a))")).isEqualTo("//foo:b");
@@ -1999,13 +2050,13 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testSamePackageRdeps_crissCross() throws Exception {
     writeFile(
-        "foo/BUILD", //
-        "java_library(name = 'a', srcs = ['A.java'])",
-        "java_library(name = 'b', srcs = ['B.java'], deps = ['//bar:a'])");
+            "foo/BUILD", //
+            "java_library(name = 'a', srcs = ['A.java'])",
+            "java_library(name = 'b', srcs = ['B.java'], deps = ['//bar:a'])");
     writeFile(
-        "bar/BUILD", //
-        "java_library(name = 'a', srcs = ['A.java'])",
-        "java_library(name = 'b', srcs = ['B.java'], deps = ['//foo:a'])");
+            "bar/BUILD", //
+            "java_library(name = 'a', srcs = ['A.java'])",
+            "java_library(name = 'b', srcs = ['B.java'], deps = ['//foo:a'])");
     assertThat(evalToString("kind(rule, same_pkg_direct_rdeps(//foo:a + //bar:a))")).isEmpty();
   }
 
@@ -2019,9 +2070,9 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisibleWithPackageGroupWithNonPackageGroupIncludes() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "sh_library(name = 'foo', visibility = [':pg'])",
-        "package_group(name = 'pg', includes = ['//bar:bar'])");
+            "foo/BUILD",
+            "sh_library(name = 'foo', visibility = [':pg'])",
+            "package_group(name = 'pg', includes = ['//bar:bar'])");
     writeFile("bar/BUILD", "sh_library(name = 'bar')");
     assertThat(evalToString("visible(//bar:bar, //foo:foo)")).isEmpty();
   }
@@ -2031,15 +2082,15 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testDefaultVisibilityOfOutputTarget_noImplicitDeps() throws Exception {
     writeFile(
-        "foo/BUILD",
-        "package(default_visibility = [':pg'])",
-        "genrule(name = 'gen', srcs = ['in'], outs = ['out'], cmd = 'doesntmatter')",
-        "package_group(name = 'pg', includes = [':other-pg'])",
-        "package_group(name = 'other-pg')");
+            "foo/BUILD",
+            "package(default_visibility = [':pg'])",
+            "genrule(name = 'gen', srcs = ['in'], outs = ['out'], cmd = 'doesntmatter')",
+            "package_group(name = 'pg', includes = [':other-pg'])",
+            "package_group(name = 'other-pg')");
     assertEqualsFiltered(
-        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg",
-        "deps(//foo:out)",
-        Setting.NO_IMPLICIT_DEPS);
+            "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg",
+            "deps(//foo:out)",
+            Setting.NO_IMPLICIT_DEPS);
   }
 
   /**
