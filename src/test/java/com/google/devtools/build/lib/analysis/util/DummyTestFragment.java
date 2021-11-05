@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -57,6 +58,15 @@ public final class DummyTestFragment extends Fragment {
         effectTags = {OptionEffectTag.NO_OP},
         help = "A regular string-typed option")
     public String foo;
+
+    @Option(
+        name = "internal foo",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        help = "A string-typed option that cannot be set on the commandline")
+    public String internalFoo;
 
     @Option(
         name = "bar",
