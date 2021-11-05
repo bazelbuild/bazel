@@ -92,25 +92,6 @@ public final class DigestUtilsTest {
      thread2.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
   }
 
-  /**
-   * Ensures that digest calculation is synchronized for files greater than
-   * {@link DigestUtils#MULTI_THREADED_DIGEST_MAX_FILE_SIZE} bytes if the digest is not
-   * available cheaply, so machines with rotating drives don't become unusable.
-   */
-  @Test
-  public void testCalculationConcurrency() throws Exception {
-    int small = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE;
-    int large = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE + 1;
-    for (DigestHashFunction hf :
-        Arrays.asList(DigestHashFunction.SHA256, DigestHashFunction.SHA1)) {
-      assertDigestCalculationConcurrency(true, true, small, small, hf);
-      assertDigestCalculationConcurrency(true, true, large, large, hf);
-      assertDigestCalculationConcurrency(true, false, small, small, hf);
-      assertDigestCalculationConcurrency(true, false, small, large, hf);
-      assertDigestCalculationConcurrency(false, false, large, large, hf);
-    }
-  }
-
   @Test
   public void testCache() throws Exception {
     AtomicInteger getFastDigestCounter = new AtomicInteger(0);
