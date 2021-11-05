@@ -2650,7 +2650,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent(
-        "analysis test rule excedeed maximum dependency edge count. " + "Count: 14. Limit is 10.");
+        "analysis test rule exceeded maximum dependency edge count. " + "Count: 14. Limit is 10.");
   }
 
   @Test
