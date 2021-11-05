@@ -853,8 +853,8 @@ public final class SkydocTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMarkdownCellFormatWithRenderedHtml() throws Exception {
-    // Exercises markdownCellFormatWithRenderedHtml() with renderHtml set to true
+  public void testMarkdownCellFormatWithHtml() throws Exception {
+    // Exercises markdownCellFormatWithHtml() with renderHtml set to true
     String testData = " test_start <a></a>:\n"
                         + " Test<br>\n"
                         + " `test`\n"
@@ -868,6 +868,6 @@ public final class SkydocTest extends BuildViewTestCase {
                         + "Test<br>  <code>test</code>  <pre><code>   "
                         + "test  </code></pre><br><br> test<br><br> test_end";
 
-    assertThat(util.markdownCellFormatWithRenderedHtml(testData, true)).isEqualTo(expected);
+    assertThat(util.markdownCellFormatWithHtml(testData, true)).isEqualTo(expected);
   }
 }

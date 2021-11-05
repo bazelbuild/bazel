@@ -35,7 +35,7 @@ public final class MarkdownUtil {
   private static final int MAX_LINE_LENGTH = 100;
 
   /**
-   * Wrapper around {@link #markdownCellFormatWithRenderedHtml}, calling it with HTML rendering disabled.
+   * Wrapper around {@link #markdownCellFormatWithHtml}, calling it with HTML rendering disabled.
    *
    * @return The formatted string, upon which the following operations have been performed:
    * <ul>
@@ -49,7 +49,7 @@ public final class MarkdownUtil {
    * </ul>
    */
   public String markdownCellFormat(String docString) {
-    return markdownCellFormatWithRenderedHtml(docString, false);
+    return markdownCellFormatWithHtml(docString, false);
   }
 
   /**
@@ -71,7 +71,7 @@ public final class MarkdownUtil {
    *   <li>Turn lingering new line tags into spaces (as they generally indicate intended line wrap.
    * </ul>
    */
-  public String markdownCellFormatWithRenderedHtml(String docString, Boolean renderHtml) {
+  public String markdownCellFormatWithHtml(String docString, Boolean renderHtml) {
     String resultString = docString.trim();
     if (!renderHtml) {
       resultString = htmlEscape(resultString);
