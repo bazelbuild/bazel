@@ -34,7 +34,7 @@ ATTENTION! Please read and follow:
 
 ###  Have you found anything relevant by searching the web?
 
-> Replace these lines with your answer.
+> Replace this line with your answer.
 
 <!--
 Places to look:
@@ -45,6 +45,6 @@ Places to look:
 
 ### Any other information, logs, or outputs that you want to share?
 
-> Replace these lines with your answer.
+> Replace this line with your answer.
 
 <!-- If the files are large, upload as attachment or provide link. -->
