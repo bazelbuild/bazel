@@ -1,4 +1,3 @@
-# Replace the original WORKSPACE file with this file to build Bazel with Bzlmod.
 # When using the WORKSPACE.bzlmod, no WORKSPACE prefix or suffix are added.
 # Therefore, we need to keep some legacy content to make the build work, eventually this
 # file should be empty after fully migrating to Bzlmod.

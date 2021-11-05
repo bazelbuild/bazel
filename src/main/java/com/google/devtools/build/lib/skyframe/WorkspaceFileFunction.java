@@ -118,17 +118,13 @@ public class WorkspaceFileFunction implements SkyFunction {
     RootedPath workspaceBzlmodFile = RootedPath.toRootedPath(workspaceFile.getRoot(),
         workspaceFile.getRootRelativePath().replaceName("WORKSPACE.bzlmod"));
     // We only need to check WORKSPACE.bzlmod when the resolved file isn't used.
-    if (!useWorkspaceResolvedFile) {
-      Boolean enableBzlmod = Preconditions.checkNotNull(
-          RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env));
+    if (!useWorkspaceResolvedFile && RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
       FileValue workspaceBzlmodFileValue;
-      if (enableBzlmod) {
-        workspaceBzlmodFileValue = (FileValue) env.getValue(FileValue.key(workspaceBzlmodFile));
-        if (workspaceBzlmodFileValue == null) {
-          return null;
-        }
-        useWorkspaceBzlmodFile = workspaceBzlmodFileValue.isFile();
+      workspaceBzlmodFileValue = (FileValue) env.getValue(FileValue.key(workspaceBzlmodFile));
+      if (workspaceBzlmodFileValue == null) {
+        return null;
       }
+      useWorkspaceBzlmodFile = workspaceBzlmodFileValue.isFile();
     }
 
     String workspaceFromResolvedFile = null;
