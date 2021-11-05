@@ -240,22 +240,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "'fastbuild', 'dbg', 'opt'.")
   public CompilationMode hostCompilationMode;
 
-  /**
-   * This option is used by starlark transitions to add a distinguishing element to the output
-   * directory name, in order to avoid name clashing.
-   */
-  @Option(
-      name = "transition directory name fragment",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public String transitionDirectoryNameFragment;
-
   @Option(
       name = "experimental_enable_aspect_hints",
       defaultValue = "false",
@@ -839,7 +823,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
 
-    host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     host.affectedByStarlarkTransition = affectedByStarlarkTransition;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;

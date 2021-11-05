@@ -136,10 +136,12 @@ public class OutputDirectories {
       @Nullable PlatformOptions platformOptions,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
       RepositoryName mainRepositoryName,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      String transitionDirectoryNameFragment)
       throws InvalidMnemonicException {
     this.directories = directories;
-    this.mnemonic = buildMnemonic(options, platformOptions, fragments);
+    this.mnemonic =
+        buildMnemonic(options, platformOptions, fragments, transitionDirectoryNameFragment);
     this.outputDirName = options.isHost ? "host" : mnemonic;
 
     this.outputDirectory =
@@ -196,7 +198,8 @@ public class OutputDirectories {
   private static String buildMnemonic(
       CoreOptions options,
       @Nullable PlatformOptions platformOptions,
-      ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
+      ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
+      String transitionDirectoryNameFragment)
       throws InvalidMnemonicException {
     // See explanation at declaration for outputRoots.
     List<String> nameParts = new ArrayList<>();
@@ -219,9 +222,7 @@ public class OutputDirectories {
 
     // Add the transition suffix.
     addMnemonicPart(
-        nameParts,
-        options.transitionDirectoryNameFragment,
-        "Transition directory name fragment '%s'");
+        nameParts, transitionDirectoryNameFragment, "Transition directory name fragment '%s'");
 
     // Join all the parts.
     String mnemonic = nameParts.stream().filter(not(Strings::isNullOrEmpty)).collect(joining("-"));

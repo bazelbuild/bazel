@@ -1526,6 +1526,7 @@ java_library(
         ":config/run_under",
         ":config/transitive_option_details",
         ":platform_options",
+        ":starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",

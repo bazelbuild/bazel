@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static java.util.stream.Collectors.joining;
@@ -57,7 +58,7 @@ import net.starlark.java.eval.Starlark;
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
  * StarlarkRuleTransitionProvider}.
  */
-public class FunctionTransitionUtil {
+public final class FunctionTransitionUtil {
 
   // The length of the hash of the config tacked onto the end of the output path.
   // Limited for ergonomics and MAX_PATH reasons.
@@ -165,7 +166,7 @@ public class FunctionTransitionUtil {
     ImmutableSet<Class<? extends FragmentOptions>> optionClasses =
         buildOptions.getNativeOptions().stream()
             .map(FragmentOptions::getClass)
-            .collect(ImmutableSet.toImmutableSet());
+            .collect(toImmutableSet());
 
     for (Class<? extends FragmentOptions> optionClass : optionClasses) {
       ImmutableList<OptionDefinition> optionDefinitions =
@@ -394,7 +395,8 @@ public class FunctionTransitionUtil {
       convertedNewValues.add("//command_line_option:evaluating for analysis test");
       toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
     }
-    updateOutputDirectoryNameFragment(convertedNewValues, optionInfoMap, toOptions);
+
+    updateAffectedByStarlarkTransition(toOptions.get(CoreOptions.class), convertedNewValues);
     return toOptions;
   }
 
@@ -404,27 +406,20 @@ public class FunctionTransitionUtil {
    * the build by Starlark transitions. Options only set on command line are not affecting the
    * computation.
    *
-   * @param changedOptions the names of all options changed by this transition in label form e.g.
-   *     "//command_line_option:cpu" for native options and "//myapp:foo" for starlark options.
-   * @param optionInfoMap a map of all native options (name -> OptionInfo) present in {@code
-   *     toOptions}.
-   * @param toOptions the newly transitioned {@link BuildOptions} for which we need to updated
-   *     {@code transitionDirectoryNameFragment} and {@code affectedByStarlarkTransition}.
+   * @param toOptions the {@link BuildOptions} to use to calculate which we need to compute {@code
+   *     transitionDirectoryNameFragment}.
    */
   // TODO(bazel-team): This hashes different forms of equivalent values differently though they
   // should be the same configuration. Starlark transitions are flexible about the values they
   // take (e.g. bool-typed options can take 0/1, True/False, "0"/"1", or "True"/"False") which
   // makes it so that two configurations that are the same in value may hash differently.
-  private static void updateOutputDirectoryNameFragment(
-      Set<String> changedOptions, Map<String, OptionInfo> optionInfoMap, BuildOptions toOptions) {
-    // Return without doing anything if this transition hasn't changed any option values.
-    if (changedOptions.isEmpty()) {
-      return;
-    }
-
+  public static String computeOutputDirectoryNameFragment(BuildOptions toOptions) {
     CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
-
-    updateAffectedByStarlarkTransition(buildConfigOptions, changedOptions);
+    if (buildConfigOptions.affectedByStarlarkTransition.isEmpty()) {
+      return "";
+    }
+    // TODO(blaze-configurability-team): A mild performance optimization would have this be global.
+    Map<String, OptionInfo> optionInfoMap = buildOptionInfo(toOptions);
 
     TreeMap<String, Object> toHash = new TreeMap<>();
     for (String optionName : buildConfigOptions.affectedByStarlarkTransition) {
@@ -456,8 +451,7 @@ public class FunctionTransitionUtil {
       String toAdd = singleOptionAndValue.getKey() + "=" + singleOptionAndValue.getValue();
       hashStrs.add(toAdd);
     }
-    buildConfigOptions.transitionDirectoryNameFragment =
-        transitionDirectoryNameFragment(hashStrs.build());
+    return transitionDirectoryNameFragment(hashStrs.build());
   }
 
   /**
@@ -466,6 +460,9 @@ public class FunctionTransitionUtil {
    */
   private static void updateAffectedByStarlarkTransition(
       CoreOptions buildConfigOptions, Set<String> changedOptions) {
+    if (changedOptions.isEmpty()) {
+      return;
+    }
     Set<String> mutableCopyToUpdate =
         new TreeSet<>(buildConfigOptions.affectedByStarlarkTransition);
     mutableCopyToUpdate.addAll(changedOptions);
@@ -503,4 +500,6 @@ public class FunctionTransitionUtil {
       return definition;
     }
   }
+
+  private FunctionTransitionUtil() {}
 }

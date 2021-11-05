@@ -1216,7 +1216,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // Assert that transitionDirectoryNameFragment is only affected by options
     // set via transitions. Not by native or starlark options set via command line,
     // never touched by any transition.
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(dep))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test/starlark:the-answer=42")));
@@ -1232,6 +1232,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
   private Object getStarlarkOption(ConfiguredTarget target, String absName) {
     return getStarlarkOptions(target).get(Label.parseAbsoluteUnchecked(absName));
+  }
+
+  private String getTransitionDirectoryNameFragment(ConfiguredTarget target) {
+    return getConfiguration(target).getTransitionDirectoryNameFragment();
   }
 
   @Test
@@ -1287,12 +1291,12 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     assertThat(affectedOptions)
         .containsExactly("//command_line_option:foo", "//command_line_option:bar");
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(test))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//command_line_option:foo=foosball")));
 
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(dep))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of(
@@ -1346,8 +1350,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
@@ -1390,8 +1394,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   // Test that setting all starlark options back to default != null hash of top level.
@@ -1452,7 +1456,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             (List<ConfiguredTarget>)
                 getMyInfoFromTarget(getConfiguredTarget("//test")).getValue("dep"));
 
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment).isNotNull();
+    assertThat(getTransitionDirectoryNameFragment(dep)).isNotEmpty();
   }
 
   /** See comment above {@link FunctionTransitionUtil#updateOutputDirectoryNameFragment} */
@@ -1507,11 +1511,11 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(test))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=1")));
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(dep))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=true")));
@@ -1561,8 +1565,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
@@ -1619,11 +1623,11 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         getConfiguration(dep).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
     assertThat(affectedOptions).containsExactly("//test:bar", "//test:foo");
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(test))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=foosball")));
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(dep))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:bar=barsball", "//test:foo=foosball")));
@@ -1707,7 +1711,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
     assertThat(affectedOptionsTop).containsExactly("//command_line_option:foo");
     assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
-    assertThat(getCoreOptions(top).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(top))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//command_line_option:foo=foosball")));
@@ -1727,7 +1731,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .containsExactly(
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"));
 
-    assertThat(getCoreOptions(middle).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(middle))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of(
@@ -1752,7 +1756,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .containsExactly(
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"),
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:xan"), "xansball"));
-    assertThat(getCoreOptions(bottom).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(bottom))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of(
@@ -2023,8 +2027,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     ConfiguredTarget dep =
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
@@ -2091,8 +2095,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     ConfiguredTarget dep =
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
