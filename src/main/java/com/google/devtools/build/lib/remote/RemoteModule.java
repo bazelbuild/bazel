@@ -353,15 +353,8 @@ public final class RemoteModule extends BlazeModule {
     // max concurrency per connection is 100.
     int maxConcurrencyPerConnection = 100;
     int maxConnections = 0;
-    if (remoteOptions.incompatibleRemoteMaxConnectionsGrpc
-        && remoteOptions.remoteMaxConnections > 0) {
-      maxConnections =
-          (int)
-              Math.ceil(
-                  (double) remoteOptions.remoteMaxConnections
-                      / (double) maxConcurrencyPerConnection);
-      maxConcurrencyPerConnection =
-          (int) Math.ceil((double) remoteOptions.remoteMaxConnections / (double) maxConnections);
+    if (remoteOptions.remoteMaxConnections > 0) {
+      maxConnections = remoteOptions.remoteMaxConnections;
     }
 
     if (enableRemoteExecution) {
