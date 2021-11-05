@@ -18,7 +18,6 @@ import com.google.common.base.Splitter;
 import com.google.common.primitives.Doubles;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Iterator;
@@ -31,7 +30,6 @@ import java.util.NoSuchElementException;
  * much memory as to cause the machine to thrash.
  */
 @Immutable
-@AutoCodec
 public class ResourceSet implements ResourceSetOrBuilder {
 
   /** For actions that consume negligible resources. */
@@ -75,13 +73,11 @@ public class ResourceSet implements ResourceSetOrBuilder {
 
   /**
    * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, ioUsage, and
-   * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or
-   * {@link #createWithLocalTestCount(int)}. Use this method primarily when constructing
-   * ResourceSets that represent available resources.
+   * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or {@link
+   * #createWithLocalTestCount(int)}. Use this method primarily when constructing ResourceSets that
+   * represent available resources.
    */
-  @AutoCodec.Instantiator
-  public static ResourceSet create(
-      double memoryMb, double cpuUsage, int localTestCount) {
+  public static ResourceSet create(double memoryMb, double cpuUsage, int localTestCount) {
     if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0) {
       return ZERO;
     }
@@ -94,12 +90,10 @@ public class ResourceSet implements ResourceSetOrBuilder {
   }
 
   /**
-   * Returns the number of CPUs (or fractions thereof) used.
-   * For a CPU-bound single-threaded process, this will be 1.0.
-   * For a single-threaded process which spends part of its
-   * time waiting for I/O, this will be somewhere between 0.0 and 1.0.
-   * For a multi-threaded or multi-process application,
-   * this may be more than 1.0.
+   * Returns the number of CPUs (or fractions thereof) used. For a CPU-bound single-threaded
+   * process, this will be 1.0. For a single-threaded process which spends part of its time waiting
+   * for I/O, this will be somewhere between 0.0 and 1.0. For a multi-threaded or multi-process
+   * application, this may be more than 1.0.
    */
   public double getCpuUsage() {
     return cpuUsage;
@@ -113,9 +107,15 @@ public class ResourceSet implements ResourceSetOrBuilder {
   @Override
   public String toString() {
     return "Resources: \n"
-        + "Memory: " + memoryMb + "M\n"
-        + "CPU: " + cpuUsage + "\n"
-        + "Local tests: " + localTestCount + "\n";
+        + "Memory: "
+        + memoryMb
+        + "M\n"
+        + "CPU: "
+        + cpuUsage
+        + "\n"
+        + "Local tests: "
+        + localTestCount
+        + "\n";
   }
 
   @Override

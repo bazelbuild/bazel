@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePre
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -187,7 +188,7 @@ public final class Attribute implements Comparable<Attribute> {
     String checkValid(Rule from, Rule to);
   }
 
-  @AutoCodec public static final ValidityPredicate ANY_EDGE = (from, to) -> null;
+  @SerializationConstant public static final ValidityPredicate ANY_EDGE = (from, to) -> null;
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
@@ -1588,10 +1589,10 @@ public final class Attribute implements Comparable<Attribute> {
       super(useHostConfiguration, fragmentClass, defaultValue);
     }
   }
-
+  
   @AutoCodec.VisibleForSerialization
   static class AlwaysNullLateBoundDefault extends SimpleLateBoundDefault<Void, Void> {
-    @AutoCodec @AutoCodec.VisibleForSerialization
+    @SerializationConstant @AutoCodec.VisibleForSerialization
     static final AlwaysNullLateBoundDefault INSTANCE = new AlwaysNullLateBoundDefault();
 
     private AlwaysNullLateBoundDefault() {
