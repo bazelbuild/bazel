@@ -3171,4 +3171,130 @@ EOF
   expect_log "-r-xr-xr-x"
 }
 
+function test_downloads_toplevel_partial_intermediate_outputs() {
+  # Test that when only partial outputs of an intermediate action are
+  # downloaded, rebuild doesn't re-execute the action. See
+  # https://github.com/bazelbuild/bazel/issues/13912.
+
+  mkdir -p a
+
+  # producer generates a.txt and b.txt
+  # consumer only depends on b.txt and generates out.txt
+  cat > a/rules.bzl <<EOF
+ProducerInfo = provider(
+    fields = {
+        "a": "a",
+        "b": "b",
+    },
+)
+
+def _producer_impl(ctx):
+    a = ctx.actions.declare_file("{}/a.txt".format(ctx.attr.name))
+    b = ctx.actions.declare_file("{}/b.txt".format(ctx.attr.name))
+
+    ctx.actions.run_shell(
+        command = """
+head -c 100 </dev/urandom > \$1
+head -c 100 </dev/urandom > \$2
+""",
+        arguments = [
+            a.path,
+            b.path,
+        ],
+        outputs = [a, b],
+        mnemonic = "Producer",
+    )
+
+    return [
+        ProducerInfo(
+            a = depset([a]),
+            b = depset([b]),
+        ),
+    ]
+
+producer = rule(
+    implementation = _producer_impl,
+)
+
+def _consumer_impl(ctx):
+    b = ctx.attr.producer[ProducerInfo].b
+    output = ctx.actions.declare_file("{}/out.txt".format(ctx.attr.name))
+
+    args = ctx.actions.args()
+    args.add_all(b)
+
+    ctx.actions.run_shell(
+        command = """
+readonly output="\$1"
+shift
+cat \$@ > "\$output"
+""",
+        arguments = [
+            output.path,
+            args,
+        ],
+        inputs = depset([ctx.info_file], transitive = [b]),
+        mnemonic = "Consumer",
+        outputs = [output],
+        execution_requirements = {
+            "no-cache": "1",
+            "no-remote": "1",
+        },
+    )
+
+    return [
+        DefaultInfo(
+            files = depset([output]),
+        )
+    ]
+
+consumer = rule(
+    implementation = _consumer_impl,
+    attrs = {
+        "producer": attr.label(providers = [[ProducerInfo]]),
+    },
+)
+EOF
+  cat > a/BUILD <<EOF
+load(":rules.bzl", "producer", "consumer")
+
+producer(
+    name = "producer",
+)
+
+consumer(
+    name = "consumer",
+    producer = ":producer",
+)
+EOF
+
+  # Populate the cache
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      //a:consumer >& $TEST_log \
+      || fail "Failed to build"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # Only downloads out.txt and b.txt
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      //a:consumer >& $TEST_log \
+      || fail "Failed to build"
+
+  ([[ -f bazel-bin/a/producer/b.txt ]] && [[ -f bazel-bin/a/consumer/out.txt ]] ) \
+    || fail "Expected out.txt and b.txt are downloaded"
+  (! [[ -f bazel-bin/a/producer/a.txt ]] ) \
+    || fail "Expected a.txt is not downloaded"
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      //a:consumer >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "1 process: 1 internal."
+}
+
 run_suite "Remote execution and remote cache tests"

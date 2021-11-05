@@ -468,9 +468,8 @@ public class FilesystemValueChecker {
       FileArtifactValue fileMetadata =
           ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, tsgm);
 
-      if (lastKnownData.isRemote()
-          && !fileMetadata.isRemote()
-          && fileMetadata.getType() == FileStateType.REGULAR_FILE) {
+      if (lastKnownData.isRemote() && lastKnownData.getType() == FileStateType.REGULAR_FILE
+          && !fileMetadata.isRemote() && fileMetadata.getType() == FileStateType.REGULAR_FILE) {
         // If the file was remote but is now staged, we compare the digests.
         byte[] digest = DigestUtils.manuallyComputeDigest(file.getPath(), fileMetadata.getSize());
         if (Arrays.equals(digest, lastKnownData.getDigest())

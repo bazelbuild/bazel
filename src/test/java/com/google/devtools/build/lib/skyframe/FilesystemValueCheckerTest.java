@@ -885,7 +885,59 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
   }
 
   @Test
-  public void testRemoteAndLocalArtifacts() throws Exception {
+  public void testRemoteAndLocalArtifacts_unmodified() throws Exception {
+    // Test that injected remote artifacts are trusted by the FileSystemValueChecker
+    // if it is configured to trust remote artifacts, and if local files exist and have the same digest,
+    // generating action's SkyKey is not invalidated.
+    SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
+
+    Artifact out1 = createDerivedArtifact("foo");
+    Artifact out2 = createDerivedArtifact("bar");
+    Map<SkyKey, SkyValue> metadataToInject = new HashMap<>();
+    metadataToInject.put(
+        actionKey1,
+        actionValueWithRemoteArtifact(out1, createRemoteFileArtifactValue("foo-content")));
+    metadataToInject.put(
+        actionKey2,
+        actionValueWithRemoteArtifact(out2, createRemoteFileArtifactValue("bar-content")));
+    differencer.inject(metadataToInject);
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(1)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(
+        driver.evaluate(ImmutableList.of(actionKey1, actionKey2), evaluationContext).hasError())
+        .isFalse();
+    assertThat(
+        new FilesystemValueChecker(
+            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                /* batchStatter= */ null,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                /* trustRemoteArtifacts= */ true))
+        .isEmpty();
+
+    // Create the "out1" artifact on the filesystem with the same content and test that it doesn't invalidate the
+    // generating action's SkyKey.
+    FileSystemUtils.writeContentAsLatin1(out1.getPath(), "foo-content");
+    assertThat(
+        new FilesystemValueChecker(
+            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                /* batchStatter= */ null,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                /* trustRemoteArtifacts= */ true))
+        .isEmpty();
+  }
+
+  @Test
+  public void testRemoteAndLocalArtifacts_modified() throws Exception {
     // Test that injected remote artifacts are trusted by the FileSystemValueChecker
     // if it is configured to trust remote artifacts, and that local files always take precedence
     // over remote files.
@@ -936,6 +988,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         .containsExactly(actionKey1);
   }
 
+  // TODO(chiwang): Test the case that tree artifacts were previously remote but are now staged.
   @Test
   public void testRemoteAndLocalTreeArtifacts() throws Exception {
     // Test that injected remote tree artifacts are trusted by the FileSystemValueChecker
