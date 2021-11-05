@@ -32,21 +32,21 @@ bind(
 )
 
 ########### Required by cc rules, should be moved to rules_cc. ###########
-// Copied from cc_configure.WORKSPACE
+# Copied from cc_configure.WORKSPACE
 load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
 cc_configure()
 
 ########### Required on cc rules on macos, should be moved to rules_cc? ###########
-// Copied from xcode_configure.WORKSPACE
+# Copied from xcode_configure.WORKSPACE
 load("@bazel_tools//tools/osx:xcode_configure.bzl", "xcode_configure")
 xcode_configure("@bazel_tools//tools/osx:xcode_locator.m")
 
 ########### Required by python rules, should be moved to rules_python. ############
-// Copied from python.WORKSPACE
+# Copied from python.WORKSPACE
 register_toolchains("@bazel_tools//tools/python:autodetecting_toolchain")
 
 ############ Required by java rules, should be moved to rules_java. ############
-// Copied from jdk.WORKSPACE
+# Copied from jdk.WORKSPACE
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
