@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresen
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -56,6 +57,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -465,6 +467,20 @@ public class FilesystemValueChecker {
     try {
       FileArtifactValue fileMetadata =
           ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, tsgm);
+
+      if (lastKnownData.isRemote()
+          && !fileMetadata.isRemote()
+          && fileMetadata.getType() == FileStateType.REGULAR_FILE) {
+        // If the file was remote but is now staged, we compare the digests.
+        byte[] digest = DigestUtils.manuallyComputeDigest(file.getPath(), fileMetadata.getSize());
+        if (Arrays.equals(digest, lastKnownData.getDigest())
+            && fileMetadata.getSize() == lastKnownData.getSize()) {
+          // TODO(chiwang): Find a way to update lastKnownData to fileMetadata so we don't need to
+          // calculate digest again.
+          return false;
+        }
+      }
+
       boolean trustRemoteValue =
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
@@ -498,6 +514,7 @@ public class FilesystemValueChecker {
       }
     }
 
+    // TODO(chiwang): Check the case that tree artifacts were previously remote but are now staged.
     for (Map.Entry<Artifact, TreeArtifactValue> entry :
         actionValue.getAllTreeArtifactValues().entrySet()) {
       TreeArtifactValue tree = entry.getValue();
