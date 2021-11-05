@@ -71,12 +71,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /** A plain text chunk of a string (containing no variables). */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static class StringLiteralChunk implements StringChunk, Serializable {
+  private static class StringLiteralChunk implements StringChunk {
     private final String text;
 
-    @VisibleForSerialization
     StringLiteralChunk(String text) {
       this.text = text;
     }
