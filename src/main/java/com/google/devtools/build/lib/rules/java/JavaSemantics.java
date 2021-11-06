@@ -268,7 +268,6 @@ public interface JavaSemantics {
       boolean includeBuildData,
       Compression compression,
       Artifact launcher,
-      boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
       Artifact sharedArchive);

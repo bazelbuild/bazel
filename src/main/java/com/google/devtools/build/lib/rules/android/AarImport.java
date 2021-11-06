@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
@@ -401,7 +400,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
   private static SpawnAction createAarJarsMergingActions(
       RuleContext ruleContext, Artifact jarsTreeArtifact, Artifact mergedJar, Artifact paramFile) {
-    return singleJarSpawnActionBuilder(ruleContext)
+    SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
+    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    return builder
+        .setExecutable(singleJar)
         .setMnemonic("AarJarsMerger")
         .setProgressMessage("Merging AAR embedded jars")
         .addInput(jarsTreeArtifact)
@@ -477,20 +479,4 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
-  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
-  private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
-    SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
-              singleJar,
-              JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs());
-    } else {
-      builder.setExecutable(singleJar);
-    }
-    return builder;
-  }
 }
