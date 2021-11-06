@@ -451,7 +451,6 @@ java_test(
     name = "PackageGroupIntegrationTest",
     srcs = ["PackageGroupIntegrationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
