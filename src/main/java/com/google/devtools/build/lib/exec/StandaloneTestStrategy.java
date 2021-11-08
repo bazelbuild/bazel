@@ -20,6 +20,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -535,13 +536,22 @@ public class StandaloneTestStrategy extends TestStrategy {
       envBuilder.put("TEST_SHARD_INDEX", "0");
       envBuilder.put("TEST_TOTAL_SHARDS", "0");
     }
+    Map<String, String> executionInfo =
+        Maps.newHashMapWithExpectedSize(action.getExecutionInfo().size() + 1);
+    executionInfo.putAll(action.getExecutionInfo());
+    if (result.exitCode() != 0) {
+      // If the test is failed, the spawn shouldn't use remote cache since the test.xml file is
+      // renamed immediately after the spawn execution. If there is another test attempt, the async
+      // upload will fail because it cannot read the file at original position.
+      executionInfo.put(ExecutionRequirements.NO_REMOTE_CACHE, "");
+    }
     return new SimpleSpawn(
         action,
         args,
         envBuilder.build(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
-        ImmutableMap.copyOf(action.getExecutionInfo()),
+        ImmutableMap.copyOf(executionInfo),
         null,
         ImmutableMap.of(),
         /*inputs=*/ NestedSetBuilder.create(
