@@ -6943,6 +6943,37 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExpandedCppConfigurationApiBlocked() throws Exception {
+    List<String> cppConfigurationOptions =
+        ImmutableList.of(
+            "strip_opts()",
+            "incompatible_enable_cc_test_feature()",
+            "build_test_dwp()",
+            "grte_top()");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'cpp_config_rule')",
+        "cpp_config_rule(name = 'custom')");
+    for (String option : cppConfigurationOptions) {
+      scratch.overwriteFile(
+          "foo/custom_rule.bzl",
+          "def _impl(ctx):",
+          "  ctx.fragments.cpp." + option,
+          "  return []",
+          "cpp_config_rule = rule(",
+          "  implementation = _impl,",
+          "  fragments = [\"cpp\"],",
+          ")");
+      invalidatePackages();
+
+      AssertionError e =
+          assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+      assertThat(e).hasMessageThat().contains("cannot use private API");
+    }
+  }
+
+  @Test
   public void testExpandedCompileApiBlocked() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",

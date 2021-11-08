@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -145,4 +146,19 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       doc = "Whether to generate Apple debug symbol(.dSYM) artifacts.",
       structField = true)
   boolean appleGenerateDsym();
+
+  @StarlarkMethod(name = "strip_opts", documented = false, useStarlarkThread = true)
+  Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "incompatible_enable_cc_test_feature",
+      documented = false,
+      useStarlarkThread = true)
+  boolean useCcTestFeatureStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "build_test_dwp", documented = false, useStarlarkThread = true)
+  boolean buildTestDwpIsActivatedStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "grte_top", documented = false, useStarlarkThread = true)
+  Label getLibcTopLabelStarlark(StarlarkThread thread) throws EvalException;
 }

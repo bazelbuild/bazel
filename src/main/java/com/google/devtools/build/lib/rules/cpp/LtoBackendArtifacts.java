@@ -200,6 +200,12 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     return dwoFile;
   }
 
+  @Override
+  public Artifact getDwoFileForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getDwoFile();
+  }
+
   void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
     // For objects from linkstatic libraries, we may not be including them in the LTO indexing
     // step when linked into a test, but rather will use shared non-LTO backends for better

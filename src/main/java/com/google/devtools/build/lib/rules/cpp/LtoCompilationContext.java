@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import java.util.Objects;
 import java.util.Set;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Holds information collected for .o bitcode files coming from a ThinLTO C(++) compilation under
@@ -27,7 +28,7 @@ import java.util.Set;
  * that can be used for the LTO indexing step, as well as to compile flags applying to that
  * compilation that should also be applied to the LTO backend compilation invocation.
  */
-public final class LtoCompilationContext {
+public final class LtoCompilationContext implements StarlarkValue {
   static final LtoCompilationContext EMPTY = new LtoCompilationContext(ImmutableMap.of());
 
   private final ImmutableMap<Artifact, BitcodeInfo> ltoBitcodeFiles;
