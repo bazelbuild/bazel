@@ -1981,7 +1981,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
     attrTransition.addRequiredFragments(
-        requiredFragments, ct.getConfiguration().getTransitiveOptionDetails());
+        requiredFragments, ct.getConfiguration().getBuildOptionDetails());
     assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 

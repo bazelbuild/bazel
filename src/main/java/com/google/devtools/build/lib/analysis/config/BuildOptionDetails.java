@@ -27,34 +27,33 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Introspector for option details, to be used when {@code select()}-ing over the options.
+ * Maps build option names as they appear to the user (e.g. {@code compilation_mode}) to structured
+ * metadata.
  *
- * <p>For native options, this tracks:
+ * <p>For native options ({@code @Option} defined in a {@link FragmentOptions} implementation), this
+ * tracks:
  *
  * <ul>
- *   <li>what {@link FragmentOptions} class the option is defined in
+ *   <li>what {@link FragmentOptions} class defines the option
  *   <li>the option's current value
  *   <li>whether it allows multiple values to be specified ({@link Option#allowMultiple}
  *   <li>whether it is selectable, i.e., allowed to appear in a {@code config_setting}
  * </ul>
  *
- * <p>For Starlark options, this tracks their value in built-in Starlark-object form (post-parse,
- * pre-implementation function form).
- *
- * <p>This is "transitive" in that it includes *all* options recognizable by a given configuration,
- * including those defined in child fragments.
+ * <p>For Starlark options (defined in a Starlark {@code build_setting)}, this tracks their value
+ * in built-in Starlark-object form (post-parse, pre-implementation function form).
  */
-public final class TransitiveOptionDetails implements Serializable {
+public final class BuildOptionDetails {
 
-  /** Builds a {@code TransitiveOptionsDetails} for the given set of native options */
+  /** Builds a {@code BuildOptionDetails} for the given set of native options */
   @VisibleForTesting
-  static TransitiveOptionDetails forOptionsForTesting(
+  static BuildOptionDetails forOptionsForTesting(
       Iterable<? extends FragmentOptions> buildOptions) {
     return forOptions(buildOptions, ImmutableMap.of());
   }
 
-  /** Builds a {@code TransitiveOptionDetails} for the given set of native and Starlark options. */
-  static TransitiveOptionDetails forOptions(
+  /** Builds a {@code BuildOptionDetails} for the given set of native and Starlark options. */
+  static BuildOptionDetails forOptions(
       Iterable<? extends FragmentOptions> buildOptions, Map<Label, Object> starlarkOptions) {
     ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
     try {
@@ -88,7 +87,7 @@ public final class TransitiveOptionDetails implements Serializable {
       throw new IllegalStateException(
           "Unexpected illegal access trying to create this configuration's options map: ", e);
     }
-    return new TransitiveOptionDetails(map.build(), ImmutableMap.copyOf(starlarkOptions));
+    return new BuildOptionDetails(map.build(), ImmutableMap.copyOf(starlarkOptions));
   }
 
   private static final class OptionDetails implements Serializable {
@@ -130,15 +129,15 @@ public final class TransitiveOptionDetails implements Serializable {
    *   <li>Parse alternative values for the option.
    * </ol>
    */
-  private final ImmutableMap<String, OptionDetails> transitiveNativeOptionsMap;
+  private final ImmutableMap<String, OptionDetails> nativeOptionsMap;
 
   /** Maps Starlark option labels to values */
   private final ImmutableMap<Label, Object> starlarkOptionsMap;
 
-  private TransitiveOptionDetails(
-      ImmutableMap<String, OptionDetails> transitiveNativeOptionsMap,
+  private BuildOptionDetails(
+      ImmutableMap<String, OptionDetails> nativeOptionsMap,
       ImmutableMap<Label, Object> starlarkOptionsMap) {
-    this.transitiveNativeOptionsMap = transitiveNativeOptionsMap;
+    this.nativeOptionsMap = nativeOptionsMap;
     this.starlarkOptionsMap = starlarkOptionsMap;
   }
 
@@ -151,7 +150,7 @@ public final class TransitiveOptionDetails implements Serializable {
    */
   @Nullable
   public Class<? extends FragmentOptions> getOptionClass(String optionName) {
-    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
+    OptionDetails optionDetails = nativeOptionsMap.get(optionName);
     return optionDetails == null ? null : optionDetails.optionsClass;
   }
 
@@ -165,7 +164,7 @@ public final class TransitiveOptionDetails implements Serializable {
    */
   @Nullable
   public Object getOptionValue(String optionName) {
-    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
+    OptionDetails optionDetails = nativeOptionsMap.get(optionName);
     return (optionDetails == null) ? null : optionDetails.value;
   }
 
@@ -184,7 +183,7 @@ public final class TransitiveOptionDetails implements Serializable {
    * to be of type {@code List<T>}.
    */
   public boolean allowsMultipleValues(String optionName) {
-    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
+    OptionDetails optionDetails = nativeOptionsMap.get(optionName);
     return optionDetails != null && optionDetails.allowsMultiple;
   }
 
@@ -195,7 +194,7 @@ public final class TransitiveOptionDetails implements Serializable {
    */
   @Nullable
   public SelectRestriction getSelectRestriction(String optionName) {
-    OptionDetails optionDetails = transitiveNativeOptionsMap.get(optionName);
+    OptionDetails optionDetails = nativeOptionsMap.get(optionName);
     return optionDetails == null ? null : optionDetails.selectRestriction;
   }
 }

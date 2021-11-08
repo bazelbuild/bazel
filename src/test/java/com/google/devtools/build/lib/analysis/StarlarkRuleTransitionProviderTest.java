@@ -1422,7 +1422,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
     ruleTransition.addRequiredFragments(
-        requiredFragments, ct.getConfiguration().getTransitiveOptionDetails());
+        requiredFragments, ct.getConfiguration().getBuildOptionDetails());
     assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 

@@ -24,11 +24,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
-import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
@@ -84,8 +84,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   @Override
   public void addRequiredFragments(
-      RequiredConfigFragmentsProvider.Builder requiredFragments,
-      TransitiveOptionDetails optionDetails) {
+      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptionDetails optionDetails) {
     for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
       if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         requiredFragments.addStarlarkOption(Label.parseAbsoluteUnchecked(optionStarlarkName));

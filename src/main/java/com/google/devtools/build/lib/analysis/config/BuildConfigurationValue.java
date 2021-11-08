@@ -123,7 +123,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
   /** Data for introspecting the options used by this configuration. */
-  private final TransitiveOptionDetails transitiveOptionDetails;
+  private final BuildOptionDetails buildOptionDetails;
 
   private final Supplier<BuildConfigurationEvent> buildEventSupplier;
 
@@ -199,8 +199,8 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
     this.actionEnv = actionEnvironment;
     this.testEnv = setupTestEnvironment();
-    this.transitiveOptionDetails =
-        TransitiveOptionDetails.forOptions(
+    this.buildOptionDetails =
+        BuildOptionDetails.forOptions(
             buildOptions.getNativeOptions(), buildOptions.getStarlarkOptions());
 
     // These should be documented in the build encyclopedia.
@@ -244,11 +244,9 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return BuildConfigurationKey.withoutPlatformMapping(fragmentClassSet, buildOptions);
   }
 
-  /**
-   * Retrieves the {@link TransitiveOptionDetails} containing data on this configuration's options.
-   */
-  public TransitiveOptionDetails getTransitiveOptionDetails() {
-    return transitiveOptionDetails;
+  /** Retrieves the {@link BuildOptionDetails} containing data on this configuration's options. */
+  public BuildOptionDetails getBuildOptionDetails() {
+    return buildOptionDetails;
   }
 
   /** Returns the output directory for this build configuration. */

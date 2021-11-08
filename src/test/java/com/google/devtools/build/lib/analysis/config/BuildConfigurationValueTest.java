@@ -179,21 +179,21 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testGetTransitiveOptionDetails() throws Exception {
+  public void testGetBuildOptionDetails() throws Exception {
     // Directly defined options:
-    assertThat(create("-c", "dbg").getTransitiveOptionDetails().getOptionValue("compilation_mode"))
+    assertThat(create("-c", "dbg").getBuildOptionDetails().getOptionValue("compilation_mode"))
         .isEqualTo(CompilationMode.DBG);
-    assertThat(create("-c", "opt").getTransitiveOptionDetails().getOptionValue("compilation_mode"))
+    assertThat(create("-c", "opt").getBuildOptionDetails().getOptionValue("compilation_mode"))
         .isEqualTo(CompilationMode.OPT);
 
     // Options defined in a fragment:
-    assertThat(create("--force_pic").getTransitiveOptionDetails().getOptionValue("force_pic"))
+    assertThat(create("--force_pic").getBuildOptionDetails().getOptionValue("force_pic"))
         .isEqualTo(Boolean.TRUE);
-    assertThat(create("--noforce_pic").getTransitiveOptionDetails().getOptionValue("force_pic"))
+    assertThat(create("--noforce_pic").getBuildOptionDetails().getOptionValue("force_pic"))
         .isEqualTo(Boolean.FALSE);
 
     // Legitimately null option:
-    assertThat(create().getTransitiveOptionDetails().getOptionValue("test_filter")).isNull();
+    assertThat(create().getBuildOptionDetails().getOptionValue("test_filter")).isNull();
   }
 
   @Test

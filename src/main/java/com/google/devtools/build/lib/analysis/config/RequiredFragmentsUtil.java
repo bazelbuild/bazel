@@ -107,7 +107,7 @@ public final class RequiredFragmentsUtil {
           .addRuleImplSpecificRequiredConfigFragments(requiredFragments, attributes, configuration);
     }
     addRequiredFragmentsFromRuleTransitions(
-        requiredFragments, target, attributes, configuration.getTransitiveOptionDetails());
+        requiredFragments, target, attributes, configuration.getBuildOptionDetails());
 
     // We consider build settings (which are both targets and configuration) to require themselves.
     if (target.isBuildSetting()) {
@@ -157,7 +157,7 @@ public final class RequiredFragmentsUtil {
         requiredFragments,
         aspect,
         ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration.checksum()),
-        configuration.getTransitiveOptionDetails());
+        configuration.getBuildOptionDetails());
     return requiredFragments.build();
   }
 
@@ -212,7 +212,7 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Rule target,
       ConfiguredAttributeMapper attributeMap,
-      TransitiveOptionDetails optionDetails) {
+      BuildOptionDetails optionDetails) {
     if (target.getRuleClassObject().getTransitionFactory() != null) {
       target
           .getRuleClassObject()
@@ -245,7 +245,7 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Aspect aspect,
       ConfiguredAttributeMapper attributeMap,
-      TransitiveOptionDetails optionDetails) {
+      BuildOptionDetails optionDetails) {
     AttributeTransitionData attributeTransitionData =
         AttributeTransitionData.builder().attributes(attributeMap).build();
     for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {

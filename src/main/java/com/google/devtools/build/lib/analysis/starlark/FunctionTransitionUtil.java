@@ -87,7 +87,7 @@ public final class FunctionTransitionUtil {
       checkForDenylistedOptions(starlarkTransition);
 
       // TODO(waltl): Consider building this once and using it across different split transitions,
-      // or reusing TransitiveOptionDetails.
+      // or reusing BuildOptionDetails.
       Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
       Dict<String, Object> settings =
           buildSettings(buildOptions, optionInfoMap, starlarkTransition);

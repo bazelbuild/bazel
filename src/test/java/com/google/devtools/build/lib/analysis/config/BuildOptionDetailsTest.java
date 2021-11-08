@@ -32,9 +32,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link TransitiveOptionDetails}. */
+/** Tests for {@link BuildOptionDetails}. */
 @RunWith(JUnit4.class)
-public class TransitiveOptionDetailsTest {
+public class BuildOptionDetailsTest {
   /** Instantiates the given options classes, parsing the given options as well. */
   public Iterable<FragmentOptions> parseOptions(
       Iterable<? extends Class<? extends FragmentOptions>> optionsClasses, String... options)
@@ -156,15 +156,15 @@ public class TransitiveOptionDetailsTest {
 
   @Test
   public void getOptionClass_ReturnsClassOfPresentOptions() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionClass("boolean_option")).isEqualTo(Options.class);
   }
 
   @Test
   public void getOptionClass_SelectsCorrectClassWhenMultipleArePresent() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(
             parseOptions(ImmutableList.of(Options.class, MoreOptions.class)));
     assertThat(details.getOptionClass("boolean_option")).isEqualTo(Options.class);
     assertThat(details.getOptionClass("other_option")).isEqualTo(MoreOptions.class);
@@ -172,59 +172,59 @@ public class TransitiveOptionDetailsTest {
 
   @Test
   public void getOptionClass_ReturnsNullIfOptionsClassIsNotPartOfOptionDetails() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionClass("other_option")).isNull();
   }
 
   @Test
   public void getOptionClass_SelectsCorrectClassEvenWhenValueIsNull() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionClass("null_default")).isEqualTo(Options.class);
   }
 
   @Test
   public void getOptionClass_ReturnsNullWhenOptionIsUndefined() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionClass("undefined_option")).isNull();
   }
 
   @Test
   public void getOptionClass_ReturnsNullIfOptionIsInternal() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionClass("internal option")).isNull();
   }
 
   @Test
   public void getOptionValue_ReturnsDefaultValueIfNotSet() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionValue("boolean_option")).isEqualTo(true);
   }
 
   @Test
   public void getOptionValue_ReturnsCommandLineValueIfSet() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(
             parseOptions(ImmutableList.of(Options.class), "--noboolean_option"));
     assertThat(details.getOptionValue("boolean_option")).isEqualTo(false);
   }
 
   @Test
   public void getOptionValue_ReturnsEmptyListForUnspecifiedMultiOptions() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(
             parseOptions(ImmutableList.of(Options.class), "--noboolean_option"));
     assertThat(details.getOptionValue("multi_option")).isEqualTo(ImmutableList.<String>of());
   }
 
   @Test
   public void getOptionValue_ReturnsListOfValuesForSpecifiedMultiOptions() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(
             parseOptions(
                 ImmutableList.of(Options.class),
                 "--multi_option=one",
@@ -236,125 +236,125 @@ public class TransitiveOptionDetailsTest {
 
   @Test
   public void getOptionValue_DrawsValuesFromAllOptionsClasses() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(
             parseOptions(ImmutableList.of(Options.class, MoreOptions.class), "--other_option=set"));
     assertThat(details.getOptionValue("other_option")).isEqualTo("set");
   }
 
   @Test
   public void getOptionValue_UsesConvertersIfSpecified() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(
             parseOptions(ImmutableList.of(Options.class), "--convertible_option=Set"));
     assertThat(details.getOptionValue("convertible_option")).isEqualTo(Optional.of("Set"));
   }
 
   @Test
   public void getOptionValue_UsesConvertersForDefaultsIfSpecified() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionValue("convertible_option")).isEqualTo(Optional.<String>absent());
   }
 
   @Test
   public void getOptionValue_ReturnsNullIfOptionIsNotDefined() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionValue("undefined_option")).isNull();
   }
 
   @Test
   public void getOptionValue_ReturnsNullIfOptionIsInternal() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionValue("internal option")).isNull();
   }
 
   @Test
   public void getOptionValue_ReturnsNullIfOptionIsDefinedInNonIncludedOptionsClass()
       throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionValue("other_option")).isNull();
   }
 
   @Test
   public void getOptionValue_ReturnsNullIfOptionDefaultValueIsNull() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getOptionValue("null_option")).isNull();
   }
 
   @Test
   public void allowsMultipleValues_ReturnsFalseForUndefinedOption() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.allowsMultipleValues("undefined_option")).isFalse();
   }
 
   @Test
   public void allowsMultipleValues_ReturnsFalseForNonMultiOption() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.allowsMultipleValues("boolean_option")).isFalse();
   }
 
   @Test
   public void allowsMultipleValues_ReturnsFalseForInternalNonMultiOption() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.allowsMultipleValues("internal option")).isFalse();
   }
 
   @Test
   public void allowsMultipleValues_ReturnsFalseForInternalMultiOption() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.allowsMultipleValues("internal multi option")).isFalse();
   }
 
   @Test
   public void allowsMultipleValues_ReturnsTrueForMultiOption() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.allowsMultipleValues("multi_option")).isTrue();
   }
 
   @Test
   public void getSelectRestrictions_ReturnsNullByDefault() throws Exception {
     // This is also a test of the default behavior of FragmentOptions#getSelectRestrictions.
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(
             parseOptions(ImmutableList.of(MoreOptions.class)));
     assertThat(details.getSelectRestriction("other_option")).isNull();
   }
 
   @Test
   public void getSelectRestriction_RetrievesRestrictionObject() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getSelectRestriction("nonselectable_option")).isNotNull();
   }
 
   @Test
   public void getSelectRestriction_ReturnsNullForUndefinedOption() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getSelectRestriction("undefined_option")).isNull();
   }
 
   @Test
   public void isSelectable_ReturnsNullForInternalOption() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
     assertThat(details.getSelectRestriction("internal option")).isNull();
   }
 
   @Test
   public void starlarkOptions() throws Exception {
-    TransitiveOptionDetails details =
-        TransitiveOptionDetails.forOptions(
+    BuildOptionDetails details =
+        BuildOptionDetails.forOptions(
             parseOptions(ImmutableList.of(Options.class)),
             ImmutableMap.of(Label.parseAbsoluteUnchecked("//test:setting"), "value"));
     assertThat(details.getOptionValue(Label.parseAbsoluteUnchecked("//test:setting")))
