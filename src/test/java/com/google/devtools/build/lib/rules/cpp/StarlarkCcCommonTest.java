@@ -7552,4 +7552,117 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
     assertThat(e).hasMessageThat().contains("name 'cc_internal' is not defined");
   }
+
+  @Test
+  public void testExtendedBuildConfigurationApiBlocked() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'build_config_rule')",
+        "build_config_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.configuration.stamp_binaries()",
+        "  return []",
+        "build_config_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("private API only for use in builtins");
+  }
+
+  @Test
+  public void testExtendedCcCompilationOutputsLtoCompilationContextBlocked() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'compilation_outputs_rule')",
+        "compilation_outputs_rule(name = 'custom')");
+
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs().lto_compilation_context()",
+        "  return []",
+        "compilation_outputs_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testExtendedCcCompilationOutputsDwoFilesBlocked() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'compilation_outputs_rule')",
+        "compilation_outputs_rule(name = 'custom')");
+
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs().dwo_files()",
+        "  return []",
+        "compilation_outputs_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testExtendedCcCompilationOutputsPicDwoFilesBlocked() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'compilation_outputs_rule')",
+        "compilation_outputs_rule(name = 'custom')");
+
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs().pic_dwo_files()",
+        "  return []",
+        "compilation_outputs_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testExtendedCcLinkingContextApiBlocked() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'cc_linking_context_rule')",
+        "cc_linking_context_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_linking_context(linker_inputs = depset()).extra_link_time_libraries()",
+        "  return []",
+        "cc_linking_context_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
 }

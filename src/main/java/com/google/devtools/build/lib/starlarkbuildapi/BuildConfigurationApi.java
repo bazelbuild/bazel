@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a configuration object which holds information about the build environment. */
@@ -67,9 +69,12 @@ public interface BuildConfigurationApi extends StarlarkValue {
       structField = true,
       doc =
           "A boolean that tells whether code coverage is enabled for this run. Note that this does"
-              + " not compute whether a specific rule should be instrumented for code coverage"
-              + " data collection. For that, see the <a"
+              + " not compute whether a specific rule should be instrumented for code coverage data"
+              + " collection. For that, see the <a"
               + " href=\"ctx.html#coverage_instrumented\"><code>ctx.coverage_instrumented</code></a>"
               + " function.")
   boolean isCodeCoverageEnabled();
+
+  @StarlarkMethod(name = "stamp_binaries", documented = false, useStarlarkThread = true)
+  boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException;
 }

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -51,6 +52,10 @@ import java.util.TreeMap;
 import java.util.function.Supplier;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Represents a collection of context information which may affect a build (for example: the target
@@ -528,6 +533,18 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   /** Returns true if non-functional build stamps are enabled. */
   public boolean stampBinaries() {
     return options.stampBinaries;
+  }
+
+  @Override
+  public boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getName())) {
+      throw Starlark.errorf("private API only for use in builtins");
+    }
+    return stampBinaries();
   }
 
   /** Returns true if extended sanity checks should be enabled. */
