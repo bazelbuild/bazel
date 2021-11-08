@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
  * {@link SkyKey} for {@link com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
  */
 @AutoCodec
-public final class BuildConfigurationKey implements SkyKey, Serializable {
+public final class BuildConfigurationKey implements SkyKey {
 
   /**
    * Creates a new configuration key based on the given options, after applying a platform mapping

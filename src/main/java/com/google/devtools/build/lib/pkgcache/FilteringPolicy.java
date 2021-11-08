@@ -21,6 +21,7 @@ import java.io.Serializable;
  * A filtering policy defines how target patterns are matched. For instance, we may wish to select
  * only tests or no tests.
  */
+@FunctionalInterface
 public interface FilteringPolicy extends Serializable {
 
   /**

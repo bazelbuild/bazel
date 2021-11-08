@@ -16,7 +16,6 @@ OS_PATH_POLICY_SOURCES = [
 
 PATH_FRAGMENT_SOURCES = [
     "PathFragment.java",
-    "PathFragmentSerializationProxy.java",
     "PathSegmentIterator.java",
 ]
 

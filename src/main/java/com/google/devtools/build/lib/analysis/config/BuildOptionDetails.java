@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
-import java.io.Serializable;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -40,8 +39,8 @@ import javax.annotation.Nullable;
  *   <li>whether it is selectable, i.e., allowed to appear in a {@code config_setting}
  * </ul>
  *
- * <p>For Starlark options (defined in a Starlark {@code build_setting)}, this tracks their value
- * in built-in Starlark-object form (post-parse, pre-implementation function form).
+ * <p>For Starlark options (defined in a Starlark {@code build_setting}), this tracks their value in
+ * built-in Starlark-object form (post-parse, pre-implementation function form).
  */
 public final class BuildOptionDetails {
 
@@ -90,7 +89,7 @@ public final class BuildOptionDetails {
     return new BuildOptionDetails(map.build(), ImmutableMap.copyOf(starlarkOptions));
   }
 
-  private static final class OptionDetails implements Serializable {
+  private static final class OptionDetails {
 
     private OptionDetails(
         Class<? extends FragmentOptions> optionsClass,

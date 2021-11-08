@@ -45,7 +45,6 @@ import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -63,7 +62,7 @@ import javax.annotation.Nullable;
 /** Stores the command-line options from a set of configuration fragments. */
 // TODO(janakr): If overhead of FragmentOptions class names is too high, add constructor that just
 // takes fragments and gets names from them.
-public final class BuildOptions implements Cloneable, Serializable {
+public final class BuildOptions implements Cloneable {
 
   @SerializationConstant
   static final Comparator<Class<? extends FragmentOptions>> LEXICAL_FRAGMENT_OPTIONS_COMPARATOR =

@@ -25,7 +25,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import java.io.Serializable;
 import java.util.List;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -60,7 +59,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
  * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
-public class BuildLanguageOptions extends OptionsBase implements Serializable {
+public final class BuildLanguageOptions extends OptionsBase {
 
   // <== Add new options here in alphabetic order ==>
 

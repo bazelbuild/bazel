@@ -32,16 +32,10 @@ package com.google.devtools.build.lib.collect.compacthashmap;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.IOException;
-import java.io.InvalidObjectException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
@@ -73,8 +67,8 @@ import javax.annotation.Nullable;
  * than {@code size()}. Furthermore, this structure places significantly reduced load on the garbage
  * collector by only using a constant number of internal objects.
  *
- * <p>If there are no removals, then iteration order for the {@link #entrySet}, {@link #keySet}, and
- * {@link #values} views is the same as insertion order. Any removal invalidates any ordering
+ * <p>If there are no removals, then iteration order for the {@link #entrySet}, {@link #keySet()},
+ * and {@link #values} views is the same as insertion order. Any removal invalidates any ordering
  * guarantees.
  *
  * <p>This class should not be assumed to be universally superior to {@code java.util.HashMap}.
@@ -84,7 +78,7 @@ import javax.annotation.Nullable;
  *
  * @author Louis Wasserman
  */
-public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializable {
+public class CompactHashMap<K, V> extends AbstractMap<K, V> {
   // A partial copy of com.google.common.collect.Hashing.
   private static final int C1 = 0xcc9e2d51;
   private static final int C2 = 0x1b873593;
@@ -107,21 +101,21 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
 
   private static final int MAX_TABLE_SIZE = Ints.MAX_POWER_OF_TWO;
 
-  private static int closedTableSize(int expectedEntries, double loadFactor) {
+  private static int closedTableSize(int expectedEntries) {
     // Get the recommended table size.
     // Round down to the nearest power of 2.
     expectedEntries = Math.max(expectedEntries, 2);
     int tableSize = Integer.highestOneBit(expectedEntries);
     // Check to make sure that we will not exceed the maximum load factor.
-    if (expectedEntries > (int) (loadFactor * tableSize)) {
+    if (expectedEntries > (int) (LOAD_FACTOR * tableSize)) {
       tableSize <<= 1;
       return (tableSize > 0) ? tableSize : MAX_TABLE_SIZE;
     }
     return tableSize;
   }
 
-  static boolean needsResizing(int size, int tableSize, double loadFactor) {
-    return size > loadFactor * tableSize && tableSize < MAX_TABLE_SIZE;
+  private static boolean needsResizing(int size, int tableSize) {
+    return size > LOAD_FACTOR * tableSize && tableSize < MAX_TABLE_SIZE;
   }
 
   /*
@@ -135,7 +129,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
 
   /** Creates an empty {@code CompactHashMap} instance. */
   public static <K, V> CompactHashMap<K, V> create() {
-    return new CompactHashMap<>();
+    return new CompactHashMap<>(DEFAULT_SIZE);
   }
 
   /**
@@ -160,10 +154,10 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
   private static final long HASH_MASK = ~NEXT_MASK;
 
   // TODO(bazel-team): decide default size
-  static final int DEFAULT_SIZE = 3;
+  private static final int DEFAULT_SIZE = 3;
 
   // used to indicate blank table entries
-  static final int UNSET = -1;
+  private static final int UNSET = -1;
 
   /**
    * The hashtable. Its values are indexes to the keys, values, and entries arrays.
@@ -181,34 +175,29 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
    * next entry in the bucket chain). The pointers in [size(), entries.length) are all "null"
    * (UNSET).
    */
-  @VisibleForTesting transient long[] entries;
+  private transient long[] entries;
 
   /**
    * The keys of the entries in the map, in the range of [0, size()). The keys in [size(),
    * keys.length) are all {@code null}.
    */
-  @VisibleForTesting transient Object[] keys;
+  private transient Object[] keys;
 
   /**
    * The values of the entries in the map, in the range of [0, size()). The values in [size(),
    * values.length) are all {@code null}.
    */
-  @VisibleForTesting transient Object[] values;
+  private transient Object[] values;
 
   /**
    * Keeps track of modifications of this set, to make it possible to throw
    * ConcurrentModificationException in the iterator. Note that we choose not to make this volatile,
    * so we do less of a "best effort" to track such errors, for better performance.
    */
-  transient int modCount;
+  private transient int modCount;
 
   /** The number of elements contained in the set. */
   private transient int size;
-
-  /** Constructs a new empty instance of {@code CompactHashMap}. */
-  CompactHashMap() {
-    init(DEFAULT_SIZE);
-  }
 
   /**
    * Constructs a new instance of {@code CompactHashMap} with the specified capacity.
@@ -216,26 +205,21 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
    * @param expectedSize the initial capacity of this {@code CompactHashMap}.
    */
   CompactHashMap(int expectedSize) {
-    init(expectedSize);
-  }
-
-  /** Pseudoconstructor for serialization support. */
-  void init(int expectedSize) {
     Preconditions.checkArgument(expectedSize >= 0, "Expected size must be non-negative");
     this.modCount = Math.max(1, expectedSize); // Save expectedSize for use in allocArrays()
   }
 
   /** Returns whether arrays need to be allocated. */
-  boolean needsAllocArrays() {
+  private boolean needsAllocArrays() {
     return table == null;
   }
 
   /** Handle lazy allocation of arrays. */
-  void allocArrays() {
+  private void allocArrays() {
     checkState(needsAllocArrays(), "Arrays already allocated");
 
     int expectedSize = modCount;
-    int buckets = closedTableSize(expectedSize, LOAD_FACTOR);
+    int buckets = closedTableSize(expectedSize);
     this.table = newTable(buckets);
 
     this.entries = newEntries(expectedSize);
@@ -273,14 +257,6 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     return (HASH_MASK & entry) | (NEXT_MASK & newNext);
   }
 
-  /**
-   * Mark an access of the specified entry. Used only in {@code CompactLinkedHashMap} for LRU
-   * ordering.
-   */
-  void accessEntry(int index) {
-    // no-op by default
-  }
-
   @CanIgnoreReturnValue
   @Override
   @Nullable
@@ -310,7 +286,6 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
           V oldValue = (V) values[next];
 
           values[next] = value;
-          accessEntry(next);
           return oldValue;
         }
         next = getNext(entry);
@@ -325,7 +300,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     insertEntry(newEntryIndex, key, value, hash);
     this.size = newSize;
     int oldCapacity = table.length;
-    if (needsResizing(newEntryIndex, oldCapacity, LOAD_FACTOR)) {
+    if (needsResizing(newEntryIndex, oldCapacity)) {
       resizeTable(2 * oldCapacity);
     }
     modCount++;
@@ -335,7 +310,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
   /**
    * Creates a fresh entry with the specified object at the specified position in the entry arrays.
    */
-  void insertEntry(int entryIndex, @Nullable K key, @Nullable V value, int hash) {
+  private void insertEntry(int entryIndex, @Nullable K key, @Nullable V value, int hash) {
     this.entries[entryIndex] = ((long) hash << 32) | (NEXT_MASK & UNSET);
     this.keys[entryIndex] = key;
     this.values[entryIndex] = value;
@@ -359,7 +334,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
    * Resizes the internal entries array to the specified capacity, which may be greater or less than
    * the current capacity.
    */
-  void resizeEntries(int newCapacity) {
+  private void resizeEntries(int newCapacity) {
     this.keys = Arrays.copyOf(keys, newCapacity);
     this.values = Arrays.copyOf(values, newCapacity);
     long[] entries = this.entries;
@@ -413,7 +388,6 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
   @Override
   public V get(@Nullable Object key) {
     int index = indexOf(key);
-    accessEntry(index);
     return (index == -1) ? null : (V) values[index];
   }
 
@@ -468,7 +442,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
   /**
    * Moves the last entry in the entry array into {@code dstIndex}, and nulls out its old position.
    */
-  void moveLastEntry(int dstIndex) {
+  private void moveLastEntry(int dstIndex) {
     int srcIndex = size() - 1;
     if (dstIndex < srcIndex) {
       // move last entry to deleted spot
@@ -507,11 +481,11 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
   }
 
-  int firstEntryIndex() {
+  private int firstEntryIndex() {
     return isEmpty() ? -1 : 0;
   }
 
-  int getSuccessor(int entryIndex) {
+  private int getSuccessor(int entryIndex) {
     return (entryIndex + 1 < size) ? entryIndex + 1 : -1;
   }
 
@@ -520,7 +494,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
    * entry that should be looked at after a removal on indexRemoved, with indexBeforeRemove as the
    * index that *was* the next entry that would be looked at.
    */
-  int adjustAfterRemove(int indexBeforeRemove, @SuppressWarnings("unused") int indexRemoved) {
+  private static int adjustAfterRemove(int indexBeforeRemove) {
     return indexBeforeRemove - 1;
   }
 
@@ -554,7 +528,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
       checkState(indexToRemove >= 0, "no calls to next() since the last call to remove()");
       expectedModCount++;
       removeEntry(indexToRemove);
-      currentIndex = adjustAfterRemove(currentIndex, indexToRemove);
+      currentIndex = adjustAfterRemove(currentIndex);
       indexToRemove = -1;
     }
 
@@ -581,7 +555,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     return (keySetView == null) ? keySetView = createKeySet() : keySetView;
   }
 
-  Set<K> createKeySet() {
+  private Set<K> createKeySet() {
     return new KeySetView();
   }
 
@@ -640,7 +614,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
   }
 
-  Iterator<K> keySetIterator() {
+  private Iterator<K> keySetIterator() {
     return new Itr<K>() {
       @SuppressWarnings("unchecked") // keys only contains Ks
       @Override
@@ -666,7 +640,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     return (entrySetView == null) ? entrySetView = createEntrySet() : entrySetView;
   }
 
-  Set<Entry<K, V>> createEntrySet() {
+  private Set<Entry<K, V>> createEntrySet() {
     return new EntrySetView();
   }
 
@@ -705,7 +679,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
   }
 
-  Iterator<Entry<K, V>> entrySetIterator() {
+  private Iterator<Entry<K, V>> entrySetIterator() {
     return new Itr<Entry<K, V>>() {
       @Override
       Entry<K, V> getOutput(int entry) {
@@ -763,7 +737,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     public boolean equals(@Nullable Object object) {
       if (object instanceof Entry) {
         Entry<?, ?> that = (Entry<?, ?>) object;
-        return Objects.equal(this.getKey(), that.getKey())
+        return Objects.equal(this.key, that.getKey())
             && Objects.equal(this.getValue(), that.getValue());
       }
       return false;
@@ -771,7 +745,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
 
     @Override
     public int hashCode() {
-      K k = getKey();
+      K k = key;
       V v = getValue();
       return ((k == null) ? 0 : k.hashCode()) ^ ((v == null) ? 0 : v.hashCode());
     }
@@ -779,7 +753,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     /** Returns a string representation of the form {@code {key}={value}}. */
     @Override
     public String toString() {
-      return getKey() + "=" + getValue();
+      return key + "=" + getValue();
     }
   }
 
@@ -810,7 +784,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     return (valuesView == null) ? valuesView = createValues() : valuesView;
   }
 
-  Collection<V> createValues() {
+  private Collection<V> createValues() {
     return new ValuesView();
   }
 
@@ -853,7 +827,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
   }
 
-  Iterator<V> valuesIterator() {
+  private Iterator<V> valuesIterator() {
     return new Itr<V>() {
       @SuppressWarnings("unchecked") // values only contains Vs
       @Override
@@ -875,7 +849,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     if (size < entries.length) {
       resizeEntries(size);
     }
-    int minimumTableSize = closedTableSize(size, LOAD_FACTOR);
+    int minimumTableSize = closedTableSize(size);
     if (minimumTableSize < table.length) {
       resizeTable(minimumTableSize);
     }
@@ -892,29 +866,5 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     Arrays.fill(table, UNSET);
     Arrays.fill(entries, 0, size, UNSET);
     this.size = 0;
-  }
-
-  private void writeObject(ObjectOutputStream stream) throws IOException {
-    stream.defaultWriteObject();
-    stream.writeInt(size);
-    for (int i = firstEntryIndex(); i >= 0; i = getSuccessor(i)) {
-      stream.writeObject(keys[i]);
-      stream.writeObject(values[i]);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
-    stream.defaultReadObject();
-    int elementCount = stream.readInt();
-    if (elementCount < 0) {
-      throw new InvalidObjectException("Invalid size: " + elementCount);
-    }
-    init(elementCount);
-    for (int i = 0; i < elementCount; i++) {
-      K key = (K) stream.readObject();
-      V value = (V) stream.readObject();
-      put(key, value);
-    }
   }
 }

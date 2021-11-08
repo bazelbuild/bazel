@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
@@ -23,9 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import javax.annotation.Nullable;
 
 /**
@@ -34,7 +30,7 @@ import javax.annotation.Nullable;
  * <p>A typical root could be the exec path, a package root, or an output root specific to some
  * configuration. We also support absolute roots for non-hermetic paths outside the user workspace.
  */
-public abstract class Root implements Comparable<Root>, Serializable {
+public abstract class Root implements Comparable<Root> {
 
   /** Constructs a root from a path. */
   public static Root fromPath(Path path) {
@@ -174,10 +170,10 @@ public abstract class Root implements Comparable<Root>, Serializable {
 
   /** An absolute root of a file system. Can only resolve absolute path fragments. */
   public static final class AbsoluteRoot extends Root {
-    private FileSystem fileSystem; // Non-final for serialization
+    private final FileSystem fileSystem;
 
     AbsoluteRoot(FileSystem fileSystem) {
-      this.fileSystem = fileSystem;
+      this.fileSystem = Preconditions.checkNotNull(fileSystem);
     }
 
     @Override
@@ -235,7 +231,7 @@ public abstract class Root implements Comparable<Root>, Serializable {
     @Override
     public int compareTo(Root o) {
       if (o instanceof AbsoluteRoot) {
-        return Integer.compare(fileSystem.hashCode(), ((AbsoluteRoot) o).fileSystem.hashCode());
+        return Integer.compare(hashCode(), o.hashCode());
       } else if (o instanceof PathRoot) {
         return -1;
       } else {
@@ -248,30 +244,16 @@ public abstract class Root implements Comparable<Root>, Serializable {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof AbsoluteRoot)) {
         return false;
       }
       AbsoluteRoot that = (AbsoluteRoot) o;
-      return Objects.equal(fileSystem, that.fileSystem);
+      return fileSystem.equals(that.fileSystem);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(fileSystem);
-    }
-
-    @SuppressWarnings("unused")
-    private void readObject(ObjectInputStream in) throws IOException {
-      fileSystem = Path.getFileSystemForSerialization();
-    }
-
-    @SuppressWarnings("unused")
-    private void writeObject(ObjectOutputStream out) throws IOException {
-      Preconditions.checkState(
-          fileSystem == Path.getFileSystemForSerialization(),
-          "%s %s",
-          fileSystem,
-          Path.getFileSystemForSerialization());
+      return 31 + fileSystem.hashCode();
     }
   }
 

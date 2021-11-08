@@ -35,11 +35,9 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -165,15 +163,14 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
 
   /** The configuration needed to prepare the analysis phase. */
   @ThreadSafe
-  @VisibleForSerialization
-  @AutoCodec
-  public static final class PrepareAnalysisPhaseKey implements SkyKey, Serializable {
+  @Immutable
+  static final class PrepareAnalysisPhaseKey implements SkyKey {
     private final FragmentClassSet fragments;
     private final BuildOptions options;
     private final ImmutableSortedSet<String> multiCpu;
     private final ImmutableSet<Label> labels;
 
-    PrepareAnalysisPhaseKey(
+    private PrepareAnalysisPhaseKey(
         FragmentClassSet fragments,
         BuildOptions options,
         Set<String> multiCpu,

@@ -17,14 +17,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.Serializable;
 
 /**
  * A factory for language-specific build-info files. Use this to translate the build-info into
  * target-independent language-specific files. The generated actions are registered into the action
  * graph on every build, but only executed if anything depends on them.
  */
-public interface BuildInfoFactory extends Serializable {
+public interface BuildInfoFactory {
   /**
    * Type of the build-data artifact.
    */

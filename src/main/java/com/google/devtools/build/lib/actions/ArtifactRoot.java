@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import java.io.Serializable;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
 
@@ -46,7 +45,7 @@ import net.starlark.java.eval.Printer;
  */
 @AutoCodec
 @Immutable
-public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, FileRootApi {
+public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi {
   private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
   /**
    * Do not use except in tests and in {@link

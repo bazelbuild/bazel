@@ -24,14 +24,13 @@ import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.Serializable;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** The name of an external repository. */
-public final class RepositoryName implements Serializable {
+public final class RepositoryName {
 
   static final String DEFAULT_REPOSITORY = "";
 

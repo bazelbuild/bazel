@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -71,7 +70,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /** A plain text chunk of a string (containing no variables). */
   @Immutable
-  private static class StringLiteralChunk implements StringChunk {
+  private static final class StringLiteralChunk implements StringChunk {
     private final String text;
 
     StringLiteralChunk(String text) {
@@ -97,7 +96,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public int hashCode() {
-      return Objects.hash(text);
+      return 31 + text.hashCode();
     }
 
     @Override
@@ -108,11 +107,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /** A chunk of a string value into which a variable should be expanded. */
   @Immutable
-  @AutoCodec
-  static class VariableChunk implements StringChunk, Serializable {
+  private static final class VariableChunk implements StringChunk {
     private final String variableName;
 
-    @VisibleForSerialization
     VariableChunk(String variableName) {
       this.variableName = variableName;
     }
@@ -235,7 +232,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (current == -1) {
         current = value.length();
       }
-      final String text = value.substring(start, current);
+      String text = value.substring(start, current);
       chunks.add(new StringLiteralChunk(text));
     }
 

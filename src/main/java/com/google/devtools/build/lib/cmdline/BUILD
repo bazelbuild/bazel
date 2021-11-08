@@ -14,7 +14,6 @@ java_library(
     srcs = [
         "Label.java",
         "LabelConstants.java",
-        "LabelSerializationProxy.java",
         "ResolvedTargets.java",
         "SignedTargetPattern.java",
         "TargetParsingException.java",

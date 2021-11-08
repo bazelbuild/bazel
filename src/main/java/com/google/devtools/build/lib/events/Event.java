@@ -20,7 +20,6 @@ import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -37,15 +36,10 @@ import net.starlark.java.syntax.SyntaxError;
  * A situation encountered by the build system that's worth reporting.
  *
  * <p>An event specifies an {@link EventKind}, a message, and (optionally) additional properties.
- *
- * <p>Although this is serializable, use caution if {@link Class}es with the same name and different
- * classloaders are expected to be found in the same event's properties. Common class object
- * serialization techniques ignore classloaders, so duplicate entry keys may be deserialized,
- * violating assumptions.
  */
 @Immutable
 @CheckReturnValue
-public final class Event implements Serializable {
+public final class Event {
 
   private final EventKind kind;
 

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -30,7 +29,7 @@ import java.util.Objects;
  * Models options that can be added to a command line when a label matches a given {@link
  * RegexFilter}.
  */
-public class PerLabelOptions implements Serializable {
+public final class PerLabelOptions {
   /** The filter used to match labels */
   private final RegexFilter regexFilter;
 
@@ -53,7 +52,7 @@ public class PerLabelOptions implements Serializable {
       int atIndex = input.indexOf('@');
       RegexFilterConverter converter = new RegexFilter.RegexFilterConverter();
       if (atIndex < 0) {
-        return new PerLabelOptions(converter.convert(input), ImmutableList.<String> of());
+        return new PerLabelOptions(converter.convert(input), ImmutableList.of());
       } else {
         String filterPiece = input.substring(0, atIndex);
         String optionsPiece = input.substring(atIndex + 1);
@@ -109,16 +108,20 @@ public class PerLabelOptions implements Serializable {
   public String toString() {
     return regexFilter + " Options: " + optionsList;
   }
-  
+
   @Override
   public boolean equals(Object other) {
-    PerLabelOptions otherOptions = 
-        other instanceof PerLabelOptions ? (PerLabelOptions) other : null;
-    return this == other || (otherOptions != null && 
-        this.regexFilter.equals(otherOptions.regexFilter) &&
-        this.optionsList.equals(otherOptions.optionsList));
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof PerLabelOptions)) {
+      return false;
+    }
+    PerLabelOptions otherOptions = (PerLabelOptions) other;
+    return this.regexFilter.equals(otherOptions.regexFilter)
+        && this.optionsList.equals(otherOptions.optionsList);
   }
-  
+
   @Override
   public int hashCode() {
     return Objects.hash(regexFilter, optionsList);
