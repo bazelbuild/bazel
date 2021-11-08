@@ -194,7 +194,7 @@ If that doesn't help:
 
 6.  Navigate to the `VC` directory of Visual Studio.
 
-    For example, this might be `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC`
+    For example, this might be `C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC`
     on your system.
 
 7.  Select the `VC` folder and click OK
