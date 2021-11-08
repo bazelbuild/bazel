@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.vfs;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Longs;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
 import java.io.IOException;
 
 /**
@@ -41,16 +38,8 @@ import java.io.IOException;
  * fail.
  */
 public class DigestUtils {
-  // Object to synchronize on when serializing large file reads.
-  private static final Object DIGEST_LOCK = new Object();
-
   // Typical size for a digest byte array.
   public static final int ESTIMATED_SIZE = 32;
-
-  // Files of this size or less are assumed to be readable in one seek.
-  // (This is the default readahead window on Linux.)
-  @VisibleForTesting // the unittest is in a different package!
-  public static final int MULTI_THREADED_DIGEST_MAX_FILE_SIZE = 128 * 1024;
 
   /**
    * Keys used to cache the values of the digests for files where we don't have fast digests.
@@ -125,19 +114,6 @@ public class DigestUtils {
 
   /** Private constructor to prevent instantiation of utility class. */
   private DigestUtils() {}
-
-  /**
-   * Obtain file's digset using synchronized method, ensuring that system is not overloaded in case
-   * when multiple threads are requesting digest calculations and underlying file system cannot
-   * provide it via extended attribute.
-   */
-  private static byte[] getDigestInExclusiveMode(Path path) throws IOException {
-    long startTime = Profiler.nanoTimeMaybe();
-    synchronized (DIGEST_LOCK) {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, path.getPathString());
-      return path.getDigest();
-    }
-  }
 
   /**
    * Enables the caching of file digests based on file status data.
@@ -221,16 +197,7 @@ public class DigestUtils {
       }
     }
 
-    // Compute digest from the file contents.
-    if (fileSize > MULTI_THREADED_DIGEST_MAX_FILE_SIZE) {
-      // We'll have to read file content in order to calculate the digest.
-      // We avoid overlapping this process for multiple large files, as
-      // seeking back and forth between them will result in an overall loss of
-      // throughput.
-      digest = getDigestInExclusiveMode(path);
-    } else {
-      digest = path.getDigest();
-    }
+    digest = path.getDigest();
 
     Preconditions.checkNotNull(digest, "Missing digest for %s (size %s)", path, fileSize);
     if (cache != null) {
