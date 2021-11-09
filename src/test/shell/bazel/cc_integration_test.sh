@@ -490,8 +490,8 @@ EOF
 
   cat > $pkg/script.lds << EOF
 VERS_42.0 {
-  local:
-    *;
+  global:
+    f;
 };
 EOF
 
@@ -560,9 +560,8 @@ function test_cc_starlark_api_additional_inputs() {
   cat >> "$pkg"/BUILD << EOF
 cc_bin(
     name = "g",
-    srcs = ["e.cc"],
-    data = [":f"],
-    linkstatic = 1,
+    srcs = ["f.cc"],
+    linkshared = 1,
     additional_linker_inputs = ["script.lds"],
     user_link_flags = [
         "-ldl",
@@ -579,9 +578,7 @@ EOF
   bazel build --experimental_cc_skylark_api_enabled_packages=, --verbose_failures \
     //"$pkg":g  &>"$TEST_log" || fail "Build failed"
 
-  nm bazel-bin/"$pkg"/g  | grep VERS_42.0 || fail "VERS_42.0 not in binary"
-
-  bazel-bin/"$pkg"/g | grep a1a2bcddcb2a1a || fail "output is incorrect"
+  nm -D bazel-bin/"$pkg"/libg.so  | grep VERS_42.0 || fail "VERS_42.0 not in binary"
 }
 
 function test_incompatible_validate_top_level_header_inclusions() {
