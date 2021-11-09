@@ -440,16 +440,19 @@ public final class FunctionTransitionUtil {
         toHash.put(optionName, value);
       } else {
         Object value = toOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
-        if (value != null) {
-          toHash.put(optionName, value);
-        }
+        toHash.put(optionName, value);
       }
     }
 
     ImmutableList.Builder<String> hashStrs = ImmutableList.builderWithExpectedSize(toHash.size());
     for (Map.Entry<String, Object> singleOptionAndValue : toHash.entrySet()) {
-      String toAdd = singleOptionAndValue.getKey() + "=" + singleOptionAndValue.getValue();
-      hashStrs.add(toAdd);
+      Object value = singleOptionAndValue.getValue();
+      if (value != null) {
+        hashStrs.add(singleOptionAndValue.getKey() + "=" + value);
+      } else {
+        // Avoid using =null to different from value being the non-null String "null"
+        hashStrs.add(singleOptionAndValue.getKey() + "@null");
+      }
     }
     return transitionDirectoryNameFragment(hashStrs.build());
   }
