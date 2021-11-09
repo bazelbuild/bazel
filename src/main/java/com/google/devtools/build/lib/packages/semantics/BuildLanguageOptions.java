@@ -147,7 +147,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_existing_rules_immutable_view",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -621,7 +621,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
-      "-incompatible_existing_rules_immutable_view";
+      "+incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_NINJA_ACTIONS = "-experimental_ninja_actions";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
