@@ -152,6 +152,18 @@ public class MobileInstallCommand implements BlazeCommand {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "The supported rules for mobile-install.")
     public List<String> mobileInstallSupportedRules;
+
+    @Option(
+        name = "mobile_install_run_deployer",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.EXECUTION
+        },
+        help = "Whether to run the mobile-install deployer after building all artifacts.")
+    public boolean mobileInstallRunDeployer;
   }
 
   private static final String SINGLE_TARGET_MESSAGE =
@@ -221,13 +233,19 @@ public class MobileInstallCommand implements BlazeCommand {
             .setTargets(targets)
             .setStartTimeMillis(env.getCommandStartTime())
             .build();
-    BuildResult result =
-        new BuildTool(env)
-            .processRequest(
-                request,
-                /* validator= */ null,
-                successfulTargets ->
-                    doMobileInstall(env, options, runTargetArgs, successfulTargets));
+
+    BuildResult result;
+    if (mobileInstallOptions.mobileInstallRunDeployer) {
+      result =
+          new BuildTool(env)
+              .processRequest(
+                  request,
+                  /* validator= */ null,
+                  successfulTargets ->
+                      doMobileInstall(env, options, runTargetArgs, successfulTargets));
+    } else {
+      result = new BuildTool(env).processRequest(request, /* validator = */ null);
+    }
 
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running mobile-install on target."));
