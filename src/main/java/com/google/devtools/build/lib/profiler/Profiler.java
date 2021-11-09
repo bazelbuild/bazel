@@ -166,19 +166,6 @@ public final class Profiler {
       this.description = description;
     }
 
-    /**
-     * Get the value of the datum's "cat" field for JSON output.
-     *
-     * @return the category value if one can be created, otherwise null
-     */
-    public String getJsonCategory() {
-      if (type != null) {
-        return type.description;
-      } else {
-        return null;
-      }
-    }
-
     @Override
     public String toString() {
       return "Thread " + threadId + ", task " + id + ", type " + type + ", " + description;
@@ -945,14 +932,13 @@ public final class Profiler {
     private void writeTask(JsonWriter writer, TaskData data) throws IOException {
       Preconditions.checkNotNull(data);
       String eventType = data.duration == 0 ? "i" : "X";
-      String category = data.getJsonCategory();
       writer.setIndent("  ");
       writer.beginObject();
       writer.setIndent("");
-      if (category == null) {
+      if (data.type == null) {
         writer.setIndent("    ");
       } else {
-        writer.name("cat").value(category);
+        writer.name("cat").value(data.type.description);
       }
       writer.name("name").value(data.description);
       writer.name("ph").value(eventType);
