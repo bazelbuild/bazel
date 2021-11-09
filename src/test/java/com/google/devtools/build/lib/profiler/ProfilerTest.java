@@ -845,14 +845,6 @@ public final class ProfilerTest {
     assertThat(withoutMnemonic).isNotNull();
     assertThat(withMnemonic).isNotNull();
 
-    // Make sure one has two categories and the other has none
-    String categoryWithoutMnemonic = withoutMnemonic.category();
-    String categoryWithMnemonic = withMnemonic.category();
-    String[] categoriesWithoutMnemonic = categoryWithoutMnemonic.split(",");
-    String[] categoriesWithMnemonic = categoryWithMnemonic.split(",");
-    assertThat(categoriesWithoutMnemonic).hasLength(1);
-    assertThat(categoriesWithMnemonic).hasLength(2);
-
     // Make sure that one has been assigned a mnemonics field in args and the other hasn't
     String mnemonicWithoutMnemonic = withoutMnemonic.mnemonic();
     String mnemonicWithMnemonic = withMnemonic.mnemonic();
@@ -860,7 +852,6 @@ public final class ProfilerTest {
     assertThat(mnemonicWithMnemonic).isNotNull();
 
     // Make sure the mnemonic has been set to the specified value
-    assertThat(categoriesWithMnemonic).asList().contains("foo");
     assertThat((String) mnemonicWithMnemonic).isEqualTo("foo");
   }
 }

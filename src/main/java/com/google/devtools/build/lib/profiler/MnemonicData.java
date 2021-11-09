@@ -43,7 +43,7 @@ public class MnemonicData {
    *
    * @return a string representation of the mnemonic if it has been set, otherwise null
    */
-  public String getJsonCategory() {
+  public String getValueForJson() {
     return mnemonic;
   }
 }

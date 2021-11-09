@@ -169,22 +169,10 @@ public final class Profiler {
     /**
      * Get the value of the datum's "cat" field for JSON output.
      *
-     * <p>As specified in the
-     * <a href="https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview">
-     * Chrome Trace Event Format Specification</a>, an event can belong to multiple
-     * categories specified in a comma-separated string. This method uses both the
-     * profiler task type and the mnemonic as categories if both are available.
-     *
      * @return the category value if one can be created, otherwise null
      */
     public String getJsonCategory() {
-      if (mnemonic.hasBeenSet()) {
-        if (type != null) {
-          return type.description + "," + mnemonic.getJsonCategory();
-        } else {
-          return mnemonic.getJsonCategory();
-        }
-      } else if (type != null) {
+      if (type != null) {
         return type.description;
       } else {
         return null;
@@ -985,14 +973,14 @@ public final class Profiler {
         writer.beginObject();
         writer.name("target").value(((ActionTaskData) data).targetLabel);
         if (data.mnemonic.hasBeenSet()) {
-          writer.name("mnemonic").value(data.mnemonic.getJsonCategory());
+          writer.name("mnemonic").value(data.mnemonic.getValueForJson());
         }
         writer.endObject();
       }
       else if (data.mnemonic.hasBeenSet() && data instanceof ActionTaskData) {
         writer.name("args");
         writer.beginObject();
-        writer.name("mnemonic").value(data.mnemonic.getJsonCategory());
+        writer.name("mnemonic").value(data.mnemonic.getValueForJson());
         writer.endObject();
       }
       long threadId =
