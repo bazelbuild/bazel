@@ -1182,6 +1182,81 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testTransitionBackToStarlarkDefaultOK() throws Exception {
+    writeAllowlistFile();
+    writeBuildSettingsBzl();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//test/starlark:the-answer': attr.answer_for_dep,",
+        "    '//test/starlark:did-transition': 1,",
+        "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test/starlark:the-answer', '//test/starlark:did-transition']",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    'answer_for_dep': attr.int(),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
+        "  }",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
+        "my_rule(name = 'test', dep = ':dep1', answer_for_dep=0)",
+        "my_rule(name = 'dep1', dep = ':dep2', answer_for_dep=42)",
+        "my_rule(name = 'dep2', dep = ':dep3', answer_for_dep=0)",
+        "my_rule(name = 'dep3')",
+        "int_flag(name = 'the-answer', build_setting_default=0)",
+        "int_flag(name = 'did-transition', build_setting_default=0)");
+    useConfiguration(ImmutableMap.of(), "--cpu=FOO");
+
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
+
+    // '//test/starlark:did-transition ensures ST-hash is 'turned on' since :test has no ST-hash
+    //   and thus will trivially have a unique getTransitionDirectoryNameFragment
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep1 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep2 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(dep1).getValue("dep"));
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep3 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(dep2).getValue("dep"));
+
+    // These must be true
+    assertThat(getTransitionDirectoryNameFragment(dep1))
+        .isNotEqualTo(getTransitionDirectoryNameFragment(dep2));
+
+    assertThat(getTransitionDirectoryNameFragment(dep2))
+        .isNotEqualTo(getTransitionDirectoryNameFragment(dep3));
+
+    // TODO(blaze-configurability-team): When "affected by starlark transition" is gone,
+    //    will be equal and thus getTransitionDirectoryNameFragment can be equal.
+    if (!getConfiguration(dep1).equals(getConfiguration(dep3))) {
+      assertThat(getTransitionDirectoryNameFragment(dep1))
+          .isNotEqualTo(getTransitionDirectoryNameFragment(dep3));
+    }
+  }
+
+  @Test
   public void testTransitionOnBuildSetting_onlyTransitionsAffectsDirectory() throws Exception {
     writeAllowlistFile();
     writeBuildSettingsBzl();
