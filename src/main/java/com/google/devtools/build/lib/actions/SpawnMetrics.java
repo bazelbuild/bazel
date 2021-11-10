@@ -340,6 +340,11 @@ public final class SpawnMetrics {
       return this;
     }
 
+    public Builder addSetupTime(Duration setupTime) {
+      this.setupTime = this.setupTime.plus(setupTime);
+      return this;
+    }
+
     public Builder setUploadTime(Duration uploadTime) {
       this.uploadTime = uploadTime;
       return this;
