@@ -293,7 +293,9 @@ public class ModuleFileFunction implements SkyFunction {
       ModuleFileGlobals moduleFileGlobals, StarlarkSemantics starlarkSemantics) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     // Required by java toolchain to locate the local JDK.
-    env.put("DEFAULT_SYSTEM_JAVABASE", defaultSystemJavabaseDir.toString());
+    env.put("DEFAULT_SYSTEM_JAVABASE", defaultSystemJavabaseDir != null
+        ? defaultSystemJavabaseDir.toString()
+        : "/tmp/bazel/nosystemjdk");
     Starlark.addMethods(env, moduleFileGlobals, starlarkSemantics);
     return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.build());
   }
