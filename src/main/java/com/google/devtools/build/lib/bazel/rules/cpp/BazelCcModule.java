@@ -182,6 +182,7 @@ public class BazelCcModule extends CcModule
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
+      Object mainOutput,
       Object linkerOutputs,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
@@ -208,6 +209,7 @@ public class BazelCcModule extends CcModule
         wholeArchive,
         additionalLinkstampDefines,
         onlyForDynamicLibs,
+        mainOutput,
         linkerOutputs,
         thread);
   }

@@ -5865,6 +5865,41 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCustomNameOutputArtifact() throws Exception {
+    createCcBinRule(
+        scratch,
+        /* internalApi= */ true,
+        "output_type = 'dynamic_library'",
+        " main_output=ctx.actions.declare_file('custom_name.so')");
+    scratch.file(
+        "foo/BUILD",
+        "load('//bazel_internal/test_rules/cc:extension.bzl', 'cc_bin')",
+        "cc_bin(",
+        "    name = 'bin',",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+
+    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    Artifact dynamicLibrary = library.getResolvedSymlinkDynamicLibrary();
+    if (dynamicLibrary == null) {
+      dynamicLibrary = library.getDynamicLibrary();
+    }
+
+    assertThat(dynamicLibrary).isNotNull();
+    assertThat(dynamicLibrary.getFilename()).isEqualTo("custom_name.so");
+  }
+
+  @Test
+  public void testCustomNameOutputArtifactRaisesError() throws Exception {
+    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'", " main_output=None");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
+    assertThat(e).hasMessageThat().contains("Rule in 'tools/build_defs' cannot use private API");
+  }
+
+  @Test
   public void testInterfaceLibraryProducedForTransitiveLinkOnWindows() throws Exception {
     getAnalysisMock()
         .ccSupport()
@@ -6278,7 +6313,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
   }
 
-  private static void createCcBinRule(Scratch scratch, String... additionalLines) throws Exception {
+  private static void createCcBinRule(
+      Scratch scratch, boolean internalApi, String... additionalLines) throws Exception {
     String fragments = "    fragments = ['google_cpp', 'cpp'],";
     if (AnalysisMock.get().isThisBazel()) {
       fragments = "    fragments = ['cpp'],";
@@ -6292,8 +6328,14 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    name = 'grep-includes',",
         "    srcs = ['grep-includes.sh'],",
         ")");
+
+    String extensionDirectory = "tools/build_defs";
+    if (internalApi) {
+      extensionDirectory = "bazel_internal/test_rules/cc";
+      scratch.overwriteFile(extensionDirectory + "/BUILD", "");
+    }
     scratch.file(
-        "tools/build_defs/extension.bzl",
+        extensionDirectory + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _cc_bin_impl(ctx):",
         "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
@@ -6343,7 +6385,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
       throws Exception {
-    createCcBinRule(scratch, additionalLines);
+    createCcBinRule(scratch, /* internalApi= */ false, additionalLines);
     scratch.file(
         "foo/BUILD",
         "load('//tools/build_defs:extension.bzl', 'cc_bin')",
@@ -7451,7 +7493,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testAdditionalLinkingOutputsAppearAsOutputsOfLinkAction() throws Exception {
-    createCcBinRule(scratch, "additional_outputs=ctx.outputs.additional_outputs");
+    createCcBinRule(
+        scratch, /* internalApi= */ false, "additional_outputs=ctx.outputs.additional_outputs");
     scratch.file(
         "foo/BUILD",
         "load('//tools/build_defs:extension.bzl', 'cc_bin')",
