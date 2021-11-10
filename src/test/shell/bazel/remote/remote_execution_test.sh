@@ -3204,4 +3204,72 @@ EOF
   expect_not_log "WARNING: Writing to Remote Cache:"
 }
 
+function test_download_toplevel_when_turn_remote_cache_off() {
+  # Test that BwtB does cause build failure if remote cache is disabled in a following build.
+  # See https://github.com/bazelbuild/bazel/issues/13882.
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+    name = "producer",
+    outs = ["a.txt", "b.txt"],
+    cmd = "touch \$(OUTS)",
+)
+
+genrule(
+    name = "consumer",
+    outs = ["out.txt"],
+    srcs = [":b.txt", "in.txt"],
+    cmd = "cat \$(SRCS) > \$@",
+)
+EOF
+  echo 'foo' > a/in.txt
+
+  # populate the cache
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    --verbose_failures \
+    //a:consumer >& $TEST_log || fail "Failed to populate the cache"
+
+  bazel clean || fail "Failed to clean"
+
+  # download top level outputs without remote metadata
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    --verbose_failures \
+    //a:consumer >& $TEST_log || fail "Failed to download outputs without remote metadata"
+  (! [[ -f bazel-bin/a/a.txt ]] && ! [[ -f bazel-bin/a/b.txt ]]) \
+  || fail "Expected outputs of producer are not downloaded without remote metadata"
+
+  # build without remote cache without remote metadata
+  echo 'bar' > a/in.txt
+  bazel build \
+    --remote_download_toplevel \
+    --verbose_failures \
+    //a:consumer >& $TEST_log || fail "Failed to build without remote cache without remote metadata"
+
+  bazel clean || fail "Failed to clean"
+  echo 'foo' > a/in.txt
+
+  # download top level outputs with remote metadata
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    --experimental_action_cache_store_output_metadata \
+    --verbose_failures \
+    //a:consumer >& $TEST_log || fail "Failed to download outputs with remote metadata"
+  (! [[ -f bazel-bin/a/a.txt ]] && ! [[ -f bazel-bin/a/b.txt ]]) \
+  || fail "Expected outputs of producer are not downloaded with remote metadata"
+
+  # build without remote cache with remote metadata
+  echo 'bar' > a/in.txt
+  bazel build \
+    --remote_download_toplevel \
+    --experimental_action_cache_store_output_metadata \
+    --verbose_failures \
+    //a:consumer >& $TEST_log || fail "Failed to build without remote cache with remote metadata"
+}
+
 run_suite "Remote execution and remote cache tests"
