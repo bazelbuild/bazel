@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -37,6 +39,31 @@ import net.starlark.java.eval.StarlarkValue;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
+
+  @StarlarkMethod(
+      name = "get_linked_artifact",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "config", positional = false, named = true),
+        @Param(name = "is_dynamic_link_type", positional = false, named = true),
+      })
+  public Artifact getLinkedArtifactForStarlark(
+      StarlarkRuleContext starlarkRuleContext,
+      CcToolchainProvider ccToolchain,
+      BuildConfigurationValue config,
+      Boolean isDynamicLinkType)
+      throws EvalException {
+    Link.LinkTargetType linkType =
+        isDynamicLinkType ? Link.LinkTargetType.DYNAMIC_LIBRARY : Link.LinkTargetType.EXECUTABLE;
+    try {
+      return CppHelper.getLinkedArtifact(
+          starlarkRuleContext.getRuleContext(), ccToolchain, config, linkType);
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
 
   @StarlarkMethod(
       name = "collect_compilation_prerequisites",
@@ -65,6 +92,16 @@ public class CcStarlarkInternal implements StarlarkValue {
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
+  }
+
+  @StarlarkMethod(
+      name = "statically_linked_marker_provider",
+      documented = false,
+      parameters = {
+        @Param(name = "is_linked_statically", positional = false, named = true),
+      })
+  public StaticallyLinkedMarkerProvider staticallyLinkedMarkerProvider(boolean isLinkedStatically) {
+    return new StaticallyLinkedMarkerProvider(isLinkedStatically);
   }
 
   @StarlarkMethod(

@@ -766,6 +766,11 @@ public final class CcCommon implements StarlarkValue {
         /* prefixConsumer= */ true);
   }
 
+  @StarlarkMethod(name = "linker_scripts", structField = true, documented = false)
+  public Sequence<Artifact> getLinkerScriptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getLinkerScripts());
+  }
+
   /** Returns any linker scripts found in the "deps" attribute of the rule. */
   List<Artifact> getLinkerScripts() {
     return ruleContext.getPrerequisiteArtifacts("deps").filter(CppFileTypes.LINKER_SCRIPT).list();
@@ -805,6 +810,37 @@ public final class CcCommon implements StarlarkValue {
     try {
       return getInstrumentedFilesProvider(
           Sequence.cast(files, Artifact.class, "files"), withBaselineCoverage);
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "instrumented_files_info_from_compilation_context",
+      documented = false,
+      parameters = {
+        @Param(name = "files", positional = false, named = true),
+        @Param(name = "with_base_line_coverage", positional = false, named = true),
+        @Param(name = "compilation_context", positional = false, named = true),
+        @Param(name = "additional_metadata", positional = false, named = true),
+      })
+  public InstrumentedFilesInfo getInstrumentedFilesProviderFromCompilationContextForStarlark(
+      Sequence<?> files,
+      boolean withBaselineCoverage,
+      Object compilationContext,
+      Sequence<?> additionalMetadata)
+      throws EvalException {
+    try {
+      CcCompilationContext ccCompilationContext = (CcCompilationContext) compilationContext;
+      Sequence<Artifact> metadata =
+          additionalMetadata == null
+              ? null
+              : Sequence.cast(additionalMetadata, Artifact.class, "files");
+      return getInstrumentedFilesProvider(
+          Sequence.cast(files, Artifact.class, "files"),
+          withBaselineCoverage,
+          ccCompilationContext.getVirtualToOriginalHeaders(),
+          metadata);
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }

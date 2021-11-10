@@ -542,6 +542,12 @@ public final class CcToolchainProvider extends NativeInfo
     return dwpFiles;
   }
 
+  @Override
+  public Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getDwpFiles());
+  }
+
   /** Returns the files necessary for capturing code coverage. */
   public NestedSet<Artifact> getCoverageFiles() {
     return coverageFiles;

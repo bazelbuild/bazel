@@ -7696,4 +7696,34 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     assertThat(e).hasMessageThat().contains("cannot use private API");
   }
+
+  @Test
+  public void testExtendedCcLinkingOutputsApiBlocked() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'cc_linking_outputs_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_linking_outputs_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain ="
+            + " cc_toolchain)",
+        "  cc_linking_outputs = cc_common.link(actions = ctx.actions, feature_configuration ="
+            + " feature_configuration, cc_toolchain = cc_toolchain, name = ctx.label.name)",
+        "  cc_linking_outputs.all_lto_artifacts()",
+        "  return []",
+        "cc_linking_outputs_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foo:alias'))},",
+        "  fragments = ['cpp'],",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
 }

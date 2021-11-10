@@ -228,4 +228,7 @@ public interface CcToolchainProviderApi<
       structField = true,
       doc = "The path to the gcov binary.")
   String gcovExecutable();
+
+  @StarlarkMethod(name = "dwp_files", documented = false, useStarlarkThread = true)
+  Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException;
 }
