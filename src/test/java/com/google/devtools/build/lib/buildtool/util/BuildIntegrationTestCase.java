@@ -212,6 +212,8 @@ public abstract class BuildIntegrationTestCase {
     mockToolsConfig = new MockToolsConfig(workspace, realFileSystem());
     setupMockTools();
     createRuntimeWrapper();
+
+    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
   }
 
   protected ServerDirectories createServerDirectories() {
