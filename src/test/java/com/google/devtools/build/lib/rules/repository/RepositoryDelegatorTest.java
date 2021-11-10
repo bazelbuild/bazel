@@ -121,6 +121,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   @Before
   public void setupDelegator() throws Exception {
     rootPath = scratch.dir("/outputbase");
+    Path defaultLocalJavaBase = scratch.dir("/local_javabase");
     scratch.file(
         rootPath.getRelative("MODULE.bazel").getPathString(), "module(name='test',version='0.1')");
     BlazeDirectories directories =
@@ -233,7 +234,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new IgnoredPackagePrefixesFunction(
                         /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
-                .put(SkyFunctions.MODULE_FILE, new ModuleFileFunction(registryFactory, rootPath))
+                .put(SkyFunctions.MODULE_FILE, new ModuleFileFunction(registryFactory, rootPath, defaultLocalJavaBase))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_RESOLUTION,

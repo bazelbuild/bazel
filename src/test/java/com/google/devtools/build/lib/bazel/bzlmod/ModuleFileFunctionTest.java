@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBoots
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -85,6 +86,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Before
   public void setup() throws Exception {
+    Path defaultLocalJavaBase = scratch.dir("/local_javabase");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
@@ -132,7 +134,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, rootDirectory))
+                    new ModuleFileFunction(registryFactory, rootDirectory, defaultLocalJavaBase))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,

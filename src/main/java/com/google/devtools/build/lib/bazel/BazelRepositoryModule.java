@@ -229,7 +229,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
         .addSkyFunction(
             SkyFunctions.MODULE_FILE,
-            new ModuleFileFunction(registryFactory, directories.getWorkspace()))
+            new ModuleFileFunction(registryFactory, directories.getWorkspace(), directories.getLocalJavabase()))
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())

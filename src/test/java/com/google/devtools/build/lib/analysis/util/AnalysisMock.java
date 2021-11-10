@@ -139,7 +139,7 @@ public abstract class AnalysisMock extends LoadingMock {
             ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER),
         SkyFunctions.MODULE_FILE,
-        new ModuleFileFunction(FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace()),
+        new ModuleFileFunction(FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace(), directories.getLocalJavabase()),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
         SkyFunctions.MODULE_EXTENSION_RESOLUTION,

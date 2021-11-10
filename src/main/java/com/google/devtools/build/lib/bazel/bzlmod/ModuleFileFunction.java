@@ -68,10 +68,12 @@ public class ModuleFileFunction implements SkyFunction {
 
   private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
+  private final Path defaultSystemJavabaseDir;
 
-  public ModuleFileFunction(RegistryFactory registryFactory, Path workspaceRoot) {
+  public ModuleFileFunction(RegistryFactory registryFactory, Path workspaceRoot, Path defaultSystemJavabaseDir) {
     this.registryFactory = registryFactory;
     this.workspaceRoot = workspaceRoot;
+    this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
   }
 
   @Override
@@ -290,6 +292,8 @@ public class ModuleFileFunction implements SkyFunction {
   private net.starlark.java.eval.Module getPredeclaredEnv(
       ModuleFileGlobals moduleFileGlobals, StarlarkSemantics starlarkSemantics) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    // Required by java toolchain to locate the local JDK.
+    env.put("DEFAULT_SYSTEM_JAVABASE", defaultSystemJavabaseDir.toString());
     Starlark.addMethods(env, moduleFileGlobals, starlarkSemantics);
     return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.build());
   }

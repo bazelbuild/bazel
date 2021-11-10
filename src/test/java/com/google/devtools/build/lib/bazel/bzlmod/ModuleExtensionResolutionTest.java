@@ -107,6 +107,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   @Before
   public void setup() throws Exception {
     workspaceRoot = scratch.dir("/ws");
+    Path defaultLocalJavaBase = scratch.dir("/local_javabase");
     modulesRoot = scratch.dir("/modules");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
@@ -164,7 +165,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot))
+                    new ModuleFileFunction(registryFactory, workspaceRoot, defaultLocalJavaBase))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(packageFactory, hashFunction))
                 .put(

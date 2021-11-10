@@ -119,6 +119,7 @@ public class DiscoveryTest extends FoundationTestCase {
   @Before
   public void setup() throws Exception {
     workspaceRoot = scratch.dir("/ws");
+    Path defaultLocalJavaBase = scratch.dir("/local_javabase");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
@@ -167,7 +168,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot))
+                    new ModuleFileFunction(registryFactory, workspaceRoot, defaultLocalJavaBase))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,

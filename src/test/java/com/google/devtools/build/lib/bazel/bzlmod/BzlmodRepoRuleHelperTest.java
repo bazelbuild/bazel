@@ -79,6 +79,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   @Before
   public void setup() throws Exception {
     workspaceRoot = scratch.dir("/ws");
+    Path defaultLocalJavaBase = scratch.dir("/local_javabase");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
@@ -113,7 +114,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot))
+                    new ModuleFileFunction(registryFactory, workspaceRoot, defaultLocalJavaBase))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     GET_REPO_SPEC_BY_NAME_FUNCTION,
