@@ -565,13 +565,7 @@ public class PackageFunction implements SkyFunction {
           packageLookupValue.getRoot(), packageId, pkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
-      PackageLoading.Code packageLoadingCode =
-          e.isTransient()
-              ? PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR
-              : PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR;
-      throw new PackageFunctionException(
-          e.toNoSuchPackageException(packageLoadingCode),
-          e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
+      throw e.throwPackageFunctionException();
     }
     Set<SkyKey> globKeys = packageCacheEntry.globDepKeys;
     try {
@@ -579,13 +573,7 @@ public class PackageFunction implements SkyFunction {
           packageId, globKeys, env, pkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
-      PackageLoading.Code packageLoadingCode =
-          e.isTransient()
-              ? PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR
-              : PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR;
-      throw new PackageFunctionException(
-          e.toNoSuchPackageException(packageLoadingCode),
-          e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
+      throw e.throwPackageFunctionException();
     } catch (FileSymlinkException e) {
       packageFunctionCache.invalidate(packageId);
       String message = "Symlink issue while evaluating globs: " + e.getUserFriendlyMessage();
@@ -1550,15 +1538,19 @@ public class PackageFunction implements SkyFunction {
       return isTransient;
     }
 
-    private NoSuchPackageException toNoSuchPackageException(
-        PackageLoading.Code packageLoadingCode) {
-      return PackageFunctionException.builder()
+    private PackageFunctionException throwPackageFunctionException()
+        throws PackageFunctionException {
+      throw PackageFunctionException.builder()
           .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
           .setPackageIdentifier(packageIdentifier)
           .setMessage(this.getMessage())
           .setException((Exception) this.getCause())
-          .setPackageLoadingCode(packageLoadingCode)
-          .buildCause();
+          .setPackageLoadingCode(
+              isTransient()
+                  ? Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR
+                  : Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR)
+          .setTransience(isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT)
+          .build();
     }
   }
 
@@ -1580,7 +1572,7 @@ public class PackageFunction implements SkyFunction {
      * contains a myriad of different types of exceptions that extend NoSuchPackageException for
      * different scenarios.
      */
-    static enum Type {
+    enum Type {
       BUILD_FILE_CONTAINS_ERRORS {
         @Override
         BuildFileContainsErrorsException create(
@@ -1640,12 +1632,12 @@ public class PackageFunction implements SkyFunction {
         return this;
       }
 
-      Builder setTransience(Transience transience) {
+      private Builder setTransience(Transience transience) {
         this.transience = transience;
         return this;
       }
 
-      Builder setException(Exception exception) {
+      private Builder setException(Exception exception) {
         this.exception = exception;
         return this;
       }
