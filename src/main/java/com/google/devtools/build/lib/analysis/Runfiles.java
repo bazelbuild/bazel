@@ -106,10 +106,10 @@ public final class Runfiles implements RunfilesApi {
   // first one prevents the last one from appearing on the iterator.
   //
   // The lack of a .equals() method prevents this by making the first entry in the above case not
-  // equals to the third one if they are not the same instance (which they almost never are)
+  // equal to the third one if they are not the same instance (which they almost never are).
   //
   // Goodnight, prince(ss)?, and sweet dreams.
-  private static final class SymlinkEntry implements SymlinkEntryApi {
+  public static final class SymlinkEntry implements SymlinkEntryApi {
 
     static final Depset.ElementType TYPE = Depset.ElementType.of(SymlinkEntry.class);
 

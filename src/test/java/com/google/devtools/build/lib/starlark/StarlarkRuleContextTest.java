@@ -1689,6 +1689,78 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAccessingRunfilesSymlinksAsDepsets() throws Exception {
+    // Arrange
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def symlink_impl(ctx):",
+        "  symlinks = {",
+        "    'symlink_' + f.short_path: f",
+        "    for f in ctx.files.symlink",
+        "  }",
+        "  root_symlinks = {",
+        "    'root_symlink_' + f.short_path: f",
+        "    for f in ctx.files.symlink",
+        "  }",
+        "  runfiles_from_dict = ctx.runfiles(",
+        "    symlinks=symlinks,",
+        "    root_symlinks=root_symlinks,",
+        "  )",
+        "  runfiles_from_depset = ctx.runfiles(",
+        "    symlinks = runfiles_from_dict.symlinks,",
+        "    root_symlinks = runfiles_from_dict.root_symlinks,",
+        "  )",
+        "   ",
+        "  return DefaultInfo(runfiles = runfiles_from_depset,)",
+        "symlink_rule = rule(",
+        "  implementation = symlink_impl,",
+        "  attrs = {",
+        "    'symlink': attr.label(allow_files=True),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'symlink_rule')",
+        "symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')",
+        "sh_binary(",
+        "  name = 'test_with_symlink',",
+        "  srcs = ['test/b.py'],",
+        "  data = [':lib_with_symlink'],",
+        ")");
+    setRuleContext(createRuleContext("//test:test_with_symlink"));
+
+    // Act
+    Object symlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    Object rootSymlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
+
+    // Assert
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
+    assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
+    Object symlinkFilenames =
+        ev.eval(
+            "[s.target_file.short_path for s in"
+                + " ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkFilenamesList = (Sequence) symlinkFilenames;
+    assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
+    assertThat(rootSymlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkPathsList = (Sequence) rootSymlinkPaths;
+    assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
+    Object rootSymlinkFilenames =
+        ev.eval(
+            "[s.target_file.short_path for s in"
+                + " ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
+    assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkFilenamesList = (Sequence) rootSymlinkFilenames;
+    assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
+  }
+
+  @Test
   public void runfiles_merge() throws Exception {
     scratch.file("test/a.py");
     scratch.file("test/b.py");

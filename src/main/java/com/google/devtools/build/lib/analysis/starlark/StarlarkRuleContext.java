@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.Runfiles.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -912,9 +914,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
-      Dict<?, ?> symlinks,
-      Dict<?, ?> rootSymlinks)
-      throws EvalException {
+      Object symlinks,
+      Object rootSymlinks)
+      throws EvalException, TypeException {
     checkMutable("runfiles");
     Runfiles.Builder builder =
         new Runfiles.Builder(
@@ -941,7 +943,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
-    if (!symlinks.isEmpty()) {
+    if (isDepset(symlinks)) {
+      builder.addSymlinks(((Depset) symlinks).getSet(SymlinkEntry.class));
+    } else if (isNonEmptyDict(symlinks)) {
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
@@ -949,7 +953,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         builder.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
       }
     }
-    if (!rootSymlinks.isEmpty()) {
+    if (isDepset(rootSymlinks)) {
+      builder.addRootSymlinks(((Depset) rootSymlinks).getSet(SymlinkEntry.class));
+    } else if (isNonEmptyDict(rootSymlinks)) {
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
           Dict.cast(rootSymlinks, String.class, Artifact.class, "root_symlinks").entrySet()) {
@@ -961,6 +967,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
+  }
+
+  private static boolean isNonEmptyDict(Object o) {
+    return o instanceof Dict && !((Dict<?, ?>) o).isEmpty();
+  }
+
+  private static boolean isDepset(Object o) {
+    return o instanceof Depset;
   }
 
   @Override
