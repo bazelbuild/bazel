@@ -1,3 +1,35 @@
+## Release 6.0.0-pre.20211101.2 (2021-11-11)
+
+```
+Baseline: 9c65356cedcf4e68077219c10f5a7bb39d38054b
+
+Cherry picks:
+
+   + 2c9721f9ba11979eee1fd95fe793b52369df99ac:
+     Automated rollback of commit
+     9c65356cedcf4e68077219c10f5a7bb39d38054b.
+```
+
+Important changes:
+
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Ben Lee, Fabian Meumertzheim, Fredrik Medley, Keith Smiley, Rahul Butani, Ulf Adams, William Muir.
+
+## Release 6.0.0-pre.20211025.1 (2021-11-03)
+
+```
+Baseline: 5c04973b000b6e1819d6b51d238498a0b507c7af
+```
+
+Important changes:
+
+  - Bazel no longer supports Java 8. From this version on, the
+    minimum required JDK is OpenJDK 11.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, John Laxson, Keith Smiley, Thi Don.
+
 ## Release 6.0.0-pre.20211019.1 (2021-10-26)
 
 ```
