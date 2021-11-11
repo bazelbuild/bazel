@@ -184,6 +184,9 @@ public class BazelCcModule extends CcModule
       Object onlyForDynamicLibs,
       Object mainOutput,
       Object linkerOutputs,
+      Object useTestOnlyFlags,
+      Object pdbFile,
+      Object winDefFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -211,13 +214,21 @@ public class BazelCcModule extends CcModule
         onlyForDynamicLibs,
         mainOutput,
         linkerOutputs,
+        useTestOnlyFlags,
+        pdbFile,
+        winDefFile,
         thread);
   }
 
   @Override
   public CcCompilationOutputs createCompilationOutputsFromStarlark(
-      Object objectsObject, Object picObjectsObject) throws EvalException {
-    return super.createCompilationOutputsFromStarlark(objectsObject, picObjectsObject);
+      Object objectsObject,
+      Object picObjectsObject,
+      Object ltoCopmilationContextObject,
+      StarlarkThread thread)
+      throws EvalException {
+    return super.createCompilationOutputsFromStarlark(
+        objectsObject, picObjectsObject, ltoCopmilationContextObject, thread);
   }
 
   @Override

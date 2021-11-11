@@ -566,7 +566,26 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class)},
-            defaultValue = "unbound")
+            defaultValue = "unbound"),
+        @Param(
+            name = "use_test_only_flags",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "pdb_file",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "win_def_file",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -593,12 +612,16 @@ public interface BazelCcModuleApi<
       Object onlyForDynamicLibs,
       Object mainOutput,
       Object linkerOutputs,
+      Object useTestOnlyFlags,
+      Object pdbFile,
+      Object winDefFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "objects",
@@ -620,9 +643,19 @@ public interface BazelCcModuleApi<
               @ParamType(type = Depset.class),
               @ParamType(type = NoneType.class),
             }),
+        @Param(
+            name = "lto_compilation_context",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   CompilationOutputsT createCompilationOutputsFromStarlark(
-      Object objectsObject, Object picObjectsObject) throws EvalException;
+      Object objectsObject,
+      Object picObjectsObject,
+      Object ltoCopmilationContextObject,
+      StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "merge_compilation_outputs",

@@ -218,6 +218,17 @@ public abstract class CcModule
   }
 
   @Override
+  public Sequence<String> getToolRequirementForAction(
+      FeatureConfigurationForStarlark featureConfiguration,
+      String actionName,
+      StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(
+        featureConfiguration.getFeatureConfiguration().getToolRequirementsForAction(actionName));
+  }
+
+  @Override
   public Sequence<String> getExecutionRequirements(
       FeatureConfigurationForStarlark featureConfiguration, String actionName) {
     return StarlarkList.immutableCopyOf(
@@ -275,43 +286,61 @@ public abstract class CcModule
       Object thinLtoOutputObjectFile,
       boolean usePic,
       boolean addLegacyCxxOptions,
-      Object variablesExtension)
+      Object variablesExtension,
+      Object stripOpts,
+      Object inputFile,
+      StarlarkThread thread)
       throws EvalException {
+    if (checkObjectsBound(stripOpts, inputFile)) {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    }
     ImmutableList<VariablesExtension> variablesExtensions =
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
-    return CompileBuildVariables.setupVariablesOrThrowEvalException(
-        featureConfiguration.getFeatureConfiguration(),
-        ccToolchainProvider,
-        featureConfiguration
-            .getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
-        featureConfiguration
-            .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
-        convertFromNoneable(sourceFile, /* defaultValue= */ null),
-        convertFromNoneable(outputFile, /* defaultValue= */ null),
-        /* gcnoFile= */ null,
-        /* isUsingFission= */ false,
-        /* dwoFile= */ null,
-        /* ltoIndexingFile= */ null,
-        convertFromNoneable(thinLtoIndex, /* defaultValue= */ null),
-        convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue=*/ null),
-        convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue=*/ null),
-        /* includes= */ ImmutableList.of(),
-        userFlagsToIterable(userCompileFlags),
-        /* cppModuleMap= */ null,
-        usePic,
-        /* fdoStamp= */ null,
-        /* dotdFileExecPath= */ null,
-        variablesExtensions,
-        /* additionalBuildVariables= */ ImmutableMap.of(),
-        /* directModuleMaps= */ ImmutableList.of(),
-        Depset.noneableCast(includeDirs, String.class, "framework_include_directories"),
-        Depset.noneableCast(quoteIncludeDirs, String.class, "quote_include_directories"),
-        Depset.noneableCast(systemIncludeDirs, String.class, "system_include_directories"),
-        Depset.noneableCast(frameworkIncludeDirs, String.class, "framework_include_directories"),
-        Depset.noneableCast(defines, String.class, "preprocessor_defines").toList(),
-        ImmutableList.of());
+    CcToolchainVariables.Builder variables =
+        CcToolchainVariables.builder(
+                CompileBuildVariables.setupVariablesOrThrowEvalException(
+                    featureConfiguration.getFeatureConfiguration(),
+                    ccToolchainProvider,
+                    featureConfiguration
+                        .getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
+                    featureConfiguration
+                        .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
+                    convertFromNoneable(sourceFile, /* defaultValue= */ null),
+                    convertFromNoneable(outputFile, /* defaultValue= */ null),
+                    /* gcnoFile= */ null,
+                    /* isUsingFission= */ false,
+                    /* dwoFile= */ null,
+                    /* ltoIndexingFile= */ null,
+                    convertFromNoneable(thinLtoIndex, /* defaultValue= */ null),
+                    convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue=*/ null),
+                    convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue=*/ null),
+                    /* includes= */ ImmutableList.of(),
+                    userFlagsToIterable(userCompileFlags),
+                    /* cppModuleMap= */ null,
+                    usePic,
+                    /* fdoStamp= */ null,
+                    /* dotdFileExecPath= */ null,
+                    variablesExtensions,
+                    /* additionalBuildVariables= */ ImmutableMap.of(),
+                    /* directModuleMaps= */ ImmutableList.of(),
+                    Depset.noneableCast(includeDirs, String.class, "framework_include_directories"),
+                    Depset.noneableCast(
+                        quoteIncludeDirs, String.class, "quote_include_directories"),
+                    Depset.noneableCast(
+                        systemIncludeDirs, String.class, "system_include_directories"),
+                    Depset.noneableCast(
+                        frameworkIncludeDirs, String.class, "framework_include_directories"),
+                    Depset.noneableCast(defines, String.class, "preprocessor_defines").toList(),
+                    ImmutableList.of()))
+            .addStringSequenceVariable("stripopts", asClassImmutableList(stripOpts));
+
+    String inputFileString = convertFromNoneable(inputFile, null);
+    if (inputFileString != null) {
+      variables.addStringVariable("input_file", inputFileString);
+    }
+    return variables.build();
   }
 
   @Override
@@ -1804,16 +1833,26 @@ public abstract class CcModule
       Sequence<?> linkingContexts, // <CcLinkingContext> expected
       String name,
       String languageString,
-      boolean alwayslink, // <Artifact> expected
-      Sequence<?> additionalInputs,
+      boolean alwayslink,
+      Sequence<?> additionalInputs, // <Artifact> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Object variablesExtension,
+      Object stamp,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
+    if (checkObjectsBound(stamp)) {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    }
     Language language = parseLanguage(languageString);
     StarlarkActionFactory actions = starlarkActionFactoryApi;
+    int stampInt = 0;
+    if (stamp != Starlark.UNBOUND) {
+      stampInt = (int) stamp;
+    }
+    boolean isStampingEnabled =
+        isStampingEnabled(stampInt, actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider =
         convertFromNoneable(starlarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
@@ -1863,6 +1902,7 @@ public abstract class CcModule
             .setStaticLinkType(staticLinkTargetType)
             .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .emitInterfaceSharedLibraries(true)
+            .setIsStampingEnabled(isStampingEnabled)
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
@@ -2268,6 +2308,9 @@ public abstract class CcModule
       Object onlyForDynamicLibsObject,
       Object mainOutputObject,
       Object linkerOutputsObject,
+      Object useTestOnlyFlags,
+      Object pdbFile,
+      Object winDefFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
@@ -2284,7 +2327,10 @@ public abstract class CcModule
         wholeArchiveObject,
         additionalLinkstampDefines,
         mainOutputObject,
-        onlyForDynamicLibsObject)) {
+        onlyForDynamicLibsObject,
+        useTestOnlyFlags,
+        pdbFile,
+        winDefFile)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -2379,6 +2425,9 @@ public abstract class CcModule
                     && CppHelper.useInterfaceSharedLibraries(
                         cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
             .setLinkerOutputArtifact(convertFromNoneable(mainOutput, null))
+            .setUseTestOnlyFlags(convertFromNoneable(useTestOnlyFlags, false))
+            .setPdbFile(convertFromNoneable(pdbFile, null))
+            .setDefFile(convertFromNoneable(winDefFile, null))
             .addLinkerOutputs(linkerOutputs);
     if (staticLinkTargetType != null) {
       helper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
@@ -2397,7 +2446,14 @@ public abstract class CcModule
   }
 
   protected CcCompilationOutputs createCompilationOutputsFromStarlark(
-      Object objectsObject, Object picObjectsObject) throws EvalException {
+      Object objectsObject,
+      Object picObjectsObject,
+      Object ltoCompilationContextObject,
+      StarlarkThread thread)
+      throws EvalException {
+    if (checkObjectsBound(ltoCompilationContextObject)) {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    }
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
     NestedSet<Artifact> objects = convertToNestedSet(objectsObject, Artifact.class, "objects");
     validateExtensions(
@@ -2406,6 +2462,8 @@ public abstract class CcModule
         Link.OBJECT_FILETYPES,
         Link.OBJECT_FILETYPES,
         /* allowAnyTreeArtifacts= */ false);
+    LtoCompilationContext ltoCompilationContext =
+        convertFromNoneable(ltoCompilationContextObject, null);
     NestedSet<Artifact> picObjects =
         convertToNestedSet(picObjectsObject, Artifact.class, "pic_objects");
     validateExtensions(
@@ -2416,6 +2474,9 @@ public abstract class CcModule
         /* allowAnyTreeArtifacts= */ false);
     ccCompilationOutputsBuilder.addObjectFiles(objects.toList());
     ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
+    if (ltoCompilationContext != null) {
+      ccCompilationOutputsBuilder.addLtoCompilationContext(ltoCompilationContext);
+    }
     return ccCompilationOutputsBuilder.build();
   }
 
