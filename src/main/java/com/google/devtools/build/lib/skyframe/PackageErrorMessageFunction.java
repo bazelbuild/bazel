@@ -32,6 +32,8 @@ public class PackageErrorMessageFunction implements SkyFunction {
       pkgValue =
           (PackageValue) env.getValueOrThrow(PackageValue.key(pkgId), NoSuchPackageException.class);
     } catch (NoSuchPackageException e) {
+      // Note that in a no-keep-going build, this returned value is ignored by Skyframe, and the
+      // NoSuchPackageException will be propagated up to the caller of PackageErrorMessageFunction.
       return PackageErrorMessageValue.ofNoSuchPackageException(e.getMessage());
     }
     if (pkgValue == null) {
