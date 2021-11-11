@@ -78,14 +78,12 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     CompilationAttributes.Builder.addSdkAttributesFromRuleContext(
         builder, starlarkRuleContext.getRuleContext());
     if (starlarkRuleContext.getRuleContext().attributes().has("copts")) {
+
       Sequence<String> copts =
           expandToolchainAndRuleContextVariables(
               starlarkRuleContext,
               StarlarkList.immutableCopyOf(
-                  starlarkRuleContext
-                      .getRuleContext()
-                      .attributes()
-                      .get("copts", Type.STRING_LIST)));
+                  starlarkRuleContext.getRuleContext().getExpander().withDataLocations().tokenized("copts")));
       CompilationAttributes.Builder.addCompileOptionsFromRuleContext(
           builder, starlarkRuleContext.getRuleContext(), copts);
     }

@@ -546,13 +546,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    name = 'lib',",
         "    srcs = ['a.m', 'b.m', 'private.h'],",
         "    hdrs = ['c.h'],",
-        "    copts = ['-Ifoo', '--monkeys=$(TARGET_CPU)', '--gorillas=$(FOO),$(BAR),$(BAZ)'],",
+        "    copts = ['-Ifoo', '--monkeys=$(TARGET_CPU)', '--gorillas=$(FOO),$(BAR),$(BAZ)', \"-I'$(rootpath a.m)'\"],",
         "    toolchains = [':set_foo_to_bar']",
         ")");
 
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
     assertThat(compileActionA.getArguments())
-        .containsAtLeast("-Ifoo", "--monkeys=ios_i386", "--gorillas=bar,bar,bar");
+        .containsAtLeast("-Ifoo", "--monkeys=ios_i386", "--gorillas=bar,bar,bar", "-Iobjc/a.m");
   }
 
   @Test
