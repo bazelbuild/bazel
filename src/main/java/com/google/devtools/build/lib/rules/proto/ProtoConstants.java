@@ -14,16 +14,22 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-/**
- * This class is used in ProtoCompileActionBuilder to generate an error message that's displayed
- * when a strict proto deps violation occurs.
- *
- * <p>%1$s is replaced with the label of the proto_library rule that's currently being built.
- *
- * <p>%%s is replaced with the literal "%s", which is passed to the proto-compiler, which replaces
- * it with the .proto file that violates strict proto deps.
- */
-public class StrictProtoDepsViolationMessage {
-  static final String MESSAGE =
+/** Constants used in Proto rules. */
+public final class ProtoConstants {
+  /** Default label for proto compiler. */
+  static final String DEFAULT_PROTOC_LABEL =  "@com_google_protobuf//:protoc";
+
+  /**
+   * This constant is used in ProtoCompileActionBuilder to generate an error message that's
+   * displayed when a strict proto deps violation occurs.
+   *
+   * <p>%1$s is replaced with the label of the proto_library rule that's currently being built.
+   *
+   * <p>%%s is replaced with the literal "%s", which is passed to the proto-compiler, which replaces
+   * it with the .proto file that violates strict proto deps.
+   */
+  static final String STRICT_PROTO_DEPS_VIOLATION_MESSAGE =
       "%%s is imported, but %1$s doesn't directly depend on a proto_library that 'srcs' it.";
+
+  private ProtoConstants() {}
 }
