@@ -35,8 +35,7 @@ public final class BuildCompleteEvent extends BuildCompletingEvent {
     super(
         result.getDetailedExitCode().getExitCode(),
         result.getStopTime(),
-        children,
-        result.getWasSuspended());
+        children);
     this.result = checkNotNull(result);
   }
 

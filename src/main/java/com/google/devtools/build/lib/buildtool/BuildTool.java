@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import static com.google.devtools.build.lib.platform.SuspendCounter.suspendCount;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -438,7 +436,6 @@ public class BuildTool {
       BuildRequest request, TargetValidator validator, PostBuildCallback postBuildCallback) {
     BuildResult result = new BuildResult(request.getStartTime());
     maybeSetStopOnFirstFailure(request, result);
-    int startSuspendCount = suspendCount();
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
     try {
@@ -536,7 +533,7 @@ public class BuildTool {
                 new IllegalStateException("Unspecified DetailedExitCode"));
       }
       try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
-        stopRequest(result, crash, detailedExitCode, startSuspendCount);
+        stopRequest(result, crash, detailedExitCode);
       }
     }
 
@@ -576,16 +573,10 @@ public class BuildTool {
    * @param crash any unexpected {@link RuntimeException} or {@link Error}, may be null
    * @param detailedExitCode describes the exit code and an optional detailed failure value to add
    *     to {@code result}
-   * @param startSuspendCount number of suspensions before the build started
    */
   public void stopRequest(
-      BuildResult result,
-      @Nullable Throwable crash,
-      DetailedExitCode detailedExitCode,
-      int startSuspendCount) {
+      BuildResult result, @Nullable Throwable crash, DetailedExitCode detailedExitCode) {
     Preconditions.checkState((crash == null) || !detailedExitCode.isSuccess());
-    int stopSuspendCount = suspendCount();
-    Preconditions.checkState(startSuspendCount <= stopSuspendCount);
     result.setUnhandledThrowable(crash);
     result.setDetailedExitCode(detailedExitCode);
 
@@ -598,7 +589,6 @@ public class BuildTool {
     }
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
-    result.setWasSuspended(stopSuspendCount > startSuspendCount);
 
     // Skip the build complete events so that modules can run blazeShutdownOnCrash without thinking
     // that the build completed normally. BlazeCommandDispatcher will call handleCrash.

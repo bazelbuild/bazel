@@ -27,18 +27,17 @@ import com.google.devtools.build.lib.util.ExitCode;
  * the test command is used.
  */
 public class TestingCompleteEvent extends BuildCompletingEvent {
+
   /**
    * Creates a new {@link TestingCompleteEvent}.
    *
-   * @param exitCode the overall exit code of "bazel test".
+   * @param exitCode         the overall exit code of "bazel test".
    * @param finishTimeMillis the finish time in milliseconds since the epoch.
-   * @param wasSuspended was the build suspended at any point.
    */
-  public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis, boolean wasSuspended) {
+  public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis) {
     super(
         exitCode,
         finishTimeMillis,
-        ImmutableList.of(BuildEventIdUtil.buildToolLogs()),
-        wasSuspended);
+        ImmutableList.of(BuildEventIdUtil.buildToolLogs()));
   }
 }

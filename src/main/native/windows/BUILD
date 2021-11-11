@@ -60,7 +60,7 @@ cc_binary(
         "memory_pressure_jni.cc",
         "processes-jni.cc",
         "sleep_prevention_jni.cc",
-        "suspend_counter_jni.cc",
+        "system_suspension_monitor_jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],

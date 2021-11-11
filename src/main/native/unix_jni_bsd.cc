@@ -130,9 +130,8 @@ int portable_pop_disable_sleep() {
   return -1;
 }
 
-int portable_suspend_count() {
+void portable_start_suspend_monitoring() {
   // Currently not implemented.
-  return 0;
 }
 
 int portable_memory_pressure_warning_count() {
