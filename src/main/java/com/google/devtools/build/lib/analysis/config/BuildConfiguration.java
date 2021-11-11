@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -67,7 +68,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
  *
  * <p>Instances of BuildConfiguration are canonical:
  *
- * <pre>c1.equals(c2) <=> c1==c2.</pre>
+ * <pre>{@code c1.equals(c2) <=> c1==c2.}</pre>
  */
 // TODO(janakr): If overhead of fragments class names is too high, add constructor that just takes
 // fragments and gets names from them.
@@ -106,6 +107,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   private final BuildOptions buildOptions;
   private final CoreOptions options;
+
+  /**
+   * If non-empty, this is appended to output directories as ST-[transitionDirectoryNameFragment].
+   * The value is a hash of BuildOptions that have been affected by a Starlark transition.
+   *
+   * <p>See b/203470434 or #14023 for more information and planned behavior changes.
+   */
+  private final String transitionDirectoryNameFragment;
 
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
@@ -189,6 +198,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
     if (buildOptions.contains(PlatformOptions.class)) {
       platformOptions = buildOptions.get(PlatformOptions.class);
     }
+    this.transitionDirectoryNameFragment =
+        FunctionTransitionUtil.computeOutputDirectoryNameFragment(buildOptions);
     this.outputDirectories =
         new OutputDirectories(
             directories,
@@ -196,7 +207,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
             platformOptions,
             this.fragments,
             mainRepositoryName,
-            siblingRepositoryLayout);
+            siblingRepositoryLayout,
+            transitionDirectoryNameFragment);
     this.mainRepositoryName = mainRepositoryName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
 
@@ -401,6 +413,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public String getMnemonic() {
     return outputDirectories.getMnemonic();
+  }
+
+  @VisibleForTesting
+  public String getTransitionDirectoryNameFragment() {
+    return transitionDirectoryNameFragment;
   }
 
   @Override
