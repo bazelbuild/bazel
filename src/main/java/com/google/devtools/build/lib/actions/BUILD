@@ -343,6 +343,6 @@ java_library(
     srcs = ["ThreadStateReceiver.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:jsr305",
+        "//third_party:error_prone_annotations",
     ],
 )
