@@ -61,12 +61,15 @@ public final class BindRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = bind, FAMILY = Workspace)[GENERIC_RULE] -->
 
-<em><p>Warning: use of <code>bind()</code> is not recommended. See "<a
+<p><em>Warning: use of <code>bind()</code> is not recommended. See "<a
 href="https://github.com/bazelbuild/bazel/issues/1952">Consider removing bind</a>" for a long
-discussion of its issues and alternatives.</p></em>
-<em><p>Warning: <code>select()</code> cannot be used in <code>bind()</code>. See the <a
+discussion of its issues and alternatives. In particular, consider the use of
+<a href="../skylark/repository_rules.html#attributes"><code>repo_mapping</code>
+repository attributes</a>.</em></p>
+
+<p><em>Warning: <code>select()</code> cannot be used in <code>bind()</code>. See the <a
 href="../configurable-attributes.html#bind-select">Configurable Attributes FAQ</a> for
-details.</p></em>
+details.</em></p>
 
 <p>Gives a target an alias in the <code>//external</code> package.</p>
 
