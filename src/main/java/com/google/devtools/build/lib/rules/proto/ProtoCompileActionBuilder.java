@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 public class ProtoCompileActionBuilder {
   @VisibleForTesting
   public static final String STRICT_DEPS_FLAG_TEMPLATE =
-      "--direct_dependencies_violation_msg=" + StrictProtoDepsViolationMessage.MESSAGE;
+      "--direct_dependencies_violation_msg=" + ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE;
 
   private static final String MNEMONIC = "GenProto";
 
