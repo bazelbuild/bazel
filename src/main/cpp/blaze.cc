@@ -797,8 +797,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
       auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
           attempt_time - start_time);
       BAZEL_LOG(USER) << "... still trying to connect to local "
-                      << startup_options.product_name << " server after "
-                      << elapsed_time.count() << " seconds ...";
+                      << startup_options.product_name << " server ("
+                      << server_pid << ") after " << elapsed_time.count()
+                      << " seconds ...";
       last_message_time = attempt_time;
     }
 
