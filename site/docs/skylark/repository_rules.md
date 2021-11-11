@@ -42,9 +42,16 @@ local_repository = repository_rule(
     attrs={"path": attr.string(mandatory=True)})
 ```
 
-`name` attributes are implicitly defined for all `repository_rule`s.
 To access an attribute, use `repository_ctx.attr.<attribute_name>`.
-The name of a repository rule is accessible with `repository_ctx.name`.
+
+All `repository_rule`s have implicitly defined attributes (just like build
+rules). The two implicit attributes are `name` (just like for build rules) and
+`repo_mapping`. The name of a repository rule is accessible with
+`repository_ctx.name`. The meaning of `repo_mapping` is the same as for the
+native repository rules
+[`local_repository`](https://docs.bazel.build/be/workspace.html#local_repository.repo_mapping)
+and
+[`new_local_repository`](https://docs.bazel.build/be/workspace.html#new_local_repository.repo_mapping).
 
 If an attribute name starts with `_` it is private and users cannot set it.
 
