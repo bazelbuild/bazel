@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashMap;
 import java.util.stream.Stream;
@@ -158,12 +158,9 @@ public abstract class PackageSpecification {
     return AllPackages.EVERYTHING;
   }
 
-  @AutoCodec
-  @VisibleForSerialization
-  static final class SinglePackage extends PackageSpecification {
+  private static final class SinglePackage extends PackageSpecification {
     private final PackageIdentifier singlePackageName;
 
-    @VisibleForSerialization
     SinglePackage(PackageIdentifier singlePackageName) {
       this.singlePackageName = singlePackageName;
     }
@@ -201,12 +198,9 @@ public abstract class PackageSpecification {
     }
   }
 
-  @AutoCodec
-  @VisibleForSerialization
-  static final class AllPackagesBeneath extends PackageSpecification {
+  private static final class AllPackagesBeneath extends PackageSpecification {
     private final PackageIdentifier prefix;
 
-    @VisibleForSerialization
     AllPackagesBeneath(PackageIdentifier prefix) {
       this.prefix = prefix;
     }
@@ -249,9 +243,7 @@ public abstract class PackageSpecification {
   }
 
   /** A package specification for a negative match, e.g. {@code -//pkg/sub/...}. */
-  @AutoCodec
-  @VisibleForSerialization
-  static final class NegativePackageSpecification extends PackageSpecification {
+  private static final class NegativePackageSpecification extends PackageSpecification {
     private final PackageSpecification delegate;
 
     NegativePackageSpecification(PackageSpecification delegate) {
@@ -288,10 +280,10 @@ public abstract class PackageSpecification {
     }
   }
 
-  @AutoCodec
   @VisibleForSerialization
   static final class AllPackages extends PackageSpecification {
-    private static final PackageSpecification EVERYTHING = new AllPackages();
+    @SerializationConstant @VisibleForSerialization
+    static final PackageSpecification EVERYTHING = new AllPackages();
 
     @Override
     protected boolean containsPackage(PackageIdentifier packageName) {
@@ -331,14 +323,12 @@ public abstract class PackageSpecification {
    * testing a given package for containment (see {@link #containedPackages()}}.
    */
   @Immutable
-  @AutoCodec
   public static final class PackageGroupContents {
     private final ImmutableMap<PackageIdentifier, PackageSpecification> singlePackages;
     private final ImmutableList<PackageSpecification> negativePackageSpecifications;
     private final ImmutableList<PackageSpecification> allSpecifications;
 
-    @VisibleForSerialization
-    PackageGroupContents(
+    private PackageGroupContents(
         ImmutableMap<PackageIdentifier, PackageSpecification> singlePackages,
         ImmutableList<PackageSpecification> negativePackageSpecifications,
         ImmutableList<PackageSpecification> allSpecifications) {

@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -127,7 +127,7 @@ public interface JavaSemantics {
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
-  @AutoCodec
+  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> JAVA_LAUNCHER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
@@ -156,28 +156,28 @@ public interface JavaSemantics {
             return javaConfig.getJavaLauncherLabel();
           });
 
-  @AutoCodec
+  @SerializationConstant
   LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
 
   /** Implementation for the :proguard attribute. */
-  @AutoCodec
+  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> PROGUARD =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           null,
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
 
-  @AutoCodec
+  @SerializationConstant
   LabelListLateBoundDefault<JavaConfiguration> EXTRA_PROGUARD_SPECS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) ->
               ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
 
-  @AutoCodec
+  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,

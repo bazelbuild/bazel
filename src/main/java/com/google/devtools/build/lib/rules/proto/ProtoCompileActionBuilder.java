@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
 import java.util.List;
@@ -142,14 +143,11 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class OnDemandCommandLineExpansion extends OnDemandString {
+  private static class OnDemandCommandLineExpansion extends OnDemandString {
     // E.g., --java_out=%s
     private final String template;
     private final Map<String, ? extends CharSequence> variableValues;
 
-    @AutoCodec.VisibleForSerialization
     OnDemandCommandLineExpansion(
         String template, Map<String, ? extends CharSequence> variableValues) {
       this.template = template;
@@ -609,11 +607,11 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final CommandLineItem.MapFn<ProtoSource> EXPAND_TO_IMPORT_PATHS =
       (src, args) -> args.accept(src.getImportPath().getSafePathString());
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final CommandLineItem.MapFn<String> EXPAND_TRANSITIVE_PROTO_PATH_FLAGS =
       (flag, args) -> {
         if (!flag.equals(".")) {
@@ -621,9 +619,7 @@ public class ProtoCompileActionBuilder {
         }
       };
 
-  @AutoCodec
-  @AutoCodec.VisibleForSerialization
-  static final class ExpandImportArgsFn implements CapturingMapFn<ProtoSource> {
+  private static final class ExpandImportArgsFn implements CapturingMapFn<ProtoSource> {
     /**
      * Generates up to two import flags for each artifact: one for full path (only relative to the
      * repository root) and one for the path relative to the proto source root (if one exists

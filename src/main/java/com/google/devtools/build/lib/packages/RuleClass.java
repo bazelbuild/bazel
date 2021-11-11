@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
@@ -122,7 +123,6 @@ import net.starlark.java.syntax.Location;
  */
 // Non-final only for mocking in tests. Do not subclass!
 @Immutable
-@AutoCodec
 public class RuleClass {
 
   /**
@@ -139,15 +139,15 @@ public class RuleClass {
    */
   private static final int MAX_ATTRIBUTE_NAME_LENGTH = 128;
 
-  @AutoCodec
+  @SerializationConstant
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
       Functions.constant(ImmutableMap.of());
 
-  @AutoCodec
+  @SerializationConstant
   static final Function<? super Rule, List<String>> NO_TOOLCHAINS_TO_REGISTER =
       Functions.constant(ImmutableList.of());
 
-  @AutoCodec
+  @SerializationConstant
   static final Function<? super Rule, Set<String>> NO_OPTION_REFERENCE =
       Functions.constant(ImmutableSet.of());
 
