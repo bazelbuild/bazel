@@ -479,6 +479,13 @@ message File {
     // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;
   }
+
+  // Digest of the file, using the build tool's configured digest algorithm,
+  // hex-encoded.
+  string digest = 5;
+
+  // Length of the file in bytes.
+  int64 length = 6;
 }
 
 // Payload of a message to describe a set of files, usually build artifacts, to

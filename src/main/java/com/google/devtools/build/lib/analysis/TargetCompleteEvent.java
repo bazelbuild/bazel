@@ -23,10 +23,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -109,6 +111,8 @@ public final class TargetCompleteEvent
       return executable;
     }
   }
+
+  private static final BaseEncoding LOWERCASE_HEX_ENCODING = BaseEncoding.base16().lowerCase();
 
   private final Label label;
   private final ConfiguredTargetKey configuredTargetKey;
@@ -337,7 +341,8 @@ public final class TargetCompleteEvent
             String uri =
                 converters.pathConverter().apply(completionContext.pathResolver().toPath(artifact));
             if (uri != null) {
-              builder.addImportantOutput(newFileFromArtifact(name, artifact).setUri(uri).build());
+              builder.addImportantOutput(
+                  newFileFromArtifact(name, artifact, completionContext).setUri(uri).build());
             }
           }
 
@@ -354,12 +359,12 @@ public final class TargetCompleteEvent
   }
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
-      String name, Artifact artifact) {
-    return newFileFromArtifact(name, artifact, PathFragment.EMPTY_FRAGMENT);
+      String name, Artifact artifact, CompletionContext completionContext) {
+    return newFileFromArtifact(name, artifact, PathFragment.EMPTY_FRAGMENT, completionContext);
   }
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
-      String name, Artifact artifact, PathFragment relPath) {
+      String name, Artifact artifact, PathFragment relPath, CompletionContext completionContext) {
     if (name == null) {
       name = artifact.getRootRelativePath().getRelative(relPath).getPathString();
       if (OS.getCurrent() != OS.WINDOWS) {
@@ -373,13 +378,24 @@ public final class TargetCompleteEvent
         name = new String(name.getBytes(ISO_8859_1), UTF_8);
       }
     }
-    return File.newBuilder()
-        .setName(name)
-        .addAllPathPrefix(artifact.getRoot().getExecPath().segments());
+    File.Builder file =
+        File.newBuilder()
+            .setName(name)
+            .addAllPathPrefix(artifact.getRoot().getExecPath().segments());
+    FileArtifactValue fileArtifactValue = completionContext.getFileArtifactValue(artifact);
+    if (fileArtifactValue != null && fileArtifactValue.getType().exists()) {
+      byte[] digest = fileArtifactValue.getDigest();
+      if (digest != null) {
+        file.setDigest(LOWERCASE_HEX_ENCODING.encode(digest));
+      }
+      file.setLength(fileArtifactValue.getSize());
+    }
+    return file;
   }
 
-  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(Artifact artifact) {
-    return newFileFromArtifact(/* name= */ null, artifact);
+  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
+      Artifact artifact, CompletionContext completionContext) {
+    return newFileFromArtifact(/* name= */ null, artifact, completionContext);
   }
 
   @Override
@@ -444,7 +460,7 @@ public final class TargetCompleteEvent
     Iterable<Artifact> filteredImportantArtifacts = getLegacyFilteredImportantArtifacts();
     for (Artifact artifact : filteredImportantArtifacts) {
       if (artifact.isDirectory()) {
-        builder.addDirectoryOutput(newFileFromArtifact(artifact).build());
+        builder.addDirectoryOutput(newFileFromArtifact(artifact, completionContext).build());
       }
     }
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer need it.
