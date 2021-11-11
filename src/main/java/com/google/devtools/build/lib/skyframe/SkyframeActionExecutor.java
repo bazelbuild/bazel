@@ -954,6 +954,7 @@ public final class SkyframeActionExecutor {
       try (SilentCloseable c =
           profiler.profileAction(
               ProfilerTask.ACTION,
+              action.getMnemonic(),
               action.describe(),
               action.getPrimaryOutput().getExecPathString(),
               getOwnerLabelAsString(action))) {
