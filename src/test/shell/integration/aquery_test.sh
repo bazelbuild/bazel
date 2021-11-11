@@ -1490,6 +1490,9 @@ EOF
 }
 
 # Regression test for b/205753626.
+# This test case isn't testing aquery for correctness, just using aquery as a
+# vehicle for testing lower-level logic.
+# TODO(b/205978333): Find a better home for this test case.
 function test_starlark_action_with_reqs_has_deterministic_action_key() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
