@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -597,8 +596,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         bubbleErrorInfo);
     EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
-    boolean nonCycleErrorFound = false;
+    boolean haveKeys = false;
     for (SkyKey skyKey : skyKeys) {
+      haveKeys = true;
       SkyValue unwrappedValue =
           maybeGetValueFromError(
               skyKey, graph.get(null, Reason.PRE_OR_POST_EVALUATION, skyKey), bubbleErrorInfo);
@@ -618,7 +618,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
       if (!evaluatorContext.keepGoing() && errorInfo != null) {
         // value will be null here unless the value was already built on a prior keepGoing build.
-        nonCycleErrorFound = true;
         result.addError(skyKey, errorInfo);
         continue;
       }
@@ -626,7 +625,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // Note that we must be in the keepGoing case. Only make this value an error if it doesn't
         // have a value. The error shouldn't matter to the caller since the value succeeded after a
         // fashion.
-        nonCycleErrorFound = true;
         result.addError(skyKey, errorInfo);
       } else {
         result.addResult(skyKey, value);
@@ -635,50 +633,35 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     if (!cycleRoots.isEmpty()) {
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
-    if (catastrophe && bubbleErrorInfo != null && !result.hasCatastrophe()) {
-      // We may not have a top-level node completed. Inform the caller of at least one catastrophic
-      // exception that shut down the evaluation so that it has some context.
-      // TODO(b/159006108): Sometimes we get here and not every exception is catastrophic, so we
-      //  alert when that happens. If we didn't need to guard against that case, we could simply
-      //  take the last element of bubbleErrorInfo#values() and make that the catastrophe.
-      boolean catastropheFound = false;
-      @Nullable Exception nonCatastrophicExceptionForBugHandler = null;
-      for (ValueWithMetadata valueWithMetadata : bubbleErrorInfo.values()) {
+    if (haveKeys && result.isEmpty()) {
+      Preconditions.checkState(
+          catastrophe && bubbleErrorInfo != null,
+          "No top-level keys were present but we did not have catastrophic error bubbling: %s %s %s"
+              + " %s",
+          skyKeys,
+          catastrophe,
+          bubbleErrorInfo,
+          cycleRoots);
+      boolean exceptionFound = false;
+      for (ValueWithMetadata valueWithMetadata :
+          ImmutableList.copyOf(bubbleErrorInfo.values()).reverse()) {
         ErrorInfo errorInfo =
             Preconditions.checkNotNull(
                 valueWithMetadata.getErrorInfo(),
                 "bubbleErrorInfo should have contained element with errorInfo: %s",
                 bubbleErrorInfo);
-        if (errorInfo.isCatastrophic()) {
-          if (!result.hasCatastrophe()) {
-            result.setCatastrophe(errorInfo.getException());
-          }
-          catastropheFound = true;
-        } else {
-          // Alert for the known bug of a non-catastrophic exception.
-          BugReport.sendBugReport(
-              new IllegalStateException(
-                  String.format(
-                      "bubbleErrorInfo should have contained element with catastrophe: %s"
-                          + " (bubbleErrorInfo: %s)",
-                      valueWithMetadata, bubbleErrorInfo)));
-          if (errorInfo.getException() != null) {
-            nonCatastrophicExceptionForBugHandler = errorInfo.getException();
-          }
+        if (errorInfo.getException() != null) {
+          result.setCatastrophe(errorInfo.getException());
+          exceptionFound = true;
+          break;
         }
       }
-      if (!catastropheFound && !nonCycleErrorFound) {
-        Preconditions.checkNotNull(
-            nonCatastrophicExceptionForBugHandler,
-            "There were no exceptions in bubbleErrorInfo despite a catastrophic failure (%s)",
-            bubbleErrorInfo);
-        // Alert for the never-seen bug of *no* catastrophic exceptions.
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "No element in bubbleErrorInfo was catastrophic: " + bubbleErrorInfo,
-                nonCatastrophicExceptionForBugHandler));
-        result.setCatastrophe(nonCatastrophicExceptionForBugHandler);
-      }
+      Preconditions.checkState(
+          exceptionFound,
+          "Evaluation of %s terminated early with no exception (%s %s %s)",
+          skyKeys,
+          bubbleErrorInfo,
+          result);
     }
     EvaluationResult<T> builtResult = result.build();
     Preconditions.checkState(
