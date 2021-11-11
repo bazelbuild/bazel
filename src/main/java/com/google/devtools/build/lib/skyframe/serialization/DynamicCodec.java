@@ -164,6 +164,7 @@ public final class DynamicCodec implements ObjectCodec<Object> {
    * @param fieldType class of the field to deserialize
    * @param offset unsafe offset into obj where the field should be written
    */
+  @SuppressWarnings("LogAndThrow") // Want the full stack trace of deserialization attempts.
   private void deserializeField(
       DeserializationContext context,
       CodedInputStream codedIn,
@@ -221,7 +222,16 @@ public final class DynamicCodec implements ObjectCodec<Object> {
         deserializeField(context, codedIn, arr, fieldType.getComponentType(), base + scale * i);
       }
     } else {
-      Object fieldValue = context.deserialize(codedIn);
+      Object fieldValue;
+      try {
+        fieldValue = context.deserialize(codedIn);
+      } catch (SerializationException e) {
+        logger.atSevere().withCause(e).log(
+            "Failed to deserialize object with superclass: %s %s",
+            obj, obj.getClass().getSuperclass());
+        e.addTrail(this.type);
+        throw e;
+      }
       if (fieldValue != null && !fieldType.isInstance(fieldValue)) {
         throw new SerializationException(
             "Field "
