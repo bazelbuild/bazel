@@ -2383,4 +2383,25 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .getOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES)))
         .contains("src bin/cc.h");
   }
+
+  @Test
+  public void testCoptsLocationIsExpanded() throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    copts = ['$(rootpath lib1.m) $(location lib2.m) $(location data.data) $(execpath"
+            + " header.h)'],",
+        "    srcs = ['lib1.m'],",
+        "    non_arc_srcs = ['lib2.m'],",
+        "    data = ['data.data'],",
+        "    hdrs = ['header.h'],",
+        ")");
+
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//bin:lib", "lib1.o");
+    assertThat(compileA.compileCommandLine.getCopts())
+        .containsAtLeast("bin/lib1.m", "bin/lib2.m", "bin/data.data", "bin/header.h");
+  }
 }

@@ -1103,7 +1103,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
    * @param knownLabels List of known labels
    * @return Immutable map with immutable collections as values
    */
-  private static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
+  public static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
       Iterable<TransitiveInfoCollection> knownLabels) {
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
