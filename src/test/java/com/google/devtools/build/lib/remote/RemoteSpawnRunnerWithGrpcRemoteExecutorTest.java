@@ -1075,7 +1075,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             responseObserver.onCompleted();
           }
         });
-    String stdOutResourceName = getResourceName(remoteOptions.remoteInstanceName, stdOutDigest);
+    String stdOutResourceName =
+        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1136,7 +1137,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             responseObserver.onCompleted();
           }
         });
-    String stdOutResourceName = getResourceName(remoteOptions.remoteInstanceName, stdOutDigest);
+    String stdOutResourceName =
+        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1262,7 +1264,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String dummyTreeResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest());
+        getResourceName(
+            remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest(), false);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           private boolean first = true;
