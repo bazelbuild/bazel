@@ -166,10 +166,7 @@ public class TestCommand implements BlazeCommand {
               : buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(
-              new TestingCompleteEvent(
-                  detailedExitCode.getExitCode(),
-                  buildResult.getStopTime(),
-                  buildResult.getWasSuspended()));
+              new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
       return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
@@ -188,11 +185,7 @@ public class TestCommand implements BlazeCommand {
                       .build())
               : buildResult.getDetailedExitCode();
       env.getEventBus()
-          .post(
-              new NoTestsFound(
-                  detailedExitCode.getExitCode(),
-                  buildResult.getStopTime(),
-                  buildResult.getWasSuspended()));
+          .post(new NoTestsFound(detailedExitCode.getExitCode(), buildResult.getStopTime()));
       return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
 
@@ -211,11 +204,7 @@ public class TestCommand implements BlazeCommand {
         DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
             buildResult.getDetailedExitCode(), testResults);
     env.getEventBus()
-        .post(
-            new TestingCompleteEvent(
-                detailedExitCode.getExitCode(),
-                buildResult.getStopTime(),
-                buildResult.getWasSuspended()));
+        .post(new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 
