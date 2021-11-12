@@ -16,6 +16,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/util:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/zstd:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -81,6 +82,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/remote/zstd",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
@@ -94,6 +96,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:apache_commons_compress",
         "//third_party:auth",
         "//third_party:caffeine",
         "//third_party:flogger",

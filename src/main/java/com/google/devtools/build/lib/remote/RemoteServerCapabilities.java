@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesBlockingStub;
+import build.bazel.remote.execution.v2.Compressor;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
@@ -247,6 +248,13 @@ class RemoteServerCapabilities {
               "--remote_upload_local_results is set, but the current account is not authorized "
                   + "to write local results to the remote cache.");
         }
+      }
+
+      if (remoteOptions.cacheCompression
+          && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
+        result.addError(
+            "--experimental_remote_cache_compression requested but remote does not support"
+                + " compression");
       }
 
       // Check result cache priority is in the supported range.
