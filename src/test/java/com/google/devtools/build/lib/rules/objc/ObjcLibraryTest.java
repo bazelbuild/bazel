@@ -1019,10 +1019,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
     ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
 
-    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList())
-        .containsExactly(new SdkFramework("foo"));
-    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList())
-        .containsExactly(new SdkFramework("foo"), new SdkFramework("bar"));
+    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo");
+    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
   }
 
   @Test
@@ -1374,9 +1372,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
     ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
 
-    Set<SdkFramework> baseFrameworks = ImmutableSet.of(new SdkFramework("foo"));
-    Set<SdkFramework> dependerFrameworks =
-        ImmutableSet.of(new SdkFramework("foo"), new SdkFramework("bar"));
+    Set<String> baseFrameworks = ImmutableSet.of("foo");
+    Set<String> dependerFrameworks = ImmutableSet.of("foo", "bar");
     assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactlyElementsIn(baseFrameworks);
     assertThat(dependerProvider.get(SDK_FRAMEWORK).toList())
         .containsExactlyElementsIn(dependerFrameworks);

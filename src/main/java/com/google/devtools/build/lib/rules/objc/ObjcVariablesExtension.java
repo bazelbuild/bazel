@@ -206,7 +206,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
     builder.addStringSequenceVariable(
         WEAK_FRAMEWORK_NAMES_VARIABLE_NAME,
-            SdkFramework.names(objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK)));
+        objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK).toList());
     builder.addStringSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, libraryNames);
     builder.addStringVariable(
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());

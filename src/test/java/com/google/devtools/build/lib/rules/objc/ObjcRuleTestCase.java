@@ -376,7 +376,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add("-ObjC")
             .addAll(
                 Interspersing.beforeEach(
-                    "-framework", SdkFramework.names(CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS)))
+                    "-framework", CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS.toList()))
             .addAll(Interspersing.beforeEach("-framework", frameworkPathBaseNames.build()))
             .add("-filelist")
             .add(filelistArtifact.getExecPathString())

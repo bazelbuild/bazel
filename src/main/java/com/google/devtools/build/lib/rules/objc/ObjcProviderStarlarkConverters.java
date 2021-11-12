@@ -40,7 +40,6 @@ public class ObjcProviderStarlarkConverters {
           .put(Artifact.class, new DirectConverter())
           .put(String.class, new DirectConverter())
           .put(PathFragment.class, new PathFragmentToStringConverter())
-          .put(SdkFramework.class, new SdkFrameworkToStringConverter())
           .build();
 
   /** Returns a value for a Starlark attribute given a java ObjcProvider key and value. */
@@ -108,31 +107,6 @@ public class ObjcProviderStarlarkConverters {
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
       for (String path : nestedSet.toList()) {
         result.add(PathFragment.create(path));
-      }
-      return result.build();
-    }
-  }
-
-  /** A converter that that translates between a java {@link SdkFramework} and a Starlark string. */
-  private static class SdkFrameworkToStringConverter implements Converter {
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
-      NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
-      for (SdkFramework framework : ((NestedSet<SdkFramework>) javaValue).toList()) {
-        result.add(framework.getName());
-      }
-      return Depset.of(Depset.ElementType.STRING, result.build());
-    }
-
-    @Override
-    public NestedSet<?> valueForJava(Key<?> javaKey, Object starlarkValue) throws EvalException {
-      NestedSet<String> nestedSet =
-          nestedSetWithType(starlarkValue, String.class, javaKey.getStarlarkKeyName());
-      NestedSetBuilder<SdkFramework> result = NestedSetBuilder.stableOrder();
-      for (String path : nestedSet.toList()) {
-        result.add(new SdkFramework(path));
       }
       return result.build();
     }

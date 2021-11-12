@@ -405,14 +405,13 @@ public final class ObjcCommon implements StarlarkValue {
 
     private void addLinkoptsToObjcProvider(
         Iterable<String> linkopts, ObjcProvider.Builder objcProvider) {
-      ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
+      ImmutableSet.Builder<String> frameworkLinkOpts = new ImmutableSet.Builder<>();
       ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
       // Add any framework flags as frameworks directly, rather than as linkopts.
       for (Iterator<String> iterator = linkopts.iterator(); iterator.hasNext(); ) {
         String arg = iterator.next();
         if (arg.equals("-framework") && iterator.hasNext()) {
-          String framework = iterator.next();
-          frameworkLinkOpts.add(new SdkFramework(framework));
+          frameworkLinkOpts.add(iterator.next());
         } else {
           nonFrameworkLinkOpts.add(arg);
         }

@@ -139,9 +139,8 @@ public class CompilationSupport implements StarlarkValue {
    * Frameworks implicitly linked to iOS, watchOS, and tvOS binaries when using legacy compilation.
    */
   @VisibleForTesting
-  static final NestedSet<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS =
-      NestedSetBuilder.create(
-          Order.STABLE_ORDER, new SdkFramework("Foundation"), new SdkFramework("UIKit"));
+  static final NestedSet<String> AUTOMATIC_SDK_FRAMEWORKS =
+      NestedSetBuilder.create(Order.STABLE_ORDER, "Foundation", "UIKit");
 
   /** Selects cc libraries that have alwayslink=1. */
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
@@ -807,7 +806,7 @@ public class CompilationSupport implements StarlarkValue {
    */
   private Set<String> frameworkNames(ObjcProvider provider) {
     Set<String> names = new LinkedHashSet<>();
-    names.addAll(SdkFramework.names(provider.get(SDK_FRAMEWORK)));
+    names.addAll(provider.get(SDK_FRAMEWORK).toList());
     names.addAll(provider.staticFrameworkNames().toList());
     names.addAll(provider.dynamicFrameworkNames().toList());
     return names;
