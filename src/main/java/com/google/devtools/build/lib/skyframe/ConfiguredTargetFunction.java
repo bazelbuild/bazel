@@ -350,65 +350,25 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             if (attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
               List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST).stream().collect(Collectors.toList());
 
-              // TODO(phil): Make this work:
-              //SkyValue value = env.getValue(key);
-
-              // TODO(phil): In order to delete the following:
-              ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
+              ImmutableList.Builder<TransitiveInfoCollection> ctvBuilder = ImmutableList.builder();
               for (Label configurabilityLabel : labels) {
                 Dependency configurabilityDependency =
                     Dependency.builder()
                         .setLabel(configurabilityLabel)
                         .setConfiguration(ctgValue.getConfiguration())
                         .build();
-                depsBuilder.add(configurabilityDependency);
-              }
-              ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
-
-              ImmutableList.Builder<ConfiguredTargetValue> ctvBuilder = ImmutableList.builder();
-              for (Dependency dependency : configConditionDeps) {
-                System.out.println("--> configured target key: " + dependency.getConfiguredTargetKey().toString());
-                ConfiguredTargetValue ctv = (ConfiguredTargetValue) env.getValue(dependency.getConfiguredTargetKey());
+                ConfiguredTargetValue ctv = (ConfiguredTargetValue) env.getValue(
+                    configurabilityDependency.getConfiguredTargetKey());
                 if (ctv == null) {
                   return null;
-                  //System.out.println("--> Got null from " + dependency.getLabel().toString());
                 }
-                ctvBuilder.add(ctv);
+                ctvBuilder.add(ctv.getConfiguredTarget());
               }
-              ImmutableList<ConfiguredTargetValue> configuredTargetValues = ctvBuilder.build();
-
-              //Map<SkyKey, ConfiguredTargetAndData> configValues;
-              //try {
-              //  configValues =
-              //      resolveConfiguredTargetDependencies(
-              //          env,
-              //          ctgValue,
-              //          configConditionDeps,
-              //          transitivePackagesForPackageRootResolution,
-              //          transitiveRootCauses);
-              //  if (configValues == null) {
-              //    return null;
-              //  }
-              //} catch (DependencyEvaluationException e) {
-              //  // One of the config dependencies doesn't exist, and we need to report that. Unfortunately,
-              //  // there's not enough information to know which configurable attribute has the problem.
-              //  env.getListener()
-              //      .handle(
-              //          Event.error(
-              //              String.format(
-              //                  "While resolving configuration keys for %s: %s",
-              //                  target.getLabel(), e.getCause().getMessage())));
-
-              //  // Re-throw the exception so it is handled by compute().
-              //  throw e;
-              //}
-              List<TransitiveInfoCollection> transitive_info_collections = configuredTargetValues.stream()
-                  .map(targetAndData -> targetAndData.getConfiguredTarget())
-                  .collect(Collectors.toList());
+              ImmutableList<TransitiveInfoCollection> configuredTargetValues = ctvBuilder.build();
 
               ImmutableList<ConstraintValueInfo> invalidConstraintValues =
                   PlatformProviderUtils.constraintValues(
-                    transitive_info_collections
+                    configuredTargetValues
                           /*
                            * MAGIC conversion between `labels` and `List<? extends
                            * ProviderCollection>` ???
