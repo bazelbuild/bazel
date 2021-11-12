@@ -367,15 +367,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ImmutableList<TransitiveInfoCollection> configuredTargetValues = ctvBuilder.build();
 
               ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-                  PlatformProviderUtils.constraintValues(
-                    configuredTargetValues
-                          /*
-                           * MAGIC conversion between `labels` and `List<? extends
-                           * ProviderCollection>` ???
-                           */)
+                  PlatformProviderUtils.constraintValues(configuredTargetValues)
                       .stream()
                       .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
                       .collect(ImmutableList.toImmutableList());
+
               if (!invalidConstraintValues.isEmpty()) {
                 return createIncompatibleRuleConfiguredTarget(
                     target,
