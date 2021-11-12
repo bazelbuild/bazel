@@ -30,24 +30,17 @@ public abstract class BuildCompletingEvent implements BuildEvent {
   private final ExitCode exitCode;
   private final long finishTimeMillis;
 
-  /** Was the build suspended mid-build (e.g. hardware sleep, SIGSTOP). */
-  private final boolean wasSuspended;
-
   private final Collection<BuildEventId> children;
 
   public BuildCompletingEvent(
-      ExitCode exitCode,
-      long finishTimeMillis,
-      Collection<BuildEventId> children,
-      boolean wasSuspended) {
+      ExitCode exitCode, long finishTimeMillis, Collection<BuildEventId> children) {
     this.exitCode = exitCode;
     this.finishTimeMillis = finishTimeMillis;
     this.children = children;
-    this.wasSuspended = wasSuspended;
   }
 
-  public BuildCompletingEvent(ExitCode exitCode, long finishTimeMillis, boolean wasSuspended) {
-    this(exitCode, finishTimeMillis, ImmutableList.of(), wasSuspended);
+  public BuildCompletingEvent(ExitCode exitCode, long finishTimeMillis) {
+    this(exitCode, finishTimeMillis, ImmutableList.of());
   }
 
   public ExitCode getExitCode() {
@@ -72,18 +65,12 @@ public abstract class BuildCompletingEvent implements BuildEvent {
             .setCode(exitCode.getNumericExitCode())
             .build();
 
-    BuildEventStreamProtos.BuildFinished.AnomalyReport protoAnomalyReport =
-        BuildEventStreamProtos.BuildFinished.AnomalyReport.newBuilder()
-            .setWasSuspended(wasSuspended)
-            .build();
-
     BuildEventStreamProtos.BuildFinished finished =
         BuildEventStreamProtos.BuildFinished.newBuilder()
             .setOverallSuccess(ExitCode.SUCCESS.equals(exitCode))
             .setExitCode(protoExitCode)
             .setFinishTime(Timestamps.fromMillis(finishTimeMillis))
             .setFinishTimeMillis(finishTimeMillis)
-            .setAnomalyReport(protoAnomalyReport)
             .build();
     return GenericBuildEvent.protoChaining(this).setFinished(finished).build();
   }

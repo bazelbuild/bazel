@@ -799,6 +799,7 @@ message BuildFinished {
     // Examples of suspensions are SIGSTOP, or the hardware being put to sleep.
     // If was_suspended is true, then most of the timings for this build are
     // suspect.
+    // NOTE: This is no longer set and is deprecated.
     bool was_suspended = 1;
   }
 
@@ -819,7 +820,7 @@ message BuildFinished {
   // End of the build.
   google.protobuf.Timestamp finish_time = 5;
 
-  AnomalyReport anomaly_report = 4;
+  AnomalyReport anomaly_report = 4 [deprecated = true];
 }
 
 message BuildMetrics {

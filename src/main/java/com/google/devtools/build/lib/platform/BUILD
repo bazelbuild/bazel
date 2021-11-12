@@ -21,12 +21,16 @@ java_library(
 )
 
 java_library(
-    name = "suspend_counter",
+    name = "system_suspension_module",
     srcs = [
-        "SuspendCounter.java",
+        "SystemSuspensionModule.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//third_party:flogger",
+        "//third_party:jsr305",
     ],
 )
 
