@@ -231,13 +231,13 @@ distdir_tar(
             "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         ],
         "java_tools_javac11_linux-v10.7.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_linux-v10.7.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_linux-v10.7.zip",
         ],
         "java_tools_javac11_windows-v10.7.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_windows-v10.7.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_windows-v10.7.zip",
         ],
         "java_tools_javac11_darwin-v10.7.zip": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_darwin-v10.7.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_darwin-v10.7.zip",
         ],
         "coverage_output_generator-v2.5.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip",
@@ -638,9 +638,9 @@ distdir_tar(
         "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
     },
     urls = {
-        "java_tools_javac11_linux-v10.7.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_linux-v10.7.zip"],
-        "java_tools_javac11_windows-v10.7.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_windows-v10.7.zip"],
-        "java_tools_javac11_darwin-v10.7.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_darwin-v10.7.zip"],
+        "java_tools_javac11_linux-v10.7.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_linux-v10.7.zip"],
+        "java_tools_javac11_windows-v10.7.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_windows-v10.7.zip"],
+        "java_tools_javac11_darwin-v10.7.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_darwin-v10.7.zip"],
         "coverage_output_generator-v2.5.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.5.zip"],
         "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz"],
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
@@ -975,7 +975,7 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "cf57fc238ed5c24c718436ab4178ade5eb838fe56e7c32c4fafe0b6fbdaec51f",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_linux-v10.7.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_linux-v10.7.zip",
         "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.7/java_tools_javac11_linux-v10.7.zip",
     ],
 )
@@ -987,7 +987,7 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "a0fc3a3be3ea01a4858d12f56892dd663c02f218104e8c1dc9f3e90d5e583bcb",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_windows-v10.7.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_windows-v10.7.zip",
         "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.7/java_tools_javac11_windows-v10.7.zip",
     ],
 )
@@ -999,7 +999,7 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "51a4cf424d3b26d6c42703cf2d80002f1489ba0d28c939519c3bb9c3d6ee3720",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_darwin-v10.7.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_darwin-v10.7.zip",
         "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.7/java_tools_javac11_darwin-v10.7.zip",
     ],
 )
@@ -1011,7 +1011,7 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "cf57fc238ed5c24c718436ab4178ade5eb838fe56e7c32c4fafe0b6fbdaec51f",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_linux-v10.7.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_linux-v10.7.zip",
     ],
 )
 
@@ -1022,7 +1022,7 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "a0fc3a3be3ea01a4858d12f56892dd663c02f218104e8c1dc9f3e90d5e583bcb",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_windows-v10.7.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_windows-v10.7.zip",
     ],
 )
 
@@ -1033,7 +1033,7 @@ http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "51a4cf424d3b26d6c42703cf2d80002f1489ba0d28c939519c3bb9c3d6ee3720",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.6/java_tools_javac11_darwin-v10.7.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_darwin-v10.7.zip",
     ],
 )
 
