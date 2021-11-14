@@ -341,33 +341,37 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Rule rule = null;
       if (target instanceof Rule) {
         rule = (Rule) target;
+      } else if (target instanceof OutputFile) {
+        rule = ((OutputFile) target).getAssociatedRule();
       }
-      if (unloadedToolchainContexts != null) {
-        PlatformInfo platformInfo = unloadedToolchainContexts.getTargetPlatform();
-        if (platformInfo != null && rule != null) {
-          if (!rule.getRuleClass().equals("toolchain")) {
+      if (rule != null && !rule.getRuleClass().equals("toolchain")) {
+        if (unloadedToolchainContexts != null) {
+          PlatformInfo platformInfo = unloadedToolchainContexts.getTargetPlatform();
+          if (platformInfo != null) {
             ConfiguredAttributeMapper attrs = ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), "");
             if (attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-              List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST).stream().collect(Collectors.toList());
+              List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
 
-              ImmutableList.Builder<TransitiveInfoCollection> ctvBuilder = ImmutableList.builder();
-              for (Label configurabilityLabel : labels) {
-                Dependency configurabilityDependency =
+              // Resolve the constraint labels.
+              ImmutableList.Builder<TransitiveInfoCollection> constraintProvidersBuilder = ImmutableList.builder();
+              for (Label constraintLabel : labels) {
+                Dependency constraintDep =
                     Dependency.builder()
-                        .setLabel(configurabilityLabel)
+                        .setLabel(constraintLabel)
                         .setConfiguration(ctgValue.getConfiguration())
                         .build();
                 ConfiguredTargetValue ctv = (ConfiguredTargetValue) env.getValue(
-                    configurabilityDependency.getConfiguredTargetKey());
+                    constraintDep.getConfiguredTargetKey());
                 if (ctv == null) {
                   return null;
                 }
-                ctvBuilder.add(ctv.getConfiguredTarget());
+                constraintProvidersBuilder.add(ctv.getConfiguredTarget());
               }
-              ImmutableList<TransitiveInfoCollection> configuredTargetValues = ctvBuilder.build();
+              ImmutableList<TransitiveInfoCollection> constraintProviders = constraintProvidersBuilder.build();
 
+              // Find the constraints that don't satisfy the target platform.
               ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-                  PlatformProviderUtils.constraintValues(configuredTargetValues)
+                  PlatformProviderUtils.constraintValues(constraintProviders)
                       .stream()
                       .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
                       .collect(ImmutableList.toImmutableList());
@@ -417,32 +421,28 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
       Preconditions.checkNotNull(depValueMap);
 
-      ImmutableList.Builder<ConfiguredTarget> incompatibleDepsBuilder = ImmutableList.builder();
-      if (target instanceof OutputFile) {
-        rule = ((OutputFile) target).getAssociatedRule();
-      }
-      if (rule != null) {
-        if (!rule.getRuleClass().equals("toolchain")) {
-          for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : depValueMap.entries()) {
-            ConfiguredTarget dep = entry.getValue().getConfiguredTarget();
-            RuleContextConstraintSemantics.IncompatibleCheckResult incompatibilityResult = RuleContextConstraintSemantics.checkForIncompatibility(dep);
-            if (incompatibilityResult.isIncompatible()) {
-              incompatibleDepsBuilder.add(dep);
-            }
+      // Check if any dependencies are incompatible. If any are, then this target is also
+      // incompatible.
+      if (rule != null && !rule.getRuleClass().equals("toolchain")) {
+        ImmutableList.Builder<ConfiguredTarget> incompatibleDepsBuilder = ImmutableList.builder();
+        for (ConfiguredTargetAndData value : depValueMap.values()) {
+          ConfiguredTarget dep = value.getConfiguredTarget();
+          if (RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible()) {
+            incompatibleDepsBuilder.add(dep);
           }
         }
-      }
-      ImmutableList<ConfiguredTarget> incompatibleDeps = incompatibleDepsBuilder.build();
+        ImmutableList<ConfiguredTarget> incompatibleDeps = incompatibleDepsBuilder.build();
 
-      if (!incompatibleDeps.isEmpty()) {
-        return createIncompatibleRuleConfiguredTarget(
-            target,
-            configuration,
-            configConditions,
-            IncompatiblePlatformProvider.incompatibleDueToTargets(incompatibleDeps),
-            rule.getRuleClass(),
-            transitivePackagesForPackageRootResolution
-            );
+        if (!incompatibleDeps.isEmpty()) {
+          return createIncompatibleRuleConfiguredTarget(
+              target,
+              configuration,
+              configConditions,
+              IncompatiblePlatformProvider.incompatibleDueToTargets(incompatibleDeps),
+              rule.getRuleClass(),
+              transitivePackagesForPackageRootResolution
+              );
+        }
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
