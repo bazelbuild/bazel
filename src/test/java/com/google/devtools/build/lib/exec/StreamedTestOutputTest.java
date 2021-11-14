@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -90,10 +89,7 @@ public class StreamedTestOutputTest {
   public void testWatcherDoneAfterClose() throws IOException {
     Path watchedPath = fileSystem.getPath("/myfile");
     FileSystemUtils.writeLinesAs(
-        watchedPath,
-        StandardCharsets.UTF_8,
-        TestLogHelper.HEADER_DELIMITER,
-        Strings.repeat("x", 10 << 20));
+        watchedPath, StandardCharsets.UTF_8, TestLogHelper.HEADER_DELIMITER, "x".repeat(10 << 20));
     StreamedTestOutput underTest =
         new StreamedTestOutput(
             OutErr.create(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream()),
@@ -106,10 +102,7 @@ public class StreamedTestOutputTest {
   public void testInterruptWaitsForWatcherToClose() throws IOException {
     Path watchedPath = fileSystem.getPath("/myfile");
     FileSystemUtils.writeLinesAs(
-        watchedPath,
-        StandardCharsets.UTF_8,
-        TestLogHelper.HEADER_DELIMITER,
-        Strings.repeat("x", 10 << 20));
+        watchedPath, StandardCharsets.UTF_8, TestLogHelper.HEADER_DELIMITER, "x".repeat(10 << 20));
 
     StreamedTestOutput underTest =
         new StreamedTestOutput(

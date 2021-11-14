@@ -715,7 +715,7 @@ EOF
   # Validate that we get the dependency chain printed out.
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraint //target_skipping:foo1"
+  expect_log "^    //target_skipping:generator_tool   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
   expect_log 'FAILED: Build did NOT complete successfully'
 
   # Validate the test.
@@ -730,7 +730,7 @@ EOF
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:generated_test$'
   expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraint //target_skipping:foo1"
+  expect_log "^    //target_skipping:generator_tool   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
   expect_log 'FAILED: Build did NOT complete successfully'
 }
 
@@ -778,7 +778,7 @@ EOF
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:generated_test$'
   expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraints \[//target_skipping:foo1, //target_skipping:bar2\]"
+  expect_log "^    //target_skipping:generator_tool   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraints \[//target_skipping:foo1, //target_skipping:bar2\]"
   expect_log 'FAILED: Build did NOT complete successfully'
 }
 
@@ -1187,7 +1187,7 @@ function test_cquery_incompatible_target() {
     'deps(//target_skipping:sh_foo1)' &> "${TEST_log}" \
     && fail "Bazel cquery passed unexpectedly."
   expect_log 'Target //target_skipping:sh_foo1 is incompatible and cannot be built, but was explicitly requested'
-  expect_log "target platform didn't satisfy constraint //target_skipping:foo1"
+  expect_log "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
 }
 
 # Runs a cquery and makes sure that we can properly distinguish between
@@ -1264,7 +1264,7 @@ function test_aquery_incompatible_target() {
     '//target_skipping:sh_foo1' &> "${TEST_log}" \
     && fail "Bazel aquery passed unexpectedly."
   expect_log 'Target //target_skipping:sh_foo1 is incompatible and cannot be built, but was explicitly requested'
-  expect_log "target platform didn't satisfy constraint //target_skipping:foo1"
+  expect_log "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
 }
 
 run_suite "target_compatible_with tests"

@@ -65,6 +65,11 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       return actionLookupKey.getLabel();
     }
 
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return actionLookupKey.getConfigurationKey();
+    }
+
     public ActionLookupKey getActionLookupKey() {
       return actionLookupKey;
     }

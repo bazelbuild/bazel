@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
@@ -322,11 +322,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * Returns the target configuration for the most recent build, as created in Blaze's primary
    * configuration creation phase.
    */
-  protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
+  protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
     return Iterables.getOnlyElement(universeConfig.getTargetConfigurations());
   }
 
-  protected BuildConfiguration getHostConfiguration() {
+  protected BuildConfigurationValue getHostConfiguration() {
     return universeConfig.getHostConfiguration();
   }
 
@@ -444,7 +444,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(
-      String label, BuildConfiguration config) {
+      String label, BuildConfigurationValue config) {
     ensureUpdateWasCalled();
     Label parsedLabel;
     try {
@@ -471,7 +471,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected final ConfiguredTargetAndData getConfiguredTargetAndData(
-      String label, BuildConfiguration configuration) {
+      String label, BuildConfigurationValue configuration) {
     ensureUpdateWasCalled();
     return getConfiguredTargetForSkyframe(label, configuration);
   }
@@ -482,7 +482,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected final ConfiguredTarget getConfiguredTarget(
-      String label, BuildConfiguration configuration) {
+      String label, BuildConfigurationValue configuration) {
     ConfiguredTargetAndData result = getConfiguredTargetAndData(label, configuration);
     return result == null ? null : result.getConfiguredTarget();
   }
@@ -496,7 +496,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   private ConfiguredTargetAndData getConfiguredTargetForSkyframe(
-      String label, BuildConfiguration configuration) {
+      String label, BuildConfigurationValue configuration) {
     Label parsedLabel;
     try {
       parsedLabel = Label.parseAbsolute(label, ImmutableMap.of());
@@ -524,7 +524,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
   }
 
-  protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
     return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
   }
 

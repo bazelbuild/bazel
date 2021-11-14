@@ -1077,6 +1077,19 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, will create debug files associated with cc_shared_library.")
   public boolean experimentalCcSharedLibraryDebug;
 
+  @Option(
+      name = "experimental_cpp_compile_resource_estimation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, will estimate precise resource usage for local execution of"
+              + " CppCompileAction.")
+  public boolean experimentalCppCompileResourcesEstimation;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
@@ -1129,6 +1142,7 @@ public class CppOptions extends FragmentOptions {
     host.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
     host.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
     host.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
+    host.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();

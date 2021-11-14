@@ -38,4 +38,7 @@ public interface LtoBackendArtifactsApi<FileT extends FileApi> extends StarlarkV
 
   @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
   FileT getObjectFileForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "dwo_file", documented = false, useStarlarkThread = true)
+  FileT getDwoFileForStarlark(StarlarkThread thread) throws EvalException;
 }

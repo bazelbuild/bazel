@@ -603,7 +603,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean includeBuildData,
       Compression compression,
       Artifact launcher,
-      boolean usingNativeSinglejar,
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
@@ -617,8 +616,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             classpath,
             includeBuildData,
             compression,
-            launcher,
-            usingNativeSinglejar)
+            launcher)
         .build();
   }
 

@@ -121,14 +121,6 @@ public class UiOptions extends OptionsBase {
   public boolean showProgress;
 
   @Option(
-      name = "show_task_finish",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Display progress messages when tasks complete, not just when they start.")
-  public boolean showTaskFinish;
-
-  @Option(
       name = "show_progress_rate_limit",
       defaultValue = "0.2", // A nice middle ground; snappy but not too spammy in logs.
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

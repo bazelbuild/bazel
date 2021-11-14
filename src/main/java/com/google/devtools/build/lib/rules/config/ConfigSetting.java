@@ -41,12 +41,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
-import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -109,9 +108,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    TransitiveOptionDetails optionDetails =
-        BuildConfigurationOptionDetails.get(ruleContext.getConfiguration());
-
+    BuildOptionDetails optionDetails = ruleContext.getConfiguration().getBuildOptionDetails();
     boolean nativeFlagsMatch =
         matchesConfig(nativeFlagSettings.entries(), optionDetails, ruleContext);
 
@@ -148,7 +145,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   public void addRuleImplSpecificRequiredConfigFragments(
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       AttributeMap attributes,
-      BuildConfiguration configuration) {
+      BuildConfigurationValue configuration) {
     // values
     attributes
         .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT)
@@ -160,7 +157,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     equalsIndex > 0 ? value.substring(0, equalsIndex) : value);
               } else {
                 Class<? extends FragmentOptions> optionsClass =
-                    BuildConfigurationOptionDetails.get(configuration).getOptionClass(optionName);
+                    configuration.getBuildOptionDetails().getOptionClass(optionName);
                 if (optionsClass != null) {
                   requiredFragments.addOptionsClass(optionsClass);
                 }
@@ -279,7 +276,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    */
   private static boolean matchesConfig(
       Collection<Map.Entry<String, String>> expectedSettings,
-      TransitiveOptionDetails options,
+      BuildOptionDetails options,
       RuleContext ruleContext) {
     // Rather than returning fast when we find a mismatch, continue looking at the other flags
     // to check they're indeed valid flag specifications.
@@ -355,7 +352,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * 'foo=1,bar=2' } expands to { "foo": "1,bar=2" }, not {"foo": 1, "bar": "2"}.
    */
   private static boolean optionMatches(
-      TransitiveOptionDetails options, String optionName, Object expectedValue) {
+      BuildOptionDetails options, String optionName, Object expectedValue) {
     Object actualValue = options.getOptionValue(optionName);
     if (actualValue == null) {
       return expectedValue == null;
@@ -437,7 +434,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
      */
     static UserDefinedFlagMatch fromAttributeValueAndPrerequisites(
         Map<Label, String> attributeValue,
-        TransitiveOptionDetails optionDetails,
+        BuildOptionDetails optionDetails,
         RuleContext ruleContext) {
       Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
       boolean matches = true;

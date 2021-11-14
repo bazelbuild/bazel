@@ -20,15 +20,18 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import java.util.Optional;
@@ -58,6 +61,14 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   private BuildOptions defaultBuildOptions;
 
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfigurationFragment(DummyTestFragment.class);
+    return builder.build();
+  }
+
   @Before
   public void setDefaultBuildOptions() {
     defaultBuildOptions =
@@ -81,11 +92,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(null));
 
-    BuildConfigurationValue.Key key =
-        BuildConfigurationValue.keyWithoutPlatformMapping(
-            PLATFORM_FRAGMENT_CLASS, defaultBuildOptions);
+    BuildConfigurationKey key =
+        BuildConfigurationKey.withoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, defaultBuildOptions);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(key);
+    BuildConfigurationKey mapped = platformMappingValue.map(key);
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -116,7 +126,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -138,7 +148,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -158,7 +168,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -179,7 +189,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -205,7 +215,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -218,7 +228,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "my_mapping_file",
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
-        "    --transition directory name fragment=updated_output_dir");
+        "    --internal foo=something_new");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -226,10 +236,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).transitionDirectoryNameFragment)
-        .isEqualTo("updated_output_dir");
+    assertThat(mapped.getOptions().get(DummyTestFragment.DummyTestOptions.class).internalFoo)
+        .isEqualTo("something_new");
   }
 
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {
@@ -247,8 +257,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     return result.get(key);
   }
 
-  private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
-    return BuildConfigurationValue.keyWithoutPlatformMapping(
-        PLATFORM_FRAGMENT_CLASS, modifiedOptions);
+  private static BuildConfigurationKey keyForOptions(BuildOptions modifiedOptions) {
+    return BuildConfigurationKey.withoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, modifiedOptions);
   }
 }

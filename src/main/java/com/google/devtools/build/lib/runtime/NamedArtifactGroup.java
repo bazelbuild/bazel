@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.actions.CompletionContext.isGuaranteedToBeOutputFile;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -74,8 +76,10 @@ class NamedArtifactGroup implements BuildEvent {
     for (Object elem : set.getLeaves()) {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
+        FileArtifactValue fileMetadata =
+            completionContext.getFileArtifactValue(expandedArtifact.artifact);
         LocalFileType outputType =
-            completionContext.isGuaranteedToBeOutputFile(expandedArtifact.artifact)
+            fileMetadata != null && isGuaranteedToBeOutputFile(fileMetadata.getType())
                 ? LocalFileType.OUTPUT_FILE
                 : LocalFileType.OUTPUT;
         artifacts.add(
@@ -104,7 +108,8 @@ class NamedArtifactGroup implements BuildEvent {
         String uri =
             pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
         if (uri != null) {
-          builder.addFiles(newFileFromArtifact(expandedArtifact.artifact).setUri(uri));
+          builder.addFiles(
+              newFileFromArtifact(expandedArtifact.artifact, completionContext).setUri(uri));
         }
       } else {
         String uri =
@@ -112,9 +117,9 @@ class NamedArtifactGroup implements BuildEvent {
                 completionContext.pathResolver().convertPath(expandedArtifact.target));
         if (uri != null) {
           builder.addFiles(
-              newFileFromArtifact(null, expandedArtifact.artifact, expandedArtifact.relPath)
-                  .setUri(uri)
-                  .build());
+              newFileFromArtifact(
+                      null, expandedArtifact.artifact, expandedArtifact.relPath, completionContext)
+                  .setUri(uri));
         }
       }
     }

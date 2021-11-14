@@ -311,6 +311,25 @@ java_test(
 )
 
 java_test(
+    name = "KeepGoingTest",
+    srcs = ["KeepGoingTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "LabelCrossesPackageBoundaryTest",
     srcs = ["LabelCrossesPackageBoundaryTest.java"],
     tags = [
@@ -414,9 +433,11 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
@@ -430,7 +451,6 @@ java_test(
     name = "PackageGroupIntegrationTest",
     srcs = ["PackageGroupIntegrationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -466,7 +486,6 @@ java_test(
     name = "QueryIntegrationTest",
     srcs = ["QueryIntegrationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -482,8 +501,10 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -530,21 +551,28 @@ java_library(
 )
 
 java_test(
-    name = "TargetCompleteEventKeepsMinimalMetadataTest",
-    srcs = ["TargetCompleteEventKeepsMinimalMetadataTest.java"],
+    name = "TargetCompleteEventTest",
+    srcs = ["TargetCompleteEventTest.java"],
     tags = [
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],

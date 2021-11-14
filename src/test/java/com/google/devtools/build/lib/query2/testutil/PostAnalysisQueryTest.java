@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABE
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -134,7 +134,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
   protected abstract HashMap<String, QueryFunction> getDefaultFunctions();
 
-  protected abstract BuildConfiguration getConfiguration(T target);
+  protected abstract BuildConfigurationValue getConfiguration(T target);
 
   @Override
   protected boolean testConfigurableAttributes() {

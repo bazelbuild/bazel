@@ -89,7 +89,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   return result;
 }
 
-int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
   errno = ENOSYS;
   return -1;
 }
@@ -104,9 +104,8 @@ int portable_pop_disable_sleep() {
   return -1;
 }
 
-int portable_suspend_count() {
+void portable_start_suspend_monitoring() {
   // Currently not implemented.
-  return 0;
 }
 
 int portable_memory_pressure_warning_count() {

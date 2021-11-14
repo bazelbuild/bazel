@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.worker;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -234,6 +233,11 @@ class TestUtils {
     @Override
     public boolean isAlive() {
       return !wasDestroyed;
+    }
+
+    @Override
+    public long getProcessId() {
+      return 0;
     }
   }
 }

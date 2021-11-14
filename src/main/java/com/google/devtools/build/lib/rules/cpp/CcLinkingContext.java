@@ -544,6 +544,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return extraLinkTimeLibraries;
   }
 
+  @Override
+  public ExtraLinkTimeLibraries getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getExtraLinkTimeLibraries();
+  }
+
   public static Builder builder() {
     // private to avoid class initialization deadlock between this class and its outer class
     return new Builder();

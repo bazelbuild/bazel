@@ -85,7 +85,7 @@ _COMPILE_DEPENDENCY_RULE = {
 _INCLUDE_SCANNING_RULE = {
     "_grep_includes": attr.label(
         allow_single_file = True,
-        cfg = "host",
+        cfg = "exec",
         default = "@" + semantics.get_repo() + "//tools/cpp:grep-includes",
         executable = True,
     ),
@@ -103,7 +103,7 @@ _COPTS_RULE = {
 
 _XCRUN_RULE = {
     "_xcrunwrapper": attr.label(
-        cfg = "host",
+        cfg = "exec",
         default = "@" + semantics.get_repo() + "//tools/objc:xcrunwrapper",
         executable = True,
     ),

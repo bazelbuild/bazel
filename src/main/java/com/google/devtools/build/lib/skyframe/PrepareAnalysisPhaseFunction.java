@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
@@ -93,17 +93,17 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     List<BuildOptions> topLevelBuildOptions =
         getTopLevelBuildOptions(targetOptions, options.getMultiCpu());
 
-    ImmutableList.Builder<BuildConfigurationValue.Key> targetConfigurationKeysBuilder =
+    ImmutableList.Builder<BuildConfigurationKey> targetConfigurationKeysBuilder =
         ImmutableList.builderWithExpectedSize(topLevelBuildOptions.size());
-    BuildConfigurationValue.Key hostConfigurationKey;
+    BuildConfigurationKey hostConfigurationKey;
     try {
       hostConfigurationKey =
-          BuildConfigurationValue.keyWithPlatformMapping(
+          BuildConfigurationKey.withPlatformMapping(
               platformMappingValue, allFragments, hostOptions);
       for (BuildOptions buildOptions :
           getTopLevelBuildOptions(targetOptions, options.getMultiCpu())) {
         targetConfigurationKeysBuilder.add(
-            BuildConfigurationValue.keyWithPlatformMapping(
+            BuildConfigurationKey.withPlatformMapping(
                 platformMappingValue, allFragments, buildOptions));
       }
     } catch (OptionsParsingException e) {
@@ -117,7 +117,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       throw new PrepareAnalysisPhaseFunctionException(e);
     }
 
-    ImmutableList<BuildConfigurationValue.Key> targetConfigurationKeys =
+    ImmutableList<BuildConfigurationKey> targetConfigurationKeys =
         targetConfigurationKeysBuilder.build();
     Map<SkyKey, SkyValue> configs = env.getValues(targetConfigurationKeys);
 
@@ -127,7 +127,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     targetConfigurationKeys.stream()
         .map(configs::get)
         .filter(Objects::nonNull)
-        .map(v -> ((BuildConfigurationValue) v).getConfiguration())
+        .map(BuildConfigurationValue.class::cast)
         .forEach(config -> config.reportInvalidOptions(nosyEventHandler));
     if (nosyEventHandler.hasErrors()) {
       throw new PrepareAnalysisPhaseFunctionException(
@@ -148,9 +148,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
     for (Target target : targets) {
-      for (BuildConfigurationValue.Key configKey : targetConfigurationKeys) {
-        BuildConfiguration config =
-            ((BuildConfigurationValue) configs.get(configKey)).getConfiguration();
+      for (BuildConfigurationKey configKey : targetConfigurationKeys) {
+        BuildConfigurationValue config = (BuildConfigurationValue) configs.get(configKey);
         nodes.add(new TargetAndConfiguration(target, config));
       }
     }
@@ -160,7 +159,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     // for now, to satisfy its API we resolve transitions and repackage each target as a Dependency
     // (with a NONE transition if necessary).
     // Keep this in sync with AnalysisUtils#getTargetsWithConfigs.
-    Multimap<BuildConfiguration, DependencyKey> asDeps =
+    Multimap<BuildConfigurationValue, DependencyKey> asDeps =
         AnalysisUtils.targetsToDeps(nodes, ruleClassProvider);
     LinkedHashSet<TargetAndConfiguration> topLevelTargetsWithConfigs;
     try {
@@ -212,7 +211,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
   private LinkedHashSet<TargetAndConfiguration> resolveConfigurations(
       SkyFunction.Environment env,
       Iterable<TargetAndConfiguration> nodes,
-      Multimap<BuildConfiguration, DependencyKey> asDeps)
+      Multimap<BuildConfigurationValue, DependencyKey> asDeps)
       throws InterruptedException, TransitionException, OptionsParsingException {
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
     for (TargetAndConfiguration node : nodes) {
@@ -223,13 +222,14 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     // could be successfully Skyframe-evaluated.
     Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
         new LinkedHashMap<>();
-    for (BuildConfiguration fromConfig : asDeps.keySet()) {
-      Multimap<DependencyKey, BuildConfiguration> trimmedTargets =
+    for (BuildConfigurationValue fromConfig : asDeps.keySet()) {
+      Multimap<DependencyKey, BuildConfigurationValue> trimmedTargets =
           getConfigurations(env, fromConfig.getOptions(), asDeps.get(fromConfig));
       if (trimmedTargets == null) {
         continue;
       }
-      for (Map.Entry<DependencyKey, BuildConfiguration> trimmedTarget : trimmedTargets.entries()) {
+      for (Map.Entry<DependencyKey, BuildConfigurationValue> trimmedTarget :
+          trimmedTargets.entries()) {
         Target target = labelsToTargets.get(trimmedTarget.getKey().getLabel());
         successfullyEvaluatedTargets.put(
             new TargetAndConfiguration(target, fromConfig),
@@ -251,10 +251,10 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
 
   // Keep in sync with {@link SkyframeExecutor#getConfigurations}.
   // Note: this implementation runs inside Skyframe, so it has access to SkyFunction.Environment.
-  private Multimap<DependencyKey, BuildConfiguration> getConfigurations(
+  private Multimap<DependencyKey, BuildConfigurationValue> getConfigurations(
       SkyFunction.Environment env, BuildOptions fromOptions, Iterable<DependencyKey> keys)
       throws InterruptedException, TransitionException, OptionsParsingException {
-    Multimap<DependencyKey, BuildConfiguration> builder = ArrayListMultimap.create();
+    Multimap<DependencyKey, BuildConfigurationValue> builder = ArrayListMultimap.create();
 
     FragmentClassSet allFragments = ruleClassProvider.getFragmentRegistry().getAllFragments();
 
@@ -284,7 +284,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
               .values();
       for (BuildOptions toOption : toOptions) {
         configSkyKeys.add(
-            BuildConfigurationValue.keyWithPlatformMapping(
+            BuildConfigurationKey.withPlatformMapping(
                 platformMappingValue, allFragments, toOption));
       }
     }
@@ -310,14 +310,13 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
               .values();
       for (BuildOptions toOption : toOptions) {
         SkyKey configKey =
-            BuildConfigurationValue.keyWithPlatformMapping(
-                platformMappingValue, allFragments, toOption);
+            BuildConfigurationKey.withPlatformMapping(platformMappingValue, allFragments, toOption);
         BuildConfigurationValue configValue =
-            ((BuildConfigurationValue) configsResult.get(configKey));
+            (BuildConfigurationValue) configsResult.get(configKey);
         // configValue will be null here if there was an exception thrown during configuration
         // creation. This will be reported elsewhere.
         if (configValue != null) {
-          builder.put(key, configValue.getConfiguration());
+          builder.put(key, configValue);
         }
       }
     }

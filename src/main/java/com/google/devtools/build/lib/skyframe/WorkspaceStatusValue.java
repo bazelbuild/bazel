@@ -67,5 +67,11 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
     public Label getLabel() {
       return null;
     }
+
+    @Nullable
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
+    }
   }
 }

@@ -52,8 +52,8 @@ final class CompilationAttributes implements StarlarkValue {
     private final ImmutableList.Builder<String> linkopts = ImmutableList.builder();
     private final ImmutableList.Builder<Artifact> linkInputs = ImmutableList.builder();
     private final ImmutableList.Builder<String> defines = ImmutableList.builder();
-    private final NestedSetBuilder<SdkFramework> sdkFrameworks = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<SdkFramework> weakSdkFrameworks = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<String> sdkFrameworks = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<String> weakSdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> sdkDylibs = NestedSetBuilder.stableOrder();
     private Optional<PathFragment> packageFragment = Optional.absent();
     private boolean enableModules;
@@ -133,18 +133,14 @@ final class CompilationAttributes implements StarlarkValue {
       return this;
     }
 
-    /**
-     * Adds SDK frameworks to link against.
-     */
-    public Builder addSdkFrameworks(NestedSet<SdkFramework> sdkFrameworks) {
+    /** Adds SDK frameworks to link against. */
+    public Builder addSdkFrameworks(NestedSet<String> sdkFrameworks) {
       this.sdkFrameworks.addTransitive(sdkFrameworks);
       return this;
     }
 
-    /**
-     * Adds SDK frameworks to be linked weakly.
-     */
-    public Builder addWeakSdkFrameworks(NestedSet<SdkFramework> weakSdkFrameworks) {
+    /** Adds SDK frameworks to be linked weakly. */
+    public Builder addWeakSdkFrameworks(NestedSet<String> weakSdkFrameworks) {
       this.weakSdkFrameworks.addTransitive(weakSdkFrameworks);
       return this;
     }
@@ -232,18 +228,18 @@ final class CompilationAttributes implements StarlarkValue {
 
     static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
-        NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
+        NestedSetBuilder<String> frameworks = NestedSetBuilder.stableOrder();
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
-          frameworks.add(new SdkFramework(explicit));
+          frameworks.add(explicit);
         }
         builder.addSdkFrameworks(frameworks.build());
       }
 
       if (ruleContext.attributes().has("weak_sdk_frameworks", Type.STRING_LIST)) {
-        NestedSetBuilder<SdkFramework> weakFrameworks = NestedSetBuilder.stableOrder();
+        NestedSetBuilder<String> weakFrameworks = NestedSetBuilder.stableOrder();
         for (String frameworkName :
             ruleContext.attributes().get("weak_sdk_frameworks", Type.STRING_LIST)) {
-          weakFrameworks.add(new SdkFramework(frameworkName));
+          weakFrameworks.add(frameworkName);
         }
         builder.addWeakSdkFrameworks(weakFrameworks.build());
       }
@@ -301,8 +297,8 @@ final class CompilationAttributes implements StarlarkValue {
   private final NestedSet<Artifact> textualHdrs;
   private final NestedSet<PathFragment> includes;
   private final NestedSet<PathFragment> sdkIncludes;
-  private final NestedSet<SdkFramework> sdkFrameworks;
-  private final NestedSet<SdkFramework> weakSdkFrameworks;
+  private final NestedSet<String> sdkFrameworks;
+  private final NestedSet<String> weakSdkFrameworks;
   private final NestedSet<String> sdkDylibs;
   private final Optional<PathFragment> packageFragment;
   private final ImmutableList<String> copts;
@@ -316,8 +312,8 @@ final class CompilationAttributes implements StarlarkValue {
       NestedSet<Artifact> textualHdrs,
       NestedSet<PathFragment> includes,
       NestedSet<PathFragment> sdkIncludes,
-      NestedSet<SdkFramework> sdkFrameworks,
-      NestedSet<SdkFramework> weakSdkFrameworks,
+      NestedSet<String> sdkFrameworks,
+      NestedSet<String> weakSdkFrameworks,
       NestedSet<String> sdkDylibs,
       Optional<PathFragment> packageFragment,
       ImmutableList<String> copts,
@@ -400,31 +396,23 @@ final class CompilationAttributes implements StarlarkValue {
     return this.sdkIncludes;
   }
 
-  /**
-   * Returns the SDK frameworks to link against.
-   */
-  public NestedSet<SdkFramework> sdkFrameworks() {
+  /** Returns the SDK frameworks to link against. */
+  public NestedSet<String> sdkFrameworks() {
     return this.sdkFrameworks;
   }
 
   @StarlarkMethod(name = "sdk_frameworks", documented = false, structField = true)
   public Depset sdkFrameworksForStarlark() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(
-            ObjcProvider.SDK_FRAMEWORK, sdkFrameworks());
+    return Depset.of(ElementType.STRING, sdkFrameworks);
   }
 
   @StarlarkMethod(name = "weak_sdk_frameworks", documented = false, structField = true)
   public Depset weakSdkFrameworksForStarlark() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(
-            ObjcProvider.SDK_FRAMEWORK, weakSdkFrameworks());
+    return Depset.of(ElementType.STRING, weakSdkFrameworks);
   }
 
-  /**
-   * Returns the SDK frameworks to be linked weakly.
-   */
-  public NestedSet<SdkFramework> weakSdkFrameworks() {
+  /** Returns the SDK frameworks to be linked weakly. */
+  public NestedSet<String> weakSdkFrameworks() {
     return this.weakSdkFrameworks;
   }
 

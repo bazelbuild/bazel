@@ -611,4 +611,12 @@ public interface JavaCommonApi<
       },
       useStarlarkThread = true)
   JavaInfoT toJavaBinaryInfo(JavaInfoT javaInfo, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_build_info",
+      documented = false,
+      parameters = {@Param(name = "ctx", doc = "The rule context")},
+      useStarlarkThread = true)
+  Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException;
 }

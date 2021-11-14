@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -50,7 +51,6 @@ public class CompactPersistentActionCacheTest {
   private Path journalFile;
   private final ManualClock clock = new ManualClock();
   private CompactPersistentActionCache cache;
-  private PathFragment derivedPathPrefix;
   private ArtifactRoot artifactRoot;
 
   @Before
@@ -59,7 +59,6 @@ public class CompactPersistentActionCacheTest {
     cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
     mapFile = CompactPersistentActionCache.cacheFile(dataRoot);
     journalFile = CompactPersistentActionCache.journalFile(dataRoot);
-    derivedPathPrefix = PathFragment.create("bin");
     artifactRoot =
         ArtifactRoot.asDerivedRoot(
             scratch.getFileSystem().getPath("/output"), ArtifactRoot.RootType.Output, "bin");
@@ -219,8 +218,7 @@ public class CompactPersistentActionCacheTest {
     }
     archivedArtifactValue.ifPresent(
         metadata -> {
-          Artifact.ArchivedTreeArtifact artifact =
-              Artifact.ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
+          ArchivedTreeArtifact artifact = ArchivedTreeArtifact.createForTree(parent);
           builder.setArchivedRepresentation(
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });

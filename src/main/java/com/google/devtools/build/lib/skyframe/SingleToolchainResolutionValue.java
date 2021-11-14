@@ -35,7 +35,7 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
   // A key representing the input data.
   public static SingleToolchainResolutionKey key(
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       Label toolchainTypeLabel,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
@@ -48,7 +48,7 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
   }
 
   public static SingleToolchainResolutionKey key(
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       Label toolchainTypeLabel,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
@@ -72,7 +72,7 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
       return SkyFunctions.SINGLE_TOOLCHAIN_RESOLUTION;
     }
 
-    abstract BuildConfigurationValue.Key configurationKey();
+    abstract BuildConfigurationKey configurationKey();
 
     public abstract Label toolchainTypeLabel();
 
@@ -84,7 +84,7 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
     @AutoCodec.Instantiator
     static SingleToolchainResolutionKey create(
-        BuildConfigurationValue.Key configurationKey,
+        BuildConfigurationKey configurationKey,
         Label toolchainTypeLabel,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys,

@@ -84,22 +84,6 @@ export BAZEL_SHELL_TEST=1
 
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-#### Configuration variables (may be overridden by testenv.sh or the suite):
-
-# This function may be called by testenv.sh or a test suite to enable errexit
-# in a way that enables us to print pretty stack traces when something fails.
-function enable_errexit() {
-  set -o errtrace
-  set -eu
-  trap __test_terminated_err ERR
-}
-
-function disable_errexit() {
-  set +o errtrace
-  set +eu
-  trap - ERR
-}
-
 # Load the environment support utilities.
 source "${DIR}/unittest_utils.sh" || { echo "unittest_utils.sh not found" >&2; exit 1; }
 
@@ -710,9 +694,9 @@ function run_suite() {
         # Remember -o pipefail value and disable it for the subshell result
         # collection.
         if [[ "${SHELLOPTS}" =~ (^|:)pipefail(:|$) ]]; then
-          __opt_switch=-o
+          local __opt_switch=-o
         else
-          __opt_switch=+o
+          local __opt_switch=+o
         fi
         set +o pipefail
         (

@@ -192,7 +192,7 @@ final class RemoteSpawnCache implements SpawnCache {
           if (options.experimentalGuardAgainstConcurrentChanges) {
             try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
-            } catch (IOException e) {
+            } catch (IOException | ForbiddenActionInputException e) {
               report(Event.warn(e.getMessage()));
               return;
             }
@@ -204,7 +204,8 @@ final class RemoteSpawnCache implements SpawnCache {
         @Override
         public void close() {}
 
-        private void checkForConcurrentModifications() throws IOException {
+        private void checkForConcurrentModifications()
+            throws IOException, ForbiddenActionInputException {
           for (ActionInput input : action.getInputMap().values()) {
             if (input instanceof VirtualActionInput) {
               continue;

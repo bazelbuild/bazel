@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -65,10 +64,10 @@ import javax.annotation.Nullable;
  *   <li>As much as possible, make the cache key computation obvious - fully hash every field
  *       (except input contents, but including input and output names if they appear in the command
  *       line) in the class, and avoid referencing anything that isn't needed for action execution,
- *       such as {@link com.google.devtools.build.lib.analysis.config.BuildConfiguration} objects or
- *       even fragments thereof; if the action has a command line, err on the side of hashing the
- *       entire command line, even if that seems expensive. It's always safe to hash too much - the
- *       negative effect on incremental build times is usually negligible.
+ *       such as {@link com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}
+ *       objects or even fragments thereof; if the action has a command line, err on the side of
+ *       hashing the entire command line, even if that seems expensive. It's always safe to hash too
+ *       much - the negative effect on incremental build times is usually negligible.
  *   <li>Add test coverage for the cache key computation; use {@link
  *       com.google.devtools.build.lib.analysis.util.ActionTester} to generate as many combinations
  *       of field values as possible; add test coverage every time you add another field.
@@ -92,7 +91,7 @@ public interface Action extends ActionExecutionMetadata {
       Path execRoot,
       ArtifactPathResolver pathResolver,
       @Nullable BulkDeleter bulkDeleter,
-      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
+      boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException;
 
   /**

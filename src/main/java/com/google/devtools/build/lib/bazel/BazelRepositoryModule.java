@@ -24,7 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
@@ -187,7 +187,8 @@ public class BazelRepositoryModule extends BlazeModule {
     }
 
     @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+    public byte[] get(
+        Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException, InterruptedException {
       return print(repositoryCache.getRootPath());
     }

@@ -64,7 +64,8 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     // transition is always invoked on every target in the top-level invocation. Thus, a wide
     // invocation, like //..., will cause the transition to be invoked on a large number of targets
     // leading to significant performance degradation. (Notably, the transition itself is somewhat
-    // fast; however, the post-processing of the BuildOptions into the actual BuildConfiguration
+    // fast; however, the post-processing of the BuildOptions into the actual
+    // BuildConfigurationValue
     // takes a significant amount of time).
     //
     // Test any caching changes for performance impact in a longwide scenario with

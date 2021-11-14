@@ -17,7 +17,7 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -38,21 +38,21 @@ public final class AspectKeyCreator {
 
   public static AspectKey createAspectKey(
       Label label,
-      @Nullable BuildConfiguration baseConfiguration,
+      @Nullable BuildConfigurationValue baseConfiguration,
       ImmutableList<AspectKey> baseKeys,
       AspectDescriptor aspectDescriptor,
-      @Nullable BuildConfiguration aspectConfiguration) {
+      @Nullable BuildConfigurationValue aspectConfiguration) {
     return AspectKey.createAspectKey(
         ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         baseKeys,
         aspectDescriptor,
-        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
+        aspectConfiguration == null ? null : aspectConfiguration.getKey());
   }
 
   public static AspectKey createAspectKey(
       AspectDescriptor aspectDescriptor,
       ImmutableList<AspectKey> baseKeys,
-      BuildConfigurationValue.Key aspectConfigurationKey,
+      BuildConfigurationKey aspectConfigurationKey,
       ConfiguredTargetKey baseConfiguredTargetKey) {
     return AspectKey.createAspectKey(
         baseConfiguredTargetKey, baseKeys, aspectDescriptor, aspectConfigurationKey);
@@ -60,20 +60,20 @@ public final class AspectKeyCreator {
 
   public static AspectKey createAspectKey(
       Label label,
-      @Nullable BuildConfiguration baseConfiguration,
+      @Nullable BuildConfigurationValue baseConfiguration,
       AspectDescriptor aspectDescriptor,
-      @Nullable BuildConfiguration aspectConfiguration) {
+      @Nullable BuildConfigurationValue aspectConfiguration) {
     return AspectKey.createAspectKey(
         ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         ImmutableList.of(),
         aspectDescriptor,
-        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
+        aspectConfiguration == null ? null : aspectConfiguration.getKey());
   }
 
   public static TopLevelAspectsKey createTopLevelAspectsKey(
       ImmutableList<AspectClass> topLevelAspectsClasses,
       Label targetLabel,
-      @Nullable BuildConfiguration configuration) {
+      @Nullable BuildConfigurationValue configuration) {
     return TopLevelAspectsKey.createInternal(
         topLevelAspectsClasses,
         targetLabel,
@@ -110,14 +110,14 @@ public final class AspectKeyCreator {
   @AutoCodec
   public static final class AspectKey extends AspectBaseKey {
     private final ImmutableList<AspectKey> baseKeys;
-    @Nullable private final BuildConfigurationValue.Key aspectConfigurationKey;
+    @Nullable private final BuildConfigurationKey aspectConfigurationKey;
     private final AspectDescriptor aspectDescriptor;
 
     private AspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
-        @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
+        @Nullable BuildConfigurationKey aspectConfigurationKey,
         int hashCode) {
       super(baseConfiguredTargetKey, hashCode);
       this.baseKeys = baseKeys;
@@ -131,7 +131,7 @@ public final class AspectKeyCreator {
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
-        @Nullable BuildConfigurationValue.Key aspectConfigurationKey) {
+        @Nullable BuildConfigurationKey aspectConfigurationKey) {
       return aspectKeyInterner.intern(
           new AspectKey(
               baseConfiguredTargetKey,
@@ -192,22 +192,10 @@ public final class AspectKeyCreator {
     /**
      * Returns the key of the configured target of the aspect; that is, the configuration in which
      * the aspect will be evaluated.
-     *
-     * <p>In trimmed configuration mode, the aspect may require more fragments than the target on
-     * which it is being evaluated; in addition to configuration fragments required by the target
-     * and its dependencies, an aspect has configuration fragment requirements of its own, as well
-     * as dependencies of its own with their own configuration fragment requirements.
-     *
-     * <p>The aspect configuration contains all of these fragments, and is used to create the
-     * aspect's RuleContext and to retrieve the dependencies. Note that dependencies will have their
-     * configurations trimmed from this one as normal.
-     *
-     * <p>Because of these properties, this configuration is always a superset of the base target's
-     * configuration. In untrimmed configuration mode, this configuration will be equivalent to the
-     * base target's configuration.
      */
+    @Override
     @Nullable
-    public BuildConfigurationValue.Key getAspectConfigurationKey() {
+    public BuildConfigurationKey getConfigurationKey() {
       return aspectConfigurationKey;
     }
 
@@ -303,6 +291,11 @@ public final class AspectKeyCreator {
       return SkyFunctions.TOP_LEVEL_ASPECTS;
     }
 
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return getBaseConfiguredTargetKey().getConfigurationKey();
+    }
+
     ImmutableList<AspectClass> getTopLevelAspectsClasses() {
       return topLevelAspectsClasses;
     }
@@ -313,7 +306,7 @@ public final class AspectKeyCreator {
     }
 
     String getDescription() {
-      return topLevelAspectsClasses + " on " + getLabel();
+      return topLevelAspectsClasses + " on " + targetLabel;
     }
 
     @Override

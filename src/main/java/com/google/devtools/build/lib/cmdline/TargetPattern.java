@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -46,9 +45,9 @@ import java.util.regex.Pattern;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * Represents a target pattern. Target patterns are a generalization of labels to include
- * wildcards for finding all packages recursively beneath some root, and for finding all targets
- * within a package.
+ * Represents a target pattern. Target patterns are a generalization of labels to include wildcards
+ * for finding all packages recursively beneath some root, and for finding all targets within a
+ * package.
  *
  * <p>Note that this class does not handle negative patterns ("-//foo/bar"); these must be handled
  * one level up. In particular, the query language comes with built-in support for negative
@@ -59,7 +58,7 @@ import javax.annotation.concurrent.Immutable;
  *
  * <p>See lib/blaze/commands/target-syntax.txt for details.
  */
-public abstract class TargetPattern implements Serializable {
+public abstract class TargetPattern {
 
   private static final Splitter SLASH_SPLITTER = Splitter.on('/');
   private static final Joiner SLASH_JOINER = Joiner.on('/');
@@ -86,25 +85,17 @@ public abstract class TargetPattern implements Serializable {
     return new Parser(offset, RepositoryName.MAIN, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
-  private static String removeSuffix(String s, String suffix) {
-    if (s.endsWith(suffix)) {
-      return s.substring(0, s.length() - suffix.length());
-    } else {
-      throw new IllegalArgumentException(s + ", " + suffix);
-    }
-  }
-
   /**
    * Normalizes the given relative path by resolving {@code //}, {@code /./} and {@code x/../}
    * pieces. Note that leading {@code ".."} segments are not removed, so the returned string can
    * have leading {@code ".."} segments.
    *
-   * @throws IllegalArgumentException if the path is absolute, i.e. starts with a @{code '/'}
+   * @throws IllegalArgumentException if the path is absolute, i.e. starts with {@code /}
    */
   @VisibleForTesting
   static String normalize(String path) {
-    Preconditions.checkArgument(!path.startsWith("/"));
-    Preconditions.checkArgument(!path.startsWith("@"));
+    Preconditions.checkArgument(!path.startsWith("/"), path);
+    Preconditions.checkArgument(!path.startsWith("@"), path);
     Iterator<String> it = SLASH_SPLITTER.split(path).iterator();
     List<String> pieces = new ArrayList<>();
     while (it.hasNext()) {
@@ -641,7 +632,7 @@ public abstract class TargetPattern implements Serializable {
               ignoredPackagePrefix);
         }
         PackageIdentifier pkgIdForIgnoredDirectorPrefix =
-            PackageIdentifier.create(this.getDirectory().getRepository(), ignoredPackagePrefix);
+            PackageIdentifier.create(directory.getRepository(), ignoredPackagePrefix);
         if (this.containsAllTransitiveSubdirectories(pkgIdForIgnoredDirectorPrefix)) {
           ignoredPathsBuilder.add(ignoredPackagePrefix);
         }
@@ -747,8 +738,8 @@ public abstract class TargetPattern implements Serializable {
      * the given {@code containedPattern} from this one.
      */
     public ContainsResult contains(TargetsBelowDirectory containedPattern) {
-      if (containsAllTransitiveSubdirectories(containedPattern.getDirectory())) {
-        return !getRulesOnly() && containedPattern.getRulesOnly()
+      if (containsAllTransitiveSubdirectories(containedPattern.directory)) {
+        return !rulesOnly && containedPattern.rulesOnly
             ? ContainsResult.DIRECTORY_EXCLUSION_WOULD_BE_TOO_BROAD
             : ContainsResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT;
       } else {
@@ -957,7 +948,7 @@ public abstract class TargetPattern implements Serializable {
       }
 
       if (packagePart.endsWith("/...")) {
-        String realPackagePart = removeSuffix(packagePart, "/...");
+        String realPackagePart = packagePart.substring(0, packagePart.length() - "/...".length());
         PackageIdentifier packageIdentifier;
         try {
           packageIdentifier = PackageIdentifier.parse(
@@ -1097,6 +1088,6 @@ public abstract class TargetPattern implements Serializable {
     /** Targets below a directory, eg "foo/...". */
     TARGETS_BELOW_DIRECTORY,
     /** Target in a package, eg "foo:all". */
-    TARGETS_IN_PACKAGE;
+    TARGETS_IN_PACKAGE
   }
 }

@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
@@ -110,7 +111,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private static final String J2OBJC_PROTO_TOOLCHAIN_ATTR = ":j2objc_proto_toolchain";
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final LabelLateBoundDefault<?> DEAD_CODE_REPORT =
       LabelLateBoundDefault.fromTargetConfiguration(
           J2ObjcConfiguration.class,
@@ -689,7 +690,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static void addJ2ObjCMappingsForAttribute(
-      ImmutableList.Builder<J2ObjcMappingFileProvider> builder, RuleContext context,
+      ImmutableList.Builder<J2ObjcMappingFileProvider> builder,
+      RuleContext context,
       String attributeName) {
     if (context.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection dependencyInfoDatum : context.getPrerequisites(attributeName)) {
@@ -716,16 +718,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static Artifact j2ObjcSourceJarTranslatedSourceTreeArtifact(RuleContext ruleContext) {
-    PathFragment rootRelativePath = ruleContext
-        .getUniqueDirectory("_j2objc/src_jar_files")
-        .getRelative("source_files");
+    PathFragment rootRelativePath =
+        ruleContext.getUniqueDirectory("_j2objc/src_jar_files").getRelative("source_files");
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
   /**
-   * Returns a unique path fragment for j2objc headers. The slightly shorter path is
-   * useful for very large app builds, which otherwise may have command lines that are
-   * too long to be executable.
+   * Returns a unique path fragment for j2objc headers. The slightly shorter path is useful for very
+   * large app builds, which otherwise may have command lines that are too long to be executable.
    */
   private static String j2objcHeaderBase(RuleContext ruleContext) {
     boolean shorterPath =
@@ -750,9 +750,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ImmutableList<Artifact> javaSourceJarFiles) {
     PathFragment objcFileRootRelativePath =
         ruleContext.getUniqueDirectory(j2objcHeaderBase(ruleContext));
-    PathFragment objcFileRootExecPath = ruleContext
-        .getBinFragment()
-        .getRelative(objcFileRootRelativePath);
+    PathFragment objcFileRootExecPath =
+        ruleContext.getBinFragment().getRelative(objcFileRootRelativePath);
 
     // Note that these are mutable lists so that we can add the translated file info below.
     List<Artifact> objcSrcs =
@@ -817,8 +816,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       String suffix) {
     List<Artifact> objcSources = new ArrayList<>();
     for (Artifact javaSrc : javaSrcs) {
-      objcSources.add(ruleContext.getRelatedArtifact(
-          objcFileRootRelativePath.getRelative(javaSrc.getExecPath()), suffix));
+      objcSources.add(
+          ruleContext.getRelatedArtifact(
+              objcFileRootRelativePath.getRelative(javaSrc.getExecPath()), suffix));
     }
     return objcSources;
   }

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -38,7 +36,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -85,11 +82,12 @@ public final class RequiredFragmentsUtil {
   @Nullable
   public static RequiredConfigFragmentsProvider getRuleRequiredFragmentsIfEnabled(
       Rule target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
-    if (!requiredFragmentsEnabled(configuration)) {
+    IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
+    if (mode == IncludeConfigFragmentsEnum.OFF) {
       return null;
     }
     RuleClass ruleClass = target.getRuleClassObject();
@@ -97,18 +95,25 @@ public final class RequiredFragmentsUtil {
         ConfiguredAttributeMapper.of(target, configConditions, configuration.checksum());
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         getRequiredFragments(
-            target.isBuildSetting() ? Optional.of(target.getLabel()) : Optional.empty(),
+            mode,
             configuration,
             universallyRequiredFragments,
             ruleClass.getConfigurationFragmentPolicy(),
             configConditions.values(),
-            getRuleTransitions(target, attributes),
             prerequisites);
     if (!ruleClass.isStarlark()) {
       ruleClass
           .getConfiguredTargetFactory(RuleConfiguredTargetFactory.class)
           .addRuleImplSpecificRequiredConfigFragments(requiredFragments, attributes, configuration);
     }
+    addRequiredFragmentsFromRuleTransitions(
+        requiredFragments, target, attributes, configuration.getBuildOptionDetails());
+
+    // We consider build settings (which are both targets and configuration) to require themselves.
+    if (target.isBuildSetting()) {
+      requiredFragments.addStarlarkOption(target.getLabel());
+    }
+
     return requiredFragments.build();
   }
 
@@ -131,68 +136,70 @@ public final class RequiredFragmentsUtil {
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
       Rule associatedTarget,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
-    if (!requiredFragmentsEnabled(configuration)) {
+    IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
+    if (mode == IncludeConfigFragmentsEnum.OFF) {
       return null;
     }
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         getRequiredFragments(
-            /*buildSettingLabel=*/ Optional.empty(),
+            mode,
             configuration,
             universallyRequiredFragments,
             aspect.getDefinition().getConfigurationFragmentPolicy(),
             configConditions.values(),
-            getAspectTransitions(
-                aspect,
-                ConfiguredAttributeMapper.of(
-                    associatedTarget, configConditions, configuration.checksum())),
             prerequisites);
     aspectFactory.addAspectImplSpecificRequiredConfigFragments(requiredFragments);
+    addRequiredFragmentsFromAspectTransitions(
+        requiredFragments,
+        aspect,
+        ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration.checksum()),
+        configuration.getBuildOptionDetails());
     return requiredFragments.build();
   }
 
-  /** Internal implementation that handles any source (target or aspect). */
+  /** Internal implementation that handles requirements common to both rules and aspects. */
   private static RequiredConfigFragmentsProvider.Builder getRequiredFragments(
-      Optional<Label> buildSettingLabel,
-      BuildConfiguration configuration,
+      IncludeConfigFragmentsEnum mode,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
-      Collection<ConfigurationTransition> associatedTransitions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
-    // Add directly required fragments:
     RequiredConfigFragmentsProvider.Builder requiredFragments =
-        RequiredConfigFragmentsProvider.builder()
-            // Fragments explicitly required by the native target/aspect definition API:
-            .addFragmentClasses(configurationFragmentPolicy.getRequiredConfigurationFragments())
-            // Fragments explicitly required by the Starlark target/aspect definition API:
-            .addFragmentClasses(
-                Collections2.transform(
-                    configurationFragmentPolicy.getRequiredStarlarkFragments(),
-                    configuration::getStarlarkFragmentByName))
-            // Fragments universally required by everything:
-            .addFragmentClasses(universallyRequiredFragments);
+        RequiredConfigFragmentsProvider.builder();
+
+    if (mode == IncludeConfigFragmentsEnum.TRANSITIVE) {
+      // Add transitive requirements first, which results in better performance. See explanation on
+      // RequiredConfigFragmentsProvider.Builder.
+      addTransitivelyRequiredFragments(requiredFragments, prerequisites);
+    } else {
+      addStarlarkBuildSettings(requiredFragments, prerequisites);
+    }
+
+    // Add directly required fragments:
+    requiredFragments
+        // Fragments explicitly required by the native target/aspect definition API:
+        .addFragmentClasses(configurationFragmentPolicy.getRequiredConfigurationFragments())
+        // Fragments explicitly required by the Starlark target/aspect definition API:
+        .addFragmentClasses(
+            Collections2.transform(
+                configurationFragmentPolicy.getRequiredStarlarkFragments(),
+                configuration::getStarlarkFragmentByName))
+        // Fragments universally required by everything:
+        .addFragmentClasses(universallyRequiredFragments);
     // Fragments required by attached select()s.
     configConditions.forEach(
         configCondition -> requiredFragments.merge(configCondition.requiredFragmentOptions()));
-    // We consider build settings (which are both targets and configuration) to require themselves:
-    buildSettingLabel.ifPresent(requiredFragments::addStarlarkOption);
 
-    // Fragments required by attached configuration transitions.
-    for (ConfigurationTransition transition : associatedTransitions) {
-      transition.addRequiredFragments(requiredFragments, configuration.getOptions());
-    }
-
-    // Optionally add transitively required fragments (only if --show_config_fragments=transitive):
-    addRequiredFragmentsFromDeps(requiredFragments, configuration, prerequisites);
     return requiredFragments;
   }
 
   /**
-   * Returns the {@link ConfigurationTransition}s "attached" to a target.
+   * Adds required fragments from transitions "attached" to a target.
    *
    * <p>"Attached" means the transition is attached to the target itself or one of its attributes.
    *
@@ -201,15 +208,17 @@ public final class RequiredFragmentsUtil {
    * the configuration for the child is determined. We still consider these the child's requirements
    * because the child's properties determine that dependency.
    */
-  private static ImmutableList<ConfigurationTransition> getRuleTransitions(
-      Rule target, ConfiguredAttributeMapper attributeMap) {
-    ImmutableList.Builder<ConfigurationTransition> transitions = ImmutableList.builder();
+  private static void addRequiredFragmentsFromRuleTransitions(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      Rule target,
+      ConfiguredAttributeMapper attributeMap,
+      BuildOptionDetails optionDetails) {
     if (target.getRuleClassObject().getTransitionFactory() != null) {
-      transitions.add(
-          target
-              .getRuleClassObject()
-              .getTransitionFactory()
-              .create(RuleTransitionData.create(target)));
+      target
+          .getRuleClassObject()
+          .getTransitionFactory()
+          .create(RuleTransitionData.create(target))
+          .addRequiredFragments(requiredFragments, optionDetails);
     }
     // We don't set the execution platform in this data because a) that doesn't affect which
     // fragments are required and b) it's one less parameter we have to pass to
@@ -218,73 +227,73 @@ public final class RequiredFragmentsUtil {
         AttributeTransitionData.builder().attributes(attributeMap).build();
     for (Attribute attribute : target.getRuleClassObject().getAttributes()) {
       if (attribute.getTransitionFactory() != null) {
-        transitions.add(attribute.getTransitionFactory().create(attributeTransitionData));
+        attribute
+            .getTransitionFactory()
+            .create(attributeTransitionData)
+            .addRequiredFragments(requiredFragments, optionDetails);
       }
     }
-    return transitions.build();
   }
 
   /**
-   * Returns the {@link ConfigurationTransition}s "attached" to an aspect.
+   * Adds required fragments from transitions "attached" to an aspect.
    *
    * <p>"Attached" means the transition is attached to one of the aspect's attributes. Transitions
-   * can'be attached directly to aspects themselves.
+   * can't be attached directly to aspects themselves.
    */
-  private static ImmutableList<ConfigurationTransition> getAspectTransitions(
-      Aspect aspect, ConfiguredAttributeMapper attributeMap) {
-    ImmutableList.Builder<ConfigurationTransition> transitions = ImmutableList.builder();
+  private static void addRequiredFragmentsFromAspectTransitions(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      Aspect aspect,
+      ConfiguredAttributeMapper attributeMap,
+      BuildOptionDetails optionDetails) {
     AttributeTransitionData attributeTransitionData =
         AttributeTransitionData.builder().attributes(attributeMap).build();
     for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
       if (attribute.getTransitionFactory() != null) {
-        transitions.add(attribute.getTransitionFactory().create(attributeTransitionData));
+        attribute
+            .getTransitionFactory()
+            .create(attributeTransitionData)
+            .addRequiredFragments(requiredFragments, optionDetails);
       }
     }
-    return transitions.build();
+  }
+
+  private static void addTransitivelyRequiredFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      Iterable<ConfiguredTargetAndData> prerequisites) {
+    for (ConfiguredTargetAndData prereq : prerequisites) {
+      RequiredConfigFragmentsProvider depProvider =
+          prereq.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class);
+      if (depProvider != null) {
+        requiredFragments.merge(depProvider);
+      }
+    }
   }
 
   /**
-   * Returns fragments required by deps. This includes:
+   * Adds dependencies on Starlark build settings.
    *
-   * <ul>
-   *   <li>Requirements transitively required by deps iff {@link
-   *       CoreOptions#includeRequiredConfigFragmentsProvider} is {@link
-   *       CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE},
-   *   <li>Dependencies on Starlark build settings iff {@link
-   *       CoreOptions#includeRequiredConfigFragmentsProvider} is not {@link
-   *       CoreOptions.IncludeConfigFragmentsEnum#OFF}. These are considered direct requirements on
-   *       the rule.
-   * </ul>
+   * <p>Starlark build settings are considered direct requirements on the rule even though they are
+   * technically dependencies. Note that this method only needs to be called in {@link
+   * IncludeConfigFragmentsEnum#DIRECT} mode, since {@link IncludeConfigFragmentsEnum#TRANSITIVE}
+   * mode will already pick up these requirements from dependencies.
    */
-  private static void addRequiredFragmentsFromDeps(
+  private static void addStarlarkBuildSettings(
       RequiredConfigFragmentsProvider.Builder requiredFragments,
-      BuildConfiguration configuration,
       Iterable<ConfiguredTargetAndData> prerequisites) {
-    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
     for (ConfiguredTargetAndData prereq : prerequisites) {
-      // If the target depends on a Starlark build setting, conceptually that means it directly
-      // requires that as an option (even though it's technically a dependency).
       BuildSettingProvider buildSettingProvider =
           prereq.getConfiguredTarget().getProvider(BuildSettingProvider.class);
       if (buildSettingProvider != null) {
         requiredFragments.addStarlarkOption(buildSettingProvider.getLabel());
       }
-      if (coreOptions.includeRequiredConfigFragmentsProvider
-          == CoreOptions.IncludeConfigFragmentsEnum.TRANSITIVE) {
-        // Add fragments only required because transitive deps need them.
-        RequiredConfigFragmentsProvider depProvider =
-            prereq.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class);
-        if (depProvider != null) {
-          requiredFragments.merge(depProvider);
-        }
-      }
     }
   }
 
-  private static boolean requiredFragmentsEnabled(BuildConfiguration config) {
-    IncludeConfigFragmentsEnum setting =
-        config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider;
-    return checkNotNull(setting) != IncludeConfigFragmentsEnum.OFF;
+  private static IncludeConfigFragmentsEnum getRequiredFragmentsMode(
+      BuildConfigurationValue config) {
+    return checkNotNull(
+        config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider);
   }
 
   private RequiredFragmentsUtil() {}

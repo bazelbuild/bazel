@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hasher;
@@ -27,10 +26,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.Serializable;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
@@ -59,25 +55,10 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 @AutoCodec
-public class Path implements Comparable<Path>, Serializable, FileType.HasFileType {
-  private static FileSystem fileSystemForSerialization;
+public class Path implements Comparable<Path>, FileType.HasFileType {
 
-  /**
-   * We need to specify used FileSystem. In this case we can save memory during the serialization.
-   */
-  public static void setFileSystemForSerialization(FileSystem fileSystem) {
-    fileSystemForSerialization = fileSystem;
-  }
-
-  /**
-   * Returns FileSystem that we are using.
-   */
-  public static FileSystem getFileSystemForSerialization() {
-    return fileSystemForSerialization;
-  }
-
-  private PathFragment pathFragment;
-  private FileSystem fileSystem;
+  private final PathFragment pathFragment;
+  private final FileSystem fileSystem;
 
   /** Creates a local path that is specific to the host OS. */
   static Path create(String path, FileSystem fileSystem) {
@@ -228,7 +209,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   @Override
   public int compareTo(Path o) {
     // If they are on different file systems, the file system decides the ordering.
-    FileSystem otherFs = o.getFileSystem();
+    FileSystem otherFs = o.fileSystem;
     if (!fileSystem.equals(otherFs)) {
       int thisFileSystemHash = System.identityHashCode(fileSystem);
       int otherFileSystemHash = System.identityHashCode(otherFs);
@@ -712,10 +693,10 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    *
    * <p>The hash itself is computed according to the design document
    * https://github.com/bazelbuild/proposals/blob/master/designs/2018-07-13-repository-hashing.md
-   * and takes enough information into account, to detect the typical non-reproducibility
-   * of source-like repository rules, while leaving out what will change from invocation to
-   * invocation of a repository rule (in particular file owners) and can reasonably be ignored
-   * when considering if a repository is "the same source tree".
+   * and takes enough information into account, to detect the typical non-reproducibility of
+   * source-like repository rules, while leaving out what will change from invocation to invocation
+   * of a repository rule (in particular file owners) and can reasonably be ignored when considering
+   * if a repository is "the same source tree".
    *
    * @return a string representation of the bash of the directory
    * @throws IOException if the digest could not be computed for any reason
@@ -818,7 +799,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws FileNotFoundException if the file does not exist, a dangling symbolic link was
    *     encountered, or the file's metadata could not be read
    */
-  public boolean isWritable() throws IOException, FileNotFoundException {
+  public boolean isWritable() throws IOException {
     return fileSystem.isWritable(asFragment());
   }
 
@@ -907,16 +888,5 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
       throw new IllegalArgumentException(
           "Files are on different filesystems: " + this + ", " + that);
     }
-  }
-
-  private void writeObject(ObjectOutputStream out) throws IOException {
-    checkState(
-        fileSystem == fileSystemForSerialization, "%s %s", fileSystem, fileSystemForSerialization);
-    out.writeUTF(pathFragment.getPathString());
-  }
-
-  private void readObject(ObjectInputStream in) throws IOException {
-    pathFragment = PathFragment.createAlreadyNormalized(in.readUTF());
-    fileSystem = fileSystemForSerialization;
   }
 }

@@ -196,8 +196,8 @@ public class EvaluationResult<T extends SkyValue> {
       return this;
     }
 
-    boolean hasCatastrophe() {
-      return this.catastrophe != null;
+    boolean isEmpty() {
+      return this.result.isEmpty() && this.errors.isEmpty();
     }
   }
 }

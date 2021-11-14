@@ -19,7 +19,6 @@ import static java.util.Map.Entry.comparingByKey;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
@@ -159,7 +158,7 @@ public class CommandFailureUtils {
       @Nullable Map<String, String> environment,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
-      @Nullable PlatformInfo executionPlatform) {
+      @Nullable String executionPlatformAsLabelString) {
 
     Preconditions.checkNotNull(form);
     StringBuilder message = new StringBuilder();
@@ -247,9 +246,9 @@ public class CommandFailureUtils {
         message.append("# Configuration: ").append(configurationChecksum);
       }
 
-      if (executionPlatform != null) {
+      if (executionPlatformAsLabelString != null) {
         message.append("\n");
-        message.append("# Execution platform: ").append(executionPlatform.label());
+        message.append("# Execution platform: ").append(executionPlatformAsLabelString);
       }
     }
 
@@ -267,7 +266,7 @@ public class CommandFailureUtils {
       Map<String, String> env,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
-      @Nullable PlatformInfo executionPlatform) {
+      @Nullable String executionPlatformAsLabelString) {
 
     String commandName = commandLineElements.iterator().next();
     // Extract the part of the command name after the last "/", if any.
@@ -290,7 +289,7 @@ public class CommandFailureUtils {
             env,
             cwd,
             configurationChecksum,
-            executionPlatform));
+            executionPlatformAsLabelString));
     return shortCommandName + " failed: " + output;
   }
 
@@ -302,6 +301,6 @@ public class CommandFailureUtils {
         command.getEnvironment(),
         cwd,
         command.getConfigurationChecksum(),
-        command.getExecutionPlatform());
+        command.getExecutionPlatformLabelString());
   }
 }

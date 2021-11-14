@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
@@ -83,7 +84,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -696,7 +696,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     @VisibleForTesting
     @CheckReturnValue
-    public SpawnAction build(ActionOwner owner, BuildConfiguration configuration) {
+    public SpawnAction build(ActionOwner owner, BuildConfigurationValue configuration) {
       CommandLines.Builder result = CommandLines.builder();
       if (executableArg != null) {
         result.addSingleArgument(executableArg);
@@ -746,7 +746,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ActionOwner owner,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
-        @Nullable BuildConfiguration configuration,
+        @Nullable BuildConfigurationValue configuration,
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
@@ -796,7 +796,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
         ActionEnvironment env,
-        @Nullable BuildConfiguration configuration,
+        @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -983,7 +983,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * action and its value will be "baz", or whatever the corresponding {@code --client_env} flag
      * specified, respectively.
      *
-     * @see {@link BuildConfiguration#getLocalShellEnvironment}
+     * @see {@link BuildConfigurationValue#getLocalShellEnvironment}
      */
     public Builder useDefaultShellEnvironment() {
       this.environment = null;

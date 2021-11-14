@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * compilation of proto_library rules.
  */
 @Immutable
-@AutoCodec
 public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact> {
   /** Provider class for {@link ProtoInfo} objects. */
   public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
@@ -68,7 +66,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   private final NestedSet<ProtoSource> strictImportableSources;
   private final NestedSet<ProtoSource> publicImportSources;
 
-  @AutoCodec.Instantiator
   public ProtoInfo(
       ImmutableList<ProtoSource> directSources,
       PathFragment directProtoSourceRoot,
@@ -108,9 +105,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return PROVIDER;
   }
 
-  /**
-   * The proto source files that are used in compiling this {@code proto_library}.
-   */
+  /** The proto source files that are used in compiling this {@code proto_library}. */
   @Override
   public ImmutableList<Artifact> getDirectProtoSources() {
     return directProtoSources;

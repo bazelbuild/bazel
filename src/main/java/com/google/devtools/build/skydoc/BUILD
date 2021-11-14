@@ -35,6 +35,7 @@ java_binary(
         "-XX:+IgnoreUnrecognizedVMOptions",
     ],
     main_class = "com.google.devtools.build.skydoc.SkydocMain",
+    visibility = ["//visibility:public"],
     runtime_deps = [
         ":skydoc_lib",
     ],

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
+import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -50,16 +51,18 @@ import net.starlark.java.eval.StarlarkValue;
 @Immutable
 @RequiresOptions(options = {AppleCommandLineOptions.class})
 public class AppleConfiguration extends Fragment implements AppleConfigurationApi<PlatformType> {
+  /** Environment variable name for the developer dir of the selected Xcode. */
+  public static final String DEVELOPER_DIR_ENV_NAME = "DEVELOPER_DIR";
   /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
    * toolkit in action execution.
-   **/
+   */
   public static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
   /**
    * Environment variable name for the apple SDK version. If unset, uses the system default of the
    * host for the platform in the value of {@link #APPLE_SDK_PLATFORM_ENV_NAME}.
-   **/
+   */
   public static final String APPLE_SDK_VERSION_ENV_NAME = "APPLE_SDK_VERSION_OVERRIDE";
   /**
    * Environment variable name for the apple SDK platform. This should be set for all actions that
@@ -75,7 +78,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public static final String IOS_FORCED_SIMULATOR_CPU_PREFIX = "sim_";
 
   /** Default cpu for iOS builds. */
-  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
+  @VisibleForTesting
+  static final String DEFAULT_IOS_CPU = CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
 
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;

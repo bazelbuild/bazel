@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -186,7 +186,7 @@ public final class TestActionBuilder {
   private TestParams createTestAction(int shards)
       throws InterruptedException { // due to TestTargetExecutionSettings
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
-    BuildConfiguration config = ruleContext.getConfiguration();
+    BuildConfigurationValue config = ruleContext.getConfiguration();
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();

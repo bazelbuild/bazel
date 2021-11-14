@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -115,7 +114,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
         int segmentsToExecPath = fragment.segmentCount() - 1;
         Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
-        String leadingPeriods = moduleMapHomeIsCwd ? "" : Strings.repeat("../", segmentsToExecPath);
+        String leadingPeriods = moduleMapHomeIsCwd ? "" : "../".repeat(segmentsToExecPath);
 
         Iterable<Artifact> separateModuleHdrs =
             expandedHeaders(artifactExpander, separateModuleHeaders);

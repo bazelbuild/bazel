@@ -22,7 +22,7 @@ import com.google.common.testing.NullPointerTester.Visibility;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
@@ -50,7 +50,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
             .setDefault(CcCommon.class, new CcCommon(ruleContext))
             .setDefault(CppSemantics.class, MockCppSemantics.INSTANCE)
             .setDefault(CcToolchainProvider.class, ccToolchain)
-            .setDefault(BuildConfiguration.class, ruleContext.getConfiguration())
+            .setDefault(BuildConfigurationValue.class, ruleContext.getConfiguration())
             .setDefault(FdoContext.class, fdoContext)
             .setDefault(Label.class, ruleContext.getLabel())
             .setDefault(Artifact.class, grepIncludes)

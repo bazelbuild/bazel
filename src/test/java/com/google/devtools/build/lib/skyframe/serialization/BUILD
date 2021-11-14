@@ -24,11 +24,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:build_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 

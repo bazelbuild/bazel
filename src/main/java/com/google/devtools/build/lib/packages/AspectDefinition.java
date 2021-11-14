@@ -353,7 +353,7 @@ public final class AspectDefinition {
 
     /**
      * Optional predicate to conditionally propagate down an attribute based on the {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
+     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
      *
      * <p>This is implemented specifically to support the platform-based Android toolchain
      * migration. See {@link com.google.devtools.build.lib.rules.android.DexArchiveAspect} for
@@ -363,7 +363,7 @@ public final class AspectDefinition {
      * @param propagateFunction {@link BiPredicate} that takes the aspect's build configuration and
      *     name of the attribute to propagate. If it returns true, propagates down this attribute in
      *     this configuration. We don't explicitly type with {@link
-     *     com.google.devtools.build.lib.analysis.config.BuildConfiguration} because {@link
+     *     com.google.devtools.build.lib.analysis.config.BuildConfigurationValue} because {@link
      *     AspectDefinition} is a loading phase class, with no access to config symbols.
      */
     public Builder propagateViaAttribute(BiPredicate<Object, String> propagateFunction) {

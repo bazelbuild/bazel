@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 
 /** An exception indicating that there was a problem creating an aspect. */
 public final class AspectCreationException extends Exception implements SaneAnalysisException {
-  private static ConfigurationId toId(BuildConfiguration config) {
+  private static ConfigurationId toId(BuildConfigurationValue config) {
     return config == null ? null : config.getEventId().getConfiguration();
   }
 
@@ -48,7 +48,7 @@ public final class AspectCreationException extends Exception implements SaneAnal
   public AspectCreationException(
       String message,
       Label currentTarget,
-      @Nullable BuildConfiguration configuration,
+      @Nullable BuildConfigurationValue configuration,
       DetailedExitCode detailedExitCode) {
     this(
         message,
@@ -59,7 +59,7 @@ public final class AspectCreationException extends Exception implements SaneAnal
   }
 
   public AspectCreationException(
-      String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
+      String message, Label currentTarget, @Nullable BuildConfigurationValue configuration) {
     this(
         message,
         currentTarget,

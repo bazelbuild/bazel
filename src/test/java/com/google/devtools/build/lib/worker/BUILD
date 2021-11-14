@@ -67,7 +67,10 @@ java_binary(
 
 java_library(
     name = "WorkerTests_lib",
-    srcs = glob(["*Test.java"]),
+    srcs = glob(
+        ["*Test.java"],
+        exclude = ["WorkRequestHandlerTest.java"],
+    ),
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:runtime",

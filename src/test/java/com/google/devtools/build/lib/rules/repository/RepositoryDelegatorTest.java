@@ -496,11 +496,16 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         "def _impl(rctx):",
         " rctx.file('BUILD', '')",
         "fictive_repo_rule = repository_rule(implementation = _impl)");
+    // WORKSPACE.bzlmod is preferred when Bzlmod is enabled.
     scratch.file(
-        rootPath.getRelative("WORKSPACE").getPathString(),
+        rootPath.getRelative("WORKSPACE.bzlmod").getPathString(),
         "load(':repo_rule.bzl', 'fictive_repo_rule')",
         "fictive_repo_rule(name = 'B.1.0')",
         "fictive_repo_rule(name = 'C')");
+    scratch.file(
+        rootPath.getRelative("WORKSPACE").getPathString(),
+        "load(':repo_rule.bzl', 'fictive_repo_rule')",
+        "fictive_repo_rule(name = 'B.1.0')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("B.1.0"));
@@ -520,7 +525,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         .hasMessageThat()
         .contains("but it does not exist or is not a directory");
 
-    // C should still be fetched from WORKSPACE successfully.
+    // C should still be fetched from WORKSPACE.bzlmod successfully.
     loadRepo("C");
   }
 

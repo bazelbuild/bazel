@@ -22,9 +22,7 @@ import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Options related to dynamic spawn execution.
- */
+/** Options related to dynamic spawn execution. */
 public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
@@ -91,22 +89,20 @@ public class DynamicExecutionOptions extends OptionsBase {
   public String dynamicWorkerStrategy;
 
   @Option(
-    name = "experimental_local_execution_delay",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "1000",
-    help =
-        "How many milliseconds should local execution be delayed, if remote execution was faster"
-            + " during a build at least once?"
-  )
+      name = "experimental_local_execution_delay",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "1000",
+      help =
+          "How many milliseconds should local execution be delayed, if remote execution was faster"
+              + " during a build at least once?")
   public int localExecutionDelay;
 
   @Option(
-    name = "experimental_debug_spawn_scheduler",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "false"
-  )
+      name = "experimental_debug_spawn_scheduler",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false")
   public boolean debugSpawnScheduler;
 
   @Option(
@@ -130,4 +126,14 @@ public class DynamicExecutionOptions extends OptionsBase {
               + "execution info if --experimental_require_availability_info=true. No-op if "
               + "--experimental_require_availability_info=false.")
   public List<String> availabilityInfoExempt;
+
+  @Option(
+      name = "experimental_dynamic_skip_first_build",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "If set, dynamic execution is turned off until there has been at least one successful"
+              + " build.")
+  public boolean skipFirstBuild;
 }

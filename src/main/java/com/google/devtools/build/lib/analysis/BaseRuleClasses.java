@@ -29,7 +29,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
@@ -121,7 +121,7 @@ public class BaseRuleClasses {
   @SerializationConstant @AutoCodec.VisibleForSerialization @VisibleForTesting
   static final LabelListLateBoundDefault<?> ACTION_LISTENER =
       LabelListLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           (rule, attributes, configuration) -> configuration.getActionListeners());
 
   public static final String DEFAULT_COVERAGE_SUPPORT_VALUE = "//tools/test:coverage_support";
@@ -152,13 +152,13 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
-  public static LabelLateBoundDefault<BuildConfiguration> getCoverageOutputGeneratorLabel() {
+  public static LabelLateBoundDefault<BuildConfigurationValue> getCoverageOutputGeneratorLabel() {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        BuildConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
+        BuildConfigurationValue.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
   }
 
   @SerializationConstant @AutoCodec.VisibleForSerialization
-  static final Resolver<BuildConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+  static final Resolver<BuildConfigurationValue, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
       (rule, attributes, configuration) -> {
         if (configuration.isCodeCoverageEnabled()) {
           return Label.parseAbsoluteUnchecked(DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE);
@@ -172,7 +172,7 @@ public class BaseRuleClasses {
   @SerializationConstant @AutoCodec.VisibleForSerialization
   public static final LabelLateBoundDefault<?> RUN_UNDER =
       LabelLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           null,
           (rule, attributes, configuration) -> {
             RunUnder runUnder = configuration.getRunUnder();

@@ -27,7 +27,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
@@ -49,14 +49,15 @@ public class MultiArchBinarySupport {
    * Returns all child configurations for this multi-arch target, mapped to the toolchains that they
    * should use.
    */
-  static ImmutableMap<BuildConfiguration, CcToolchainProvider> getChildConfigurationsAndToolchains(
-      RuleContext ruleContext) {
-    ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
+  static ImmutableMap<BuildConfigurationValue, CcToolchainProvider>
+      getChildConfigurationsAndToolchains(RuleContext ruleContext) {
+    ImmutableListMultimap<BuildConfigurationValue, CcToolchainProvider> configToProvider =
         ruleContext.getPrerequisitesByConfiguration(
             ObjcRuleClasses.CHILD_CONFIG_ATTR, CcToolchainProvider.PROVIDER);
 
-    ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
-    for (BuildConfiguration config : configToProvider.keySet()) {
+    ImmutableMap.Builder<BuildConfigurationValue, CcToolchainProvider> result =
+        ImmutableMap.builder();
+    for (BuildConfigurationValue config : configToProvider.keySet()) {
       CcToolchainProvider toolchain = Iterables.getOnlyElement(configToProvider.get(config));
       result.put(config, toolchain);
     }
@@ -64,9 +65,10 @@ public class MultiArchBinarySupport {
     return result.build();
   }
 
-  static <V> ImmutableListMultimap<String, V> transformMap(Multimap<BuildConfiguration, V> input) {
+  static <V> ImmutableListMultimap<String, V> transformMap(
+      Multimap<BuildConfigurationValue, V> input) {
     ImmutableListMultimap.Builder<String, V> result = ImmutableListMultimap.builder();
-    for (Map.Entry<BuildConfiguration, V> entry : input.entries()) {
+    for (Map.Entry<BuildConfigurationValue, V> entry : input.entries()) {
       result.put(entry.getKey().getCpu(), entry.getValue());
     }
 
@@ -77,7 +79,7 @@ public class MultiArchBinarySupport {
   @AutoValue
   abstract static class DependencySpecificConfiguration {
     static DependencySpecificConfiguration create(
-        BuildConfiguration config,
+        BuildConfigurationValue config,
         CcToolchainProvider toolchain,
         ObjcProvider objcLinkProvider,
         ObjcProvider objcPropagateProvider) {
@@ -86,7 +88,7 @@ public class MultiArchBinarySupport {
     }
 
     /** Returns the child configuration for this tuple. */
-    abstract BuildConfiguration config();
+    abstract BuildConfigurationValue config();
 
     /** Returns the cc toolchain for this configuration. */
     abstract CcToolchainProvider toolchain();
@@ -189,14 +191,14 @@ public class MultiArchBinarySupport {
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
   public ImmutableSet<DependencySpecificConfiguration> getDependencySpecificConfigurations(
-      Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains,
+      Map<BuildConfigurationValue, CcToolchainProvider> childConfigurationsAndToolchains,
       ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
       ImmutableList<TransitiveInfoCollection> dylibProviders)
       throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
     ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
-    for (BuildConfiguration childToolchainConfig : childConfigurationsAndToolchains.keySet()) {
+    for (BuildConfigurationValue childToolchainConfig : childConfigurationsAndToolchains.keySet()) {
       String childCpu = childToolchainConfig.getCpu();
 
       IntermediateArtifacts intermediateArtifacts =
@@ -247,7 +249,7 @@ public class MultiArchBinarySupport {
 
   private ObjcCommon common(
       RuleContext ruleContext,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       List<? extends TransitiveInfoCollection> propagatedDeps,
       Iterable<ObjcProvider> additionalDepProviders)

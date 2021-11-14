@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -189,8 +189,8 @@ public class AliasTest extends BuildViewTestCase {
     assertThat(actualKey.getBaseConfiguredTargetKey().getConfigurationKey())
         .isEqualTo(actualTarget.getConfigurationKey());
     assertThat(getMyInfoFromTarget(aspect).getValue("origin")).isEqualTo("aspect");
-    BuildConfiguration actualConfig =
-        (BuildConfiguration) getMyInfoFromTarget(aspect).getValue("config");
+    BuildConfigurationValue actualConfig =
+        (BuildConfigurationValue) getMyInfoFromTarget(aspect).getValue("config");
     assertThat(actualKey.getBaseConfiguredTargetKey().getConfigurationKey().getOptions().checksum())
         .isEqualTo(actualConfig.checksum());
 

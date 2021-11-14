@@ -34,8 +34,8 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link TargetPatternPhaseKey}. */
 @RunWith(JUnit4.class)
-public class TargetPatternPhaseKeyTest {
-  static enum Flag {
+public final class TargetPatternPhaseKeyTest {
+  enum Flag {
     COMPILE_ONE_DEPENDENCY,
     BUILD_TESTS_ONLY,
     DETERMINE_TESTS
@@ -152,8 +152,16 @@ public class TargetPatternPhaseKeyTest {
     boolean compileOneDependency = set.contains(Flag.COMPILE_ONE_DEPENDENCY);
     boolean buildTestsOnly = set.contains(Flag.BUILD_TESTS_ONLY);
     boolean determineTests = set.contains(Flag.DETERMINE_TESTS);
-    return new TargetPatternPhaseKey(targetPatterns, offset, compileOneDependency, buildTestsOnly,
-        determineTests, buildTagFilter, includeManualTests, expandTestSuites, testFilter);
+    return TargetPatternPhaseValue.key(
+        targetPatterns,
+        offset,
+        compileOneDependency,
+        buildTestsOnly,
+        determineTests,
+        buildTagFilter,
+        includeManualTests,
+        expandTestSuites,
+        testFilter);
   }
 
   private static TargetPatternPhaseKey of(

@@ -102,6 +102,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
     for (SkyKey nextKey : keys) {
       Label nextLabel = getLabel(nextKey);
       Target nextTarget = getTargetForLabel(eventHandler, nextLabel);
+      // TODO(aranguyen): remove this code as a result of b/128716030
       // This is inefficient but it's no big deal since we only do this when there's a cycle.
       if (currentTarget.getVisibility().getDependencyLabels().contains(nextLabel)
           && !nextTarget.getTargetKind().equals(PackageGroup.targetKind())) {

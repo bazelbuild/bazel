@@ -334,6 +334,19 @@ def _get_providers(deps, provider):
 def _is_compilation_outputs_empty(compilation_outputs):
     return len(compilation_outputs.pic_objects) == 0 and len(compilation_outputs.objects) == 0
 
+def _get_static_mode_params_for_dynamic_library_libraries(libs):
+    linker_inputs = []
+    for lib in libs.to_list():
+        if lib.pic_static_library:
+            linker_inputs.append(lib.pic_static_library)
+        elif lib.static_library:
+            linker_inputs.append(lib.static_library)
+        elif lib.interface_library:
+            linker_inputs.append(lib.interface_library)
+        else:
+            linker_inputs.append(lib.dynamic_library)
+    return linker_inputs
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -353,4 +366,5 @@ cc_helper = struct(
     get_providers = _get_providers,
     is_compilation_outputs_empty = _is_compilation_outputs_empty,
     matches_extension = _matches_extension,
+    get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
 )

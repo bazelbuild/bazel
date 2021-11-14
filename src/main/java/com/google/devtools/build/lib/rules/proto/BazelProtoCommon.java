@@ -14,11 +14,68 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Protocol buffers support for Starlark. */
 public class BazelProtoCommon implements ProtoCommonApi {
   public static final BazelProtoCommon INSTANCE = new BazelProtoCommon();
 
-  private BazelProtoCommon() {}
+  protected BazelProtoCommon() {}
+
+  @StarlarkMethod(
+      name = "create_proto_info",
+      documented = false,
+      parameters = {@Param(name = "ctx", doc = "The rule context")},
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public ProtoInfo createProtoInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
+
+    return ProtoCommon.createProtoInfo(
+        ruleContext.getRuleContext(),
+        ruleContext
+            .getRuleContext()
+            .getFragment(ProtoConfiguration.class)
+            .generatedProtosInVirtualImports());
+  }
+
+  @StarlarkMethod(
+      name = "write_descriptor_set",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", doc = "The rule context"),
+        @Param(name = "proto_info", doc = "The ProtoInfo")
+      },
+      useStarlarkThread = true)
+  public void writeDescriptorSet(
+      StarlarkRuleContext ruleContext, ProtoInfo protoInfo, StarlarkThread thread)
+      throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
+
+    ProtoCompileActionBuilder.writeDescriptorSet(
+        ruleContext.getRuleContext(), protoInfo, Services.ALLOW);
+  }
 }

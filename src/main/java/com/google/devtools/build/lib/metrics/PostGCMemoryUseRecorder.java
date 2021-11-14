@@ -20,7 +20,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -227,7 +227,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
 
     @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+    public byte[] get(
+        Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
       return PostGCMemoryUseRecorder.get()
           .getPeakPostGcHeap()
           .map(peak -> print(StringUtilities.prettyPrintBytes(peak.bytes())))

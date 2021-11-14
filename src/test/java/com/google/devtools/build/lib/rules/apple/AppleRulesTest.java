@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -181,7 +181,7 @@ public class AppleRulesTest extends AnalysisTestCase {
 
     useConfiguration("--ios_minimum_os=10.0");
     AnalysisResult result = update("//transition:xxx");
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs()).getConfiguration();
     AppleCommandLineOptions appleOptions =
         configuration.getOptions().get(AppleCommandLineOptions.class);

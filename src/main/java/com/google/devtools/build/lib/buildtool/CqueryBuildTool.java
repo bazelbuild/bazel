@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
@@ -36,7 +36,7 @@ public final class CqueryBuildTool extends PostAnalysisQueryBuildTool<KeyedConfi
   @Override
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations configurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph)

@@ -1,13 +1,6 @@
 ---
 platforms:
-  centos7:
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_nojdk"
-    build_flags:
-      - "-c"
-      - "opt"
-  ubuntu1604:
+  centos7_java11_devtoolset10:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -29,7 +22,7 @@ platforms:
       - "-c"
       - "opt"
   macos:
-    xcode_version: "12.4"
+    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -37,7 +30,7 @@ platforms:
       - "-c"
       - "opt"
   macos_arm64:
-    xcode_version: "12.4"
+    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"

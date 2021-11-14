@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -48,6 +49,9 @@ public class JavaStarlarkCommon
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {
+
+  private static final ImmutableSet<String> PRIVATE_STARLARKIFACTION_ALLOWLIST =
+      ImmutableSet.of("bazel_internal/test");
   private final JavaSemantics javaSemantics;
 
   public JavaStarlarkCommon(JavaSemantics javaSemantics) {
@@ -303,7 +307,8 @@ public class JavaStarlarkCommon
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+    if (!PRIVATE_STARLARKIFACTION_ALLOWLIST.contains(label.getPackageName())
+        && !label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
@@ -329,14 +334,27 @@ public class JavaStarlarkCommon
                                 output.getSourceJars()))
                     .collect(Collectors.toList()))
             .build();
-    return JavaInfo.Builder.create()
-        .addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider())
+    JavaInfo.Builder builder = JavaInfo.Builder.create();
+    if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
+      builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
+    }
+    if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
+      builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());
+    }
+    return builder
         .addProvider(JavaCcInfoProvider.class, javaInfo.getProvider(JavaCcInfoProvider.class))
-        .addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider())
         .addProvider(
             JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
         .addTransitiveOnlyRuntimeJars(javaInfo.getTransitiveOnlyRuntimeJars())
         .build();
+  }
+
+  @Override
+  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    checkPrivateAccess(thread);
+    return StarlarkList.immutableCopyOf(
+        ruleContext.getRuleContext().getBuildInfo(JavaBuildInfoFactory.KEY));
   }
 }

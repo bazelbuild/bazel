@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import javax.annotation.Nullable;
@@ -47,7 +47,7 @@ import net.starlark.java.eval.Structure;
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, Structure {
   private final Label label;
-  private final BuildConfigurationValue.Key configurationKey;
+  private final BuildConfigurationKey configurationKey;
   private final ConfiguredTarget actual;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       overrides;
@@ -69,7 +69,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   @VisibleForSerialization
   AliasConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       ConfiguredTarget actual,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
@@ -126,7 +126,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   }
 
   @Override
-  public BuildConfigurationValue.Key getConfigurationKey() {
+  public BuildConfigurationKey getConfigurationKey() {
     // This does not return actual.getConfigurationKey() because actual might be an input file, in
     // which case its configurationKey is null and we don't want to have rules that have a null
     // configurationKey.

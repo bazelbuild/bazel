@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ComposingTransition}. */
 @RunWith(JUnit4.class)
-public class ComposingTransitionTest {
+public final class ComposingTransitionTest {
   // Use starlark flags for the test since they are easy to set and check.
   private static final Label FLAG_1 = Label.parseAbsoluteUnchecked("//flag1");
   private static final Label FLAG_2 = Label.parseAbsoluteUnchecked("//flag2");
@@ -237,7 +237,7 @@ public class ComposingTransitionTest {
             new TransitionWithCustomFragments(ImmutableSet.of(JavaOptions.class)));
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
-    composed.addRequiredFragments(requiredFragments, BuildOptions.builder().build());
+    composed.addRequiredFragments(requiredFragments, null);
     assertThat(requiredFragments.build().getOptionsClasses())
         .containsExactly(CppOptions.class, JavaOptions.class);
   }

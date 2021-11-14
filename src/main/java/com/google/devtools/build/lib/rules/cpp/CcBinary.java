@@ -1426,8 +1426,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         graphStructureAspectNodes.add(nodeInfo);
       }
     }
-    graphStructureAspectNodes.add(
-        CppHelper.mallocForTarget(ruleContext).getProvider(GraphNodeInfo.class));
+    GraphNodeInfo mallocNodeInfo =
+        CppHelper.mallocForTarget(ruleContext).getProvider(GraphNodeInfo.class);
+    if (mallocNodeInfo != null) {
+      graphStructureAspectNodes.add(mallocNodeInfo);
+    }
 
     Set<String> canBeLinkedDynamically = new HashSet<>();
     for (CcLinkingContext.LinkerInput linkerInput : linkerInputs) {

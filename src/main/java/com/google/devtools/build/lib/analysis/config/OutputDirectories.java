@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.util.OS;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.vfs.PathFragment.InvalidBaseNameException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Logic for figuring out what base directories to place outputs generated from a given
@@ -45,7 +48,7 @@ public class OutputDirectories {
    * Directories in the output tree.
    *
    * <p>The computation of the output directory should be a non-injective mapping from
-   * BuildConfiguration instances to strings. The result should identify the aspects of the
+   * BuildConfigurationValue instances to strings. The result should identify the aspects of the
    * configuration that should be reflected in the output file names. Furthermore the returned
    * string must not contain shell metacharacters.
    *
@@ -79,31 +82,20 @@ public class OutputDirectories {
   public enum OutputDirectory {
     BIN("bin"),
     GENFILES("genfiles"),
-    MIDDLEMAN(true),
+    MIDDLEMAN("internal"),
     TESTLOGS("testlogs"),
     COVERAGE("coverage-metadata"),
     INCLUDE(BlazeDirectories.RELATIVE_INCLUDE_DIR),
-    OUTPUT(false);
+    OUTPUT("");
 
-    private final String nameFragment;
-    private final boolean middleman;
-
-    /**
-     * This constructor is for roots without suffixes, e.g.,
-     * [[execroot/repo]/bazel-out/local-fastbuild].
-     *
-     * @param isMiddleman whether the root should be a middleman root or a "normal" derived root.
-     */
-    OutputDirectory(boolean isMiddleman) {
-      this.nameFragment = isMiddleman ? "internal" : "";
-      this.middleman = isMiddleman;
-    }
+    private final String name;
 
     OutputDirectory(String name) {
-      this.nameFragment = name;
-      // Must be a legal basename for root: no segments allowed.
-      FileSystemUtils.checkBaseName(nameFragment);
-      this.middleman = false;
+      // Must be a legal basename for root - multiple segments not allowed.
+      if (!name.isEmpty()) {
+        FileSystemUtils.checkBaseName(name);
+      }
+      this.name = name;
     }
 
     public ArtifactRoot getRoot(
@@ -113,10 +105,10 @@ public class OutputDirectories {
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
           execRoot,
-          middleman ? RootType.Middleman : RootType.Output,
+          this == MIDDLEMAN ? RootType.Middleman : RootType.Output,
           directories.getRelativeOutputPath(),
           outputDirName,
-          nameFragment);
+          name);
     }
   }
 
@@ -141,12 +133,15 @@ public class OutputDirectories {
   OutputDirectories(
       BlazeDirectories directories,
       CoreOptions options,
+      @Nullable PlatformOptions platformOptions,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
       RepositoryName mainRepositoryName,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      String transitionDirectoryNameFragment)
       throws InvalidMnemonicException {
     this.directories = directories;
-    this.mnemonic = buildMnemonic(options, fragments);
+    this.mnemonic =
+        buildMnemonic(options, platformOptions, fragments, transitionDirectoryNameFragment);
     this.outputDirName = options.isHost ? "host" : mnemonic;
 
     this.outputDirectory =
@@ -201,7 +196,10 @@ public class OutputDirectories {
   }
 
   private static String buildMnemonic(
-      CoreOptions options, ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
+      CoreOptions options,
+      @Nullable PlatformOptions platformOptions,
+      ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
+      String transitionDirectoryNameFragment)
       throws InvalidMnemonicException {
     // See explanation at declaration for outputRoots.
     List<String> nameParts = new ArrayList<>();
@@ -224,18 +222,31 @@ public class OutputDirectories {
 
     // Add the transition suffix.
     addMnemonicPart(
-        nameParts,
-        options.transitionDirectoryNameFragment,
-        "Transition directory name fragment '%s'");
+        nameParts, transitionDirectoryNameFragment, "Transition directory name fragment '%s'");
 
     // Join all the parts.
     String mnemonic = nameParts.stream().filter(not(Strings::isNullOrEmpty)).collect(joining("-"));
 
     // Replace the CPU idenfitier.
-    validateMnemonicPart(options.cpu, "CPU name '%s'");
-    mnemonic = mnemonic.replace("{CPU}", options.cpu);
+    String cpuIdentifier = buildCpuIdentifier(options, platformOptions);
+    validateMnemonicPart(cpuIdentifier, "CPU name '%s'");
+    mnemonic = mnemonic.replace("{CPU}", cpuIdentifier);
 
     return mnemonic;
+  }
+
+  private static String buildCpuIdentifier(
+      CoreOptions options, @Nullable PlatformOptions platformOptions) {
+    if (options.platformInOutputDir && platformOptions != null) {
+      Label targetPlatform = platformOptions.computeTargetPlatform();
+      // Only use non-default platforms.
+      if (!PlatformOptions.platformIsDefault(targetPlatform)) {
+        return targetPlatform.getName();
+      }
+    }
+
+    // Fall back to using the CPU.
+    return options.cpu;
   }
 
   private ArtifactRoot buildDerivedRoot(
@@ -347,4 +358,3 @@ public class OutputDirectories {
     }
   }
 }
-

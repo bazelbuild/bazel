@@ -231,8 +231,7 @@ public class ProtoCommon {
   private static Library createLibraryWithVirtualSourceRootMaybe(
       RuleContext ruleContext,
       ImmutableList<Artifact> protoSources,
-      boolean generatedProtosInVirtualImports)
-      throws InterruptedException {
+      boolean generatedProtosInVirtualImports) {
     PathFragment importPrefixAttribute = getPathFragmentAttribute(ruleContext, "import_prefix");
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
@@ -346,8 +345,7 @@ public class ProtoCommon {
    * ruleContext}.
    */
   public static ProtoInfo createProtoInfo(
-      RuleContext ruleContext, boolean generatedProtosInVirtualImports)
-      throws InterruptedException {
+      RuleContext ruleContext, boolean generatedProtosInVirtualImports) {
     ImmutableList<Artifact> originalDirectProtoSources =
         ruleContext.getPrerequisiteArtifacts("srcs").list();
     ImmutableList<ProtoInfo> deps =

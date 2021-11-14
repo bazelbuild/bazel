@@ -16,12 +16,12 @@ package com.google.devtools.build.android.desugar.dependencies;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.devtools.build.android.desugar.DependencyCollector;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.Dependency;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.DesugarDepsInfo;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceDetails;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceWithCompanion;
+import com.google.devtools.build.android.r8.DependencyCollector;
 import javax.annotation.Nullable;
 
 /** Dependency collector that emits collected metadata as a {@link DesugarDepsInfo} proto. */

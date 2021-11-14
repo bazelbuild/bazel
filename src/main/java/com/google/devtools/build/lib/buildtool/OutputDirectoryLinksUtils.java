@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
@@ -102,8 +102,8 @@ public final class OutputDirectoryLinksUtils {
       Path workspace,
       BlazeDirectories directories,
       EventHandler eventHandler,
-      Set<BuildConfiguration> targetConfigs,
-      Function<BuildOptions, BuildConfiguration> configGetter,
+      Set<BuildConfigurationValue> targetConfigs,
+      Function<BuildOptions, BuildConfigurationValue> configGetter,
       String productName) {
     Path execRoot = directories.getExecRoot(workspaceName);
     Path outputPath = directories.getOutputPath(workspaceName);
@@ -376,14 +376,14 @@ public final class OutputDirectoryLinksUtils {
   @SuppressWarnings("deprecation") // RuleContext#get*Directory not available here.
   private static final ImmutableList<SymlinkDefinition> STANDARD_LINK_DEFINITIONS =
       ImmutableList.of(
-          new ConfigSymlink("bin", BuildConfiguration::getBinDirectory),
-          new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory),
-          new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory) {
+          new ConfigSymlink("bin", BuildConfigurationValue::getBinDirectory),
+          new ConfigSymlink("testlogs", BuildConfigurationValue::getTestLogsDirectory),
+          new ConfigSymlink("genfiles", BuildConfigurationValue::getGenfilesDirectory) {
             @Override
             public ImmutableSet<Path> getLinkPaths(
                 BuildRequestOptions buildRequestOptions,
-                Set<BuildConfiguration> targetConfigs,
-                Function<BuildOptions, BuildConfiguration> configGetter,
+                Set<BuildConfigurationValue> targetConfigs,
+                Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {
@@ -410,8 +410,8 @@ public final class OutputDirectoryLinksUtils {
             @Override
             public ImmutableSet<Path> getLinkPaths(
                 BuildRequestOptions buildRequestOptions,
-                Set<BuildConfiguration> targetConfigs,
-                Function<BuildOptions, BuildConfiguration> configGetter,
+                Set<BuildConfigurationValue> targetConfigs,
+                Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {
@@ -429,8 +429,8 @@ public final class OutputDirectoryLinksUtils {
             @Override
             public ImmutableSet<Path> getLinkPaths(
                 BuildRequestOptions buildRequestOptions,
-                Set<BuildConfiguration> targetConfigs,
-                Function<BuildOptions, BuildConfiguration> configGetter,
+                Set<BuildConfigurationValue> targetConfigs,
+                Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {

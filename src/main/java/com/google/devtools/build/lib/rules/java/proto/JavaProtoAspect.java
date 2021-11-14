@@ -142,8 +142,17 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     rpcSupport.mutateAspectDefinition(result, aspectParameters);
 
+    mutateAspectDefinition(result, aspectParameters);
+
     return result.build();
   }
+
+  /**
+   * Invoked after the default aspect definition has been created. Override this to add further
+   * attributes, etc. Default implementation does nothing.
+   */
+  protected void mutateAspectDefinition(
+      AspectDefinition.Builder builder, AspectParameters aspectParameters) {}
 
   private static class Impl {
 

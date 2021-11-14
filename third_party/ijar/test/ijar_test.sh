@@ -185,23 +185,24 @@ function test_ijar_output() {
   #  A.RuntimeAnnotation
   # (Note: even private inner classes are retained, so we don't need to change
   # the types of members.)
-  expected=5
+  local expected=5
+  local lines
   lines=$($JAR tvf $A_INTERFACE_JAR | wc -l)
   check_eq $expected $lines "Interface jar should have $expected entries!"
 
   # Check that no private class members are found:
-  lines=$($JAVAP -private -classpath $A_JAR A | grep priv | wc -l)
+  lines=$($JAVAP -private -classpath $A_JAR A | grep -c priv || true)
   check_eq 2 $lines "Input jar should have 2 private members!"
-  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep priv | wc -l)
+  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep -c priv || true)
   check_eq 0 $lines "Interface jar should have no private members!"
-  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep clinit | wc -l)
+  lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep -c clinit || true)
   check_eq 0 $lines "Interface jar should have no class initializers!"
 
 
   # Check that no code is found:
-  lines=$($JAVAP -c -private -classpath $A_JAR A | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $A_JAR A | grep -c Code: || true)
   check_eq 5 $lines "Input jar should have 5 method bodies!"
-  lines=$($JAVAP -c -private -classpath $A_INTERFACE_JAR A | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $A_INTERFACE_JAR A | grep -c Code: || true)
   check_eq 0 $lines "Interface jar should have no method bodies!"
 
   # Check that constants from code are no longer present:
@@ -231,13 +232,13 @@ function test_ijar_output() {
 
 
   # Check that -interface.jar contains nothing but .class files:
-  check_eq 0 $($JAR tf $A_INTERFACE_JAR | grep -v \\.class$ | wc -l) \
+  check_eq 0 $($JAR tf $A_INTERFACE_JAR | grep -cv \\.class$ || true) \
     "Interface jar should contain only .class files!"
 
 
   # Check that -interface.jar timestamps are normalized:
   check_eq 0 $(TZ=UTC $JAR tvf $A_INTERFACE_JAR |
-               grep -v 'Fri Jan 01 00:00:00 UTC 2010' | wc -l) \
+               grep -cv 'Fri Jan 01 00:00:00 UTC 2010' || true) \
    "Interface jar contained non-zero timestamps!"
 
 
@@ -362,9 +363,9 @@ function test_type_annotation() {
 function test_invokedynamic() {
   # Check that ijar works on classes with invokedynamic
   $IJAR $INVOKEDYNAMIC_JAR $INVOKEDYNAMIC_IJAR || fail "ijar failed"
-  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_JAR ClassWithLambda | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_JAR ClassWithLambda | grep -c Code: || true)
   check_eq 4 $lines "Input jar should have 4 method bodies!"
-  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_IJAR ClassWithLambda | grep Code: | wc -l)
+  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_IJAR ClassWithLambda | grep -c Code: || true)
   check_eq 0 $lines "Interface jar should have no method bodies!"
 }
 
@@ -572,14 +573,13 @@ function test_keep_for_compile() {
     || fail "ijar failed"
   lines=$($JAVAP -classpath $TEST_TMPDIR/keep.jar -c -p \
     functions.car.CarInlineUtilsKt |
-    grep "// Method kotlin/jvm/internal/Intrinsics.checkParameterIsNotNull"  |
-    wc -l)
+    grep -c "// Method kotlin/jvm/internal/Intrinsics.checkParameterIsNotNull" ||
+    true)
   check_eq 2 $lines "Output jar should have kept method body"
   attr=$($JAVAP -classpath $TEST_TMPDIR/keep.jar -v -p \
     functions.car.CarInlineUtilsKt |
     strings |
-    grep "com.google.devtools.ijar.KeepForCompile" |
-    wc -l)
+    grep -c "com.google.devtools.ijar.KeepForCompile" || true)
   check_eq 2 $attr "Output jar should have kept KeepForCompile attribute."
 }
 

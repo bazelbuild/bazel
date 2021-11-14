@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -277,29 +278,27 @@ public final class TargetUtils {
    *     actions' execution requirements, for more details {@see
    *     StarlarkSematicOptions#experimentalAllowTagsPropagation}
    */
-  public static ImmutableMap<String, String> getFilteredExecutionInfo(
+  public static ImmutableSortedMap<String, String> getFilteredExecutionInfo(
       @Nullable Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
       throws EvalException {
-    Map<String, String> checkedExecutionRequirements =
-        TargetUtils.filter(
-            executionRequirementsUnchecked == null
-                ? ImmutableMap.of()
-                : Dict.noneableCast(
+    Map<String, String> executionInfo =
+        executionRequirementsUnchecked == null
+            ? ImmutableMap.of()
+            : TargetUtils.filter(
+                Dict.noneableCast(
                     executionRequirementsUnchecked,
                     String.class,
                     String.class,
                     "execution_requirements"));
 
-    // adding filtered execution requirements to the execution info map
-    Map<String, String> executionInfoBuilder = new HashMap<>(checkedExecutionRequirements);
-
     if (allowTagsPropagation) {
+      executionInfo = new HashMap<>(executionInfo); // Make mutable.
       Map<String, String> checkedTags = getExecutionInfo(rule);
       // merging filtered tags to the execution info map avoiding duplicates
-      checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+      checkedTags.forEach(executionInfo::putIfAbsent);
     }
 
-    return ImmutableMap.copyOf(executionInfoBuilder);
+    return ImmutableSortedMap.copyOf(executionInfo);
   }
 
   /**

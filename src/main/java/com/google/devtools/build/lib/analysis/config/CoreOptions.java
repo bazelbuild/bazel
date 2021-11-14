@@ -39,14 +39,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Core options affecting a {@link BuildConfiguration} that don't belong in domain-specific {@link
- * FragmentOptions}. All options defined here should be universal in that they affect configuration
- * regardless of which languages a build uses. In other words, this should only contain options that
- * aren't suitable for Starlark configuration.
+ * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
+ * {@link FragmentOptions}. All options defined here should be universal in that they affect
+ * configuration regardless of which languages a build uses. In other words, this should only
+ * contain options that aren't suitable for Starlark configuration.
  *
  * <p>(Note: any client that creates a view will also need to declare BuildView.Options, which
  * affect the <i>mechanism</i> of view construction, even if they don't affect the value of the
- * BuildConfiguration instances.)
+ * BuildConfigurationValue instances.)
  *
  * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
  * propagated to the host configuration or not.
@@ -67,6 +67,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, the genfiles directory is folded into the bin directory.")
   public boolean mergeGenfilesDirectory;
+
+  @Option(
+      name = "experimental_platform_in_output_dir",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, the target platform is used in the output directory name instead of the CPU.")
+  public boolean platformInOutputDir;
 
   @Option(
       name = "incompatible_use_platforms_repo_for_constraints",
@@ -230,25 +240,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "'fastbuild', 'dbg', 'opt'.")
   public CompilationMode hostCompilationMode;
 
-  /**
-   * This option is used by starlark transitions to add a distinguishing element to the output
-   * directory name, in order to avoid name clashing.
-   */
-  @Option(
-      name = "transition directory name fragment",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public String transitionDirectoryNameFragment;
-
   @Option(
       name = "experimental_enable_aspect_hints",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL})
@@ -542,7 +536,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "800",
+      defaultValue = "1000",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -829,7 +823,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
 
-    host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     host.affectedByStarlarkTransition = affectedByStarlarkTransition;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
@@ -840,6 +833,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.commandLineBuildVariables = commandLineBuildVariables;
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
+    host.platformInOutputDir = platformInOutputDir;
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
 
@@ -878,6 +872,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     // Pass archived tree artifacts filter.
     host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
+
+    host.enableAspectHints = enableAspectHints;
 
     return host;
   }

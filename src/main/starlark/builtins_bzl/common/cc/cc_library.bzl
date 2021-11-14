@@ -616,7 +616,7 @@ attrs = {
     "_grep_includes": attr.label(
         allow_files = True,
         executable = True,
-        cfg = "host",
+        cfg = "exec",
         default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
     ),
     "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),

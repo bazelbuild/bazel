@@ -39,7 +39,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests of {@link BazelGenRule}. */
 @RunWith(JUnit4.class)
-public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
+public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
 
   private static final Pattern SETUP_COMMAND_PATTERN =
       Pattern.compile(".*/genrule-setup.sh;\\s+(?<command>.*)");
@@ -417,7 +417,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
           foundSrc = true;
           break;
         case "tool":
-          assertThat(getHostConfiguration()).isEqualTo(getConfiguration(prereq));
+          assertConfigurationsEqual(getHostConfiguration(), getConfiguration(prereq));
           foundTool = true;
           break;
         case GENRULE_SETUP_PATH:

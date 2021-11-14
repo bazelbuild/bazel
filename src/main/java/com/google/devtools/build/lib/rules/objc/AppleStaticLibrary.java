@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -81,7 +81,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisitesByConfiguration(AVOID_DEPS_ATTR_NAME, CcInfo.PROVIDER));
 
-    Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
+    Map<BuildConfigurationValue, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
     IntermediateArtifacts ruleIntermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -96,9 +96,9 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    for (Map.Entry<BuildConfiguration, CcToolchainProvider> entry :
+    for (Map.Entry<BuildConfigurationValue, CcToolchainProvider> entry :
         childConfigurationsAndToolchains.entrySet()) {
-      BuildConfiguration childToolchainConfig = entry.getKey();
+      BuildConfigurationValue childToolchainConfig = entry.getKey();
       String childCpu = entry.getKey().getCpu();
       CcToolchainProvider childToolchain = entry.getValue();
 
@@ -134,10 +134,10 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       addTransitivePropagatedKeys(objcProviderBuilder, objcProvider);
     }
 
-    ImmutableListMultimap<BuildConfiguration, CcInfo> buildConfigToCcInfoMap =
+    ImmutableListMultimap<BuildConfigurationValue, CcInfo> buildConfigToCcInfoMap =
         ruleContext.getPrerequisitesByConfiguration("deps", CcInfo.PROVIDER);
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (Map.Entry<BuildConfiguration, CcInfo> entry : buildConfigToCcInfoMap.entries()) {
+    for (Map.Entry<BuildConfigurationValue, CcInfo> entry : buildConfigToCcInfoMap.entries()) {
       CcInfo dep = entry.getValue();
       headerTokens.addTransitive(dep.getCcCompilationContext().getHeaderTokens());
     }
@@ -184,7 +184,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
   private ObjcCommon common(
       RuleContext ruleContext,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       List<TransitiveInfoCollection> propagatedDeps)
       throws InterruptedException {

@@ -14,33 +14,28 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import java.util.Collections;
+import com.google.common.collect.ImmutableList;
 
 /**
- * Custom registration behavior for a codec.
+ * Custom registration behavior for {@link ObjectCodec}.
  *
  * <p>This class should only be needed for low-level codecs like collections and probably shouldn't
  * be used in normal application code.
  *
  * <p>Instances of this class are discovered automatically by {@link CodecScanner} and used for
- * custom registration of a codec. This can be useful when a single codec is used for multiple
- * classes or when the class that is being serialized has a hidden type, e.g., {@link
- * com.google.common.collect.RegularImmutableList}.
+ * custom registration of codec instances. This can be useful when a codec requires constructor
+ * parameters, e.g. because it is used to serialize different classes (see for example {@link
+ * MapEntryCodec}).
  *
- * <p>If a {@link CodecRegisterer} definition exists, the codec will only be registered by the
- * {@link CodecRegisterer#register} method. Otherwise, an attempt will be made to register the codec
- * to its generic parameter type.
+ * <p>Implementations must have a class name ending in {@code CodecRegisterer} to be recognized by
+ * {@link CodecScanner}. There must also be a parameterless constructor, or else {@link
+ * CodecScanner} will throw an exception.
  *
- * <p>Implementations must have a default constructor.
- *
- * <p>Inheriting {@link CodecRegisterer} through a superclass is illegal. It must be directly
- * implemented. Also, the generic parameter of {@link CodecRegisterer} must be reified.
- *
- * <p>Constraint violations will cause exceptions to be raised from {@link CodecScanner}.
+ * <p>The existence of a {@link CodecRegisterer} does not prevent automatic registration of an
+ * {@link ObjectCodec} class. If only manual registration is desired, the codec class should
+ * override {@link ObjectCodec#autoRegister} if it otherwise qualifies (note that lack of a
+ * parameterless constructor disqualifies a codec from automatic registration).
  */
-public interface CodecRegisterer<T extends ObjectCodec<?>> {
-
-  default Iterable<? extends ObjectCodec<?>> getCodecsToRegister() {
-    return Collections.emptyList();
-  }
+public interface CodecRegisterer {
+  ImmutableList<ObjectCodec<?>> getCodecsToRegister();
 }

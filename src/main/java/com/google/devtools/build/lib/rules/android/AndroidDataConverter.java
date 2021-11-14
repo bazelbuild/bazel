@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.function.Consumer;
@@ -40,7 +41,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    * Converts parsed Android resources to the "SerializedAndroidData" format used by the Android
    * data processing actions.
    */
-  @AutoCodec
+  @SerializationConstant
   static final AndroidDataConverter<ParsedAndroidResources> PARSED_RESOURCE_CONVERTER =
       AndroidDataConverter.<ParsedAndroidResources>builder(JoinerType.SEMICOLON_AMPERSAND)
           .withRoots(ParsedAndroidResources::getResourceRoots)
@@ -53,7 +54,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    * Converts compiled Android resources to the "SerializedAndroidData" format used by the Android
    * data processing actions.
    */
-  @AutoCodec
+  @SerializationConstant
   static final AndroidDataConverter<ParsedAndroidResources> COMPILED_RESOURCE_CONVERTER =
       AndroidDataConverter.<ParsedAndroidResources>builder(JoinerType.SEMICOLON_AMPERSAND)
           .withEmpty() // resourceDirs
@@ -66,7 +67,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    * Converts processed Android resources produced by aapt to the "DependencyAndroidData" format
    * used by the Android data processing actions.
    */
-  @AutoCodec
+  @SerializationConstant
   static final AndroidDataConverter<ValidatedAndroidResources>
       AAPT_RESOURCES_AND_MANIFEST_CONVERTER =
           AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
@@ -81,7 +82,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    * Converts processed Android resources produced by aapt2 to the "DependencyAndroidData" format
    * used by the Android data processing actions.
    */
-  @AutoCodec
+  @SerializationConstant
   static final AndroidDataConverter<ValidatedAndroidResources>
       AAPT2_RESOURCES_AND_MANIFEST_CONVERTER =
           AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
@@ -97,7 +98,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    * Converts parsed Android assets to the "SerializedAndroidData" format used by the Android data
    * processing actions.
    */
-  @AutoCodec
+  @SerializationConstant
   static final AndroidDataConverter<ParsedAndroidAssets> PARSED_ASSET_CONVERTER =
       AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
           .withEmpty()
@@ -110,7 +111,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    * Converts compiled Android assets to the "SerializedAndroidData" format used by the Android data
    * processing actions.
    */
-  @AutoCodec
+  @SerializationConstant
   static final AndroidDataConverter<ParsedAndroidAssets> COMPILED_ASSET_CONVERTER =
       AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
           .withEmpty()
@@ -175,8 +176,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
   }
 
   public String map(T t) {
-    return suppliers
-        .stream()
+    return suppliers.stream()
         .map(s -> (s.apply(t)))
         .collect(Collectors.joining(joinerType.itemSeparator));
   }

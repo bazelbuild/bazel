@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Target;
@@ -28,9 +28,9 @@ import javax.annotation.Nullable;
 @Immutable
 public final class TargetAndConfiguration {
   private final Target target;
-  @Nullable private final BuildConfiguration configuration;
+  @Nullable private final BuildConfigurationValue configuration;
 
-  public TargetAndConfiguration(Target target, @Nullable BuildConfiguration configuration) {
+  public TargetAndConfiguration(Target target, @Nullable BuildConfigurationValue configuration) {
     this.target = Preconditions.checkNotNull(target);
     this.configuration = configuration;
   }
@@ -75,7 +75,7 @@ public final class TargetAndConfiguration {
   }
 
   @Nullable
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
 }

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -72,7 +73,6 @@ public class ActionCacheChecker {
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
   private final CacheConfig cacheConfig;
-  private final PathFragment derivedPathPrefix;
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
 
@@ -107,8 +107,7 @@ public class ActionCacheChecker {
       ArtifactResolver artifactResolver,
       ActionKeyContext actionKeyContext,
       Predicate<? super Action> executionFilter,
-      @Nullable CacheConfig cacheConfig,
-      PathFragment derivedPathPrefix) {
+      @Nullable CacheConfig cacheConfig) {
     this.executionFilter = executionFilter;
     this.actionKeyContext = actionKeyContext;
     this.artifactResolver = artifactResolver;
@@ -125,7 +124,6 @@ public class ActionCacheChecker {
     } else {
       this.actionCache = null;
     }
-    this.derivedPathPrefix = derivedPathPrefix;
   }
 
   public boolean isActionExecutionProhibited(Action action) {
@@ -310,10 +308,7 @@ public class ActionCacheChecker {
   }
 
   private static CachedOutputMetadata loadCachedOutputMetadata(
-      Action action,
-      ActionCache.Entry entry,
-      MetadataHandler metadataHandler,
-      PathFragment derivedPathPrefix) {
+      Action action, ActionCache.Entry entry, MetadataHandler metadataHandler) {
     ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> remoteFileMetadata =
         ImmutableMap.builder();
     ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata =
@@ -361,12 +356,9 @@ public class ActionCacheChecker {
               cachedTreeMetadata
                   .archivedFileValue()
                   .map(
-                      fileArtifactValue -> {
-                        Artifact.ArchivedTreeArtifact archivedTreeArtifact =
-                            Artifact.ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
-                        return ArchivedRepresentation.create(
-                            archivedTreeArtifact, fileArtifactValue);
-                      });
+                      fileArtifactValue ->
+                          ArchivedRepresentation.create(
+                              ArchivedTreeArtifact.createForTree(parent), fileArtifactValue));
         }
 
         TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
@@ -466,8 +458,7 @@ public class ActionCacheChecker {
     CachedOutputMetadata cachedOutputMetadata = null;
     // load remote metadata from action cache
     if (entry != null && !entry.isCorrupted() && cacheConfig.storeOutputMetadata()) {
-      cachedOutputMetadata =
-          loadCachedOutputMetadata(action, entry, metadataHandler, derivedPathPrefix);
+      cachedOutputMetadata = loadCachedOutputMetadata(action, entry, metadataHandler);
     }
 
     if (mustExecute(

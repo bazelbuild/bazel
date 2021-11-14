@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -362,7 +362,7 @@ public final class RunfilesSupport {
             RUNFILES_DIR_EXT);
     PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
-    BuildConfiguration config = context.getConfiguration();
+    BuildConfigurationValue config = context.getConfiguration();
     Artifact outputManifest =
         context.getDerivedArtifact(outputManifestPath, context.getBinDirectory());
     context

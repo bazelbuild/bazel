@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.util.Collection;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -137,6 +138,13 @@ public interface Spawn extends DescribableExecutionUnit {
 
   @Nullable
   PlatformInfo getExecutionPlatform();
+
+  @Override
+  @Nullable
+  default String getExecutionPlatformLabelString() {
+    PlatformInfo executionPlatform = getExecutionPlatform();
+    return executionPlatform == null ? null : Objects.toString(executionPlatform.label());
+  }
 
   @Override
   @Nullable

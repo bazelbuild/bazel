@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -62,10 +62,8 @@ public class LateBoundSplitUtil {
       "rule_with_test_fragment",
       (builder, env) -> builder.requiresConfigurationFragments(TestFragment.class));
 
-  /**
-   * Returns the {@link TestOptions} from the given configuration.
-   */
-  static TestOptions getOptions(BuildConfiguration config) {
+  /** Returns the {@link TestOptions} from the given configuration. */
+  static TestOptions getOptions(BuildConfigurationValue config) {
     return config.getOptions().get(TestOptions.class);
   }
 }

@@ -20,7 +20,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -60,7 +60,7 @@ final class TestResultAggregator {
 
   TestResultAggregator(
       ConfiguredTarget target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       AggregationPolicy policy,
       boolean skippedThisTest) {
     this.policy = policy;

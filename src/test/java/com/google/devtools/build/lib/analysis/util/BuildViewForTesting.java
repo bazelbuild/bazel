@@ -62,8 +62,8 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -97,7 +97,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
@@ -238,8 +237,8 @@ public class BuildViewForTesting {
    *
    * <p>Unconditionally includes all fragments.
    */
-  public BuildConfiguration getConfigurationForTesting(
-      Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
+  public BuildConfigurationValue getConfigurationForTesting(
+      Target target, BuildConfigurationValue config, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
     List<TargetAndConfiguration> node =
         ImmutableList.of(new TargetAndConfiguration(target, config));
@@ -328,11 +327,9 @@ public class BuildViewForTesting {
       ConfiguredTargetValue value = (ConfiguredTargetValue) graph.getValue(key);
       if (value != null) {
         ConfiguredTarget ct = value.getConfiguredTarget();
-        BuildConfiguration config = null;
+        BuildConfigurationValue config = null;
         if (ct.getConfigurationKey() != null) {
-          config =
-              ((BuildConfigurationValue) graph.getValue(ct.getConfigurationKey()))
-                  .getConfiguration();
+          config = (BuildConfigurationValue) graph.getValue(ct.getConfigurationKey());
         }
         PackageValue packageValue =
             (PackageValue) graph.getValue(PackageValue.key(ct.getLabel().getPackageIdentifier()));
@@ -365,7 +362,7 @@ public class BuildViewForTesting {
 
     // Collect the aspects.
     try {
-      BuildConfiguration config = ctd.getConfiguration();
+      BuildConfigurationValue config = ctd.getConfiguration();
       List<SkyKey> aspectKeys =
           dependencyKey.getAspects().getUsedAspects().stream()
               .map(
@@ -435,7 +432,7 @@ public class BuildViewForTesting {
     }
 
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey());
     TargetAndConfiguration ctgNode = new TargetAndConfiguration(target, configuration);
     return dependencyResolver.dependentNodeMap(
@@ -513,7 +510,7 @@ public class BuildViewForTesting {
   }
 
   private ConfigurationTransition getTopLevelTransitionForTarget(
-      Label label, BuildConfiguration config, ExtendedEventHandler handler) {
+      Label label, BuildConfigurationValue config, ExtendedEventHandler handler) {
     Target target;
     try {
       target = skyframeExecutor.getPackageManager().getTarget(handler, label);
@@ -544,7 +541,7 @@ public class BuildViewForTesting {
    * <p>Returns {@code null} if something goes wrong.
    */
   public ConfiguredTarget getConfiguredTargetForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
+      ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue config)
       throws StarlarkTransition.TransitionException, InvalidConfigurationException,
           InterruptedException {
     ConfigurationTransition transition =
@@ -556,7 +553,7 @@ public class BuildViewForTesting {
   }
 
   ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
+      ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue config)
       throws StarlarkTransition.TransitionException, InvalidConfigurationException,
           InterruptedException {
     ConfigurationTransition transition =
@@ -578,7 +575,7 @@ public class BuildViewForTesting {
       throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, ToolchainException,
           StarlarkTransition.TransitionException, InvalidExecGroupException {
-    BuildConfiguration targetConfig =
+    BuildConfigurationValue targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, target.getConfigurationKey());
     SkyFunction.Environment skyframeEnv =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
@@ -613,7 +610,7 @@ public class BuildViewForTesting {
       throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, ToolchainException,
           StarlarkTransition.TransitionException, InvalidExecGroupException {
-    BuildConfiguration targetConfig =
+    BuildConfigurationValue targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
     Target target;
     try {

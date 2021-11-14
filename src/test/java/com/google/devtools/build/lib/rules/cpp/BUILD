@@ -212,6 +212,7 @@ java_test(
 
 java_test(
     name = "CcLibraryConfiguredTargetTest",
+    timeout = "long",
     srcs = ["CcLibraryConfiguredTargetTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -677,6 +678,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -695,6 +697,22 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "CcStarlarkInternalTest",
+    srcs = ["CcStarlarkInternalTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

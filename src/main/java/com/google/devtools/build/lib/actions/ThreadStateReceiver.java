@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import javax.annotation.CheckReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 
 /**
  * Interface to be used by threads doing work that should be tracked. {@link #started} is called at

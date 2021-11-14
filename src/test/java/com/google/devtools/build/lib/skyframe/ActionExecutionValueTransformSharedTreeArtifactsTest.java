@@ -223,8 +223,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
     }
 
     if (includeArchivedTreeArtifacts) {
-      ArchivedTreeArtifact archivedArtifact =
-          ArchivedTreeArtifact.createForTree(treeArtifact, DERIVED_PATH_PREFIX);
+      ArchivedTreeArtifact archivedArtifact = ArchivedTreeArtifact.createForTree(treeArtifact);
       createFile(archivedArtifact.getPath());
       builder.setArchivedRepresentation(
           archivedArtifact, FileArtifactValue.createForTesting(archivedArtifact));

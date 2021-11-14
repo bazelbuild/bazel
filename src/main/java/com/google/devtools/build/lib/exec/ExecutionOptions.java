@@ -358,12 +358,22 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   @Option(
-    name = "debug_print_action_contexts",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Print the contents of the SpawnActionContext and ContextProviders maps."
-  )
+      name = "experimental_prioritize_local_actions",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set, actions that can only run locally are given first chance at acquiring resources,"
+              + " dynamically run workers get second chance, and dynamically-run standalone actions"
+              + " come last.")
+  public boolean prioritizeLocalActions;
+
+  @Option(
+      name = "debug_print_action_contexts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Print the contents of the SpawnActionContext and ContextProviders maps.")
   public boolean debugPrintActionContexts;
 
   @Option(

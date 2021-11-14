@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -622,14 +622,14 @@ public class ExecutionTool {
   }
 
   /**
-   * Obtains the {@link BuildConfiguration} for a given {@link BuildOptions} for the purpose of
+   * Obtains the {@link BuildConfigurationValue} for a given {@link BuildOptions} for the purpose of
    * symlink creation.
    *
    * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
    * returned.
    */
   @Nullable
-  private static BuildConfiguration getConfiguration(
+  private static BuildConfigurationValue getConfiguration(
       SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
     try {
       return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
@@ -677,7 +677,7 @@ public class ExecutionTool {
     Reporter reporter = env.getReporter();
 
     // Gather configurations to consider.
-    Set<BuildConfiguration> targetConfigurations =
+    Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
             ? analysisResult.getTargetsToBuild().stream()
                 .map(ConfiguredTarget::getConfigurationKey)
@@ -865,8 +865,7 @@ public class ExecutionTool {
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
-                .build(),
-            PathFragment.create(env.getDirectories().getRelativeOutputPath())),
+                .build()),
         env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
             ? modifiedOutputFiles
@@ -879,17 +878,13 @@ public class ExecutionTool {
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    ResourceSet resources;
-    resources = ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
+    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
-
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            resources.getMemoryMb(),
-            resources.getCpuUsage(),
-            request.getExecutionOptions().usingLocalTestJobs()
-                ? request.getExecutionOptions().localTestJobs
-                : Integer.MAX_VALUE));
+            options.localRamResources,
+            options.localCpuResources,
+            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 
   /**

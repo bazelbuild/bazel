@@ -19,11 +19,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.buildtool.BuildResult;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -42,12 +46,17 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * {@link BlazeModule} providing support for dynamic spawn execution and scheduling.
- */
+/** {@link BlazeModule} providing support for dynamic spawn execution and scheduling. */
 public class DynamicExecutionModule extends BlazeModule {
 
   private ExecutorService executorService;
+
+  /**
+   * If true, this is the first build since this server started (excluding failed builds). This
+   * allows turning off dynamic execution for an initial build, avoiding dynamic execution on most
+   * clean builds.
+   */
+  private static boolean firstBuild = true;
 
   public DynamicExecutionModule() {}
 
@@ -125,13 +134,17 @@ public class DynamicExecutionModule extends BlazeModule {
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
       throws AbruptExitException {
     registerSpawnStrategies(
-        registryBuilder, env.getOptions().getOptions(DynamicExecutionOptions.class));
+        registryBuilder,
+        env.getOptions().getOptions(DynamicExecutionOptions.class),
+        env.getReporter());
   }
 
   // CommandEnvironment is difficult to access in tests, so use this method for testing.
   @VisibleForTesting
   final void registerSpawnStrategies(
-      SpawnStrategyRegistry.Builder registryBuilder, DynamicExecutionOptions options)
+      SpawnStrategyRegistry.Builder registryBuilder,
+      DynamicExecutionOptions options,
+      Reporter reporter)
       throws AbruptExitException {
     if (!options.internalSpawnScheduler) {
       return;
@@ -142,9 +155,9 @@ public class DynamicExecutionModule extends BlazeModule {
             executorService,
             options,
             this::getExecutionPolicy,
-            this::getPostProcessingSpawnForLocalExecution);
+            this::getPostProcessingSpawnForLocalExecution,
+            firstBuild);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
-
     registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
     registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));
   }
@@ -194,6 +207,14 @@ public class DynamicExecutionModule extends BlazeModule {
    */
   protected Optional<Spawn> getPostProcessingSpawnForLocalExecution(Spawn spawn) {
     return Optional.empty();
+  }
+
+  @Subscribe
+  public void buildCompleteEvent(BuildCompleteEvent event) {
+    BuildResult result = event.getResult();
+    if (result.getSuccess()) {
+      firstBuild = false;
+    }
   }
 
   @Override

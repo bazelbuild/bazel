@@ -79,4 +79,7 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       useStarlarkThread = true)
   @Nullable
   ExtraLinkTimeLibraryApi getGoLinkCArchiveForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "extra_link_time_libraries", documented = false, useStarlarkThread = true)
+  public Object getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread) throws EvalException;
 }

@@ -64,7 +64,7 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
 
     SkyKey aspectKey =
         AspectKeyCreator.AspectKey.createAspectKey(
-            ctKey, ImmutableList.of(), null, BuildConfigurationValue.key(targetConfig));
+            ctKey, ImmutableList.of(), null, targetConfig.getKey());
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, aspectKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "

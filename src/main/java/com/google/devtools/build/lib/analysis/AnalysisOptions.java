@@ -25,7 +25,7 @@ import com.google.devtools.common.options.OptionsBase;
 /**
  * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
  * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i> of a
- * BuildConfiguration.
+ * BuildConfigurationValue.
  */
 public class AnalysisOptions extends OptionsBase {
   @Option(

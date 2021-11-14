@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -3117,6 +3118,50 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:custom");
 
     assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = java_common.get_build_info(ctx)",
+        "  return [DefaultInfo(files = depset(artifacts))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetBuildInfoArtifacts() throws Exception {
+    scratch.file(
+        "bazel_internal/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = java_common.get_build_info(ctx)",
+        "  return [DefaultInfo(files = depset(artifacts))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "bazel_internal/test/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+
+    NestedSet<Artifact> artifacts =
+        getConfiguredTarget("//bazel_internal/test:custom")
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+
+    assertThat(prettyArtifactNames(artifacts)).containsExactly("build-info-redacted.properties");
   }
 
   private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {

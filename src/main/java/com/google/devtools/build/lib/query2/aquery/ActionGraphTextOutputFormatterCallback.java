@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -45,6 +47,7 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -262,7 +265,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* environment= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
-                  action.getExecutionPlatform()))
+                  action.getExecutionPlatform() == null
+                      ? null
+                      : Objects.toString(action.getExecutionPlatform().label())))
           .append("\n");
     }
 
@@ -296,6 +301,23 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                               ShellEscaper.escapeString(e.getValue())))
                   .collect(Collectors.joining(", ")))
           .append("}\n");
+    }
+
+    if (action instanceof TemplateExpansionAction) {
+      stringBuilder
+          .append("  Template: ")
+          .append(((TemplateExpansionAction) action).getTemplate())
+          .append("\n");
+      stringBuilder.append("  Substitutions: [\n");
+      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+        stringBuilder
+            .append("    {")
+            .append(substitution.getKey())
+            .append(": ")
+            .append(substitution.getValue())
+            .append("}\n");
+      }
+      stringBuilder.append("  ]\n");
     }
 
     stringBuilder.append('\n');

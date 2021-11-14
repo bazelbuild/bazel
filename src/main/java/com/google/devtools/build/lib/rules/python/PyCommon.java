@@ -58,7 +58,6 @@ import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -170,13 +169,6 @@ public final class PyCommon {
    */
   @Nullable private final PyRuntimeInfo runtimeFromToolchain;
 
-  /**
-   * Symlink map from root-relative paths to 2to3 converted source artifacts.
-   *
-   * <p>Null if no 2to3 conversion is required.
-   */
-  @Nullable private final Map<PathFragment, Artifact> convertedFiles;
-
   // Null if requiresMainFile is false, or the main artifact couldn't be determined.
   @Nullable private Artifact mainArtifact = null;
 
@@ -213,7 +205,6 @@ public final class PyCommon {
     this.hasPy2OnlySources = initHasPy2OnlySources(ruleContext, this.sourcesVersion);
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
     this.runtimeFromToolchain = initRuntimeFromToolchain(ruleContext, this.version);
-    this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
     validatePythonVersionAttr();
     validateLegacyProviderNotUsedIfDisabled();
   }
@@ -351,12 +342,11 @@ public final class PyCommon {
 
   /**
    * Returns true if any of {@code deps} has a py provider with {@code has_py2_only_sources} set, or
-   * this target has a {@code srcs_version} of {@code PY2ONLY}.
+   * this target has a {@code srcs_version} of {@code PY2} or {@code PY2ONLY}.
    */
-  // TODO(#1393): For Bazel, deprecate 2to3 support and treat PY2 the same as PY2ONLY.
   private static boolean initHasPy2OnlySources(
       RuleContext ruleContext, PythonVersion sourcesVersion) {
-    if (sourcesVersion == PythonVersion.PY2ONLY) {
+    if (sourcesVersion == PythonVersion.PY2 || sourcesVersion == PythonVersion.PY2ONLY) {
       return true;
     }
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
@@ -508,27 +498,6 @@ public final class PyCommon {
     }
 
     return result;
-  }
-
-  /**
-   * If 2to3 conversion is to be done, creates the 2to3 actions and returns the map of converted
-   * files; otherwise returns null.
-   *
-   * <p>May also return null and report a rule error if there is a problem creating an output file
-   * for 2to3 conversion.
-   */
-  // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
-  // should be removed / factored away into PythonSemantics.
-  @Nullable
-  private static Map<PathFragment, Artifact> makeAndInitConvertedFiles(
-      RuleContext ruleContext, PythonVersion version, PythonVersion sourcesVersion) {
-    if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
-      Iterable<Artifact> artifacts =
-          ruleContext.getPrerequisiteArtifacts("srcs").filter(PyRuleClasses.PYTHON_SOURCE).list();
-      return PythonUtils.generate2to3Actions(ruleContext, artifacts);
-    } else {
-      return null;
-    }
   }
 
   /**
@@ -752,10 +721,6 @@ public final class PyCommon {
     return runtimeFromToolchain;
   }
 
-  public Map<PathFragment, Artifact> getConvertedFiles() {
-    return convertedFiles;
-  }
-
   public void initBinary(List<Artifact> srcs) {
     Preconditions.checkNotNull(version);
 
@@ -864,9 +829,7 @@ public final class PyCommon {
 
   /** Returns a list of the source artifacts */
   public List<Artifact> getPythonSources() {
-    return convertedFiles != null
-        ? ImmutableList.copyOf(convertedFiles.values())
-        : directPythonSources;
+    return directPythonSources;
   }
 
   /**

@@ -48,6 +48,11 @@ public abstract class Template {
    */
   protected abstract String getKey();
 
+  @Override
+  public String toString() {
+    return getKey();
+  }
+
   private static final class ErrorTemplate extends Template {
     private final IOException e;
     private final String templateName;

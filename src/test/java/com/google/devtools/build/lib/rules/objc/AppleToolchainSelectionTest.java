@@ -21,7 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -37,7 +37,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   @Test
   public void testToolchainSelectionDefault() throws Exception {
     createLibraryTargetWriter("//a:lib").write();
-    BuildConfiguration config = getAppleCrosstoolConfiguration();
+    BuildConfigurationValue config = getAppleCrosstoolConfiguration();
     CppConfiguration cppConfig = config.getFragment(CppConfiguration.class);
 
     assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
@@ -49,7 +49,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   public void testToolchainSelectionIosDevice() throws Exception {
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
     createLibraryTargetWriter("//a:lib").write();
-    BuildConfiguration config = getAppleCrosstoolConfiguration();
+    BuildConfigurationValue config = getAppleCrosstoolConfiguration();
     CppConfiguration cppConfig = config.getFragment(CppConfiguration.class);
 
     assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())

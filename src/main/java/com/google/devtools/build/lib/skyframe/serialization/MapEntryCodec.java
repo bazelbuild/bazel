@@ -52,9 +52,10 @@ class MapEntryCodec implements ObjectCodec<Map.Entry> {
     return factory.apply(context.deserialize(codedIn), context.deserialize(codedIn));
   }
 
-  private static class MapEntryCodecRegisterer implements CodecRegisterer<MapEntryCodec> {
+  @SuppressWarnings("unused") // Used reflectively.
+  private static final class MapEntryCodecRegisterer implements CodecRegisterer {
     @Override
-    public Iterable<MapEntryCodec> getCodecsToRegister() {
+    public ImmutableList<ObjectCodec<?>> getCodecsToRegister() {
       return ImmutableList.of(
           new MapEntryCodec(Maps::immutableEntry),
           new MapEntryCodec(AbstractMap.SimpleEntry::new),

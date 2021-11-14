@@ -487,6 +487,15 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         help = "No-op")
     public boolean enableCpuUsageProfiling;
+
+    @Option(
+        name = "incompatible_applicable_licenses",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean incompatibleApplicableLicenses;
   }
 
   @Override

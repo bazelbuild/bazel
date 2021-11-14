@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
@@ -126,7 +125,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   public final void addRuleImplSpecificRequiredConfigFragments(
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       AttributeMap attributes,
-      BuildConfiguration configuration) {
+      BuildConfigurationValue configuration) {
     requiredFragments.addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(attributes));
   }
 
@@ -1805,21 +1804,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
 
-  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
     Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     SpawnAction.Builder builder =
         createSpawnActionBuilder(ruleContext).useDefaultShellEnvironment();
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
-              singleJar,
-              JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs());
-    } else {
-      builder.setExecutable(singleJar);
-    }
+    builder.setExecutable(singleJar);
     return builder;
   }
 

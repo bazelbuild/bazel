@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.worker;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
@@ -405,5 +404,12 @@ public class WorkerMultiplexer {
   @VisibleForTesting
   void setProcessFactory(SubprocessFactory factory) {
     subprocessFactory = factory;
+  }
+
+  public long getProcessId() {
+    if (process == null) {
+      return -1;
+    }
+    return process.getProcessId();
   }
 }

@@ -96,7 +96,6 @@ JAVA_TOOLS = [
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
-               "//third_party/py/concurrent:srcs",
                "//third_party/py/six:srcs",
                "//src/conditions:embedded_tools",
                "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",

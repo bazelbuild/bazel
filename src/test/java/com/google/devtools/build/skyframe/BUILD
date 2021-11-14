@@ -72,6 +72,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 

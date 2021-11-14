@@ -15,9 +15,8 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
@@ -63,7 +62,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
     actionFilters = buildActionFilters(queryExpression);
   }
 
-  /** Outputs the current {@link ActionGraphContainer} of Skyframe. */
+  /** Outputs the current action graph from Skyframe. */
   public BlazeCommandResult dumpActionGraphFromSkyframe(BuildRequest request) {
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
@@ -113,7 +112,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
   @Override
   protected PostAnalysisQueryEnvironment<ConfiguredTargetValue> getQueryEnvironment(
       BuildRequest request,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph) {

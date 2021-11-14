@@ -129,12 +129,9 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
     QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
     return whenSucceedsCall(
         evalAllFuture,
-        new QueryTaskCallable<Void>() {
-          @Override
-          public Void call() throws QueryException, InterruptedException {
-            callback.process(aggregateAllCallback.getResult());
-            return null;
-          }
+        () -> {
+          callback.process(aggregateAllCallback.getResult());
+          return null;
         });
   }
 

@@ -42,7 +42,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
+            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing command "
@@ -63,7 +63,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
+            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing command \n"
@@ -92,7 +92,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
+            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing command some_command arg1 "
@@ -120,7 +120,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
+            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing command \n"
@@ -150,7 +150,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
+            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing command some_command"
@@ -186,7 +186,7 @@ public class CommandFailureUtilsTest {
             env,
             cwd,
             "cfg12345",
-            executionPlatform);
+            executionPlatform.label().toString());
 
     assertThat(message)
         .isEqualTo(

@@ -30,9 +30,6 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.io.InvalidObjectException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -55,8 +52,7 @@ import net.starlark.java.eval.StarlarkValue;
 @AutoCodec
 @Immutable
 @ThreadSafe
-public final class Label
-    implements Comparable<Label>, Serializable, StarlarkValue, SkyKey, CommandLineItem {
+public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
 
   // Intern "__pkg__" and "__subpackages__" pseudo-targets, which appears in labels used for
   // visibility specifications. This saves a couple tenths of a percent of RAM off the loading
@@ -340,14 +336,6 @@ public final class Label
 
     this.packageIdentifier = packageIdentifier;
     this.name = name;
-  }
-
-  private Object writeReplace() {
-    return new LabelSerializationProxy(getUnambiguousCanonicalForm());
-  }
-
-  private void readObject(ObjectInputStream unusedStream) throws InvalidObjectException {
-    throw new InvalidObjectException("Serialization is allowed only by proxy");
   }
 
   public PackageIdentifier getPackageIdentifier() {

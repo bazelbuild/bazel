@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -43,7 +43,7 @@ public class CppLinkstampCompileHelper {
       RuleErrorConsumer ruleErrorConsumer,
       ActionConstructionContext actionConstructionContext,
       @Nullable Artifact grepIncludes,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Artifact sourceFile,
       Artifact outputFile,
       NestedSet<Artifact> compilationInputs,

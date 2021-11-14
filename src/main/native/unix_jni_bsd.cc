@@ -109,7 +109,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 #endif
 }
 
-int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
 #if defined(HAVE_SYSCTLBYNAME)
   return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
 #else
@@ -130,9 +130,8 @@ int portable_pop_disable_sleep() {
   return -1;
 }
 
-int portable_suspend_count() {
+void portable_start_suspend_monitoring() {
   // Currently not implemented.
-  return 0;
 }
 
 int portable_memory_pressure_warning_count() {

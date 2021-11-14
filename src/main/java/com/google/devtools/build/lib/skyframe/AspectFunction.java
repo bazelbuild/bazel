@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
@@ -221,11 +221,11 @@ final class AspectFunction implements SkyFunction {
           new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
     }
 
-    boolean aspectHasConfiguration = key.getAspectConfigurationKey() != null;
+    boolean aspectHasConfiguration = key.getConfigurationKey() != null;
 
     ImmutableSet<SkyKey> keys =
         aspectHasConfiguration
-            ? ImmutableSet.of(key.getBaseConfiguredTargetKey(), key.getAspectConfigurationKey())
+            ? ImmutableSet.of(key.getBaseConfiguredTargetKey(), key.getConfigurationKey())
             : ImmutableSet.of(key.getBaseConfiguredTargetKey());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> baseAndAspectValues =
@@ -235,7 +235,7 @@ final class AspectFunction implements SkyFunction {
     }
 
     ConfiguredTargetValue baseConfiguredTargetValue;
-    BuildConfiguration aspectConfiguration = null;
+    BuildConfigurationValue aspectConfiguration = null;
 
     try {
       baseConfiguredTargetValue =
@@ -248,19 +248,19 @@ final class AspectFunction implements SkyFunction {
     if (aspectHasConfiguration) {
       try {
         aspectConfiguration =
-            ((BuildConfigurationValue)
-                    baseAndAspectValues.get(key.getAspectConfigurationKey()).get())
-                .getConfiguration();
+            (BuildConfigurationValue) baseAndAspectValues.get(key.getConfigurationKey()).get();
       } catch (ConfiguredValueCreationException e) {
-        throw new IllegalStateException("Unexpected exception from BuildConfigurationFunction when "
-            + "computing " + key.getAspectConfigurationKey(), e);
+        throw new IllegalStateException(
+            "Unexpected exception from BuildConfigurationFunction when computing "
+                + key.getConfigurationKey(),
+            e);
       }
     }
 
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
 
     Package targetPkg;
-    BuildConfiguration configuration = null;
+    BuildConfigurationValue configuration = null;
     PackageValue.Key packageKey =
         PackageValue.key(associatedTarget.getOriginalLabel().getPackageIdentifier());
     if (associatedTarget.getConfigurationKey() == null) {
@@ -280,9 +280,7 @@ final class AspectFunction implements SkyFunction {
         return null;
       }
       targetPkg = ((PackageValue) result.get(packageKey)).getPackage();
-      configuration =
-          ((BuildConfigurationValue) result.get(associatedTarget.getConfigurationKey()))
-              .getConfiguration();
+      configuration = (BuildConfigurationValue) result.get(associatedTarget.getConfigurationKey());
     }
 
     Target target;
@@ -518,7 +516,10 @@ final class AspectFunction implements SkyFunction {
 
   @Nullable
   private static UnloadedToolchainContext getUnloadedToolchainContext(
-      Environment env, AspectKey key, Aspect aspect, @Nullable BuildConfiguration configuration)
+      Environment env,
+      AspectKey key,
+      Aspect aspect,
+      @Nullable BuildConfigurationValue configuration)
       throws InterruptedException, AspectCreationException {
     // Determine what toolchains are needed by this target.
     UnloadedToolchainContext unloadedToolchainContext = null;
@@ -531,7 +532,7 @@ final class AspectFunction implements SkyFunction {
             (UnloadedToolchainContext)
                 env.getValueOrThrow(
                     ToolchainContextKey.key()
-                        .configurationKey(BuildConfigurationValue.key(configuration))
+                        .configurationKey(configuration.getKey())
                         .requiredToolchainTypeLabels(requiredToolchains)
                         .build(),
                     ToolchainException.class);
@@ -553,7 +554,7 @@ final class AspectFunction implements SkyFunction {
    */
   // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
   private static boolean shouldUseToolchainTransition(
-      @Nullable BuildConfiguration configuration, AspectDefinition definition) {
+      @Nullable BuildConfigurationValue configuration, AspectDefinition definition) {
     // Check whether the global incompatible change flag is set.
     if (configuration != null) {
       PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
@@ -624,11 +625,11 @@ final class AspectFunction implements SkyFunction {
   @Nullable
   private AspectValue createAliasAspect(
       Environment env,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       TargetAndConfiguration originalTarget,
       Aspect aspect,
       AspectKey originalKey,
-      BuildConfiguration aspectConfiguration,
+      BuildConfigurationValue aspectConfiguration,
       ConfiguredTarget configuredTarget)
       throws AspectFunctionException, InterruptedException {
     ImmutableList<Label> aliasChain =
@@ -827,7 +828,7 @@ final class AspectFunction implements SkyFunction {
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
       ConfiguredTargetAndData associatedTarget,
-      BuildConfiguration aspectConfiguration,
+      BuildConfigurationValue aspectConfiguration,
       ConfigConditions configConditions,
       ResolvedToolchainContext toolchainContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,

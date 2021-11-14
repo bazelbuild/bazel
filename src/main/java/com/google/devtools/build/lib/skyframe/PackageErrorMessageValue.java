@@ -124,11 +124,10 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
       };
 
-  @AutoCodec
-  static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
+  private static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
     private final String errorMessage;
 
-    public NoSuchPackageExceptionValue(String errorMessage) {
+    NoSuchPackageExceptionValue(String errorMessage) {
       this.errorMessage = errorMessage;
     }
 

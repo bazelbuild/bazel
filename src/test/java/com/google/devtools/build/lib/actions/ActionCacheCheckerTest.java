@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -84,7 +85,6 @@ public class ActionCacheCheckerTest {
   private DigestHashFunction digestHashFunction;
   private FileSystem fileSystem;
   private ArtifactRoot artifactRoot;
-  private PathFragment derivedPathPrefix;
 
   @Before
   public void setupCache() throws Exception {
@@ -92,7 +92,6 @@ public class ActionCacheCheckerTest {
     Clock clock = new ManualClock();
 
     cache = new CorruptibleActionCache(scratch.resolve("/cache/test.dat"), clock);
-    derivedPathPrefix = PathFragment.create("bin");
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
@@ -114,8 +113,7 @@ public class ActionCacheCheckerTest {
             .setEnabled(true)
             .setVerboseExplanations(false)
             .setStoreOutputMetadata(storeOutputMetadata)
-            .build(),
-        derivedPathPrefix);
+            .build());
   }
 
   @Before
@@ -153,7 +151,7 @@ public class ActionCacheCheckerTest {
 
   private void runAction(Action action, Map<String, String> clientEnv, Map<String, String> platform)
       throws Exception {
-    runAction(action, clientEnv, platform, new FakeMetadataHandler(derivedPathPrefix));
+    runAction(action, clientEnv, platform, new FakeMetadataHandler());
   }
 
   private void runAction(
@@ -440,7 +438,7 @@ public class ActionCacheCheckerTest {
                 /*resolvedCacheArtifacts=*/ null,
                 /*clientEnv=*/ ImmutableMap.of(),
                 /*handler=*/ null,
-                new FakeMetadataHandler(derivedPathPrefix),
+                new FakeMetadataHandler(),
                 /*artifactExpander=*/ null,
                 /*remoteDefaultPlatformProperties=*/ ImmutableMap.of()))
         .isNotNull();
@@ -451,7 +449,7 @@ public class ActionCacheCheckerTest {
     return new RemoteFileArtifactValue(digest(bytes), bytes.length, 1, "action-id");
   }
 
-  private TreeArtifactValue createTreeMetadata(
+  private static TreeArtifactValue createTreeMetadata(
       SpecialArtifact parent,
       ImmutableMap<String, ? extends FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue) {
@@ -462,8 +460,7 @@ public class ActionCacheCheckerTest {
     }
     archivedArtifactValue.ifPresent(
         metadata -> {
-          Artifact.ArchivedTreeArtifact artifact =
-              Artifact.ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
+          ArchivedTreeArtifact artifact = ArchivedTreeArtifact.createForTree(parent);
           builder.setArchivedRepresentation(
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });
@@ -549,7 +546,7 @@ public class ActionCacheCheckerTest {
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputFileMetadataAction(output, createRemoteFileMetadata(content));
-    MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     runAction(action);
     Token token =
@@ -671,7 +668,7 @@ public class ActionCacheCheckerTest {
     Action action =
         new InjectOutputTreeMetadataAction(
             output, createTreeMetadata(output, ImmutableMap.of(), Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     runAction(action);
     Token token =
@@ -755,7 +752,7 @@ public class ActionCacheCheckerTest {
     Action action =
         new InjectOutputTreeMetadataAction(
             output, createTreeMetadata(output, children, Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     runAction(action);
     Token token =
@@ -796,7 +793,7 @@ public class ActionCacheCheckerTest {
             output,
             createTreeMetadata(output, children1, Optional.empty()),
             createTreeMetadata(output, children2, Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     runAction(action);
     writeIsoLatin1(output.getPath().getRelative("file2"), "modified_local");
@@ -836,12 +833,10 @@ public class ActionCacheCheckerTest {
                 output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))),
             createTreeMetadata(
                 output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("modified"))));
-    MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     runAction(action);
-    writeIsoLatin1(
-        Artifact.ArchivedTreeArtifact.createForTree(output, derivedPathPrefix).getPath(),
-        "modified");
+    writeIsoLatin1(ArchivedTreeArtifact.createForTree(output).getPath(), "modified");
     // Not cached since local file changed
     runAction(action, metadataHandler);
 
@@ -862,7 +857,7 @@ public class ActionCacheCheckerTest {
     assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
   }
 
-  private void writeContentAsLatin1(Path path, String content) throws IOException {
+  private static void writeContentAsLatin1(Path path, String content) throws IOException {
     Path parent = path.getParentDirectory();
     if (parent != null) {
       parent.createDirectoryAndParents();
@@ -882,7 +877,7 @@ public class ActionCacheCheckerTest {
     Action action =
         new InjectOutputTreeMetadataAction(
             output, createTreeMetadata(output, children, Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     runAction(action);
     writeContentAsLatin1(output.getPath().getRelative("file1"), "content1");
@@ -926,12 +921,10 @@ public class ActionCacheCheckerTest {
             output,
             createTreeMetadata(
                 output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))));
-    MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     runAction(action);
-    writeContentAsLatin1(
-        Artifact.ArchivedTreeArtifact.createForTree(output, derivedPathPrefix).getPath(),
-        "content");
+    writeContentAsLatin1(ArchivedTreeArtifact.createForTree(output).getPath(), "content");
     // Cache hit
     runAction(action, metadataHandler);
 
@@ -948,7 +941,7 @@ public class ActionCacheCheckerTest {
   }
 
   /** An {@link ActionCache} that allows injecting corruption for testing. */
-  private static class CorruptibleActionCache implements ActionCache {
+  private static final class CorruptibleActionCache implements ActionCache {
     private final CompactPersistentActionCache delegate;
     private boolean corrupted = false;
 
@@ -1021,14 +1014,9 @@ public class ActionCacheCheckerTest {
   }
 
   /** A fake metadata handler that is able to obtain metadata from the file system. */
-  private static class FakeMetadataHandler extends FakeMetadataHandlerBase {
+  private static final class FakeMetadataHandler extends FakeMetadataHandlerBase {
     private final Map<Artifact, FileArtifactValue> fileMetadata = new HashMap<>();
     private final Map<SpecialArtifact, TreeArtifactValue> treeMetadata = new HashMap<>();
-    private final PathFragment derivedPathPrefix;
-
-    FakeMetadataHandler(PathFragment derivedPathPrefix) {
-      this.derivedPathPrefix = derivedPathPrefix;
-    }
 
     @Override
     public void injectFile(Artifact output, FileArtifactValue metadata) {
@@ -1086,8 +1074,7 @@ public class ActionCacheCheckerTest {
             });
       }
 
-      Artifact.ArchivedTreeArtifact archivedTreeArtifact =
-          Artifact.ArchivedTreeArtifact.createForTree(output, derivedPathPrefix);
+      ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(output);
       if (archivedTreeArtifact.getPath().exists()) {
         tree.setArchivedRepresentation(
             archivedTreeArtifact,
@@ -1102,9 +1089,9 @@ public class ActionCacheCheckerTest {
   }
 
   private static class WriteEmptyOutputAction extends NullAction {
-    public WriteEmptyOutputAction() {}
+    WriteEmptyOutputAction() {}
 
-    public WriteEmptyOutputAction(Artifact... outputs) {
+    WriteEmptyOutputAction(Artifact... outputs) {
       super(outputs);
     }
 
@@ -1129,7 +1116,7 @@ public class ActionCacheCheckerTest {
     private final Artifact output;
     private final Deque<FileArtifactValue> metadataDeque;
 
-    public InjectOutputFileMetadataAction(Artifact output, FileArtifactValue... metadata) {
+    InjectOutputFileMetadataAction(Artifact output, FileArtifactValue... metadata) {
       super(output);
 
       this.output = output;
@@ -1143,11 +1130,11 @@ public class ActionCacheCheckerTest {
     }
   }
 
-  private static class InjectOutputTreeMetadataAction extends NullAction {
+  private static final class InjectOutputTreeMetadataAction extends NullAction {
     private final SpecialArtifact output;
     private final Deque<TreeArtifactValue> metadataDeque;
 
-    public InjectOutputTreeMetadataAction(SpecialArtifact output, TreeArtifactValue... metadata) {
+    InjectOutputTreeMetadataAction(SpecialArtifact output, TreeArtifactValue... metadata) {
       super(output);
 
       this.output = output;

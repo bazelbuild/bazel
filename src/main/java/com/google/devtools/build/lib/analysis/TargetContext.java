@@ -19,12 +19,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +44,7 @@ public class TargetContext {
 
   private final AnalysisEnvironment env;
   private final Target target;
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue configuration;
 
   /**
    * This only contains prerequisites that are not declared in rule attributes, with the exception
@@ -63,7 +63,7 @@ public class TargetContext {
   TargetContext(
       AnalysisEnvironment env,
       Target target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Set<ConfiguredTargetAndData> directPrerequisites,
       NestedSet<PackageGroupContents> visibility) {
     this.env = env;
@@ -96,12 +96,12 @@ public class TargetContext {
    * guaranteed to be non-null for rules and for output files.
    */
   @Nullable
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
 
-  public BuildConfigurationValue.Key getConfigurationKey() {
-    return BuildConfigurationValue.key(configuration);
+  public BuildConfigurationKey getConfigurationKey() {
+    return configuration.getKey();
   }
 
   public NestedSet<PackageGroupContents> getVisibility() {
@@ -115,7 +115,7 @@ public class TargetContext {
    */
   @Nullable
   public TransitiveInfoCollection findDirectPrerequisite(
-      Label label, Optional<BuildConfiguration> config) {
+      Label label, Optional<BuildConfigurationValue> config) {
     if (directPrerequisites.containsKey(label)) {
       List<ConfiguredTargetAndData> prerequisites = directPrerequisites.get(label);
       // If the config is present, find the prereq with that configuration. Otherwise, return the

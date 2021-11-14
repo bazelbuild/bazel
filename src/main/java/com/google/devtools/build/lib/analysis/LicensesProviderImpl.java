@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -49,7 +49,7 @@ public final class LicensesProviderImpl implements LicensesProvider {
     }
 
     NestedSetBuilder<TargetLicense> builder = NestedSetBuilder.linkOrder();
-    BuildConfiguration configuration = ruleContext.getConfiguration();
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
     Rule rule = ruleContext.getRule();
     AttributeMap attributes = ruleContext.attributes();
     License toolOutputLicense = rule.getToolOutputLicense(attributes);
@@ -95,7 +95,8 @@ public final class LicensesProviderImpl implements LicensesProvider {
     return new LicensesProviderImpl(builder.build(), outputLicenses);
   }
 
-  private static boolean useOutputLicenses(Attribute attribute, BuildConfiguration configuration) {
+  private static boolean useOutputLicenses(
+      Attribute attribute, BuildConfigurationValue configuration) {
     return configuration.isToolConfiguration() || attribute.useOutputLicenses();
   }
 

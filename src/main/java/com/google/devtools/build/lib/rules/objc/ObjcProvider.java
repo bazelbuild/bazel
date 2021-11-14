@@ -144,10 +144,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       new Key<>(LINK_ORDER, "strict_include", PathFragment.class);
 
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER, "sdk_dylib", String.class);
-  public static final Key<SdkFramework> SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "sdk_framework", SdkFramework.class);
-  public static final Key<SdkFramework> WEAK_SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "weak_sdk_framework", SdkFramework.class);
+  public static final Key<String> SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "sdk_framework", String.class);
+  public static final Key<String> WEAK_SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "weak_sdk_framework", String.class);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
@@ -343,8 +343,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset sdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(SDK_FRAMEWORK, get(SDK_FRAMEWORK));
+    return Depset.of(Depset.ElementType.STRING, get(SDK_FRAMEWORK));
   }
 
   @Override
@@ -377,9 +376,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset weakSdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(
-            WEAK_SDK_FRAMEWORK, get(WEAK_SDK_FRAMEWORK));
+    return Depset.of(Depset.ElementType.STRING, get(WEAK_SDK_FRAMEWORK));
   }
 
   /**

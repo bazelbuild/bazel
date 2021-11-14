@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -107,7 +106,7 @@ public class LibrariesToLinkCollector {
       rpathRoot = ccToolchainProvider.getSolibDirectory() + "/";
     } else {
       rpathRoot =
-          Strings.repeat("../", outputArtifact.getRootRelativePath().segmentCount() - 1)
+          "../".repeat(outputArtifact.getRootRelativePath().segmentCount() - 1)
               + ccToolchainProvider.getSolibDirectory()
               + "/";
     }
@@ -185,7 +184,7 @@ public class LibrariesToLinkCollector {
       // "../../_solib_[arch]".
       if (needToolchainLibrariesRpath) {
         runtimeLibrarySearchDirectories.add(
-            Strings.repeat("../", outputArtifact.getRootRelativePath().segmentCount() - 1)
+            "../".repeat(outputArtifact.getRootRelativePath().segmentCount() - 1)
                 + toolchainLibrariesSolibName
                 + "/");
       }

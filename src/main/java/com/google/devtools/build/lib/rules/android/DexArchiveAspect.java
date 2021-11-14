@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -161,7 +161,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       return true;
     }
     AndroidConfiguration androidConfig =
-        ((BuildConfiguration) obj).getFragment(AndroidConfiguration.class);
+        ((BuildConfigurationValue) obj).getFragment(AndroidConfiguration.class);
     return !androidConfig.incompatibleUseToolchainResolution();
   }
 

@@ -799,4 +799,49 @@ public final class ProfilerTest {
     long slimProfileLineCount = slimOutput.split("\n").length;
     assertThat(fatProfileLineCount).isAtLeast(8 * slimProfileLineCount);
   }
+
+  @Test
+  public void testProfileMnemonicIncluded() throws Exception {
+    ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+    try (SilentCloseable c =
+        profiler.profileAction(ProfilerTask.ACTION, "without mnemonic", "", "")) {
+      clock.advanceMillis(100);
+    }
+    try (SilentCloseable c =
+        profiler.profileAction(ProfilerTask.ACTION, "foo", "with mnemonic", "", "")) {
+      clock.advanceMillis(100);
+    }
+    profiler.stop();
+
+    // Make sure both actions were registered
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    List<TraceEvent> traceEvents = jsonProfile.getTraceEvents();
+    List<String> names = traceEvents.stream().map(TraceEvent::name).collect(Collectors.toList());
+    assertThat(names).contains("without mnemonic");
+    assertThat(names).contains("with mnemonic");
+
+    TraceEvent withoutMnemonic = null;
+    TraceEvent withMnemonic = null;
+    for (TraceEvent traceEvent : traceEvents) {
+      String name = traceEvent.name();
+      if (name.equals("without mnemonic")) {
+        withoutMnemonic = traceEvent;
+      } else if (name.equals("with mnemonic")) {
+        withMnemonic = traceEvent;
+      }
+    }
+
+    // Make sure both events were profiled
+    assertThat(withoutMnemonic).isNotNull();
+    assertThat(withMnemonic).isNotNull();
+
+    // Make sure that one has been assigned a mnemonics field in args and the other hasn't
+    String mnemonicWithoutMnemonic = withoutMnemonic.mnemonic();
+    String mnemonicWithMnemonic = withMnemonic.mnemonic();
+    assertThat(mnemonicWithoutMnemonic).isNull();
+    assertThat(mnemonicWithMnemonic).isNotNull();
+
+    // Make sure the mnemonic has been set to the specified value
+    assertThat(mnemonicWithMnemonic).isEqualTo("foo");
+  }
 }

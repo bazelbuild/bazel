@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -198,7 +198,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
         MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
 
-    ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
+    ImmutableMap<BuildConfigurationValue, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
     MultiArchBinarySupport multiArchBinarySupport =
         new MultiArchBinarySupport(ruleContext, cppSemantics);
@@ -220,10 +220,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     allLinkInputs.addAll(extraLinkInputs);
     allLinkopts.addAll(extraLinkopts);
 
-    ImmutableListMultimap<BuildConfiguration, CcInfo> buildConfigToCcInfoMap =
+    ImmutableListMultimap<BuildConfigurationValue, CcInfo> buildConfigToCcInfoMap =
         ruleContext.getPrerequisitesByConfiguration("deps", CcInfo.PROVIDER);
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (Map.Entry<BuildConfiguration, CcInfo> entry : buildConfigToCcInfoMap.entries()) {
+    for (Map.Entry<BuildConfigurationValue, CcInfo> entry : buildConfigToCcInfoMap.entries()) {
       CcInfo dep = entry.getValue();
       headerTokens.addTransitive(dep.getCcCompilationContext().getHeaderTokens());
     }
@@ -244,7 +244,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations) {
-      BuildConfiguration childConfig = dependencySpecificConfiguration.config();
+      BuildConfigurationValue childConfig = dependencySpecificConfiguration.config();
       String configCpu = childConfig.getCpu();
       AppleConfiguration childAppleConfig = childConfig.getFragment(AppleConfiguration.class);
       CppConfiguration childCppConfig = childConfig.getFragment(CppConfiguration.class);

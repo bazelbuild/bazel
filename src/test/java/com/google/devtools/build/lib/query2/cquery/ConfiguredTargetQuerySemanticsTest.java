@@ -23,7 +23,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -348,7 +348,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertConfigurableQueryCode(
         execResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
 
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)")));
 
     assertThat(configuration).isNotNull();
@@ -375,7 +375,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertConfigurableQueryCode(
         hostResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
 
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, host)")));
 
     assertThat(configuration).isNotNull();
@@ -417,8 +417,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     ImmutableList<KeyedConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
     int myDepIndex = stableOrderList.get(0).getLabel().toString().equals("//test:mydep") ? 0 : 1;
-    BuildConfiguration myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
-    BuildConfiguration stringFlagConfig = getConfiguration(stableOrderList.get(1 - myDepIndex));
+    BuildConfigurationValue myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
+    BuildConfigurationValue stringFlagConfig =
+        getConfiguration(stableOrderList.get(1 - myDepIndex));
 
     // Note: eval() resets the universe scope after each call. We have to xplicitly set it again.
     helper.setUniverseScope("//test:buildme");

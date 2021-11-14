@@ -73,7 +73,7 @@ abstract class ConfigCommandOutputFormatter {
 
     @Override
     public void writeConfiguration(ConfigurationForOutput configuration) {
-      writer.println("BuildConfiguration " + configuration.configHash + ":");
+      writer.println("BuildConfigurationValue " + configuration.configHash + ":");
       writer.println("Skyframe Key: " + configuration.skyKey);
 
       StringBuilder fragments = new StringBuilder();
