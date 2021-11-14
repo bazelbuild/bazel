@@ -344,6 +344,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       } else if (target instanceof OutputFile) {
         rule = ((OutputFile) target).getAssociatedRule();
       }
+
+      // Check if this target is directly incompatible. In other words, check if it's incompatible
+      // because of its "target_compatible_with" value.
       if (rule != null && !rule.getRuleClass().equals("toolchain")) {
         if (unloadedToolchainContexts != null) {
           PlatformInfo platformInfo = unloadedToolchainContexts.getTargetPlatform();
@@ -424,14 +427,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Check if any dependencies are incompatible. If any are, then this target is also
       // incompatible.
       if (rule != null && !rule.getRuleClass().equals("toolchain")) {
-        ImmutableList.Builder<ConfiguredTarget> incompatibleDepsBuilder = ImmutableList.builder();
-        for (ConfiguredTargetAndData value : depValueMap.values()) {
-          ConfiguredTarget dep = value.getConfiguredTarget();
-          if (RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible()) {
-            incompatibleDepsBuilder.add(dep);
-          }
-        }
-        ImmutableList<ConfiguredTarget> incompatibleDeps = incompatibleDepsBuilder.build();
+        ImmutableList<ConfiguredTarget> incompatibleDeps =
+          depValueMap.values().stream()
+          .map(ConfiguredTargetAndData::getConfiguredTarget)
+          .filter(dep -> RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible())
+          .collect(ImmutableList.toImmutableList());
 
         if (!incompatibleDeps.isEmpty()) {
           return createIncompatibleRuleConfiguredTarget(
