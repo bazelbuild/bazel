@@ -332,6 +332,13 @@ public class LibrariesToLinkCollector {
 
       rpathRootsForExplicitSoDeps.add(
           rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString());
+
+      // Unless running locally, libraries will be available under the root relative path, so we
+      // should add that to the rpath as well.
+      Preconditions.checkState(inputArtifact.getRootRelativePathString().startsWith("_solib_"));
+      rpathRootsForExplicitSoDeps.add(
+          rpathRoot +
+          inputArtifact.getRootRelativePath().subFragment(1).getParentDirectory().getPathString());
     }
 
     librarySearchDirectories.add(inputArtifact.getExecPath().getParentDirectory().getPathString());
