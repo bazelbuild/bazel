@@ -3205,57 +3205,22 @@ EOF
 }
 
 function test_download_toplevel_when_turn_remote_cache_off_without_metadata() {
-  # Test that BwtB doesn't cause build failure if remote cache is disabled in a following build.
-  # See https://github.com/bazelbuild/bazel/issues/13882.
-
-  mkdir a
-  cat > a/BUILD <<'EOF'
-genrule(
-    name = "producer",
-    outs = ["a.txt", "b.txt"],
-    cmd = "touch $(OUTS)",
-)
-
-genrule(
-    name = "consumer",
-    outs = ["out.txt"],
-    srcs = [":b.txt", "in.txt"],
-    cmd = "cat $(SRCS) > $@",
-)
-EOF
-  echo 'foo' > a/in.txt
-
-  # populate the cache
-  bazel build \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_download_toplevel \
-    --verbose_failures \
-    //a:consumer >& $TEST_log || fail "Failed to populate the cache"
-
-  bazel clean >& $TEST_log || fail "Failed to clean"
-
-  # download top level outputs
-  bazel build \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_download_toplevel \
-    --verbose_failures \
-    //a:consumer >& $TEST_log || fail "Failed to download outputs"
-  [[ -f bazel-bin/a/a.txt ]] || [[ -f bazel-bin/a/b.txt ]] \
-    && fail "Expected outputs of producer are not downloaded"
-
-  # build without remote cache
-  echo 'bar' > a/in.txt
-  bazel build \
-    --remote_download_toplevel \
-    --verbose_failures \
-    //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
+  download_toplevel_when_turn_remote_cache_off
 }
 
 function test_download_toplevel_when_turn_remote_cache_off_with_metadata() {
-  # Test that BwtB doesn't cause build failure if remote cache is disabled (but with
-  # --experimental_action_cache_store_output_metadata) in a following build.
+  download_toplevel_when_turn_remote_cache_off --experimental_action_cache_store_output_metadata
+}
+
+function download_toplevel_when_turn_remote_cache_off() {
+  # Test that BwtB doesn't cause build failure if remote cache is disabled in a following build.
   # See https://github.com/bazelbuild/bazel/issues/13882.
 
+  local extra_build_flags="$@"
+
+  cat > .bazelrc <<EOF
+build --verbose_failures
+EOF
   mkdir a
   cat > a/BUILD <<'EOF'
 genrule(
@@ -3277,7 +3242,6 @@ EOF
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    --verbose_failures \
     //a:consumer >& $TEST_log || fail "Failed to populate the cache"
 
   bazel clean >& $TEST_log || fail "Failed to clean"
@@ -3286,8 +3250,7 @@ EOF
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    --experimental_action_cache_store_output_metadata \
-    --verbose_failures \
+    $extra_build_flags \
     //a:consumer >& $TEST_log || fail "Failed to download outputs"
   [[ -f bazel-bin/a/a.txt ]] || [[ -f bazel-bin/a/b.txt ]] \
     && fail "Expected outputs of producer are not downloaded"
@@ -3296,8 +3259,7 @@ EOF
   echo 'bar' > a/in.txt
   bazel build \
     --remote_download_toplevel \
-    --experimental_action_cache_store_output_metadata \
-    --verbose_failures \
+    $extra_build_flags \
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
