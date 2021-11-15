@@ -18,10 +18,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -118,18 +116,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         ImmutableMap.<String, String>builder().putAll(starlarkRuleContext.var()).build();
     List<String> expandedFlags = new ArrayList<>();
     for (String flag : Sequence.cast(flags, String.class, "flags")) {
-      @SuppressWarnings("unchecked")
-      String expandedFlag =
-          LocationExpander.withExecPaths(
-                  starlarkRuleContext.getRuleContext(),
-                  StarlarkRuleContext.makeLabelMap(
-                      Iterables.concat(
-                          starlarkRuleContext.getRuleContext().getPrerequisites("srcs"),
-                          starlarkRuleContext.getRuleContext().getPrerequisites("non_arc_srcs"),
-                          starlarkRuleContext.getRuleContext().getPrerequisites("hdrs"),
-                          starlarkRuleContext.getRuleContext().getPrerequisites("data"))))
-              .expand(flag);
-      expandedFlag = expandFlag(expandedFlag, toolchainMap, starlarkRuleContextMap);
+      String expandedFlag = expandFlag(flag, toolchainMap, starlarkRuleContextMap);
       try {
         ShellUtils.tokenize(expandedFlags, expandedFlag);
       } catch (TokenizationException e) {
