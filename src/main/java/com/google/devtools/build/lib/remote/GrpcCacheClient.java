@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
@@ -68,6 +69,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import org.apache.commons.compress.utils.CountingOutputStream;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
@@ -294,13 +296,24 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       out = digestOut;
     }
 
-    return downloadBlob(context, digest, out, digestSupplier);
+    CountingOutputStream outputStream;
+    if (options.cacheCompression) {
+      try {
+        outputStream = new ZstdDecompressingOutputStream(out);
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
+    } else {
+      outputStream = new CountingOutputStream(out);
+    }
+
+    return downloadBlob(context, digest, outputStream, digestSupplier);
   }
 
   private ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
-      OutputStream out,
+      CountingOutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
     AtomicLong offset = new AtomicLong(0);
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
@@ -321,12 +334,13 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         MoreExecutors.directExecutor());
   }
 
-  public static String getResourceName(String instanceName, Digest digest) {
+  public static String getResourceName(String instanceName, Digest digest, boolean compressed) {
     String resourceName = "";
     if (!instanceName.isEmpty()) {
       resourceName += instanceName + "/";
     }
-    return resourceName + "blobs/" + DigestUtil.toString(digest);
+    resourceName += compressed ? "compressed-blobs/zstd/" : "blobs/";
+    return resourceName + DigestUtil.toString(digest);
   }
 
   private ListenableFuture<Void> requestRead(
@@ -334,9 +348,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       AtomicLong offset,
       ProgressiveBackoff progressiveBackoff,
       Digest digest,
-      OutputStream out,
+      CountingOutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
-    String resourceName = getResourceName(options.remoteInstanceName, digest);
+    String resourceName =
+        getResourceName(options.remoteInstanceName, digest, options.cacheCompression);
     SettableFuture<Void> future = SettableFuture.create();
     bsAsyncStub(context)
         .read(
@@ -345,12 +360,13 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                 .setReadOffset(offset.get())
                 .build(),
             new StreamObserver<ReadResponse>() {
+
               @Override
               public void onNext(ReadResponse readResponse) {
                 ByteString data = readResponse.getData();
                 try {
                   data.writeTo(out);
-                  offset.addAndGet(data.size());
+                  offset.set(out.getBytesWritten());
                 } catch (IOException e) {
                   // Cancel the call.
                   throw new RuntimeException(e);
@@ -402,7 +418,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     return uploader.uploadBlobAsync(
         context,
         digest,
-        Chunker.builder().setInput(digest.getSizeBytes(), path).build(),
+        Chunker.builder()
+            .setInput(digest.getSizeBytes(), path)
+            .setCompressed(options.cacheCompression)
+            .build(),
         /* forceUpload= */ true);
   }
 
@@ -412,7 +431,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     return uploader.uploadBlobAsync(
         context,
         digest,
-        Chunker.builder().setInput(data.toByteArray()).build(),
+        Chunker.builder()
+            .setInput(data.toByteArray())
+            .setCompressed(options.cacheCompression)
+            .build(),
         /* forceUpload= */ true);
   }
 }
