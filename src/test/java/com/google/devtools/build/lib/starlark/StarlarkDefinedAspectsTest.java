@@ -63,6 +63,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -6630,6 +6631,33 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(aspectB).isNotNull();
     String aspectBResult = (String) aspectB.get("aspect_b_result");
     assertThat(aspectBResult).isEqualTo("aspect_b on target //test:main_target cannot find prov_b");
+  }
+
+  @Ignore("TODO(b/206127051): Fix the crash, rename the test and add a check the error message.")
+  @Test
+  public void testDependentAspectWithNonExecutableTool_doesNotCrash() throws Exception {
+    scratch.file("test/BUILD", "sh_binary(name='bin', srcs=['bin.sh'])", "sh_library(name='lib')");
+    scratch.file(
+        "test/defs.bzl",
+        "AInfo = provider(fields={})",
+        "def _aspect_a(target, ctx): return AInfo()",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a,",
+        "  provides=[AInfo],",
+        "  attrs = {'_attr':" + " attr.label(default=':lib')},",
+        ")",
+        "def _aspect_b(target, ctx):",
+        "  print(str(ctx.executable._attr))",
+        "  return []",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b,",
+        "  required_aspect_providers = [AInfo],",
+        "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='host')},",
+        ")");
+    scratch.file("test/bin.sh").setExecutable(true);
+
+    // TODO(b/206127051): This currently crashes with an IllegalStateException.
+    update(ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"), "//test:bin");
   }
 
   private ConfiguredAspect getConfiguredAspect(
