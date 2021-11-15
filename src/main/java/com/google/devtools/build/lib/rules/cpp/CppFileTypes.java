@@ -91,6 +91,7 @@ public final class CppFileTypes {
         }
       };
 
+  // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType ASSEMBLER_WITH_C_PREPROCESSOR =
       new FileType() {
         final String ext = ".S";
@@ -106,6 +107,7 @@ public final class CppFileTypes {
         }
       };
 
+  // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType PIC_ASSEMBLER =
       new FileType() {
         final String ext = ".pic.s";
@@ -121,6 +123,7 @@ public final class CppFileTypes {
         }
       };
 
+  // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType ASSEMBLER =
       new FileType() {
         final String ext = ".s";
