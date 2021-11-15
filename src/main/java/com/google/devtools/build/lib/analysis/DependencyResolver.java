@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
@@ -62,9 +63,10 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -259,6 +261,18 @@ public abstract class DependencyResolver {
       visitTargetVisibility(node, outgoingLabels);
       Rule rule = ((OutputFile) target).getGeneratingRule();
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
+      if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
+        attributeMap =
+            ConfiguredAttributeMapper.of(
+                rule, configConditions, node.getConfiguration().checksum());
+        resolveAttributes(
+            getAspectAttributes(aspects),
+            outgoingLabels,
+            rule,
+            attributeMap,
+            node.getConfiguration(),
+            hostConfig);
+      }
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingLabels);
     } else if (target instanceof EnvironmentGroup) {
@@ -531,7 +545,8 @@ public abstract class DependencyResolver {
     }
 
     visitTargetVisibility(node, outgoingLabels);
-    resolveAttributes(outgoingLabels, rule, attributeMap, aspects, ruleConfig, hostConfig);
+    resolveAttributes(
+        getAttributes(rule, aspects), outgoingLabels, rule, attributeMap, ruleConfig, hostConfig);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
     addExplicitDeps(outgoingLabels, rule, "visibility", rule.getVisibility().getDependencyLabels());
@@ -585,13 +600,13 @@ public abstract class DependencyResolver {
   }
 
   private void resolveAttributes(
+      Iterable<AttributeDependencyKind> attributeDependencyKinds,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
-      Iterable<Aspect> aspects,
       BuildConfigurationValue ruleConfig,
       BuildConfigurationValue hostConfig) {
-    for (AttributeDependencyKind dependencyKind : getAttributes(rule, aspects)) {
+    for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
       Attribute attribute = dependencyKind.getAttribute();
       if (!attribute.getCondition().apply(attributeMap)
           // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
@@ -777,20 +792,14 @@ public abstract class DependencyResolver {
   }
 
   /** Returns the attributes that should be visited for this rule/aspect combination. */
-  private List<AttributeDependencyKind> getAttributes(Rule rule, Iterable<Aspect> aspects) {
+  private ImmutableList<AttributeDependencyKind> getAttributes(
+      Rule rule, Iterable<Aspect> aspects) {
     ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
     // If processing aspects, aspect attribute names may conflict with the attribute names of
     // rules they attach to. If this occurs, the highest-level aspect attribute takes precedence.
-    LinkedHashSet<String> aspectProcessedAttributes = new LinkedHashSet<>();
+    HashSet<String> aspectProcessedAttributes = new HashSet<>();
 
-    for (Aspect aspect : aspects) {
-      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-        if (!aspectProcessedAttributes.contains(attribute.getName())) {
-          result.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
-          aspectProcessedAttributes.add(attribute.getName());
-        }
-      }
-    }
+    addAspectAttributes(aspects, aspectProcessedAttributes, result);
     List<Attribute> ruleDefs = rule.getRuleClassObject().getAttributes();
     for (Attribute attribute : ruleDefs) {
       if (!aspectProcessedAttributes.contains(attribute.getName())) {
@@ -800,6 +809,24 @@ public abstract class DependencyResolver {
     return result.build();
   }
 
+  private ImmutableList<AttributeDependencyKind> getAspectAttributes(Iterable<Aspect> aspects) {
+    ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
+    addAspectAttributes(aspects, new HashSet<>(), result);
+    return result.build();
+  }
+
+  private void addAspectAttributes(
+      Iterable<Aspect> aspects,
+      Set<String> aspectProcessedAttributes,
+      ImmutableList.Builder<AttributeDependencyKind> attributes) {
+    for (Aspect aspect : aspects) {
+      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
+        if (aspectProcessedAttributes.add(attribute.getName())) {
+          attributes.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
+        }
+      }
+    }
+  }
   /**
    * Compute the way aspects should be computed for the direct dependencies.
    *

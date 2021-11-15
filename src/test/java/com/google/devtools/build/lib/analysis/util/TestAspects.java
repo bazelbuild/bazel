@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -322,11 +323,9 @@ public class TestAspects {
     }
   }
 
-  /**
-   * A simple aspect that propagates a BarProvider provider.
-   */
+  /** A simple aspect that propagates a BarProvider provider. */
   public static class BarProviderAspect extends NativeAspectClass
-      implements ConfiguredAspectFactory{
+      implements ConfiguredAspectFactory {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return BAR_PROVIDER_ASPECT_DEFINITION;
@@ -343,11 +342,8 @@ public class TestAspects {
     }
   }
 
-  public static final ExtraAttributeAspect EXTRA_ATTRIBUTE_ASPECT = new ExtraAttributeAspect();
-  private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_DEFINITION =
-      new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT)
-          .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
-          .build();
+  public static final ExtraAttributeAspect EXTRA_ATTRIBUTE_ASPECT =
+      new ExtraAttributeAspect(/*depLabel=*/ "//extra", /*applyToFiles=*/ false);
 
   private static final ExtraAttributeAspectRequiringProvider
     EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER = new ExtraAttributeAspectRequiringProvider();
@@ -357,13 +353,67 @@ public class TestAspects {
           .requireProviders(RequiredProvider.class)
           .build();
 
-  /**
-   * An aspect that defines its own implicit attribute.
-   */
+  /** An aspect that defines its own implicit attribute. */
   public static class ExtraAttributeAspect extends BaseAspect {
+
+    /** Test provider which includes the {@code dep} label. */
+    @AutoValue
+    public abstract static class Provider implements TransitiveInfoProvider {
+      public abstract String label();
+
+      static Provider create(String label) {
+        return new AutoValue_TestAspects_ExtraAttributeAspect_Provider(label);
+      }
+    }
+
+    private final Label depLabel;
+    private final boolean applyToFiles;
+    private final Class<? extends TransitiveInfoProvider>[] requiredAspectProviders;
+
+    public ExtraAttributeAspect(
+        String depLabel,
+        boolean applyToFiles,
+        Class<? extends TransitiveInfoProvider>... requiredAspectProviders) {
+      this.depLabel = Label.parseAbsoluteUnchecked(depLabel);
+      this.applyToFiles = applyToFiles;
+      this.requiredAspectProviders = requiredAspectProviders;
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTargetAndData ctadBase,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        String toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      TransitiveInfoCollection dep = ruleContext.getPrerequisite("$dep");
+      if (dep == null) {
+        ruleContext.attributeError("$dep", "$dep attribute not resolved");
+        return ConfiguredAspect.builder(ruleContext).build();
+      }
+      return ConfiguredAspect.builder(ruleContext)
+          .addProvider(Provider.create(dep.getLabel().getCanonicalForm()))
+          .build();
+    }
+
+    @Override
+    public String getName() {
+      return String.format("%s_%s_%s", super.getName(), depLabel.getCanonicalForm(), applyToFiles);
+    }
+
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return EXTRA_ATTRIBUTE_ASPECT_DEFINITION;
+      AspectDefinition.Builder aspectDefinition =
+          new AspectDefinition.Builder(this)
+              .add(attr("$dep", LABEL).value(depLabel))
+              .applyToFiles(applyToFiles)
+              .advertiseProvider(Provider.class);
+
+      if (requiredAspectProviders.length > 0) {
+        aspectDefinition.requireAspectsWithBuiltinProviders(requiredAspectProviders);
+      }
+
+      return aspectDefinition.build();
     }
   }
 
