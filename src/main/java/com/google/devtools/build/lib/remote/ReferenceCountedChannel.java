@@ -56,8 +56,13 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
       };
 
   public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory) {
+    this(connectionFactory, /*maxConnections=*/ 0);
+  }
+
+  public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory, int maxConnections) {
     this.dynamicConnectionPool =
-        new DynamicConnectionPool(connectionFactory, connectionFactory.maxConcurrency());
+        new DynamicConnectionPool(
+            connectionFactory, connectionFactory.maxConcurrency(), maxConnections);
   }
 
   public boolean isShutdown() {
@@ -81,12 +86,12 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
               responseListener) {
             @Override
             public void onClose(Status status, Metadata trailers) {
-              super.onClose(status, trailers);
-
               try {
                 connection.close();
               } catch (IOException e) {
                 throw new AssertionError(e.getMessage(), e);
+              } finally {
+                super.onClose(status, trailers);
               }
             }
           },
