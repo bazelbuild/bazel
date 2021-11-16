@@ -11,17 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.concurrent;
+package com.google.devtools.build.lib.cmdline;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /**
- * Callback to be invoked when part of a result has been computed. Allows a client interested in
- * the result to process it as it is computed, for instance by streaming it, if it is too big to
- * fit in memory.
+ * Callback to be invoked when part of a result has been computed. Allows a client interested in the
+ * result to process it as it is computed, for instance by streaming it, if it is too big to fit in
+ * memory.
  */
 @ThreadSafe
-public interface BatchCallback<T, E extends Exception> {
+public interface BatchCallback<T, E extends Exception & QueryExceptionMarkerInterface> {
   /**
    * Called when part of a result has been computed.
    *
@@ -33,8 +33,12 @@ public interface BatchCallback<T, E extends Exception> {
    */
   void process(Iterable<T> partialResult) throws E, InterruptedException;
 
-  /** {@link BatchCallback} that does precisely nothing. */
-  class NullCallback<T> implements BatchCallback<T, RuntimeException> {
+  /** {@link BatchCallback} that doesn't throw. */
+  interface SafeBatchCallback<T>
+      extends BatchCallback<T, QueryExceptionMarkerInterface.MarkerRuntimeException> {}
+
+  /** {@link SafeBatchCallback} that does precisely nothing. */
+  class NullCallback<T> implements SafeBatchCallback<T> {
     private static final NullCallback<Object> INSTANCE = new NullCallback<>();
 
     @Override

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.concurrent;
+package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.testutil.TestThread;
 import java.util.ArrayList;
@@ -37,17 +38,10 @@ public class ParallelVisitorTest {
   private static final int BATCH_CALLBACK_SIZE = 10_000;
   private static final long MIN_PENDING_TASKS = 3L;
 
-  private static class SampleException extends Exception {
-    SampleException() {
-      super("sample exception");
-    }
-  }
-
   @ThreadSafe
-  private interface TestCallback<T> extends BatchCallback<T, SampleException> {
-
+  private interface TestCallback<T> extends SafeBatchCallback<T> {
     @Override
-    void process(Iterable<T> partialResult) throws SampleException, InterruptedException;
+    void process(Iterable<T> partialResult);
   }
 
   /**
@@ -56,7 +50,12 @@ public class ParallelVisitorTest {
    */
   private static class DelayGettingVisitResultParallelVisitor
       extends ParallelVisitor<
-          String, String, String, String, SampleException, TestCallback<String>> {
+          String,
+          String,
+          String,
+          String,
+          QueryExceptionMarkerInterface.MarkerRuntimeException,
+          TestCallback<String>> {
     private final CountDownLatch invocationLatch;
     private final CountDownLatch delayLatch;
 
@@ -64,7 +63,7 @@ public class ParallelVisitorTest {
         CountDownLatch invocationLatch, CountDownLatch delayLatch) {
       super(
           targets -> {},
-          SampleException.class,
+          QueryExceptionMarkerInterface.MarkerRuntimeException.class,
           /*visitBatchSize=*/ 1,
           /*processResultsBatchSize=*/ 1,
           /*minPendingTasks=*/ MIN_PENDING_TASKS,
@@ -76,8 +75,7 @@ public class ParallelVisitorTest {
     }
 
     @Override
-    protected Visit getVisitResult(Iterable<String> values)
-        throws SampleException, InterruptedException {
+    protected Visit getVisitResult(Iterable<String> values) throws InterruptedException {
       invocationLatch.countDown();
       delayLatch.await();
       return new Visit(ImmutableList.of(), values);
@@ -89,14 +87,13 @@ public class ParallelVisitorTest {
     }
 
     @Override
-    protected Iterable<String> outputKeysToOutputValues(Iterable<String> targetKeys)
-        throws SampleException, InterruptedException {
+    protected Iterable<String> outputKeysToOutputValues(Iterable<String> targetKeys) {
       return ImmutableList.of();
     }
 
     @Override
     protected Iterable<String> noteAndReturnUniqueVisitationKeys(
-        Iterable<String> prospectiveVisitationKeys) throws SampleException {
+        Iterable<String> prospectiveVisitationKeys) {
       return ImmutableList.copyOf(prospectiveVisitationKeys);
     }
   }
@@ -124,7 +121,12 @@ public class ParallelVisitorTest {
 
   private static class RecordingParallelVisitor
       extends ParallelVisitor<
-          InputKey, String, String, String, SampleException, TestCallback<String>> {
+          InputKey,
+          String,
+          String,
+          String,
+          QueryExceptionMarkerInterface.MarkerRuntimeException,
+          TestCallback<String>> {
     private final ArrayList<Iterable<String>> visits = new ArrayList<>();
     private final ImmutableMultimap<String, String> successorMap;
     private final Set<String> visited = Sets.newConcurrentHashSet();
@@ -136,7 +138,7 @@ public class ParallelVisitorTest {
         int processResultsBatchSize) {
       super(
           recordingCallback,
-          SampleException.class,
+          QueryExceptionMarkerInterface.MarkerRuntimeException.class,
           visitBatchSize,
           processResultsBatchSize,
           MIN_PENDING_TASKS,

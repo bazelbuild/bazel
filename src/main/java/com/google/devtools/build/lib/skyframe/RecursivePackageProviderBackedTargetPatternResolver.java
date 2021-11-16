@@ -24,15 +24,16 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.cmdline.BatchCallback;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -178,7 +179,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public <E extends Exception> void findTargetsBeneathDirectory(
+  public <E extends Exception & QueryExceptionMarkerInterface> void findTargetsBeneathDirectory(
       final RepositoryName repository,
       final String originalPattern,
       String directory,
@@ -206,16 +207,17 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
-      RepositoryName repository,
-      String originalPattern,
-      String directory,
-      boolean rulesOnly,
-      ImmutableSet<PathFragment> forbiddenSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<Target, E> callback,
-      Class<E> exceptionClass,
-      ListeningExecutorService executor) {
+  public <E extends Exception & QueryExceptionMarkerInterface>
+      ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
+          RepositoryName repository,
+          String originalPattern,
+          String directory,
+          boolean rulesOnly,
+          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          ImmutableSet<PathFragment> excludedSubdirectories,
+          BatchCallback<Target, E> callback,
+          Class<E> exceptionClass,
+          ListeningExecutorService executor) {
     return findTargetsBeneathDirectoryAsyncImpl(
         repository,
         originalPattern,
@@ -227,20 +229,21 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         executor);
   }
 
-  private <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsyncImpl(
-      RepositoryName repository,
-      String pattern,
-      String directory,
-      boolean rulesOnly,
-      ImmutableSet<PathFragment> forbiddenSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<Target, E> callback,
-      ListeningExecutorService executor) {
+  private <E extends Exception & QueryExceptionMarkerInterface>
+      ListenableFuture<Void> findTargetsBeneathDirectoryAsyncImpl(
+          RepositoryName repository,
+          String pattern,
+          String directory,
+          boolean rulesOnly,
+          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          ImmutableSet<PathFragment> excludedSubdirectories,
+          BatchCallback<Target, E> callback,
+          ListeningExecutorService executor) {
     FilteringPolicy actualPolicy =
         rulesOnly ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy) : policy;
 
     ArrayList<ListenableFuture<Void>> futures = new ArrayList<>();
-    BatchCallback<PackageIdentifier, UnusedException> getPackageTargetsCallback =
+    SafeBatchCallback<PackageIdentifier> getPackageTargetsCallback =
         (pkgIdBatch) ->
             futures.add(
                 executor.submit(
@@ -278,7 +281,8 @@ public class RecursivePackageProviderBackedTargetPatternResolver
    * Task to get all matching targets in the given packages, filter them, and pass them to the
    * target batch callback.
    */
-  private class GetTargetsInPackagesTask<E extends Exception> implements Callable<Void> {
+  private class GetTargetsInPackagesTask<E extends Exception & QueryExceptionMarkerInterface>
+      implements Callable<Void> {
 
     private final Iterable<PackageIdentifier> packageIdentifiers;
     private final String originalPattern;

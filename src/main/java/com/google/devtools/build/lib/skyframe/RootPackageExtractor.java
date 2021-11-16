@@ -14,10 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,7 +45,7 @@ public interface RootPackageExtractor {
    *     searched exhaustively
    */
   void streamPackagesFromRoots(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
