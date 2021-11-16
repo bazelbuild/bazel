@@ -260,8 +260,7 @@ public final class ConfigurationResolver {
       return ImmutableList.of(resolveHostTransition(dependencyBuilder, dependencyKey));
     }
 
-    return resolveGenericTransition(
-        getCurrentConfiguration().fragmentClasses(), dependencyBuilder, dependencyKey);
+    return resolveGenericTransition(dependencyBuilder, dependencyKey);
   }
 
   @Nullable
@@ -293,7 +292,6 @@ public final class ConfigurationResolver {
 
   @Nullable
   private ImmutableList<Dependency> resolveGenericTransition(
-      FragmentClassSet depFragments,
       Dependency.Builder dependencyBuilder,
       DependencyKey dependencyKey)
       throws ConfiguredValueCreationException, InterruptedException {
@@ -312,8 +310,7 @@ public final class ConfigurationResolver {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
-    if (depFragments.equals(getCurrentConfiguration().fragmentClasses())
-        && SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
+    if (SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
       // The dep uses the same exact configuration. Let's re-use the current configuration and
       // skip adding a Skyframe dependency edge on it.
       return ImmutableList.of(
@@ -340,7 +337,7 @@ public final class ConfigurationResolver {
         String transitionKey = optionsEntry.getKey();
         BuildConfigurationKey buildConfigurationKey =
             BuildConfigurationKey.withPlatformMapping(
-                platformMappingValue, depFragments, optionsEntry.getValue());
+                platformMappingValue, optionsEntry.getValue());
         configurationKeys.put(transitionKey, buildConfigurationKey);
       }
     } catch (OptionsParsingException e) {
@@ -358,6 +355,7 @@ public final class ConfigurationResolver {
         if (valueOrException.get() == null) {
           continue;
         }
+        // TODO(blaze-configurability-team): Should be able to just use BuildConfigurationKey
         BuildConfigurationValue configuration = (BuildConfigurationValue) valueOrException.get();
         if (configuration != null) {
           Dependency resolvedDep =

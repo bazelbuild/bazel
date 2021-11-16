@@ -18,14 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,12 +44,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class PlatformMappingFunctionTest extends BuildViewTestCase {
-
-  // We don't actually care about the contents of this set other than that it is passed intact
-  // through the mapping logic. The platform fragment in it is purely an example, it could be any
-  // set of fragments.
-  private static final FragmentClassSet PLATFORM_FRAGMENT_CLASS =
-      FragmentClassSet.of(ImmutableSet.of(PlatformConfiguration.class));
 
   private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
 
@@ -92,8 +83,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(null));
 
-    BuildConfigurationKey key =
-        BuildConfigurationKey.withoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, defaultBuildOptions);
+    BuildConfigurationKey key = BuildConfigurationKey.withoutPlatformMapping(defaultBuildOptions);
 
     BuildConfigurationKey mapped = platformMappingValue.map(key);
 
@@ -258,6 +248,6 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   }
 
   private static BuildConfigurationKey keyForOptions(BuildOptions modifiedOptions) {
-    return BuildConfigurationKey.withoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, modifiedOptions);
+    return BuildConfigurationKey.withoutPlatformMapping(modifiedOptions);
   }
 }

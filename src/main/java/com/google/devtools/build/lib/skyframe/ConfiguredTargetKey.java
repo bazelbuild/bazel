@@ -32,9 +32,9 @@ import javax.annotation.Nullable;
  * In simple form, a ({@link Label}, {@link BuildConfigurationValue}) pair used to trigger immediate
  * dependency resolution and the rule analysis.
  *
- * <p>In practice, a ({@link Label}, canonical and post-transition {@link BuildConfigurationKey})
- * pair plus a possible execution platform override {@link Label} with special constraints. To
- * elaborate, in order of highest to lowest potential for concern:
+ * <p>In practice, a ({@link Label} and post-transition {@link BuildConfigurationKey}) pair plus a
+ * possible execution platform override {@link Label} with special constraints. To elaborate, in
+ * order of highest to lowest potential for concern:
  *
  * <p>1. The {@link BuildConfigurationKey} must be post-transition and thus ready for immediate use
  * in dependency resolution and analysis. In practice, this means that if the rule has an
@@ -43,14 +43,7 @@ import javax.annotation.Nullable;
  * build graphs with ConfiguredTarget that have seemingly impossible {@link BuildConfigurationValue}
  * (due to the skipped transitions).
  *
- * <p>2. The {@link BuildConfigurationKey} must be canonical. Multiple keys can correspond to the
- * same {@link BuildConfigurationValue}. The canonical key is the one returned by {@link
- * BuildConfigurationValue#getKey}. Failure to use a canonical key can result in build graphs with
- * multiple seemingly-identical ConfiguredTarget that have the same ({@link Label}, {@link
- * BuildConfigurationValue}) pair. This is non-performant in all cases and incorrect if those
- * duplications lead to action conflicts due to unsharable actions.
- *
- * <p>3. A build should not request keys with equal ({@link Label}, {@link BuildConfigurationValue})
+ * <p>2. A build should not request keys with equal ({@link Label}, {@link BuildConfigurationValue})
  * pairs but different execution platform override {@link Label} if the invoked rule will register
  * actions. (This is potentially OK if all outputs of all registered actions incorporate the
  * execution platform in their name unless the build also requests keys without an override that
@@ -59,6 +52,9 @@ import javax.annotation.Nullable;
  * ConfiguredTarget that have the same ({@link Label}, {@link BuildConfigurationValue}) pair.
  *
  * <p>Note that this key may be used to look up the generating action of an artifact.
+ *
+ * <p>TODO(blaze-configurability-team): Consider just using BuildOptions over a
+ * BuildConfigurationKey.
  */
 @AutoCodec
 public class ConfiguredTargetKey implements ActionLookupKey {

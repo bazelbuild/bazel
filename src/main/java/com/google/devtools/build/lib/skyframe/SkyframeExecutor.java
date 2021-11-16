@@ -94,7 +94,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -2008,8 +2007,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     Preconditions.checkArgument(!Iterables.isEmpty(optionsList));
 
     // Prepare the Skyframe inputs.
-    // TODO(gregce): support trimmed configs.
-    FragmentClassSet allFragments = ruleClassProvider.getFragmentRegistry().getAllFragments();
 
     PlatformMappingValue platformMappingValue =
         getPlatformMappingValue(eventHandler, referenceBuildOptions);
@@ -2017,7 +2014,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ImmutableList.Builder<SkyKey> configSkyKeysBuilder =
         ImmutableList.builderWithExpectedSize(optionsList.size());
     for (BuildOptions options : optionsList) {
-      configSkyKeysBuilder.add(toConfigurationKey(platformMappingValue, allFragments, options));
+      configSkyKeysBuilder.add(toConfigurationKey(platformMappingValue, options));
     }
 
     ImmutableList<SkyKey> configSkyKeys = configSkyKeysBuilder.build();
@@ -2062,7 +2059,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throws InvalidConfigurationException, InterruptedException {
     ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
 
-    FragmentClassSet allFragments = ruleClassProvider.getFragmentRegistry().getAllFragments();
     PlatformMappingValue platformMappingValue = getPlatformMappingValue(eventHandler, fromOptions);
 
     // Now get the configurations.
@@ -2086,7 +2082,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         continue;
       }
       for (BuildOptions toOption : toOptions) {
-        configSkyKeys.add(toConfigurationKey(platformMappingValue, allFragments, toOption));
+        configSkyKeys.add(toConfigurationKey(platformMappingValue, toOption));
       }
     }
 
@@ -2113,8 +2109,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
 
       for (BuildOptions toOption : toOptions) {
-        BuildConfigurationKey configKey =
-            toConfigurationKey(platformMappingValue, allFragments, toOption);
+        BuildConfigurationKey configKey = toConfigurationKey(platformMappingValue, toOption);
         BuildConfigurationValue configValue =
             (BuildConfigurationValue) configsResult.get(configKey);
         if (configValue != null) {
@@ -2160,12 +2155,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private static BuildConfigurationKey toConfigurationKey(
       PlatformMappingValue platformMappingValue,
-      FragmentClassSet depFragments,
       BuildOptions toOption)
       throws InvalidConfigurationException {
     try {
-      return BuildConfigurationKey.withPlatformMapping(
-          platformMappingValue, depFragments, toOption);
+      return BuildConfigurationKey.withPlatformMapping(platformMappingValue, toOption);
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
@@ -2253,17 +2246,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return result;
   }
 
-  /**
-   * Returns a dynamic configuration constructed from the given configuration fragments and build
-   * options.
-   */
+  /** Returns a dynamic configuration constructed from the given build options. */
   @VisibleForTesting
   public BuildConfigurationValue getConfigurationForTesting(
-      ExtendedEventHandler eventHandler, FragmentClassSet fragments, BuildOptions options)
+      ExtendedEventHandler eventHandler, BuildOptions options)
       throws InterruptedException, OptionsParsingException, InvalidConfigurationException {
     SkyKey key =
         BuildConfigurationKey.withPlatformMapping(
-            getPlatformMappingValue(eventHandler, options), fragments, options);
+            getPlatformMappingValue(eventHandler, options), options);
     return (BuildConfigurationValue)
         evaluate(
                 ImmutableList.of(key),
@@ -3033,8 +3023,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<String> multiCpu,
       Collection<Label> labels)
       throws InvalidConfigurationException, InterruptedException {
-    FragmentClassSet allFragments = ruleClassProvider.getFragmentRegistry().getAllFragments();
-    SkyKey key = PrepareAnalysisPhaseValue.key(allFragments, buildOptions, multiCpu, labels);
+    SkyKey key = PrepareAnalysisPhaseValue.key(buildOptions, multiCpu, labels);
     EvaluationResult<PrepareAnalysisPhaseValue> evalResult =
         evaluate(
             ImmutableList.of(key),

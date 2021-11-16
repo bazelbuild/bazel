@@ -312,8 +312,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         new BuildOptionsView(configuration.getOptions(), splitTransition.requiresOptionFragments());
     for (BuildOptions splitOptions :
         splitTransition.split(fragmentRestrictedOptions, eventCollector).values()) {
-      splitConfigs.add(getSkyframeExecutor().getConfigurationForTesting(
-          reporter, configuration.fragmentClasses(), splitOptions));
+      splitConfigs.add(getSkyframeExecutor().getConfigurationForTesting(reporter, splitOptions));
     }
 
     return splitConfigs.build();

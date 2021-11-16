@@ -1944,7 +1944,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       try {
         return skyframeExecutor.getConfigurationForTesting(
             reporter,
-            fromConfig.fragmentClasses(),
             transition.patch(
                 new BuildOptionsView(fromConfig.getOptions(), transition.requiresOptionFragments()),
                 eventCollector));

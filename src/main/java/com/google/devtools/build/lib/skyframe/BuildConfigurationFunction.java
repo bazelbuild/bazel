@@ -66,19 +66,14 @@ public final class BuildConfigurationFunction implements SkyFunction {
     if (workspaceNameValue == null) {
       return null;
     }
+    FragmentClassSet fragmentClasses = ruleClassProvider.getFragmentRegistry().getAllFragments();
 
     BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
     ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
     try {
-      fragments = getConfigurationFragments(key);
+      fragments = getConfigurationFragments(key, fragmentClasses);
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
-    }
-
-    // If nothing was trimmed, reuse the same FragmentClassSet.
-    FragmentClassSet fragmentClasses = key.getFragments();
-    if (fragments.size() != fragmentClasses.size()) {
-      fragmentClasses = FragmentClassSet.of(fragments.keySet());
     }
 
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -93,7 +88,6 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return new BuildConfigurationValue(
           directories,
           fragments,
-          fragmentClasses,
           key.getOptions(),
           ruleClassProvider.getReservedActionMnemonics(),
           actionEnvironment,
@@ -105,8 +99,8 @@ public final class BuildConfigurationFunction implements SkyFunction {
   }
 
   private ImmutableSortedMap<Class<? extends Fragment>, Fragment> getConfigurationFragments(
-      BuildConfigurationKey key) throws InvalidConfigurationException {
-    FragmentClassSet fragmentClasses = key.getFragments();
+      BuildConfigurationKey key, FragmentClassSet fragmentClasses)
+      throws InvalidConfigurationException {
     ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
         ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {

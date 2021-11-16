@@ -522,8 +522,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             env.getListener());
 
     BuildConfigurationKey toolchainConfig =
-        BuildConfigurationKey.withoutPlatformMapping(
-            configuration.fragmentClasses(), toolchainOptions);
+        BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
