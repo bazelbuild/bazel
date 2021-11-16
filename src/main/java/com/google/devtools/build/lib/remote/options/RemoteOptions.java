@@ -557,10 +557,14 @@ public final class RemoteOptions extends OptionsBase {
   /** The maximum size of an outbound message sent via a gRPC channel. */
   public int maxOutboundMessageSize = 1024 * 1024;
 
-  public boolean isRemoteEnabled() {
-    return !Strings.isNullOrEmpty(remoteCache) || isRemoteExecutionEnabled();
+  /** Returns {@code true} if remote cache or disk cache is enabled. */
+  public boolean isRemoteCacheEnabled() {
+    return !Strings.isNullOrEmpty(remoteCache)
+        || !(diskCache == null || diskCache.isEmpty())
+        || isRemoteExecutionEnabled();
   }
 
+  /** Returns {@code true} if remote execution is enabled. */
   public boolean isRemoteExecutionEnabled() {
     return !Strings.isNullOrEmpty(remoteExecutor);
   }
