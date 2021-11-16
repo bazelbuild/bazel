@@ -160,7 +160,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
    */
   public RuleConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,

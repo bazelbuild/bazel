@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -345,51 +344,51 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         rule = ((OutputFile) target).getAssociatedRule();
       }
 
+      PlatformInfo platformInfo = unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
+      Label platformLabel = platformInfo != null ? platformInfo.label() : null;
+
       // Check if this target is directly incompatible. In other words, check if it's incompatible
       // because of its "target_compatible_with" value.
       if (rule != null && !rule.getRuleClass().equals("toolchain")) {
-        if (unloadedToolchainContexts != null) {
-          PlatformInfo platformInfo = unloadedToolchainContexts.getTargetPlatform();
-          if (platformInfo != null) {
-            ConfiguredAttributeMapper attrs = ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), "");
-            if (attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-              List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
+        if (platformInfo != null) {
+          ConfiguredAttributeMapper attrs = ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), "");
+          if (attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
+            List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
 
-              // Resolve the constraint labels.
-              ImmutableList.Builder<TransitiveInfoCollection> constraintProvidersBuilder = ImmutableList.builder();
-              for (Label constraintLabel : labels) {
-                Dependency constraintDep =
-                    Dependency.builder()
-                        .setLabel(constraintLabel)
-                        .setConfiguration(ctgValue.getConfiguration())
-                        .build();
-                ConfiguredTargetValue ctv = (ConfiguredTargetValue) env.getValue(
-                    constraintDep.getConfiguredTargetKey());
-                if (ctv == null) {
-                  return null;
-                }
-                constraintProvidersBuilder.add(ctv.getConfiguredTarget());
+            // Resolve the constraint labels.
+            ImmutableList.Builder<TransitiveInfoCollection> constraintProvidersBuilder = ImmutableList.builder();
+            for (Label constraintLabel : labels) {
+              Dependency constraintDep =
+                  Dependency.builder()
+                      .setLabel(constraintLabel)
+                      .setConfiguration(ctgValue.getConfiguration())
+                      .build();
+              ConfiguredTargetValue ctv = (ConfiguredTargetValue) env.getValue(
+                  constraintDep.getConfiguredTargetKey());
+              if (ctv == null) {
+                return null;
               }
-              ImmutableList<TransitiveInfoCollection> constraintProviders = constraintProvidersBuilder.build();
+              constraintProvidersBuilder.add(ctv.getConfiguredTarget());
+            }
+            ImmutableList<TransitiveInfoCollection> constraintProviders = constraintProvidersBuilder.build();
 
-              // Find the constraints that don't satisfy the target platform.
-              ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-                  PlatformProviderUtils.constraintValues(constraintProviders)
-                      .stream()
-                      .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
-                      .collect(ImmutableList.toImmutableList());
+            // Find the constraints that don't satisfy the target platform.
+            ImmutableList<ConstraintValueInfo> invalidConstraintValues =
+                PlatformProviderUtils.constraintValues(constraintProviders)
+                    .stream()
+                    .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
+                    .collect(ImmutableList.toImmutableList());
 
-              if (!invalidConstraintValues.isEmpty()) {
-                return createIncompatibleRuleConfiguredTarget(
-                    target,
-                    configuration,
-                    configConditions,
-                    IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                      invalidConstraintValues),
-                    rule.getRuleClass(),
-                    transitivePackagesForPackageRootResolution
-                    );
-              }
+            if (!invalidConstraintValues.isEmpty()) {
+              return createIncompatibleRuleConfiguredTarget(
+                  target,
+                  configuration,
+                  configConditions,
+                  IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                    platformLabel, invalidConstraintValues),
+                  rule.getRuleClass(),
+                  transitivePackagesForPackageRootResolution
+                  );
             }
           }
         }
@@ -438,7 +437,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               target,
               configuration,
               configConditions,
-              IncompatiblePlatformProvider.incompatibleDueToTargets(incompatibleDeps),
+              IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
               rule.getRuleClass(),
               transitivePackagesForPackageRootResolution
               );
@@ -561,7 +560,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   private RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
       Target target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       ConfigConditions configConditions,
       IncompatiblePlatformProvider incompatiblePlatformProvider,
       String ruleClassString,
@@ -594,7 +593,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     RuleConfiguredTarget configuredTarget = new RuleConfiguredTarget(
         target.getLabel(),
-        BuildConfigurationValue.key(configuration),
+        configuration.getKey(),
         convertVisibility(target),
         providerBuilder.build(),
         configConditions.asProviders(),
