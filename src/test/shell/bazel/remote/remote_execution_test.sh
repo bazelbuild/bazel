@@ -3216,8 +3216,6 @@ function download_toplevel_when_turn_remote_cache_off() {
   # Test that BwtB doesn't cause build failure if remote cache is disabled in a following build.
   # See https://github.com/bazelbuild/bazel/issues/13882.
 
-  local extra_build_flags="$@"
-
   cat > .bazelrc <<EOF
 build --verbose_failures
 EOF
@@ -3250,7 +3248,7 @@ EOF
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    $extra_build_flags \
+    "$@" \
     //a:consumer >& $TEST_log || fail "Failed to download outputs"
   [[ -f bazel-bin/a/a.txt ]] || [[ -f bazel-bin/a/b.txt ]] \
     && fail "Expected outputs of producer are not downloaded"
@@ -3259,7 +3257,7 @@ EOF
   echo 'bar' > a/in.txt
   bazel build \
     --remote_download_toplevel \
-    $extra_build_flags \
+    "$@" \
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
