@@ -63,9 +63,13 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "The max. number of concurrent network connections to the remote cache/executor. By "
-              + "default Bazel limits the number of TCP connections to 100. Setting this flag to "
-              + "0 will make Bazel choose the number of connections automatically.")
+          "Limit the max number of concurrent connections to remote cache/executor. By default the"
+              + " value is 100. Setting this to 0 means no limitation.\n"
+              + "For HTTP remote cache, one TCP connection could handle one request at one time, so"
+              + " Bazel could make up to --remote_max_connections concurrent requests.\n"
+              + "For gRPC remote cache/executor, one gRPC channel could usually handle 100+"
+              + " concurrent requests, so Bazel could make around `--remote_max_connections * 100`"
+              + " concurrent requests.")
   public int remoteMaxConnections;
 
   @Option(
