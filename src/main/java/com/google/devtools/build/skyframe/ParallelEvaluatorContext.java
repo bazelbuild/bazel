@@ -47,6 +47,7 @@ class ParallelEvaluatorContext {
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
   private final EvaluationVersionBehavior evaluationVersionBehavior;
+  private final boolean mergingSkyframeAnalysisExecutionPhases;
 
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -80,7 +81,8 @@ class ParallelEvaluatorContext {
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      EvaluationVersionBehavior evaluationVersionBehavior,
+      boolean mergingSkyframeAnalysisExecutionPhases) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.skyFunctions = skyFunctions;
@@ -97,6 +99,7 @@ class ParallelEvaluatorContext {
     this.storedEventFilter = storedEventFilter;
     this.errorInfoManager = errorInfoManager;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
+    this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
   }
 
   Map<SkyKey, ? extends NodeEntry> getBatchValues(
@@ -192,6 +195,10 @@ class ParallelEvaluatorContext {
 
   boolean restartPermitted() {
     return graphInconsistencyReceiver.restartPermitted();
+  }
+
+  boolean mergingSkyframeAnalysisExecutionPhases() {
+    return mergingSkyframeAnalysisExecutionPhases;
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */

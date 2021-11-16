@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -29,12 +30,14 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
+import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
@@ -91,8 +94,9 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKe
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.ToplevelStarlarkAspectFunction.TopLevelAspectsValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
+import com.google.devtools.build.lib.util.ExecutionDetailedExitCodeHelper;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -108,6 +112,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -489,7 +494,7 @@ public final class SkyframeBuildView {
           packageRoots);
     }
 
-    Pair<Boolean, ViewCreationFailedException> errors =
+    ErrorProcessingResult errorProcessingResult =
         processErrors(
             result,
             configurationLookupSupplier,
@@ -524,7 +529,7 @@ public final class SkyframeBuildView {
       if (!keepGoing) {
         noKeepGoingException =
             new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ex);
-        if (errors.second != null) {
+        if (errorProcessingResult.viewCreationFailedException() != null) {
           throw noKeepGoingException;
         }
       }
@@ -537,8 +542,8 @@ public final class SkyframeBuildView {
     // If there is no other analysis error, we will have not thrown for action conflicts because we
     // have not yet reported a root cause for the action conflict. Finding that root cause requires
     // a skyframe evaluation.
-    if (!keepGoing && errors.second != null) {
-      throw errors.second;
+    if (!keepGoing && errorProcessingResult.viewCreationFailedException() != null) {
+      throw errorProcessingResult.viewCreationFailedException();
     }
 
     if (foundActionConflict) {
@@ -608,7 +613,7 @@ public final class SkyframeBuildView {
     }
 
     return new SkyframeAnalysisResult(
-        errors.first,
+        errorProcessingResult.hasLoadingError(),
         result.hasError() || foundActionConflict,
         foundActionConflict,
         ImmutableList.copyOf(cts),
@@ -627,14 +632,16 @@ public final class SkyframeBuildView {
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKey,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
+      EventBus eventBus,
       boolean keepGoing,
       int numThreads,
       int cpuHeavySkyKeysThreadPoolSize,
       int mergedPhasesExecutionJobsCount)
-      throws InterruptedException {
+      throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
-    EvaluationResult<BuildDriverValue> result;
+    EvaluationResult<BuildDriverValue> evaluationResult;
     List<BuildDriverKey> buildDriverCTKeys =
         ctKeys.stream()
             .map(k -> new BuildDriverKey(k, topLevelArtifactContextForConflictPruning))
@@ -645,7 +652,7 @@ public final class SkyframeBuildView {
             .collect(Collectors.toList());
 
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
-      result =
+      evaluationResult =
           skyframeExecutor.evaluateBuildDriverKeys(
               eventHandler,
               buildDriverCTKeys,
@@ -661,7 +668,7 @@ public final class SkyframeBuildView {
     Map<AspectKey, ConfiguredAspect> aspects =
         Maps.newHashMapWithExpectedSize(topLevelAspectsKey.size());
     for (BuildDriverKey bdAspectKey : buildDriverAspectKeys) {
-      BuildDriverValue value = result.get(bdAspectKey);
+      BuildDriverValue value = evaluationResult.get(bdAspectKey);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;
@@ -674,7 +681,7 @@ public final class SkyframeBuildView {
     }
     Collection<ConfiguredTarget> cts = Lists.newArrayListWithCapacity(ctKeys.size());
     for (BuildDriverKey bdCTKey : buildDriverCTKeys) {
-      BuildDriverValue value = result.get(bdCTKey);
+      BuildDriverValue value = evaluationResult.get(bdCTKey);
       if (value == null) {
         continue;
       }
@@ -682,14 +689,42 @@ public final class SkyframeBuildView {
 
       cts.add(ctValue.getConfiguredTarget());
     }
-    return new SkyframeAnalysisResult(
-        /*hasLoadingError=*/ false,
-        /*hasAnalysisError=*/ false,
-        foundActionConflict,
+    if (!evaluationResult.hasError()) {
+      return new SkyframeAnalysisAndExecutionResult(
+          /*hasLoadingError=*/ false,
+          /*hasAnalysisError=*/ false,
+          /*hasActionConflicts=*/ false, // We currently ignore these.
+          ImmutableList.copyOf(cts),
+          evaluationResult.getWalkableGraph(),
+          ImmutableMap.copyOf(aspects),
+          /*packageRoots=*/ null,
+          /*representativeExecutionExitCode=*/ null);
+    }
+
+    // Ignoring action conflicts for now.
+    ErrorProcessingResult errorProcessingResult =
+        processErrors(
+            evaluationResult,
+            configurationLookupSupplier,
+            skyframeExecutor,
+            eventHandler,
+            keepGoing,
+            eventBus,
+            /*includeExecutionPhase=*/ true);
+
+    if (!keepGoing && errorProcessingResult.viewCreationFailedException() != null) {
+      throw errorProcessingResult.viewCreationFailedException();
+    }
+
+    return new SkyframeAnalysisAndExecutionResult(
+        /*hasLoadingError=*/ errorProcessingResult.hasLoadingError(),
+        /*hasAnalysisError=*/ errorProcessingResult.hasAnalysisError(),
+        /*hasActionConflicts=*/ false, // We currently ignore these.
         ImmutableList.copyOf(cts),
-        result.getWalkableGraph(),
+        evaluationResult.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
-        null);
+        /*packageRoots=*/ null,
+        errorProcessingResult.executionDetailedExitCode());
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
@@ -789,10 +824,25 @@ public final class SkyframeBuildView {
     return false;
   }
 
+  static ErrorProcessingResult processErrors(
+      EvaluationResult<? extends SkyValue> result,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
+      SkyframeExecutor skyframeExecutor,
+      ExtendedEventHandler eventHandler,
+      boolean keepGoing,
+      @Nullable EventBus eventBus)
+      throws InterruptedException {
+    return processErrors(
+        result,
+        configurationLookupSupplier,
+        skyframeExecutor,
+        eventHandler,
+        keepGoing,
+        eventBus,
+        false);
+  }
   /**
-   * Process errors encountered during analysis, and return a {@link Pair} indicating the existence
-   * of a loading-phase error, if any, and an exception to be thrown to halt the build, if {@code
-   * keepGoing} is false.
+   * Process errors encountered during analysis, and return a {@link ErrorProcessingResult}.
    *
    * <p>Visible only for use by tests via {@link
    * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler,
@@ -801,22 +851,32 @@ public final class SkyframeBuildView {
    * result} that are not {@link AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will
    * be ignored.
    */
-  static Pair<Boolean, ViewCreationFailedException> processErrors(
+  static ErrorProcessingResult processErrors(
       EvaluationResult<? extends SkyValue> result,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
-      @Nullable EventBus eventBus)
+      @Nullable EventBus eventBus,
+      boolean includeExecutionPhase)
       throws InterruptedException {
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
+    // At this point, we consider the build to already have an analysis error, unless the error
+    // turns out to be with execution.
+    boolean hasAnalysisError = true;
     ViewCreationFailedException noKeepGoingException = null;
     ConfiguredTargetKey failedAspectLabel = null; // helps prefer target over aspect failures
+    DetailedExitCode detailedExitCode = null;
+    Throwable undetailedCause = null;
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
-      SkyKey errorKey = errorEntry.getKey();
+      SkyKey errorKey = getErrorKey(errorEntry);
       ErrorInfo errorInfo = errorEntry.getValue();
-      assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
+      if (includeExecutionPhase) {
+        assertValidAnalysisOrExecutionException(errorInfo, errorKey, result.getWalkableGraph());
+      } else {
+        assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
+      }
       skyframeExecutor
           .getCyclesReporter()
           .reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
@@ -903,20 +963,34 @@ public final class SkyframeBuildView {
             new AnalysisFailedCause(
                 topLevelLabel, configId, ((NoSuchPackageException) cause).getDetailedExitCode());
         rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
+      } else if (includeExecutionPhase && isExecutionException(cause)) {
+        detailedExitCode =
+            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
+        rootCauses =
+            cause instanceof ActionExecutionException
+                ? ((ActionExecutionException) cause).getRootCauses()
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        hasAnalysisError = false;
       } else {
         // TODO(ulfjack): Report something!
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        undetailedCause = cause;
       }
 
       if (keepGoing) {
-        eventHandler.handle(
-            Event.warn(
-                "errors encountered while analyzing target '"
-                    + topLevelLabel
-                    + "': it will not be built"));
+        String warningMsg =
+            includeExecutionPhase
+                ? String.format("errors encountered while building target '%s'", topLevelLabel)
+                : String.format(
+                    "errors encountered while analyzing target '%s': it will not be built",
+                    topLevelLabel);
+        eventHandler.handle(Event.warn(warningMsg));
       } else if (noKeepGoingException == null || label.equals(failedAspectLabel)) {
         String errorMsg =
-            String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
+            includeExecutionPhase
+                ? String.format("Build of target '%s' failed; build aborted", topLevelLabel)
+                : String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
         noKeepGoingException = createViewCreationFailedException(cause, errorMsg);
       }
 
@@ -931,7 +1005,20 @@ public final class SkyframeBuildView {
         eventHandler.handle(Event.error(rootCauses.toList().toString()));
       }
     }
-    return Pair.of(hasLoadingError, noKeepGoingException);
+    if (includeExecutionPhase && detailedExitCode == null) {
+      detailedExitCode =
+          ExecutionDetailedExitCodeHelper.createDetailedExitCodeForUndetailedExecutionCause(
+              result, undetailedCause);
+    }
+    return ErrorProcessingResult.create(
+        hasLoadingError, hasAnalysisError, noKeepGoingException, detailedExitCode);
+  }
+
+  private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
+    if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
+      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
+    }
+    return errorEntry.getKey();
   }
 
   private static ViewCreationFailedException createViewCreationFailedException(
@@ -1014,7 +1101,32 @@ public final class SkyframeBuildView {
       return;
     }
 
-    // Walk the graph to find a path to the lowest-level node that threw unexpected exception.
+    sendBugReportUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+  }
+
+  private static void assertValidAnalysisOrExecutionException(
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph) throws InterruptedException {
+    Throwable cause = errorInfo.getException();
+    if (cause == null) {
+      // Cycle.
+      return;
+    }
+
+    if (convertToAnalysisException(cause) != null || isExecutionException(cause)) {
+      // Valid exception type.
+      return;
+    }
+
+    sendBugReportUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+  }
+
+  /**
+   * Walk the graph to find a path to the lowest-level node that threw unexpected exception and send
+   * a BugReport.
+   */
+  private static void sendBugReportUnexpectedExceptionOrigin(
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph, Throwable cause)
+      throws InterruptedException {
     List<SkyKey> path = new ArrayList<>();
     try {
       SkyKey currentKey = key;
@@ -1056,6 +1168,10 @@ public final class SkyframeBuildView {
       return (DetailedException) cause;
     }
     return null;
+  }
+
+  private static boolean isExecutionException(Throwable cause) {
+    return cause instanceof ActionExecutionException || cause instanceof InputFileErrorException;
   }
 
   public ArtifactFactory getArtifactFactory() {
@@ -1233,6 +1349,35 @@ public final class SkyframeBuildView {
       actionCount.set(0);
       configuredTargetCount.set(0);
       configuredTargetActionCount.set(0);
+    }
+  }
+
+  /**
+   * Indicates if there are errors with the various phases, and an exception to be thrown to halt
+   * the build, in case of --nokeep_going.
+   */
+  @AutoValue
+  abstract static class ErrorProcessingResult {
+    abstract boolean hasLoadingError();
+
+    abstract boolean hasAnalysisError();
+
+    @Nullable
+    abstract ViewCreationFailedException viewCreationFailedException();
+
+    @Nullable
+    abstract DetailedExitCode executionDetailedExitCode();
+
+    static ErrorProcessingResult create(
+        boolean hasLoadingError,
+        boolean hasAnalysisError,
+        @Nullable ViewCreationFailedException viewCreationFailedException,
+        @Nullable DetailedExitCode executionDetailedExitCode) {
+      return new AutoValue_SkyframeBuildView_ErrorProcessingResult(
+          hasLoadingError,
+          hasAnalysisError,
+          viewCreationFailedException,
+          executionDetailedExitCode);
     }
   }
 }

@@ -51,8 +51,10 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatt
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -73,6 +75,8 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -157,7 +161,7 @@ public class BuildTool {
           throw new InvalidConfigurationException(
               "The experimental setting to select multiple CPUs is only supported for 'build' and "
                   + "'test' right now!",
-              BuildConfiguration.Code.MULTI_CPU_PREREQ_UNMET);
+              Code.MULTI_CPU_PREREQ_UNMET);
         }
       }
 
@@ -178,9 +182,11 @@ public class BuildTool {
 
         if (request.getBuildOptions().performAnalysisPhase) {
           executionTool = new ExecutionTool(env, request);
+          Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
+          Set<AspectKey> builtAspects = new HashSet<>();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(request.getId());
+            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
           }
 
           // TODO(b/199053098): implement support for --nobuild.
@@ -191,6 +197,27 @@ public class BuildTool {
               analysisAndExecutionResult.getConfigurationCollection());
           result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
           result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
+          try (SilentCloseable c = Profiler.instance().profile("Show results")) {
+            result.setSuccessfulTargets(
+                ExecutionTool.determineSuccessfulTargets(
+                    analysisAndExecutionResult.getTargetsToBuild(), builtTargets));
+            result.setSuccessfulAspects(
+                ExecutionTool.determineSuccessfulAspects(
+                    analysisAndExecutionResult.getAspectsMap().keySet(), builtAspects));
+            result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
+            BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
+            buildResultPrinter.showBuildResult(
+                request,
+                result,
+                analysisAndExecutionResult.getTargetsToBuild(),
+                analysisAndExecutionResult.getTargetsToSkip(),
+                analysisAndExecutionResult.getAspectsMap());
+          }
+          FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
+          if (delayedFailureDetail != null) {
+            throw new BuildFailedException(
+                delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
+          }
         }
         return;
       }

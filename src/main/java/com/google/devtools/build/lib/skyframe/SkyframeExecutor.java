@@ -1601,7 +1601,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     resourceManager.resetResourceUsage();
     try {
-      progressReceiver.executionProgressReceiver = executionProgressReceiver;
+      setExecutionProgressReceiver(executionProgressReceiver);
       Iterable<TargetCompletionValue.TargetCompletionKey> targetKeys =
           TargetCompletionValue.keys(
               targetsToBuild, topLevelArtifactContext, Sets.union(parallelTests, exclusiveTests));
@@ -1621,12 +1621,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
           evaluationContext);
     } finally {
-      progressReceiver.executionProgressReceiver = null;
+      setExecutionProgressReceiver(null);
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
       skyframeActionExecutor.executionOver();
       actionExecutionFunction.complete(reporter);
     }
+  }
+
+  public void setExecutionProgressReceiver(
+      @Nullable EvaluationProgressReceiver executionProgressReceiver) {
+    progressReceiver.executionProgressReceiver = executionProgressReceiver;
   }
 
   public void prepareSkyframeActionExecutorForExecution(
@@ -1676,7 +1681,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           /*numThreads=*/ options.getOptions(BuildRequestOptions.class).jobs,
           reporter);
     } finally {
-      progressReceiver.executionProgressReceiver = null;
+      setExecutionProgressReceiver(null);
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
       skyframeActionExecutor.executionOver();
