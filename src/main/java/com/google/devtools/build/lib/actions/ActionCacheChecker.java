@@ -414,7 +414,8 @@ public class ActionCacheChecker {
       EventHandler handler,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
-      Map<String, String> remoteDefaultPlatformProperties)
+      Map<String, String> remoteDefaultPlatformProperties,
+      boolean isRemoteCacheEnabled)
       throws InterruptedException {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -456,8 +457,11 @@ public class ActionCacheChecker {
     }
     ActionCache.Entry entry = getCacheEntry(action);
     CachedOutputMetadata cachedOutputMetadata = null;
-    // load remote metadata from action cache
-    if (entry != null && !entry.isCorrupted() && cacheConfig.storeOutputMetadata()) {
+    if (entry != null
+        && !entry.isCorrupted()
+        && cacheConfig.storeOutputMetadata()
+        && isRemoteCacheEnabled) {
+      // load remote metadata from action cache
       cachedOutputMetadata = loadCachedOutputMetadata(action, entry, metadataHandler);
     }
 
