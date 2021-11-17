@@ -433,7 +433,8 @@ public final class Utils {
       Digest inputRoot,
       @Nullable Platform platform,
       java.time.Duration timeout,
-      boolean cacheable) {
+      boolean cacheable,
+      @Nullable ByteString salt) {
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
@@ -445,6 +446,9 @@ public final class Utils {
     }
     if (platform != null) {
       action.setPlatform(platform);
+    }
+    if (salt != null) {
+      action.setSalt(salt);
     }
     return action.build();
   }
