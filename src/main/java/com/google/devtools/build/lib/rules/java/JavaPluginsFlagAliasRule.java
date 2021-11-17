@@ -76,7 +76,7 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
       }
 
       JavaPluginInfo javaPluginInfo =
-          JavaPluginInfo.merge(
+          JavaPluginInfo.mergeWithoutJavaOutputs(
               ruleContext.getPrerequisites(":java_plugins", JavaPluginInfo.PROVIDER));
 
       return new RuleConfiguredTargetBuilder(ruleContext)

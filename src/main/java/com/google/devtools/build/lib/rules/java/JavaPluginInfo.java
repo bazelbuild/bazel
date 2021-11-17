@@ -162,11 +162,11 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
   }
 
-  public static JavaPluginInfo merge(JavaPluginInfo a, JavaPluginInfo b) {
-    return a.isEmpty() ? b : b.isEmpty() ? a : merge(ImmutableList.of(a, b));
+  public static JavaPluginInfo mergeWithoutJavaOutputs(JavaPluginInfo a, JavaPluginInfo b) {
+    return a.isEmpty() ? b : b.isEmpty() ? a : mergeWithoutJavaOutputs(ImmutableList.of(a, b));
   }
 
-  public static JavaPluginInfo merge(Iterable<JavaPluginInfo> providers) {
+  public static JavaPluginInfo mergeWithoutJavaOutputs(Iterable<JavaPluginInfo> providers) {
     List<JavaPluginData> plugins = new ArrayList<>();
     List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfo provider : providers) {
@@ -174,7 +174,8 @@ public abstract class JavaPluginInfo extends NativeInfo
       apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
     }
     return new AutoValue_JavaPluginInfo(
-        ImmutableList.of(), JavaPluginData.merge(plugins), JavaPluginData.merge(apiGeneratingPlugins));
+        ImmutableList.of(), JavaPluginData.merge(plugins),
+        JavaPluginData.merge(apiGeneratingPlugins));
   }
 
   public static JavaPluginInfo create(
