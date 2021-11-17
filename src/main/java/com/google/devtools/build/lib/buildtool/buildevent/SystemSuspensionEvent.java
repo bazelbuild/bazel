@@ -40,6 +40,7 @@ public class SystemSuspensionEvent implements ExtendedEventHandler.Postable {
       return logString;
     }
 
+    /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
     static Reason fromInt(int number) {
       switch (number) {
         case 0:
@@ -56,7 +57,6 @@ public class SystemSuspensionEvent implements ExtendedEventHandler.Postable {
     }
   };
 
-  /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
   private final Reason reason;
 
   public SystemSuspensionEvent(int reason) {
