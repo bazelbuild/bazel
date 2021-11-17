@@ -82,4 +82,9 @@ class ProtoSource implements StarlarkValue {
   public String toString() {
     return "ProtoSource('" + getImportPath() + "')";
   }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
 }

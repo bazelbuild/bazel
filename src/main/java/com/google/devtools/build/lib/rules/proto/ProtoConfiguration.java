@@ -285,6 +285,16 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.experimentalJavaProtoAddAllowedPublicImports;
   }
 
+  @StarlarkMethod(
+      name = "generated_protos_in_virtual_imports",
+      useStarlarkThread = true,
+      documented = false)
+  public boolean generatedProtosInVirtualImportsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return generatedProtosInVirtualImports();
+  }
+
   public boolean generatedProtosInVirtualImports() {
     return options.generatedProtosInVirtualImports;
   }
