@@ -107,6 +107,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
+  private final Runtime runtime;
 
   /** Mapping of worker ids to their metrics. */
   private Map<Integer, WorkerMetric> workerIdToWorkerMetric = new ConcurrentHashMap<>();
@@ -121,7 +122,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       ResourceManager resourceManager,
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
-      EventBus eventBus) {
+      EventBus eventBus,
+      Runtime runtime) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
@@ -131,6 +133,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.runfilesTreeUpdater = runfilesTreeUpdater;
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
+    this.runtime = runtime;
     eventBus.register(this);
   }
 
@@ -554,23 +557,23 @@ final class WorkerSpawnRunner implements SpawnRunner {
   }
 
   // Collects process stats for each worker
-  private Map<Long, WorkerMetric.WorkerStat> collectStats(List<Long> processIds) {
+  @VisibleForTesting
+  public Map<Long, WorkerMetric.WorkerStat> collectStats(OS os, List<Long> processIds) {
     Map<Long, WorkerMetric.WorkerStat> pidResults = new HashMap<>();
 
-    if (OS.getCurrent() != OS.LINUX && OS.getCurrent() != OS.DARWIN) {
+    if (os != OS.LINUX && os != OS.DARWIN) {
       return pidResults;
     }
 
     String pids = Joiner.on(",").join(processIds);
     BufferedReader psOutput;
-    Runtime rt = Runtime.getRuntime();
 
     try {
       String command = "ps -o pid,rss -p " + pids;
       psOutput =
           new BufferedReader(
               new InputStreamReader(
-                  rt.exec(new String[] {"bash", "-c", command}).getInputStream(), "UTF-8"));
+                  runtime.exec(new String[] {"bash", "-c", command}).getInputStream(), "UTF-8"));
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Error while executing command for pids: %s", pids);
       return pidResults;
@@ -592,10 +595,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
           continue;
         }
 
-        List<String> line = Splitter.on(" ").splitToList(output);
-
+        List<String> line = Splitter.on(" ").trimResults().omitEmptyStrings().splitToList(output);
         if (line.size() != 2) {
-          logger.atWarning().log("Unexpected length of splitted line %s %d", output, line.size());
+          logger.atWarning().log("Unexpected length of split line %s %d", output, line.size());
           continue;
         }
 
@@ -690,6 +692,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   public void onCollectMetricsEvent(CollectMetricsEvent event) {
     Map<Long, WorkerMetric.WorkerStat> workerStats =
         collectStats(
+            OS.getCurrent(),
             this.workerIdToWorkerMetric.values().stream()
                 .map(WorkerMetric::getProcessId)
                 .collect(Collectors.toList()));
