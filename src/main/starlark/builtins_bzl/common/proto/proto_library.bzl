@@ -17,9 +17,10 @@ Definition of proto_library rule.
 """
 
 load(":common/proto/proto_semantics.bzl", "semantics")
+load(":common/proto/proto_common.bzl", "proto_common")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
-proto_common = _builtins.toplevel.proto_common
+native_proto_common = _builtins.toplevel.proto_common
 
 def _check_srcs_package(target_package, srcs):
     """Makes sure the given srcs live in the given package."""
@@ -32,7 +33,7 @@ def _proto_library_impl(ctx):
 
     _check_srcs_package(ctx.label.package, ctx.attr.srcs)
 
-    proto_info = proto_common.create_proto_info(ctx)
+    proto_info = native_proto_common.create_proto_info(ctx)
 
     proto_common.write_descriptor_set(ctx, proto_info)
 

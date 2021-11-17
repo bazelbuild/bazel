@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the
@@ -128,6 +130,12 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return Depset.of(Artifact.TYPE, getTransitiveProtoSources());
   }
 
+  @Override
+  public Depset getTransitiveSourcesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(ProtoSource.TYPE, transitiveSources);
+  }
+
   /**
    * The {@code .proto} source files in this {@code proto_library}'s {@code srcs} and all of its
    * transitive dependencies.
@@ -215,6 +223,12 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    */
   public NestedSet<ProtoSource> getStrictImportableSources() {
     return strictImportableSources;
+  }
+
+  @Override
+  public Depset getStrictImportableSourcesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(ProtoSource.TYPE, strictImportableSources);
   }
 
   /**

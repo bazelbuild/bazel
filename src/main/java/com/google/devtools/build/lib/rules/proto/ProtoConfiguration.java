@@ -31,6 +31,9 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Configuration for Protocol Buffer Libraries. */
 @Immutable
@@ -203,8 +206,24 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.options = options;
   }
 
+  @StarlarkMethod(name = "protoc_opts", useStarlarkThread = true, documented = false)
+  public ImmutableList<String> protocOptsForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return protocOpts();
+  }
+
   public ImmutableList<String> protocOpts() {
     return protocOpts;
+  }
+
+  @StarlarkMethod(
+      name = "experimental_proto_descriptorsets_include_source_info",
+      useStarlarkThread = true,
+      documented = false)
+  public boolean experimentalProtoDescriptorSetsIncludeSourceInfoForStarlark(StarlarkThread thread)
+      throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalProtoDescriptorSetsIncludeSourceInfo();
   }
 
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfo() {
@@ -242,6 +261,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public Label protoToolchainForCc() {
     return options.protoToolchainForCc;
+  }
+
+  @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)
+  public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return strictProtoDeps().toString();
   }
 
   public StrictDepsMode strictProtoDeps() {
