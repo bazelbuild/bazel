@@ -298,7 +298,7 @@ public class JavaTargetAttributes {
 
     public Builder addPlugin(JavaPluginInfo plugins) {
       Preconditions.checkArgument(!built);
-      this.plugins = JavaPluginInfo.merge(this.plugins, plugins);
+      this.plugins = JavaPluginInfo.mergeWithoutJavaOutputs(this.plugins, plugins);
       return this;
     }
 
