@@ -811,6 +811,10 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return buildOptions;
   }
 
+  public CoreOptions getCoreOptions() {
+    return options;
+  }
+
   public String getCpu() {
     return options.cpu;
   }

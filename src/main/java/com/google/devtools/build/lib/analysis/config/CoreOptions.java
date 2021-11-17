@@ -894,6 +894,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " of failing. This is to help use cquery diagnose failures in select.")
   public boolean debugSelectsAlwaysSucceed;
 
+  @Option(
+      name = "experimental_shareable_cpp_compile_actions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, cpp actions will be shareable. This will make Bazel not fail with action"
+            + " conflicts if it finds two identical actions with different configurations.")
+  public boolean experimentalShareableCppCompileActions;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -936,6 +946,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
     host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
+    host.experimentalShareableCppCompileActions = experimentalShareableCppCompileActions;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

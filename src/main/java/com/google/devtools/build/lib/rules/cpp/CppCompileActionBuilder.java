@@ -92,7 +92,7 @@ public class CppCompileActionBuilder {
       CcToolchainProvider ccToolchain,
       BuildConfigurationValue configuration) {
     this.owner = actionConstructionContext.getActionOwner();
-    this.shareable = false;
+    this.shareable = configuration.getCoreOptions().experimentalShareableCppCompileActions;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
