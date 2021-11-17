@@ -120,8 +120,84 @@ Java should work out-of-the-box with the default configuration. The
 [bazel toolchains][bazel_toolchains] contain everything necessary for
 remote execution, as well, including JUnit.
 
+### Python
+
+#### Prerequisites
+
+Running coverage with python has some prerequisites:
+
+- A bazel binary that includes [b01c859][python_coverage_commit],
+  which should be any Bazel >3.0.
+- A [modified version of coverage.py][modified_coveragepy].
+<!-- TODO: Upstream an lcov implementation so that this becomes usable  -->
+
+#### Consuming the modified coverage.py
+
+A way to do this is via [rules_python][rules_python], this provides
+the ability to use a `requirements.txt` file, the requirements listed
+in the file are then created as bazel targets using the
+[pip_install][pip_install_rule] repository rule.
+
+The `requirements.txt` should have the following entry:
+
+```text
+git+https://github.com/ulfjack/coveragepy.git@lcov-support
+```
+
+The `rules_python`, `pip_install`, and the `requirements.txt` file should then be used in the WORKSPACE file as:
+
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_python",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.5.0/rules_python-0.5.0.tar.gz",
+    sha256 = "cd6730ed53a002c56ce4e2f396ba3b3be262fd7cb68339f0377a45e8227fe332",
+)
+
+load("@rules_python//python:pip.bzl", "pip_install")
+
+pip_install(
+   name = "python_deps",
+   requirements = "//:requirements.txt",
+)
+```
+
+Note: The version of `rules_python` is incidental - this was simply
+the latest at the time of writing. Refer to the
+[upstream][rules_python] for up-to-date instructions.
+
+The coverage.py requirement can then be consumed by test targets by
+setting the following in `BUILD` files:
+
+```python
+load("@python_deps//:requirements.bzl", "entry_point")
+
+alias(
+    name = "python_coverage_tools",
+    actual = entry_point("coverage"),
+)
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    env = {
+        "PYTHON_COVERAGE": "$(location :python_coverage_tools)",
+    },
+    deps = [
+        ":main",
+        ":python_coverage_tools",
+    ],
+)
+```
+<!-- TODO: Allow specifying a target for `PYTHON_COVERAGE`, instead of having to use `$(location)` -->
+
 
 [lcov]: https://github.com/linux-test-project/lcov
+[rules_python]: https://github.com/bazelbuild/rules_python
 [bazel_toolchains]: https://github.com/bazelbuild/bazel-toolchains
 [remote_report_issue]: https://github.com/bazelbuild/bazel/issues/4685
 [split_coverage_issue]: https://github.com/bazelbuild/bazel/issues/4685
+[python_coverage_commit]: https://github.com/bazelbuild/bazel/commit/b01c85962d88661ec9f6c6704c47d8ce67ca4d2a
+[modified_coveragepy]: https://github.com/ulfjack/coveragepy/tree/lcov-support
+[pip_install_rule]: https://github.com/bazelbuild/rules_python#installing-pip-dependencies
