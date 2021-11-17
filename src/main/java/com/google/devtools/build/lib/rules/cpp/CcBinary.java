@@ -259,6 +259,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
               .getAllArtifacts()
               .toList());
     }
+    for (TransitiveInfoCollection transitiveInfoCollection :
+        ruleContext.getPrerequisites("dynamic_deps")) {
+      builder.merge(
+          transitiveInfoCollection.getProvider(RunfilesProvider.class).getDefaultRunfiles());
+    }
     // Add the C++ runtime libraries if linking them dynamically.
     if (linkingMode == Link.LinkingMode.DYNAMIC) {
       try {

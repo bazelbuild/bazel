@@ -383,8 +383,9 @@ def _cc_shared_library_impl(ctx):
         output_type = "dynamic_library",
     )
 
+    libraries = [linking_outputs.library_to_link.resolved_symlink_dynamic_library, linking_outputs.library_to_link.dynamic_library]
     runfiles = ctx.runfiles(
-        files = [linking_outputs.library_to_link.resolved_symlink_dynamic_library],
+        files = libraries,
     )
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
@@ -408,7 +409,7 @@ def _cc_shared_library_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset([linking_outputs.library_to_link.resolved_symlink_dynamic_library] + debug_files),
+            files = depset(libraries + debug_files),
             runfiles = runfiles,
         ),
         CcSharedLibraryInfo(

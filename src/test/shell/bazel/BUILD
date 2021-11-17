@@ -39,6 +39,7 @@ filegroup(
         "//src/test/shell:bin/bazel",
     ],
     visibility = [
+        "//src/main/starlark/tests/builtins_bzl:__subpackages__",
         "//src/test/shell:__subpackages__",
     ],
 )

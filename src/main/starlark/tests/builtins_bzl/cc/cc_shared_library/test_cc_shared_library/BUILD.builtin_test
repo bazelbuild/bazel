@@ -1,0 +1,274 @@
+load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "linking_suffix_test", "paths_test")
+
+LINKABLE_MORE_THAN_ONCE="LINKABLE_MORE_THAN_ONCE"
+
+licenses(["notice"])
+
+package(
+    default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:__subpackages__"],
+)
+
+cc_test(
+    name = "cc_test",
+    srcs = ["main.cc"],
+    dynamic_deps = ["foo_so"],
+    features = ["-dynamic_link_test_srcs"],
+    deps = ["foo"],
+)
+
+cc_binary(
+    name = "binary",
+    srcs = ["main.cc"],
+    dynamic_deps = ["foo_so"],
+    deps = ["foo"],
+)
+
+cc_binary(
+    name = "binary_with_bar_so_twice",
+    srcs = ["main.cc"],
+    dynamic_deps = [
+        "foo_so",
+        "bar_so",
+    ],
+    deps = ["foo"],
+)
+
+cc_shared_library(
+    name = "a_so",
+    roots = [":a_suffix"],
+)
+
+cc_shared_library(
+    name = "diamond_so",
+    dynamic_deps = [":a_so"],
+    roots = [":qux"],
+)
+
+cc_shared_library(
+    name = "diamond2_so",
+    dynamic_deps = [":a_so"],
+    roots = [":qux2"],
+)
+
+cc_binary(
+    name = "diamond_inheritance",
+    srcs = ["main.cc"],
+    dynamic_deps = [
+        ":diamond_so",
+        ":diamond2_so",
+    ],
+    deps = [
+        ":foo",
+        ":a_suffix",
+    ],
+)
+
+cc_shared_library(
+    name = "foo_so",
+    additional_linker_inputs = [
+        ":foo.lds",
+        ":additional_script.txt",
+    ],
+    dynamic_deps = ["bar_so"],
+    preloaded_deps = ["preloaded_dep"],
+    roots = [
+        "baz",
+        "foo",
+        "a_suffix",
+    ],
+    static_deps = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
+    ],
+    user_link_flags = [
+        "-Wl,-rpath,kittens",
+        "-Wl,--version-script=$(location :foo.lds)",
+        "-Wl,--script=$(location :additional_script.txt)",
+    ],
+)
+
+cc_library(
+    name = "preloaded_dep",
+    srcs = ["preloaded_dep.cc"],
+    hdrs = ["preloaded_dep.h"],
+)
+
+cc_library(
+    name = "foo",
+    srcs = ["foo.cc"],
+    hdrs = ["foo.h"],
+    deps = [
+        "preloaded_dep",
+        "bar",
+        "baz",
+        # Not exported.
+        "qux",
+        "qux2",
+    ],
+)
+
+cc_library(
+    name = "a_suffix",
+    srcs = ["a_suffix.cc"],
+    hdrs = ["a_suffix.h"],
+)
+
+cc_library(
+    name = "baz",
+    srcs = ["baz.cc"],
+    hdrs = ["baz.h"],
+    deps = ["bar3"],
+)
+
+cc_library(
+    name = "qux",
+    srcs = ["qux.cc"],
+    hdrs = ["qux.h"],
+)
+
+cc_library(
+    name = "qux2",
+    srcs = ["qux2.cc"],
+    hdrs = ["qux2.h"],
+    tags = [LINKABLE_MORE_THAN_ONCE],
+)
+
+config_setting(
+    name = "is_bazel",
+    define_values = {
+        "is_bazel": "true",
+    }
+)
+
+cc_shared_library(
+    name = "bar_so",
+    additional_linker_inputs = [
+        ":bar.lds",
+    ],
+    exports_filter = [
+        "bar3",  # Exported transitive dependency
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
+    ],
+    permissions = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:permissions",
+    ],
+    roots = [
+        "bar",
+        "bar2",
+    ] + select({
+        ":is_bazel" : ["@test_repo//:bar"],
+        "//conditions:default": [],
+    }),
+    static_deps = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
+        "@test_repo//:bar",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
+    ],
+    user_link_flags = [
+        "-Wl,--version-script=$(location :bar.lds)",
+    ],
+)
+
+cc_library(
+    name = "barX",
+    srcs = ["barX.cc"],
+    hdrs = ["barX.h"],
+    deps = select({
+        ":is_bazel" : ["@test_repo//:bar"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "bar",
+    srcs = ["bar.cc"],
+    hdrs = ["bar.h"],
+    deps = [
+        "barX",
+        "qux2",
+    ],
+)
+
+cc_library(
+    name = "bar2",
+    srcs = ["bar2.cc"],
+    hdrs = ["bar2.h"],
+    deps = ["bar3"],
+)
+
+cc_library(
+    name = "bar3",
+    srcs = ["bar3.cc"],
+    hdrs = ["bar3.h"],
+    deps = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
+    ],
+)
+
+sh_test(
+    name = "cc_shared_library_integration_test",
+    srcs = [
+        "cc_shared_library_integration_test.sh",
+    ],
+    data = [
+        "testenv.sh",
+        ":bar_so",
+        ":binary",
+        ":cc_test",
+        ":foo_so",
+    ],
+)
+
+linking_suffix_test(
+    name = "linking_action_test",
+    target_under_test = ":foo_so",
+)
+
+additional_inputs_test(
+    name = "additional_inputs_test",
+    target_under_test = ":foo_so",
+)
+
+build_failure_test(
+    name = "link_once_repeated_test",
+    message = "already linked statically in " +
+              "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo_so but not exported.",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_binary",
+)
+
+paths_test(
+    name = "path_matching_test",
+)
+
+build_failure_test(
+    name = "export_without_permissions_test",
+    message = "doesn't have the necessary permissions",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:permissions_fail_so",
+)
+
+build_failure_test(
+    name = "forbidden_target_permissions_test",
+    message = "can only list targets that are in the same package or a sub-package",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:permissions_fail",
+)
+
+cc_shared_library_permissions(
+    name = "permissions",
+    targets = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:a_suffix",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
+    ],
+)
+
+build_failure_test(
+    name = "two_dynamic_deps_same_export_in_so_test",
+    message = "Two shared libraries in dependencies export the same symbols",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_so",
+)
+
+build_failure_test(
+    name = "two_dynamic_deps_same_export_in_binary_test",
+    message = "Two shared libraries in dependencies export the same symbols",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
+)
