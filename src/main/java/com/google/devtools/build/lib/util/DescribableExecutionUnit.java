@@ -22,6 +22,11 @@ import javax.annotation.Nullable;
  */
 public interface DescribableExecutionUnit {
 
+  @Nullable
+  default String getTargetLabel() {
+    return null;
+  }
+
   /** Returns the command (the first element) and its arguments. */
   ImmutableList<String> getArguments();
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.util.Collection;
@@ -150,5 +151,12 @@ public interface Spawn extends DescribableExecutionUnit {
   @Nullable
   default String getConfigurationChecksum() {
     return getResourceOwner().getOwner().getConfigurationChecksum();
+  }
+
+  @Override
+  @Nullable
+  default String getTargetLabel() {
+    Label label = getResourceOwner().getOwner().getLabel();
+    return label == null ? null : label.toString();
   }
 }
