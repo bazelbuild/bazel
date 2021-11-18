@@ -68,7 +68,7 @@ public final class TestProvider implements TransitiveInfoProvider {
      * Don't call this directly. Instead use {@link
      * com.google.devtools.build.lib.analysis.test.TestActionBuilder}.
      */
-    public TestParams(
+    TestParams(
         int runs,
         int shards,
         boolean runsDetectsFlakes,

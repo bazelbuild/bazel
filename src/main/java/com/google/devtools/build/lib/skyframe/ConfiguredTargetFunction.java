@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -579,15 +580,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (configuration.hasFragment(TestConfiguration.class)) {
       // Create a dummy TestProvider instance so that other parts of the code base stay happy. Even
       // though this test will never execute, some code still expects the provider.
-      TestProvider.TestParams testParams = new TestProvider.TestParams(
-          0, 0, false,
-          TestTimeout.ETERNAL,
-          "dummy",
-          ImmutableList.<Artifact.DerivedArtifact>of(),
-          ImmutableList.<Artifact>of(),
-          filesToRunProvider,
-          ImmutableList.<ActionInput>of()
-          );
+      TestProvider.TestParams testParams = TestActionBuilder.createEmptyTestParams();
       providerBuilder.put(TestProvider.class, new TestProvider(testParams));
     }
 
