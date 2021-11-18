@@ -267,6 +267,7 @@ public class CommandFailureUtils {
       Map<String, String> env,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
+      @Nullable String targetLabel,
       @Nullable PlatformInfo executionPlatform) {
 
     String commandName = commandLineElements.iterator().next();
@@ -279,6 +280,9 @@ public class CommandFailureUtils {
 
     StringBuilder output = new StringBuilder();
     output.append("error executing command ");
+    if (targetLabel != null) {
+      output.append("(from target ").append(targetLabel).append(") ");
+    }
     if (verbose) {
       output.append("\n  ");
     }
@@ -302,6 +306,7 @@ public class CommandFailureUtils {
         command.getEnvironment(),
         cwd,
         command.getConfigurationChecksum(),
+        command.getTargetLabel(),
         command.getExecutionPlatform());
   }
 }
