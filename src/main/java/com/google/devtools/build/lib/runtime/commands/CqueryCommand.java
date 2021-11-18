@@ -17,7 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.CqueryBuildTool;
+import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.CqueryProcessor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
@@ -149,7 +150,9 @@ public final class CqueryCommand implements BlazeCommand {
             .setCheckforActionConflicts(false)
             .build();
     DetailedExitCode detailedExitCode =
-        new CqueryBuildTool(env, expr).processRequest(request, null).getDetailedExitCode();
+        new BuildTool(env, new CqueryProcessor(expr))
+            .processRequest(request, null)
+            .getDetailedExitCode();
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 

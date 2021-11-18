@@ -94,8 +94,22 @@ public class BuildTool {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  protected final CommandEnvironment env;
-  protected final BlazeRuntime runtime;
+  private static final AnalysisPostProcessor NOOP_POST_PROCESSOR =
+      (req, env, runtime, analysisResult) -> {};
+
+  /** Hook for inserting extra post-analysis-phase processing. Used for implementing {a,c}query. */
+  public interface AnalysisPostProcessor {
+    void process(
+        BuildRequest request,
+        CommandEnvironment env,
+        BlazeRuntime runtime,
+        AnalysisResult analysisResult)
+        throws InterruptedException, ViewCreationFailedException, ExitException;
+  }
+
+  private final CommandEnvironment env;
+  private final BlazeRuntime runtime;
+  private final AnalysisPostProcessor analysisPostProcessor;
 
   /**
    * Constructs a BuildTool.
@@ -103,8 +117,13 @@ public class BuildTool {
    * @param env a reference to the command environment of the currently executing command
    */
   public BuildTool(CommandEnvironment env) {
+    this(env, NOOP_POST_PROCESSOR);
+  }
+
+  public BuildTool(CommandEnvironment env, AnalysisPostProcessor postProcessor) {
     this.env = env;
     this.runtime = env.getRuntime();
+    this.analysisPostProcessor = postProcessor;
   }
 
   /**
@@ -250,8 +269,8 @@ public class BuildTool {
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
-        try (SilentCloseable c = Profiler.instance().profile("postProcessAnalysisResult")) {
-          postProcessAnalysisResult(request, analysisResult);
+        try (SilentCloseable c = Profiler.instance().profile("analysisPostProcessor.process")) {
+          analysisPostProcessor.process(request, env, runtime, analysisResult);
         }
 
         // Execution phase.
@@ -339,13 +358,6 @@ public class BuildTool {
       }
     }
   }
-
-  /**
-   * This class is meant to be overridden by classes that want to perform the Analysis phase and
-   * then process the results in some interesting way. See {@link CqueryBuildTool} as an example.
-   */
-  protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
-      throws InterruptedException, ViewCreationFailedException, ExitException {}
 
   /**
    * Produces an aquery dump of the state of Skyframe.
@@ -671,7 +683,7 @@ public class BuildTool {
 
   /** Describes a failure that isn't severe enough to halt the command in keep_going mode. */
   // TODO(mschaller): consider promoting this to be a sibling of AbruptExitException.
-  static class ExitException extends Exception {
+  public static class ExitException extends Exception {
 
     private final DetailedExitCode detailedExitCode;
 

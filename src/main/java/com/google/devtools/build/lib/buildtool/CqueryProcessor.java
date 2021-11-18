@@ -26,16 +26,17 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
 
-/** A version of {@link BuildTool} that handles all cquery work. */
-public final class CqueryBuildTool extends PostAnalysisQueryBuildTool<KeyedConfiguredTarget> {
+/** Performs {@code cquery} processing. */
+public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfiguredTarget> {
 
-  public CqueryBuildTool(CommandEnvironment env, QueryExpression queryExpression) {
-    super(env, queryExpression);
+  public CqueryProcessor(QueryExpression queryExpression) {
+    super(queryExpression);
   }
 
   @Override
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
+      CommandEnvironment env,
       BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations configurations,
       Collection<SkyKey> transitiveConfigurationKeys,

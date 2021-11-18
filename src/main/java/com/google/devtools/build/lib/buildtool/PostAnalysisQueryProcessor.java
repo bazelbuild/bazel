@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
@@ -45,17 +47,20 @@ import java.util.Set;
  * Version of {@link BuildTool} that handles all work for queries based on results from the analysis
  * phase.
  */
-public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
+public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.AnalysisPostProcessor {
 
   private final QueryExpression queryExpression;
 
-  public PostAnalysisQueryBuildTool(CommandEnvironment env, QueryExpression queryExpression) {
-    super(env);
+  PostAnalysisQueryProcessor(QueryExpression queryExpression) {
     this.queryExpression = queryExpression;
   }
 
   @Override
-  protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
+  public void process(
+      BuildRequest request,
+      CommandEnvironment env,
+      BlazeRuntime runtime,
+      AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException, ExitException {
     // TODO: b/71905538 - this query will operate over the graph as constructed by analysis, but
     // will also pick up any nodes that are in the graph from prior builds. This makes the results
@@ -77,6 +82,8 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
           env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
         doPostAnalysisQuery(
             request,
+            env,
+            runtime,
             analysisResult.getConfigurationCollection().getHostConfiguration(),
             new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
             env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
@@ -116,6 +123,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
 
   protected abstract PostAnalysisQueryEnvironment<T> getQueryEnvironment(
       BuildRequest request,
+      CommandEnvironment env,
       BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
@@ -124,6 +132,8 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
 
   private void doPostAnalysisQuery(
       BuildRequest request,
+      CommandEnvironment env,
+      BlazeRuntime runtime,
       BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
@@ -137,6 +147,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
         getQueryEnvironment(
             request,
+            env,
             hostConfiguration,
             topLevelConfigurations,
             transitiveConfigurationKeys,
