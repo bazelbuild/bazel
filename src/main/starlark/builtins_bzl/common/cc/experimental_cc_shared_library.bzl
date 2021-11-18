@@ -490,3 +490,6 @@ cc_shared_library = rule(
 )
 
 for_testing_dont_use_check_if_target_under_path = _check_if_target_under_path
+merge_cc_shared_library_infos = _merge_cc_shared_library_infos
+build_link_once_static_libs_map = _build_link_once_static_libs_map
+build_exports_map_from_only_dynamic_deps = _build_exports_map_from_only_dynamic_deps

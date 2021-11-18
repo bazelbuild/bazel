@@ -347,6 +347,9 @@ def _get_static_mode_params_for_dynamic_library_libraries(libs):
             linker_inputs.append(lib.dynamic_library)
     return linker_inputs
 
+def _should_create_per_object_debug_info(feature_configuration, cpp_configuration):
+    return cpp_configuration.fission_active_for_current_compilation_mode() and cc_common.is_enabled(feature_configuration, "per_object_debug_info")
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -367,4 +370,5 @@ cc_helper = struct(
     is_compilation_outputs_empty = _is_compilation_outputs_empty,
     matches_extension = _matches_extension,
     get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
+    should_create_per_object_debug_info = _should_create_per_object_debug_info,
 )
