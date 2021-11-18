@@ -565,7 +565,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       return pidResults;
     }
 
-    String pids = Joiner.on(",").join(processIds);
+    List<Long> filteredProcessIds =
+        processIds.stream().filter(p -> p > 0).collect(Collectors.toList());
+    String pids = Joiner.on(",").join(filteredProcessIds);
     BufferedReader psOutput;
 
     try {

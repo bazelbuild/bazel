@@ -395,7 +395,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testCollectStats() throws Exception {
+  public void testCollectStats_ignoreSpaces() throws Exception {
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
             new SandboxHelpers(false),
@@ -423,6 +423,36 @@ public class WorkerSpawnRunnerTest {
     assertThat(pidResults).hasSize(2);
     assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3);
     assertThat(pidResults.get(2L).getUsedMemoryInKB()).isEqualTo(4);
+  }
+
+  @Test
+  public void testCollectStats_filterInvalidPids() throws Exception {
+    WorkerSpawnRunner runner =
+        new WorkerSpawnRunner(
+            new SandboxHelpers(false),
+            fs.getPath("/execRoot"),
+            createWorkerPool(),
+            reporter,
+            localEnvProvider,
+            /* binTools */ null,
+            resourceManager,
+            /* runfilestTreeUpdater */ null,
+            new WorkerOptions(),
+            eventBus,
+            runtime);
+
+    String psOutput = "PID  RSS  \n 1  3216";
+    InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
+    Process process = mock(Process.class);
+
+    when(runtime.exec(new String[] {"bash", "-c", "ps -o pid,rss -p 1"})).thenReturn(process);
+    when(process.getInputStream()).thenReturn(psStream);
+
+    List<Long> pids = Arrays.asList(1L, 0L);
+    Map<Long, WorkerMetric.WorkerStat> pidResults = runner.collectStats(OS.LINUX, pids);
+
+    assertThat(pidResults).hasSize(1);
+    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3);
   }
 
   @Test
