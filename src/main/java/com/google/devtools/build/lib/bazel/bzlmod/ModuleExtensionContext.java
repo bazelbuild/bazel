@@ -88,10 +88,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       name = "modules",
       structField = true,
       doc =
-          "A list of all the Bazel modules in the external dependency graph, each of which exposes"
-              + " all the tags it specified for this module extension. The iteration order of this"
-              + " dictionary is guaranteed to be the same as breadth-first search starting from the"
-              + " root module.")
+          "A list of all the Bazel modules in the external dependency graph, each of which is a <a"
+              + " href=\"bazel_module.html\">bazel_module</a> object that exposes all the tags it"
+              + " specified for this module extension. The iteration order of this dictionary is"
+              + " guaranteed to be the same as breadth-first search starting from the root module.")
   public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
   }

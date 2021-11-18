@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
@@ -71,6 +72,7 @@ import net.starlark.java.syntax.Location;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
+@DocumentMethods
 public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
   @Override
@@ -302,7 +304,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             doc =
                 "The function that implements this module extension. Must take a single parameter,"
                     + " <code><a href=\"module_ctx.html\">module_ctx</a></code>. The function is"
-                    + " called  once at the beginning of a build to determine the set of available"
+                    + " called once at the beginning of a build to determine the set of available"
                     + " repos."),
         @Param(
             name = "tag_classes",
@@ -310,7 +312,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             doc =
                 "A dictionary to declare all the tag classes used by the extension. It maps from"
                     + " the name of the tag class to a <code><a"
-                    + " href=\"tag_class\">tag_class</a></code> object.",
+                    + " href=\"tag_class.html\">tag_class</a></code> object.",
             named = true,
             positional = false),
         @Param(
@@ -323,7 +325,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             positional = false)
       },
       useStarlarkThread = true)
-  public ModuleExtension.InStarlark moduleExtension(
+  public Object moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClass>
       String doc,
