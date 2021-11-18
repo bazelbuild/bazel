@@ -99,7 +99,8 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.CHANGES_INPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
+      // TODO(blaze-configurability-team): add OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH
+      //   after fixing platform name determination (currently not sufficiently unique).
       help =
           "The labels of the platform rules describing the target platforms for the current "
               + "command.")
