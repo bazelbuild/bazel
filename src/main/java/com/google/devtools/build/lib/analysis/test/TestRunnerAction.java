@@ -423,6 +423,12 @@ public class TestRunnerAction extends AbstractAction
     return builder.build();
   }
 
+  // Test actions are always distinguished by their target name, which must be unique.
+  @Override
+  public final boolean isShareable() {
+    return false;
+  }
+
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
