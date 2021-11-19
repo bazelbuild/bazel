@@ -8,7 +8,9 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/rules/java/proto:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 

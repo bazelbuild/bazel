@@ -24,6 +24,7 @@ load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
+load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -35,6 +36,7 @@ exported_rules = {
     "+cc_import": cc_import,
     "+java_library": java_library,
     "+java_plugin": java_plugin,
+    "-java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
     "-proto_library": proto_library,
