@@ -169,7 +169,6 @@ public final class CustomCommandLine extends CommandLine {
      * <p>Call {@link SimpleVectorArg#mapped} to produce a vector arg that maps from a given type to
      * a string.
      */
-    @VisibleForTesting
     public static class SimpleVectorArg<T> extends VectorArg<T> {
       private final Object values;
 
