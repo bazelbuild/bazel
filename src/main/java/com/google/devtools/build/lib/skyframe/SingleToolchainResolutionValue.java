@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -29,7 +29,6 @@ import java.util.List;
  * A value which represents the map of potential execution platforms and resolved toolchains for a
  * single toolchain type. This allows for a Skyframe cache per toolchain type.
  */
-@AutoCodec
 @AutoValue
 public abstract class SingleToolchainResolutionValue implements SkyValue {
 
@@ -62,8 +61,6 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
   }
 
   /** {@link SkyKey} implementation used for {@link SingleToolchainResolutionFunction}. */
-  @AutoCodec
-  @AutoCodec.VisibleForSerialization
   @AutoValue
   public abstract static class SingleToolchainResolutionKey implements SkyKey {
 
@@ -82,7 +79,6 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
     abstract boolean debugTarget();
 
-    @AutoCodec.Instantiator
     static SingleToolchainResolutionKey create(
         BuildConfigurationKey configurationKey,
         Label toolchainTypeLabel,
@@ -98,7 +94,7 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
     }
   }
 
-  @AutoCodec.Instantiator
+  @VisibleForTesting
   public static SingleToolchainResolutionValue create(
       ToolchainTypeInfo toolchainType,
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels) {

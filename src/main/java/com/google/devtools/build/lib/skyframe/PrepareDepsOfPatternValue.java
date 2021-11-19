@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -46,7 +47,7 @@ import java.util.List;
 public class PrepareDepsOfPatternValue implements SkyValue {
   // Note that this value does not guarantee singleton-like reference equality because we use Java
   // deserialization. Java deserialization can create other instances.
-  @AutoCodec
+  @SerializationConstant
   public static final PrepareDepsOfPatternValue INSTANCE = new PrepareDepsOfPatternValue();
 
   private PrepareDepsOfPatternValue() {
