@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
@@ -57,6 +59,7 @@ import net.starlark.java.syntax.Location;
 
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
+@AutoCodec
 public final class JavaInfo extends NativeInfo
     implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData> {
 
@@ -253,7 +256,9 @@ public final class JavaInfo extends NativeInfo
     return providersList;
   }
 
-  private JavaInfo(
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  JavaInfo(
       TransitiveInfoProviderMap providers,
       ImmutableList<Artifact> directRuntimeJars,
       NestedSet<Artifact> transitiveOnlyRuntimeJars,

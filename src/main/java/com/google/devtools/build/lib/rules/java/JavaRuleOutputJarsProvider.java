@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import java.util.Collection;
@@ -35,16 +35,17 @@ import net.starlark.java.eval.StarlarkList;
 
 /** Provides information about jar files produced by a Java rule. */
 @Immutable
+@AutoCodec
 public final class JavaRuleOutputJarsProvider
     implements TransitiveInfoProvider, JavaRuleOutputJarsProviderApi<JavaOutput> {
 
-  @SerializationConstant
   public static final JavaRuleOutputJarsProvider EMPTY =
       new JavaRuleOutputJarsProvider(ImmutableList.<JavaOutput>of());
 
   /** A collection of artifacts associated with a jar output. */
   @AutoValue
   @Immutable
+  @AutoCodec
   public abstract static class JavaOutput implements JavaOutputApi<Artifact> {
     @Override
     public boolean isImmutable() {
@@ -105,6 +106,7 @@ public final class JavaRuleOutputJarsProvider
     /** A list of sources archive files. */
     public abstract ImmutableList<Artifact> getSourceJars();
 
+    @AutoCodec.Instantiator
     public static JavaOutput create(
         Artifact classJar,
         @Nullable Artifact compileJar,
@@ -187,6 +189,15 @@ public final class JavaRuleOutputJarsProvider
 
   private JavaRuleOutputJarsProvider(ImmutableList<JavaOutput> javaOutputs) {
     this.javaOutputs = javaOutputs;
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  static JavaRuleOutputJarsProvider create(ImmutableList<JavaOutput> javaOutputs) {
+    if (javaOutputs.isEmpty()) {
+      return EMPTY;
+    }
+    return new JavaRuleOutputJarsProvider(javaOutputs);
   }
 
   @Override

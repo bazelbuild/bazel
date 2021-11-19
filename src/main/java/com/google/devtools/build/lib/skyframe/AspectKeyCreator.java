@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
@@ -107,6 +107,7 @@ public final class AspectKeyCreator {
   // Specific subtypes of aspect keys.
 
   /** Represents an aspect applied to a particular target. */
+  @AutoCodec
   public static final class AspectKey extends AspectBaseKey {
     private final ImmutableList<AspectKey> baseKeys;
     @Nullable private final BuildConfigurationKey aspectConfigurationKey;
@@ -124,7 +125,8 @@ public final class AspectKeyCreator {
       this.aspectDescriptor = aspectDescriptor;
     }
 
-    @VisibleForTesting
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
     static AspectKey createAspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
@@ -255,11 +257,14 @@ public final class AspectKeyCreator {
   }
 
   /** The key for top level aspects specified by --aspects option on a top level target. */
+  @AutoCodec
   public static final class TopLevelAspectsKey extends AspectBaseKey {
     private final ImmutableList<AspectClass> topLevelAspectsClasses;
     private final Label targetLabel;
 
-    private static TopLevelAspectsKey createInternal(
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    static TopLevelAspectsKey createInternal(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         Label targetLabel,
         ConfiguredTargetKey baseConfiguredTargetKey) {
