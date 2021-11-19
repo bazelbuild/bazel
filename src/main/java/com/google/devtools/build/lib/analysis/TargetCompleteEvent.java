@@ -194,7 +194,7 @@ public final class TargetCompleteEvent
           ConfiguredAttributeMapper.of(
               (Rule) targetAndData.getTarget(),
               targetAndData.getConfiguredTarget().getConfigConditions(),
-              configuration.checksum());
+              configuration);
       // Every build rule (implicitly) has a "tags" attribute. However other rule configured targets
       // are repository rules (which don't have a tags attribute); morevoer, thanks to the virtual
       // "external" package, they are user visible as targets and can create a completed event as

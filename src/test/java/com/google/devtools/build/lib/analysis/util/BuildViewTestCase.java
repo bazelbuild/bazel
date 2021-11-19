@@ -1767,7 +1767,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ConfiguredAttributeMapper.of(
         (Rule) ctad.getTarget(),
         ctad.getConfiguredTarget().getConfigConditions(),
-        ctad.getConfiguration().checksum());
+        ctad.getConfiguration());
   }
 
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {

@@ -19,6 +19,7 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
@@ -70,6 +71,20 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   public static ConfiguredAttributeMapper of(
       Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
     return new ConfiguredAttributeMapper(rule, configConditions, configHash);
+  }
+
+  /**
+   * "Manual" constructor that requires the caller to pass the set of configurability conditions
+   * that trigger this rule's configurable attributes.
+   *
+   * <p>If you don't know how to do this, you really want to use one of the "do-it-all"
+   * constructors.
+   */
+  public static ConfiguredAttributeMapper of(
+      Rule rule,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      BuildConfigurationValue configuration) {
+    return new ConfiguredAttributeMapper(rule, configConditions, configuration.checksum());
   }
 
   /**

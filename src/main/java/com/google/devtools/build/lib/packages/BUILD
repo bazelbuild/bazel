@@ -15,6 +15,7 @@ java_library(
     srcs = ["ConfiguredAttributeMapper.java"],
     deps = [
         ":packages",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",

@@ -1678,7 +1678,7 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(visibility);
       AttributeMap attributes =
           ConfiguredAttributeMapper.of(
-              target.getAssociatedRule(), configConditions.asProviders(), configuration.checksum());
+              target.getAssociatedRule(), configConditions.asProviders(), configuration);
       checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       // This conditionally checks visibility on config_setting rules based on
