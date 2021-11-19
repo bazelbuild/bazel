@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.AspectDetails;
+import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsKey;
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -52,7 +53,7 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
     BuildTopLevelAspectsDetailsValue topLevelAspectsDetails =
         (BuildTopLevelAspectsDetailsValue)
             env.getValue(
-                BuildTopLevelAspectsDetailsFunction.createBuildTopLevelAspectsDetailsKey(
+                BuildTopLevelAspectsDetailsKey.create(
                     topLevelAspectsKey.getTopLevelAspectsClasses()));
     if (topLevelAspectsDetails == null) {
       return null; // some aspects details are not ready
