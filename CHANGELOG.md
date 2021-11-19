@@ -1,3 +1,40 @@
+## Release 6.0.0-pre.20211110.1 (2021-11-19)
+
+```
+Baseline: 5149408a6c2500cb1701880575c41640d4fd1c2f
+
+Cherry picks:
+
+   + b371a986bdb60caf2bb07da0732e8870f2f81ef5:
+     Properly account for StarlarkOptions at their default (=null)
+     when calculating ST-hash
+```
+
+Important changes:
+
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+
+This release contains contributions from many people at Google, as well as Andrew Katson, Benedek Thaler, Brandon Jacklyn, Keith Smiley.
+
+## Release 6.0.0-pre.20211101.2 (2021-11-11)
+
+```
+Baseline: 9c65356cedcf4e68077219c10f5a7bb39d38054b
+
+Cherry picks:
+
+   + 2c9721f9ba11979eee1fd95fe793b52369df99ac:
+     Automated rollback of commit
+     9c65356cedcf4e68077219c10f5a7bb39d38054b.
+```
+
+Important changes:
+
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Ben Lee, Fabian Meumertzheim, Fredrik Medley, Keith Smiley, Rahul Butani, Ulf Adams, William Muir.
+
 ## Release 6.0.0-pre.20211025.1 (2021-11-03)
 
 ```
