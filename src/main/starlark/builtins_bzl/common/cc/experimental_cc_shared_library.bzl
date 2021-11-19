@@ -394,6 +394,10 @@ def _cc_shared_library_impl(ctx):
     for user_link_flag in ctx.attr.user_link_flags:
         user_link_flags.append(ctx.expand_location(user_link_flag, targets = ctx.attr.additional_linker_inputs))
 
+    main_output = None
+    if ctx.attr.shared_lib_name:
+        main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
+
     linking_outputs = cc_common.link(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
@@ -403,6 +407,7 @@ def _cc_shared_library_impl(ctx):
         additional_inputs = ctx.files.additional_linker_inputs,
         name = ctx.label.name,
         output_type = "dynamic_library",
+        main_output = main_output,
     )
 
     runfiles = ctx.runfiles(
@@ -438,6 +443,9 @@ def _cc_shared_library_impl(ctx):
         DefaultInfo(
             files = depset(library + debug_files),
             runfiles = runfiles,
+        ),
+        OutputGroupInfo(
+            main_shared_library_output = depset(library),
         ),
         CcSharedLibraryInfo(
             dynamic_deps = merged_cc_shared_library_info,
@@ -502,6 +510,7 @@ cc_shared_library = rule(
     implementation = _cc_shared_library_impl,
     attrs = {
         "additional_linker_inputs": attr.label_list(allow_files = True),
+        "shared_lib_name": attr.string(),
         "dynamic_deps": attr.label_list(providers = [CcSharedLibraryInfo]),
         "exports_filter": attr.string_list(),
         "permissions": attr.label_list(providers = [CcSharedLibraryPermissionsInfo]),

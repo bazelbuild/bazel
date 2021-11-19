@@ -256,7 +256,20 @@ build_failure_test(
 
 cc_library(
     name = "prebuilt",
+    srcs = [":just_main_output"],
+)
+
+genrule(
+    name = "check_file_named_correctly",
+    srcs = ["just_main_output"],
+    outs = ["direct_so_file_copy.so"],
+    cmd = "cp $$(dirname $(location :just_main_output))/direct_so_file.so $@",
+)
+
+filegroup(
+    name = "just_main_output",
     srcs = ["direct_so_file"],
+    output_group = "main_shared_library_output",
 )
 
 cc_shared_library(
@@ -264,6 +277,7 @@ cc_shared_library(
     roots = [
         ":direct_so_file_cc_lib",
     ],
+    shared_lib_name = "direct_so_file.so",
 )
 
 cc_library(
