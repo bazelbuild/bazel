@@ -1305,8 +1305,58 @@ void suspend_callback(SuspensionReason value) {
   }
 }
 
+jobject g_thermal_module;
+
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressureCounter
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
+ * Method:    registerJNI
+ * Signature: ()V
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_thermal_module != nullptr) {
+    PostAssertionError(env,
+                       "Singleton SystemThermalModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemThermalModule");
+    return;
+  }
+
+  g_thermal_module = env->NewGlobalRef(local_object);
+  if (g_thermal_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemThermalModule");
+    return;
+  }
+  portable_start_thermal_monitoring();
+}
+
+void thermal_callback(int value) {
+  if (g_suspend_module != nullptr) {
+    PerformIntegerValueCallback(g_thermal_module, "thermalCallback", value);
+  }
+}
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
+ * Method:    thermalLoad
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_thermalLoad(
+    JNIEnv *env, jclass) {
+  return portable_thermal_load();
+}
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressure
  * Method:    warningCountJNI
  * Signature: ()I
  */

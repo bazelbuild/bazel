@@ -17,6 +17,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <libkern/OSThermalNotification.h>
+#include <notify.h>
 #include <os/log.h>
 #include <stdlib.h>
 #include <string.h>
@@ -163,12 +165,12 @@ static os_log_t JniOSLog() {
 
 // The macOS implementation asserts that `msg` be a string literal (not just a
 // const char*), so we cannot use a function.
-#define log_if_possible(msg)   \
-  do {                         \
-    os_log_t log = JniOSLog(); \
-    if (log != nullptr) {      \
-      os_log_debug(log, msg);  \
-    }                          \
+#define log_if_possible(msg...)     \
+  do {                              \
+    os_log_t log = JniOSLog();      \
+    if (log != nullptr) {           \
+      os_log_debug(log, msg);       \
+    }                               \
   } while (0);
 
 // Protects all of the g_sleep_state_* statics.
@@ -306,6 +308,80 @@ void portable_start_suspend_monitoring() {
     dispatch_resume(signal_source);
     log_if_possible("suspend monitoring registered");
   });
+}
+
+static int gThermalNotifyToken = 0;
+
+void portable_start_thermal_monitoring() {
+  // To test use:
+  //   /usr/bin/log stream -level debug \
+  //       --predicate '(subsystem == "build.bazel")'
+  //   sudo thermal simulate cpu {nominal|moderate|heavy|trapping|sleeping}
+  // Note that we install the test notification as well that can be used for
+  // testing.
+  static dispatch_once_t once_token;
+  static SuspendState suspend_state;
+  dispatch_once(&once_token, ^{
+    notify_handler_t handler = (^(int state) {
+      int value = portable_thermal_load();
+      thermal_callback(value);
+    });
+    int status = notify_register_dispatch(
+        kOSThermalNotificationPressureLevelName, &gThermalNotifyToken,
+        JniDispatchQueue(), handler);
+    CHECK(status == NOTIFY_STATUS_OK);
+
+    // This is registered solely so we can test the system from end-to-end.
+    // Using the Apple notification requires admin access.
+    int testToken;
+    status = notify_register_dispatch(
+        "com.google.bazel.test.thermalpressurelevel", &testToken,
+        JniDispatchQueue(), handler);
+    CHECK(status == NOTIFY_STATUS_OK);
+    log_if_possible("thermal monitoring registered");
+  });
+}
+
+int portable_thermal_load() {
+  uint64_t state;
+  uint32_t status = notify_get_state(gThermalNotifyToken, &state);
+  if (status != NOTIFY_STATUS_OK) {
+    log_if_possible("error: notify_get_state failed (%d)", status);
+    return -1;
+  }
+  OSThermalPressureLevel thermalLevel = (OSThermalPressureLevel)state;
+  int load = -1;
+  switch (thermalLevel) {
+    case kOSThermalPressureLevelNominal:
+      log_if_possible("thermal pressure nominal (0) anomaly");
+      load = 0;
+      break;
+
+    case kOSThermalPressureLevelModerate:
+      log_if_possible("thermal pressure moderate (33) anomaly ");
+      load = 33;
+      break;
+
+    case kOSThermalPressureLevelHeavy:
+      log_if_possible("thermal pressure heavy (50) anomaly");
+      load = 50;
+      break;
+
+    case kOSThermalPressureLevelTrapping:
+      log_if_possible("thermal pressure trapping (90) anomaly");
+      load = 90;
+      break;
+
+    case kOSThermalPressureLevelSleeping:
+      log_if_possible("thermal pressure sleeping (100) anomaly");
+      load = 100;
+      break;
+  }
+  if (load == -1) {
+    log_if_possible("error: unknown thermal pressure anomaly %d", load);
+  }
+
+  return load;
 }
 
 static std::atomic_int pressure_warning_count{0};

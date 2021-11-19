@@ -61,6 +61,7 @@ cc_binary(
         "processes-jni.cc",
         "sleep_prevention_jni.cc",
         "system_suspension_monitor_jni.cc",
+        "system_thermal_monitor_jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],

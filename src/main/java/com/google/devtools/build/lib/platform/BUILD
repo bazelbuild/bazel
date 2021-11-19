@@ -35,6 +35,21 @@ java_library(
 )
 
 java_library(
+    name = "system_thermal_module",
+    srcs = [
+        "SystemThermalModule.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:flogger",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "memory_pressure_counter",
     srcs = [
         "MemoryPressureCounter.java",

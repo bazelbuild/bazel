@@ -125,6 +125,17 @@ typedef enum  {
 // when a suspension is detected.
 extern void suspend_callback(SuspensionReason value);
 
+// Starts up any infrastructure needed to do thermal monitoring.
+// May be called more than once.
+void portable_start_thermal_monitoring();
+
+// Declaration for callback function that is called by thermal monitoring
+// when a thermal event is detected.
+extern void thermal_callback(int value);
+
+// Returns the current thermal load.
+int portable_thermal_load();
+
 // Returns the number of times that the system has received a memory pressure
 // warning notification since Bazel started.
 int portable_memory_pressure_warning_count();

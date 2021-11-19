@@ -134,6 +134,15 @@ void portable_start_suspend_monitoring() {
   // Currently not implemented.
 }
 
+void portable_start_thermal_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_thermal_load() {
+  // Currently not implemented.
+  return 0;
+}
+
 int portable_memory_pressure_warning_count() {
   // Currently not implemented.
   return 0;
