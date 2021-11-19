@@ -1,3 +1,21 @@
+## Release 6.0.0-pre.20211110.1 (2021-11-19)
+
+```
+Baseline: 5149408a6c2500cb1701880575c41640d4fd1c2f
+
+Cherry picks:
+
+   + b371a986bdb60caf2bb07da0732e8870f2f81ef5:
+     Properly account for StarlarkOptions at their default (=null)
+     when calculating ST-hash
+```
+
+Important changes:
+
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+
+This release contains contributions from many people at Google, as well as Andrew Katson, Benedek Thaler, Brandon Jacklyn, Keith Smiley.
+
 ## Release 6.0.0-pre.20211101.2 (2021-11-11)
 
 ```
