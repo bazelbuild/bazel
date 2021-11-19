@@ -519,7 +519,7 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "experimental_remote_merkle_tree_cache",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
