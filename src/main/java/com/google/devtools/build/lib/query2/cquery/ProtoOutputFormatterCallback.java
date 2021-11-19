@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.analysis.AnalysisProtos;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -63,7 +63,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final SkyframeExecutor skyframeExecutor;
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
-  private AnalysisProtos.CqueryResult.Builder protoResult;
+  private AnalysisProtosV2.CqueryResult.Builder protoResult;
 
   private KeyedConfiguredTarget currentTarget;
 
@@ -83,7 +83,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   @Override
   public void start() {
-    protoResult = AnalysisProtos.CqueryResult.newBuilder();
+    protoResult = AnalysisProtosV2.CqueryResult.newBuilder();
   }
 
   @Override
@@ -126,7 +126,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @VisibleForTesting
-  public AnalysisProtos.CqueryResult getProtoResult() {
+  public AnalysisProtosV2.CqueryResult getProtoResult() {
     return protoResult.build();
   }
 
@@ -136,8 +136,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getHashFunction());
     for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
-      AnalysisProtos.ConfiguredTarget.Builder builder =
-          AnalysisProtos.ConfiguredTarget.newBuilder();
+      AnalysisProtosV2.ConfiguredTarget.Builder builder =
+          AnalysisProtosV2.ConfiguredTarget.newBuilder();
 
       // Re: testing. Since this formatter relies on the heavily tested ProtoOutputFormatter class
       // for all its work with targets, ProtoOuputFormatterCallbackTest doesn't test any of the
@@ -149,7 +149,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       if (options.protoIncludeConfigurations) {
         String checksum = keyedConfiguredTarget.getConfigurationChecksum();
         builder.setConfiguration(
-            AnalysisProtos.Configuration.newBuilder().setChecksum(String.valueOf(checksum)));
+            AnalysisProtosV2.Configuration.newBuilder().setChecksum(String.valueOf(checksum)));
       }
 
       protoResult.addResults(builder.build());

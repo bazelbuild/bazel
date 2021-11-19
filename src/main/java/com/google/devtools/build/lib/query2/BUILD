@@ -114,7 +114,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",

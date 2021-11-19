@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.analysis.AnalysisProtos;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
@@ -91,7 +91,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "  values = {'foo': 'cat'}",
         ")");
 
-    AnalysisProtos.ConfiguredTarget myRuleProto =
+    AnalysisProtosV2.ConfiguredTarget myRuleProto =
         (Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList()));
     List<Build.Attribute> attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
@@ -141,7 +141,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "simple_rule(name = 'dep')");
 
     // Assert checksum from proto is proper checksum.
-    AnalysisProtos.ConfiguredTarget myRuleProto =
+    AnalysisProtosV2.ConfiguredTarget myRuleProto =
         Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
     KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
 
@@ -149,11 +149,11 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .isEqualTo(myRule.getConfigurationChecksum());
 
     // Assert checksum for two configured targets in proto are not the same.
-    List<AnalysisProtos.ConfiguredTarget> protoDeps =
+    List<AnalysisProtosV2.ConfiguredTarget> protoDeps =
         getOutput("deps(//test:my_rule)").getResultsList();
     assertThat(protoDeps).hasSize(2);
 
-    Iterator<AnalysisProtos.ConfiguredTarget> protoDepsIterator = protoDeps.iterator();
+    Iterator<AnalysisProtosV2.ConfiguredTarget> protoDepsIterator = protoDeps.iterator();
     assertThat(protoDepsIterator.next().getConfiguration().getChecksum())
         .isNotEqualTo(protoDepsIterator.next().getConfiguration().getChecksum());
   }
@@ -166,7 +166,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "simple_rule(name = 'my_rule')",
         "alias(name = 'my_alias', actual = ':my_rule')");
 
-    AnalysisProtos.ConfiguredTarget alias =
+    AnalysisProtosV2.ConfiguredTarget alias =
         Iterables.getOnlyElement(getOutput("//test:my_alias").getResultsList());
 
     assertThat(alias.getTarget().getRule().getName()).isEqualTo("//test:my_alias");
@@ -196,7 +196,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--foo=woof");
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
 
-    List<AnalysisProtos.ConfiguredTarget> myAliasRuleProto =
+    List<AnalysisProtosV2.ConfiguredTarget> myAliasRuleProto =
         getOutput("deps(//test:my_alias_rule)").getResultsList();
 
     List<String> depNames = new ArrayList<>(myAliasRuleProto.size());
@@ -210,7 +210,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     return () -> MockRule.define("simple_rule");
   }
 
-  private AnalysisProtos.CqueryResult getOutput(String queryExpression) throws Exception {
+  private AnalysisProtosV2.CqueryResult getOutput(String queryExpression) throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
