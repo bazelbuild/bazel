@@ -17,13 +17,14 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** Dummy {@link SkyValue} for {@link CollectTestSuitesInPackageFunction}. */
 public class CollectTestSuitesInPackageValue implements SkyValue {
-  @AutoCodec
+  @SerializationConstant
   public static final CollectTestSuitesInPackageValue INSTANCE =
       new CollectTestSuitesInPackageValue();
 
