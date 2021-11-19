@@ -168,7 +168,10 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
           currentTarget.getConfiguredTarget().getConfigConditions();
       ConfiguredAttributeMapper attributeMapper =
           ConfiguredAttributeMapper.of(
-              rule, configConditions, currentTarget.getConfigurationChecksum());
+              rule,
+              configConditions,
+              currentTarget.getConfigurationChecksum(),
+              /*alwaysSucceed=*/ false);
       for (Attribute attr : sortAttributes(rule.getAttributes())) {
         if (!shouldIncludeAttribute(rule, attr)) {
           continue;

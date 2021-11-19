@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
@@ -53,12 +54,17 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private final Map<Label, ConfigMatchingProvider> configConditions;
   private final String configHash;
+  private final boolean alwaysSucceed;
 
   private ConfiguredAttributeMapper(
-      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
+      Rule rule,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash,
+      boolean alwaysSucceed) {
     super(Preconditions.checkNotNull(rule));
     this.configConditions = configConditions;
     this.configHash = configHash;
+    this.alwaysSucceed = alwaysSucceed;
   }
 
   /**
@@ -69,8 +75,11 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * constructors.
    */
   public static ConfiguredAttributeMapper of(
-      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
-    return new ConfiguredAttributeMapper(rule, configConditions, configHash);
+      Rule rule,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash,
+      boolean alwaysSucceed) {
+    return new ConfiguredAttributeMapper(rule, configConditions, configHash, alwaysSucceed);
   }
 
   /**
@@ -84,7 +93,9 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       Rule rule,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       BuildConfigurationValue configuration) {
-    return new ConfiguredAttributeMapper(rule, configConditions, configuration.checksum());
+    boolean alwaysSucceed =
+        configuration.getOptions().get(CoreOptions.class).debugSelectsAlwaysSucceed;
+    return of(rule, configConditions, configuration.checksum(), alwaysSucceed);
   }
 
   /**
@@ -165,7 +176,6 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     // vs. a more general SortedSet because the latter supports insertion-order, which should more
     // closely match how users see select() structures in BUILD files.
     LinkedHashSet<Label> conditionLabels = new LinkedHashSet<>();
-    ConfigKeyAndValue<T> matchingResult = null;
 
     // Find the matching condition and record its value (checking for duplicates).
     for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
@@ -216,28 +226,24 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
               + Joiner.on("\n").join(matchingConditions.keySet())
               + "\nMultiple matches are not allowed unless one is unambiguously more specialized.");
     } else if (matchingConditions.size() == 1) {
-      matchingResult = Iterables.getOnlyElement(matchingConditions.values());
+      return Iterables.getOnlyElement(matchingConditions.values());
     }
 
     // If nothing matched, choose the default condition.
-    if (matchingResult == null) {
-      if (!selector.hasDefault()) {
-        throw new ValidationException(
-            noMatchError(
-                attributeName,
-                selector.getNoMatchError(),
-                conditionLabels,
-                getLabel(),
-                configHash));
-      }
-      matchingResult =
-          selector.hasDefault()
-              ? new ConfigKeyAndValue<>(
-                  Selector.DEFAULT_CONDITION_LABEL, selector.getDefault(), null)
-              : null;
+    if (selector.hasDefault()) {
+      return new ConfigKeyAndValue<>(Selector.DEFAULT_CONDITION_LABEL, selector.getDefault(), null);
     }
 
-    return matchingResult;
+    // If we're in a debugging mode, set a fake default using the empty value for this select's
+    // type.
+    if (alwaysSucceed) {
+      return new ConfigKeyAndValue<>(
+          Selector.DEFAULT_CONDITION_LABEL, selector.getOriginalType().getDefaultValue(), null);
+    }
+
+    throw new ValidationException(
+        noMatchError(
+            attributeName, selector.getNoMatchError(), conditionLabels, getLabel(), configHash));
   }
 
   /**

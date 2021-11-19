@@ -39,12 +39,6 @@ import javax.annotation.Nullable;
 public class ExecutionTransitionFactory
     implements TransitionFactory<AttributeTransitionData>, ExecTransitionFactoryApi {
 
-  private final String execGroup;
-
-  private ExecutionTransitionFactory(String execGroup) {
-    this.execGroup = execGroup;
-  }
-
   /**
    * Returns a new {@link ExecutionTransitionFactory} for the default {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.
@@ -53,17 +47,23 @@ public class ExecutionTransitionFactory
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
   }
 
-  @Override
-  public TransitionType transitionType() {
-    return TransitionType.ATTRIBUTE;
-  }
-
   /**
    * Returns a new {@link ExecutionTransitionFactory} for the given {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.
    */
   public static ExecutionTransitionFactory create(String execGroup) {
     return new ExecutionTransitionFactory(execGroup);
+  }
+
+  private final String execGroup;
+
+  private ExecutionTransitionFactory(String execGroup) {
+    this.execGroup = execGroup;
+  }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.ATTRIBUTE;
   }
 
   @Override
@@ -148,6 +148,8 @@ public class ExecutionTransitionFactory
         featureFlags.forEach(resultBuilder::removeStarlarkOption);
         result = resultBuilder.build();
       }
+
+      // Finally, re-apply the platform mappings in case anything was changed.
 
       return result;
     }

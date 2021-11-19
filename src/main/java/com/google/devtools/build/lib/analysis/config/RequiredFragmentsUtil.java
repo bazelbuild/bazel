@@ -92,7 +92,7 @@ public final class RequiredFragmentsUtil {
     }
     RuleClass ruleClass = target.getRuleClassObject();
     ConfiguredAttributeMapper attributes =
-        ConfiguredAttributeMapper.of(target, configConditions, configuration.checksum());
+        ConfiguredAttributeMapper.of(target, configConditions, configuration);
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         getRequiredFragments(
             mode,
@@ -156,7 +156,7 @@ public final class RequiredFragmentsUtil {
     addRequiredFragmentsFromAspectTransitions(
         requiredFragments,
         aspect,
-        ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration.checksum()),
+        ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration),
         configuration.getBuildOptionDetails());
     return requiredFragments.build();
   }
