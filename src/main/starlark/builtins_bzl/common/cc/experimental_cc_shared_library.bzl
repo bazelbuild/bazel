@@ -145,6 +145,11 @@ def _build_link_once_static_libs_map(merged_shared_library_infos):
             link_once_static_libs_map[static_lib] = str(linker_input.owner)
     return link_once_static_libs_map
 
+def _is_dynamic_only(library_to_link):
+    if library_to_link.static_library == None and library_to_link.pic_static_library == None:
+        return True
+    return False
+
 def _wrap_static_library_with_alwayslink(ctx, feature_configuration, cc_toolchain, linker_input):
     new_libraries_to_link = []
     for old_library_to_link in linker_input.libraries:
@@ -267,7 +272,24 @@ def _filter_inputs(
                 fail(owner + " is already linked statically in " +
                      link_once_static_libs_map[owner] + " but not exported")
 
-            if owner in direct_exports:
+            is_direct_export = owner in direct_exports
+
+            found_dynamic_only = False
+            found_static = False
+            for library in linker_input.libraries:
+                if _is_dynamic_only(library):
+                    found_dynamic_only = True
+                else:
+                    found_static = True
+            if found_dynamic_only:
+                if not found_static:
+                    if is_direct_export:
+                        fail("Do not place libraries which only contain a precompiled dynamic library in roots.")
+                    continue
+                else:
+                    fail(owner + " has sources and a precompiled dynamic library. Pull the latter into a separate cc_import rule")
+
+            if is_direct_export:
                 wrapped_library = _wrap_static_library_with_alwayslink(
                     ctx,
                     feature_configuration,
@@ -383,9 +405,8 @@ def _cc_shared_library_impl(ctx):
         output_type = "dynamic_library",
     )
 
-    libraries = [linking_outputs.library_to_link.resolved_symlink_dynamic_library, linking_outputs.library_to_link.dynamic_library]
     runfiles = ctx.runfiles(
-        files = libraries,
+        files = [linking_outputs.library_to_link.resolved_symlink_dynamic_library, linking_outputs.library_to_link.dynamic_library],
     )
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
@@ -407,9 +428,15 @@ def _cc_shared_library_impl(ctx):
     if not ctx.fragments.cpp.experimental_link_static_libraries_once():
         link_once_static_libs = []
 
+    library = []
+    if linking_outputs.library_to_link.resolved_symlink_dynamic_library != None:
+        library.append(linking_outputs.library_to_link.resolved_symlink_dynamic_library)
+    else:
+        library.append(linking_outputs.library_to_link.dynamic_library)
+
     return [
         DefaultInfo(
-            files = depset(libraries + debug_files),
+            files = depset(library + debug_files),
             runfiles = runfiles,
         ),
         CcSharedLibraryInfo(

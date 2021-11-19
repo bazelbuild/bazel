@@ -1,6 +1,6 @@
 load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "linking_suffix_test", "paths_test")
 
-LINKABLE_MORE_THAN_ONCE="LINKABLE_MORE_THAN_ONCE"
+LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
 licenses(["notice"])
 
@@ -58,8 +58,8 @@ cc_binary(
         ":diamond2_so",
     ],
     deps = [
-        ":foo",
         ":a_suffix",
+        ":foo",
     ],
 )
 
@@ -79,6 +79,7 @@ cc_shared_library(
     static_deps = [
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:prebuilt",
     ],
     user_link_flags = [
         "-Wl,-rpath,kittens",
@@ -104,6 +105,7 @@ cc_library(
         # Not exported.
         "qux",
         "qux2",
+        "prebuilt",
     ],
 )
 
@@ -137,7 +139,7 @@ config_setting(
     name = "is_bazel",
     define_values = {
         "is_bazel": "true",
-    }
+    },
 )
 
 cc_shared_library(
@@ -156,7 +158,7 @@ cc_shared_library(
         "bar",
         "bar2",
     ] + select({
-        ":is_bazel" : ["@test_repo//:bar"],
+        ":is_bazel": ["@test_repo//:bar"],
         "//conditions:default": [],
     }),
     static_deps = [
@@ -174,7 +176,7 @@ cc_library(
     srcs = ["barX.cc"],
     hdrs = ["barX.h"],
     deps = select({
-        ":is_bazel" : ["@test_repo//:bar"],
+        ":is_bazel": ["@test_repo//:bar"],
         "//conditions:default": [],
     }),
 )
@@ -250,6 +252,23 @@ build_failure_test(
     name = "forbidden_target_permissions_test",
     message = "can only list targets that are in the same package or a sub-package",
     target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:permissions_fail",
+)
+
+cc_library(
+    name = "prebuilt",
+    srcs = ["direct_so_file"],
+)
+
+cc_shared_library(
+    name = "direct_so_file",
+    roots = [
+        ":direct_so_file_cc_lib",
+    ],
+)
+
+cc_library(
+    name = "direct_so_file_cc_lib",
+    srcs = ["direct_so_file_cc_lib.cc"],
 )
 
 cc_shared_library_permissions(
