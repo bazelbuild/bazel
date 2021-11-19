@@ -1976,7 +1976,6 @@ java_library(
     name = "prepare_test_suites_under_directory_value",
     srcs = ["PrepareTestSuitesUnderDirectoryValue.java"],
     deps = [
-        ":recursive_pkg_key",
         ":recursive_pkg_sky_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2173,7 +2172,6 @@ java_library(
     name = "recursive_pkg_value",
     srcs = ["RecursivePkgValue.java"],
     deps = [
-        ":recursive_pkg_key",
         ":recursive_pkg_sky_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
