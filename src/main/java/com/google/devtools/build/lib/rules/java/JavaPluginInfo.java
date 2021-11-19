@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +34,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 
 /** Provider for users of Java plugins. */
-@AutoCodec
 @Immutable
 @AutoValue
 public abstract class JavaPluginInfo extends NativeInfo
@@ -88,7 +86,6 @@ public abstract class JavaPluginInfo extends NativeInfo
   }
 
   /** Information about a Java plugin, except for whether it generates API. */
-  @AutoCodec
   @Immutable
   @AutoValue
   public abstract static class JavaPluginData implements JavaPluginInfoApi.JavaPluginDataApi {
@@ -101,7 +98,6 @@ public abstract class JavaPluginInfo extends NativeInfo
           processorClasses, processorClasspath, data);
     }
 
-    @AutoCodec.Instantiator
     public static JavaPluginData empty() {
       return create(
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
@@ -185,7 +181,6 @@ public abstract class JavaPluginInfo extends NativeInfo
         javaOutputs, javaPluginData, generatesApi ? javaPluginData : JavaPluginData.empty());
   }
 
-  @AutoCodec.Instantiator
   public static JavaPluginInfo empty() {
     return new AutoValue_JavaPluginInfo(
         ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
