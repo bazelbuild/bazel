@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.platform;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.buildtool.buildevent.SystemSuspensionEvent;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -56,10 +55,8 @@ public final class SystemSuspensionModule extends BlazeModule {
   synchronized void suspendCallback(int reason) {
     if (reporter != null) {
       SystemSuspensionEvent event = new SystemSuspensionEvent(reason);
-      String logString = event.logString();
-      reporter.handle(Event.info(logString));
       reporter.post(event);
-      logger.atInfo().log(logString);
+      logger.atInfo().log(event.logString());
     }
   }
 }
