@@ -39,7 +39,8 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions one after
  * another, so BuildView calls this function to do the work.
  */
-public class ToplevelStarlarkAspectFunction implements SkyFunction {
+public final class ToplevelStarlarkAspectFunction implements SkyFunction {
+
   ToplevelStarlarkAspectFunction() {}
 
   @Nullable
@@ -102,14 +103,13 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
         AspectKeyCreator.createAspectKey(
             aspect.getAspectDescriptor(),
             dependentAspects.build(),
-            topLevelTargetKey.getConfigurationKey(),
             topLevelTargetKey);
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }
 
   /** Exceptions thrown from ToplevelStarlarkAspectFunction. */
-  public static class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
+  public static final class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
     public TopLevelStarlarkAspectFunctionException(AspectCreationException cause) {
       super(cause, Transience.PERSISTENT);
     }

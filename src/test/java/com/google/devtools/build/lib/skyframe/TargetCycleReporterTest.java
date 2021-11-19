@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link TargetCycleReporter}. */
 @RunWith(JUnit4.class)
-public class TargetCycleReporterTest extends BuildViewTestCase {
+public final class TargetCycleReporterTest extends BuildViewTestCase {
 
   /**
    * Regression test for b/142966884 : Blaze crashes when building with --aspects and --keep_going
@@ -62,9 +62,7 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");
 
-    SkyKey aspectKey =
-        AspectKeyCreator.AspectKey.createAspectKey(
-            ctKey, ImmutableList.of(), null, targetConfig.getKey());
+    SkyKey aspectKey = AspectKeyCreator.createAspectKey(null, ctKey);
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, aspectKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "

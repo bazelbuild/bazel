@@ -874,7 +874,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
               pair.commandLine.arguments(),
               pair.paramFileInfo.getFileType(),
               pair.paramFileInfo.getCharset());
-          return new String(out.toByteArray(), pair.paramFileInfo.getCharset());
+          return out.toString(pair.paramFileInfo.getCharset());
         }
       }
     }
@@ -1521,13 +1521,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        (AspectKey)
-            AspectKeyCreator.createAspectKey(
-                    owner.getLabel(),
-                    getConfiguration(owner),
-                    new AspectDescriptor(creatingAspectFactory, parameters),
-                    getConfiguration(owner))
-                .argument());
+        AspectKeyCreator.createAspectKey(
+            new AspectDescriptor(creatingAspectFactory, parameters),
+            ConfiguredTargetKey.builder()
+                .setLabel(owner.getLabel())
+                .setConfiguration(getConfiguration(owner))
+                .build()));
   }
 
   /**
@@ -1618,13 +1617,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
-    return (AspectKey)
-        AspectKeyCreator.createAspectKey(
-                owner.getLabel(),
-                getConfiguration(owner),
-                new AspectDescriptor(creatingAspectFactory, params),
-                getConfiguration(owner))
-            .argument();
+    return AspectKeyCreator.createAspectKey(
+        new AspectDescriptor(creatingAspectFactory, params),
+        ConfiguredTargetKey.builder()
+            .setLabel(owner.getLabel())
+            .setConfiguration(getConfiguration(owner))
+            .build());
   }
 
   /**
@@ -2293,7 +2291,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
           .writeOutputFile(bytes);
 
-      for (String line : Splitter.on('\n').split(new String(bytes.toByteArray(), UTF_8))) {
+      for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
         if (line.startsWith("SF:")) {
           String basename = line.substring(line.lastIndexOf('/') + 1);
           basenames.add(basename);

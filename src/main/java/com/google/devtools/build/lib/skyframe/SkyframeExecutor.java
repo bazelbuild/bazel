@@ -1841,15 +1841,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         continue;
       }
       for (BuildConfigurationValue depConfig : configs.get(key)) {
-        skyKeys.add(
+        ConfiguredTargetKey configuredTargetKey =
             ConfiguredTargetKey.builder()
                 .setLabel(key.getLabel())
                 .setConfiguration(depConfig)
-                .build());
+                .build();
+        skyKeys.add(configuredTargetKey);
         for (AspectDeps aspectDeps : key.getAspects().getUsedAspects()) {
           skyKeys.add(
-              AspectKeyCreator.createAspectKey(
-                  key.getLabel(), depConfig, aspectDeps.getAspect(), depConfig));
+              AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), configuredTargetKey));
         }
       }
       skyKeys.add(PackageValue.key(key.getLabel().getPackageIdentifier()));
@@ -1874,7 +1874,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           continue;
         }
         for (BuildConfigurationValue depConfig : configs.get(key)) {
-          SkyKey configuredTargetKey =
+          ConfiguredTargetKey configuredTargetKey =
               ConfiguredTargetKey.builder()
                   .setLabel(key.getLabel())
                   .setConfiguration(depConfig)
@@ -1904,8 +1904,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
           for (AspectDeps aspectDeps : key.getAspects().getUsedAspects()) {
             SkyKey aspectKey =
-                AspectKeyCreator.createAspectKey(
-                    key.getLabel(), depConfig, aspectDeps.getAspect(), depConfig);
+                AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), configuredTargetKey);
             if (result.get(aspectKey) == null) {
               continue DependentNodeLoop;
             }

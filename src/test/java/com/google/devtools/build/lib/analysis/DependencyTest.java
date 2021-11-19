@@ -36,7 +36,8 @@ import org.junit.runners.JUnit4;
  * <p>Although this is just a data class, we need a way to create a configuration.
  */
 @RunWith(JUnit4.class)
-public class DependencyTest extends AnalysisTestCase {
+public final class DependencyTest extends AnalysisTestCase {
+
   @Test
   public void withNullConfiguration_BasicAccessors() throws Exception {
     Dependency nullDep =
@@ -81,15 +82,10 @@ public class DependencyTest extends AnalysisTestCase {
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects()).isEqualTo(twoAspects);
-    assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
-    assertThat(targetDep.getAspectConfiguration(attributeAspect))
-        .isEqualTo(getTargetConfiguration());
   }
 
   @Test
-  public void withConfigurationAndAspects_RejectsNullConfig() throws Exception {
-    // Although the NullPointerTester should check this, this test invokes a different code path,
-    // because it includes aspects (which the NPT test will not).
+  public void withConfigurationAndAspects_rejectsNullConfig() {
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     AspectCollection twoAspects = AspectCollection.createForTests(simpleAspect, attributeAspect);

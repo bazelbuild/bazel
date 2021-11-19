@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -88,7 +89,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -187,7 +190,9 @@ final class AspectFunction implements SkyFunction {
       NativeAspectClass nativeAspectClass = (NativeAspectClass) key.getAspectClass();
       aspectFactory = (ConfiguredAspectFactory) nativeAspectClass;
       aspect = Aspect.forNative(nativeAspectClass, key.getParameters());
-    } else if (key.getAspectClass() instanceof StarlarkAspectClass) {
+    } else {
+      Preconditions.checkState(
+          key.getAspectClass() instanceof StarlarkAspectClass, "Unknown aspect class: %s", key);
       StarlarkAspectClass starlarkAspectClass = (StarlarkAspectClass) key.getAspectClass();
       StarlarkDefinedAspect starlarkAspect;
       try {
@@ -205,83 +210,70 @@ final class AspectFunction implements SkyFunction {
               starlarkAspect.getAspectClass(),
               starlarkAspect.getDefinition(key.getParameters()),
               key.getParameters());
-    } else {
-      throw new IllegalStateException();
     }
 
+    SkyKey packageKey = PackageValue.key(key.getLabel().getPackageIdentifier());
+    BuildConfigurationKey configurationKey = key.getConfigurationKey();
+    ImmutableSet<SkyKey> keys =
+        configurationKey == null
+            ? ImmutableSet.of(packageKey, key.getBaseConfiguredTargetKey())
+            : ImmutableSet.of(packageKey, key.getBaseConfiguredTargetKey(), configurationKey);
+
+    List<ValueOrException<ConfiguredValueCreationException>> baseValues =
+        env.getOrderedValuesOrThrow(keys, ConfiguredValueCreationException.class);
+
     // Keep this in sync with the same code in ConfiguredTargetFunction.
-    PackageValue packageValue =
-        (PackageValue) env.getValue(PackageValue.key(key.getLabel().getPackageIdentifier()));
+    PackageValue packageValue;
+    try {
+      packageValue = (PackageValue) baseValues.get(0).get();
+    } catch (ConfiguredValueCreationException e) {
+      throw new IllegalStateException(e);
+    }
     if (packageValue == null) {
       return null;
     }
-    Package pkg = packageValue.getPackage();
-    if (pkg.containsErrors()) {
+    if (packageValue.getPackage().containsErrors()) {
       throw new AspectFunctionException(
           new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
     }
 
-    boolean aspectHasConfiguration = key.getConfigurationKey() != null;
-
-    ImmutableSet<SkyKey> keys =
-        aspectHasConfiguration
-            ? ImmutableSet.of(key.getBaseConfiguredTargetKey(), key.getConfigurationKey())
-            : ImmutableSet.of(key.getBaseConfiguredTargetKey());
-
-    Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> baseAndAspectValues =
-        env.getValuesOrThrow(keys, ConfiguredValueCreationException.class);
     if (env.valuesMissing()) {
       return null;
     }
 
     ConfiguredTargetValue baseConfiguredTargetValue;
-    BuildConfigurationValue aspectConfiguration = null;
-
     try {
-      baseConfiguredTargetValue =
-          (ConfiguredTargetValue) baseAndAspectValues.get(key.getBaseConfiguredTargetKey()).get();
+      baseConfiguredTargetValue = (ConfiguredTargetValue) baseValues.get(1).get();
     } catch (ConfiguredValueCreationException e) {
       throw new AspectFunctionException(
           new AspectCreationException(e.getMessage(), e.getRootCauses(), e.getDetailedExitCode()));
     }
-
-    if (aspectHasConfiguration) {
-      try {
-        aspectConfiguration =
-            (BuildConfigurationValue) baseAndAspectValues.get(key.getConfigurationKey()).get();
-      } catch (ConfiguredValueCreationException e) {
-        throw new IllegalStateException(
-            "Unexpected exception from BuildConfigurationFunction when computing "
-                + key.getConfigurationKey(),
-            e);
-      }
-    }
-
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
+    Preconditions.checkState(
+        Objects.equals(key.getConfigurationKey(), associatedTarget.getConfigurationKey()),
+        "Aspect not in same configuration as associated target: %s, %s",
+        key,
+        associatedTarget);
 
-    Package targetPkg;
-    BuildConfigurationValue configuration = null;
-    PackageValue.Key packageKey =
-        PackageValue.key(associatedTarget.getOriginalLabel().getPackageIdentifier());
-    if (associatedTarget.getConfigurationKey() == null) {
-      PackageValue val = ((PackageValue) env.getValue(packageKey));
-      if (val == null) {
-        // Unexpected in Bazel logic, but Skyframe makes no guarantees that this package is
-        // actually present.
-        return null;
-      }
-      targetPkg = val.getPackage();
+    BuildConfigurationValue configuration;
+    if (configurationKey == null) {
+      configuration = null;
     } else {
-      Map<SkyKey, SkyValue> result =
-          env.getValues(ImmutableSet.of(packageKey, associatedTarget.getConfigurationKey()));
-      if (env.valuesMissing()) {
-        // Unexpected in Bazel logic, but Skyframe makes no guarantees that this package and
-        // configuration are actually present.
-        return null;
+      try {
+        configuration = (BuildConfigurationValue) baseValues.get(2).get();
+      } catch (ConfiguredValueCreationException e) {
+        throw new IllegalStateException(e);
       }
-      targetPkg = ((PackageValue) result.get(packageKey)).getPackage();
-      configuration = (BuildConfigurationValue) result.get(associatedTarget.getConfigurationKey());
     }
+
+    PackageValue val =
+        (PackageValue)
+            env.getValue(
+                PackageValue.key(associatedTarget.getOriginalLabel().getPackageIdentifier()));
+    if (val == null) {
+      return null;
+    }
+    Package targetPkg = val.getPackage();
 
     Target target;
     try {
@@ -297,7 +289,7 @@ final class AspectFunction implements SkyFunction {
           new TargetAndConfiguration(target, configuration),
           aspect,
           key,
-          aspectConfiguration,
+          configuration,
           associatedTarget);
     }
     // If we get here, label should match original label, and therefore the target we looked up
@@ -332,9 +324,8 @@ final class AspectFunction implements SkyFunction {
               aspect,
               target.getLocation(),
               ConfiguredAspect.forNonapplicableTarget(),
-              /*transitivePackagesForPackageRootResolution=*/ NestedSetBuilder
-                  .<Package>stableOrder()
-                  .build());
+              /*transitivePackagesForPackageRootResolution=*/ NestedSetBuilder.emptySet(
+                  Order.STABLE_ORDER));
         }
       }
     }
@@ -357,8 +348,7 @@ final class AspectFunction implements SkyFunction {
         aspectPathBuilder.add(((AspectValue) values.get(aspectPathSkyKey)).getAspect());
       }
       try {
-        associatedTarget = getBaseTarget(
-            associatedTarget, key.getBaseKeys(), values);
+        associatedTarget = getBaseTarget(associatedTarget, key.getBaseKeys(), values);
       } catch (DuplicateException e) {
         env.getListener()
             .handle(
@@ -367,7 +357,7 @@ final class AspectFunction implements SkyFunction {
 
         throw new AspectFunctionException(
             new AspectCreationException(
-                e.getMessage(), associatedTarget.getLabel(), aspectConfiguration));
+                e.getMessage(), associatedTarget.getLabel(), configuration));
       }
     }
     associatedConfiguredTargetAndData =
@@ -378,15 +368,8 @@ final class AspectFunction implements SkyFunction {
     NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
 
-    // When getting the dependencies of this hybrid aspect+base target, use the aspect's
-    // configuration. The configuration of the aspect will always be a superset of the target's
-    // (trimmed configuration mode: target is part of the aspect's config fragment requirements;
-    // untrimmed mode: target is the same configuration as the aspect), so the fragments
-    // required by all dependencies (both those of the aspect and those of the base target)
-    // will be present this way.
-    TargetAndConfiguration originalTargetAndAspectConfiguration =
-        new TargetAndConfiguration(
-            associatedConfiguredTargetAndData.getTarget(), aspectConfiguration);
+    TargetAndConfiguration originalTargetAndConfiguration =
+        new TargetAndConfiguration(associatedConfiguredTargetAndData.getTarget(), configuration);
     ImmutableList<Aspect> aspectPath = aspectPathBuilder.build();
     try {
       UnloadedToolchainContext unloadedToolchainContext =
@@ -399,7 +382,7 @@ final class AspectFunction implements SkyFunction {
       ConfigConditions configConditions =
           ConfiguredTargetFunction.getConfigConditions(
               env,
-              originalTargetAndAspectConfiguration,
+              originalTargetAndConfiguration,
               transitivePackagesForPackageRootResolution,
               unloadedToolchainContext == null ? null : unloadedToolchainContext.targetPlatform(),
               transitiveRootCauses);
@@ -414,7 +397,7 @@ final class AspectFunction implements SkyFunction {
             ConfiguredTargetFunction.computeDependencies(
                 env,
                 resolver,
-                originalTargetAndAspectConfiguration,
+                originalTargetAndConfiguration,
                 aspectPath,
                 configConditions.asProviders(),
                 unloadedToolchainContext == null
@@ -429,7 +412,7 @@ final class AspectFunction implements SkyFunction {
                 transitiveRootCauses);
       } catch (ConfiguredValueCreationException e) {
         throw new AspectCreationException(
-            e.getMessage(), key.getLabel(), aspectConfiguration, e.getDetailedExitCode());
+            e.getMessage(), key.getLabel(), configuration, e.getDetailedExitCode());
       }
       if (depValueMap == null) {
         return null;
@@ -466,7 +449,7 @@ final class AspectFunction implements SkyFunction {
           aspect,
           aspectFactory,
           associatedConfiguredTargetAndData,
-          aspectConfiguration,
+          configuration,
           configConditions,
           toolchainContext,
           depValueMap,
@@ -487,21 +470,18 @@ final class AspectFunction implements SkyFunction {
         InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
         env.getListener().handle(Event.error(cause.getLocation(), cause.getMessage()));
         throw new AspectFunctionException(
-            new AspectCreationException(cause.getMessage(), key.getLabel(), aspectConfiguration));
+            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
       } else if (e.getCause() instanceof TransitionException) {
         TransitionException cause = (TransitionException) e.getCause();
         throw new AspectFunctionException(
-            new AspectCreationException(cause.getMessage(), key.getLabel(), aspectConfiguration));
+            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
       } else {
         // Cast to InvalidConfigurationException as a consistency check. If you add any
         // DependencyEvaluationException constructors, you may need to change this code, too.
         InvalidConfigurationException cause = (InvalidConfigurationException) e.getCause();
         throw new AspectFunctionException(
             new AspectCreationException(
-                cause.getMessage(),
-                key.getLabel(),
-                aspectConfiguration,
-                cause.getDetailedExitCode()));
+                cause.getMessage(), key.getLabel(), configuration, cause.getDetailedExitCode()));
       }
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
@@ -781,11 +761,12 @@ final class AspectFunction implements SkyFunction {
             .map(baseKey -> buildAliasAspectKey(baseKey, aliasLabel, dep))
             .collect(toImmutableList());
     return AspectKeyCreator.createAspectKey(
-        aliasLabel,
-        dep.getConfiguration(),
-        aliasedBaseKeys,
         originalKey.getAspectDescriptor(),
-        dep.getAspectConfiguration(originalKey.getAspectDescriptor()));
+        aliasedBaseKeys,
+        ConfiguredTargetKey.builder()
+            .setLabel(aliasLabel)
+            .setConfiguration(dep.getConfiguration())
+            .build());
   }
 
   /**
@@ -828,7 +809,7 @@ final class AspectFunction implements SkyFunction {
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
       ConfiguredTargetAndData associatedTarget,
-      BuildConfigurationValue aspectConfiguration,
+      BuildConfigurationValue configuration,
       ConfigConditions configConditions,
       ResolvedToolchainContext toolchainContext,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
@@ -845,8 +826,7 @@ final class AspectFunction implements SkyFunction {
 
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
-        view.createAnalysisEnvironment(
-            key, events, env, aspectConfiguration, starlarkBuiltinsValue);
+        view.createAnalysisEnvironment(key, events, env, configuration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
     if (aspect.getDefinition().applyToGeneratingRules()
@@ -874,7 +854,7 @@ final class AspectFunction implements SkyFunction {
                     directDeps,
                     configConditions,
                     toolchainContext,
-                    aspectConfiguration,
+                    configuration,
                     view.getHostConfiguration(),
                     key);
       } catch (MissingDepException e) {
@@ -896,7 +876,7 @@ final class AspectFunction implements SkyFunction {
       analysisEnvironment.disable(associatedTarget.getTarget());
       String msg = "Analysis of target '" + associatedTarget.getTarget().getLabel() + "' failed";
       throw new AspectFunctionException(
-          new AspectCreationException(msg, key.getLabel(), aspectConfiguration));
+          new AspectCreationException(msg, key.getLabel(), configuration));
     }
     Preconditions.checkState(!analysisEnvironment.hasErrors(),
         "Analysis environment hasError() but no errors reported");

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +35,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link AspectValue}. */
 @RunWith(JUnit4.class)
-public class AspectValueTest extends AnalysisTestCase {
+public final class AspectValueTest extends AnalysisTestCase {
 
   @Test
   public void keyEquality() throws Exception {
@@ -58,174 +59,82 @@ public class AspectValueTest extends AnalysisTestCase {
     ExtraAttributeAspect a2 = TestAspects.EXTRA_ATTRIBUTE_ASPECT;
 
     // label: //a:l1 or //a:l2
-    // aspectConfiguration: target or host
     // baseConfiguration: target or host
     // aspect: Attribute or ExtraAttribute
     // parameters: bar or baz
 
     new EqualsTester()
         .addEqualityGroup(
-            createKey(l1, c1, a1, i1, c1),
-            createKey(l1, c1, a1, i1b, c1),
-            createKey(l1, c1, a1b, i1, c1),
-            createKey(l1, c1, a1b, i1b, c1),
-            createKey(l1b, c1, a1, i1, c1),
-            createKey(l1b, c1, a1, i1b, c1),
-            createKey(l1b, c1, a1b, i1, c1),
-            createKey(l1b, c1, a1b, i1b, c1))
+            createKey(l1, c1, a1, i1),
+            createKey(l1, c1, a1, i1b),
+            createKey(l1, c1, a1b, i1),
+            createKey(l1, c1, a1b, i1b),
+            createKey(l1b, c1, a1, i1),
+            createKey(l1b, c1, a1, i1b),
+            createKey(l1b, c1, a1b, i1),
+            createKey(l1b, c1, a1b, i1b))
         .addEqualityGroup(
-            createKey(l1, c1, a1, i2, c1),
-            createKey(l1, c1, a1b, i2, c1),
-            createKey(l1b, c1, a1, i2, c1),
-            createKey(l1b, c1, a1b, i2, c1))
+            createKey(l1, c1, a1, i2),
+            createKey(l1, c1, a1b, i2),
+            createKey(l1b, c1, a1, i2),
+            createKey(l1b, c1, a1b, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a2, i1, c1),
-            createKey(l1, c1, a2, i1b, c1),
-            createKey(l1b, c1, a2, i1, c1),
-            createKey(l1b, c1, a2, i1b, c1))
+            createKey(l1, c1, a2, i1),
+            createKey(l1, c1, a2, i1b),
+            createKey(l1b, c1, a2, i1),
+            createKey(l1b, c1, a2, i1b))
+        .addEqualityGroup(createKey(l1, c1, a2, i2), createKey(l1b, c1, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a2, i2, c1),
-            createKey(l1b, c1, a2, i2, c1))
+            createKey(l1, c2, a1, i1),
+            createKey(l1, c2, a1, i1b),
+            createKey(l1, c2, a1b, i1),
+            createKey(l1, c2, a1b, i1b),
+            createKey(l1b, c2, a1, i1),
+            createKey(l1b, c2, a1, i1b),
+            createKey(l1b, c2, a1b, i1),
+            createKey(l1b, c2, a1b, i1b))
         .addEqualityGroup(
-            createKey(l1, c2, a1, i1, c1),
-            createKey(l1, c2, a1, i1b, c1),
-            createKey(l1, c2, a1b, i1, c1),
-            createKey(l1, c2, a1b, i1b, c1),
-            createKey(l1b, c2, a1, i1, c1),
-            createKey(l1b, c2, a1, i1b, c1),
-            createKey(l1b, c2, a1b, i1, c1),
-            createKey(l1b, c2, a1b, i1b, c1))
+            createKey(l1, c2, a1, i2),
+            createKey(l1, c2, a1b, i2),
+            createKey(l1b, c2, a1, i2),
+            createKey(l1b, c2, a1b, i2))
         .addEqualityGroup(
-            createKey(l1, c2, a1, i2, c1),
-            createKey(l1, c2, a1b, i2, c1),
-            createKey(l1b, c2, a1, i2, c1),
-            createKey(l1b, c2, a1b, i2, c1))
+            createKey(l1, c2, a2, i1),
+            createKey(l1, c2, a2, i1b),
+            createKey(l1b, c2, a2, i1),
+            createKey(l1b, c2, a2, i1b))
+        .addEqualityGroup(createKey(l1, c2, a2, i2), createKey(l1b, c2, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c2, a2, i1, c1),
-            createKey(l1, c2, a2, i1b, c1),
-            createKey(l1b, c2, a2, i1, c1),
-            createKey(l1b, c2, a2, i1b, c1))
+            createKey(l2, c1, a1, i1),
+            createKey(l2, c1, a1, i1b),
+            createKey(l2, c1, a1b, i1),
+            createKey(l2, c1, a1b, i1b))
+        .addEqualityGroup(createKey(l2, c1, a1, i2), createKey(l2, c1, a1b, i2))
+        .addEqualityGroup(createKey(l2, c1, a2, i1), createKey(l2, c1, a2, i1b))
+        .addEqualityGroup(createKey(l2, c1, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c2, a2, i2, c1),
-            createKey(l1b, c2, a2, i2, c1))
+            createKey(l2, c2, a1, i1),
+            createKey(l2, c2, a1, i1b),
+            createKey(l2, c2, a1b, i1),
+            createKey(l2, c2, a1b, i1b))
+        .addEqualityGroup(createKey(l2, c2, a1, i2), createKey(l2, c2, a1b, i2))
+        .addEqualityGroup(createKey(l2, c2, a2, i1), createKey(l2, c2, a2, i1b))
+        .addEqualityGroup(createKey(l2, c2, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a1, i1, c2),
-            createKey(l1, c1, a1, i1b, c2),
-            createKey(l1, c1, a1b, i1, c2),
-            createKey(l1, c1, a1b, i1b, c2),
-            createKey(l1b, c1, a1, i1, c2),
-            createKey(l1b, c1, a1, i1b, c2),
-            createKey(l1b, c1, a1b, i1, c2),
-            createKey(l1b, c1, a1b, i1b, c2))
+            createDerivedKey(l1, c1, a1, i1, a2, i2), createDerivedKey(l1, c1, a1, i1b, a2, i2))
         .addEqualityGroup(
-            createKey(l1, c1, a1, i2, c2),
-            createKey(l1, c1, a1b, i2, c2),
-            createKey(l1b, c1, a1, i2, c2),
-            createKey(l1b, c1, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l1, c1, a2, i1, c2),
-            createKey(l1, c1, a2, i1b, c2),
-            createKey(l1b, c1, a2, i1, c2),
-            createKey(l1b, c1, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l1, c1, a2, i2, c2),
-            createKey(l1b, c1, a2, i2, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a1, i1, c2),
-            createKey(l1, c2, a1, i1b, c2),
-            createKey(l1, c2, a1b, i1, c2),
-            createKey(l1, c2, a1b, i1b, c2),
-            createKey(l1b, c2, a1, i1, c2),
-            createKey(l1b, c2, a1, i1b, c2),
-            createKey(l1b, c2, a1b, i1, c2),
-            createKey(l1b, c2, a1b, i1b, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a1, i2, c2),
-            createKey(l1, c2, a1b, i2, c2),
-            createKey(l1b, c2, a1, i2, c2),
-            createKey(l1b, c2, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a2, i1, c2),
-            createKey(l1, c2, a2, i1b, c2),
-            createKey(l1b, c2, a2, i1, c2),
-            createKey(l1b, c2, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l1, c2, a2, i2, c2),
-            createKey(l1b, c2, a2, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i1, c1),
-            createKey(l2, c1, a1, i1b, c1),
-            createKey(l2, c1, a1b, i1, c1),
-            createKey(l2, c1, a1b, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i2, c1),
-            createKey(l2, c1, a1b, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i1, c1),
-            createKey(l2, c1, a2, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i1, c1),
-            createKey(l2, c2, a1, i1b, c1),
-            createKey(l2, c2, a1b, i1, c1),
-            createKey(l2, c2, a1b, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i2, c1),
-            createKey(l2, c2, a1b, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i1, c1),
-            createKey(l2, c2, a2, i1b, c1))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i2, c1))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i1, c2),
-            createKey(l2, c1, a1, i1b, c2),
-            createKey(l2, c1, a1b, i1, c2),
-            createKey(l2, c1, a1b, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a1, i2, c2),
-            createKey(l2, c1, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i1, c2),
-            createKey(l2, c1, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c1, a2, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i1, c2),
-            createKey(l2, c2, a1, i1b, c2),
-            createKey(l2, c2, a1b, i1, c2),
-            createKey(l2, c2, a1b, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a1, i2, c2),
-            createKey(l2, c2, a1b, i2, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i1, c2),
-            createKey(l2, c2, a2, i1b, c2))
-        .addEqualityGroup(
-            createKey(l2, c2, a2, i2, c2))
-        .addEqualityGroup(
-            createDerivedKey(l1, c1, a1, i1, c1, a2, i2, c2),
-            createDerivedKey(l1, c1, a1, i1b, c1, a2, i2, c2)
-        )
-        .addEqualityGroup(
-            createDerivedKey(l1, c1, a2, i1, c1, a1, i2, c2),
-            createDerivedKey(l1, c1, a2, i1b, c1, a1, i2, c2)
-        )
+            createDerivedKey(l1, c1, a2, i1, a1, i2), createDerivedKey(l1, c1, a2, i1b, a1, i2))
         .testEquals();
   }
 
-  private static SkyKey createKey(
+  private static AspectKey createKey(
       Label label,
       BuildConfigurationValue baseConfiguration,
       NativeAspectClass aspectClass,
-      AspectParameters parameters,
-      BuildConfigurationValue aspectConfiguration) {
+      AspectParameters parameters) {
     return AspectKeyCreator.createAspectKey(
-        label,
-        baseConfiguration,
         new AspectDescriptor(aspectClass, parameters),
-        aspectConfiguration);
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build());
   }
 
   private static SkyKey createDerivedKey(
@@ -233,22 +142,12 @@ public class AspectValueTest extends AnalysisTestCase {
       BuildConfigurationValue baseConfiguration,
       NativeAspectClass aspectClass1,
       AspectParameters parameters1,
-      BuildConfigurationValue aspectConfiguration1,
       NativeAspectClass aspectClass2,
-      AspectParameters parameters2,
-      BuildConfigurationValue aspectConfiguration2) {
-    AspectKey baseKey =
-        AspectKeyCreator.createAspectKey(
-            label,
-            baseConfiguration,
-            new AspectDescriptor(aspectClass1, parameters1),
-            aspectConfiguration1);
+      AspectParameters parameters2) {
+    AspectKey baseKey = createKey(label, baseConfiguration, aspectClass1, parameters1);
     return AspectKeyCreator.createAspectKey(
-        label,
-        baseConfiguration,
-        ImmutableList.of(baseKey),
         new AspectDescriptor(aspectClass2, parameters2),
-        aspectConfiguration2);
+        ImmutableList.of(baseKey),
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build());
   }
-
 }
