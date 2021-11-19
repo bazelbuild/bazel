@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -99,29 +100,34 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
   private static StarlarkDefinedAspect loadStarlarkAspect(
       Environment env, StarlarkAspectClass aspectClass)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
-
     StarlarkDefinedAspect starlarkAspect;
     try {
-      starlarkAspect = AspectFunction.loadStarlarkDefinedAspect(env, aspectClass);
-      if (starlarkAspect == null) {
+      BzlLoadValue bzlLoadValue =
+          (BzlLoadValue)
+              env.getValueOrThrow(
+                  AspectFunction.bzlLoadKeyForStarlarkAspect(aspectClass),
+                  BzlLoadFailedException.class);
+      if (bzlLoadValue == null) {
         return null;
       }
-      if (!starlarkAspect.getParamAttributes().isEmpty()) {
-        String msg =
-            String.format(
-                "Cannot instantiate parameterized aspect %s at the top level.",
-                starlarkAspect.getName());
-
-        env.getListener().handle(Event.error(msg));
-        throw new BuildTopLevelAspectsDetailsFunctionException(
-            new TopLevelAspectsDetailsBuildFailedException(
-                msg, Code.PARAMETERIZED_TOP_LEVEL_ASPECT_INVALID));
-      }
-    } catch (AspectCreationException e) {
+      starlarkAspect = AspectFunction.loadAspectFromBzl(aspectClass, bzlLoadValue);
+    } catch (BzlLoadFailedException | AspectCreationException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new BuildTopLevelAspectsDetailsFunctionException(
           new TopLevelAspectsDetailsBuildFailedException(
               e.getMessage(), Code.ASPECT_CREATION_FAILED));
+    }
+
+    if (!starlarkAspect.getParamAttributes().isEmpty()) {
+      String msg =
+          String.format(
+              "Cannot instantiate parameterized aspect %s at the top level.",
+              starlarkAspect.getName());
+
+      env.getListener().handle(Event.error(msg));
+      throw new BuildTopLevelAspectsDetailsFunctionException(
+          new TopLevelAspectsDetailsBuildFailedException(
+              msg, Code.PARAMETERIZED_TOP_LEVEL_ASPECT_INVALID));
     }
 
     return starlarkAspect;
