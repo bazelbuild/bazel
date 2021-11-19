@@ -933,8 +933,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE));
     out.println(Iterables.size(packageSkyKeys) + " packages");
     for (SkyKey packageSkyKey : packageSkyKeys) {
-      Package pkg = ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey)).getPackage();
-      pkg.dump(out);
+      PackageValue pkgVal = ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey));
+      if (pkgVal != null) {
+        Package pkg =
+            ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey)).getPackage();
+        pkg.dump(out);
+      } else {
+        out.println("  Package " + packageSkyKey + " is in error.");
+      }
     }
   }
 
