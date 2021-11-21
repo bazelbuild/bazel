@@ -26,7 +26,7 @@ import java.util.function.Predicate;
 /**
  * Static utilities for finding referenced type symbols recursively according to the given filter.
  *
- * <p>For example, if Class A references Class B which references Class C, the the reachable types
+ * <p>For example, if Class A references Class B which references Class C, the reachable types
  * from A is {A, B, C}.
  */
 public final class FileBasedTypeReferenceClosure {
