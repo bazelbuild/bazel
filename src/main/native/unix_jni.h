@@ -136,13 +136,20 @@ extern void thermal_callback(int value);
 // Returns the current thermal load.
 int portable_thermal_load();
 
-// Returns the number of times that the system has received a memory pressure
-// warning notification since Bazel started.
-int portable_memory_pressure_warning_count();
+// Starts up any infrastructure needed to do memory pressure monitoring.
+// May be called more than once.
+void portable_start_memory_pressure_monitoring();
 
-// Returns the number of times that the system has received a memory pressure
-// critical notification since Bazel started.
-int portable_memory_pressure_critical_count();
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemMemoryPressureEvent.java
+typedef enum  {
+  MemoryPressureLevelWarning = 0,
+  MemoryPressureLevelCritical = 1,
+} MemoryPressureLevel;
+
+// Declaration for callback function that is called by memory pressure
+// monitoring when memory pressure is detected.
+extern void memory_pressure_callback(MemoryPressureLevel level);
 
 }  // namespace blaze_jni
 

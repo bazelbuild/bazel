@@ -117,16 +117,9 @@ int portable_thermal_load() {
   return 0;
 }
 
-int portable_memory_pressure_warning_count() {
+void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
   // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
-  return 0;
-}
-
-int portable_memory_pressure_critical_count() {
-  // Currently not implemented.
-  // https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
-  return 0;
 }
 
 }  // namespace blaze_jni

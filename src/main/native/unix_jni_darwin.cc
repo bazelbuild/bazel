@@ -384,14 +384,13 @@ int portable_thermal_load() {
   return load;
 }
 
-static std::atomic_int pressure_warning_count{0};
-static std::atomic_int pressure_critical_count{0};
-
-static void RegisterMemoryPressureHandler() {
+void portable_start_memory_pressure_monitoring() {
   // To test use:
-  // /usr/bin/log stream -level debug --predicate '(subsystem == "build.bazel")'
-  // sudo memory_pressure -S -l warn
-  // sudo memory_pressure -S -l critical
+  //   /usr/bin/log stream -level debug \
+  //.      --predicate '(subsystem == "build.bazel")'
+  //   sudo memory_pressure -S -l warn
+  //   sudo memory_pressure -S -l critical
+  // or use the test notifications that we register.
   static dispatch_once_t once_token;
   dispatch_once(&once_token, ^{
     dispatch_source_t source = dispatch_source_create(
@@ -404,25 +403,35 @@ static void RegisterMemoryPressureHandler() {
           dispatch_source_get_data(source);
       if (pressureLevel == DISPATCH_MEMORYPRESSURE_WARN) {
         log_if_possible("memory pressure warning anomaly");
-        ++pressure_warning_count;
+        memory_pressure_callback(MemoryPressureLevelWarning);
       } else if (pressureLevel == DISPATCH_MEMORYPRESSURE_CRITICAL) {
         log_if_possible("memory pressure critical anomaly");
-        ++pressure_critical_count;
+        memory_pressure_callback(MemoryPressureLevelCritical);
+      } else {
+        log_if_possible("error: unknown memory pressure critical level: %d",
+                        (int)pressureLevel);
       }
     });
     dispatch_resume(source);
-    log_if_possible("memory pressure handler registered");
+    // These are registered solely so we can test the system from end-to-end.
+    // Using the Apple memory_pressure requires admin access.
+    int testToken;
+    int32_t status = notify_register_dispatch(
+        "com.google.bazel.test.memorypressurelevel.warning", &testToken,
+        JniDispatchQueue(), ^(int state) {
+          log_if_possible("memory pressure test warning anomaly");
+          memory_pressure_callback(MemoryPressureLevelWarning);
+        });
+    CHECK(status == NOTIFY_STATUS_OK);
+    status = notify_register_dispatch(
+        "com.google.bazel.test.memorypressurelevel.critical", &testToken,
+        JniDispatchQueue(), ^(int state) {
+          log_if_possible("memory pressure test critical anomaly");
+          memory_pressure_callback(MemoryPressureLevelCritical);
+        });
+    CHECK(status == NOTIFY_STATUS_OK);
+    log_if_possible("memory pressure monitoring registered");
   });
-}
-
-int portable_memory_pressure_warning_count() {
-  RegisterMemoryPressureHandler();
-  return pressure_warning_count;
-}
-
-int portable_memory_pressure_critical_count() {
-  RegisterMemoryPressureHandler();
-  return pressure_critical_count;
 }
 
 }  // namespace blaze_jni

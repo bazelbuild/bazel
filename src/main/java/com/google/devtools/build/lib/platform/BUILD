@@ -50,11 +50,26 @@ java_library(
 )
 
 java_library(
-    name = "memory_pressure_counter",
+    name = "system_memory_pressure_module",
     srcs = [
-        "MemoryPressureCounter.java",
+        "SystemMemoryPressureModule.java",
     ],
     deps = [
+        ":system_memory_pressure_monitor",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+    ],
+)
+
+java_library(
+    name = "system_memory_pressure_monitor",
+    srcs = [
+        "SystemMemoryPressureEvent.java",
+        "SystemMemoryPressureMonitor.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//third_party:flogger",
+        "//third_party:jsr305",
     ],
 )
