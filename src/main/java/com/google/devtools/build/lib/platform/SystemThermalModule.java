@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.buildtool.buildevent.SystemThermalEvent;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;

@@ -23,6 +23,7 @@ java_library(
 java_library(
     name = "system_suspension_module",
     srcs = [
+        "SystemSuspensionEvent.java",
         "SystemSuspensionModule.java",
     ],
     deps = [
@@ -37,6 +38,7 @@ java_library(
 java_library(
     name = "system_thermal_module",
     srcs = [
+        "SystemThermalEvent.java",
         "SystemThermalModule.java",
     ],
     deps = [
