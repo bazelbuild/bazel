@@ -320,7 +320,6 @@ void portable_start_thermal_monitoring() {
   // Note that we install the test notification as well that can be used for
   // testing.
   static dispatch_once_t once_token;
-  static SuspendState suspend_state;
   dispatch_once(&once_token, ^{
     notify_handler_t handler = (^(int state) {
       int value = portable_thermal_load();
@@ -378,7 +377,8 @@ int portable_thermal_load() {
       break;
   }
   if (load == -1) {
-    log_if_possible("error: unknown thermal pressure anomaly %d", load);
+    log_if_possible("error: unknown thermal pressure level: %d",
+                    (int)thermalLevel);
   }
 
   return load;

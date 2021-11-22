@@ -1339,7 +1339,7 @@ Java_com_google_devtools_build_lib_platform_SystemThermalModule_registerJNI(
 }
 
 void thermal_callback(int value) {
-  if (g_suspend_module != nullptr) {
+  if (g_thermal_module != nullptr) {
     PerformIntegerValueCallback(g_thermal_module, "thermalCallback", value);
   }
 }
