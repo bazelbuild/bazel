@@ -13,24 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
+import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -38,46 +43,58 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 
 /**
- * This configured target pretends to be whatever type of target "actual" is, returning its label,
- * transitive info providers and target.
+ * A {@link ConfiguredTarget} that pretends to be whatever type of target {@link #getActual} is,
+ * mirroring its label and transitive info providers.
  *
- * <p>Transitive info providers can also be overridden.
+ * <p>Transitive info providers may also be overridden. At a minimum, {@link #getProvider} provides
+ * {@link AliasProvider} and an explicit {@link VisibilityProvider} which takes precedent over the
+ * actual target's visibility.
  */
-@AutoCodec
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, Structure {
-  private final Label label;
-  private final BuildConfigurationKey configurationKey;
-  private final ConfiguredTarget actual;
-  private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
-      overrides;
-  private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
-  public AliasConfiguredTarget(
+  public static AliasConfiguredTarget create(
       RuleContext ruleContext,
       ConfiguredTarget actual,
-      ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides) {
-    this(
+      NestedSet<PackageGroupContents> visibility) {
+    return createWithOverrides(
+        ruleContext, actual, visibility, /*overrides=*/ ImmutableClassToInstanceMap.of());
+  }
+
+  public static AliasConfiguredTarget createWithOverrides(
+      RuleContext ruleContext,
+      ConfiguredTarget actual,
+      NestedSet<PackageGroupContents> visibility,
+      ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides) {
+    return new AliasConfiguredTarget(
         ruleContext.getLabel(),
-        Preconditions.checkNotNull(ruleContext.getConfigurationKey()),
-        Preconditions.checkNotNull(actual),
-        Preconditions.checkNotNull(overrides),
+        ruleContext.getConfigurationKey(),
+        actual,
+        ImmutableClassToInstanceMap.<TransitiveInfoProvider>builder()
+            .put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getRule(), actual))
+            .put(VisibilityProvider.class, new VisibilityProviderImpl(visibility))
+            .putAll(overrides)
+            .build(),
         ruleContext.getConfigConditions());
   }
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  AliasConfiguredTarget(
+  private final Label label;
+  private final BuildConfigurationKey configurationKey;
+  private final ConfiguredTarget actual;
+  private final ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides;
+  private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
+
+  private AliasConfiguredTarget(
       Label label,
       BuildConfigurationKey configurationKey,
       ConfiguredTarget actual,
-      ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides,
+      ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
-    this.label = label;
-    this.configurationKey = configurationKey;
-    this.actual = actual;
-    this.overrides = overrides;
-    this.configConditions = configConditions;
+    this.label = checkNotNull(label);
+    this.configurationKey = checkNotNull(configurationKey);
+    this.actual = checkNotNull(actual);
+    this.overrides = checkNotNull(overrides);
+    this.configConditions = checkNotNull(configConditions);
   }
 
   @Override
@@ -92,11 +109,8 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
 
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-    if (overrides.containsKey(provider)) {
-      return provider.cast(overrides.get(provider));
-    }
-
-    return actual.getProvider(provider);
+    P p = overrides.getInstance(provider);
+    return p != null ? p : actual.getProvider(provider);
   }
 
   @Override

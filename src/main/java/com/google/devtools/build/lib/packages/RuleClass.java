@@ -1260,8 +1260,8 @@ public class RuleClass {
     }
 
     /**
-     * Set if the rule can have any provider. This is true for "alias" rules like
-     * <code>bind</code> .
+     * Set if the rule can have any provider. This is called for the {@code alias} rule and other
+     * alias-like rules such as {@code bind}.
      */
     public Builder canHaveAnyProvider() {
       advertisedProviders.canHaveAnyProvider();

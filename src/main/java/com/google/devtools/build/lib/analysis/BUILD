@@ -2381,6 +2381,7 @@ java_library(
     name = "test/test_trimming_transition_factory",
     srcs = ["test/TestTrimmingTransitionFactory.java"],
     deps = [
+        ":analysis_cluster",
         ":config/build_options",
         ":config/build_options_cache",
         ":config/core_options",

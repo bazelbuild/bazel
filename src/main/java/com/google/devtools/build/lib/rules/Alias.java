@@ -17,17 +17,13 @@ import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
@@ -39,7 +35,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public class Alias implements RuleConfiguredTargetFactory {
 
   public static final String RULE_NAME = "alias";
-  public static final String ACTUAL_ATTRIBUTE_NAME = "actual";
+  private static final String ACTUAL_ATTRIBUTE_NAME = "actual";
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -61,14 +57,7 @@ public class Alias implements RuleConfiguredTargetFactory {
               + "https://github.com/bazelbuild/bazel/issues/8622 for details.");
     }
 
-    return new AliasConfiguredTarget(
-        ruleContext,
-        actual,
-        ImmutableMap.of(
-            AliasProvider.class,
-            AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
-            VisibilityProvider.class,
-            new VisibilityProviderImpl(ruleContext.getVisibility())));
+    return AliasConfiguredTarget.create(ruleContext, actual, ruleContext.getVisibility());
   }
 
   /**

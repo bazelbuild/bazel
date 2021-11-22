@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.common.options.Options;
 
@@ -108,7 +108,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     if (ruleClass
             .getConfigurationFragmentPolicy()
             .isLegalConfigurationFragment(TestConfiguration.class)
-        || TargetUtils.isAlias(ruleData.rule())) {
+        || AliasProvider.mayBeAlias(ruleData.rule())) {
       // If Test rule, no need to trim here.
       // If Alias rule, might point to test rule so don't trim yet.
       return NoTransition.INSTANCE;

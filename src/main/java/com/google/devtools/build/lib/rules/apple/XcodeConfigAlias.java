@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -23,8 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 
@@ -35,20 +32,14 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
  * depends on the current configuration, in particular, the value of the {@code
  * --xcode_version_config} flag.
  */
-public class XcodeConfigAlias implements RuleConfiguredTargetFactory {
+public final class XcodeConfigAlias implements RuleConfiguredTargetFactory {
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ConfiguredTarget actual =
         (ConfiguredTarget) ruleContext.getPrerequisite(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME);
-    return new AliasConfiguredTarget(
-        ruleContext,
-        actual,
-        ImmutableMap.of(
-            AliasProvider.class,
-            AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
-            VisibilityProvider.class,
-            new VisibilityProviderImpl(ruleContext.getVisibility())));
+    return AliasConfiguredTarget.create(ruleContext, actual, ruleContext.getVisibility());
   }
 
   /**
@@ -62,7 +53,7 @@ public class XcodeConfigAlias implements RuleConfiguredTargetFactory {
    * one instance of this rule under {@code @bazel_tools//tools/osx} and people who want to get data
    * this rule provides should depend on that one.
    */
-  public static class XcodeConfigAliasRule implements RuleDefinition {
+  public static final class XcodeConfigAliasRule implements RuleDefinition {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -70,6 +61,7 @@ public class XcodeConfigAlias implements RuleConfiguredTargetFactory {
           .requiresConfigurationFragments(AppleConfiguration.class)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
+          .advertiseProvider(AliasProvider.class)
           .build();
     }
 
