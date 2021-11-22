@@ -45,9 +45,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests the the action_listener/extra_action feature. (--experimental_action_listener blaze option)
- */
+/** Tests the action_listener/extra_action feature. (--experimental_action_listener blaze option) */
 @RunWith(JUnit4.class)
 public class ActionListenerIntegrationTest extends BuildIntegrationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();

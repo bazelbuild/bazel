@@ -86,7 +86,7 @@ title: Make Variables
 </p>
 
 <p>
-  To write <code>$</code> as a a string literal (i.e. to prevent variable
+  To write <code>$</code> as a string literal (i.e. to prevent variable
   expansion), write <code>$$</code>.
 </p>
 
