@@ -13,6 +13,7 @@ bazel_dep(name = "grpc", version = "1.41.0", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "0.0.4")
 bazel_dep(name = "rules_pkg", version = "0.5.1")
 bazel_dep(name = "stardoc", version = "0.5.0", repo_name = "io_bazel_skydoc")
+bazel_dep(name = "zstd-jni", version = "1.5.0-4")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
 bazel_dep(name = "remoteapis", version = "")
@@ -27,10 +28,7 @@ local_path_override(
 )
 
 # The following are required when building without WORKSPACE SUFFIX
-# TODO(pcloudy): Make building Bazel work without WORKSPACE SUFFIX.
-# This requires migrating all dependencies and toolchain registration defined in
-# WORKSPACE to their corresponding Bazel modules. Eg. remote jdks, java tools
-# and java toolchain registrations all should be moved to rules_java.
 bazel_dep(name = "rules_cc", version = "0.0.1")
-bazel_dep(name = "rules_java", version = "4.0.0")
+bazel_dep(name = "rules_python", version = "0.4.0")
+bazel_dep(name = "rules_java", version = "5.0.0")
 bazel_dep(name = "rules_proto", version = "4.0.0")
