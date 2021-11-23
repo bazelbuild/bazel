@@ -1216,6 +1216,7 @@ def _impl(ctx):
             coverage_feature,
             default_compile_flags_feature,
             default_link_flags_feature,
+            user_link_flags_feature,
             fdo_optimize_feature,
             supports_dynamic_linker_feature,
             dbg_feature,
