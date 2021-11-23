@@ -136,6 +136,17 @@ extern void thermal_callback(int value);
 // Returns the current thermal load.
 int portable_thermal_load();
 
+// Starts up any infrastructure needed to do system load advisory monitoring.
+// May be called more than once.
+void portable_start_system_load_advisory_monitoring();
+
+// Declaration for callback function that is called by system load advisory
+// monitoring when a system load advisory event is detected.
+extern void system_load_advisory_callback(int value);
+
+// Returns the system load advisory.
+int portable_system_load_advisory();
+
 // Starts up any infrastructure needed to do memory pressure monitoring.
 // May be called more than once.
 void portable_start_memory_pressure_monitoring();

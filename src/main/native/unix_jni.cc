@@ -1355,6 +1355,57 @@ Java_com_google_devtools_build_lib_platform_SystemThermalModule_thermalLoad(
   return portable_thermal_load();
 }
 
+jobject g_system_load_advisory_module;
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
+ * Method:    registerJNI
+ * Signature: ()V
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_system_load_advisory_module != nullptr) {
+    PostAssertionError(env,
+                       "Singleton SystemLoadAdvisoryModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemLoadAdvisoryModule");
+    return;
+  }
+
+  g_system_load_advisory_module = env->NewGlobalRef(local_object);
+  if (g_system_load_advisory_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemLoadAdvisoryModule");
+    return;
+  }
+  portable_start_system_load_advisory_monitoring();
+}
+
+void system_load_advisory_callback(int value) {
+  if (g_system_load_advisory_module != nullptr) {
+    PerformIntegerValueCallback(g_system_load_advisory_module,
+                                "systemLoadAdvisoryCallback", value);
+  }
+}
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
+ * Method:    systemLoadAdvisory
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_systemLoadAdvisory(
+    JNIEnv *env, jclass) {
+  return portable_system_load_advisory();
+}
+
 jobject g_memory_pressure_module;
 
 /*

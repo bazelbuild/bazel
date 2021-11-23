@@ -143,6 +143,15 @@ int portable_thermal_load() {
   return 0;
 }
 
+void portable_start_system_load_advisory_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_system_load_advisory() {
+  // Currently not implemented.
+  return 0;
+}
+
 void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
 }
