@@ -202,6 +202,7 @@ public class BuildView {
       boolean checkForActionConflicts,
       int loadingPhaseThreads,
       TopLevelArtifactContext topLevelOptions,
+      boolean reportIncompatibleTargets,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
       boolean includeExecutionPhase,
@@ -433,31 +434,37 @@ public class BuildView {
               topLevelTargetsWithConfigsResult,
               /*includeExecutionPhase=*/ true);
     } else {
-      TopLevelConstraintSemantics topLevelConstraintSemantics =
-          new TopLevelConstraintSemantics(
-              (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics(),
-              skyframeExecutor.getPackageManager(),
-              input -> skyframeExecutor.getConfiguration(eventHandler, input),
-              eventHandler);
+      Set<ConfiguredTarget> targetsToSkip;
 
-      PlatformRestrictionsResult platformRestrictions =
-          topLevelConstraintSemantics.checkPlatformRestrictions(
-              skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
+      if (reportIncompatibleTargets) {
+        TopLevelConstraintSemantics topLevelConstraintSemantics =
+            new TopLevelConstraintSemantics(
+                (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics(),
+                skyframeExecutor.getPackageManager(),
+                input -> skyframeExecutor.getConfiguration(eventHandler, input),
+                eventHandler);
 
-      if (!platformRestrictions.targetsWithErrors().isEmpty()) {
-        // If there are any errored targets (e.g. incompatible targets that are explicitly specified
-        // on the command line), remove them from the list of targets to be built.
-        skyframeAnalysisResult =
-            skyframeAnalysisResult.withAdditionalErroredTargets(
-                platformRestrictions.targetsWithErrors());
+        PlatformRestrictionsResult platformRestrictions =
+            topLevelConstraintSemantics.checkPlatformRestrictions(
+                skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
+
+        if (!platformRestrictions.targetsWithErrors().isEmpty()) {
+          // If there are any errored targets (e.g. incompatible targets that are explicitly
+          // specified on the command line), remove them from the list of targets to be built.
+          skyframeAnalysisResult =
+              skyframeAnalysisResult.withAdditionalErroredTargets(
+                  platformRestrictions.targetsWithErrors());
+        }
+
+        targetsToSkip =
+            Sets.union(
+                    topLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
+                        skyframeAnalysisResult.getConfiguredTargets()),
+                    platformRestrictions.targetsToSkip())
+                .immutableCopy();
+      } else {
+        targetsToSkip = ImmutableSet.of();
       }
-
-      Set<ConfiguredTarget> targetsToSkip =
-          Sets.union(
-                  topLevelConstraintSemantics.checkTargetEnvironmentRestrictions(
-                      skyframeAnalysisResult.getConfiguredTargets()),
-                  platformRestrictions.targetsToSkip())
-              .immutableCopy();
 
       result =
           createResult(

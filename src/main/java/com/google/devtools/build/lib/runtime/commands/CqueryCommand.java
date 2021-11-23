@@ -148,6 +148,7 @@ public final class CqueryCommand implements BlazeCommand {
             .setTargets(topLevelTargets)
             .setStartTimeMillis(env.getCommandStartTime())
             .setCheckforActionConflicts(false)
+            .setReportIncompatibleTargets(false)
             .build();
     DetailedExitCode detailedExitCode =
         new BuildTool(env, new CqueryProcessor(expr))
