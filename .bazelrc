@@ -29,5 +29,11 @@ build:remote --config=ubuntu1804_java11
 
 build:macos --macos_minimum_os=10.10
 
+# Enable Bzlmod
+build:bzlmod --experimental_enable_bzlmod
+# TODO(pcloudy): The following should be removed after fixing https://github.com/bazelbuild/bazel/issues/14279
+build:bzlmod --crosstool_top=@rules_cc.0.0.1.cc_configure.local_config_cc//:toolchain
+build:bzlmod --xcode_version_config=@rules_cc.0.0.1.cc_configure.local_config_xcode//:host_xcodes
+
 # User-specific .bazelrc
 try-import user.bazelrc
