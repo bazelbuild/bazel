@@ -229,6 +229,9 @@ public class RuleClass {
      * platform. Such instances need to know what platform the build is targeting, which Bazel won't
      * provide unless toolchain resolution is enabled.
      *
+     * <p>This is set statically in rule definitions on an opt-in basis. Bazel doesn't automatically
+     * infer this for any target with a select().
+     *
      * <p>Ultimately, we should remove this when <a
      * href="https://github.com/bazelbuild/bazel/issues/12899#issuecomment-767759147}#12899</a>is
      * addressed, so platforms are unconditionally provided for all rules.
