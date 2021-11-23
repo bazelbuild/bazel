@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,7 +60,6 @@ import javax.annotation.Nullable;
  * <p>The way to build the Skyframe node is not here because this data needs to be accessible from
  * the {@code .packages} package and that one requires references to the {@code .view} package.
  */
-@AutoCodec
 @Immutable
 public final class AspectDefinition {
   private final AspectClass aspectClass;
@@ -99,8 +97,7 @@ public final class AspectDefinition {
     return advertisedProviders;
   }
 
-  @AutoCodec.VisibleForSerialization
-  AspectDefinition(
+  private AspectDefinition(
       AspectClass aspectClass,
       AdvertisedProviderSet advertisedProviders,
       RequiredProviders requiredProviders,
