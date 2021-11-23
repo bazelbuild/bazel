@@ -211,7 +211,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     }
 
     Rule rule = ((Rule) target);
-    if (!rule.getRuleClassObject().useToolchainResolution()) {
+    if (!rule.useToolchainResolution()) {
       return null;
     }
 

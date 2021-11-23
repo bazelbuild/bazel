@@ -485,7 +485,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         ExecGroupCollection.builder(defaultExecGroup, rule.getRuleClassObject().getExecGroups());
 
     // Short circuit and end now if this target doesn't require toolchain resolution.
-    if (!rule.getRuleClassObject().useToolchainResolution()) {
+    if (!rule.useToolchainResolution()) {
       ComputedToolchainContexts result = new ComputedToolchainContexts();
       result.execGroupCollectionBuilder = execGroupCollectionBuilder;
       return result;
