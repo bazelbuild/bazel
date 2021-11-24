@@ -160,7 +160,7 @@ public final class SkyframeBuildView {
   private boolean skyframeAnalysisWasDiscarded;
 
   private ImmutableSet<SkyKey> largestTopLevelKeySetCheckedForConflicts = ImmutableSet.of();
-  private boolean foundActionConflict;
+  private boolean foundActionConflictInLatestCheck;
 
   public SkyframeBuildView(
       ArtifactFactory artifactFactory,
@@ -481,13 +481,13 @@ public final class SkyframeBuildView {
         someActionLookupValueEvaluated = false;
       }
     }
-    foundActionConflict = !actionConflicts.isEmpty();
+    foundActionConflictInLatestCheck = !actionConflicts.isEmpty();
 
-    if (!result.hasError() && !foundActionConflict) {
+    if (!result.hasError() && !foundActionConflictInLatestCheck) {
       return new SkyframeAnalysisResult(
           /*hasLoadingError=*/ false,
           /*hasAnalysisError=*/ false,
-          foundActionConflict,
+          foundActionConflictInLatestCheck,
           ImmutableList.copyOf(cts),
           result.getWalkableGraph(),
           ImmutableMap.copyOf(aspects),
@@ -546,7 +546,7 @@ public final class SkyframeBuildView {
       throw errorProcessingResult.viewCreationFailedException();
     }
 
-    if (foundActionConflict) {
+    if (foundActionConflictInLatestCheck) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
       TopLevelActionConflictReport topLevelActionConflictReport;
@@ -614,8 +614,8 @@ public final class SkyframeBuildView {
 
     return new SkyframeAnalysisResult(
         errorProcessingResult.hasLoadingError(),
-        result.hasError() || foundActionConflict,
-        foundActionConflict,
+        result.hasError() || foundActionConflictInLatestCheck,
+        foundActionConflictInLatestCheck,
         ImmutableList.copyOf(cts),
         result.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
@@ -774,13 +774,14 @@ public final class SkyframeBuildView {
       return true;
     }
 
-    if (foundActionConflict) {
+    if (foundActionConflictInLatestCheck) {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
       // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
       //     some conflict last time but don't know exactly which targets conflicted, it could have
-      //     been (x z), so we now check again.
+      //     been (x z), so we now check again. The value of foundActionConflictInLatestCheck would
+      //     then be updated for the next build, based on the result of this check.
       return true;
     }
 
@@ -788,9 +789,9 @@ public final class SkyframeBuildView {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
-      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
-      //     some conflict last time but don't know exactly which targets conflicted, it could have
-      //     been (x z), so we now check again, and store (x z) as the largest checked key set.
+      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but we check again for
+      //     conflict because foundActionConflictInLatestCheck is true, and store (x z) as the
+      //     largest checked key set.
       // 3.  Null-build (y z), so again we don't evaluate or dirty anything, and the previous build
       //     had no conflicts, so no other condition is true. But because (y z) is not a subset of
       //     (x z) and we only keep the most recent largest checked key set, we don't know if (y z)
@@ -810,8 +811,8 @@ public final class SkyframeBuildView {
 
     // Case when we DON'T need to re-check:
     // - a configured target is deleted. Deletion can only resolve conflicts, not introduce any, and
-    //   if the previuos build had a conflict then foundActionConflict would be true, and if the
-    //   previous build had no conflict then deleting a CT won't change that.
+    //   if the previous build had a conflict then foundActionConflictInLatestCheck would be true,
+    //   and if the previous build had no conflict then deleting a CT won't change that.
     //   Example that triggers this scenario:
     //   1.  genrule(name='x', srcs=['A'], ...)
     //       genrule(name='y', outs=['A'], ...)
