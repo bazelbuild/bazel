@@ -229,8 +229,12 @@ def _create_proto_compile_action(
         # Set `-direct_dependencies_violation_msg=`
         args.add(ctx.label, format = semantics.STRICT_DEPS_FLAG_TEMPLATE)
 
-    # use exports
-    # TODO(ilist) allowed_public_imports, disallow_services
+    if strict_imports:
+        if not proto_info.public_import_sources():
+            # This line is necessary to trigger the check.
+            args.add("--allowed_public_imports=")
+        else:
+            args.add_all("--allowed_public_imports", map_each = _get_import_path, join_with = ":")
 
     args.add_all(proto_info.direct_sources)
 
