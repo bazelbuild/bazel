@@ -37,6 +37,9 @@ def _postprocess(ctx, base_info):
 def _postprocess_plugin(ctx, base_info):
     return base_info.java_info, base_info.default_info
 
+def _check_proto_registry_collision(ctx):
+    pass
+
 semantics = struct(
     EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
     EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = False,
@@ -75,4 +78,5 @@ semantics = struct(
     preprocess = _preprocess,
     postprocess = _postprocess,
     postprocess_plugin = _postprocess_plugin,
+    check_proto_registry_collision = _check_proto_registry_collision
 )
