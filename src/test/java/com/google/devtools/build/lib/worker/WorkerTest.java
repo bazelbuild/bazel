@@ -118,12 +118,12 @@ public final class WorkerTest {
     testWorker.putRequest(WorkRequest.getDefaultInstance());
 
     OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
-    assertThat(stdout.toString()).isEqualTo("{}");
+    assertThat(stdout.toString()).isEqualTo("{}" + System.lineSeparator());
   }
 
   @Test
   public void testGetResponse_json_success() throws IOException, InterruptedException {
-    TestWorker testWorker = createTestWorker("{}".getBytes(UTF_8), JSON);
+    TestWorker testWorker = createTestWorker(("{}" + System.lineSeparator()).getBytes(UTF_8), JSON);
     WorkResponse readResponse = testWorker.getResponse(0);
     WorkResponse response = WorkResponse.getDefaultInstance();
 
@@ -151,7 +151,8 @@ public final class WorkerTest {
     OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
     String requestJsonString =
         "{\"arguments\":[\"testRequest\"],\"inputs\":"
-            + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1,\"verbosity\":11}";
+            + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1,\"verbosity\":11}"
+            + System.lineSeparator();
     assertThat(stdout.toString()).isEqualTo(requestJsonString);
   }
 
@@ -170,7 +171,8 @@ public final class WorkerTest {
 
   private void verifyGetResponseFailure(String responseString, String expectedError)
       throws IOException {
-    TestWorker testWorker = createTestWorker(responseString.getBytes(UTF_8), JSON);
+    TestWorker testWorker =
+        createTestWorker((responseString + System.lineSeparator()).getBytes(UTF_8), JSON);
     IOException ex = assertThrows(IOException.class, () -> testWorker.getResponse(0));
     assertThat(ex).hasMessageThat().contains(expectedError);
   }
