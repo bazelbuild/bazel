@@ -78,7 +78,8 @@ def _compile_action(
         source_files,
         source_jars,
         output_prefix,
-        enable_compile_jar_action = True):
+        enable_compile_jar_action = True,
+        extra_runtime_jars = []):
     deps = ctx.attr.deps
     runtime_deps = _get_attr_safe(ctx, "runtime_deps", [])
     exports = _get_attr_safe(ctx, "exports", [])
@@ -104,6 +105,7 @@ def _compile_action(
 
     deps_javainfo = _filter_javainfo_and_legacy_jars(deps)
     runtime_deps_javainfo = _filter_javainfo_and_legacy_jars(runtime_deps)
+    runtime_deps_javainfo.extend([JavaInfo(jar, None) for jar in extra_runtime_jars])
     exports_javainfo = _filter_javainfo_and_legacy_jars(exports)
 
     if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY:
