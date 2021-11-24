@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -44,7 +43,6 @@ import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** This action creates a set of symbolic links. */
-@AutoCodec
 @Immutable
 public final class CreateIncSymlinkAction extends AbstractAction {
   private final ImmutableSortedMap<Artifact, Artifact> symlinks;

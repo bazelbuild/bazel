@@ -36,8 +36,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -53,14 +51,11 @@ import javax.annotation.Nullable;
  * <p>Such symlinks are used by the linker to ensure that all rpath entries can be specified
  * relative to the $ORIGIN.
  */
-@AutoCodec
 @Immutable
 public final class SolibSymlinkAction extends AbstractAction {
   private final Artifact symlink;
 
-  @VisibleForSerialization
-  SolibSymlinkAction(
-      ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
+  private SolibSymlinkAction(ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
     super(
         owner,
         NestedSetBuilder.create(Order.STABLE_ORDER, primaryInput),

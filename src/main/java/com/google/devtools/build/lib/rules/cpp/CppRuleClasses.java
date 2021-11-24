@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
@@ -68,7 +68,7 @@ public class CppRuleClasses {
         CC_TOOLCHAIN_CONFIGURATION_RESOLVER);
   }
 
-  @AutoCodec
+  @SerializationConstant
   static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
 

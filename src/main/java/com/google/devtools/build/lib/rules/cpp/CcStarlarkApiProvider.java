@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcStarlarkApiProviderApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
@@ -31,7 +30,6 @@ import net.starlark.java.eval.StarlarkValue;
  * A class that exposes the C++ providers to Starlark. It is intended to provide a simple and stable
  * interface for Starlark users.
  */
-@AutoCodec
 @StarlarkBuiltin(
     name = "CcStarlarkApiProvider",
     category = DocCategory.PROVIDER,
