@@ -79,8 +79,15 @@ def _compile_action(
         source_jars,
         output_prefix,
         enable_compile_jar_action = True,
-        extra_runtime_jars = []):
-    deps = ctx.attr.deps
+        extra_runtime_jars = [],
+        extra_deps = []):
+    if extra_deps:
+        deps = []
+        deps.extend(ctx.attr.deps)
+        deps.extend(extra_deps)
+    else:
+        deps = ctx.attr.deps
+
     runtime_deps = _get_attr_safe(ctx, "runtime_deps", [])
     exports = _get_attr_safe(ctx, "exports", [])
     exported_plugins = _get_attr_safe(ctx, "exported_plugins", [])

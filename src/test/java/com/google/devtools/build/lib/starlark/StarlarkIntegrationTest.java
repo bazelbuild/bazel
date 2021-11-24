@@ -929,6 +929,44 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInstrumentedFilesInfo_coverageSupportAndEnvVarsArePrivateAPI() throws Exception {
+    // Arrange
+    scratch.file(
+        "test/starlark/extension.bzl",
+        "",
+        "def custom_rule_impl(ctx):",
+        "  return [",
+        "    coverage_common.instrumented_files_info(",
+        "      ctx,",
+        "      coverage_support_files = ctx.files.srcs,",
+        "      coverage_environment = {'k1' : 'v1'},",
+        "    ),",
+        "  ]",
+        "",
+        "custom_rule = rule(",
+        "  implementation = custom_rule_impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(",
+        "  name = 'foo',",
+        "  srcs = ['src1.txt'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    // Act
+    getConfiguredTarget("//test/starlark:foo");
+
+    // Assert
+    assertContainsEvent("private API only for use in builtins");
+  }
+
+  @Test
   public void testTransitiveInfoProviders() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
