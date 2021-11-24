@@ -88,6 +88,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -848,67 +849,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     for (int i = 0; i < 2; i++) {
       for (Dependency dep : depsToProcess) {
         SkyKey key = dep.getConfiguredTargetKey();
+        ConfiguredTargetValue depValue;
         try {
-          ConfiguredTargetValue depValue =
-              (ConfiguredTargetValue) depValuesOrExceptions.get(key).get();
-
-          if (depValue == null) {
-            missedValues = true;
-          } else {
-            ConfiguredTarget depCt = depValue.getConfiguredTarget();
-            Label depLabel = depCt.getLabel();
-            SkyKey packageKey = PackageValue.key(depLabel.getPackageIdentifier());
-            PackageValue pkgValue;
-            if (i == 0) {
-              ValueOrException<ConfiguredValueCreationException> packageResult =
-                  depValuesOrExceptions.get(packageKey);
-              if (packageResult == null) {
-                aliasPackagesToFetch.add(packageKey);
-                aliasDepsToRedo.add(dep);
-                continue;
-              } else {
-                pkgValue = (PackageValue) packageResult.get();
-                if (pkgValue == null) {
-                  // In a race, the getValuesOrThrow call above may have retrieved the package
-                  // before it was done but the configured target after it was done. Since
-                  // SkyFunctionEnvironment may cache absent values, re-requesting it on this
-                  // evaluation may be useless, just treat it as missing.
-                  missedValues = true;
-                  continue;
-                }
-              }
-            } else {
-              // We were doing AliasConfiguredTarget mop-up.
-              pkgValue = (PackageValue) aliasPackageValues.get(packageKey);
-              if (pkgValue == null) {
-                // This is unexpected: on the second iteration, all packages should be present,
-                // since the configured targets that depend on them are present. But since that is
-                // not a guarantee Skyframe makes, we tolerate their absence.
-                missedValues = true;
-                continue;
-              }
-            }
-            try {
-              BuildConfigurationValue depConfiguration = dep.getConfiguration();
-              BuildConfigurationKey depKey = depValue.getConfiguredTarget().getConfigurationKey();
-              if (depKey != null && !depKey.equals(depConfiguration.getKey())) {
-                depConfiguration = (BuildConfigurationValue) env.getValue(depKey);
-              }
-              result.put(
-                  key,
-                  new ConfiguredTargetAndData(
-                      depValue.getConfiguredTarget(),
-                      pkgValue.getPackage().getTarget(depLabel.getName()),
-                      depConfiguration,
-                      dep.getTransitionKeys()));
-            } catch (NoSuchTargetException e) {
-              throw new IllegalStateException("Target already verified for " + dep, e);
-            }
-            if (transitivePackagesForPackageRootResolution != null) {
-              transitivePackagesForPackageRootResolution.addTransitive(
-                  depValue.getTransitivePackagesForPackageRootResolution());
-            }
-          }
+          depValue = (ConfiguredTargetValue) depValuesOrExceptions.get(key).get();
         } catch (ConfiguredValueCreationException e) {
           transitiveRootCauses.addTransitive(e.getRootCauses());
           detailedExitCode =
@@ -917,24 +860,82 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           if (e.getDetailedExitCode().equals(detailedExitCode)) {
             rootError = e;
           }
+          continue;
+        }
+        if (depValue == null) {
+          missedValues = true;
+          continue;
+        }
+
+        ConfiguredTarget depCt = depValue.getConfiguredTarget();
+        Label depLabel = depCt.getLabel();
+        SkyKey packageKey = PackageValue.key(depLabel.getPackageIdentifier());
+        PackageValue pkgValue;
+        if (i == 0) {
+          ValueOrUntypedException packageResult = depValuesOrExceptions.get(packageKey);
+          if (packageResult == null) {
+            aliasPackagesToFetch.add(packageKey);
+            aliasDepsToRedo.add(dep);
+            continue;
+          } else {
+            pkgValue = (PackageValue) packageResult.getUnchecked();
+            if (pkgValue == null) {
+              // In a race, the getValuesOrThrow call above may have retrieved the package before it
+              // was done but the configured target after it was done. Since SkyFunctionEnvironment
+              // may cache absent values, re-requesting it on this evaluation may be useless, just
+              // treat it as missing.
+              missedValues = true;
+              continue;
+            }
+          }
+        } else {
+          // We were doing AliasConfiguredTarget mop-up.
+          pkgValue = (PackageValue) aliasPackageValues.get(packageKey);
+          if (pkgValue == null) {
+            // This is unexpected: on the second iteration, all packages should be present, since
+            // the configured targets that depend on them are present. But since that is not a
+            // guarantee Skyframe makes, we tolerate their absence.
+            missedValues = true;
+            continue;
+          }
+        }
+
+        try {
+          BuildConfigurationValue depConfiguration = dep.getConfiguration();
+          BuildConfigurationKey depKey = depValue.getConfiguredTarget().getConfigurationKey();
+          if (depKey != null && !depKey.equals(depConfiguration.getKey())) {
+            depConfiguration = (BuildConfigurationValue) env.getValue(depKey);
+          }
+          result.put(
+              key,
+              new ConfiguredTargetAndData(
+                  depValue.getConfiguredTarget(),
+                  pkgValue.getPackage().getTarget(depLabel.getName()),
+                  depConfiguration,
+                  dep.getTransitionKeys()));
+        } catch (NoSuchTargetException e) {
+          throw new IllegalStateException("Target already verified for " + dep, e);
+        }
+        if (transitivePackagesForPackageRootResolution != null) {
+          transitivePackagesForPackageRootResolution.addTransitive(
+              depValue.getTransitivePackagesForPackageRootResolution());
         }
       }
+
       if (aliasDepsToRedo.isEmpty()) {
         break;
       }
       aliasPackageValues = env.getValues(aliasPackagesToFetch);
       depsToProcess = aliasDepsToRedo;
     }
+
     if (rootError != null) {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
               ctgValue, rootError.getMessage(), transitiveRootCauses.build(), detailedExitCode),
           /*depReportedOwnError=*/ true);
-    } else if (missedValues) {
-      return null;
-    } else {
-      return result;
     }
+    return missedValues ? null : result;
   }
 
   @Override

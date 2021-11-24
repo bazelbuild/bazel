@@ -85,6 +85,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -195,12 +196,7 @@ final class AspectFunction implements SkyFunction {
     }
 
     // Keep this in sync with the same code in ConfiguredTargetFunction.
-    PackageValue packageValue;
-    try {
-      packageValue = (PackageValue) baseValues.get(packageKey).get();
-    } catch (ConfiguredValueCreationException | BzlLoadFailedException e) {
-      throw new IllegalStateException(e);
-    }
+    PackageValue packageValue = (PackageValue) baseValues.get(packageKey).getUnchecked();
     if (packageValue == null) {
       return null;
     }
@@ -216,12 +212,13 @@ final class AspectFunction implements SkyFunction {
     ConfiguredTargetValue baseConfiguredTargetValue;
     try {
       baseConfiguredTargetValue =
-          (ConfiguredTargetValue) baseValues.get(baseConfiguredTargetKey).get();
+          (ConfiguredTargetValue)
+              baseValues
+                  .get(baseConfiguredTargetKey)
+                  .getOrThrow(ConfiguredValueCreationException.class);
     } catch (ConfiguredValueCreationException e) {
       throw new AspectFunctionException(
           new AspectCreationException(e.getMessage(), e.getRootCauses(), e.getDetailedExitCode()));
-    } catch (BzlLoadFailedException e) {
-      throw new IllegalStateException(e);
     }
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
     Preconditions.checkState(
@@ -230,16 +227,10 @@ final class AspectFunction implements SkyFunction {
         key,
         associatedTarget);
 
-    BuildConfigurationValue configuration;
-    if (configurationKey == null) {
-      configuration = null;
-    } else {
-      try {
-        configuration = (BuildConfigurationValue) baseValues.get(configurationKey).get();
-      } catch (ConfiguredValueCreationException | BzlLoadFailedException e) {
-        throw new IllegalStateException(e);
-      }
-    }
+    BuildConfigurationValue configuration =
+        configurationKey == null
+            ? null
+            : (BuildConfigurationValue) baseValues.get(configurationKey).getUnchecked();
 
     PackageValue val =
         (PackageValue)
@@ -493,23 +484,19 @@ final class AspectFunction implements SkyFunction {
 
   @Nullable
   private static StarlarkDefinedAspect loadStarlarkAspect(
-      StarlarkAspectClass starlarkAspectClass,
-      ValueOrException2<BzlLoadFailedException, ?> bzlLoadValueOrException)
+      StarlarkAspectClass starlarkAspectClass, ValueOrUntypedException bzlLoadValueOrException)
       throws AspectCreationException {
     BzlLoadValue bzlLoadValue;
     try {
-      bzlLoadValue = (BzlLoadValue) bzlLoadValueOrException.get();
+      bzlLoadValue =
+          (BzlLoadValue) bzlLoadValueOrException.getOrThrow(BzlLoadFailedException.class);
     } catch (BzlLoadFailedException e) {
       throw new AspectCreationException(
           e.getMessage(), starlarkAspectClass.getExtensionLabel(), e.getDetailedExitCode());
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
     }
-
     if (bzlLoadValue == null) {
       return null;
     }
-
     return loadAspectFromBzl(starlarkAspectClass, bzlLoadValue);
   }
 
