@@ -44,7 +44,6 @@ java_library(
     srcs = ["PlatformUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
