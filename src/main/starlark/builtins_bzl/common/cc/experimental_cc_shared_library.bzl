@@ -257,6 +257,7 @@ def _filter_inputs(
         preloaded_deps_direct_labels,
     )
 
+    unaccounted_for_libs = []
     exports = {}
     owners_seen = {}
     for linker_input in dependency_linker_inputs:
@@ -323,10 +324,32 @@ def _filter_inputs(
                         link_once_static_libs.append(owner)
                     linker_inputs.append(linker_input)
                 else:
-                    fail("We can't link " +
-                         str(owner) + " either statically or dynamically")
+                    unaccounted_for_libs.append(linker_input.owner)
 
+    _throw_error_if_unaccounted_libs(unaccounted_for_libs)
     return (exports, linker_inputs, link_once_static_libs)
+
+def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
+    if not unaccounted_for_libs:
+        return
+    libs_message = []
+    different_repos = {}
+    for unaccounted_lib in unaccounted_for_libs:
+        different_repos[unaccounted_lib.workspace_name] = True
+        if len(libs_message) < 10:
+            libs_message.append(str(unaccounted_lib))
+
+    if len(unaccounted_for_libs) > 10:
+        libs_message = "(and " + str(len(unaccounted_for_libs) - 10) + " others)\n"
+
+    static_deps_message = []
+    for repo in different_repos:
+        static_deps_message.append("        \"@" + repo + "//:__subpackages__\",")
+
+    fail("The following libraries cannot be linked either statically or dynamically:\n" +
+         "\n".join(libs_message) + "\nTo ignore which libraries get linked" +
+         " statically for now, add the following to 'static_deps':\n" +
+         "\n".join(static_deps_message))
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:

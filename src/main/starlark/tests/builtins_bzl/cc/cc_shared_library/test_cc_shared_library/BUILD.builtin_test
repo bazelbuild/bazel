@@ -317,3 +317,17 @@ debug_files_test(
     name = "debug_files_test",
     target_under_test = ":binary",
 )
+
+build_failure_test(
+    name = "static_deps_error_test",
+    messages = select({
+        ":is_bazel": [
+            "@//:__subpackages__",
+            "@test_repo//:__subpackages__",
+        ],
+        "//conditions:default": [
+            "@//:__subpackages__",
+        ],
+    }),
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:unaccounted_for_libs_so",
+)

@@ -75,14 +75,22 @@ additional_inputs_test = analysistest.make(_additional_inputs_test_impl)
 def _build_failure_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    asserts.expect_failure(env, ctx.attr.message)
+    if ctx.attr.message:
+        asserts.expect_failure(env, ctx.attr.message)
+
+    if ctx.attr.messages:
+        for message in ctx.attr.messages:
+            asserts.expect_failure(env, message)
 
     return analysistest.end(env)
 
 build_failure_test = analysistest.make(
     _build_failure_test_impl,
     expect_failure = True,
-    attrs = {"message": attr.string()},
+    attrs = {
+        "message": attr.string(),
+        "messages": attr.string_list(),
+    },
 )
 
 def _paths_test_impl(ctx):
