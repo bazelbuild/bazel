@@ -48,21 +48,13 @@ public interface JavaInfoApi<
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",
-      doc =
-          "Returns a transitive set of Jars required on the target's runtime classpath. Returns"
-              + " the same as <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_runtime_deps\">JavaInfo.transitive_runtime_deps"
-              + "</a></code> for legacy reasons.",
+      doc = "Returns a transitive set of Jars required on the target's runtime classpath.",
       structField = true)
   Depset getTransitiveRuntimeJars();
 
   @StarlarkMethod(
       name = "transitive_compile_time_jars",
-      doc =
-          "Returns the transitive set of Jars required to build the target. Returns the same as"
-              + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_deps\">JavaInfo.transitive_deps</a></code> for"
-              + " legacy reasons.",
+      doc = "Returns the transitive set of Jars required to build the target.",
       structField = true)
   Depset getTransitiveCompileTimeJars();
 
@@ -139,20 +131,18 @@ public interface JavaInfoApi<
   @StarlarkMethod(
       name = "transitive_deps",
       doc =
-          "Returns the transitive set of Jars required to build the target. Returns the same as"
-              + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
-              + " for legacy reasons.",
+          "Deprecated: Please use <code><a class=\"anchor\" "
+              + "href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
+              + " instead. It returns the same value.",
       structField = true)
   Depset /*<FileT>*/ getTransitiveDeps();
 
   @StarlarkMethod(
       name = "transitive_runtime_deps",
       doc =
-          "Returns the transitive set of Jars required on the target's runtime classpath. Returns"
-              + " the same as <code><a class=\"anchor\""
+          "Deprecated: please use <code><a class=\"anchor\""
               + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
-              + "</a></code> for legacy reasons.",
+              + "</a></code> instead. It returns the same value",
       structField = true)
   Depset /*<FileT>*/ getTransitiveRuntimeDeps();
 
