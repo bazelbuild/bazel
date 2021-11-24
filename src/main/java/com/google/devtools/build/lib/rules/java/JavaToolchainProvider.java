@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_SPECIFICATION_VERSION;
+import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -485,6 +486,13 @@ public class JavaToolchainProvider extends NativeInfo
   @Override
   public Provider getProvider() {
     return PROVIDER;
+  }
+
+  @Nullable
+  @Override
+  public Artifact getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getTimezoneData();
   }
 
   @AutoValue

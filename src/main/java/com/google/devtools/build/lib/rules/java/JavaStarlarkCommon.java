@@ -303,7 +303,7 @@ public class JavaStarlarkCommon
     return "";
   }
 
-  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
