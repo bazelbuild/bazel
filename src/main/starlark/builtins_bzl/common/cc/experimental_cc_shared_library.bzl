@@ -398,13 +398,26 @@ def _cc_shared_library_impl(ctx):
     if ctx.attr.shared_lib_name:
         main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
 
+    debug_files = []
+    exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
+    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
+
+    link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
+    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + link_once_static_libs), output = link_once_static_libs_debug_file)
+
+    debug_files.append(exports_debug_file)
+    debug_files.append(link_once_static_libs_debug_file)
+
+    additional_inputs = []
+    additional_inputs.extend(ctx.files.additional_linker_inputs)
+
     linking_outputs = cc_common.link(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         linking_contexts = [linking_context],
         user_link_flags = user_link_flags,
-        additional_inputs = ctx.files.additional_linker_inputs,
+        additional_inputs = additional_inputs,
         name = ctx.label.name,
         output_type = "dynamic_library",
         main_output = main_output,
@@ -413,22 +426,13 @@ def _cc_shared_library_impl(ctx):
     runfiles = ctx.runfiles(
         files = [linking_outputs.library_to_link.resolved_symlink_dynamic_library, linking_outputs.library_to_link.dynamic_library],
     )
+    transitive_debug_files = []
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
+        transitive_debug_files.append(dep[OutputGroupInfo].rule_impl_debug_files)
 
     for export in ctx.attr.roots:
         exports[str(export.label)] = True
-
-    debug_files = []
-    if ctx.fragments.cpp.experimental_cc_shared_library_debug():
-        exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
-        ctx.actions.write(content = "\n".join(exports.keys()), output = exports_debug_file)
-
-        link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
-        ctx.actions.write(content = "\n".join(link_once_static_libs), output = link_once_static_libs_debug_file)
-
-        debug_files.append(exports_debug_file)
-        debug_files.append(link_once_static_libs_debug_file)
 
     if not ctx.fragments.cpp.experimental_link_static_libraries_once():
         link_once_static_libs = []
@@ -441,11 +445,12 @@ def _cc_shared_library_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset(library + debug_files),
+            files = depset(library),
             runfiles = runfiles,
         ),
         OutputGroupInfo(
             main_shared_library_output = depset(library),
+            rule_impl_debug_files = depset(direct = debug_files, transitive = transitive_debug_files),
         ),
         CcSharedLibraryInfo(
             dynamic_deps = merged_cc_shared_library_info,

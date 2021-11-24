@@ -1,4 +1,4 @@
-load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "linking_suffix_test", "paths_test")
+load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "debug_files_test", "linking_suffix_test", "paths_test")
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
@@ -217,8 +217,15 @@ sh_test(
         ":bar_so",
         ":binary",
         ":cc_test",
+        ":debug_files",
         ":foo_so",
     ],
+)
+
+filegroup(
+    name = "debug_files",
+    srcs = ["binary"],
+    output_group = "rule_impl_debug_files",
 )
 
 linking_suffix_test(
@@ -304,4 +311,9 @@ build_failure_test(
     name = "two_dynamic_deps_same_export_in_binary_test",
     message = "Two shared libraries in dependencies export the same symbols",
     target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
+)
+
+debug_files_test(
+    name = "debug_files_test",
+    target_under_test = ":binary",
 )

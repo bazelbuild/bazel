@@ -47,7 +47,7 @@ def _linking_suffix_test_impl(ctx):
     target_under_test = analysistest.target_under_test(env)
     actions = analysistest.target_actions(env)
 
-    args = actions[0].content.split("-Wl,-no-whole-archive")
+    args = actions[2].content.split("-Wl,-no-whole-archive")
     asserts.true(env, "a_suffix" in args[-2].split("\n")[-2], "liba_suffix.a should be the last user library linked")
 
     return analysistest.end(env)
@@ -61,7 +61,7 @@ def _additional_inputs_test_impl(ctx):
     actions = analysistest.target_actions(env)
 
     found = False
-    for arg in actions[1].argv:
+    for arg in actions[3].argv:
         if arg.find("-Wl,--script=") != -1:
             asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
             found = True
@@ -108,3 +108,17 @@ def _paths_test_impl(ctx):
     return unittest.end(env)
 
 paths_test = unittest.make(_paths_test_impl)
+
+def _debug_files_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+    actual_files = []
+    for debug_file in target_under_test[OutputGroupInfo].rule_impl_debug_files.to_list():
+        actual_files.append(debug_file.basename)
+    expected_files = ["bar_so_exports.txt", "bar_so_link_once_static_libs.txt", "foo_so_exports.txt", "foo_so_link_once_static_libs.txt", "binary_link_once_static_libs.txt"]
+    asserts.equals(env, expected_files, actual_files)
+
+    return analysistest.end(env)
+
+debug_files_test = analysistest.make(_debug_files_test_impl)
