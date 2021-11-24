@@ -22,21 +22,12 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.vfs.BatchStat;
-import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
-import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -44,6 +35,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 /** {@link FilesystemValueChecker} checker parameterized on {@link BatchStatMode}. */
+// TODO(b/207545453): Merge with FilesystemValueCheckerTest{,Base}.
 @RunWith(Parameterized.class)
 public final class FilesystemValueCheckerParameterizedTest extends FilesystemValueCheckerTestBase {
 
@@ -225,32 +217,5 @@ public final class FilesystemValueCheckerParameterizedTest extends FilesystemVal
 
   private static ActionLookupData actionLookupData(int actionIndex) {
     return ActionLookupData.create(ACTION_LOOKUP_KEY, actionIndex);
-  }
-
-  private enum BatchStatMode {
-    DISABLED {
-      @Nullable
-      @Override
-      BatchStat getBatchStat(FileSystem fileSystem) {
-        return null;
-      }
-    },
-    ENABLED {
-      @Override
-      BatchStat getBatchStat(FileSystem fileSystem) {
-        return (useDigest, includeLinks, paths) -> {
-          List<FileStatusWithDigest> stats = new ArrayList<>();
-          for (PathFragment pathFrag : paths) {
-            stats.add(
-                FileStatusWithDigestAdapter.adapt(
-                    fileSystem.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
-          }
-          return stats;
-        };
-      }
-    };
-
-    @Nullable
-    abstract BatchStat getBatchStat(FileSystem fileSystem);
   }
 }

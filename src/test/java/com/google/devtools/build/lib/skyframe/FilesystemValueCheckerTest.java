@@ -81,6 +81,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -96,10 +98,9 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link FilesystemValueChecker}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTestBase {
   private static final EvaluationContext EVALUATION_OPTIONS =
       EvaluationContext.newBuilder()
@@ -499,50 +500,323 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         .isEmpty();
   }
 
-  private void checkDirtyTreeArtifactActions(BatchStat batchStatter) throws Exception {
-    // Normally, an Action specifies the contents of a TreeArtifact when it executes.
-    // To decouple FileSystemValueTester checking from Action execution, we inject TreeArtifact
-    // contents into ActionExecutionValues.
+  @Test
+  public void getDirtyActionValues_touchedTreeDirectory_returnsEmptyDiff(
+      @TestParameter BatchStatMode batchStatMode,
+      @TestParameter({"", "subdir"}) String touchedTreePath,
+      @TestParameter boolean everythingModified)
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "subdir/file");
+    FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "text");
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
+    evaluate();
 
-    SpecialArtifact out1 = createTreeArtifact("one");
-    TreeFileArtifact file11 = TreeFileArtifact.createTreeOutput(out1, "fizz");
-    out1.getPath().createDirectoryAndParents();
-    FileSystemUtils.writeContentAsLatin1(file11.getPath(), "buzz");
+    FileSystemUtils.touchFile(tree.getPath().getRelative(touchedTreePath));
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    everythingModified
+                        ? ModifiedFileSet.EVERYTHING_MODIFIED
+                        : ModifiedFileSet.builder().modify(tree.getExecPath()).build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .isEmpty();
+  }
 
-    SpecialArtifact out2 = createTreeArtifact("two");
-    out2.getPath().getChild("subdir").createDirectoryAndParents();
-    TreeFileArtifact file21 = TreeFileArtifact.createTreeOutput(out2, "moony");
-    TreeFileArtifact file22 = TreeFileArtifact.createTreeOutput(out2, "subdir/wormtail");
-    FileSystemUtils.writeContentAsLatin1(file21.getPath(), "padfoot");
-    FileSystemUtils.writeContentAsLatin1(file22.getPath(), "prongs");
+  @Test
+  public void getDirtyActionValues_deleteEmptyTreeDirectory_returnsTreeKey(
+      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    tree.getPath().createDirectoryAndParents();
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifact(tree, TreeArtifactValue.empty())));
+    evaluate();
 
-    SpecialArtifact outEmpty = createTreeArtifact("empty");
-    outEmpty.getPath().createDirectoryAndParents();
+    assertThat(tree.getPath().delete()).isTrue();
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    everythingModified
+                        ? ModifiedFileSet.EVERYTHING_MODIFIED
+                        : ModifiedFileSet.builder().modify(tree.getExecPath()).build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(actionKey);
+  }
 
-    SpecialArtifact outUnchanging = createTreeArtifact("untouched");
-    outUnchanging.getPath().createDirectoryAndParents();
+  @Test
+  public void getDirtyActionValues_treeDirectoryReplacedWithSymlink_returnsTreeKey(
+      @TestParameter BatchStatMode batchStatMode) throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    tree.getPath().createDirectoryAndParents();
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifact(tree, TreeArtifactValue.empty())));
+    evaluate();
 
-    SpecialArtifact last = createTreeArtifact("zzzzzzzzzz");
-    last.getPath().createDirectoryAndParents();
+    Path dummyEmptyDir = fs.getPath("/bin").getRelative("dir");
+    dummyEmptyDir.createDirectoryAndParents();
+    assertThat(tree.getPath().delete()).isTrue();
+    tree.getPath().createSymbolicLink(dummyEmptyDir);
 
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    /* trustRemoteArtifacts= */ false))
+        .containsExactly(actionKey); // Symbolic links should count as dirty
+  }
+
+  @Test
+  public void getDirtyActionValues_modifiedTreeFile_returnsTreeKey(
+      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
+    FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "text");
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
+    evaluate();
+
+    FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "other text");
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    everythingModified
+                        ? ModifiedFileSet.EVERYTHING_MODIFIED
+                        : ModifiedFileSet.builder().modify(treeFile.getExecPath()).build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(actionKey);
+  }
+
+  @Test
+  public void getDirtyActionValues_addedTreeFile_returnsTreeKey(
+      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file1");
+    FileSystemUtils.writeIsoLatin1(treeFile.getPath());
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
+    evaluate();
+
+    TreeFileArtifact newFile = TreeFileArtifact.createTreeOutput(tree, "file2");
+    FileSystemUtils.writeIsoLatin1(newFile.getPath());
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    everythingModified
+                        ? ModifiedFileSet.EVERYTHING_MODIFIED
+                        : ModifiedFileSet.builder().modify(newFile.getExecPath()).build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(actionKey);
+  }
+
+  @Test
+  public void getDirtyActionValues_addedTreeFileToEmptyTree_returnsTreeKey(
+      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    tree.getPath().createDirectoryAndParents();
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifact(tree, TreeArtifactValue.empty())));
+    evaluate();
+
+    TreeFileArtifact newFile = TreeFileArtifact.createTreeOutput(tree, "file");
+    FileSystemUtils.writeIsoLatin1(newFile.getPath());
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    everythingModified
+                        ? ModifiedFileSet.EVERYTHING_MODIFIED
+                        : ModifiedFileSet.builder().modify(newFile.getExecPath()).build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(actionKey);
+  }
+
+  @Test
+  public void getDirtyActionValues_deletedTreeFile_returnsTreeKey(
+      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
+    FileSystemUtils.writeIsoLatin1(treeFile.getPath());
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
+    evaluate();
+
+    assertThat(treeFile.getPath().delete()).isTrue();
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    everythingModified
+                        ? ModifiedFileSet.EVERYTHING_MODIFIED
+                        : ModifiedFileSet.builder().modify(treeFile.getExecPath()).build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(actionKey);
+  }
+
+  @Test
+  public void getDirtyActionValues_everythingModified_returnsAllKeys(
+      @TestParameter BatchStatMode batchStatMode) throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeFileArtifact tree1File = TreeFileArtifact.createTreeOutput(tree1, "file");
+    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "text");
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
+    FileSystemUtils.writeIsoLatin1(tree2File.getPath());
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
-    SkyKey actionKeyEmpty = ActionLookupData.create(ACTION_LOOKUP_KEY, 2);
-    SkyKey actionKeyUnchanging = ActionLookupData.create(ACTION_LOOKUP_KEY, 3);
-    SkyKey actionKeyLast = ActionLookupData.create(ACTION_LOOKUP_KEY, 4);
     differencer.inject(
         ImmutableMap.of(
             actionKey1,
-            actionValueWithTreeArtifacts(ImmutableList.of(file11)),
+            actionValueWithTreeArtifacts(ImmutableList.of(tree1File)),
             actionKey2,
-            actionValueWithTreeArtifacts(ImmutableList.of(file21, file22)),
-            actionKeyEmpty,
-            actionValueWithTreeArtifact(outEmpty, TreeArtifactValue.empty()),
-            actionKeyUnchanging,
-            actionValueWithTreeArtifact(outUnchanging, TreeArtifactValue.empty()),
-            actionKeyLast,
-            actionValueWithTreeArtifact(last, TreeArtifactValue.empty())));
+            actionValueWithTreeArtifacts(ImmutableList.of(tree1File))));
+    evaluate();
 
+    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "new text");
+    assertThat(tree2File.getPath().delete()).isTrue();
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(actionKey1, actionKey2);
+  }
+
+  @Test
+  public void getDirtyActionValues_changedFileNotInModifiedSet_returnsKeysFromSetOnly(
+      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean reportFirst)
+      throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TreeFileArtifact tree1File = TreeFileArtifact.createTreeOutput(tree1, "file");
+    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "text");
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
+    FileSystemUtils.writeIsoLatin1(tree2File.getPath());
+    SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
+    differencer.inject(
+        ImmutableMap.of(
+            actionKey1,
+            actionValueWithTreeArtifacts(ImmutableList.of(tree1File)),
+            actionKey2,
+            actionValueWithTreeArtifacts(ImmutableList.of(tree2File))));
+    evaluate();
+
+    FileSystemUtils.writeIsoLatin1(tree1File.getPath(), "new text");
+    assertThat(tree2File.getPath().delete()).isTrue();
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    ModifiedFileSet.builder()
+                        .modify((reportFirst ? tree1File : tree2File).getExecPath())
+                        .build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(reportFirst ? actionKey1 : actionKey2);
+  }
+
+  @Test
+  public void getDirtyActionValues_middleFileSkippedInModifiedFileSet_returnsKeysFromSetOnly(
+      @TestParameter BatchStatMode batchStatMode) throws Exception {
+    SpecialArtifact treeA = createTreeArtifact("a_tree");
+    TreeFileArtifact treeAFile = TreeFileArtifact.createTreeOutput(treeA, "file");
+    FileSystemUtils.writeIsoLatin1(treeAFile.getPath());
+    SpecialArtifact treeB = createTreeArtifact("b_tree");
+    TreeFileArtifact treeBFile = TreeFileArtifact.createTreeOutput(treeB, "file");
+    FileSystemUtils.writeIsoLatin1(treeBFile.getPath());
+    SpecialArtifact treeC = createTreeArtifact("c_tree");
+    TreeFileArtifact treeCFile = TreeFileArtifact.createTreeOutput(treeC, "file");
+    FileSystemUtils.writeIsoLatin1(treeCFile.getPath());
+    SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
+    SkyKey actionKey3 = ActionLookupData.create(ACTION_LOOKUP_KEY, 2);
+    differencer.inject(
+        ImmutableMap.of(
+            actionKey1,
+            actionValueWithTreeArtifacts(ImmutableList.of(treeAFile)),
+            actionKey2,
+            actionValueWithTreeArtifacts(ImmutableList.of(treeBFile)),
+            actionKey3,
+            actionValueWithTreeArtifacts(ImmutableList.of(treeCFile))));
+    evaluate();
+
+    assertThat(treeAFile.getPath().delete()).isTrue();
+    assertThat(treeBFile.getPath().delete()).isTrue();
+    assertThat(treeCFile.getPath().delete()).isTrue();
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    ModifiedFileSet.builder()
+                        .modify(treeAFile.getExecPath())
+                        .modify(treeCFile.getExecPath())
+                        .build(),
+                    /*trustRemoteArtifacts=*/ false))
+        .containsExactly(actionKey1, actionKey3);
+  }
+
+  @Test
+  public void getDirtyActionValues_nothingModified_returnsEmptyDiff(
+      @TestParameter BatchStatMode batchStatMode) throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
+    FileSystemUtils.writeIsoLatin1(treeFile.getPath());
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    differencer.inject(
+        ImmutableMap.of(actionKey, actionValueWithTreeArtifacts(ImmutableList.of(treeFile))));
+    evaluate();
+
+    assertThat(treeFile.getPath().delete()).isTrue();
+    assertThat(
+            new FilesystemValueChecker(
+                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatMode.getBatchStat(fs),
+                    ModifiedFileSet.NOTHING_MODIFIED,
+                    /*trustRemoteArtifacts=*/ false))
+        .isEmpty();
+  }
+
+  private void evaluate() throws InterruptedException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
@@ -550,186 +824,6 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(driver.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
-        .isEmpty();
-
-    // Touching the TreeArtifact directory should have no effect
-    FileSystemUtils.touchFile(out1.getPath());
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
-        .isEmpty();
-    // Neither should touching a subdirectory.
-    FileSystemUtils.touchFile(out2.getPath().getChild("subdir"));
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
-        .isEmpty();
-
-    /* **** Tests for directories **** */
-
-    // Removing a directory (even if empty) should have an effect
-    outEmpty.getPath().delete();
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder().modify(outEmpty.getExecPath()).build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKeyEmpty);
-    // Symbolic links should count as dirty
-    Path dummyEmptyDir = fs.getPath("/bin").getRelative("symlink");
-    FileSystemUtils.createDirectoryAndParents(dummyEmptyDir);
-    FileSystemUtils.ensureSymbolicLink(outEmpty.getPath(), dummyEmptyDir);
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder().modify(outEmpty.getExecPath()).build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKeyEmpty);
-
-    // We're done fiddling with this... restore the original state
-    outEmpty.getPath().delete();
-    dummyEmptyDir.deleteTree();
-    FileSystemUtils.createDirectoryAndParents(outEmpty.getPath());
-
-    /* **** Tests for files and directory contents ****/
-
-    // Test that file contents matter. This is covered by existing tests already,
-    // so it's just a simple check.
-    FileSystemUtils.writeContentAsLatin1(file11.getPath(), "goodbye");
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder().modify(file11.getExecPath()).build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey1);
-
-    // Test that directory contents (and nested contents) matter
-    Artifact out1new = TreeFileArtifact.createTreeOutput(out1, "julius/caesar");
-    FileSystemUtils.createDirectoryAndParents(out1.getPath().getChild("julius"));
-    FileSystemUtils.writeContentAsLatin1(out1new.getPath(), "octavian");
-    // even for empty directories
-    Artifact outEmptyNew = TreeFileArtifact.createTreeOutput(outEmpty, "marcus");
-    FileSystemUtils.writeContentAsLatin1(outEmptyNew.getPath(), "aurelius");
-    // so does removing
-    file21.getPath().delete();
-    // now, let's test our changes are actually visible
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey1, actionKey2, actionKeyEmpty);
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder()
-                        .modify(file21.getExecPath())
-                        .modify(out1new.getExecPath())
-                        .modify(outEmptyNew.getExecPath())
-                        .build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey1, actionKey2, actionKeyEmpty);
-    // We also check that if the modified file set does not contain our modified files on disk,
-    // we are not going to check and return them.
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder()
-                        .modify(file21.getExecPath())
-                        .modify(outEmptyNew.getExecPath())
-                        .build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey2, actionKeyEmpty);
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder()
-                        .modify(file21.getExecPath())
-                        .modify(out1new.getExecPath())
-                        .build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey1, actionKey2);
-    // Check modifying the last (lexicographically) tree artifact.
-    last.getPath().delete();
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder()
-                        .modify(file21.getExecPath())
-                        .modify(out1new.getExecPath())
-                        .modify(last.getExecPath())
-                        .build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey1, actionKey2, actionKeyLast);
-    // Check ModifiedFileSet without the last (lexicographically) tree artifact.
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    new ModifiedFileSet.Builder()
-                        .modify(file21.getExecPath())
-                        .modify(out1new.getExecPath())
-                        .build(),
-                    /* trustRemoteArtifacts= */ false))
-        .containsExactly(actionKey1, actionKey2);
-    // Restore
-    last.getPath().delete();
-    last.getPath().createDirectoryAndParents();
-    // We add a test for NOTHING_MODIFIED, because FileSystemValueChecker doesn't
-    // pay attention to file sets for TreeArtifact directory listings.
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    batchStatter,
-                    ModifiedFileSet.NOTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false))
-        .isEmpty();
   }
 
   private Artifact createDerivedArtifact(String relPath) throws IOException {
@@ -800,30 +894,6 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
               boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
               throws IOException {
             throw new IOException("try again");
-          }
-        });
-  }
-
-  @Test
-  public void testDirtyTreeArtifactActions() throws Exception {
-    checkDirtyTreeArtifactActions(null);
-  }
-
-  @Test
-  public void testDirtyTreeArtifactActionsBatchStat() throws Exception {
-    checkDirtyTreeArtifactActions(
-        new BatchStat() {
-          @Override
-          public List<FileStatusWithDigest> batchStat(
-              boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
-              throws IOException {
-            List<FileStatusWithDigest> stats = new ArrayList<>();
-            for (PathFragment pathFrag : paths) {
-              stats.add(
-                  FileStatusWithDigestAdapter.adapt(
-                      fs.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
-            }
-            return stats;
           }
         });
   }
