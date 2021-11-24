@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
-import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -247,7 +246,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             MetadataConsumerForMetrics.NO_OP,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ ImmutableList::of,
-            PathFragment.create(directories.getRelativeOutputPath()),
             new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
             k -> ThreadStateReceiver.NULL_INSTANCE);
 
@@ -332,7 +330,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             /*keepEdges=*/ true);
     final SequentialBuildDriver driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
-    PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.<String, String>of());
+    PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
 
     return new BuilderWithResult() {
@@ -380,17 +378,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             options,
             new ActionCacheChecker(
-                actionCache,
-                null,
-                actionKeyContext,
-                ALWAYS_EXECUTE_FILTER,
-                null,
-                PathFragment.create("bazel-out")),
+                actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
             topDownActionCache,
             /*outputService=*/ null,
             /*incrementalAnalysis=*/ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(
-            EMPTY_PROGRESS_SUPPLIER, EMPTY_COMPLETION_RECEIVER);
+            () -> "", EMPTY_COMPLETION_RECEIVER);
 
         List<SkyKey> keys = new ArrayList<>();
         for (Artifact artifact : artifacts) {
@@ -658,14 +651,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       return actionTemplateExpansionFunction.extractTag(skyKey);
     }
   }
-
-  private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER =
-      new ProgressSupplier() {
-        @Override
-        public String getProgressString() {
-          return "";
-        }
-      };
 
   private static final ActionCompletedReceiver EMPTY_COMPLETION_RECEIVER =
       new ActionCompletedReceiver() {

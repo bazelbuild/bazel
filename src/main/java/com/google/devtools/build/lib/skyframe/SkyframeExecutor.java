@@ -376,6 +376,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private Map<String, String> lastRemoteDefaultExecProperties;
   private RemoteOutputsMode lastRemoteOutputsMode;
+  private Boolean lastRemoteCacheEnabled;
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -455,13 +456,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             outputArtifactsFromActionCache,
             statusReporterRef,
             this::getPathEntries,
-            PathFragment.create(directories.getRelativeOutputPath()),
             syscalls,
             skyKeyStateReceiver::makeThreadStateReceiver);
     this.artifactFactory =
         new ArtifactFactory(
-            /* execRootParent= */ directories.getExecRootBase(),
-            directories.getRelativeOutputPath());
+            /*execRootParent=*/ directories.getExecRootBase(), directories.getRelativeOutputPath());
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
@@ -1731,10 +1730,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         lastRemoteDefaultExecProperties != null
             && !remoteDefaultExecProperties.equals(lastRemoteDefaultExecProperties);
     lastRemoteDefaultExecProperties = remoteDefaultExecProperties;
+
+    boolean remoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+    // If we have remote metadata from last build, and the remote cache is not
+    // enabled in this build, invalidate actions since they can't download those
+    // remote files.
+    //
+    // TODO(chiwang): Re-evaluate this after action rewinding is implemented in
+    //  Bazel since we can treat that case as lost inputs.
+    if (lastRemoteOutputsMode != RemoteOutputsMode.ALL) {
+      needsDeletion |=
+          lastRemoteCacheEnabled != null && lastRemoteCacheEnabled && !remoteCacheEnabled;
+    }
+    lastRemoteCacheEnabled = remoteCacheEnabled;
+
     RemoteOutputsMode remoteOutputsMode =
         remoteOptions != null ? remoteOptions.remoteOutputsMode : RemoteOutputsMode.ALL;
     needsDeletion |= lastRemoteOutputsMode != null && lastRemoteOutputsMode != remoteOutputsMode;
     this.lastRemoteOutputsMode = remoteOutputsMode;
+
     if (needsDeletion) {
       memoizingEvaluator.delete(k -> SkyFunctions.ACTION_EXECUTION.equals(k.functionName()));
     }
