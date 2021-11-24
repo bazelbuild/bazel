@@ -25,18 +25,6 @@
 
 namespace blaze_jni {
 
-#define CHECK(condition) \
-    do { \
-      if (!(condition)) { \
-        fprintf(stderr, "%s:%d: check failed: %s\n", \
-                __FILE__, __LINE__, #condition); \
-        abort(); \
-      } \
-    } while (0)
-
-#define CHECK_EQ(a, b) CHECK((a) == (b))
-#define CHECK_NEQ(a, b) CHECK((a) != (b))
-
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 // stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;

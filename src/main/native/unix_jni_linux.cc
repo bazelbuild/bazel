@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/native/unix_jni.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -21,6 +20,9 @@
 #include <sys/xattr.h>
 
 #include <string>
+
+#include "src/main/native/macros.h"
+#include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 

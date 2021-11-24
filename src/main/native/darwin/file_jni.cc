@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,27 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if defined(__FreeBSD__)
-# define HAVE_EXTATTR
-# define HAVE_SYSCTLBYNAME
-#elif defined(__OpenBSD__)
-// No sys/extattr.h or sysctlbyname on this platform.
-#else
-# error This BSD is not supported
-#endif
-
-#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(HAVE_EXTATTR)
-# include <sys/extattr.h>
-#endif
-#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
+#include <sys/syslimits.h>
 #include <sys/types.h>
+#include <sys/xattr.h>
 
 #include <string>
 
@@ -40,6 +28,8 @@
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
+
+const int PATH_MAX2 = PATH_MAX * 2;
 
 using std::string;
 
@@ -55,7 +45,37 @@ string ErrorMessage(int error_number) {
 
 int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
                      int flags) {
-  return fstatat(dirfd, name, statbuf, flags);
+  char dirPath[PATH_MAX2];  // Have enough room for relative path
+
+  // No fstatat under darwin, simulate it
+  if (flags != 0) {
+    // We don't support any flags
+    errno = ENOSYS;
+    return -1;
+  }
+  if (strlen(name) == 0 || name[0] == '/') {
+    // Absolute path, simply stat
+    return portable_stat(name, statbuf);
+  }
+  // Relative path, construct an absolute path
+  if (fcntl(dirfd, F_GETPATH, dirPath) == -1) {
+    return -1;
+  }
+  int l = strlen(dirPath);
+  if (dirPath[l - 1] != '/') {
+    // dirPath is twice the PATH_MAX size, we always have room for the extra /
+    dirPath[l] = '/';
+    dirPath[l + 1] = 0;
+    l++;
+  }
+  strncat(dirPath, name, PATH_MAX2 - l - 1);
+  char *newpath = realpath(dirPath, nullptr);  // this resolve the relative path
+  if (newpath == nullptr) {
+    return -1;
+  }
+  int r = portable_stat(newpath, statbuf);
+  free(newpath);
+  return r;
 }
 
 int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
@@ -86,75 +106,20 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size, bool *attr_not_found) {
-#if defined(HAVE_EXTATTR)
-  ssize_t result =
-      extattr_get_file(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
+  ssize_t result = getxattr(path, name, value, size, 0, 0);
   *attr_not_found = (errno == ENOATTR);
   return result;
-#else
-  *attr_not_found = true;
-  return -1;
-#endif
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found) {
-#if defined(HAVE_EXTATTR)
-  ssize_t result =
-      extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
+  ssize_t result = getxattr(path, name, value, size, 0, XATTR_NOFOLLOW);
   *attr_not_found = (errno == ENOATTR);
   return result;
-#else
-  *attr_not_found = true;
-  return -1;
-#endif
 }
 
 int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
-#if defined(HAVE_SYSCTLBYNAME)
   return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
-#else
-  errno = ENOSYS;
-  return -1;
-#endif
-}
-
-int portable_push_disable_sleep() {
-  // Currently not supported.
-  // https://wiki.freebsd.org/SuspendResume
-  return -1;
-}
-
-int portable_pop_disable_sleep() {
-  // Currently not supported.
-  // https://wiki.freebsd.org/SuspendResume
-  return -1;
-}
-
-void portable_start_suspend_monitoring() {
-  // Currently not implemented.
-}
-
-void portable_start_thermal_monitoring() {
-  // Currently not implemented.
-}
-
-int portable_thermal_load() {
-  // Currently not implemented.
-  return 0;
-}
-
-void portable_start_system_load_advisory_monitoring() {
-  // Currently not implemented.
-}
-
-int portable_system_load_advisory() {
-  // Currently not implemented.
-  return 0;
-}
-
-void portable_start_memory_pressure_monitoring() {
-  // Currently not implemented.
 }
 
 }  // namespace blaze_jni
