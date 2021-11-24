@@ -147,8 +147,8 @@ final class DirectoryTree {
       super(pathSegment);
     }
 
-    void addChild(Node child) {
-      children.add(Preconditions.checkNotNull(child, "child"));
+    boolean addChild(Node child) {
+      return children.add(Preconditions.checkNotNull(child, "child"));
     }
 
     @Override
