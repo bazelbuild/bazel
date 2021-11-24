@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Map;
 
 /**
@@ -64,9 +62,7 @@ public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTr
   }
 
   /** Transition which resets the set of flag-value pairs to the map it was constructed with. */
-  @AutoCodec
-  @VisibleForSerialization
-  static final class ConfigFeatureFlagValuesTransition implements PatchTransition {
+  private static final class ConfigFeatureFlagValuesTransition implements PatchTransition {
     private final ImmutableSortedMap<Label, String> flagValues;
     private final int cachedHashCode;
 
@@ -74,7 +70,6 @@ public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTr
       this(ImmutableSortedMap.copyOf(flagValues), flagValues.hashCode());
     }
 
-    @AutoCodec.Instantiator
     ConfigFeatureFlagValuesTransition(
         ImmutableSortedMap<Label, String> flagValues, int cachedHashCode) {
       this.flagValues = ImmutableSortedMap.copyOf(flagValues);

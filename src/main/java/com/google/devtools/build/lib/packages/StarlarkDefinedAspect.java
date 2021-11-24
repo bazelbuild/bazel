@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Objects;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -30,8 +28,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
-@AutoCodec
-public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
+public final class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
   private final StarlarkCallable implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
@@ -81,43 +78,6 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
     this.applyToGeneratingRules = applyToGeneratingRules;
   }
 
-  /** Constructor for post export reconstruction for serialization. */
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  StarlarkDefinedAspect(
-      StarlarkCallable implementation,
-      ImmutableList<String> attributeAspects,
-      ImmutableList<Attribute> attributes,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
-      ImmutableSet<StarlarkProviderIdentifier> provides,
-      ImmutableSet<String> paramAttributes,
-      ImmutableSet<StarlarkAspect> requiredAspects,
-      ImmutableSet<String> fragments,
-      // The host transition is in lib.analysis, so we can't reference it directly here.
-      ConfigurationTransition hostTransition,
-      ImmutableSet<String> hostFragments,
-      ImmutableList<Label> requiredToolchains,
-      boolean useToolchainTransition,
-      boolean applyToGeneratingRules,
-      StarlarkAspectClass aspectClass) {
-    this(
-        implementation,
-        attributeAspects,
-        attributes,
-        requiredProviders,
-        requiredAspectProviders,
-        provides,
-        paramAttributes,
-        requiredAspects,
-        fragments,
-        hostTransition,
-        hostFragments,
-        requiredToolchains,
-        useToolchainTransition,
-        applyToGeneratingRules);
-    this.aspectClass = aspectClass;
-  }
 
   public StarlarkCallable getImplementation() {
     return implementation;

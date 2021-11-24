@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /** {@link AspectClass} for aspects defined in Starlark. */
-@AutoCodec
 @Immutable
 public final class StarlarkAspectClass implements AspectClass {
   private final Label extensionLabel;
