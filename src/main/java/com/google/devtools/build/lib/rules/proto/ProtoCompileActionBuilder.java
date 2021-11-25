@@ -321,6 +321,7 @@ public class ProtoCompileActionBuilder {
             // A rule that concatenates the artifacts from ctx.deps.proto.transitive_descriptor_sets
             // provides similar results.
             "--descriptor_set_out=%s",
+            /* pluginFormatFlag = */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ null,
             /* providedProtoSources= */ ImmutableList.of()),

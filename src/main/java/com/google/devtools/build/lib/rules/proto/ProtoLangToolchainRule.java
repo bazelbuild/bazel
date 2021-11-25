@@ -43,6 +43,13 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("command_line", Type.STRING).mandatory())
 
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(plugin_format_flag) -->
+        If provided, this value will be passed to proto-compiler to use the plugin. The value must
+        contain a single %s which is replaced with plugin executable.
+        <code>--plugin=protoc-gen-PLUGIN=<executable>.</code>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("plugin_format_flag", Type.STRING))
+
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(plugin) -->
         If provided, will be made available to the action that calls the proto-compiler, and will be
         passed to the proto-compiler:

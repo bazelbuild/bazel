@@ -52,6 +52,7 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
         .addProvider(
             ProtoLangToolchainProvider.create(
                 flag,
+                ruleContext.attributes().get("plugin_format_flag", Type.STRING),
                 ruleContext.getPrerequisite("plugin", FilesToRunProvider.class),
                 ruleContext.getPrerequisite("runtime"),
                 // We intentionally flatten the NestedSet here.
