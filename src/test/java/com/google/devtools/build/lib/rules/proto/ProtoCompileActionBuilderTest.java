@@ -105,6 +105,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchainNoPlugin =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -112,6 +113,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchainWithPlugin =
         ProtoLangToolchainProvider.create(
             "--PLUGIN_pluginName_out=param3,param4:%s",
+            /* pluginFormatFlag= */ "--plugin=protoc-gen-PLUGIN_pluginName=%s",
             plugin,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -175,6 +177,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -213,6 +216,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -283,6 +287,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
             "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -317,6 +322,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchain1 =
         ProtoLangToolchainProvider.create(
             "dontcare",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -324,6 +330,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoLangToolchainProvider toolchain2 =
         ProtoLangToolchainProvider.create(
             "dontcare",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());

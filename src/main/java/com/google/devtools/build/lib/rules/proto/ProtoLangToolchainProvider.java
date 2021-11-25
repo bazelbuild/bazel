@@ -37,6 +37,9 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
   public abstract String outReplacementFormatFlag();
 
   @Nullable
+  public abstract String pluginFormatFlag();
+
+  @Nullable
   public abstract FilesToRunProvider pluginExecutable();
 
   @Nullable
@@ -64,12 +67,14 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
   @AutoCodec.Instantiator
   public static ProtoLangToolchainProvider createForDeserialization(
       String outReplacementFormatFlag,
+      String pluginFormatFlag,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
       ImmutableList<ProtoSource> providedProtoSources,
       NestedSet<Artifact> blacklistedProtos) {
     return new AutoValue_ProtoLangToolchainProvider(
         outReplacementFormatFlag,
+        pluginFormatFlag,
         pluginExecutable,
         runtime,
         providedProtoSources,
@@ -78,6 +83,7 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
 
   public static ProtoLangToolchainProvider create(
       String outReplacementFormatFlag,
+      String pluginFormatFlag,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
       ImmutableList<ProtoSource> providedProtoSources) {
@@ -87,6 +93,7 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
     }
     return new AutoValue_ProtoLangToolchainProvider(
         outReplacementFormatFlag,
+        pluginFormatFlag,
         pluginExecutable,
         runtime,
         providedProtoSources,
