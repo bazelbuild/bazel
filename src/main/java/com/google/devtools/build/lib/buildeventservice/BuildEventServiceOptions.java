@@ -71,7 +71,7 @@ public class BuildEventServiceOptions extends OptionsBase {
       deprecationWarning =
           "BES best effort upload has been removed. The flag has no more "
               + "functionality attached to it and will be removed in a future release.",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "BES best effort upload has been removed. The flag has no more "
