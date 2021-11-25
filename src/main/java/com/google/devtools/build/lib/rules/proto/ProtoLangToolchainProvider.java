@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 @AutoValue
 @AutoCodec
 public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvider {
-  public abstract String commandLine();
+  public abstract String outReplacementFormatFlag();
 
   @Nullable
   public abstract FilesToRunProvider pluginExecutable();
@@ -63,17 +63,21 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
 
   @AutoCodec.Instantiator
   public static ProtoLangToolchainProvider createForDeserialization(
-      String commandLine,
+      String outReplacementFormatFlag,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
       ImmutableList<ProtoSource> providedProtoSources,
       NestedSet<Artifact> blacklistedProtos) {
     return new AutoValue_ProtoLangToolchainProvider(
-        commandLine, pluginExecutable, runtime, providedProtoSources, blacklistedProtos);
+        outReplacementFormatFlag,
+        pluginExecutable,
+        runtime,
+        providedProtoSources,
+        blacklistedProtos);
   }
 
   public static ProtoLangToolchainProvider create(
-      String commandLine,
+      String outReplacementFormatFlag,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
       ImmutableList<ProtoSource> providedProtoSources) {
@@ -82,6 +86,10 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
       blacklistedProtos.add(protoSource.getOriginalSourceFile());
     }
     return new AutoValue_ProtoLangToolchainProvider(
-        commandLine, pluginExecutable, runtime, providedProtoSources, blacklistedProtos.build());
+        outReplacementFormatFlag,
+        pluginExecutable,
+        runtime,
+        providedProtoSources,
+        blacklistedProtos.build());
   }
 }

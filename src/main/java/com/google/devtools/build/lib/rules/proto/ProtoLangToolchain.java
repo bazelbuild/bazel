@@ -39,10 +39,19 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
       providedProtoSources.addTransitive(protoInfo.getTransitiveSources());
     }
 
+    String flag = ruleContext.attributes().get("command_line", Type.STRING);
+
+    if (flag.contains("$(PLUGIN_OUT)")) {
+      ruleContext.attributeError("command_line", "Placeholder '$(PLUGIN_OUT)' is not supported.");
+      return null;
+    }
+
+    flag = flag.replace("$(OUT)", "%s");
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(
             ProtoLangToolchainProvider.create(
-                ruleContext.attributes().get("command_line", Type.STRING),
+                flag,
                 ruleContext.getPrerequisite("plugin", FilesToRunProvider.class),
                 ruleContext.getPrerequisite("runtime"),
                 // We intentionally flatten the NestedSet here.

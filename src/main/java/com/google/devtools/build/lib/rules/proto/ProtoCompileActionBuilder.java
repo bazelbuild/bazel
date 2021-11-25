@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -36,9 +35,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
-import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
-import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -46,7 +42,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -147,48 +142,6 @@ public class ProtoCompileActionBuilder {
     @Override
     public String toString() {
       return String.format("--%s_out=%s", langPrefix, langPluginParameter.get());
-    }
-  }
-
-  private static class OnDemandCommandLineExpansion extends OnDemandString {
-    // E.g., --java_out=%s
-    private final String template;
-    private final Map<String, ? extends CharSequence> variableValues;
-
-    OnDemandCommandLineExpansion(
-        String template, Map<String, ? extends CharSequence> variableValues) {
-      this.template = template;
-      this.variableValues = variableValues;
-    }
-
-    @Override
-    public String toString() {
-      try {
-        return TemplateExpander.expand(
-                template,
-                new TemplateContext() {
-                  @Override
-                  public String lookupVariable(String name) throws ExpansionException {
-                    CharSequence value = variableValues.get(name);
-                    if (value == null) {
-                      throw new ExpansionException(String.format("$(%s) not defined", name));
-                    }
-                    return value.toString();
-                  }
-
-                  @Override
-                  public String lookupFunction(String name, String param)
-                      throws ExpansionException {
-                    throw new ExpansionException(String.format("$(%s) not defined", name));
-                  }
-                })
-            .expansion();
-      } catch (ExpansionException e) {
-        // Squeelch. We don't throw this exception in the lookupMakeVariable implementation above,
-        // and we can't report it here anyway, because this code will typically execute in the
-        // Execution phase.
-      }
-      return template;
     }
   }
 
@@ -367,7 +320,7 @@ public class ProtoCompileActionBuilder {
             // output size to become quadratic, so don't.
             // A rule that concatenates the artifacts from ctx.deps.proto.transitive_descriptor_sets
             // provides similar results.
-            "--descriptor_set_out=$(OUT)",
+            "--descriptor_set_out=%s",
             /* pluginExecutable= */ null,
             /* runtime= */ null,
             /* providedProtoSources= */ ImmutableList.of()),
@@ -492,8 +445,6 @@ public class ProtoCompileActionBuilder {
    * <ul>
    *   <li>Each toolchain contributes a command-line, formatted from its commandLine() method.
    *   <li>$(OUT) is replaced with the outReplacement field of ToolchainInvocation.
-   *   <li>$(PLUGIN_out) is replaced with PLUGIN_<key>_out where 'key' is the key of
-   *       toolchainInvocations. The key thus allows multiple plugins in one command-line.
    *   <li>If a toolchain's {@code plugin()} is non-null, we point at it by emitting
    *       --plugin=protoc-gen-PLUGIN_<key>=<location of plugin>.
    * </ul>
@@ -537,14 +488,15 @@ public class ProtoCompileActionBuilder {
 
       ProtoLangToolchainProvider toolchain = invocation.toolchain;
 
+      final String formatString = toolchain.outReplacementFormatFlag();
+      final CharSequence outReplacement = invocation.outReplacement;
       cmdLine.addLazyString(
-          new OnDemandCommandLineExpansion(
-              toolchain.commandLine(),
-              ImmutableMap.of(
-                  "OUT",
-                  invocation.outReplacement,
-                  "PLUGIN_OUT",
-                  String.format("PLUGIN_%s_out", invocation.name))));
+          new OnDemandString() {
+            @Override
+            public String toString() {
+              return String.format(formatString, outReplacement);
+            }
+          });
 
       if (toolchain.pluginExecutable() != null) {
         cmdLine.addFormatted(

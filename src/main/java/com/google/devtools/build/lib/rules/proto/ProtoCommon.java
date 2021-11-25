@@ -42,9 +42,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
-/**
- * Utility functions for proto_library and proto aspect implementations.
- */
+/** Utility functions for proto_library and proto aspect implementations. */
 public class ProtoCommon {
   private ProtoCommon() {
     throw new UnsupportedOperationException();
