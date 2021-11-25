@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -362,7 +361,7 @@ public class ProtoCompileActionBuilder {
             // output size to become quadratic, so don't.
             // A rule that concatenates the artifacts from ctx.deps.proto.transitive_descriptor_sets
             // provides similar results.
-            "--descriptor_set_out=$(OUT)",
+            "--descriptor_set_out=%s",
             /* pluginExecutable= */ null,
             /* runtime= */ null,
             /* providedProtoSources= */ ImmutableList.of()),
@@ -488,8 +487,6 @@ public class ProtoCompileActionBuilder {
    * <ul>
    *   <li>Each toolchain contributes a command-line, formatted from its commandLine() method.
    *   <li>$(OUT) is replaced with the outReplacement field of ToolchainInvocation.
-   *   <li>$(PLUGIN_out) is replaced with PLUGIN_<key>_out where 'key' is the key of
-   *       toolchainInvocations. The key thus allows multiple plugins in one command-line.
    *   <li>If a toolchain's {@code plugin()} is non-null, we point at it by emitting
    *       --plugin=protoc-gen-PLUGIN_<key>=<location of plugin>.
    * </ul>
@@ -533,14 +530,15 @@ public class ProtoCompileActionBuilder {
 
       ProtoLangToolchainProvider toolchain = invocation.toolchain;
 
+      final String formatString = toolchain.outReplacementFormatFlag();
+      final CharSequence outReplacement = invocation.outReplacement;
       cmdLine.addLazyString(
-          new OnDemandCommandLineExpansion(
-              toolchain.commandLine(),
-              ImmutableMap.of(
-                  "OUT",
-                  invocation.outReplacement,
-                  "PLUGIN_OUT",
-                  String.format("PLUGIN_%s_out", invocation.name))));
+          new OnDemandString() {
+            @Override
+            public String toString() {
+              return String.format(formatString, outReplacement);
+            }
+          });
 
       if (toolchain.pluginExecutable() != null) {
         cmdLine.addFormatted(
