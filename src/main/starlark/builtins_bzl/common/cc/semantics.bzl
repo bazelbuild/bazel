@@ -12,47 +12,61 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Semantics for Google cc rules"""
+"""Semantics for Bazel cc rules"""
+load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo")
+
+def _create_cc_launcher_info(cc_info, cc_compilation_outputs):
+    return None
+
+def _validate_deps(ctx):
+    pass
+
+def _validate_attributes(ctx):
+    pass
+
+def _determine_headers_checking_mode(ctx):
+    return "strict"
+
+def _get_cc_shared_library_info(dep):
+    return dep[CcSharedLibraryInfo]
 
 def _get_semantics():
-    return _builtins.internal.google_cc_internal.semantics
+    return _builtins.internal.bazel_cc_internal.semantics
 
 def _get_repo():
     return ""
 
 def _additional_fragments():
-    return ["google_cpp"]
+    return []
 
 def _get_licenses_attr():
-    if hasattr(attr, "license"):
-        # TODO(b/182226065): Change to applicable_licenses
-        return {
-            # buildifier: disable=attr-license
-            "licenses": attr.license(),
-        }
-    else:
-        return {
-            "licenses": attr.string_list(),
-        }
-
-def _get_distribs_attr():
-    return {
-        "distribs": attr.string_list(),
-    }
+    # TODO(b/182226065): Change to applicable_licenses
+    return {}
 
 def _get_loose_mode_in_hdrs_check_allowed_attr():
-    return {
-        "_allowlist_loose_mode_in_hdrs_check_allowed": attr.label(
-            default = "@//tools/build_defs/cc/whitelists/hdrs_check:loose_mode_in_hdrs_check_allowed",
-            providers = [_builtins.internal.cc_internal.PackageGroupInfo],
-        ),
-    }
+    return {}
 
 semantics = struct(
+    ALLOWED_RULES_IN_DEPS = [
+        "cc_library",
+        "objc_library",
+        "cc_proto_library",
+        "cc_import",
+    ],
+    ALLOWED_FILES_IN_DEPS = [
+        ".ld",
+        ".lds",
+        ".ldscript",
+    ],
+    ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
+    validate_deps = _validate_deps,
+    validate_attributes = _validate_attributes,
+    determine_headers_checking_mode = _determine_headers_checking_mode,
+    get_cc_shared_library_info = _get_cc_shared_library_info,
+    create_cc_launcher_info = _create_cc_launcher_info,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     additional_fragments = _additional_fragments,
     get_licenses_attr = _get_licenses_attr,
-    get_distribs_attr = _get_distribs_attr,
     get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
 )

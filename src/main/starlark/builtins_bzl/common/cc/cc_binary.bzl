@@ -14,7 +14,7 @@
 
 """cc_binary Starlark implementation replacing native"""
 
-load(":common/cc/cc_semantics.bzl", "semantics")
+load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 
@@ -1018,7 +1018,7 @@ cc_binary = rule(
         ),
         "malloc": attr.label(
             default = Label("@//tools/cpp:malloc"),
-            allow_files = True,
+            allow_files = False,
             allow_rules = ["cc_library"],
             # TODO(b/198254254): Add aspects. in progress
             aspects = [],

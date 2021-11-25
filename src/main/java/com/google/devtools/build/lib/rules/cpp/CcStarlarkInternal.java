@@ -41,6 +41,23 @@ public class CcStarlarkInternal implements StarlarkValue {
   public static final String NAME = "cc_internal";
 
   @StarlarkMethod(
+      name = "is_package_headers_checking_mode_set",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public boolean isPackageHeadersCheckingModeSetForStarlark(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getRule().getPackage().isDefaultHdrsCheckSet();
+  }
+
+  @StarlarkMethod(
+      name = "package_headers_checking_mode",
+      documented = false,
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getRule().getPackage().getDefaultHdrsCheck();
+  }
+
+  @StarlarkMethod(
       name = "get_linked_artifact",
       documented = false,
       parameters = {
