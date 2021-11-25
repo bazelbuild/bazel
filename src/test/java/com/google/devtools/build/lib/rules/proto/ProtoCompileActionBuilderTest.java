@@ -104,14 +104,14 @@ public class ProtoCompileActionBuilderTest {
 
     ProtoLangToolchainProvider toolchainNoPlugin =
         ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+            "--java_out=param1,param2:%s",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
 
     ProtoLangToolchainProvider toolchainWithPlugin =
         ProtoLangToolchainProvider.create(
-            "--$(PLUGIN_OUT)=param3,param4:$(OUT)",
+            "--PLUGIN_pluginName_out=param3,param4:%s",
             plugin,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -174,7 +174,7 @@ public class ProtoCompileActionBuilderTest {
   public void commandLine_strictDeps() throws Exception {
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+            "--java_out=param1,param2:%s",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -212,7 +212,7 @@ public class ProtoCompileActionBuilderTest {
   public void commandLine_exports() throws Exception {
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+            "--java_out=param1,param2:%s",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
@@ -282,7 +282,7 @@ public class ProtoCompileActionBuilderTest {
 
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+            "--java_out=param1,param2:%s",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());

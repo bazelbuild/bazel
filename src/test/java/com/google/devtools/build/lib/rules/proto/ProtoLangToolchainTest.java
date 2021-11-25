@@ -40,7 +40,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   }
 
   private void validateProtoLangToolchain(ProtoLangToolchainProvider toolchain) throws Exception {
-    assertThat(toolchain.commandLine()).isEqualTo("cmd-line");
+    assertThat(toolchain.outReplacementFormatFlag()).isEqualTo("cmd-line");
     assertThat(toolchain.pluginExecutable().getExecutable().getRootRelativePathString())
         .isEqualTo("third_party/x/plugin");
 

@@ -37,9 +37,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
-/**
- * Utility functions for proto_library and proto aspect implementations.
- */
+/** Utility functions for proto_library and proto aspect implementations. */
 public class ProtoCommon {
   private ProtoCommon() {
     throw new UnsupportedOperationException();
