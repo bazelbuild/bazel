@@ -555,7 +555,7 @@ def _create_transitive_linking_actions(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        compilation_outputs = cc_compilation_outputs,
+        compilation_outputs = cc_compilation_outputs_with_only_objects,
         grep_includes = ctx.attr._grep_includes.files_to_run.executable,
         stamp = _is_stamping_enabled(ctx),
         additional_inputs = additional_linker_inputs,
