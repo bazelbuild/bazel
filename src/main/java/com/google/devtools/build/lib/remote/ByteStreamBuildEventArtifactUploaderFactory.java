@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.util.concurrent.Executor;
+import javax.annotation.Nullable;
 
 /** A factory for {@link ByteStreamBuildEventArtifactUploader}. */
 class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactUploaderFactory {
@@ -29,6 +32,9 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
   private final String remoteServerInstanceName;
   private final String buildRequestId;
   private final String commandId;
+
+  @Nullable
+  private ByteStreamBuildEventArtifactUploader uploader;
 
   ByteStreamBuildEventArtifactUploaderFactory(
       Executor executor,
@@ -49,7 +55,8 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
 
   @Override
   public BuildEventArtifactUploader create(CommandEnvironment env) {
-    return new ByteStreamBuildEventArtifactUploader(
+    checkState(uploader == null, "Already created");
+    uploader = new ByteStreamBuildEventArtifactUploader(
         executor,
         reporter,
         verboseFailures,
@@ -57,5 +64,11 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
         remoteServerInstanceName,
         buildRequestId,
         commandId);
+    return uploader;
+  }
+
+  @Nullable
+  public ByteStreamBuildEventArtifactUploader get() {
+    return uploader;
   }
 }

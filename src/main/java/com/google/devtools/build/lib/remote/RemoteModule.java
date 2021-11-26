@@ -30,10 +30,12 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -111,6 +113,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
@@ -128,6 +131,7 @@ public final class RemoteModule extends BlazeModule {
   private RemoteActionInputFetcher actionInputFetcher;
   private RemoteOutputsMode remoteOutputsMode;
   private RemoteOutputService remoteOutputService;
+  private Boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -245,6 +249,8 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkState(remoteOutputsMode == null, "remoteOutputsMode must be null");
+    Preconditions.checkState(incompatibleRemoteBuildEventUploadRespectNoCache == null,
+        "incompatibleRemoteBuildEventUploadRespectNoCache must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -253,6 +259,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     remoteOutputsMode = remoteOptions.remoteOutputsMode;
+    incompatibleRemoteBuildEventUploadRespectNoCache = remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache;
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
@@ -726,6 +733,36 @@ public final class RemoteModule extends BlazeModule {
       }
       actionContextProvider.setFilesToDownload(ImmutableSet.copyOf(filesToDownload));
     }
+
+    if (incompatibleRemoteBuildEventUploadRespectNoCache != null
+        && incompatibleRemoteBuildEventUploadRespectNoCache) {
+      parseNoCacheOutputs(analysisResult);
+    }
+  }
+
+  private void parseNoCacheOutputs(AnalysisResult analysisResult) {
+    ByteStreamBuildEventArtifactUploader uploader = buildEventArtifactUploaderFactoryDelegate.get();
+    if (uploader == null) {
+      return;
+    }
+
+    for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
+      if (configuredTarget instanceof RuleConfiguredTarget) {
+        RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+        for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
+          Map<String, String> executionInfo = action.getExecutionInfo();
+          if (executionInfo != null && !Spawns.mayBeCachedRemotely(executionInfo)) {
+            for (Artifact output : action.getOutputs()) {
+              if (output.isTreeArtifact()) {
+                uploader.omitTree(output.getPath());
+              } else {
+                uploader.omitFile(output.getPath());
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   // This is a short-term fix for top-level outputs that are symlinks. Unfortunately, we cannot
@@ -830,6 +867,7 @@ public final class RemoteModule extends BlazeModule {
     actionContextProvider = null;
     actionInputFetcher = null;
     remoteOutputsMode = null;
+    incompatibleRemoteBuildEventUploadRespectNoCache = null;
     remoteOutputService = null;
 
     if (failure != null) {
@@ -913,11 +951,20 @@ public final class RemoteModule extends BlazeModule {
   private static class BuildEventArtifactUploaderFactoryDelegate
       implements BuildEventArtifactUploaderFactory {
 
-    private volatile BuildEventArtifactUploaderFactory uploaderFactory;
+    @Nullable
+    private ByteStreamBuildEventArtifactUploaderFactory uploaderFactory;
 
-    public void init(BuildEventArtifactUploaderFactory uploaderFactory) {
+    public void init(ByteStreamBuildEventArtifactUploaderFactory uploaderFactory) {
       Preconditions.checkState(this.uploaderFactory == null);
       this.uploaderFactory = uploaderFactory;
+    }
+
+    @Nullable
+    public ByteStreamBuildEventArtifactUploader get() {
+      if (uploaderFactory == null) {
+        return null;
+      }
+      return uploaderFactory.get();
     }
 
     public void reset() {
