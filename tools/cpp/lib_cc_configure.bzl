@@ -189,7 +189,12 @@ def get_cpu_value(repository_ctx):
     if os_name.find("openbsd") != -1:
         return "openbsd"
     if os_name.find("windows") != -1:
-        return "x64_windows"
+        arch = (get_env_var(repository_ctx, "PROCESSOR_ARCHITECTURE", "", False) or
+                get_env_var(repository_ctx, "PROCESSOR_ARCHITEW6432", "", False))
+        if arch == "ARM64":
+            return "arm64_windows"
+        else:
+            return "x64_windows"
 
     # Use uname to figure out whether we are on x86_32 or x86_64
     result = repository_ctx.execute(["uname", "-m"])

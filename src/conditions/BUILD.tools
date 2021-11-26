@@ -1,3 +1,5 @@
+load("//tools/windows:windows_config.bzl", "create_windows_host_config")
+
 config_setting(
     name = "freebsd",
     constraint_values = ["@platforms//os:freebsd"],
@@ -118,6 +120,21 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "windows_x64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+)
+config_setting(
+    name = "windows_arm64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+)
+
 # TODO: figure out how to base this selection on constraints
 config_setting(
     name = "windows_msvc",
@@ -125,12 +142,7 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# TODO: figure out how to base this selection on constraints
-config_setting(
-    name = "host_windows",
-    values = {"host_cpu": "x64_windows"},
-    visibility = ["//visibility:public"],
-)
+create_windows_host_config()
 
 config_setting(
     name = "remote",

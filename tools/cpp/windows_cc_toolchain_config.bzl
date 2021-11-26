@@ -80,7 +80,7 @@ all_link_actions = [
 ]
 
 def _use_msvc_toolchain(ctx):
-    return ctx.attr.cpu == "x64_windows" and (ctx.attr.compiler == "msvc-cl" or ctx.attr.compiler == "clang-cl")
+    return ctx.attr.cpu in ["x64_windows", "arm64_windows"] and (ctx.attr.compiler == "msvc-cl" or ctx.attr.compiler == "clang-cl")
 
 def _impl(ctx):
     if _use_msvc_toolchain(ctx):
