@@ -168,7 +168,10 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
         execution_info[execution_requirement] = ""
 
     ctx.actions.run(
-        inputs = [input],
+        inputs = depset(
+            direct = [input],
+            transitive = [cc_toolchain.all_files],
+        ),
         outputs = [output],
         use_default_shell_env = True,
         executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
@@ -393,8 +396,8 @@ def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, 
 
     if lto_backend_artifacts != None:
         for lto_backend_artifact in lto_backend_artifacts:
-            if lto_backend_artifact.dwo_file != None:
-                dwo_files.append(lto_backend_artifact.dwo_file)
+            if lto_backend_artifact.dwo_file() != None:
+                dwo_files.append(lto_backend_artifact.dwo_file())
 
     if linking_mode != _LINKING_DYNAMIC:
         if use_pic:
@@ -541,7 +544,7 @@ def _create_transitive_linking_actions(
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
 
     cc_info_without_extra_link_time_libraries = cc_common.merge_cc_infos(cc_infos = [deps_cc_info, CcInfo(linking_context = current_cc_linking_context)])
-    extra_link_time_libraries_cc_info = CcInfo(linking_context = cc_common.create_linking_context(linker_inputs = depset([cc_common.create_linker_input(owner = ctx.label, libraries = extra_link_time_libraries_depset)])))
+    extra_link_time_libraries_cc_info = CcInfo(linking_context = cc_common.create_linking_context(linker_inputs = extra_link_time_libraries_depset))
     cc_info = cc_common.merge_cc_infos(cc_infos = [extra_link_time_libraries_cc_info, cc_info_without_extra_link_time_libraries])
     cc_linking_context = cc_info.linking_context
 
@@ -626,7 +629,7 @@ def _is_link_shared(ctx):
     return hasattr(ctx.attr, "linkshared") and ctx.attr.linkshared
 
 def _report_invalid_options(ctx, cc_toolchain, cpp_config):
-    if cpp_config.grte_top != None and cc_toolchain.sysroot == None:
+    if cpp_config.grte_top() != None and cc_toolchain.sysroot == None:
         fail("The selected toolchain does not support setting --grte_top (it doesn't specify builtin_sysroot).")
 
 def _is_apple_platform(target_cpu):
@@ -781,12 +784,10 @@ def _cc_binary_impl(ctx):
         pdb_file = ctx.actions.declare_file(target_name + ".pdb")
 
     extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
-    extra_link_time_libraries_depset = depset()
+    linker_inputs_extra = depset()
     extra_link_time_runtime_libraries_depset = depset()
     if extra_link_time_libraries != None:
         linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != _LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
-        extra_link_time_libraries_depset = depset(transitive = linker_inputs_extra.to_list(), order = "topological")
-        extra_link_time_runtime_libraries_depset = depset(transitive = runtime_libraries_extra.to_list(), order = "topological")
 
     cc_linking_outputs_binary, cc_launcher_info = _create_transitive_linking_actions(
         ctx,
@@ -801,7 +802,7 @@ def _cc_binary_impl(ctx):
         compilation_context,
         binary,
         deps_cc_linking_context,
-        extra_link_time_libraries_depset,
+        linker_inputs_extra,
         link_compile_output_separately,
         linking_mode,
         link_target_type,
@@ -842,7 +843,7 @@ def _cc_binary_impl(ctx):
     explicit_dwp_file = dwp_file
     if not cc_helper.should_create_per_object_debug_info(feature_configuration, cpp_config):
         explicit_dwp_file = None
-    elif ctx.rule.kind.endswith("_test") and linking_mode != _LINKING_DYNAMIC and cpp_config.build_test_dwp:
+    elif ctx.label.name.endswith("_test") and linking_mode != _LINKING_DYNAMIC and cpp_config.build_test_dwp:
         files_to_build_list.append(dwp_file)
 
     # If the binary is linked dynamically and COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, collect
@@ -888,7 +889,7 @@ def _cc_binary_impl(ctx):
         runtime_objects_for_coverage,
         common,
     )
-    if _is_apple_platform(cc_toolchain.cpu) and ctx.rule.kind.endswith("_test"):
+    if _is_apple_platform(cc_toolchain.cpu) and ctx.label.name.endswith("_test"):
         # TODO(b/198254254): Add ExecutionInfo.
         execution_info = None
 

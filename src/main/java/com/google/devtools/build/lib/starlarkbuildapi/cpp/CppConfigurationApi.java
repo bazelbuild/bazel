@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -159,6 +160,11 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @StarlarkMethod(name = "build_test_dwp", documented = false, useStarlarkThread = true)
   boolean buildTestDwpIsActivatedStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "grte_top", documented = false, useStarlarkThread = true)
+  @StarlarkMethod(
+      name = "grte_top",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
   Label getLibcTopLabelStarlark(StarlarkThread thread) throws EvalException;
 }
