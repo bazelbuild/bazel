@@ -140,14 +140,19 @@ class RunfilesTest(unittest.TestCase):
 
   def testManifestBasedRlocation(self):
     with _MockFile(contents=[
-        "Foo/runfile1", "Foo/runfile2 C:/Actual Path\\runfile2",
-        "Foo/Bar/runfile3 D:\\the path\\run file 3.txt"
+      "Foo/runfile1", "Foo/runfile2 C:/Actual Path\\runfile2",
+      "Foo/Bar/runfile3 D:\\the path\\run file 3.txt",
+      "Foo/Bar/Dir E:\\Actual Path\\Directory",
     ]) as mf:
       r = runfiles.CreateManifestBased(mf.Path())
       self.assertEqual(r.Rlocation("Foo/runfile1"), "Foo/runfile1")
       self.assertEqual(r.Rlocation("Foo/runfile2"), "C:/Actual Path\\runfile2")
       self.assertEqual(
           r.Rlocation("Foo/Bar/runfile3"), "D:\\the path\\run file 3.txt")
+      self.assertEqual(r.Rlocation("Foo/Bar/Dir/runfile4"),
+                       "E:\\Actual Path\\Directory/runfile4")
+      self.assertEqual(r.Rlocation("Foo/Bar/Dir/Deeply/Nested/runfile4"),
+                       "E:\\Actual Path\\Directory/Deeply/Nested/runfile4")
       self.assertIsNone(r.Rlocation("unknown"))
       if RunfilesTest.IsWindows():
         self.assertEqual(r.Rlocation("c:/foo"), "c:/foo")
