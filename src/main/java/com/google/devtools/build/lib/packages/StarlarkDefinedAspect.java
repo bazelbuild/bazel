@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -217,6 +218,38 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       }
       return builder.build();
     };
+  }
+
+  public AspectParameters extractTopLevelParameters(ImmutableMap<String, String> parametersValues)
+      throws EvalException {
+    AspectParameters.Builder builder = new AspectParameters.Builder();
+    for (Attribute aspectParameter : attributes) {
+      String parameterName = aspectParameter.getName();
+      if (Attribute.isImplicit(parameterName) || Attribute.isLateBound(parameterName)) {
+        // These attributes are the private matters of the aspect
+        continue;
+      }
+
+      Preconditions.checkArgument(
+          aspectParameter.getType() == Type.STRING,
+          "Cannot pass value of non-string attribute '%s' in aspect %s.",
+          getName(),
+          parameterName);
+
+      String parameterValue =
+          parametersValues.getOrDefault(
+              parameterName, (String) aspectParameter.getDefaultValue(null));
+
+      PredicateWithMessage<Object> allowedValues = aspectParameter.getAllowedValues();
+      if (allowedValues.apply(parameterValue)) {
+        builder.addAttribute(parameterName, parameterValue);
+      } else {
+        throw Starlark.errorf(
+            "%s: invalid value in '%s' attribute: %s",
+            getName(), parameterName, allowedValues.getErrorReason(parameterValue));
+      }
+    }
+    return builder.build();
   }
 
   public ImmutableList<Label> getRequiredToolchains() {

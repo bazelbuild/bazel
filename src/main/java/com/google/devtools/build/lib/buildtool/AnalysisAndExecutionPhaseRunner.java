@@ -186,6 +186,7 @@ public final class AnalysisAndExecutionPhaseRunner {
                 multiCpu,
                 explicitTargetPatterns,
                 request.getAspects(),
+                request.getAspectsParameters(),
                 request.getViewOptions(),
                 request.getKeepGoing(),
                 request.getCheckForActionConflicts(),

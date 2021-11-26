@@ -538,6 +538,17 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " providers of the aspect.")
   public boolean incompatibleTopLevelAspectsRequireProviders;
 
+  @Option(
+      name = "experimental_allow_top_level_aspects_parameters",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set to true, top level aspects will accept values for their parameters passed via"
+              + " --aspects_parameters option.")
+  public boolean experimentalAllowTopLevelAspectsParameters;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -605,6 +616,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
                 incompatibleTopLevelAspectsRequireProviders)
+            .setBool(
+                EXPERIMENTAL_ALLOW_TOP_LEVEL_ASPECTS_PARAMETERS,
+                experimentalAllowTopLevelAspectsParameters)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -673,6 +687,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
+  public static final String EXPERIMENTAL_ALLOW_TOP_LEVEL_ASPECTS_PARAMETERS =
+      "-experimental_allow_top_level_aspects_parameters";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

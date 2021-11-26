@@ -2041,6 +2041,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         /* multiCpu= */ ImmutableSet.of(),
         /*explicitTargetPatterns=*/ ImmutableSet.of(),
         aspects,
+        /*aspectsParameters=*/ ImmutableMap.of(),
         viewOptions,
         keepGoing,
         loadingPhaseThreads,

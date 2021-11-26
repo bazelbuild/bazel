@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -317,6 +318,23 @@ public class BuildRequestOptions extends OptionsBase {
               + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
               + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
   public List<String> aspects;
+
+  @Option(
+      name = "aspects_parameters",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      allowMultiple = true,
+      help =
+          "Specifies the values of the command-line aspects parameters. Each parameter value is"
+              + " specified via <param_name>=<param_value>, for example 'my_param=my_val' where"
+              + " 'my_param' is a parameter of some aspect in --aspects list or required by an"
+              + " aspect in the list. This option can be used multiple times. However, it is not"
+              + " allowed to assign values to the same parameter more than once. This option is"
+              + " only be effective under the experimental flag"
+              + " --experimental_allow_top_level_aspects_parameters.")
+  public List<Map.Entry<String, String>> aspectsParameters;
 
   public BuildRequestOptions() throws OptionsParsingException {}
 
