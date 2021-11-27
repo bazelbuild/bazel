@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -304,12 +304,12 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     }
 
     @Override
-    protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
+    protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
       return super.getTargetConfiguration();
     }
 
     @Override
-    public BuildConfiguration getHostConfiguration() {
+    public BuildConfigurationValue getHostConfiguration() {
       return super.getHostConfiguration();
     }
 

@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
@@ -379,7 +379,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public ImmutableList<Artifact> getBuildInfo(
-      boolean stamp, BuildInfoKey key, BuildConfiguration config) throws InterruptedException {
+      boolean stamp, BuildInfoKey key, BuildConfigurationValue config) throws InterruptedException {
     BuildInfoCollectionValue collectionValue =
         (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(key, config));
     if (collectionValue == null) {

@@ -217,10 +217,10 @@ public class SuccessfulArtifactFilterTest {
         NestedSetBuilder.<Artifact>stableOrder().add(builtArtifact).add(failedArtifact).build();
     List<NestedSet<Artifact>> sets = new ArrayList<>();
     sets.add(baseSet);
-    // Create a NestedSet DAG with ((5000 * 4999) / 2) nodes, but with only 5000 unique nodes. It
+    // Create a NestedSet DAG with ((500 * 499) / 2) nodes, but with only 500 unique nodes. It
     // should be feasible to filter this NestedSet using memoization in a small test and we should
     // timeout if we aren't using memoization.
-    for (int i = 0; i < 5000; i++) {
+    for (int i = 0; i < 500; i++) {
       NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
       builder.add(builtArtifact).add(failedArtifact);
       for (NestedSet<Artifact> set : sets) {

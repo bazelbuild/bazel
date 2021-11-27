@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -47,11 +46,6 @@ public abstract class TransitiveDataDependencyTest extends BuildIntegrationTestC
   @Before
   public final void addJobNumberOption() throws Exception  {
     addOptions("--jobs", "" + numJobs());
-  }
-
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
   }
 
   private void assertSameConfiguredTarget(String label) throws Exception {

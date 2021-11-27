@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -35,7 +35,7 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public void finalizeCompileActionBuilder(
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer) {
@@ -96,7 +96,7 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
+  public boolean needsDotdInputPruning(BuildConfigurationValue configuration) {
     return configuration.getFragment(CppConfiguration.class).objcShouldGenerateDotdFiles();
   }
 

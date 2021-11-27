@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
@@ -158,7 +158,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
         ImmutableList.builder();
     private final Set<String> reservedActionMnemonics = new TreeSet<>();
-    private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
+    private BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
     private ConstraintSemantics<RuleContext> constraintSemantics =
         new RuleContextConstraintSemantics();
@@ -327,7 +327,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     }
 
     public Builder setActionEnvironmentProvider(
-        BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider) {
+        BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider) {
       this.actionEnvironmentProvider = actionEnvironmentProvider;
       return this;
     }
@@ -649,7 +649,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
-  private final BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider;
+  private final BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider;
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
@@ -682,7 +682,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
-      BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
+      BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       @Nullable Label networkAllowlistForTests) {
@@ -914,7 +914,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return reservedActionMnemonics;
   }
 
-  public BuildConfiguration.ActionEnvironmentProvider getActionEnvironmentProvider() {
+  public BuildConfigurationValue.ActionEnvironmentProvider getActionEnvironmentProvider() {
     return actionEnvironmentProvider;
   }
 }

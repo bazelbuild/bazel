@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
@@ -260,8 +261,10 @@ public final class ArtifactTest {
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             rootDir, rootDir.getExecPath().getRelative("tree"));
     TreeFileArtifact treeChild = TreeFileArtifact.createTreeOutput(tree, "child");
-    ArchivedTreeArtifact archivedTree =
-        ArchivedTreeArtifact.create(tree, rootDir, PathFragment.create("root/archived"));
+    ArchivedTreeArtifact archivedTree = ArchivedTreeArtifact.createForTree(tree);
+    ArchivedTreeArtifact customArchivedTree =
+        ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
+            tree, PathFragment.create("custom"), PathFragment.create("archived.zip"));
 
     SpecialArtifact templateExpansionTree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
@@ -276,7 +279,13 @@ public final class ArtifactTest {
 
     SerializationTester tester =
         new SerializationTester(
-                artifact, anotherArtifact, tree, treeChild, archivedTree, expansionOutput)
+                artifact,
+                anotherArtifact,
+                tree,
+                treeChild,
+                archivedTree,
+                customArchivedTree,
+                expansionOutput)
             .addDependency(FileSystem.class, scratch.getFileSystem())
             .addDependency(
                 RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
@@ -365,8 +374,7 @@ public final class ArtifactTest {
   @Test
   public void testCanConstructPathFromDirAndFilename() throws Exception {
     Artifact artifact = createDirNameArtifact();
-    String constructed =
-        String.format("%s/%s", artifact.getDirname(), artifact.getFilename());
+    String constructed = String.format("%s/%s", artifact.getDirname(), artifact.getFilename());
 
     assertThat(constructed).isEqualTo("aaa/bbb/ccc/ddd");
   }
@@ -408,6 +416,11 @@ public final class ArtifactTest {
           }
 
           @Override
+          public BuildConfigurationKey getConfigurationKey() {
+            return null;
+          }
+
+          @Override
           public SkyFunctionName functionName() {
             return null;
           }
@@ -416,6 +429,11 @@ public final class ArtifactTest {
         new ActionLookupKey() {
           @Override
           public Label getLabel() {
+            return null;
+          }
+
+          @Override
+          public BuildConfigurationKey getConfigurationKey() {
             return null;
           }
 
@@ -511,8 +529,7 @@ public final class ArtifactTest {
         ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
-    ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("blaze-out"));
+    ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(tree);
 
     assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
     assertThat(archivedTreeArtifact.getArtifactOwner())
@@ -529,51 +546,12 @@ public final class ArtifactTest {
     ActionLookupData actionLookupData = ActionLookupData.create(actionLookupKey, 0);
     SpecialArtifact tree = createTreeArtifact(rootDir, "tree", actionLookupData);
 
-    ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("root"));
+    ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(tree);
 
     assertThat(archivedTreeArtifact.getExecPathString())
         .isEqualTo("root/:archived_tree_artifacts/tree.zip");
     assertThat(archivedTreeArtifact.getArtifactOwner()).isSameInstanceAs(actionLookupKey);
     assertThat(archivedTreeArtifact.getGeneratingActionKey()).isSameInstanceAs(actionLookupData);
-  }
-
-  @Test
-  public void archivedTreeArtifact_createWithLongerDerivedPrefix_returnsArtifactWithCorrectPath() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "dir1", "dir2", "dir3");
-    SpecialArtifact tree = createTreeArtifact(root, "tree");
-
-    ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("dir1/dir2"));
-
-    assertThat(archivedTreeArtifact.getExecPathString())
-        .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3/tree.zip");
-    assertThat(archivedTreeArtifact.getRoot().getExecPathString())
-        .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3");
-  }
-
-  @Test
-  public void archivedTreeArtifact_create_failsForWrongDerivedPrefix() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
-    SpecialArtifact tree = createTreeArtifact(root, "tree");
-    PathFragment wrongPrefix = PathFragment.create("notAPrefix");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ArchivedTreeArtifact.createForTree(tree, wrongPrefix));
-  }
-
-  @Test
-  public void archivedTreeArtifact_create_failsForDerivedPrefixOutsideOfArtifactRoot() {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "dir1", "dir2");
-    SpecialArtifact tree = createTreeArtifact(root, "dir3/tree");
-    PathFragment prefixOutsideOfRoot = PathFragment.create("dir1/dir2/dir3");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ArchivedTreeArtifact.createForTree(tree, prefixOutsideOfRoot));
   }
 
   @Test
@@ -584,10 +562,7 @@ public final class ArtifactTest {
 
     ArchivedTreeArtifact archivedTreeArtifact =
         ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
-            tree,
-            PathFragment.create("blaze-out"),
-            PathFragment.create("custom/custom2"),
-            PathFragment.create("treePath/file.xyz"));
+            tree, PathFragment.create("custom/custom2"), PathFragment.create("treePath/file.xyz"));
 
     assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
     assertThat(archivedTreeArtifact.getExecPathString())
@@ -620,20 +595,9 @@ public final class ArtifactTest {
   public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_returnsCorrectPath() {
     assertThat(
             ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
-                PathFragment.create("bazel-out"),
                 PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")))
         .isEqualTo(
             PathFragment.create("bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/dir/subdir"));
-  }
-
-  @Test
-  public void archivedTreeArtifact_getExecPathWithinArchivedArtifactsTree_wrongPrefix_fails() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            ArchivedTreeArtifact.getExecPathWithinArchivedArtifactsTree(
-                PathFragment.create("wrongPrefix"),
-                PathFragment.create("bazel-out/k8-fastbuild/bin/dir/subdir")));
   }
 
   private static SpecialArtifact createTreeArtifact(ArtifactRoot root, String relativePath) {
@@ -654,7 +618,6 @@ public final class ArtifactTest {
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(
       ArtifactRoot root, String treeRelativePath) {
-    return ArchivedTreeArtifact.createForTree(
-        createTreeArtifact(root, treeRelativePath), root.getExecPath().subFragment(0, 1));
+    return ArchivedTreeArtifact.createForTree(createTreeArtifact(root, treeRelativePath));
   }
 }

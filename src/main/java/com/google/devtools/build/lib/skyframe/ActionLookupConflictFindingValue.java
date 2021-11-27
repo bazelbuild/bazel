@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -30,7 +31,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  * action conflict issues.
  */
 public class ActionLookupConflictFindingValue implements SkyValue {
-  @AutoCodec
+  @SerializationConstant
   static final ActionLookupConflictFindingValue INSTANCE = new ActionLookupConflictFindingValue();
 
   private ActionLookupConflictFindingValue() {}

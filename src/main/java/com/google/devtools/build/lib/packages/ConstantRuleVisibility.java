@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.io.Serializable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.Collections;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
@@ -32,20 +32,22 @@ import net.starlark.java.eval.Starlark;
  */
 @Immutable
 @ThreadSafe
-public class ConstantRuleVisibility implements RuleVisibility, Serializable {
-  @AutoCodec @AutoCodec.VisibleForSerialization static final Label PUBLIC_LABEL;
-  @AutoCodec @AutoCodec.VisibleForSerialization static final Label PRIVATE_LABEL;
+public class ConstantRuleVisibility implements RuleVisibility {
+  @SerializationConstant @VisibleForSerialization static final Label PUBLIC_LABEL;
+  @SerializationConstant @VisibleForSerialization static final Label PRIVATE_LABEL;
 
-  @AutoCodec public static final ConstantRuleVisibility PUBLIC = new ConstantRuleVisibility(true);
+  @SerializationConstant
+  public static final ConstantRuleVisibility PUBLIC = new ConstantRuleVisibility(true);
 
-  @AutoCodec public static final ConstantRuleVisibility PRIVATE = new ConstantRuleVisibility(false);
+  @SerializationConstant
+  public static final ConstantRuleVisibility PRIVATE = new ConstantRuleVisibility(false);
 
   static {
     try {
       PUBLIC_LABEL = Label.parseAbsolute("//visibility:public", ImmutableMap.of());
       PRIVATE_LABEL = Label.parseAbsolute("//visibility:private", ImmutableMap.of());
     } catch (LabelSyntaxException e) {
-      throw new IllegalStateException();
+      throw new IllegalStateException(e);
     }
   }
 

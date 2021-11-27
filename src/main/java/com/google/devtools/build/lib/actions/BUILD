@@ -168,8 +168,10 @@ java_library(
     srcs = ["ActionLookupKey.java"],
     deps = [
         ":artifact_owner",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:jsr305",
     ],
 )
 
@@ -269,6 +271,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -301,7 +304,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -341,6 +343,6 @@ java_library(
     srcs = ["ThreadStateReceiver.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:jsr305",
+        "//third_party:error_prone_annotations",
     ],
 )

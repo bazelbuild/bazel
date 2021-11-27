@@ -108,11 +108,11 @@ DIST_DEPS = {
         ],
     },
     "protocolbuffers": {
-        "archive": "382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
-        "sha256": "7992217989f3156f8109931c1fc6db3434b7414957cb82371552377beaeb9d6c",
+        "archive": "2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
+        "sha256": "6a5f67874af66b239b709c572ac1a5a00fdb1b29beaf13c3e6f79b1ba10dc7c4",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/382d5afc60e05470c23e8de19b19fc5ad231e732.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -120,16 +120,16 @@ DIST_DEPS = {
         ],
     },
     "com_github_grpc_grpc": {
-        "archive": "v1.33.1.tar.gz",
-        "sha256": "58eaee5c0f1bd0b92ebe1fa0606ec8f14798500620e7444726afcaf65041cb63",
-        "strip_prefix": "grpc-1.33.1",
+        "archive": "v1.41.0.tar.gz",
+        "sha256": "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
+        "strip_prefix": "grpc-1.41.0",
         "urls": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.33.1.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.33.1.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.41.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.41.0.tar.gz",
         ],
         "patch_args": ["-p1"],
         "patches": [
-            "//third_party/grpc:grpc_1.33.1.patch",
+            "//third_party/grpc:grpc_1.41.0.patch",
         ],
         "used_in": [
             "additional_distfiles",
@@ -161,15 +161,30 @@ DIST_DEPS = {
         ],
     },
     "abseil-cpp": {
-        "archive": "df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
-        "sha256": "f368a8476f4e2e0eccf8a7318b98dafbe30b2600f4e3cf52636e5eb145aba06a",
+        "archive": "997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+        "sha256": "35f22ef5cb286f09954b7cc4c85b5a3f6221c9d4df6b8c4a1e9d399555b366ee",
         "urls": [
-            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
-            "https://github.com/abseil/abseil-cpp/archive/df3ea785d8c30a9503321a3d35ee7d35808f190d.tar.gz",
+            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
+        ],
+    },
+    "zstd-jni": {
+        "archive": "v1.5.0-4.zip",
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party:zstd-jni/Native.java.patch",
+        ],
+        "sha256": "d320d59b89a163c5efccbe4915ae6a49883ce653cdc670643dfa21c6063108e4",
+        "urls": [
+            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
+            "https://github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
         ],
     },
     ###################################################
@@ -266,11 +281,11 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v11.5.zip",
-        "sha256": "b763ee80e5754e593fd6d5be6d7343f905bc8b73d661d36d842b024ca11b6793",
+        "archive": "java_tools-v11.6.zip",
+        "sha256": "a7ac5922ee01e8b8fcb546ffc264ef314d0a0c679328b7fa4c432e5f54a86067",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.5/java_tools-v11.5.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.5/java_tools-v11.5.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.6/java_tools-v11.6.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.6/java_tools-v11.6.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -282,11 +297,11 @@ DIST_DEPS = {
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v11.5.zip",
-        "sha256": "ae1eca4546eac6487c6e565f9b409536609c273207220c51e5c94f2a058a5a56",
+        "archive": "java_tools_linux-v11.6.zip",
+        "sha256": "15da4f84a7d39cd179acf3035d9def638eea6ba89a0ed8f4e8a8e6e1d6c8e328",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.5/java_tools_linux-v11.5.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.5/java_tools_linux-v11.5.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.6/java_tools_linux-v11.6.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.6/java_tools_linux-v11.6.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -298,11 +313,11 @@ DIST_DEPS = {
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v11.5.zip",
-        "sha256": "36766802f7ec684cecb1a14c122428de6be9784e88419e2ab5912ad4b59a8c7d",
+        "archive": "java_tools_windows-v11.6.zip",
+        "sha256": "939f9d91f0df02851bbad8f5b1d26d24011329394cafe5668c1234e31ac2a1f7",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.5/java_tools_windows-v11.5.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.5/java_tools_windows-v11.5.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.6/java_tools_windows-v11.6.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.6/java_tools_windows-v11.6.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -314,11 +329,11 @@ DIST_DEPS = {
             "remote_java_tools_test_darwin",
             "remote_java_tools_darwin_for_testing",
         ],
-        "archive": "java_tools_darwin-v11.5.zip",
-        "sha256": "792bc1352e736073b152528175ed424687f86a9f6f5f461f07d8b26806762738",
+        "archive": "java_tools_darwin-v11.6.zip",
+        "sha256": "f17ee54582b61f1ebd84c8fa2c54df796914cfbaac3cb821fb1286b55b080bc0",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.5/java_tools_darwin-v11.5.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.5/java_tools_darwin-v11.5.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.6/java_tools_darwin-v11.6.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.6/java_tools_darwin-v11.6.zip",
         ],
         "used_in": [
             "additional_distfiles",

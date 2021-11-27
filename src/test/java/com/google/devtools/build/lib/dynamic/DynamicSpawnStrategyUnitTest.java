@@ -34,12 +34,15 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -76,6 +79,7 @@ public class DynamicSpawnStrategyUnitTest {
   private ExecutorService executorServiceForCleanup;
 
   @Mock private Function<Spawn, Optional<Spawn>> mockGetPostProcessingSpawn;
+  @Mock private ExtendedEventHandler reporter;
 
   private Scratch scratch;
   private Path execDir;
@@ -272,6 +276,51 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
+  public void exec_localOnlySpawn_skipFirst_isRun() throws Exception {
+    Spawn spawn = new SpawnBuilder().withMnemonic("TheThing").build();
+    DynamicExecutionOptions options = new DynamicExecutionOptions();
+    options.skipFirstBuild = true;
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.LOCAL_EXECUTION_ONLY, (s) -> Optional.empty(), options, true);
+
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+    when(local.exec(eq(spawn), any(), any())).thenReturn(ImmutableList.of(SUCCESSFUL_SPAWN_RESULT));
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    assertThat(dynamicSpawnStrategy.exec(spawn, actionExecutionContext))
+        .containsExactly(SUCCESSFUL_SPAWN_RESULT);
+    verifyNoInteractions(remote);
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_skipFirst_onlyRemote() throws Exception {
+    Spawn spawn = new SpawnBuilder().withMnemonic("TheThing").build();
+    DynamicExecutionOptions options = new DynamicExecutionOptions();
+    options.skipFirstBuild = true;
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.ANYWHERE, (s) -> Optional.empty(), options, true);
+
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    when(remote.exec(eq(spawn), any(), any()))
+        .thenReturn(ImmutableList.of(SUCCESSFUL_SPAWN_RESULT));
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    assertThat(dynamicSpawnStrategy.exec(spawn, actionExecutionContext))
+        .containsExactly(SUCCESSFUL_SPAWN_RESULT);
+    verify(local, never()).exec(any(), any(), any());
+    verify(reporter)
+        .handle(
+            Event.info(
+                "Disabling dynamic execution until we have seen a successful build, see"
+                    + " --experimental_dynamic_skip_first_build."));
+  }
+
+  @Test
   public void waitBranches_givesDebugOutputOnWeirdCases() throws Exception {
     Spawn spawn =
         new SpawnBuilder()
@@ -372,15 +421,28 @@ public class DynamicSpawnStrategyUnitTest {
   private DynamicSpawnStrategy createDynamicSpawnStrategy(
       ExecutionPolicy executionPolicy,
       Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution) {
+    return createDynamicSpawnStrategy(
+        executionPolicy,
+        getPostProcessingSpawnForLocalExecution,
+        new DynamicExecutionOptions(),
+        false);
+  }
+
+  private DynamicSpawnStrategy createDynamicSpawnStrategy(
+      ExecutionPolicy executionPolicy,
+      Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution,
+      DynamicExecutionOptions options,
+      boolean isFirst) {
     checkState(
         executorServiceForCleanup == null,
         "Creating the DynamicSpawnStrategy twice in the same test is not supported.");
     executorServiceForCleanup = Executors.newCachedThreadPool();
     return new DynamicSpawnStrategy(
         executorServiceForCleanup,
-        new DynamicExecutionOptions(),
+        options,
         ignored -> executionPolicy,
-        getPostProcessingSpawnForLocalExecution);
+        getPostProcessingSpawnForLocalExecution,
+        isFirst);
   }
 
   private static ActionExecutionContext createMockActionExecutionContext(
@@ -409,7 +471,8 @@ public class DynamicSpawnStrategyUnitTest {
     return actionExecutionContext;
   }
 
-  private static SandboxedSpawnStrategy createMockSpawnStrategy() throws InterruptedException {
+  private static SandboxedSpawnStrategy createMockSpawnStrategy()
+      throws InterruptedException, ExecException {
     return createMockSpawnStrategy(true);
   }
 

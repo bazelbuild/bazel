@@ -3171,4 +3171,93 @@ EOF
   expect_log "-r-xr-xr-x"
 }
 
+function test_async_upload_works_for_flaky_tests() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+
+genrule(
+  name = "foo",
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+  cat > a/test.sh <<EOF
+#!/bin/sh
+echo "it always fails"
+exit 1
+EOF
+  chmod +x a/test.sh
+
+  # Check the error message when failed to upload
+  bazel build --remote_cache=http://nonexistent.example.org //a:foo >& $TEST_log || fail "Failed to build"
+  expect_log "WARNING: Writing to Remote Cache:"
+
+  bazel test \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --experimental_remote_cache_async \
+    --flaky_test_attempts=2 \
+    //a:test >& $TEST_log  && fail "expected failure" || true
+  expect_not_log "WARNING: Writing to Remote Cache:"
+}
+
+function test_download_toplevel_when_turn_remote_cache_off() {
+  download_toplevel_when_turn_remote_cache_off
+}
+
+function test_download_toplevel_when_turn_remote_cache_off_with_metadata() {
+  download_toplevel_when_turn_remote_cache_off --experimental_action_cache_store_output_metadata
+}
+
+function download_toplevel_when_turn_remote_cache_off() {
+  # Test that BwtB doesn't cause build failure if remote cache is disabled in a following build.
+  # See https://github.com/bazelbuild/bazel/issues/13882.
+
+  cat > .bazelrc <<EOF
+build --verbose_failures
+EOF
+  mkdir a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "producer",
+    outs = ["a.txt", "b.txt"],
+    cmd = "touch $(OUTS)",
+)
+genrule(
+    name = "consumer",
+    outs = ["out.txt"],
+    srcs = [":b.txt", "in.txt"],
+    cmd = "cat $(SRCS) > $@",
+)
+EOF
+  echo 'foo' > a/in.txt
+
+  # populate the cache
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:consumer >& $TEST_log || fail "Failed to populate the cache"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # download top level outputs
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    "$@" \
+    //a:consumer >& $TEST_log || fail "Failed to download outputs"
+  [[ -f bazel-bin/a/a.txt ]] || [[ -f bazel-bin/a/b.txt ]] \
+    && fail "Expected outputs of producer are not downloaded"
+
+  # build without remote cache
+  echo 'bar' > a/in.txt
+  bazel build \
+    --remote_download_toplevel \
+    "$@" \
+    //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
+}
+
 run_suite "Remote execution and remote cache tests"

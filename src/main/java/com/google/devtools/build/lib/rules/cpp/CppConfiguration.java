@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -48,11 +48,13 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
+ * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
@@ -373,6 +375,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.enableCcTestFeature;
   }
 
+  @Override
+  public boolean useCcTestFeatureStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return useCcTestFeature();
+  }
+
   /** Returns whether or not to strip the binaries. */
   public boolean shouldStripBinaries() {
     return stripBinaries;
@@ -384,6 +392,12 @@ public final class CppConfiguration extends Fragment
    */
   public ImmutableList<String> getStripOpts() {
     return ImmutableList.copyOf(cppOptions.stripoptList);
+  }
+
+  @Override
+  public Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getStripOpts());
   }
 
   /** Returns whether temporary outputs from gcc will be saved. */
@@ -429,6 +443,12 @@ public final class CppConfiguration extends Fragment
   /** Returns true if --build_test_dwp is set on this build. */
   public boolean buildTestDwpIsActivated() {
     return cppOptions.buildTestDwp;
+  }
+
+  @Override
+  public boolean buildTestDwpIsActivatedStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return buildTestDwpIsActivated();
   }
 
   /**
@@ -712,6 +732,12 @@ public final class CppConfiguration extends Fragment
    */
   public Label getLibcTopLabel() {
     return cppOptions.libcTopLabel;
+  }
+
+  @Override
+  public Label getLibcTopLabelStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLibcTopLabel();
   }
 
   /**

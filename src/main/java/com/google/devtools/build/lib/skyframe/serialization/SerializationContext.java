@@ -29,13 +29,13 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /**

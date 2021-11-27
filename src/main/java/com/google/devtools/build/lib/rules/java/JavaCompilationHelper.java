@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -139,7 +139,7 @@ public final class JavaCompilationHelper {
     return ruleContext.getAnalysisEnvironment();
   }
 
-  private BuildConfiguration getConfiguration() {
+  private BuildConfigurationValue getConfiguration() {
     return ruleContext.getConfiguration();
   }
 

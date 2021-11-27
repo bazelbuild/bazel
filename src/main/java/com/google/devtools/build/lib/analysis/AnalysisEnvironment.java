@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -67,7 +67,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
   /**
    * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot)} but includes the option to use
    * a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath);
@@ -178,8 +178,8 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * @param stamp whether stamping is enabled
    * @param config the current build configuration.
    */
-  ImmutableList<Artifact> getBuildInfo(boolean stamp, BuildInfoKey key, BuildConfiguration config)
-      throws InterruptedException;
+  ImmutableList<Artifact> getBuildInfo(
+      boolean stamp, BuildInfoKey key, BuildConfigurationValue config) throws InterruptedException;
 
   /**
    * Returns the set of orphan Artifacts (i.e. Artifacts without generating action). Should only be

@@ -117,18 +117,6 @@ function test_remote_grpc_cache() {
       || fail "Failed to build //a:foo with grpc remote cache"
 }
 
-function test_remote_https_cache() {
-  # Test that if 'https' is provided as a scheme for --remote_cache flag, remote cache works.
-  _prepareBasicRule
-
-  bazel build \
-      --remote_cache=https://localhost:${worker_port} \
-      --tls_certificate="${cert_path}/ca.crt" \
-      ${client_mtls_flags} \
-      //a:foo \
-      || fail "Failed to build //a:foo with https remote cache"
-}
-
 function test_remote_cache_with_incompatible_tls_enabled_removed_grpc_scheme() {
   # Test that if 'grpc' scheme for --remote_cache flag, remote cache fails.
   _prepareBasicRule

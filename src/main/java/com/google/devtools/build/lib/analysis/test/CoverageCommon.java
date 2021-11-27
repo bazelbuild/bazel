@@ -20,8 +20,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.starlarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
@@ -30,11 +34,14 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
 public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
@@ -44,15 +51,36 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
-      Object extensions)
-      throws EvalException {
+      Object supportFiles, // Depset or Sequence of <Artifact>
+      Dict<?, ?> environment, // <String, String>
+      Object extensions,
+      StarlarkThread thread)
+      throws EvalException, TypeException {
     List<String> extensionsList =
         extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
-
+    List<Pair<String, String>> environmentPairs =
+        Dict.cast(environment, String.class, String.class, "coverage_environment")
+            .entrySet()
+            .stream()
+            .map(entry -> new Pair<>(entry.getKey(), entry.getValue()))
+            .collect(Collectors.toList());
+    NestedSetBuilder<Artifact> supportFilesBuilder = NestedSetBuilder.stableOrder();
+    if (supportFiles instanceof Sequence) {
+      supportFilesBuilder.addAll(
+          Sequence.cast(supportFiles, Artifact.class, "coverage_support_files"));
+    } else {
+      supportFilesBuilder.addTransitive(
+          Depset.cast(supportFiles, Artifact.class, "coverage_support_files"));
+    }
+    if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
+      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    }
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),
         Sequence.cast(sourceAttributes, String.class, "source_attributes"),
         Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
+        supportFilesBuilder.build(),
+        NestedSetBuilder.wrap(Order.COMPILE_ORDER, environmentPairs),
         extensionsList);
   }
 
@@ -75,6 +103,22 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       List<String> sourceAttributes,
       List<String> dependencyAttributes,
       @Nullable List<String> extensions) {
+    return createInstrumentedFilesInfo(
+        ruleContext,
+        sourceAttributes,
+        dependencyAttributes,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        extensions);
+  }
+
+  private static InstrumentedFilesInfo createInstrumentedFilesInfo(
+      RuleContext ruleContext,
+      List<String> sourceAttributes,
+      List<String> dependencyAttributes,
+      NestedSet<Artifact> supportFiles,
+      NestedSet<Pair<String, String>> environment,
+      @Nullable List<String> extensions) {
     FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
     if (extensions != null) {
       if (extensions.isEmpty()) {
@@ -94,9 +138,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         instrumentationSpec,
         InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
         /* rootFiles = */ ImmutableList.of(),
-        /* coverageSupportFiles = */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        /* coverageEnvironment = */ NestedSetBuilder.<Pair<String, String>>emptySet(
-            Order.STABLE_ORDER),
+        /* coverageSupportFiles = */ supportFiles,
+        /* coverageEnvironment = */ environment,
         /* withBaselineCoverage = */ !TargetUtils.isTestRule(ruleContext.getTarget()),
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }

@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
@@ -58,11 +58,11 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
     // This call could be combined with the call below, but this SkyFunction is evaluated so rarely
     // it's not worth optimizing.
-    BuildConfigurationValue value = (BuildConfigurationValue) env.getValue(key.configurationKey());
+    BuildConfigurationValue configuration =
+        (BuildConfigurationValue) env.getValue(key.configurationKey());
     if (env.valuesMissing()) {
       return null;
     }
-    BuildConfiguration configuration = value.getConfiguration();
 
     // Get all toolchains.
     RegisteredToolchainsValue toolchains;

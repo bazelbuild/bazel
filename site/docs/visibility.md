@@ -16,6 +16,7 @@ enforce structure as your workspace grows.
 If you need to disable the visibility check (for example when experimenting),
 use `--check_visibility=false`.
 
+
 For more details on package and subpackages, see
 <a href="build-ref.html">Concepts and terminology</a>.
 
@@ -186,6 +187,10 @@ for more details.
 
 `load` statements are currently not subject to visibility. It is possible to
 load a `bzl` file anywhere in the workspace.
+
+However, users may choose to run the Buildifier linter.
+The [bzl-visibility](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility) check
+provides a warning if users `load` from beneath a subdirectory named `internal` or `private`.
 
 ## Visibility of implicit dependencies
 

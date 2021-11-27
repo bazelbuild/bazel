@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
@@ -87,13 +87,13 @@ public final class ConfigurationResolver {
   @VisibleForTesting
   public static final Comparator<Dependency> SPLIT_DEP_ORDERING =
       Comparator.comparing(
-              Functions.compose(BuildConfiguration::getMnemonic, Dependency::getConfiguration))
+              Functions.compose(BuildConfigurationValue::getMnemonic, Dependency::getConfiguration))
           .thenComparing(
-              Functions.compose(BuildConfiguration::checksum, Dependency::getConfiguration));
+              Functions.compose(BuildConfigurationValue::checksum, Dependency::getConfiguration));
 
   private final SkyFunction.Environment env;
   private final TargetAndConfiguration ctgValue;
-  private final BuildConfiguration hostConfiguration;
+  private final BuildConfigurationValue hostConfiguration;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
   /** The key for {@link #starlarkTransitionCache}. */
@@ -172,7 +172,7 @@ public final class ConfigurationResolver {
   public ConfigurationResolver(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
     this.env = env;
     this.ctgValue = ctgValue;
@@ -180,7 +180,7 @@ public final class ConfigurationResolver {
     this.configConditions = configConditions;
   }
 
-  private BuildConfiguration getCurrentConfiguration() {
+  private BuildConfigurationValue getCurrentConfiguration() {
     return ctgValue.getConfiguration();
   }
 
@@ -209,8 +209,8 @@ public final class ConfigurationResolver {
    *
    * @param dependencyKeys the transition requests for each dep and each dependency kind
    * @return a mapping from each dependency kind in the source target to the {@link
-   *     BuildConfiguration}s and {@link Label}s for the deps under that dependency kind . Returns
-   *     null if not all Skyframe dependencies are available.
+   *     BuildConfigurationValue}s and {@link Label}s for the deps under that dependency kind .
+   *     Returns null if not all Skyframe dependencies are available.
    */
   @Nullable
   public OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
@@ -260,8 +260,7 @@ public final class ConfigurationResolver {
       return ImmutableList.of(resolveHostTransition(dependencyBuilder, dependencyKey));
     }
 
-    return resolveGenericTransition(
-        getCurrentConfiguration().fragmentClasses(), dependencyBuilder, dependencyKey);
+    return resolveGenericTransition(dependencyBuilder, dependencyKey);
   }
 
   @Nullable
@@ -293,7 +292,6 @@ public final class ConfigurationResolver {
 
   @Nullable
   private ImmutableList<Dependency> resolveGenericTransition(
-      FragmentClassSet depFragments,
       Dependency.Builder dependencyBuilder,
       DependencyKey dependencyKey)
       throws ConfiguredValueCreationException, InterruptedException {
@@ -312,8 +310,7 @@ public final class ConfigurationResolver {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
-    if (depFragments.equals(getCurrentConfiguration().fragmentClasses())
-        && SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
+    if (SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
       // The dep uses the same exact configuration. Let's re-use the current configuration and
       // skip adding a Skyframe dependency edge on it.
       return ImmutableList.of(
@@ -334,14 +331,14 @@ public final class ConfigurationResolver {
       return null; // Need platform mappings from Skyframe.
     }
 
-    Map<String, BuildConfigurationValue.Key> configurationKeys = new HashMap<>();
+    Map<String, BuildConfigurationKey> configurationKeys = new HashMap<>();
     try {
       for (Map.Entry<String, BuildOptions> optionsEntry : toOptions.entrySet()) {
         String transitionKey = optionsEntry.getKey();
-        BuildConfigurationValue.Key buildConfigurationValueKey =
-            BuildConfigurationValue.keyWithPlatformMapping(
-                platformMappingValue, depFragments, optionsEntry.getValue());
-        configurationKeys.put(transitionKey, buildConfigurationValueKey);
+        BuildConfigurationKey buildConfigurationKey =
+            BuildConfigurationKey.withPlatformMapping(
+                platformMappingValue, optionsEntry.getValue());
+        configurationKeys.put(transitionKey, buildConfigurationKey);
       }
     } catch (OptionsParsingException e) {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
@@ -351,15 +348,15 @@ public final class ConfigurationResolver {
         env.getValuesOrThrow(configurationKeys.values(), InvalidConfigurationException.class);
     List<Dependency> dependencies = new ArrayList<>();
     try {
-      for (Map.Entry<String, BuildConfigurationValue.Key> entry : configurationKeys.entrySet()) {
+      for (Map.Entry<String, BuildConfigurationKey> entry : configurationKeys.entrySet()) {
         String transitionKey = entry.getKey();
         ValueOrException<InvalidConfigurationException> valueOrException =
             depConfigValues.get(entry.getValue());
         if (valueOrException.get() == null) {
           continue;
         }
-        BuildConfiguration configuration =
-            ((BuildConfigurationValue) valueOrException.get()).getConfiguration();
+        // TODO(blaze-configurability-team): Should be able to just use BuildConfigurationKey
+        BuildConfigurationValue configuration = (BuildConfigurationValue) valueOrException.get();
         if (configuration != null) {
           Dependency resolvedDep =
               dependencyBuilder
@@ -393,7 +390,7 @@ public final class ConfigurationResolver {
                   ConfiguredAttributeMapper.of(
                       ctgValue.getTarget().getAssociatedRule(),
                       configConditions,
-                      ctgValue.getConfiguration().checksum()))
+                      ctgValue.getConfiguration()))
               .build();
       ConfigurationTransition baseTransition = transitionFactory.create(transitionData);
       Map<String, BuildOptions> toOptions;
@@ -563,7 +560,7 @@ public final class ConfigurationResolver {
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#resolveConfigurations}.
   public static TopLevelTargetsAndConfigsResult getConfigurationsFromExecutor(
       Iterable<TargetAndConfiguration> defaultContext,
-      Multimap<BuildConfiguration, DependencyKey> targetsToEvaluate,
+      Multimap<BuildConfigurationValue, DependencyKey> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
       ConfigurationsCollector configurationsCollector)
       throws InvalidConfigurationException, InterruptedException {
@@ -579,12 +576,12 @@ public final class ConfigurationResolver {
         new LinkedHashMap<>();
     boolean hasError = false;
     if (!targetsToEvaluate.isEmpty()) {
-      for (BuildConfiguration fromConfig : targetsToEvaluate.keySet()) {
+      for (BuildConfigurationValue fromConfig : targetsToEvaluate.keySet()) {
         ConfigurationsResult configurationsResult =
             configurationsCollector.getConfigurations(
                 eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
         hasError |= configurationsResult.hasError();
-        for (Map.Entry<DependencyKey, BuildConfiguration> evaluatedTarget :
+        for (Map.Entry<DependencyKey, BuildConfigurationValue> evaluatedTarget :
             configurationsResult.getConfigurationMap().entries()) {
           Target target = labelsToTargets.get(evaluatedTarget.getKey().getLabel());
           successfullyEvaluatedTargets.put(

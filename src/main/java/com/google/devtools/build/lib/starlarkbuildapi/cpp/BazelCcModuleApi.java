@@ -243,7 +243,7 @@ public interface BazelCcModuleApi<
             name = "name",
             doc =
                 "This is used for naming the output artifacts of actions created by this "
-                    + "method.",
+                    + "method. See also the `main_output` arg.",
             positional = false,
             named = true),
         @Param(
@@ -547,12 +547,45 @@ public interface BazelCcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
+            name = "main_output",
+            doc =
+                "Name of the main output artifact that will be produced by the linker. "
+                    + "Only set this if the default name generation does not match you needs "
+                    + "For output_type=executable, this is the final executable filename. "
+                    + "For output_type=dynamic_library, this is the shared library filename. "
+                    + "If not specified, then one will be computed based on `name` and "
+                    + "`output_type`",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
+        @Param(
             name = "additional_outputs",
             doc = "For additional outputs to the linking action, e.g.: map files.",
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class)},
-            defaultValue = "unbound")
+            defaultValue = "unbound"),
+        @Param(
+            name = "use_test_only_flags",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "pdb_file",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "win_def_file",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -577,13 +610,18 @@ public interface BazelCcModuleApi<
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
+      Object mainOutput,
       Object linkerOutputs,
+      Object useTestOnlyFlags,
+      Object pdbFile,
+      Object winDefFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "objects",
@@ -605,9 +643,19 @@ public interface BazelCcModuleApi<
               @ParamType(type = Depset.class),
               @ParamType(type = NoneType.class),
             }),
+        @Param(
+            name = "lto_compilation_context",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   CompilationOutputsT createCompilationOutputsFromStarlark(
-      Object objectsObject, Object picObjectsObject) throws EvalException;
+      Object objectsObject,
+      Object picObjectsObject,
+      Object ltoCopmilationContextObject,
+      StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "merge_compilation_outputs",

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -46,14 +47,14 @@ public interface ConfigurationTransition {
    * Adds required configuration fragments to the given {@link
    * RequiredConfigFragmentsProvider.Builder}.
    *
-   * <p>A {@link BuildOptions} instance is provided for Starlark transitions, which need to to map
-   * required options to their {@link FragmentOptions}.
+   * <p>A {@link BuildOptionDetails} instance is provided for Starlark transitions, which need to
+   * map required options to their {@link FragmentOptions}.
    *
    * <p>Non-Starlark transitions should override {@link #requiresOptionFragments} and keep the
    * default implementation of this method.
    */
   default void addRequiredFragments(
-      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptions options) {
+      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptionDetails optionDetails) {
     requiredFragments.addOptionsClasses(requiresOptionFragments());
   }
 

@@ -27,6 +27,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:batch_callback",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -43,7 +44,6 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 

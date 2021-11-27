@@ -20,7 +20,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 
@@ -33,7 +32,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @AutoCodec
 @Immutable
-public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
+public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)

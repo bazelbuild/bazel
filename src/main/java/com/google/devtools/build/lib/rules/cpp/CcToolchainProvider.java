@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariab
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -46,7 +45,6 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
-@AutoCodec
 public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
             FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
@@ -542,6 +540,12 @@ public final class CcToolchainProvider extends NativeInfo
     return dwpFiles;
   }
 
+  @Override
+  public Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getDwpFiles());
+  }
+
   /** Returns the files necessary for capturing code coverage. */
   public NestedSet<Artifact> getCoverageFiles() {
     return coverageFiles;
@@ -796,9 +800,9 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /**
-   * Returns a map of additional make variables for use by {@link BuildConfiguration}. These are to
-   * used to allow some build rules to avoid the limits on stack frame sizes and variable-length
-   * arrays.
+   * Returns a map of additional make variables for use by {@link BuildConfigurationValue}. These
+   * are to used to allow some build rules to avoid the limits on stack frame sizes and
+   * variable-length arrays.
    *
    * <p>The returned map must contain an entry for {@code STACK_FRAME_UNLIMITED}, though the entry
    * may be an empty string.

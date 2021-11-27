@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
-import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.protobuf.util.Timestamps;
 import java.util.Collection;
 
@@ -107,7 +106,7 @@ public final class BuildStartingEvent implements BuildEvent {
             .setBuildToolVersion(BlazeVersionInfo.instance().getVersion())
             .setOptionsDescription(request.getOptionsDescription())
             .setCommand(request.getCommandName())
-            .setServerPid(ProcessUtils.getpid());
+            .setServerPid(ProcessHandle.current().pid());
     if (pwd != null) {
       started.setWorkingDirectory(pwd);
     }

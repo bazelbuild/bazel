@@ -216,7 +216,7 @@ public class ArtifactFactory implements ArtifactResolver {
   /**
    * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot, ArtifactOwner)} but includes the
    * option to use a content-based path for this artifact (see {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}).
+   * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
    */
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath,

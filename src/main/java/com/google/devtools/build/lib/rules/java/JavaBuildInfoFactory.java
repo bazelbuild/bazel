@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -71,7 +71,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
   @Override
   public final BuildInfoCollection create(
       BuildInfoContext context,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       Artifact stableStatus,
       Artifact volatileStatus) {
     WriteBuildInfoPropertiesAction redactedInfo =
@@ -130,7 +130,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
 
   private WriteBuildInfoPropertiesAction getHeader(
       BuildInfoContext context,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       PathFragment propertyFileName,
       NestedSet<Artifact> inputs,
       BuildInfoPropertiesTranslator translator,
@@ -154,7 +154,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
   }
 
   @Override
-  public boolean isEnabled(BuildConfiguration config) {
+  public boolean isEnabled(BuildConfigurationValue config) {
     return config.hasFragment(JavaConfiguration.class);
   }
 }

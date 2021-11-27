@@ -138,21 +138,33 @@ public final class Profiler {
     final long startTimeNanos;
     final int id;
     final ProfilerTask type;
+    final MnemonicData mnemonic;
     final String description;
 
     long duration;
 
-    TaskData(int id, long startTimeNanos, ProfilerTask eventType, String description) {
+    TaskData(
+        int id,
+        long startTimeNanos,
+        ProfilerTask eventType,
+        MnemonicData mnemonic,
+        String description) {
       this.id = id;
       this.threadId = Thread.currentThread().getId();
       this.startTimeNanos = startTimeNanos;
       this.type = eventType;
+      this.mnemonic = mnemonic;
       this.description = Preconditions.checkNotNull(description);
+    }
+
+    TaskData(int id, long startTimeNanos, ProfilerTask eventType, String description) {
+      this(id, startTimeNanos, eventType, MnemonicData.getEmptyMnemonic(), description);
     }
 
     TaskData(long threadId, long startTimeNanos, long duration, String description) {
       this.id = -1;
       this.type = ProfilerTask.UNKNOWN;
+      this.mnemonic = MnemonicData.getEmptyMnemonic();
       this.threadId = threadId;
       this.startTimeNanos = startTimeNanos;
       this.duration = duration;
@@ -173,10 +185,11 @@ public final class Profiler {
         int id,
         long startTimeNanos,
         ProfilerTask eventType,
+        MnemonicData mnemonic,
         String description,
         String primaryOutputPath,
         String targetLabel) {
-      super(id, startTimeNanos, eventType, description);
+      super(id, startTimeNanos, eventType, mnemonic, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
     }
@@ -688,7 +701,11 @@ public final class Profiler {
    * primaryOutput.
    */
   public SilentCloseable profileAction(
-      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
+      ProfilerTask type,
+      String mnemonic,
+      String description,
+      String primaryOutput,
+      String targetLabel) {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       TaskData taskData =
@@ -696,6 +713,7 @@ public final class Profiler {
               taskId.incrementAndGet(),
               clock.nanoTime(),
               type,
+              new MnemonicData(mnemonic),
               description,
               primaryOutput,
               targetLabel);
@@ -703,6 +721,11 @@ public final class Profiler {
     } else {
       return NOP;
     }
+  }
+
+  public SilentCloseable profileAction(
+      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
+    return profileAction(type, null, description, primaryOutput, targetLabel);
   }
 
   private static final SilentCloseable NOP = () -> {};
@@ -944,6 +967,14 @@ public final class Profiler {
         writer.name("args");
         writer.beginObject();
         writer.name("target").value(((ActionTaskData) data).targetLabel);
+        if (data.mnemonic.hasBeenSet()) {
+          writer.name("mnemonic").value(data.mnemonic.getValueForJson());
+        }
+        writer.endObject();
+      } else if (data.mnemonic.hasBeenSet() && data instanceof ActionTaskData) {
+        writer.name("args");
+        writer.beginObject();
+        writer.name("mnemonic").value(data.mnemonic.getValueForJson());
         writer.endObject();
       }
       long threadId =

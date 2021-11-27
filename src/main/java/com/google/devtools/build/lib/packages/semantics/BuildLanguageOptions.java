@@ -25,7 +25,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import java.io.Serializable;
 import java.util.List;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -60,7 +59,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
  * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
-public class BuildLanguageOptions extends OptionsBase implements Serializable {
+public final class BuildLanguageOptions extends OptionsBase {
 
   // <== Add new options here in alphabetic order ==>
 
@@ -413,15 +412,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleNoAttrLicense;
 
   @Option(
-      name = "incompatible_applicable_licenses",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op")
-  public boolean incompatibleApplicableLicenses;
-
-  @Option(
       name = "incompatible_no_implicit_file_export",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -495,15 +485,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
   @Option(
-      name = "incompatible_restrict_string_escapes",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, unknown string escapes like `\\a` become rejected.")
-  public boolean incompatibleRestrictStringEscapes;
-
-  @Option(
       name = "incompatible_linkopts_to_linklibs",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -557,6 +538,17 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " providers of the aspect.")
   public boolean incompatibleTopLevelAspectsRequireProviders;
 
+  @Option(
+      name = "experimental_allow_top_level_aspects_parameters",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set to true, top level aspects will accept values for their parameters passed via"
+              + " --aspects_parameters option.")
+  public boolean experimentalAllowTopLevelAspectsParameters;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -595,7 +587,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 incompatibleDisableThirdPartyLicenseChecking)
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
-            .setBool(INCOMPATIBLE_DISABLE_DEPSET_ITEMS, incompatibleDisableDepsetItems)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
             .setBool(
                 INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
@@ -619,13 +610,15 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
                 incompatibleDepsetForLibrariesToLinkGetter)
             .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
-            .setBool(INCOMPATIBLE_RESTRICT_STRING_ESCAPES, incompatibleRestrictStringEscapes)
             .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(
                 INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
                 incompatibleTopLevelAspectsRequireProviders)
+            .setBool(
+                EXPERIMENTAL_ALLOW_TOP_LEVEL_ASPECTS_PARAMETERS,
+                experimentalAllowTopLevelAspectsParameters)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -663,8 +656,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
       "+incompatible_depset_for_libraries_to_link_getter";
-  public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
-      "+incompatible_disable_depset_items";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
   public static final String INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING =
@@ -686,8 +677,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_no_rule_outputs_param";
   public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
       "+incompatible_require_linker_input_cc_api";
-  public static final String INCOMPATIBLE_RESTRICT_STRING_ESCAPES =
-      "+incompatible_restrict_string_escapes";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =
       "+incompatible_run_shell_command_string";
   public static final String INCOMPATIBLE_STRUCT_HAS_NO_METHODS =
@@ -698,6 +687,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
+  public static final String EXPERIMENTAL_ALLOW_TOP_LEVEL_ASPECTS_PARAMETERS =
+      "-experimental_allow_top_level_aspects_parameters";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

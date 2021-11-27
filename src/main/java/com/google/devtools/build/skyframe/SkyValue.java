@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.io.Serializable;
-
 /** A return value of a {@code SkyFunction}. */
-public interface SkyValue extends Serializable {
+public interface SkyValue {
 
   /**
    * Returns true for values that can be reused across builds. Some values are inherently "flaky",

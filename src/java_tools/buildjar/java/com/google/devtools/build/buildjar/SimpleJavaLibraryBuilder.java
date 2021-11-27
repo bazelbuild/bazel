@@ -25,6 +25,7 @@ import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -34,7 +35,6 @@ import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /** An implementation of the JavaBuilder that uses in-process javac to compile java files. */

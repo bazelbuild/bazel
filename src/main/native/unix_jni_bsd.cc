@@ -21,8 +21,6 @@
 # error This BSD is not supported
 #endif
 
-#include "src/main/native/unix_jni.h"
-
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -37,6 +35,9 @@
 #include <sys/types.h>
 
 #include <string>
+
+#include "src/main/native/macros.h"
+#include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 
@@ -130,19 +131,30 @@ int portable_pop_disable_sleep() {
   return -1;
 }
 
-int portable_suspend_count() {
+void portable_start_suspend_monitoring() {
+  // Currently not implemented.
+}
+
+void portable_start_thermal_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_thermal_load() {
   // Currently not implemented.
   return 0;
 }
 
-int portable_memory_pressure_warning_count() {
+void portable_start_system_load_advisory_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_system_load_advisory() {
   // Currently not implemented.
   return 0;
 }
 
-int portable_memory_pressure_critical_count() {
+void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
-  return 0;
 }
 
 }  // namespace blaze_jni

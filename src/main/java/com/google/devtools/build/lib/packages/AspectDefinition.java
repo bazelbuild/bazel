@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,7 +60,6 @@ import javax.annotation.Nullable;
  * <p>The way to build the Skyframe node is not here because this data needs to be accessible from
  * the {@code .packages} package and that one requires references to the {@code .view} package.
  */
-@AutoCodec
 @Immutable
 public final class AspectDefinition {
   private final AspectClass aspectClass;
@@ -99,8 +97,7 @@ public final class AspectDefinition {
     return advertisedProviders;
   }
 
-  @AutoCodec.VisibleForSerialization
-  AspectDefinition(
+  private AspectDefinition(
       AspectClass aspectClass,
       AdvertisedProviderSet advertisedProviders,
       RequiredProviders requiredProviders,
@@ -353,7 +350,7 @@ public final class AspectDefinition {
 
     /**
      * Optional predicate to conditionally propagate down an attribute based on the {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
+     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
      *
      * <p>This is implemented specifically to support the platform-based Android toolchain
      * migration. See {@link com.google.devtools.build.lib.rules.android.DexArchiveAspect} for
@@ -363,7 +360,7 @@ public final class AspectDefinition {
      * @param propagateFunction {@link BiPredicate} that takes the aspect's build configuration and
      *     name of the attribute to propagate. If it returns true, propagates down this attribute in
      *     this configuration. We don't explicitly type with {@link
-     *     com.google.devtools.build.lib.analysis.config.BuildConfiguration} because {@link
+     *     com.google.devtools.build.lib.analysis.config.BuildConfigurationValue} because {@link
      *     AspectDefinition} is a loading phase class, with no access to config symbols.
      */
     public Builder propagateViaAttribute(BiPredicate<Object, String> propagateFunction) {

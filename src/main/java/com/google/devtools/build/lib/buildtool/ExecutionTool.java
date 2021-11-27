@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
+import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -46,7 +47,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSy
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -105,7 +107,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -244,7 +245,8 @@ public class ExecutionTool {
    * scattered over several classes. We need this in order to merge analysis & execution phases.
    * TODO(b/199053098): Minimize code duplication with the main code path.
    */
-  public void prepareForExecution(UUID buildId)
+  public void prepareForExecution(
+      UUID buildId, Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects)
       throws AbruptExitException, BuildFailedException, InterruptedException {
     init();
 
@@ -304,6 +306,24 @@ public class ExecutionTool {
           skyframeBuilder.getActionCacheChecker(),
           skyframeBuilder.getTopDownActionCache());
     }
+
+    // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
+    // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
+    // TODO(leba): count test actions
+    ExecutionProgressReceiver executionProgressReceiver =
+        new ExecutionProgressReceiver(
+            Preconditions.checkNotNull(builtTargets), Preconditions.checkNotNull(builtAspects), 0);
+    skyframeExecutor
+        .getEventBus()
+        .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
+
+    ActionExecutionStatusReporter statusReporter =
+        ActionExecutionStatusReporter.create(env.getReporter(), skyframeExecutor.getEventBus());
+    // TODO(leba): Add watchdog support.
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        executionProgressReceiver, executionProgressReceiver, statusReporter);
+    skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
+
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -622,14 +642,14 @@ public class ExecutionTool {
   }
 
   /**
-   * Obtains the {@link BuildConfiguration} for a given {@link BuildOptions} for the purpose of
+   * Obtains the {@link BuildConfigurationValue} for a given {@link BuildOptions} for the purpose of
    * symlink creation.
    *
    * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
    * returned.
    */
   @Nullable
-  private static BuildConfiguration getConfiguration(
+  private static BuildConfigurationValue getConfiguration(
       SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
     try {
       return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
@@ -677,7 +697,7 @@ public class ExecutionTool {
     Reporter reporter = env.getReporter();
 
     // Gather configurations to consider.
-    Set<BuildConfiguration> targetConfigurations =
+    Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
             ? analysisResult.getTargetsToBuild().stream()
                 .map(ConfiguredTarget::getConfigurationKey)
@@ -796,11 +816,11 @@ public class ExecutionTool {
    *
    * @param configuredTargets The configured targets whose artifacts are to be built.
    */
-  private static Collection<ConfiguredTarget> determineSuccessfulTargets(
+  static ImmutableSet<ConfiguredTarget> determineSuccessfulTargets(
       Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTargetKey> builtTargets) {
-    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
-    // order as configuredTargets.
-    Collection<ConfiguredTarget> successfulTargets = new LinkedHashSet<>();
+    // Maintain the ordering by copying builtTargets into an ImmutableSet.Builder in the same
+    // iteration order as configuredTargets.
+    ImmutableSet.Builder<ConfiguredTarget> successfulTargets = ImmutableSet.builder();
     for (ConfiguredTarget target : configuredTargets) {
       if (builtTargets.contains(
           ConfiguredTargetKey.builder()
@@ -810,10 +830,10 @@ public class ExecutionTool {
         successfulTargets.add(target);
       }
     }
-    return successfulTargets;
+    return successfulTargets.build();
   }
 
-  private static ImmutableSet<AspectKey> determineSuccessfulAspects(
+  static ImmutableSet<AspectKey> determineSuccessfulAspects(
       ImmutableSet<AspectKey> aspects, Set<AspectKey> builtAspects) {
     // Maintain the ordering.
     return aspects.stream().filter(builtAspects::contains).collect(ImmutableSet.toImmutableSet());
@@ -865,8 +885,7 @@ public class ExecutionTool {
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
-                .build(),
-            PathFragment.create(env.getDirectories().getRelativeOutputPath())),
+                .build()),
         env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
             ? modifiedOutputFiles
@@ -879,17 +898,13 @@ public class ExecutionTool {
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    ResourceSet resources;
-    resources = ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
+    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
-
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            resources.getMemoryMb(),
-            resources.getCpuUsage(),
-            request.getExecutionOptions().usingLocalTestJobs()
-                ? request.getExecutionOptions().localTestJobs
-                : Integer.MAX_VALUE));
+            options.localRamResources,
+            options.localCpuResources,
+            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 
   /**

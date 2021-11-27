@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -205,11 +205,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns a target {@link BuildConfiguration} with the given non-default options.
+   * Returns a target {@link BuildConfigurationValue} with the given non-default options.
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfiguration create(String... args) throws Exception {
+  protected BuildConfigurationValue create(String... args) throws Exception {
     return Iterables.getOnlyElement(createCollection(args).getTargetConfigurations());
   }
 
@@ -220,27 +220,27 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfiguration create(ImmutableMap<String, Object> starlarkOptions, String... args)
-      throws Exception {
+  protected BuildConfigurationValue create(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     return Iterables.getOnlyElement(
         createCollection(starlarkOptions, args).getTargetConfigurations());
   }
 
   /**
-   * Returns a host {@link BuildConfiguration} derived from a target configuration with the given
-   * non-default options.
+   * Returns a host {@link BuildConfigurationValue} derived from a target configuration with the
+   * given non-default options.
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfiguration createHost(String... args) throws Exception {
+  protected BuildConfigurationValue createHost(String... args) throws Exception {
     return createCollection(args).getHostConfiguration();
   }
 
   public static void assertConfigurationsHaveUniqueOutputDirectories(
       BuildConfigurationCollection configCollection) {
-    Map<ArtifactRoot, BuildConfiguration> outputPaths = new HashMap<>();
-    for (BuildConfiguration config : configCollection.getTargetConfigurations()) {
-      BuildConfiguration otherConfig =
+    Map<ArtifactRoot, BuildConfigurationValue> outputPaths = new HashMap<>();
+    for (BuildConfigurationValue config : configCollection.getTargetConfigurations()) {
+      BuildConfigurationValue otherConfig =
           outputPaths.get(config.getOutputDirectory(RepositoryName.MAIN));
       if (otherConfig != null) {
         throw new IllegalStateException(

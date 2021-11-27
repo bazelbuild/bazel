@@ -27,7 +27,6 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -120,7 +119,7 @@ public final class DirectoryListingStateValue implements SkyValue {
   }
 
   /** A space-efficient, sorted, immutable dirent structure. */
-  private static class CompactSortedDirents implements Dirents, Serializable {
+  private static final class CompactSortedDirents implements Dirents {
 
     private final String[] names;
     private final BitSet packedTypes;

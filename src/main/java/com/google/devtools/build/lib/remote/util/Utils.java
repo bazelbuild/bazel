@@ -67,6 +67,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
@@ -432,7 +433,8 @@ public final class Utils {
       Digest inputRoot,
       @Nullable Platform platform,
       java.time.Duration timeout,
-      boolean cacheable) {
+      boolean cacheable,
+      @Nullable ByteString salt) {
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
@@ -444,6 +446,9 @@ public final class Utils {
     }
     if (platform != null) {
       action.setPlatform(platform);
+    }
+    if (salt != null) {
+      action.setSalt(salt);
     }
     return action.build();
   }
@@ -537,6 +542,9 @@ public final class Utils {
   }
 
   private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
+  // Format as single digit decimal number, but skipping the trailing .0.
+  private static final DecimalFormat BYTE_COUNT_FORMAT =
+      new DecimalFormat("0.#", new DecimalFormatSymbols(Locale.US));
 
   /**
    * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.
@@ -557,9 +565,7 @@ public final class Utils {
       unitIndex++;
     }
 
-    // Format as single digit decimal number, but skipping the trailing .0.
-    DecimalFormat fmt = new DecimalFormat("0.#");
-    return String.format("%s %s", fmt.format(value / 1024.0), UNITS.get(unitIndex));
+    return String.format("%s %s", BYTE_COUNT_FORMAT.format(value / 1024.0), UNITS.get(unitIndex));
   }
 
   public static boolean shouldAcceptCachedResultFromRemoteCache(

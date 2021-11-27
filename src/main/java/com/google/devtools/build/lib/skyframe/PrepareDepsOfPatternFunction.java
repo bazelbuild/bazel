@@ -16,15 +16,16 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback;
+import com.google.devtools.build.lib.cmdline.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -116,7 +117,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           () -> repositoryIgnoredPatterns,
           ImmutableSet.of(),
           NullCallback.instance(),
-          RuntimeException.class);
+          QueryExceptionMarkerInterface.MarkerRuntimeException.class);
     } catch (TargetParsingException e) {
       throw new PrepareDepsOfPatternFunctionException(e);
     } catch (MissingDepException e) {
@@ -249,7 +250,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public <E extends Exception> void findTargetsBeneathDirectory(
+    public <E extends Exception & QueryExceptionMarkerInterface> void findTargetsBeneathDirectory(
         RepositoryName repository,
         String originalPattern,
         String directory,

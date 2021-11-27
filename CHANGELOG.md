@@ -1,3 +1,90 @@
+## Release 6.0.0-pre.20211110.1 (2021-11-19)
+
+```
+Baseline: 5149408a6c2500cb1701880575c41640d4fd1c2f
+
+Cherry picks:
+
+   + b371a986bdb60caf2bb07da0732e8870f2f81ef5:
+     Properly account for StarlarkOptions at their default (=null)
+     when calculating ST-hash
+```
+
+Important changes:
+
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+
+This release contains contributions from many people at Google, as well as Andrew Katson, Benedek Thaler, Brandon Jacklyn, Keith Smiley.
+
+## Release 6.0.0-pre.20211101.2 (2021-11-11)
+
+```
+Baseline: 9c65356cedcf4e68077219c10f5a7bb39d38054b
+
+Cherry picks:
+
+   + 2c9721f9ba11979eee1fd95fe793b52369df99ac:
+     Automated rollback of commit
+     9c65356cedcf4e68077219c10f5a7bb39d38054b.
+```
+
+Important changes:
+
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Ben Lee, Fabian Meumertzheim, Fredrik Medley, Keith Smiley, Rahul Butani, Ulf Adams, William Muir.
+
+## Release 6.0.0-pre.20211025.1 (2021-11-03)
+
+```
+Baseline: 5c04973b000b6e1819d6b51d238498a0b507c7af
+```
+
+Important changes:
+
+  - Bazel no longer supports Java 8. From this version on, the
+    minimum required JDK is OpenJDK 11.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, John Laxson, Keith Smiley, Thi Don.
+
+## Release 6.0.0-pre.20211019.1 (2021-10-26)
+
+```
+Baseline: 406fc1ba5fae98843c99f89a43dcbdbca0d90274
+```
+
+Incompatible changes:
+
+  - Remove `--experimental_profile_cpu_usage`.
+  - flipped --incompatible_java_common_parameters (see #12373)
+
+This release contains contributions from many people at Google, as well as ecngtng, Fabian Meumertzheim, Keith Smiley, Mauricio Galindo, Thaler Benedek.
+
+## Release 5.0.0-pre.20211011.2 (2021-10-20)
+
+```
+Baseline: 3b3bad9e774891856c198738c46d547de954b84a
+
+Cherry picks:
+
+   + d8c23189c9118f99cfc3eaac98976b7c6fdacae0:
+     Automated rollback of commit
+     2571ce2d9e72ee60326ef524fee1702cb2dd07e7.
+```
+
+Incompatible changes:
+
+  - Removed --action_graph from the dump command.
+  - Remove `--{experimental_,}json_trace_compression` option.
+
+Important changes:
+
+  - The --experimental_existing_rules_immutable_view flag has been
+    renamed to  --incompatible_existing_rules_immutable_view
+
+This release contains contributions from many people at Google, as well as Alex Eagle, hvadehra, Keith Smiley, Torgil Svensson, Yuval.
+
 ## Release 5.0.0-pre.20211006.1 (2021-10-19)
 
 ```

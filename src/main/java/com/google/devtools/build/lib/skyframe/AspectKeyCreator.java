@@ -15,9 +15,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -32,55 +33,29 @@ public final class AspectKeyCreator {
 
   private AspectKeyCreator() {}
 
-  private static final Interner<AspectKey> aspectKeyInterner = BlazeInterners.newWeakInterner();
-  private static final Interner<TopLevelAspectsKey> topLevelAspectsKeyInterner =
-      BlazeInterners.newWeakInterner();
-
   public static AspectKey createAspectKey(
-      Label label,
-      @Nullable BuildConfiguration baseConfiguration,
-      ImmutableList<AspectKey> baseKeys,
-      AspectDescriptor aspectDescriptor,
-      @Nullable BuildConfiguration aspectConfiguration) {
-    return AspectKey.createAspectKey(
-        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
-        baseKeys,
-        aspectDescriptor,
-        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
+      AspectDescriptor aspectDescriptor, ConfiguredTargetKey baseConfiguredTargetKey) {
+    return createAspectKey(
+        aspectDescriptor, /*baseKeys=*/ ImmutableList.of(), baseConfiguredTargetKey);
   }
 
   public static AspectKey createAspectKey(
       AspectDescriptor aspectDescriptor,
       ImmutableList<AspectKey> baseKeys,
-      BuildConfigurationValue.Key aspectConfigurationKey,
       ConfiguredTargetKey baseConfiguredTargetKey) {
-    return AspectKey.createAspectKey(
-        baseConfiguredTargetKey, baseKeys, aspectDescriptor, aspectConfigurationKey);
-  }
-
-  public static AspectKey createAspectKey(
-      Label label,
-      @Nullable BuildConfiguration baseConfiguration,
-      AspectDescriptor aspectDescriptor,
-      @Nullable BuildConfiguration aspectConfiguration) {
-    return AspectKey.createAspectKey(
-        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
-        ImmutableList.of(),
-        aspectDescriptor,
-        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
+    return AspectKey.createAspectKey(baseConfiguredTargetKey, baseKeys, aspectDescriptor);
   }
 
   public static TopLevelAspectsKey createTopLevelAspectsKey(
       ImmutableList<AspectClass> topLevelAspectsClasses,
       Label targetLabel,
-      @Nullable BuildConfiguration configuration) {
+      @Nullable BuildConfigurationValue configuration,
+      ImmutableMap<String, String> topLevelAspectsParameters) {
     return TopLevelAspectsKey.createInternal(
         topLevelAspectsClasses,
         targetLabel,
-        ConfiguredTargetKey.builder()
-            .setLabel(targetLabel)
-            .setConfiguration(configuration)
-            .build());
+        ConfiguredTargetKey.builder().setLabel(targetLabel).setConfiguration(configuration).build(),
+        topLevelAspectsParameters);
   }
 
   /** Common superclass for {@link AspectKey} and {@link TopLevelAspectsKey}. */
@@ -109,19 +84,18 @@ public final class AspectKeyCreator {
   /** Represents an aspect applied to a particular target. */
   @AutoCodec
   public static final class AspectKey extends AspectBaseKey {
+    private static final Interner<AspectKey> interner = BlazeInterners.newWeakInterner();
+
     private final ImmutableList<AspectKey> baseKeys;
-    @Nullable private final BuildConfigurationValue.Key aspectConfigurationKey;
     private final AspectDescriptor aspectDescriptor;
 
     private AspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
-        @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
         int hashCode) {
       super(baseConfiguredTargetKey, hashCode);
       this.baseKeys = baseKeys;
-      this.aspectConfigurationKey = aspectConfigurationKey;
       this.aspectDescriptor = aspectDescriptor;
     }
 
@@ -130,16 +104,13 @@ public final class AspectKeyCreator {
     static AspectKey createAspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
-        AspectDescriptor aspectDescriptor,
-        @Nullable BuildConfigurationValue.Key aspectConfigurationKey) {
-      return aspectKeyInterner.intern(
+        AspectDescriptor aspectDescriptor) {
+      return interner.intern(
           new AspectKey(
               baseConfiguredTargetKey,
               baseKeys,
               aspectDescriptor,
-              aspectConfigurationKey,
-              Objects.hashCode(
-                  baseConfiguredTargetKey, baseKeys, aspectDescriptor, aspectConfigurationKey)));
+              Objects.hashCode(baseConfiguredTargetKey, baseKeys, aspectDescriptor)));
     }
 
     @Override
@@ -192,23 +163,11 @@ public final class AspectKeyCreator {
     /**
      * Returns the key of the configured target of the aspect; that is, the configuration in which
      * the aspect will be evaluated.
-     *
-     * <p>In trimmed configuration mode, the aspect may require more fragments than the target on
-     * which it is being evaluated; in addition to configuration fragments required by the target
-     * and its dependencies, an aspect has configuration fragment requirements of its own, as well
-     * as dependencies of its own with their own configuration fragment requirements.
-     *
-     * <p>The aspect configuration contains all of these fragments, and is used to create the
-     * aspect's RuleContext and to retrieve the dependencies. Note that dependencies will have their
-     * configurations trimmed from this one as normal.
-     *
-     * <p>Because of these properties, this configuration is always a superset of the base target's
-     * configuration. In untrimmed configuration mode, this configuration will be equivalent to the
-     * base target's configuration.
      */
+    @Override
     @Nullable
-    public BuildConfigurationValue.Key getAspectConfigurationKey() {
-      return aspectConfigurationKey;
+    public BuildConfigurationKey getConfigurationKey() {
+      return getBaseConfiguredTargetKey().getConfigurationKey();
     }
 
     @Override
@@ -222,7 +181,6 @@ public final class AspectKeyCreator {
       AspectKey that = (AspectKey) other;
       return hashCode() == that.hashCode()
           && Objects.equal(baseKeys, that.baseKeys)
-          && Objects.equal(aspectConfigurationKey, that.aspectConfigurationKey)
           && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
           && Objects.equal(aspectDescriptor, that.aspectDescriptor);
     }
@@ -244,8 +202,6 @@ public final class AspectKeyCreator {
           + "#"
           + aspectDescriptor
           + " "
-          + aspectConfigurationKey
-          + " "
           + getBaseConfiguredTargetKey()
           + " "
           + aspectDescriptor.getParameters();
@@ -263,39 +219,52 @@ public final class AspectKeyCreator {
               .setConfigurationKey(getBaseConfiguredTargetKey().getConfigurationKey())
               .build(),
           newBaseKeys.build(),
-          aspectDescriptor,
-          aspectConfigurationKey);
+          aspectDescriptor);
     }
   }
 
-  /** The key for top level aspects specified by --aspects option on a top level target. */
+  /**
+   * The key for top level aspects specified by --aspects option and their parameters specified by
+   * --aspects_parameters applied on a top level target.
+   */
   @AutoCodec
   public static final class TopLevelAspectsKey extends AspectBaseKey {
+    private static final Interner<TopLevelAspectsKey> interner = BlazeInterners.newWeakInterner();
+
     private final ImmutableList<AspectClass> topLevelAspectsClasses;
     private final Label targetLabel;
+    private final ImmutableMap<String, String> topLevelAspectsParameters;
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
     static TopLevelAspectsKey createInternal(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         Label targetLabel,
-        ConfiguredTargetKey baseConfiguredTargetKey) {
-      return topLevelAspectsKeyInterner.intern(
+        ConfiguredTargetKey baseConfiguredTargetKey,
+        ImmutableMap<String, String> topLevelAspectsParameters) {
+      return interner.intern(
           new TopLevelAspectsKey(
               topLevelAspectsClasses,
               targetLabel,
               baseConfiguredTargetKey,
-              Objects.hashCode(topLevelAspectsClasses, targetLabel, baseConfiguredTargetKey)));
+              topLevelAspectsParameters,
+              Objects.hashCode(
+                  topLevelAspectsClasses,
+                  targetLabel,
+                  baseConfiguredTargetKey,
+                  topLevelAspectsParameters)));
     }
 
     private TopLevelAspectsKey(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         Label targetLabel,
         ConfiguredTargetKey baseConfiguredTargetKey,
+        ImmutableMap<String, String> topLevelAspectsParameters,
         int hashCode) {
       super(baseConfiguredTargetKey, hashCode);
       this.topLevelAspectsClasses = topLevelAspectsClasses;
       this.targetLabel = targetLabel;
+      this.topLevelAspectsParameters = topLevelAspectsParameters;
     }
 
     @Override
@@ -303,8 +272,17 @@ public final class AspectKeyCreator {
       return SkyFunctions.TOP_LEVEL_ASPECTS;
     }
 
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return getBaseConfiguredTargetKey().getConfigurationKey();
+    }
+
     ImmutableList<AspectClass> getTopLevelAspectsClasses() {
       return topLevelAspectsClasses;
+    }
+
+    ImmutableMap<String, String> getTopLevelAspectsParameters() {
+      return topLevelAspectsParameters;
     }
 
     @Override
@@ -313,7 +291,9 @@ public final class AspectKeyCreator {
     }
 
     String getDescription() {
-      return topLevelAspectsClasses + " on " + getLabel();
+      return String.format(
+          "%s with parameters %s on %s",
+          topLevelAspectsClasses, topLevelAspectsParameters, targetLabel);
     }
 
     @Override
@@ -328,7 +308,8 @@ public final class AspectKeyCreator {
       return hashCode() == that.hashCode()
           && Objects.equal(targetLabel, that.targetLabel)
           && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
-          && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses);
+          && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses)
+          && Objects.equal(topLevelAspectsParameters, that.topLevelAspectsParameters);
     }
   }
 }

@@ -542,6 +542,17 @@ public class PackageFunction implements SkyFunction {
     Package.Builder pkgBuilder = packageCacheEntry.builder;
     try {
       pkgBuilder.buildPartial();
+      // Since the Skyframe dependencies we request below in
+      // handleGlobDepsAndPropagateFilesystemExceptions are requested independently of the ones
+      // requested here in
+      // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions, we don't
+      // bother checking for missing values and instead piggyback on the env.missingValues() call
+      // for the former. This avoids a Skyframe restart.
+      // Note that handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions
+      // expects to mutate pkgBuilder.getTargets(), and thus can only be safely called if
+      // pkgBuilder.buildPartial() didn't throw.
+      handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
+          packageLookupValue.getRoot(), packageId, pkgBuilder, env);
     } catch (NoSuchPackageException e) {
       // If non-Skyframe globbing encounters an IOException, #buildPartial will throw a
       // NoSuchPackageException. If that happens, we prefer throwing an exception derived from
@@ -553,25 +564,9 @@ public class PackageFunction implements SkyFunction {
               e.getCause() instanceof SkyframeGlobbingIOException
                   ? Transience.PERSISTENT
                   : Transience.TRANSIENT);
-    }
-    try {
-      // Since the Skyframe dependencies we request below in
-      // handleGlobDepsAndPropagateFilesystemExceptions are requested independently of
-      // the ones requested here in
-      // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions, we don't
-      // bother checking for missing values and instead piggyback on the env.missingValues() call
-      // for the former. This avoids a Skyframe restart.
-      handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
-          packageLookupValue.getRoot(), packageId, pkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
-      PackageLoading.Code packageLoadingCode =
-          e.isTransient()
-              ? PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR
-              : PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR;
-      throw new PackageFunctionException(
-          e.toNoSuchPackageException(packageLoadingCode),
-          e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
+      throw e.throwPackageFunctionException();
     }
     Set<SkyKey> globKeys = packageCacheEntry.globDepKeys;
     try {
@@ -579,13 +574,7 @@ public class PackageFunction implements SkyFunction {
           packageId, globKeys, env, pkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
-      PackageLoading.Code packageLoadingCode =
-          e.isTransient()
-              ? PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR
-              : PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR;
-      throw new PackageFunctionException(
-          e.toNoSuchPackageException(packageLoadingCode),
-          e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
+      throw e.throwPackageFunctionException();
     } catch (FileSymlinkException e) {
       packageFunctionCache.invalidate(packageId);
       String message = "Symlink issue while evaluating globs: " + e.getUserFriendlyMessage();
@@ -807,6 +796,14 @@ public class PackageFunction implements SkyFunction {
     return null;
   }
 
+  /**
+   * For each of a {@link Package.Builder}'s targets, propagate the target's corresponding {@link
+   * InconsistentFilesystemException} (if any) and verify that the target's label does not cross
+   * subpackage boundaries.
+   *
+   * @param pkgBuilder a {@link Package.Builder} whose {@code getTargets()} set is mutable (i.e.
+   *     {@code pkgBuilder.buildPartial()} must have been successfully called).
+   */
   private static void handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
       Root pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
       throws InternalInconsistentFilesystemException, InterruptedException {
@@ -1456,8 +1453,6 @@ public class PackageFunction implements SkyFunction {
             // as in .bzl files. One can always use a renaming load statement.
             .loadBindsGlobally(true)
             .allowToplevelRebinding(true)
-            .restrictStringEscapes(
-                semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_RESTRICT_STRING_ESCAPES))
             .build();
 
     // parse
@@ -1552,15 +1547,19 @@ public class PackageFunction implements SkyFunction {
       return isTransient;
     }
 
-    private NoSuchPackageException toNoSuchPackageException(
-        PackageLoading.Code packageLoadingCode) {
-      return PackageFunctionException.builder()
+    private PackageFunctionException throwPackageFunctionException()
+        throws PackageFunctionException {
+      throw PackageFunctionException.builder()
           .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
           .setPackageIdentifier(packageIdentifier)
           .setMessage(this.getMessage())
           .setException((Exception) this.getCause())
-          .setPackageLoadingCode(packageLoadingCode)
-          .buildCause();
+          .setPackageLoadingCode(
+              isTransient()
+                  ? Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR
+                  : Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR)
+          .setTransience(isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT)
+          .build();
     }
   }
 
@@ -1582,7 +1581,7 @@ public class PackageFunction implements SkyFunction {
      * contains a myriad of different types of exceptions that extend NoSuchPackageException for
      * different scenarios.
      */
-    static enum Type {
+    enum Type {
       BUILD_FILE_CONTAINS_ERRORS {
         @Override
         BuildFileContainsErrorsException create(
@@ -1642,12 +1641,12 @@ public class PackageFunction implements SkyFunction {
         return this;
       }
 
-      Builder setTransience(Transience transience) {
+      private Builder setTransience(Transience transience) {
         this.transience = transience;
         return this;
       }
 
-      Builder setException(Exception exception) {
+      private Builder setException(Exception exception) {
         this.exception = exception;
         return this;
       }

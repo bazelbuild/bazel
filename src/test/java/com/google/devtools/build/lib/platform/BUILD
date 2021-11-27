@@ -25,25 +25,16 @@ java_test(
 )
 
 java_test(
-    name = "SuspendCounterTest",
+    name = "SystemSuspensionEventTest",
     timeout = "short",
-    srcs = ["SuspendCounterTest.java"],
+    srcs = ["SystemSuspensionEventTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/platform:suspend_counter",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/platform:system_suspension_module",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:process",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "MemoryPressureCounterTest",
-    timeout = "short",
-    srcs = ["MemoryPressureCounterTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/platform:memory_pressure_counter",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

@@ -36,11 +36,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -54,53 +49,10 @@ import java.util.Optional;
 @ThreadSafe
 public final class TargetPatternValue implements SkyValue {
 
-  private ResolvedTargets<Label> targets;
+  private final ResolvedTargets<Label> targets;
 
   TargetPatternValue(ResolvedTargets<Label> targets) {
     this.targets = Preconditions.checkNotNull(targets);
-  }
-
-  private void writeObject(ObjectOutputStream out) throws IOException {
-    List<String> ts = new ArrayList<>();
-    List<String> filteredTs = new ArrayList<>();
-    for (Label target : targets.getTargets()) {
-      ts.add(target.toString());
-    }
-    for (Label target : targets.getFilteredTargets()) {
-      filteredTs.add(target.toString());
-    }
-
-    out.writeObject(ts);
-    out.writeObject(filteredTs);
-  }
-
-  private Label labelFromString(String labelString) {
-    try {
-      return Label.parseAbsolute(labelString, ImmutableMap.of());
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-    List<String> ts = (List<String>) in.readObject();
-    List<String> filteredTs = (List<String>) in.readObject();
-
-    ResolvedTargets.Builder<Label> builder = ResolvedTargets.<Label>builder();
-    for (String labelString : ts) {
-      builder.add(labelFromString(labelString));
-    }
-
-    for (String labelString : filteredTs) {
-      builder.remove(labelFromString(labelString));
-    }
-    this.targets = builder.build();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObjectNoData() {
-    throw new IllegalStateException();
   }
 
   /**
@@ -250,7 +202,7 @@ public final class TargetPatternValue implements SkyValue {
    * offset, whether it is a positive or negative match, and a set of excluded subdirectories.
    */
   @ThreadSafe
-  public static class TargetPatternKey implements SkyKey, Serializable {
+  public static class TargetPatternKey implements SkyKey {
     private final SignedTargetPattern signedParsedPattern;
     private final FilteringPolicy policy;
 
@@ -309,7 +261,7 @@ public final class TargetPatternValue implements SkyValue {
           "%s, excludedSubdirs=%s, filteringPolicy=%s",
           (isNegative() ? "-" : "") + signedParsedPattern.pattern().getOriginalPattern(),
           excludedSubdirectories,
-          getPolicy());
+          policy);
     }
 
     @Override

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -58,6 +59,13 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       useStarlarkThread = true)
   CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "transitive_native_libraries",
+      documented = false,
+      doc = "Returns a depset of the transitive native libraries",
+      useStarlarkThread = true)
+  Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException;
 
   /** The provider implementing this can construct CcInfo objects. */
   @StarlarkBuiltin(

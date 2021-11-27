@@ -15,12 +15,10 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Strings;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -72,8 +70,8 @@ public final class DigestUtilsTest {
 
     Path myFile1 = myfs.getPath("/f1.dat");
     Path myFile2 = myfs.getPath("/f2.dat");
-    FileSystemUtils.writeContentAsLatin1(myFile1, Strings.repeat("a", fileSize1));
-    FileSystemUtils.writeContentAsLatin1(myFile2, Strings.repeat("b", fileSize2));
+    FileSystemUtils.writeContentAsLatin1(myFile1, "a".repeat(fileSize1));
+    FileSystemUtils.writeContentAsLatin1(myFile2, "b".repeat(fileSize2));
 
     TestThread thread1 =
         new TestThread(() -> DigestUtils.getDigestWithManualFallback(myFile1, fileSize1));
@@ -91,25 +89,6 @@ public final class DigestUtilsTest {
      // Test successful execution within 5 seconds.
      thread1.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
      thread2.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-  }
-
-  /**
-   * Ensures that digest calculation is synchronized for files greater than
-   * {@link DigestUtils#MULTI_THREADED_DIGEST_MAX_FILE_SIZE} bytes if the digest is not
-   * available cheaply, so machines with rotating drives don't become unusable.
-   */
-  @Test
-  public void testCalculationConcurrency() throws Exception {
-    int small = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE;
-    int large = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE + 1;
-    for (DigestHashFunction hf :
-        Arrays.asList(DigestHashFunction.SHA256, DigestHashFunction.SHA1)) {
-      assertDigestCalculationConcurrency(true, true, small, small, hf);
-      assertDigestCalculationConcurrency(true, true, large, large, hf);
-      assertDigestCalculationConcurrency(true, false, small, small, hf);
-      assertDigestCalculationConcurrency(true, false, small, large, hf);
-      assertDigestCalculationConcurrency(false, false, large, large, hf);
-    }
   }
 
   @Test

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -63,7 +63,7 @@ import javax.annotation.Nullable;
 public class TopLevelConstraintSemantics {
   private final RuleContextConstraintSemantics constraintSemantics;
   private final PackageManager packageManager;
-  private final Function<Key, BuildConfiguration> configurationProvider;
+  private final Function<BuildConfigurationKey, BuildConfigurationValue> configurationProvider;
   private final ExtendedEventHandler eventHandler;
   private static final String TARGET_INCOMPATIBLE_ERROR_TEMPLATE =
       "Target %s is incompatible and cannot be built, but was explicitly requested.%s";
@@ -79,7 +79,7 @@ public class TopLevelConstraintSemantics {
   public TopLevelConstraintSemantics(
       RuleContextConstraintSemantics constraintSemantics,
       PackageManager packageManager,
-      Function<Key, BuildConfiguration> configurationProvider,
+      Function<BuildConfigurationKey, BuildConfigurationValue> configurationProvider,
       ExtendedEventHandler eventHandler) {
     this.constraintSemantics = constraintSemantics;
     this.packageManager = packageManager;
@@ -259,7 +259,8 @@ public class TopLevelConstraintSemantics {
     Multimap<ConfiguredTarget, MissingEnvironment> exceptionInducingTargets =
         ArrayListMultimap.create();
     for (ConfiguredTarget topLevelTarget : topLevelTargets) {
-      BuildConfiguration config = configurationProvider.apply(topLevelTarget.getConfigurationKey());
+      BuildConfigurationValue config =
+          configurationProvider.apply(topLevelTarget.getConfigurationKey());
       Target target = null;
       try {
         target = packageManager.getTarget(eventHandler, topLevelTarget.getLabel());
@@ -312,11 +313,11 @@ public class TopLevelConstraintSemantics {
   }
 
   /**
-   * Helper method for {@link #checkTargetEnvironmentRestrictions} that populates inferred
-   * expected environments.
+   * Helper method for {@link #checkTargetEnvironmentRestrictions} that populates inferred expected
+   * environments.
    */
-  private List<Label> autoConfigureTargetEnvironments(BuildConfiguration config,
-      @Nullable Label environmentGroupLabel)
+  private List<Label> autoConfigureTargetEnvironments(
+      BuildConfigurationValue config, @Nullable Label environmentGroupLabel)
       throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
     if (environmentGroupLabel == null) {
       return ImmutableList.of();

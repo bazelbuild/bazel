@@ -39,10 +39,9 @@ import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -941,15 +940,14 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
-    BuildConfiguration configuration =
-        new BuildConfiguration(
+    BuildConfigurationValue configuration =
+        new BuildConfigurationValue(
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
                 /*defaultSystemJavabase=*/ null,
                 "productName"),
             /*fragments=*/ ImmutableMap.of(),
-            /*fragmentClassSet=*/ FragmentClassSet.of(ImmutableSet.of()),
             defaultBuildOptions,
             /*reservedActionMnemonics=*/ ImmutableSet.of(),
             ActionEnvironment.EMPTY,

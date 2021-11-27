@@ -125,16 +125,16 @@ import org.mockito.stubbing.Answer;
 @RunWith(JUnit4.class)
 public class GrpcCacheClientTest {
 
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  protected static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private FileSystem fs;
   private Path execRoot;
   private FileOutErr outErr;
   private FakeActionInputFileCache fakeFileCache;
-  private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
+  protected final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
-  private RemoteActionExecutionContext context;
+  protected RemoteActionExecutionContext context;
   private RemotePathResolver remotePathResolver;
   private ListeningScheduledExecutorService retryService;
 
@@ -196,12 +196,12 @@ public class GrpcCacheClientTest {
     return newClient(Options.getDefaults(RemoteOptions.class));
   }
 
-  private GrpcCacheClient newClient(RemoteOptions remoteOptions) throws IOException {
+  protected GrpcCacheClient newClient(RemoteOptions remoteOptions) throws IOException {
     return newClient(remoteOptions, () -> new ExponentialBackoff(remoteOptions));
   }
 
-  private GrpcCacheClient newClient(RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier)
-      throws IOException {
+  protected GrpcCacheClient newClient(
+      RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier) throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.useGoogleDefaultCredentials = true;
     authTlsOptions.googleCredentials = "/execroot/main/creds.json";
@@ -256,7 +256,7 @@ public class GrpcCacheClientTest {
         channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL, uploader);
   }
 
-  private static byte[] downloadBlob(
+  protected static byte[] downloadBlob(
       RemoteActionExecutionContext context, GrpcCacheClient cacheClient, Digest digest)
       throws IOException, InterruptedException {
     try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {

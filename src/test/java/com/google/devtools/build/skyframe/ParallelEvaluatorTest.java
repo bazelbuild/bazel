@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.EventIterableSubjectFactory.assertThatEvents;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
+import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -52,6 +53,8 @@ import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,16 +69,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Tests for {@link ParallelEvaluator}.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link ParallelEvaluator}. */
+@RunWith(TestParameterInjector.class)
 public class ParallelEvaluatorTest {
   private static final SkyFunctionName CHILD_TYPE = SkyFunctionName.createHermetic("child");
   private static final SkyFunctionName PARENT_TYPE = SkyFunctionName.createHermetic("parent");
@@ -850,21 +851,10 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void catastropheHaltsBuild_KeepGoing_KeepEdges() throws Exception {
-    catastrophicBuild(true, true);
-  }
+  public void catastrophicBuild(@TestParameter boolean keepGoing, @TestParameter boolean keepEdges)
+      throws Exception {
+    Assume.assumeTrue(keepGoing || keepEdges);
 
-  @Test
-  public void catastropheHaltsBuild_KeepGoing_NoKeepEdges() throws Exception {
-    catastrophicBuild(true, false);
-  }
-
-  @Test
-  public void catastropheInBuild_NoKeepGoing_KeepEdges() throws Exception {
-    catastrophicBuild(false, true);
-  }
-
-  private void catastrophicBuild(boolean keepGoing, boolean keepEdges) throws Exception {
     graph = new InMemoryGraphImpl(keepEdges);
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
@@ -947,6 +937,67 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result =
         eval(/*keepGoing=*/ true, ImmutableList.of(catastropheKey));
     assertThat(result.getCatastrophe()).isEqualTo(catastrophe);
+  }
+
+  @Test
+  public void catastropheBubblesIntoNonCatastrophe() throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
+    Exception catastrophe = new SomeErrorException("bad");
+    tester
+        .getOrCreate(catastropheKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+                throw new SkyFunctionException(catastrophe, Transience.PERSISTENT) {
+                  @Override
+                  public boolean isCatastrophic() {
+                    return true;
+                  }
+                };
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    SkyKey topKey = skyKey("top");
+    tester
+        .getOrCreate(topKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env)
+                  throws SkyFunctionException, InterruptedException {
+                try {
+                  env.getValueOrThrow(catastropheKey, SomeErrorException.class);
+                } catch (SomeErrorException e) {
+                  throw new SkyFunctionException(
+                      new SomeErrorException("We got: " + e.getMessage()), Transience.PERSISTENT) {
+                    @Override
+                    public boolean isCatastrophic() {
+                      return false;
+                    }
+                  };
+                }
+                return null;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(topKey));
+
+    assertThat(result.getError(topKey).getException()).isInstanceOf(SomeErrorException.class);
+    assertThat(result.getError(topKey).getException()).hasMessageThat().isEqualTo("We got: bad");
   }
 
   @Test

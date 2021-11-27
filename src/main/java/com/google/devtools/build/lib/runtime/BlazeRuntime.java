@@ -1234,7 +1234,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     SubscriberExceptionHandler subscriberExceptionHandler = currentHandlerValue;
     Thread.setDefaultUncaughtExceptionHandler(
         (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
-    Path.setFileSystemForSerialization(fs);
 
     // Set the hook used to display Starlark source lines in a stack trace.
     EvalException.setSourceReaderSupplier(

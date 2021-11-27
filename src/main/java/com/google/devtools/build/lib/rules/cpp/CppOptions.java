@@ -150,6 +150,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "Specifies a suffix to be added to the configuration directory.")
   public String outputDirectoryTag;
 
@@ -1142,6 +1143,7 @@ public class CppOptions extends FragmentOptions {
     host.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
     host.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
     host.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
+    host.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();

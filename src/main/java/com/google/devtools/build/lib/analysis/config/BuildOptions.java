@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
@@ -46,7 +45,6 @@ import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -64,7 +62,7 @@ import javax.annotation.Nullable;
 /** Stores the command-line options from a set of configuration fragments. */
 // TODO(janakr): If overhead of FragmentOptions class names is too high, add constructor that just
 // takes fragments and gets names from them.
-public final class BuildOptions implements Cloneable, Serializable {
+public final class BuildOptions implements Cloneable {
 
   @SerializationConstant
   static final Comparator<Class<? extends FragmentOptions>> LEXICAL_FRAGMENT_OPTIONS_COMPARATOR =
@@ -152,7 +150,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       synchronized (this) {
         if (checksum == null) {
           if (fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty()) {
-            checksum = Strings.repeat("0", 64); // Make empty build options easy to distinguish.
+            checksum = "0".repeat(64); // Make empty build options easy to distinguish.
           } else {
             Fingerprint fingerprint = new Fingerprint();
             for (FragmentOptions options : fragmentOptionsMap.values()) {

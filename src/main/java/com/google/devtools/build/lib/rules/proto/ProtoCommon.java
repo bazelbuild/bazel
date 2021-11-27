@@ -31,15 +31,18 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
-/**
- * Utility functions for proto_library and proto aspect implementations.
- */
+/** Utility functions for proto_library and proto aspect implementations. */
 public class ProtoCommon {
   private ProtoCommon() {
     throw new UnsupportedOperationException();
@@ -231,8 +234,7 @@ public class ProtoCommon {
   private static Library createLibraryWithVirtualSourceRootMaybe(
       RuleContext ruleContext,
       ImmutableList<Artifact> protoSources,
-      boolean generatedProtosInVirtualImports)
-      throws InterruptedException {
+      boolean generatedProtosInVirtualImports) {
     PathFragment importPrefixAttribute = getPathFragmentAttribute(ruleContext, "import_prefix");
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
@@ -346,8 +348,7 @@ public class ProtoCommon {
    * ruleContext}.
    */
   public static ProtoInfo createProtoInfo(
-      RuleContext ruleContext, boolean generatedProtosInVirtualImports)
-      throws InterruptedException {
+      RuleContext ruleContext, boolean generatedProtosInVirtualImports) {
     ImmutableList<Artifact> originalDirectProtoSources =
         ruleContext.getPrerequisiteArtifacts("srcs").list();
     ImmutableList<ProtoInfo> deps =
@@ -520,5 +521,15 @@ public class ProtoCommon {
   public static boolean areDepsStrict(RuleContext ruleContext) {
     StrictDepsMode getBool = ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
     return getBool != StrictDepsMode.OFF && getBool != StrictDepsMode.DEFAULT;
+  }
+
+  public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
+      throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
   }
 }

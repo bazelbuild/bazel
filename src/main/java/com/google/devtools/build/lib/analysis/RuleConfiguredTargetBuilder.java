@@ -213,7 +213,7 @@ public final class RuleConfiguredTargetBuilder {
       if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
         ruleContext.ruleError(
             String.format(
-                "analysis test rule excedeed maximum dependency edge count. "
+                "analysis test rule exceeded maximum dependency edge count. "
                     + "Count: %s. Limit is %s. This limit is imposed on analysis test rules which "
                     + "use analysis_test_transition attribute transitions. Exceeding this limit "
                     + "indicates either the analysis_test has too many dependencies, or the "

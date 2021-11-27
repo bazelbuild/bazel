@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -111,7 +111,6 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
-import com.google.devtools.build.lib.rules.proto.ProtoToolchainInfo;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
@@ -221,7 +220,7 @@ public class BazelRuleClassProvider {
           env.put(entry.getKey(), entry.getValue());
         }
 
-        if (!BuildConfiguration.runfilesEnabled(options.get(CoreOptions.class))) {
+        if (!BuildConfigurationValue.runfilesEnabled(options.get(CoreOptions.class))) {
           // Setting this environment variable is for telling the binary running
           // in a Bazel action when to use runfiles library or runfiles tree.
           // The downside is that it will discard cache for all actions once
@@ -293,7 +292,6 @@ public class BazelRuleClassProvider {
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
                   ProtoInfo.PROVIDER,
-                  ProtoToolchainInfo.PROVIDER,
                   BazelProtoCommon.INSTANCE,
                   new StarlarkAspectStub(),
                   new ProviderStub());

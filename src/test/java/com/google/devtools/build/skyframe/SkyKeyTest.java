@@ -20,18 +20,16 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
-import java.io.Serializable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit test for the SkyKey class, checking hash code transience logic.
- */
+/** Unit test for the SkyKey class, checking hash code transience logic. */
 @RunWith(JUnit4.class)
-public class SkyKeyTest {
+public final class SkyKeyTest {
 
   @Test
+  @SuppressWarnings("ReturnValueIgnored") // Testing interactions with spy.
   public void testHashCodeTransience() throws Exception {
     // Given a freshly constructed HashCodeSpy object,
     HashCodeSpy hashCodeSpy = new HashCodeSpy();
@@ -69,7 +67,7 @@ public class SkyKeyTest {
     assertThat(spyInNewKey.numberOfTimesHashCodeCalled).isEqualTo(1);
   }
 
-  static final class HashCodeSpy implements Serializable {
+  static final class HashCodeSpy {
     private transient int numberOfTimesHashCodeCalled;
 
     @Override

@@ -17,6 +17,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -96,7 +97,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     }
   }
 
-  @AutoCodec
+  @SerializationConstant
   static final PackageErrorMessageValue NO_ERROR_VALUE =
       new PackageErrorMessageValue() {
         @Override
@@ -110,7 +111,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
       };
 
-  @AutoCodec
+  @SerializationConstant
   static final PackageErrorMessageValue ERROR_VALUE =
       new PackageErrorMessageValue() {
         @Override
@@ -124,11 +125,10 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
       };
 
-  @AutoCodec
-  static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
+  private static class NoSuchPackageExceptionValue extends PackageErrorMessageValue {
     private final String errorMessage;
 
-    public NoSuchPackageExceptionValue(String errorMessage) {
+    NoSuchPackageExceptionValue(String errorMessage) {
       this.errorMessage = errorMessage;
     }
 

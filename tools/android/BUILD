@@ -44,7 +44,6 @@ py_binary(
     srcs = ["incremental_install.py"],
     deps = [
         "//third_party/py/abseil",
-        "//third_party/py/concurrent:futures",
     ],
 )
 

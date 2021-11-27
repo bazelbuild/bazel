@@ -50,7 +50,7 @@ public final class TransitionResolver {
    * @return the target's configuration(s), expressed as a diff from the original configuration.
    */
   public static ConfigurationTransition evaluateTransition(
-      BuildConfiguration fromConfig,
+      BuildConfigurationValue fromConfig,
       ConfigurationTransition baseTransition,
       Target toTarget,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {

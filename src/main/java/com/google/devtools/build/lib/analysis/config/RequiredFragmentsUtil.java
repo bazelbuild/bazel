@@ -82,7 +82,7 @@ public final class RequiredFragmentsUtil {
   @Nullable
   public static RequiredConfigFragmentsProvider getRuleRequiredFragmentsIfEnabled(
       Rule target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
@@ -92,7 +92,7 @@ public final class RequiredFragmentsUtil {
     }
     RuleClass ruleClass = target.getRuleClassObject();
     ConfiguredAttributeMapper attributes =
-        ConfiguredAttributeMapper.of(target, configConditions, configuration.checksum());
+        ConfiguredAttributeMapper.of(target, configConditions, configuration);
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         getRequiredFragments(
             mode,
@@ -107,7 +107,7 @@ public final class RequiredFragmentsUtil {
           .addRuleImplSpecificRequiredConfigFragments(requiredFragments, attributes, configuration);
     }
     addRequiredFragmentsFromRuleTransitions(
-        requiredFragments, target, attributes, configuration.getOptions());
+        requiredFragments, target, attributes, configuration.getBuildOptionDetails());
 
     // We consider build settings (which are both targets and configuration) to require themselves.
     if (target.isBuildSetting()) {
@@ -136,7 +136,7 @@ public final class RequiredFragmentsUtil {
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
       Rule associatedTarget,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
@@ -156,15 +156,15 @@ public final class RequiredFragmentsUtil {
     addRequiredFragmentsFromAspectTransitions(
         requiredFragments,
         aspect,
-        ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration.checksum()),
-        configuration.getOptions());
+        ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration),
+        configuration.getBuildOptionDetails());
     return requiredFragments.build();
   }
 
   /** Internal implementation that handles requirements common to both rules and aspects. */
   private static RequiredConfigFragmentsProvider.Builder getRequiredFragments(
       IncludeConfigFragmentsEnum mode,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
@@ -212,13 +212,13 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Rule target,
       ConfiguredAttributeMapper attributeMap,
-      BuildOptions options) {
+      BuildOptionDetails optionDetails) {
     if (target.getRuleClassObject().getTransitionFactory() != null) {
       target
           .getRuleClassObject()
           .getTransitionFactory()
           .create(RuleTransitionData.create(target))
-          .addRequiredFragments(requiredFragments, options);
+          .addRequiredFragments(requiredFragments, optionDetails);
     }
     // We don't set the execution platform in this data because a) that doesn't affect which
     // fragments are required and b) it's one less parameter we have to pass to
@@ -230,7 +230,7 @@ public final class RequiredFragmentsUtil {
         attribute
             .getTransitionFactory()
             .create(attributeTransitionData)
-            .addRequiredFragments(requiredFragments, options);
+            .addRequiredFragments(requiredFragments, optionDetails);
       }
     }
   }
@@ -245,7 +245,7 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Aspect aspect,
       ConfiguredAttributeMapper attributeMap,
-      BuildOptions options) {
+      BuildOptionDetails optionDetails) {
     AttributeTransitionData attributeTransitionData =
         AttributeTransitionData.builder().attributes(attributeMap).build();
     for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
@@ -253,7 +253,7 @@ public final class RequiredFragmentsUtil {
         attribute
             .getTransitionFactory()
             .create(attributeTransitionData)
-            .addRequiredFragments(requiredFragments, options);
+            .addRequiredFragments(requiredFragments, optionDetails);
       }
     }
   }
@@ -290,7 +290,8 @@ public final class RequiredFragmentsUtil {
     }
   }
 
-  private static IncludeConfigFragmentsEnum getRequiredFragmentsMode(BuildConfiguration config) {
+  private static IncludeConfigFragmentsEnum getRequiredFragmentsMode(
+      BuildConfigurationValue config) {
     return checkNotNull(
         config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider);
   }

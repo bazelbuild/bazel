@@ -42,6 +42,12 @@ public final class CoverageReportValue extends BasicActionLookupValue {
 
     @Nullable
     @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
+    }
+
+    @Nullable
+    @Override
     public Label getLabel() {
       return null;
     }

@@ -128,22 +128,4 @@ public final class ModifiedFileSet {
   public static Builder builder() {
     return new Builder();
   }
-
-  public static ModifiedFileSet union(ModifiedFileSet mfs1, ModifiedFileSet mfs2) {
-    if (mfs1.treatEverythingAsModified() || mfs2.treatEverythingAsModified()) {
-      return ModifiedFileSet.EVERYTHING_MODIFIED;
-    }
-    if (mfs1.equals(ModifiedFileSet.NOTHING_MODIFIED)) {
-      return mfs2;
-    }
-    if (mfs2.equals(ModifiedFileSet.NOTHING_MODIFIED)) {
-      return mfs1;
-    }
-    return ModifiedFileSet.builder()
-        .modifyAll(mfs1.modifiedSourceFiles())
-        .modifyAll(mfs2.modifiedSourceFiles())
-        .setIncludesAncestorDirectories(
-            mfs1.includesAncestorDirectories() && mfs2.includesAncestorDirectories())
-        .build();
-  }
 }

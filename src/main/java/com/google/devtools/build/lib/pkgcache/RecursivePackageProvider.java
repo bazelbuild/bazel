@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -55,7 +54,7 @@ public interface RecursivePackageProvider extends PackageProvider {
    *     SkyKey}s that are created during the traversal, instead filtered out later
    */
   void streamPackagesUnderDirectory(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
@@ -121,7 +120,7 @@ public interface RecursivePackageProvider extends PackageProvider {
 
     @Override
     public void streamPackagesUnderDirectory(
-        BatchCallback<PackageIdentifier, UnusedException> results,
+        SafeBatchCallback<PackageIdentifier> results,
         ExtendedEventHandler eventHandler,
         RepositoryName repository,
         PathFragment directory,

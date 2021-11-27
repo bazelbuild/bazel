@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_SPECIFICATION_VERSION;
+import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -28,12 +29,10 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -45,8 +44,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlark
 import java.util.Iterator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
@@ -431,13 +428,7 @@ public class JavaToolchainProvider extends NativeInfo
   @Override
   @Nullable
   public AndroidLintTool stalarkAndroidLinter(StarlarkThread thread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
-      throw Starlark.errorf("private API only for use in builtins");
-    }
+    checkPrivateAccess(thread);
     return getAndroidLint();
   }
 
@@ -485,6 +476,13 @@ public class JavaToolchainProvider extends NativeInfo
   @Override
   public Provider getProvider() {
     return PROVIDER;
+  }
+
+  @Nullable
+  @Override
+  public Artifact getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getTimezoneData();
   }
 
   @AutoValue

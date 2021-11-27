@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -582,7 +582,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
       CppConfiguration cppConfiguration,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CcCompilationOutputs ccCompilationOutputs,
       FeatureConfiguration featureConfiguration)
       throws RuleErrorException {

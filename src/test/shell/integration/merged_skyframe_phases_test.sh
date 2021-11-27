@@ -78,10 +78,70 @@ cc_binary(
     ],
 )
 EOF
+  cat > foo/foo.cc <<EOF
+int main(void) {
+  return 0;
+}
+EOF
+  cp foo/foo.cc foo/bar.cc
+
+  bazel build --nouse_action_cache --experimental_merged_skyframe_analysis_execution //foo:all &> "$TEST_log" || fail "Expected success"
+}
+
+function test_failed_builds() {
+  cat > foo/BUILD <<EOF
+cc_binary(
+    name = "execution_failure",
+    srcs = [
+        "foo.cc"
+    ],
+    deps = [
+        ":bar",
+    ]
+)
+
+cc_library(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "missing.a",
+    ],
+)
+
+cc_binary(
+    name = "analysis_failure",
+    srcs = [
+        "foo.cc"
+    ],
+    deps = [
+        ":bar1",
+    ]
+)
+EOF
   touch foo/foo.cc
   touch foo/bar.cc
 
-  bazel build --noshow_progress --nouse_action_cache --experimental_merged_skyframe_analysis_execution //foo:all &> "$TEST_log" || fail "Expected success"
+  bazel build --nouse_action_cache --experimental_merged_skyframe_analysis_execution //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+  expect_log "missing input file '//foo:missing.a'"
+
+  bazel build --nouse_action_cache --experimental_merged_skyframe_analysis_execution //foo:analysis_failure &> "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+  expect_log "Analysis of target '//foo:analysis_failure' failed"
+
+  bazel build --nouse_action_cache --nokeep_going --experimental_merged_skyframe_analysis_execution //foo:analysis_failure //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+  # With --nokeep_going, technically nothing can be said about the message: whichever target fails first would abort the build.
+
+
+  bazel build --nouse_action_cache --keep_going --experimental_merged_skyframe_analysis_execution //foo:analysis_failure //foo:execution_failure &> "$TEST_log" && fail "Expected failure"
+  exit_code="$?"
+  [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+  expect_log "missing input file '//foo:missing.a'"
+  expect_log "Analysis of target '//foo:analysis_failure' failed"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} with merged Analysis & Execution phases of Skyframe."

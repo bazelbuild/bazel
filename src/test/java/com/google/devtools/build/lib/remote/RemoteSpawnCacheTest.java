@@ -143,7 +143,12 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public ArtifactExpander getArtifactExpander() {
-          throw new UnsupportedOperationException();
+          return SIMPLE_ARTIFACT_EXPANDER;
+        }
+
+        @Override
+        public SpawnInputExpander getSpawnInputExpander() {
+          return new SpawnInputExpander(execRoot, /*strict*/ false);
         }
 
         @Override
@@ -159,7 +164,7 @@ public class RemoteSpawnCacheTest {
         @Override
         public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
             throws IOException, ForbiddenActionInputException {
-          return new SpawnInputExpander(execRoot, /*strict*/ false)
+          return getSpawnInputExpander()
               .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory, fakeFileCache);
         }
 

@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
@@ -50,10 +50,10 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  */
 public class LabelBuildSettings {
   @AutoCodec @VisibleForSerialization
-  // TODO(b/65746853): find a way to do this without passing the entire BuildConfiguration
-  static final LabelLateBoundDefault<BuildConfiguration> ACTUAL =
+  // TODO(b/65746853): find a way to do this without passing the entire BuildConfigurationValue
+  static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
       LabelLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           null,
           (rule, attributes, configuration) -> {
             if (rule == null || configuration == null) {

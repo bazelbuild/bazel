@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.LicenseApi;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,7 +33,6 @@ import net.starlark.java.eval.Printer;
 /** Support for license and distribution checking. */
 @Immutable
 @ThreadSafe
-@AutoCodec
 public final class License implements LicenseApi {
   private final ImmutableSet<LicenseType> licenseTypes;
   private final ImmutableSet<Label> exceptions;
@@ -131,9 +128,7 @@ public final class License implements LicenseApi {
     }
   }
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  License(ImmutableSet<LicenseType> licenseTypes, ImmutableSet<Label> exceptions) {
+  private License(ImmutableSet<LicenseType> licenseTypes, ImmutableSet<Label> exceptions) {
     // Defensive copy is done in .of()
     this.licenseTypes = licenseTypes;
     this.exceptions = exceptions;

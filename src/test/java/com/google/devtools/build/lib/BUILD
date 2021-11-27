@@ -182,6 +182,7 @@ java_test(
         "//src/main/protobuf:test_status_java_proto",
         "//src/main/protobuf:wrappers_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",

@@ -26,7 +26,8 @@ public interface LicensesProvider extends TransitiveInfoProvider {
    * The set of label - license associations in the transitive closure.
    *
    * <p>Always returns an empty set if {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#checkLicenses()} is false.
+   * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#checkLicenses()} is
+   * false.
    */
   NestedSet<TargetLicense> getTransitiveLicenses();
 

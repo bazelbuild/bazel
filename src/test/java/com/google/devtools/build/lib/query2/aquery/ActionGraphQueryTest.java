@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
 import java.util.HashMap;
@@ -45,7 +45,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
   }
 
   @Override
-  protected BuildConfiguration getConfiguration(ConfiguredTargetValue configuredTargetValue) {
+  protected BuildConfigurationValue getConfiguration(ConfiguredTargetValue configuredTargetValue) {
     return getHelper()
         .getSkyframeExecutor()
         .getConfiguration(

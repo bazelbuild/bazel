@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -156,14 +155,10 @@ public class DynamicExecutionModule extends BlazeModule {
             executorService,
             options,
             this::getExecutionPolicy,
-            this::getPostProcessingSpawnForLocalExecution);
+            this::getPostProcessingSpawnForLocalExecution,
+            firstBuild);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
-    if (firstBuild && options.skipFirstBuild) {
-      reporter.handle(
-          Event.info("Disabling dynamic execution until we have seen a successful build"));
-    } else {
-      registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
-    }
+    registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
     registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));
   }
 

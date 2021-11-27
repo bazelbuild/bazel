@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
@@ -387,6 +388,7 @@ public final class ActionsTestUtil {
   @SerializationConstant
   public static final ActionLookupKey NULL_ARTIFACT_OWNER =
       new ActionLookupKey() {
+
         @Override
         public SkyFunctionName functionName() {
           return null;
@@ -395,6 +397,12 @@ public final class ActionsTestUtil {
         @Override
         public Label getLabel() {
           return NULL_LABEL;
+        }
+
+        @Nullable
+        @Override
+        public BuildConfigurationKey getConfigurationKey() {
+          return null;
         }
 
         @Override

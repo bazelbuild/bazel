@@ -281,11 +281,6 @@ dist_http_archive(
 load("@bazelci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
 rbe_preconfig(
-    name = "rbe_ubuntu1604_java8",
-    toolchain = "ubuntu1604-bazel-java8",
-)
-
-rbe_preconfig(
     name = "rbe_ubuntu1804_java11",
     toolchain = "ubuntu1804-bazel-java11",
 )
@@ -304,6 +299,14 @@ dist_http_archive(
     name = "bazel_skylib",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+dist_http_archive(
+    name = "zstd-jni",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    build_file = "//third_party:zstd-jni/zstd-jni.BUILD",
+    strip_prefix = "zstd-jni-1.5.0-4"
 )
 
 http_archive(

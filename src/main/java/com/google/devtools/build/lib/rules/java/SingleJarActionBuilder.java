@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -47,27 +46,6 @@ public final class SingleJarActionBuilder {
   private static final ImmutableList<String> SOURCE_JAR_COMMAND_LINE_ARGS =
       ImmutableList.of(
           "--compression", "--normalize", "--exclude_build_data", "--warn_duplicate_resources");
-
-  /** Constructs the base spawn for a singlejar action. */
-  private static SpawnAction.Builder singleJarActionBuilder(JavaToolchainProvider provider) {
-    Artifact singleJar = provider.getSingleJar();
-    SpawnAction.Builder builder = new SpawnAction.Builder();
-    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
-    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
-    // the native singlejar is used on windows) remove support for the Java implementation
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .addTransitiveInputs(provider.getJavaRuntime().javaBaseInputs())
-          .setJarExecutable(
-              provider.getJavaRuntime().javaBinaryExecPathFragment(),
-              singleJar,
-              provider.getJvmOptions())
-          .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
-    } else {
-      builder.setExecutable(singleJar);
-    }
-    return builder;
-  }
 
   /**
    * Creates an Action that packages files into a Jar file.
@@ -116,7 +94,8 @@ public final class SingleJarActionBuilder {
       requireNonNull(semantics);
     }
     SpawnAction.Builder builder =
-        singleJarActionBuilder(toolchainProvider)
+        new SpawnAction.Builder()
+            .setExecutable(toolchainProvider.getSingleJar())
             .addOutput(outputJar)
             .addTransitiveInputs(resources)
             .addTransitiveInputs(resourceJars)
@@ -141,7 +120,8 @@ public final class SingleJarActionBuilder {
     requireNonNull(jars);
     requireNonNull(output);
     SpawnAction.Builder builder =
-        singleJarActionBuilder(JavaToolchainProvider.from(ruleContext))
+        new SpawnAction.Builder()
+            .setExecutable(JavaToolchainProvider.from(ruleContext).getSingleJar())
             .addOutput(output)
             .addTransitiveInputs(jars)
             .addCommandLine(

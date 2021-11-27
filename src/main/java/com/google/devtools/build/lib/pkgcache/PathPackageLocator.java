@@ -35,21 +35,18 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * A mapping from the name of a package to the location of its BUILD file.
- * The implementation composes an ordered sequence of directories according to
- * the package-path rules.
+ * A mapping from the name of a package to the location of its BUILD file. The implementation
+ * composes an ordered sequence of directories according to the package-path rules.
  *
- * <p>All methods are thread-safe, and (assuming no change to the underlying
- * filesystem) idempotent.
+ * <p>All methods are thread-safe, and (assuming no change to the underlying filesystem) idempotent.
  */
-public class PathPackageLocator implements Serializable {
+public final class PathPackageLocator {
   private static final String WORKSPACE_WILDCARD = "%workspace%";
 
   private final ImmutableList<Root> pathEntries;
@@ -302,7 +299,7 @@ public class PathPackageLocator implements Serializable {
       return false;
     }
     PathPackageLocator pathPackageLocator = (PathPackageLocator) other;
-    return Objects.equals(getPathEntries(), pathPackageLocator.getPathEntries())
+    return Objects.equals(pathEntries, pathPackageLocator.pathEntries)
         && Objects.equals(outputBase, pathPackageLocator.outputBase);
   }
 

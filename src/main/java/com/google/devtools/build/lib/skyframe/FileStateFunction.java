@@ -74,11 +74,11 @@ public class FileStateFunction implements SkyFunction {
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link FileStateFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * FileStateFunction#compute}.
    */
-  private static final class FileStateFunctionException extends SkyFunctionException {
-    FileStateFunctionException(IOException e) {
+  public static final class FileStateFunctionException extends SkyFunctionException {
+    private FileStateFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
     }
   }

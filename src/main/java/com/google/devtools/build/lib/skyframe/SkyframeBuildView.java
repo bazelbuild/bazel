@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -29,12 +30,14 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
+import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
@@ -53,8 +56,8 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -91,8 +94,9 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKe
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.ToplevelStarlarkAspectFunction.TopLevelAspectsValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
+import com.google.devtools.build.lib.util.ExecutionDetailedExitCodeHelper;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -108,6 +112,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -144,7 +149,7 @@ public final class SkyframeBuildView {
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
   // The host configuration containing all fragments used by this build's transitive closure.
-  private BuildConfiguration topLevelHostConfiguration;
+  private BuildConfigurationValue topLevelHostConfiguration;
 
   private BuildConfigurationCollection configurations;
 
@@ -155,7 +160,7 @@ public final class SkyframeBuildView {
   private boolean skyframeAnalysisWasDiscarded;
 
   private ImmutableSet<SkyKey> largestTopLevelKeySetCheckedForConflicts = ImmutableSet.of();
-  private boolean foundActionConflict;
+  private boolean foundActionConflictInLatestCheck;
 
   public SkyframeBuildView(
       ArtifactFactory artifactFactory,
@@ -206,15 +211,16 @@ public final class SkyframeBuildView {
       return null;
     }
 
-    ImmutableList<BuildConfiguration> oldTargetConfigs =
+    ImmutableList<BuildConfigurationValue> oldTargetConfigs =
         this.configurations.getTargetConfigurations();
-    ImmutableList<BuildConfiguration> newTargetConfigs = configurations.getTargetConfigurations();
+    ImmutableList<BuildConfigurationValue> newTargetConfigs =
+        configurations.getTargetConfigurations();
 
     // TODO(schmitt): We are only checking the first of the new configurations, even though (through
     //  split transitions) we could have more than one. There is some special handling for
     //  --cpu changing below but other options may also be changed and should be covered.
-    BuildConfiguration oldConfig = oldTargetConfigs.get(0);
-    BuildConfiguration newConfig = newTargetConfigs.get(0);
+    BuildConfigurationValue oldConfig = oldTargetConfigs.get(0);
+    BuildConfigurationValue newConfig = newTargetConfigs.get(0);
     OptionsDiff diff = BuildOptions.diff(oldConfig.getOptions(), newConfig.getOptions());
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
@@ -264,9 +270,9 @@ public final class SkyframeBuildView {
   // TODO(schmitt): This method assumes that the only option that can cause multiple target
   //  configurations is --cpu which (with the presence of split transitions) is no longer true.
   private ImmutableSet<OptionDefinition> getNativeCacheInvalidatingDifferences(
-      ImmutableList<BuildConfiguration> oldTargetConfigs,
-      ImmutableList<BuildConfiguration> newTargetConfigs,
-      BuildConfiguration newConfig,
+      ImmutableList<BuildConfigurationValue> oldTargetConfigs,
+      ImmutableList<BuildConfigurationValue> newTargetConfigs,
+      BuildConfigurationValue newConfig,
       OptionsDiff diff) {
     Stream<OptionDefinition> nativeCacheInvalidatingDifferences =
         diff.getFirst().keySet().stream()
@@ -292,9 +298,9 @@ public final class SkyframeBuildView {
           nativeCacheInvalidatingDifferences.filter(
               (definition) -> !CoreOptions.CPU.equals(definition));
       ImmutableSet<String> oldCpus =
-          oldTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
+          oldTargetConfigs.stream().map(BuildConfigurationValue::getCpu).collect(toImmutableSet());
       ImmutableSet<String> newCpus =
-          newTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
+          newTargetConfigs.stream().map(BuildConfigurationValue::getCpu).collect(toImmutableSet());
       if (!Objects.equals(oldCpus, newCpus)) {
         // --experimental_multi_cpu has changed, so inject that in the diff stream.
         nativeCacheInvalidatingDifferences =
@@ -347,7 +353,7 @@ public final class SkyframeBuildView {
    * Sets the host configuration consisting of all fragments that will be used by the top level
    * targets' transitive closures.
    */
-  private void setTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {
+  private void setTopLevelHostConfiguration(BuildConfigurationValue topLevelHostConfiguration) {
     if (!topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
       this.topLevelHostConfiguration = topLevelHostConfiguration;
     }
@@ -375,7 +381,7 @@ public final class SkyframeBuildView {
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
       boolean keepGoing,
@@ -475,20 +481,20 @@ public final class SkyframeBuildView {
         someActionLookupValueEvaluated = false;
       }
     }
-    foundActionConflict = !actionConflicts.isEmpty();
+    foundActionConflictInLatestCheck = !actionConflicts.isEmpty();
 
-    if (!result.hasError() && !foundActionConflict) {
+    if (!result.hasError() && !foundActionConflictInLatestCheck) {
       return new SkyframeAnalysisResult(
           /*hasLoadingError=*/ false,
           /*hasAnalysisError=*/ false,
-          foundActionConflict,
+          foundActionConflictInLatestCheck,
           ImmutableList.copyOf(cts),
           result.getWalkableGraph(),
           ImmutableMap.copyOf(aspects),
           packageRoots);
     }
 
-    Pair<Boolean, ViewCreationFailedException> errors =
+    ErrorProcessingResult errorProcessingResult =
         processErrors(
             result,
             configurationLookupSupplier,
@@ -523,7 +529,7 @@ public final class SkyframeBuildView {
       if (!keepGoing) {
         noKeepGoingException =
             new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ex);
-        if (errors.second != null) {
+        if (errorProcessingResult.viewCreationFailedException() != null) {
           throw noKeepGoingException;
         }
       }
@@ -536,11 +542,11 @@ public final class SkyframeBuildView {
     // If there is no other analysis error, we will have not thrown for action conflicts because we
     // have not yet reported a root cause for the action conflict. Finding that root cause requires
     // a skyframe evaluation.
-    if (!keepGoing && errors.second != null) {
-      throw errors.second;
+    if (!keepGoing && errorProcessingResult.viewCreationFailedException() != null) {
+      throw errorProcessingResult.viewCreationFailedException();
     }
 
-    if (foundActionConflict) {
+    if (foundActionConflictInLatestCheck) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
       TopLevelActionConflictReport topLevelActionConflictReport;
@@ -560,15 +566,12 @@ public final class SkyframeBuildView {
       for (ActionLookupKey ctKey : Iterables.concat(ctKeys, aspectKeys)) {
         if (!topLevelActionConflictReport.isErrorFree(ctKey)) {
           Optional<ConflictException> e = topLevelActionConflictReport.getConflictException(ctKey);
-          if (!e.isPresent()) {
+          if (e.isEmpty()) {
             continue;
           }
           AnalysisFailedCause failedCause =
               makeArtifactConflictAnalysisFailedCause(configurationLookupSupplier, e.get());
-          BuildConfigurationValue.Key configKey =
-              ctKey instanceof ConfiguredTargetKey
-                  ? ((ConfiguredTargetKey) ctKey).getConfigurationKey()
-                  : ((AspectKey) ctKey).getAspectConfigurationKey();
+          BuildConfigurationKey configKey = ctKey.getConfigurationKey();
           eventBus.post(
               new AnalysisFailureEvent(
                   ctKey,
@@ -610,9 +613,9 @@ public final class SkyframeBuildView {
     }
 
     return new SkyframeAnalysisResult(
-        errors.first,
-        result.hasError() || foundActionConflict,
-        foundActionConflict,
+        errorProcessingResult.hasLoadingError(),
+        result.hasError() || foundActionConflictInLatestCheck,
+        foundActionConflictInLatestCheck,
         ImmutableList.copyOf(cts),
         result.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
@@ -629,14 +632,16 @@ public final class SkyframeBuildView {
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKey,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
+      EventBus eventBus,
       boolean keepGoing,
       int numThreads,
       int cpuHeavySkyKeysThreadPoolSize,
       int mergedPhasesExecutionJobsCount)
-      throws InterruptedException {
+      throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
-    EvaluationResult<BuildDriverValue> result;
+    EvaluationResult<BuildDriverValue> evaluationResult;
     List<BuildDriverKey> buildDriverCTKeys =
         ctKeys.stream()
             .map(k -> new BuildDriverKey(k, topLevelArtifactContextForConflictPruning))
@@ -647,7 +652,7 @@ public final class SkyframeBuildView {
             .collect(Collectors.toList());
 
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
-      result =
+      evaluationResult =
           skyframeExecutor.evaluateBuildDriverKeys(
               eventHandler,
               buildDriverCTKeys,
@@ -663,7 +668,7 @@ public final class SkyframeBuildView {
     Map<AspectKey, ConfiguredAspect> aspects =
         Maps.newHashMapWithExpectedSize(topLevelAspectsKey.size());
     for (BuildDriverKey bdAspectKey : buildDriverAspectKeys) {
-      BuildDriverValue value = result.get(bdAspectKey);
+      BuildDriverValue value = evaluationResult.get(bdAspectKey);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;
@@ -676,7 +681,7 @@ public final class SkyframeBuildView {
     }
     Collection<ConfiguredTarget> cts = Lists.newArrayListWithCapacity(ctKeys.size());
     for (BuildDriverKey bdCTKey : buildDriverCTKeys) {
-      BuildDriverValue value = result.get(bdCTKey);
+      BuildDriverValue value = evaluationResult.get(bdCTKey);
       if (value == null) {
         continue;
       }
@@ -684,18 +689,46 @@ public final class SkyframeBuildView {
 
       cts.add(ctValue.getConfiguredTarget());
     }
-    return new SkyframeAnalysisResult(
-        /*hasLoadingError=*/ false,
-        /*hasAnalysisError=*/ false,
-        foundActionConflict,
+    if (!evaluationResult.hasError()) {
+      return new SkyframeAnalysisAndExecutionResult(
+          /*hasLoadingError=*/ false,
+          /*hasAnalysisError=*/ false,
+          /*hasActionConflicts=*/ false, // We currently ignore these.
+          ImmutableList.copyOf(cts),
+          evaluationResult.getWalkableGraph(),
+          ImmutableMap.copyOf(aspects),
+          /*packageRoots=*/ null,
+          /*representativeExecutionExitCode=*/ null);
+    }
+
+    // Ignoring action conflicts for now.
+    ErrorProcessingResult errorProcessingResult =
+        processErrors(
+            evaluationResult,
+            configurationLookupSupplier,
+            skyframeExecutor,
+            eventHandler,
+            keepGoing,
+            eventBus,
+            /*includeExecutionPhase=*/ true);
+
+    if (!keepGoing && errorProcessingResult.viewCreationFailedException() != null) {
+      throw errorProcessingResult.viewCreationFailedException();
+    }
+
+    return new SkyframeAnalysisAndExecutionResult(
+        /*hasLoadingError=*/ errorProcessingResult.hasLoadingError(),
+        /*hasAnalysisError=*/ errorProcessingResult.hasAnalysisError(),
+        /*hasActionConflicts=*/ false, // We currently ignore these.
         ImmutableList.copyOf(cts),
-        result.getWalkableGraph(),
+        evaluationResult.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
-        null);
+        /*packageRoots=*/ null,
+        errorProcessingResult.executionDetailedExitCode());
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       ConflictException e) {
     try {
       throw e.rethrowTyped();
@@ -707,16 +740,16 @@ public final class SkyframeBuildView {
   }
 
   private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       ActionConflictException ace) {
     DetailedExitCode detailedExitCode = ace.getDetailedExitCode();
     Label causeLabel = ace.getArtifact().getArtifactOwner().getLabel();
-    BuildConfigurationValue.Key causeConfigKey = null;
+    BuildConfigurationKey causeConfigKey = null;
     if (ace.getArtifact().getArtifactOwner() instanceof ConfiguredTargetKey) {
       causeConfigKey =
           ((ConfiguredTargetKey) ace.getArtifact().getArtifactOwner()).getConfigurationKey();
     }
-    BuildConfiguration causeConfig =
+    BuildConfigurationValue causeConfig =
         causeConfigKey == null ? null : configurationLookupSupplier.get().get(causeConfigKey);
     return new AnalysisFailedCause(
         causeLabel,
@@ -741,13 +774,14 @@ public final class SkyframeBuildView {
       return true;
     }
 
-    if (foundActionConflict) {
+    if (foundActionConflictInLatestCheck) {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
       // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
       //     some conflict last time but don't know exactly which targets conflicted, it could have
-      //     been (x z), so we now check again.
+      //     been (x z), so we now check again. The value of foundActionConflictInLatestCheck would
+      //     then be updated for the next build, based on the result of this check.
       return true;
     }
 
@@ -755,9 +789,9 @@ public final class SkyframeBuildView {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
-      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
-      //     some conflict last time but don't know exactly which targets conflicted, it could have
-      //     been (x z), so we now check again, and store (x z) as the largest checked key set.
+      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but we check again for
+      //     conflict because foundActionConflictInLatestCheck is true, and store (x z) as the
+      //     largest checked key set.
       // 3.  Null-build (y z), so again we don't evaluate or dirty anything, and the previous build
       //     had no conflicts, so no other condition is true. But because (y z) is not a subset of
       //     (x z) and we only keep the most recent largest checked key set, we don't know if (y z)
@@ -777,8 +811,8 @@ public final class SkyframeBuildView {
 
     // Case when we DON'T need to re-check:
     // - a configured target is deleted. Deletion can only resolve conflicts, not introduce any, and
-    //   if the previuos build had a conflict then foundActionConflict would be true, and if the
-    //   previous build had no conflict then deleting a CT won't change that.
+    //   if the previous build had a conflict then foundActionConflictInLatestCheck would be true,
+    //   and if the previous build had no conflict then deleting a CT won't change that.
     //   Example that triggers this scenario:
     //   1.  genrule(name='x', srcs=['A'], ...)
     //       genrule(name='y', outs=['A'], ...)
@@ -791,33 +825,59 @@ public final class SkyframeBuildView {
     return false;
   }
 
-  /**
-   * Process errors encountered during analysis, and return a {@link Pair} indicating the existence
-   * of a loading-phase error, if any, and an exception to be thrown to halt the build, if {@code
-   * keepGoing} is false.
-   *
-   * <p>Visible only for use by tests via {@link
-   * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler, BuildConfiguration,
-   * Iterable)}. When called there, {@code eventBus} must be null to indicate that this is a test,
-   * and so there may be additional {@link SkyKey}s in the {@code result} that are not {@link
-   * AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will be ignored.
-   */
-  static Pair<Boolean, ViewCreationFailedException> processErrors(
+  static ErrorProcessingResult processErrors(
       EvaluationResult<? extends SkyValue> result,
-      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
       @Nullable EventBus eventBus)
       throws InterruptedException {
+    return processErrors(
+        result,
+        configurationLookupSupplier,
+        skyframeExecutor,
+        eventHandler,
+        keepGoing,
+        eventBus,
+        false);
+  }
+  /**
+   * Process errors encountered during analysis, and return a {@link ErrorProcessingResult}.
+   *
+   * <p>Visible only for use by tests via {@link
+   * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler,
+   * BuildConfigurationValue, Iterable)}. When called there, {@code eventBus} must be null to
+   * indicate that this is a test, and so there may be additional {@link SkyKey}s in the {@code
+   * result} that are not {@link AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will
+   * be ignored.
+   */
+  static ErrorProcessingResult processErrors(
+      EvaluationResult<? extends SkyValue> result,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
+      SkyframeExecutor skyframeExecutor,
+      ExtendedEventHandler eventHandler,
+      boolean keepGoing,
+      @Nullable EventBus eventBus,
+      boolean includeExecutionPhase)
+      throws InterruptedException {
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
+    // At this point, we consider the build to already have an analysis error, unless the error
+    // turns out to be with execution.
+    boolean hasAnalysisError = true;
     ViewCreationFailedException noKeepGoingException = null;
     ConfiguredTargetKey failedAspectLabel = null; // helps prefer target over aspect failures
+    DetailedExitCode detailedExitCode = null;
+    Throwable undetailedCause = null;
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
-      SkyKey errorKey = errorEntry.getKey();
+      SkyKey errorKey = getErrorKey(errorEntry);
       ErrorInfo errorInfo = errorEntry.getValue();
-      assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
+      if (includeExecutionPhase) {
+        assertValidAnalysisOrExecutionException(errorInfo, errorKey, result.getWalkableGraph());
+      } else {
+        assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
+      }
       skyframeExecutor
           .getCyclesReporter()
           .reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
@@ -897,32 +957,46 @@ public final class SkyframeBuildView {
       } else if (cause instanceof NoSuchPackageException) {
         // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
         // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
-        BuildConfiguration configuration =
+        BuildConfigurationValue configuration =
             configurationLookupSupplier.get().get(label.getConfigurationKey());
         ConfigurationId configId = configuration.getEventId().getConfiguration();
         AnalysisFailedCause analysisFailedCause =
             new AnalysisFailedCause(
                 topLevelLabel, configId, ((NoSuchPackageException) cause).getDetailedExitCode());
         rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
+      } else if (includeExecutionPhase && isExecutionException(cause)) {
+        detailedExitCode =
+            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
+        rootCauses =
+            cause instanceof ActionExecutionException
+                ? ((ActionExecutionException) cause).getRootCauses()
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        hasAnalysisError = false;
       } else {
         // TODO(ulfjack): Report something!
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        undetailedCause = cause;
       }
 
       if (keepGoing) {
-        eventHandler.handle(
-            Event.warn(
-                "errors encountered while analyzing target '"
-                    + topLevelLabel
-                    + "': it will not be built"));
+        String warningMsg =
+            includeExecutionPhase
+                ? String.format("errors encountered while building target '%s'", topLevelLabel)
+                : String.format(
+                    "errors encountered while analyzing target '%s': it will not be built",
+                    topLevelLabel);
+        eventHandler.handle(Event.warn(warningMsg));
       } else if (noKeepGoingException == null || label.equals(failedAspectLabel)) {
         String errorMsg =
-            String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
+            includeExecutionPhase
+                ? String.format("Build of target '%s' failed; build aborted", topLevelLabel)
+                : String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
         noKeepGoingException = createViewCreationFailedException(cause, errorMsg);
       }
 
       if (!inTest) {
-        BuildConfiguration configuration =
+        BuildConfigurationValue configuration =
             configurationLookupSupplier.get().get(label.getConfigurationKey());
         eventBus.post(
             new AnalysisFailureEvent(
@@ -932,7 +1006,20 @@ public final class SkyframeBuildView {
         eventHandler.handle(Event.error(rootCauses.toList().toString()));
       }
     }
-    return Pair.of(hasLoadingError, noKeepGoingException);
+    if (includeExecutionPhase && detailedExitCode == null) {
+      detailedExitCode =
+          ExecutionDetailedExitCodeHelper.createDetailedExitCodeForUndetailedExecutionCause(
+              result, undetailedCause);
+    }
+    return ErrorProcessingResult.create(
+        hasLoadingError, hasAnalysisError, noKeepGoingException, detailedExitCode);
+  }
+
+  private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
+    if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
+      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
+    }
+    return errorEntry.getKey();
   }
 
   private static ViewCreationFailedException createViewCreationFailedException(
@@ -1015,7 +1102,32 @@ public final class SkyframeBuildView {
       return;
     }
 
-    // Walk the graph to find a path to the lowest-level node that threw unexpected exception.
+    sendBugReportUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+  }
+
+  private static void assertValidAnalysisOrExecutionException(
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph) throws InterruptedException {
+    Throwable cause = errorInfo.getException();
+    if (cause == null) {
+      // Cycle.
+      return;
+    }
+
+    if (convertToAnalysisException(cause) != null || isExecutionException(cause)) {
+      // Valid exception type.
+      return;
+    }
+
+    sendBugReportUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+  }
+
+  /**
+   * Walk the graph to find a path to the lowest-level node that threw unexpected exception and send
+   * a BugReport.
+   */
+  private static void sendBugReportUnexpectedExceptionOrigin(
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph, Throwable cause)
+      throws InterruptedException {
     List<SkyKey> path = new ArrayList<>();
     try {
       SkyKey currentKey = key;
@@ -1059,6 +1171,10 @@ public final class SkyframeBuildView {
     return null;
   }
 
+  private static boolean isExecutionException(Throwable cause) {
+    return cause instanceof ActionExecutionException || cause instanceof InputFileErrorException;
+  }
+
   public ArtifactFactory getArtifactFactory() {
     return artifactFactory;
   }
@@ -1067,7 +1183,7 @@ public final class SkyframeBuildView {
       ActionLookupKey owner,
       ExtendedEventHandler eventHandler,
       Environment env,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       StarlarkBuiltinsValue starlarkBuiltinsValue) {
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
     boolean allowAnalysisFailures = config != null && config.allowAnalysisFailures();
@@ -1092,7 +1208,7 @@ public final class SkyframeBuildView {
   @Nullable
   ConfiguredTarget createConfiguredTarget(
       Target target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CachingAnalysisEnvironment analysisEnvironment,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
@@ -1124,7 +1240,7 @@ public final class SkyframeBuildView {
    * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the correct host
    * configuration at the top-level.
    */
-  public BuildConfiguration getHostConfiguration() {
+  public BuildConfigurationValue getHostConfiguration() {
     return topLevelHostConfiguration;
   }
 
@@ -1234,6 +1350,35 @@ public final class SkyframeBuildView {
       actionCount.set(0);
       configuredTargetCount.set(0);
       configuredTargetActionCount.set(0);
+    }
+  }
+
+  /**
+   * Indicates if there are errors with the various phases, and an exception to be thrown to halt
+   * the build, in case of --nokeep_going.
+   */
+  @AutoValue
+  abstract static class ErrorProcessingResult {
+    abstract boolean hasLoadingError();
+
+    abstract boolean hasAnalysisError();
+
+    @Nullable
+    abstract ViewCreationFailedException viewCreationFailedException();
+
+    @Nullable
+    abstract DetailedExitCode executionDetailedExitCode();
+
+    static ErrorProcessingResult create(
+        boolean hasLoadingError,
+        boolean hasAnalysisError,
+        @Nullable ViewCreationFailedException viewCreationFailedException,
+        @Nullable DetailedExitCode executionDetailedExitCode) {
+      return new AutoValue_SkyframeBuildView_ErrorProcessingResult(
+          hasLoadingError,
+          hasAnalysisError,
+          viewCreationFailedException,
+          executionDetailedExitCode);
     }
   }
 }

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -38,7 +38,7 @@ public final class MockCppSemantics implements CppSemantics {
 
   @Override
   public void finalizeCompileActionBuilder(
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer) {}
@@ -60,7 +60,7 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
+  public boolean needsDotdInputPruning(BuildConfigurationValue configuration) {
     return true;
   }
 

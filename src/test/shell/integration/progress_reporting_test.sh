@@ -65,9 +65,6 @@ add_to_bazelrc "build --workspace_status_command=\"$WORKSPACE_STATUS\" --nostamp
 add_to_bazelrc "build --show_progress_rate_limit=-1"
 add_to_bazelrc "build --genrule_strategy=local"
 
-# Match progress messages like [42 / 1,337]
-declare -r PROGRESS_RX="\[[0-9, /]\+\]"
-
 # Run a command with a timeout, kill it if too slow or hanging.
 #
 # To avoid timing out in the case of blocking commands that never return, this
@@ -119,43 +116,6 @@ EOF
   expect_log "$MATCHER"
 }
 
-function assert_show_task_finish() {
-  local -r show="$1"  # either "show" or "noshow"
-  local -r pkg="$2"
-
-  cat >${pkg}/BUILD <<'EOF'
-genrule(
-    name = "x",
-    outs = ["x.out"],
-    cmd = "touch $@",
-)
-EOF
-
-  bazel build "//${pkg}:x" "--${show}_task_finish" \
-      --experimental_ui_debug_all_events --color=no \
-      --curses=no --nocache_test_results >& "$TEST_log" || fail "bazel test"
-
-  expect_log "START.*: $PROGRESS_RX Executing genrule //${pkg}:x"
-  if [ "$show" == "show" ]; then
-    expect_log "FINISH.*: $PROGRESS_RX Executing genrule //${pkg}:x"
-  else
-    # Negative matching should be as permissive as possible.
-    expect_not_log "DONE"
-  fi
-}
-
-function test_show_task_finish() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir "$pkg" || fail "mkdir $pkg"
-  assert_show_task_finish "show" "$pkg"
-}
-
-function test_noshow_task_finish() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir "$pkg" || fail "mkdir $pkg"
-  assert_show_task_finish "noshow" "$pkg"
-}
-
 function test_action_counters_dont_account_for_actions_without_progress_msg() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
@@ -198,7 +158,7 @@ EOF
   fi
 
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       --workspace_status_command="$wsc" \
       --progress_report_interval=1 \
       >& "$TEST_log" || fail "build failed"
@@ -277,14 +237,14 @@ EOF
 
   echo "input-clean" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
   expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 8
 
   echo "input-incremental" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
   expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 2
@@ -374,14 +334,14 @@ EOF
   # last one might be the workspace status writer action).
   echo "input-clean" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[89] / 9\] Executing genrule //${pkg}:x"
   expect_log_n "FINISH.*: \[[1-9] / 9\] Executing genrule //${pkg}:.*" 8
 
   echo "input-incremental" > "${pkg}/input"
   bazel build "//${pkg}:x" --experimental_ui_debug_all_events \
-      --show_task_finish --color=no --curses=no \
+      --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "FINISH.*: \[[12] / 9\] Executing genrule //${pkg}:dep1"
   expect_log_once "FINISH.*:.* Executing genrule .*"
@@ -401,7 +361,7 @@ EOF
   echo "#!$(which true)" > "${pkg}/test.sh"
   chmod +x "${pkg}/test.sh"
 
-  bazel test --nocache_test_results --show_task_finish \
+  bazel test --nocache_test_results \
       "//${pkg}:all" --color=no --curses=no >& "$TEST_log" \
       || fail "build failed"
 

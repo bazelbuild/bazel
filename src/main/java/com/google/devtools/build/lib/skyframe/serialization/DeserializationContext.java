@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /**

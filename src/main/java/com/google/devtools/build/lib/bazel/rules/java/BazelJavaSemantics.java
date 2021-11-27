@@ -62,7 +62,7 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -78,8 +78,7 @@ import javax.annotation.Nullable;
  */
 public class BazelJavaSemantics implements JavaSemantics {
 
-  @VisibleForSerialization
-  public static final BazelJavaSemantics INSTANCE = new BazelJavaSemantics();
+  @SerializationConstant public static final BazelJavaSemantics INSTANCE = new BazelJavaSemantics();
 
   private static final Template STUB_SCRIPT =
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
@@ -603,7 +602,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean includeBuildData,
       Compression compression,
       Artifact launcher,
-      boolean usingNativeSinglejar,
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
@@ -617,8 +615,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             classpath,
             includeBuildData,
             compression,
-            launcher,
-            usingNativeSinglejar)
+            launcher)
         .build();
   }
 

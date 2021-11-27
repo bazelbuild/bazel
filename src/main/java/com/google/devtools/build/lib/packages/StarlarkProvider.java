@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import java.util.Objects;
@@ -221,8 +220,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * A serializable representation of Starlark-defined {@link StarlarkProvider} that uniquely
    * identifies all {@link StarlarkProvider}s that are exposed to SkyFrame.
    */
-  @AutoCodec
-  public static class Key extends Provider.Key {
+  public static final class Key extends Provider.Key {
     private final Label extensionLabel;
     private final String exportedName;
 

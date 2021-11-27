@@ -18,34 +18,36 @@ import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Test InvocationPolicies with the SetValues operation. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBase {
 
-  // Useful constants
   public static final String BUILD_COMMAND = "build";
   public static final String TEST_STRING_USER_VALUE = "user value";
   public static final String TEST_STRING_USER_VALUE_2 = "user value 2";
   public static final String TEST_STRING_POLICY_VALUE = "policy value";
   public static final String TEST_STRING_POLICY_VALUE_2 = "policy value 2";
 
-  /**
-   * Tests that policy overrides a value when that value is from the user.
-   */
+  /** Tests that policy overwrites a value when that value is from the user. */
   @Test
-  public void testSetValueOverridesUser() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_overwritesUserSetting() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE);
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
@@ -65,20 +67,21 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   /**
-   * Tests that policy overrides a value when the user doesn't specify the value (i.e., the value
+   * Tests that policy overwrites a value when the user doesn't specify the value (i.e., the value
    * is from the flag's default from its definition).
    */
   @Test
-  public void testSetValueOverridesDefault() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_overwritesDefault() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE);
 
     // No user value.
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
 
     // All the flags should be their default value.
     TestOptions testOptions = getTestOptions();
@@ -91,20 +94,20 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE);
   }
 
-  /**
-   * Tests that SetValue overrides the user's value when the flag allows multiple values.
-   */
+  /** Tests that SetValue overwrites the user's value when the flag allows multiple values. */
   @Test
-  public void testSetValueWithMultipleValuesOverridesUser() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_flagWithMultipleValues_overwritesUserSetting()
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_multiple_string")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE)
         .addFlagValue(TEST_STRING_POLICY_VALUE_2);
 
-    InvocationPolicyEnforcer enforcer =  createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse(
         "--test_multiple_string=" + TEST_STRING_USER_VALUE,
         "--test_multiple_string=" + TEST_STRING_USER_VALUE_2);
@@ -125,21 +128,23 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   /**
-   * Tests that policy overrides the default value when the flag allows multiple values and the user
-   * doesn't provide a value.
+   * Tests that policy overwrites the default value when the flag allows multiple values and the
+   * user doesn't provide a value.
    */
   @Test
-  public void testSetValueWithMultipleValuesOverridesDefault() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_flagWithMultipleValues_overwritesDefault()
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_multiple_string")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE)
         .addFlagValue(TEST_STRING_POLICY_VALUE_2);
 
     // No user value.
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
 
     // Repeatable flags always default to the empty list.
     TestOptions testOptions = getTestOptions();
@@ -155,32 +160,35 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueHasMultipleValuesButFlagIsNotMultiple() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void setMultipleValuesForSingleValuedFlag_fails(@TestParameter Behavior behavior)
+      throws Exception {
+    Assume.assumeTrue(behavior != Behavior.UNDEFINED);
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_string") // Not repeatable flag.
         .getSetValueBuilder()
+        .setBehavior(behavior)
         .addFlagValue(TEST_STRING_POLICY_VALUE) // Has multiple values.
         .addFlagValue(TEST_STRING_POLICY_VALUE_2);
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
 
     assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
   }
 
   @Test
-  public void testSetValueAppendsToMultipleValuedFlag() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void append_appendsToMultipleValuedFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_multiple_string")
         .getSetValueBuilder()
+        .setBehavior(Behavior.APPEND)
         .addFlagValue(TEST_STRING_POLICY_VALUE)
-        .addFlagValue(TEST_STRING_POLICY_VALUE_2)
-        .setAppend(true);
+        .addFlagValue(TEST_STRING_POLICY_VALUE_2);
 
-    InvocationPolicyEnforcer enforcer =  createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse(
         "--test_multiple_string=" + TEST_STRING_USER_VALUE,
         "--test_multiple_string=" + TEST_STRING_USER_VALUE_2);
@@ -205,14 +213,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueWithExpansionFlags() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_setFlagWithExpansion_setsExpandedValues() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_expansion")
-        .getSetValueBuilder(); // This value must be empty for a Void flag.
+        // SetValue must have no values for a Void flag.
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES);
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     // Unrelated flag, but --test_expansion is not set
     parser.parse("--test_string=throwaway value");
 
@@ -234,15 +244,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueWithExpansionFlagOnExpansionFlag() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_flagExpandingToExpansion_setsRecursiveValues()
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_recursive_expansion_top_level")
-        .getSetValueBuilder();
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES);
 
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     // Unrelated flag, but --test_expansion is not set
     parser.parse("--test_string=throwaway value");
 
@@ -264,16 +275,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testOverridableSetValueWithExpansionFlags() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void allowOverrides_setFlagWithExpansion_keepsUserSpecifiedFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_expansion")
         .getSetValueBuilder()
-        .addFlagValue("") // this value is arbitrary, the value for a Void flag is ignored
-        .setOverridable(true);
+        .setBehavior(Behavior.ALLOW_OVERRIDES)
+        .addFlagValue(""); // this value is arbitrary, the value for a Void flag is ignored
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     // Unrelated flag, but --test_expansion is not set
     parser.parse("--expanded_c=23");
 
@@ -297,15 +308,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testOverridableSetValueWithExpansionToRepeatingFlag() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void allowOverrides_flagExpandingToRepeatingFlag_appendsRepeatedValues() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_expansion_to_repeatable")
-        .getSetValueBuilder() // This value must be empty for a Void flag.
-        .setOverridable(true);
+        .getSetValueBuilder()
+        // SetValue must have no values for a Void flag.
+        .setBehavior(Behavior.ALLOW_OVERRIDES);
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     // Unrelated flag, but --test_expansion is not set
     parser.parse("--test_multiple_string=foo");
 
@@ -324,15 +336,17 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testNonOverridableSetValueWithExpansionFlags() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_setFlagWithExpansion_overwritesUserSettingForExpandedFlag()
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_expansion")
-        .getSetValueBuilder() // This value must be empty for a Void flag.
-        .setOverridable(false);
+        // SetValue must have no values for a Void flag.
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES);
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     // Unrelated flag, but --test_expansion is not set
     parser.parse("--expanded_c=23");
 
@@ -357,13 +371,15 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testNonOverridableSetValueWithExpansionToRepeatingFlag() throws Exception {
+  public void finalValueIgnoreOverrides_flagWithExpansionToRepeatingFlag_overwritesUserSetting()
+      throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_expansion_to_repeatable")
-        .getSetValueBuilder() // This value must be empty for a Void flag.
-        .setOverridable(false);
+        // SetValue must have no values for a Void flag.
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES);
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     // Unrelated flag, but --test_expansion is not set
@@ -371,29 +387,26 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // The flags that --test_expansion expands into should still be their default values
     // except for the explicitly marked flag.
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString).contains("foo");
+    assertThat(getTestOptions().testMultipleString).contains("foo");
 
     enforcer.enforce(parser, "build");
 
     // After policy enforcement, the flag should no longer have the user's value.
-    testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString).doesNotContain("foo");
-    assertThat(testOptions.testMultipleString).contains(TestOptions.EXPANDED_MULTIPLE_1);
-    assertThat(testOptions.testMultipleString).contains(TestOptions.EXPANDED_MULTIPLE_2);
+    assertThat(getTestOptions().testMultipleString)
+        .containsExactly(TestOptions.EXPANDED_MULTIPLE_1, TestOptions.EXPANDED_MULTIPLE_2);
   }
 
-
   @Test
-  public void testSetValueWithExpandedFlags() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_overwritesUserSettingFromExpandedFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("expanded_c")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue("64");
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse("--test_expansion");
 
     // --test_expansion should set the values from its expansion
@@ -415,15 +428,17 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueOfImplicitlyRequiredFlags() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void finalValueIgnoreOverrides_overwritesImplicitRequirementFromUserSetting()
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("implicit_requirement_a")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE);
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse("--test_implicit_requirement=" + TEST_STRING_USER_VALUE);
 
     // test_implicit_requirement sets implicit_requirement_a to "foo"
@@ -446,6 +461,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
         .addFlagPoliciesBuilder()
         .setFlagName("test_implicit_requirement")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE);
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--implicit_requirement_a=" + TEST_STRING_USER_VALUE);
@@ -461,16 +477,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueOverridable() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void allowOverrides_leavesUserSetting() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
         .getSetValueBuilder()
-        .addFlagValue(TEST_STRING_POLICY_VALUE)
-        .setOverridable(true);
+        .setBehavior(Behavior.ALLOW_OVERRIDES)
+        .addFlagValue(TEST_STRING_POLICY_VALUE);
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
@@ -485,13 +501,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueWithNoValueThrows() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder.addFlagPoliciesBuilder()
+  public void setFlagValueWithNoValue_fails(@TestParameter Behavior behavior) throws Exception {
+    Assume.assumeTrue(behavior != Behavior.UNDEFINED);
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
         .setFlagName("test_string")
-        .getSetValueBuilder(); // No value.
+        .getSetValueBuilder()
+        .setBehavior(behavior); // No value.
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
@@ -501,26 +520,60 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testConfigNotAllowed() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
+  public void enforce_setValueWithUndefinedBehavior_fails(
+      @TestParameter boolean hasBehavior,
+      @TestParameter({"test_string", "test_expansion", "test_implicit_requirement"})
+          String flagName)
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    SetValue.Builder setValue =
+        invocationPolicy
+            .addFlagPoliciesBuilder()
+            .setFlagName(flagName)
+            .getSetValueBuilder()
+            .addFlagValue("any value");
+    if (hasBehavior) {
+      setValue.setBehavior(Behavior.UNDEFINED);
+    }
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
+    assertThat(e)
+        .hasMessageThat()
+        .startsWith(
+            String.format(
+                "SetValue operation from invocation policy for has an undefined behavior:"
+                    + " flag_name: \"%s\"\n"
+                    + "set_value {\n",
+                flagName));
+  }
+
+  @Test
+  public void enforce_policySettingConfig_fails(@TestParameter Behavior behavior) throws Exception {
+    Assume.assumeTrue(behavior != Behavior.UNDEFINED);
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
         .addFlagPoliciesBuilder()
         .setFlagName("config")
         .getSetValueBuilder()
+        .setBehavior(behavior)
         .addFlagValue("foo");
 
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse();
     OptionsParsingException expected =
         assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
     assertThat(expected)
         .hasMessageThat()
-        .isEqualTo(
+        .startsWith(
             "Invocation policy is applied after --config expansion, changing config values now "
                 + "would have no effect and is disallowed to prevent confusion. Please remove "
                 + "the following policy : flag_name: \"config\"\n"
                 + "set_value {\n"
                 + "  flag_value: \"foo\"\n"
-                + "}\n");
+                + "  behavior: "
+                + behavior
+                + "\n");
   }
 }

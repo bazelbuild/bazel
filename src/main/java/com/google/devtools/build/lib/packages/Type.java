@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -111,9 +111,9 @@ public abstract class Type<T> {
   // this over selectableConvert.
 
   /**
-   * Equivalent to {@link #convert(Object, Object, Object)} where the label is {@code null}.
-   * Useful for converting values to types that do not involve the type {@code LABEL}
-   * and hence do not require the label of the current package.
+   * Equivalent to {@link #convert(Object, Object, Object)} where the label is {@code null}. Useful
+   * for converting values to types that do not involve the type {@code LABEL} and hence do not
+   * require the label of the current package.
    */
   public final T convert(Object x, Object what) throws ConversionException {
     return convert(x, what, null);
@@ -195,8 +195,8 @@ public abstract class Type<T> {
     /** Used for types which use labels to declare an output path. */
     OUTPUT,
     /**
-     * Used for types which contain Fileset entries, which contain labels but do not produce
-     * normal dependencies.
+     * Used for types which contain Fileset entries, which contain labels but do not produce normal
+     * dependencies.
      */
     FILESET_ENTRY
   }
@@ -217,13 +217,12 @@ public abstract class Type<T> {
   }
 
   /**
-   * Converts an initialized Type object into a tag set representation.
-   * This operation is only valid for certain sub-Types which are guaranteed
-   * to be properly initialized.
+   * Converts an initialized Type object into a tag set representation. This operation is only valid
+   * for certain sub-Types which are guaranteed to be properly initialized.
    *
    * @param value the actual value
-   * @throws UnsupportedOperationException if the concrete type does not support
-   * tag conversion or if a convertible type has no initialized value.
+   * @throws UnsupportedOperationException if the concrete type does not support tag conversion or
+   *     if a convertible type has no initialized value.
    */
   public Set<String> toTagSet(Object value, String name) {
     String msg = "Attribute " + name + " does not support tag conversion.";
@@ -231,37 +230,38 @@ public abstract class Type<T> {
   }
 
   /** The type of a Starlark integer in the signed 32-bit range. */
-  @AutoCodec public static final Type<StarlarkInt> INTEGER = new IntegerType();
+  @SerializationConstant public static final Type<StarlarkInt> INTEGER = new IntegerType();
 
   /** The type of a string. */
-  @AutoCodec public static final Type<String> STRING = new StringType();
+  @SerializationConstant public static final Type<String> STRING = new StringType();
 
   /** The type of a boolean. */
-  @AutoCodec public static final Type<Boolean> BOOLEAN = new BooleanType();
+  @SerializationConstant public static final Type<Boolean> BOOLEAN = new BooleanType();
 
   /** The type of a list of not-yet-typed objects. */
-  @AutoCodec public static final ObjectListType OBJECT_LIST = new ObjectListType();
+  @SerializationConstant public static final ObjectListType OBJECT_LIST = new ObjectListType();
 
   /** The type of a list of strings. */
-  @AutoCodec public static final ListType<String> STRING_LIST = ListType.create(STRING);
+  @SerializationConstant public static final ListType<String> STRING_LIST = ListType.create(STRING);
 
   /** The type of a list of signed 32-bit Starlark integer values. */
-  @AutoCodec public static final ListType<StarlarkInt> INTEGER_LIST = ListType.create(INTEGER);
+  @SerializationConstant
+  public static final ListType<StarlarkInt> INTEGER_LIST = ListType.create(INTEGER);
 
   /** The type of a dictionary of {@linkplain #STRING strings}. */
-  @AutoCodec
+  @SerializationConstant
   public static final DictType<String, String> STRING_DICT = DictType.create(STRING, STRING);
 
   /** The type of a dictionary of {@linkplain #STRING_LIST label lists}. */
-  @AutoCodec
+  @SerializationConstant
   public static final DictType<String, List<String>> STRING_LIST_DICT =
       DictType.create(STRING, STRING_LIST);
 
   /**
-   *  For ListType objects, returns the type of the elements of the list; for
-   *  all other types, returns null.  (This non-obvious implementation strategy
-   *  is necessitated by the wildcard capture rules of the Java type system,
-   *  which disallow conversion from Type{List{ELEM}} to Type{List{?}}.)
+   * For ListType objects, returns the type of the elements of the list; for all other types,
+   * returns null. (This non-obvious implementation strategy is necessitated by the wildcard capture
+   * rules of the Java type system, which disallow conversion from Type{List{ELEM}} to
+   * Type{List{?}}.)
    */
   public Type<?> getListElementType() {
     return null;
@@ -308,8 +308,7 @@ public abstract class Type<T> {
 
     @Override
     public String getDefaultValue() {
-      throw new UnsupportedOperationException(
-          "ObjectType has no default value");
+      throw new UnsupportedOperationException("ObjectType has no default value");
     }
 
     @Override
@@ -403,8 +402,7 @@ public abstract class Type<T> {
 
     // Conversion to boolean must also tolerate integers of 0 and 1 only.
     @Override
-    public Boolean convert(Object x, Object what, Object context)
-        throws ConversionException {
+    public Boolean convert(Object x, Object what, Object context) throws ConversionException {
       if (x instanceof Boolean) {
         return (Boolean) x;
       }
@@ -417,13 +415,11 @@ public abstract class Type<T> {
       throw new ConversionException("boolean is not one of [0, 1]");
     }
 
-    /**
-     * Booleans attributes are converted to tags based on their names.
-     */
+    /** Booleans attributes are converted to tags based on their names. */
     @Override
     public Set<String> toTagSet(Object value, String name) {
       if (value == null) {
-        String msg = "Illegal tag conversion from null on Attribute " + name  + ".";
+        String msg = "Illegal tag conversion from null on Attribute " + name + ".";
         throw new IllegalStateException(msg);
       }
       String tag = (Boolean) value ? name : "no" + name;
@@ -451,8 +447,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public String convert(Object x, Object what, Object context)
-        throws ConversionException {
+    public String convert(Object x, Object what, Object context) throws ConversionException {
       if (!(x instanceof String)) {
         throw new ConversionException(this, x, what);
       }
@@ -464,9 +459,7 @@ public abstract class Type<T> {
       return Joiner.on("").join(elements);
     }
 
-    /**
-     * A String is representable as a set containing its value.
-     */
+    /** A String is representable as a set containing its value. */
     @Override
     public Set<String> toTagSet(Object value, String name) {
       if (value == null) {
@@ -477,9 +470,7 @@ public abstract class Type<T> {
     }
   }
 
-  /**
-   * A type to support dictionary attributes.
-   */
+  /** A type to support dictionary attributes. */
   public static class DictType<KeyT, ValueT> extends Type<Map<KeyT, ValueT>> {
 
     private final Type<KeyT> keyType;
@@ -635,8 +626,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> convert(Object x, Object what, Object context)
-        throws ConversionException {
+    public List<ElemT> convert(Object x, Object what, Object context) throws ConversionException {
       Iterable<?> iterable;
 
       if (x instanceof Iterable) {
@@ -677,8 +667,8 @@ public abstract class Type<T> {
     }
 
     /**
-     * A list is representable as a tag set as the contents of itself expressed
-     * as Strings. So a {@code List<String>} is effectively converted to a {@code Set<String>}.
+     * A list is representable as a tag set as the contents of itself expressed as Strings. So a
+     * {@code List<String>} is effectively converted to a {@code Set<String>}.
      */
     @Override
     public Set<String> toTagSet(Object items, String name) {
@@ -716,7 +706,6 @@ public abstract class Type<T> {
       public String toString() {
         return "element " + index + " of " + what;
       }
-
     }
   }
 
@@ -731,8 +720,7 @@ public abstract class Type<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Object> convert(Object x, Object what, Object context)
-        throws ConversionException {
+    public List<Object> convert(Object x, Object what, Object context) throws ConversionException {
       // TODO(adonovan): converge on Starlark.toIterable.
       if (x instanceof Sequence) {
         return ((Sequence<Object>) x).getImmutableList();

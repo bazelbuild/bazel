@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 
 /**
@@ -32,7 +34,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   private BazelMockCcSupport() {}
 
   private static final ImmutableList<String> CROSSTOOL_ARCHS =
-      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc");
+      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "darwin");
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
@@ -55,7 +57,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   public void setup(MockToolsConfig config) throws IOException {
     writeMacroFile(config);
     setupRulesCc(config);
-    setupCcToolchainConfig(config);
+    setupCcToolchainConfig(config, getToolchainConfigs());
     createParseHeadersAndLayeringCheckWhitelist(config);
     createStarlarkLooseHeadersWhitelist(config, "//...");
   }
@@ -79,5 +81,18 @@ public final class BazelMockCcSupport extends MockCcSupport {
   protected boolean shouldUseRealFileSystemCrosstool() {
     // TODO(b/195425240): Workaround for lack of real-filesystem support.
     return false;
+  }
+
+  private static ImmutableList<CcToolchainConfig> getToolchainConfigs() {
+    ImmutableList.Builder<CcToolchainConfig> result = ImmutableList.builder();
+
+    // Different from CcToolchainConfig.getDefault....
+    result.add(CcToolchainConfig.builder().build());
+
+    if (OS.getCurrent() == OS.DARWIN) {
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin"));
+    }
+
+    return result.build();
   }
 }

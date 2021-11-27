@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.concurrent.Immutable;
@@ -35,7 +35,7 @@ public class TestFilteringCompleteEvent {
   private final Collection<ConfiguredTarget> targets;
   private final Collection<ConfiguredTarget> testTargets;
   private final Collection<ConfiguredTarget> skippedTests;
-  private final Map<BuildConfigurationValue.Key, BuildConfiguration> configurationMap;
+  private final Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap;
 
   /**
    * Construct the event.
@@ -49,7 +49,7 @@ public class TestFilteringCompleteEvent {
       Collection<? extends ConfiguredTarget> targets,
       Collection<? extends ConfiguredTarget> testTargets,
       Collection<? extends ConfiguredTarget> targetsToSkip,
-      Map<BuildConfigurationValue.Key, BuildConfiguration> configurationMap) {
+      Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
     this.targets = ImmutableList.copyOf(targets);
     this.testTargets = testTargets == null ? null : ImmutableList.copyOf(testTargets);
     this.skippedTests = ImmutableList.copyOf(targetsToSkip);
@@ -83,7 +83,7 @@ public class TestFilteringCompleteEvent {
     return skippedTests;
   }
 
-  public BuildConfiguration getConfigurationForTarget(ConfiguredTarget target) {
+  public BuildConfigurationValue getConfigurationForTarget(ConfiguredTarget target) {
     return Preconditions.checkNotNull(configurationMap.get(target.getConfigurationKey()));
   }
 }

@@ -25,7 +25,13 @@ coverage_common = _builtins.toplevel.coverage_common
 def _filter_srcs(srcs, ext):
     return [f for f in srcs if f.extension == ext]
 
-def _base_common_impl(ctx, extra_resources, output_prefix, enable_compile_jar_action = True):
+def _base_common_impl(
+        ctx,
+        extra_resources,
+        output_prefix,
+        enable_compile_jar_action = True,
+        extra_runtime_jars = [],
+        coverage_config = None):
     srcs = ctx.files.srcs
     source_files = _filter_srcs(srcs, "java")
     source_jars = _filter_srcs(srcs, "srcjar")
@@ -37,6 +43,8 @@ def _base_common_impl(ctx, extra_resources, output_prefix, enable_compile_jar_ac
         source_jars,
         output_prefix,
         enable_compile_jar_action,
+        extra_runtime_jars,
+        extra_deps = [coverage_config.runner] if coverage_config else [],
     )
     output_groups = dict(
         compilation_outputs = compilation_info.outputs,
@@ -52,6 +60,8 @@ def _base_common_impl(ctx, extra_resources, output_prefix, enable_compile_jar_ac
         ctx,
         source_attributes = ["srcs"],
         dependency_attributes = ["deps", "data", "resources", "resource_jars", "exports", "runtime_deps", "jars"],
+        coverage_support_files = coverage_config.support_files if coverage_config else depset(),
+        coverage_environment = coverage_config.env if coverage_config else {},
     )
 
     return struct(

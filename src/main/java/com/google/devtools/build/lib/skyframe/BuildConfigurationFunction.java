@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -66,19 +66,14 @@ public final class BuildConfigurationFunction implements SkyFunction {
     if (workspaceNameValue == null) {
       return null;
     }
+    FragmentClassSet fragmentClasses = ruleClassProvider.getFragmentRegistry().getAllFragments();
 
-    BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
+    BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
     ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
     try {
-      fragments = getConfigurationFragments(key);
+      fragments = getConfigurationFragments(key, fragmentClasses);
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
-    }
-
-    // If nothing was trimmed, reuse the same FragmentClassSet.
-    FragmentClassSet fragmentClasses = key.getFragments();
-    if (fragments.size() != fragmentClasses.size()) {
-      fragmentClasses = FragmentClassSet.of(fragments.keySet());
     }
 
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -91,24 +86,21 @@ public final class BuildConfigurationFunction implements SkyFunction {
 
     try {
       return new BuildConfigurationValue(
-          new BuildConfiguration(
-              directories,
-              fragments,
-              fragmentClasses,
-              key.getOptions(),
-              ruleClassProvider.getReservedActionMnemonics(),
-              actionEnvironment,
-              RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
-              starlarkSemantics.getBool(
-                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
+          directories,
+          fragments,
+          key.getOptions(),
+          ruleClassProvider.getReservedActionMnemonics(),
+          actionEnvironment,
+          RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
+          starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     } catch (InvalidMnemonicException e) {
       throw new BuildConfigurationFunctionException(e);
     }
   }
 
   private ImmutableSortedMap<Class<? extends Fragment>, Fragment> getConfigurationFragments(
-      BuildConfigurationValue.Key key) throws InvalidConfigurationException {
-    FragmentClassSet fragmentClasses = key.getFragments();
+      BuildConfigurationKey key, FragmentClassSet fragmentClasses)
+      throws InvalidConfigurationException {
     ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
         ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {

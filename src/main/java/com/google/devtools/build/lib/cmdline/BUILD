@@ -14,7 +14,6 @@ java_library(
     srcs = [
         "Label.java",
         "LabelConstants.java",
-        "LabelSerializationProxy.java",
         "ResolvedTargets.java",
         "SignedTargetPattern.java",
         "TargetParsingException.java",
@@ -24,7 +23,9 @@ java_library(
     exports = [":cmdline-primitives"],
     deps = [
         ":LabelValidator",
+        ":batch_callback",
         ":cmdline-primitives",
+        ":query_exception_marker_interface",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -71,6 +72,31 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "parallel_visitor",
+    srcs = ["ParallelVisitor.java"],
+    deps = [
+        ":batch_callback",
+        ":query_exception_marker_interface",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "batch_callback",
+    srcs = ["BatchCallback.java"],
+    deps = [
+        ":query_exception_marker_interface",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+    ],
+)
+
+java_library(
+    name = "query_exception_marker_interface",
+    srcs = ["QueryExceptionMarkerInterface.java"],
 )
 
 # LabelValidator provides validation of Bazel build labels.

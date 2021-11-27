@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
@@ -41,7 +41,8 @@ public final class DefaultPackagePathInfoItem extends InfoItem {
   }
 
   @Override
-  public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+  public byte[] get(
+      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(commandOptions);
     return print(JOINER.join(commandOptions.getOptions(PackageOptions.class).packagePath));
   }

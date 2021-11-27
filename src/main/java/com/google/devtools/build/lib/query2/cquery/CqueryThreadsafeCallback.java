@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.query2.cquery;
 
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -37,8 +37,8 @@ import javax.annotation.Nullable;
  * that is populated by child classes.
  *
  * <p>Human-readable cquery outputters should output short configuration IDs via {@link
- * #shortId(BuildConfiguration)} for easier reading. Machine-readable output, which are more focused
- * on completeness, should output full configuration checksums.
+ * #shortId(BuildConfigurationValue)} for easier reading. Machine-readable output, which are more
+ * focused on completeness, should output full configuration checksums.
  */
 public abstract class CqueryThreadsafeCallback
     extends NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTarget> {
@@ -50,7 +50,7 @@ public abstract class CqueryThreadsafeCallback
   // Skyframe calls incur a performance cost, even on cache hits. Consider this before exposing
   // direct executor access to child classes.
   private final SkyframeExecutor skyframeExecutor;
-  private final Map<BuildConfigurationValue.Key, BuildConfiguration> configCache =
+  private final Map<BuildConfigurationKey, BuildConfigurationValue> configCache =
       new ConcurrentHashMap<>();
   protected final ConfiguredTargetAccessor accessor;
 
@@ -94,7 +94,7 @@ public abstract class CqueryThreadsafeCallback
     }
   }
 
-  protected BuildConfiguration getConfiguration(BuildConfigurationValue.Key configKey) {
+  protected BuildConfigurationValue getConfiguration(BuildConfigurationKey configKey) {
     // Experiments querying:
     //     cquery --output=graph "deps(//src:main/java/com/google/devtools/build/lib:runtime)"
     // 10 times on a warm Blaze instance show 7% less total query time when using this cache vs.
@@ -123,7 +123,7 @@ public abstract class CqueryThreadsafeCallback
    * Returns a user-friendly configuration identifier, using special IDs for null and host
    * configurations and {@link #shortId(String)} for others.
    */
-  protected static String shortId(@Nullable BuildConfiguration config) {
+  protected static String shortId(@Nullable BuildConfigurationValue config) {
     if (config == null) {
       return "null";
     } else if (config.isHostConfiguration()) {

@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -36,26 +35,23 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
-import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
-import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Constructs actions to run the protocol compiler to generate sources from .proto files. */
 public class ProtoCompileActionBuilder {
+  private static final String DEFAULT_MNEMONIC = "GenProto";
+
   @VisibleForTesting
   public static final String STRICT_DEPS_FLAG_TEMPLATE =
-      "--direct_dependencies_violation_msg=" + StrictProtoDepsViolationMessage.MESSAGE;
-
-  private static final String MNEMONIC = "GenProto";
+      "--direct_dependencies_violation_msg=" + ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE;
 
   private final RuleContext ruleContext;
   private final ProtoInfo protoInfo;
@@ -70,6 +66,7 @@ public class ProtoCompileActionBuilder {
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
   private boolean checkStrictImportPublic;
+  private String mnemonic;
 
   public ProtoCompileActionBuilder allowServices(boolean hasServices) {
     this.hasServices = hasServices;
@@ -83,6 +80,11 @@ public class ProtoCompileActionBuilder {
 
   public ProtoCompileActionBuilder setLangPlugin(FilesToRunProvider langPlugin) {
     this.langPlugin = langPlugin;
+    return this;
+  }
+
+  public ProtoCompileActionBuilder setMnemonic(String mnemonic) {
+    this.mnemonic = mnemonic;
     return this;
   }
 
@@ -121,6 +123,7 @@ public class ProtoCompileActionBuilder {
     this.language = language;
     this.langPrefix = langPrefix;
     this.outputs = outputs;
+    this.mnemonic = DEFAULT_MNEMONIC;
   }
 
   /** Static class to avoid keeping a reference to this builder after build() is called. */
@@ -139,51 +142,6 @@ public class ProtoCompileActionBuilder {
     @Override
     public String toString() {
       return String.format("--%s_out=%s", langPrefix, langPluginParameter.get());
-    }
-  }
-
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class OnDemandCommandLineExpansion extends OnDemandString {
-    // E.g., --java_out=%s
-    private final String template;
-    private final Map<String, ? extends CharSequence> variableValues;
-
-    @AutoCodec.VisibleForSerialization
-    OnDemandCommandLineExpansion(
-        String template, Map<String, ? extends CharSequence> variableValues) {
-      this.template = template;
-      this.variableValues = variableValues;
-    }
-
-    @Override
-    public String toString() {
-      try {
-        return TemplateExpander.expand(
-                template,
-                new TemplateContext() {
-                  @Override
-                  public String lookupVariable(String name) throws ExpansionException {
-                    CharSequence value = variableValues.get(name);
-                    if (value == null) {
-                      throw new ExpansionException(String.format("$(%s) not defined", name));
-                    }
-                    return value.toString();
-                  }
-
-                  @Override
-                  public String lookupFunction(String name, String param)
-                      throws ExpansionException {
-                    throw new ExpansionException(String.format("$(%s) not defined", name));
-                  }
-                })
-            .expansion();
-      } catch (ExpansionException e) {
-        // Squeelch. We don't throw this exception in the lookupMakeVariable implementation above,
-        // and we can't report it here anyway, because this code will typically execute in the
-        // Execution phase.
-      }
-      return template;
     }
   }
 
@@ -240,7 +198,7 @@ public class ProtoCompileActionBuilder {
             createProtoCompilerCommandLine().build(),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", language, ruleContext.getLabel())
-        .setMnemonic(MNEMONIC);
+        .setMnemonic(mnemonic);
 
     return result;
   }
@@ -362,7 +320,8 @@ public class ProtoCompileActionBuilder {
             // output size to become quadratic, so don't.
             // A rule that concatenates the artifacts from ctx.deps.proto.transitive_descriptor_sets
             // provides similar results.
-            "--descriptor_set_out=$(OUT)",
+            "--descriptor_set_out=%s",
+            /* pluginFormatFlag = */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ null,
             /* providedProtoSources= */ ImmutableList.of()),
@@ -472,8 +431,7 @@ public class ProtoCompileActionBuilder {
                 protoToolchain.getCompilerOptions(),
                 siblingRepositoryLayout),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-        .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())
-        .setMnemonic(MNEMONIC);
+        .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel());
 
     return result;
   }
@@ -488,8 +446,6 @@ public class ProtoCompileActionBuilder {
    * <ul>
    *   <li>Each toolchain contributes a command-line, formatted from its commandLine() method.
    *   <li>$(OUT) is replaced with the outReplacement field of ToolchainInvocation.
-   *   <li>$(PLUGIN_out) is replaced with PLUGIN_<key>_out where 'key' is the key of
-   *       toolchainInvocations. The key thus allows multiple plugins in one command-line.
    *   <li>If a toolchain's {@code plugin()} is non-null, we point at it by emitting
    *       --plugin=protoc-gen-PLUGIN_<key>=<location of plugin>.
    * </ul>
@@ -533,14 +489,15 @@ public class ProtoCompileActionBuilder {
 
       ProtoLangToolchainProvider toolchain = invocation.toolchain;
 
+      final String formatString = toolchain.outReplacementFormatFlag();
+      final CharSequence outReplacement = invocation.outReplacement;
       cmdLine.addLazyString(
-          new OnDemandCommandLineExpansion(
-              toolchain.commandLine(),
-              ImmutableMap.of(
-                  "OUT",
-                  invocation.outReplacement,
-                  "PLUGIN_OUT",
-                  String.format("PLUGIN_%s_out", invocation.name))));
+          new OnDemandString() {
+            @Override
+            public String toString() {
+              return String.format(formatString, outReplacement);
+            }
+          });
 
       if (toolchain.pluginExecutable() != null) {
         cmdLine.addFormatted(
@@ -609,11 +566,11 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final CommandLineItem.MapFn<ProtoSource> EXPAND_TO_IMPORT_PATHS =
       (src, args) -> args.accept(src.getImportPath().getSafePathString());
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final CommandLineItem.MapFn<String> EXPAND_TRANSITIVE_PROTO_PATH_FLAGS =
       (flag, args) -> {
         if (!flag.equals(".")) {
@@ -621,9 +578,7 @@ public class ProtoCompileActionBuilder {
         }
       };
 
-  @AutoCodec
-  @AutoCodec.VisibleForSerialization
-  static final class ExpandImportArgsFn implements CapturingMapFn<ProtoSource> {
+  private static final class ExpandImportArgsFn implements CapturingMapFn<ProtoSource> {
     /**
      * Generates up to two import flags for each artifact: one for full path (only relative to the
      * repository root) and one for the path relative to the proto source root (if one exists
