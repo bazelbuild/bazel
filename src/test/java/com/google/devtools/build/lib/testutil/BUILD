@@ -171,6 +171,7 @@ java_library(
         ":TestConstants",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

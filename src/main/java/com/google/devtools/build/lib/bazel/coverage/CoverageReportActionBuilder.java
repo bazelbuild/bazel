@@ -170,8 +170,9 @@ public final class CoverageReportActionBuilder {
     }
 
     @Override
-    public void actionCacheHit(ActionCachedContext context) {
+    public boolean actionCacheHit(ActionCachedContext context) {
       context.getEventHandler().handle(Event.info(locationMessage));
+      return true;
     }
   }
 

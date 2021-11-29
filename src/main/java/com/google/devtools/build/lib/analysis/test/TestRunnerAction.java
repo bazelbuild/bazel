@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -62,12 +63,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -75,6 +76,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
 import com.google.protobuf.ExtensionRegistry;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -85,8 +87,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -104,6 +106,8 @@ public class TestRunnerAction extends AbstractAction
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
   public static final String MNEMONIC = "TestRunner";
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
@@ -141,8 +145,12 @@ public class TestRunnerAction extends AbstractAction
   private final int runNumber;
   private final String workspaceName;
 
-  // Mutable state related to test caching. Lazily initialized: null indicates unknown.
-  private Boolean unconditionalExecution;
+  /**
+   * Cached test result status used to minimize disk accesses. This field is set when test status is
+   * retrieved from disk or saved to disk. This field is null if it has not been set yet. This field
+   * is an empty optional when the file was not present on disk or there was a failure to read it.
+   */
+  @Nullable private Optional<TestResultData> cachedTestResultData;
 
   /** Any extra environment variables (and values) added by the rule that created this action. */
   private final ActionEnvironment extraTestEnv;
@@ -464,10 +472,7 @@ public class TestRunnerAction extends AbstractAction
   public boolean executeUnconditionally() {
     // Note: isVolatile must return true if executeUnconditionally can ever return true
     // for this instance.
-    if (unconditionalExecution == null) {
-      unconditionalExecution = computeExecuteUnconditionallyFromTestStatus();
-    }
-    return unconditionalExecution;
+    return computeExecuteUnconditionallyFromTestStatus();
   }
 
   @Override // Tighten return type.
@@ -485,17 +490,32 @@ public class TestRunnerAction extends AbstractAction
       throws IOException {
     try (OutputStream out = actionExecutionContext.getInputPath(cacheStatus).getOutputStream()) {
       data.writeTo(out);
+      // set unconditionally at the end of test action execution
+      cachedTestResultData = Optional.of(data);
+    } catch (IOException e) {
+      cachedTestResultData = Optional.empty();
+      throw e;
     }
   }
 
-  /** Returns the cache from disk, or null if the file doesn't exist or if there is an error. */
-  @Nullable
-  private TestResultData maybeReadCacheStatus() {
+  /**
+   * Sets cachedTestResultData, if not already set, to the cached status from disk or empty optional
+   * if the file doesn't exist or if there is an error. Then returns cachedTestResultData.
+   */
+  @VisibleForTesting
+  Optional<TestResultData> maybeReadCacheStatus() {
     try {
-      return readCacheStatus();
-    } catch (IOException expected) {
-      return null;
+      if (cachedTestResultData == null) {
+        TestResultData testing = readCacheStatus();
+        cachedTestResultData = Optional.of(testing);
+      }
+    } catch (FileNotFoundException e) {
+      cachedTestResultData = Optional.empty();
+    } catch (IOException e) {
+      logger.atInfo().log("Unexpected IOException thrown while reading cached status.");
+      cachedTestResultData = Optional.empty();
     }
+    return checkNotNull(cachedTestResultData);
   }
 
   @VisibleForTesting
@@ -506,61 +526,108 @@ public class TestRunnerAction extends AbstractAction
   }
 
   private boolean computeExecuteUnconditionallyFromTestStatus() {
-    return !canBeCached(
-        testConfiguration.cacheTestResults(),
-        this::maybeReadCacheStatus,
-        testProperties.isExternal(),
-        executionSettings.getTotalRuns());
+    CacheableTest cacheStatus =
+        canBeCached(
+            testConfiguration.cacheTestResults(),
+            this::maybeReadCacheStatus,
+            testProperties.isExternal(),
+            executionSettings.getTotalRuns());
+    switch (cacheStatus) {
+      case NO_STATUS_ON_DISK:
+        // execute unconditionally if no status available on disk
+      case NO:
+        return true;
+      case YES:
+        return false;
+    }
+    throw new IllegalStateException("Unreachable. Bad cache status: " + cacheStatus);
   }
 
   @VisibleForTesting
-  static boolean canBeCached(
+  static CacheableTest canBeCached(
       TriState cacheTestResults,
-      Supplier<TestResultData> prevStatus, // Lazy evaluation to avoid a disk read if possible.
+      Supplier<Optional<TestResultData>>
+          prevStatus, // Lazy evaluation to avoid a disk read if possible.
       boolean isExternal,
       int runsPerTest) {
     if (isExternal || cacheTestResults == TriState.NO) {
-      return false;
+      return CacheableTest.NO;
     }
     if (cacheTestResults == TriState.AUTO && runsPerTest > 1) {
-      return false;
+      return CacheableTest.NO;
     }
-    TestResultData status = prevStatus.get();
-    if (status != null) {
-      if (!status.getCachable()) {
-        return false;
-      }
-      if (cacheTestResults == TriState.AUTO && !status.getTestPassed()) {
-        return false;
-      }
+    Optional<TestResultData> status = prevStatus.get();
+    // unable to read status from disk
+    if (status.isEmpty()) {
+      return CacheableTest.NO_STATUS_ON_DISK;
     }
-    return true;
+    if (!status.get().getCachable()) {
+      return CacheableTest.NO;
+    }
+    if (cacheTestResults == TriState.AUTO && !status.get().getTestPassed()) {
+      return CacheableTest.NO;
+    }
+    return CacheableTest.YES;
   }
 
   /**
    * Returns whether caching has been deemed safe by looking at the previous test run (for local
-   * caching). If the previous run is not present, return "true" here, as remote execution caching
-   * should be safe.
+   * caching). If the previous run is not present or cached status was retrieved unsuccessfully,
+   * return "true" here, as remote execution caching should be safe.
    */
   public boolean shouldCacheResult() {
-    return !executeUnconditionally();
+    CacheableTest cacheStatus =
+        canBeCached(
+            testConfiguration.cacheTestResults(),
+            this::maybeReadCacheStatus,
+            testProperties.isExternal(),
+            executionSettings.getTotalRuns());
+    switch (cacheStatus) {
+        // optimistically cache results if status unavailable
+      case YES:
+      case NO_STATUS_ON_DISK:
+        return true;
+      case NO:
+        return false;
+    }
+    throw new IllegalStateException("Unreachable. Bad cache status: " + cacheStatus);
   }
 
   @Override
-  public void actionCacheHit(ActionCachedContext executor) {
-    unconditionalExecution = null;
+  public boolean actionCacheHit(ActionCachedContext executor) {
+    maybeReadCacheStatus();
+    if (cachedTestResultData.isEmpty()) {
+      executor.getEventHandler().handle(Event.warn(getErrorMessageOnCachedTestResultError()));
+      return false;
+    }
     try {
       executor
           .getEventHandler()
           .post(
               executor
                   .getContext(TestActionContext.class)
-                  .newCachedTestResult(executor.getExecRoot(), this, readCacheStatus()));
+                  .newCachedTestResult(executor.getExecRoot(), this, cachedTestResultData.get()));
     } catch (IOException e) {
-      // TODO(b/150311421): Produce a user facing warning/error and a TestResult with information
-      //  about the failure to retrieve cached test status.
-      LoggingUtil.logToRemote(Level.WARNING, "Failed creating cached protocol buffer", e);
+      logger.atInfo().log(getErrorMessageOnNewCachedTestResultError(e.getMessage()));
+      executor
+          .getEventHandler()
+          .handle(Event.warn(getErrorMessageOnNewCachedTestResultError(e.getMessage())));
+      return false;
     }
+    return true;
+  }
+
+  @VisibleForTesting
+  String getErrorMessageOnNewCachedTestResultError(String exceptionMsg) {
+    return getErrorMessageOnCachedTestResultError() + ": " + exceptionMsg;
+  }
+
+  @VisibleForTesting
+  String getErrorMessageOnCachedTestResultError() {
+    return "Cached test status was unexpectedly unavailable on disk: could be result of"
+        + " expired authentication, bad disk, or modifications in the output tree."
+        + " From "
+        + describe();
   }
 
   @Override
@@ -931,16 +998,12 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult execute(
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
-    try {
       ActionContinuationOrResult continuation =
           beginExecution(actionExecutionContext, testActionContext);
       while (!continuation.isDone()) {
         continuation = continuation.execute();
       }
       return continuation.get();
-    } finally {
-      unconditionalExecution = null;
-    }
   }
 
   @Override
@@ -1352,5 +1415,12 @@ public class TestRunnerAction extends AbstractAction
     public boolean isEmpty() {
       return false;
     }
+  }
+
+  @VisibleForTesting
+  enum CacheableTest {
+    YES,
+    NO,
+    NO_STATUS_ON_DISK
   }
 }
