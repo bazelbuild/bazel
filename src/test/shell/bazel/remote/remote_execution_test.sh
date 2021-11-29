@@ -3250,4 +3250,73 @@ EOF
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
+function test_uploader_respsect_no_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+  tags = ["no-cache"],
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+}
+
+function test_uploader_respsect_no_cache_trees() {
+  mkdir -p a
+  cat > a/output_dir.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+    ctx.actions.run_shell(
+        outputs = [output_dir],
+        inputs = [],
+        command = """
+          mkdir -p $1/sub; \
+          index=0; while ((index<10)); do echo $index >$1/$index.txt; index=$(($index+1)); done
+          echo "Shuffle, duffle, muzzle, muff" > $1/sub/bar
+        """,
+        arguments = [output_dir.path],
+        execution_requirements = {"no-cache": ""},
+    )
+    return [
+        DefaultInfo(files = depset(direct = [output_dir])),
+    ]
+
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+
+  cat > a/BUILD <<EOF
+load(":output_dir.bzl", "gen_output_dir")
+
+gen_output_dir(
+    name = "foo",
+    outdir = "dir",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local tree files are converted"
+  expect_not_log "a/dir/.*bytestream://" || fail "local tree files are converted"
+}
+
 run_suite "Remote execution and remote cache tests"
