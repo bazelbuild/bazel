@@ -22,7 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for cc_libc_top_alias rule. */
+/** Tests for the {@code cc_libc_top_alias} rule. */
 @RunWith(JUnit4.class)
 public class CcLibcTopAliasTest extends BuildViewTestCase {
 
@@ -34,7 +34,6 @@ public class CcLibcTopAliasTest extends BuildViewTestCase {
 
     assertThat(target.getLabel().toString()).isEqualTo("//a:current_cc_libc_top");
   }
-
 
   @Test
   public void testCcLibcTopAliasWithGrteTopArgument() throws Exception {
@@ -50,5 +49,28 @@ public class CcLibcTopAliasTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_libc_top");
 
     assertThat(target.getLabel().toString()).isEqualTo("//b:everything");
+  }
+
+  @Test
+  public void aspectOnCcLibcTopAlias() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _my_aspect_impl(target, ctx):",
+        "  return []",
+        "my_aspect = aspect(implementation = _my_aspect_impl)",
+        "def _apply_aspect_impl(ctx):",
+        "  pass",
+        "apply_aspect = rule(",
+        "  implementation = _apply_aspect_impl,",
+        "  attrs = {'on': attr.label(aspects = [my_aspect])},",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':defs.bzl', 'apply_aspect')",
+        "apply_aspect(name = 'apply_aspect', on = ':current_cc_libc_top')",
+        "cc_libc_top_alias(name = 'current_cc_libc_top')");
+
+    assertThat(getConfiguredTarget("//a:apply_aspect")).isNotNull();
+    assertThat(getAspect("//a:defs.bzl%my_aspect")).isNotNull();
   }
 }
