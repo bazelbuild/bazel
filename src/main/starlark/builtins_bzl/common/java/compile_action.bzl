@@ -80,6 +80,7 @@ def _compile_action(
         output_prefix,
         enable_compile_jar_action = True,
         extra_runtime_jars = [],
+        extra_runtime_deps = [],
         extra_deps = []):
     if extra_deps:
         deps = []
@@ -88,7 +89,7 @@ def _compile_action(
     else:
         deps = ctx.attr.deps
 
-    runtime_deps = _get_attr_safe(ctx, "runtime_deps", [])
+    runtime_deps = _get_attr_safe(ctx, "runtime_deps", []) + extra_runtime_deps
     exports = _get_attr_safe(ctx, "exports", [])
     exported_plugins = _get_attr_safe(ctx, "exported_plugins", [])
 

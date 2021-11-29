@@ -31,6 +31,7 @@ def _base_common_impl(
         output_prefix,
         enable_compile_jar_action = True,
         extra_runtime_jars = [],
+        extra_runtime_deps = [],
         coverage_config = None):
     srcs = ctx.files.srcs
     source_files = _filter_srcs(srcs, "java")
@@ -44,6 +45,7 @@ def _base_common_impl(
         output_prefix,
         enable_compile_jar_action,
         extra_runtime_jars,
+        extra_runtime_deps,
         extra_deps = [coverage_config.runner] if coverage_config else [],
     )
     output_groups = dict(
