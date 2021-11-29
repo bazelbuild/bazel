@@ -458,8 +458,7 @@ public class ProtoCompileActionBuilder {
    *     populate an error message format that's passed to proto-compiler.
    * @param allowServices If false, the compilation will break if any .proto file has
    */
-  @VisibleForTesting
-  static CustomCommandLine createCommandLineFromToolchains(
+  private static CustomCommandLine createCommandLineFromToolchains(
       List<ToolchainInvocation> toolchainInvocations,
       String outputDirectory,
       ProtoInfo protoInfo,
