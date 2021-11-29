@@ -90,7 +90,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -141,8 +140,10 @@ final class AspectFunction implements SkyFunction {
     Aspect aspect = null;
 
     // Keys for initial request.
-    SkyKey packageKey = PackageValue.key(key.getLabel().getPackageIdentifier());
+    SkyKey aspectPackageKey = PackageValue.key(key.getLabel().getPackageIdentifier());
     SkyKey baseConfiguredTargetKey = key.getBaseConfiguredTargetKey();
+    SkyKey basePackageKey =
+        PackageValue.key(key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier());
     SkyKey configurationKey = key.getConfigurationKey();
     SkyKey bzlLoadKey;
 
@@ -159,27 +160,25 @@ final class AspectFunction implements SkyFunction {
       bzlLoadKey = bzlLoadKeyForStarlarkAspect(starlarkAspectClass);
     }
 
-    Set<SkyKey> keys;
-    if (configurationKey == null) {
-      keys =
-          bzlLoadKey == null
-              ? ImmutableSet.of(packageKey, baseConfiguredTargetKey)
-              : ImmutableSet.of(packageKey, baseConfiguredTargetKey, bzlLoadKey);
-    } else {
-      keys =
-          bzlLoadKey == null
-              ? ImmutableSet.of(packageKey, baseConfiguredTargetKey, configurationKey)
-              : ImmutableSet.of(packageKey, baseConfiguredTargetKey, configurationKey, bzlLoadKey);
+    ImmutableSet.Builder<SkyKey> initialKeys = ImmutableSet.builder();
+    initialKeys.add(aspectPackageKey).add(baseConfiguredTargetKey).add(basePackageKey);
+    if (configurationKey != null) {
+      initialKeys.add(configurationKey);
+    }
+    if (bzlLoadKey != null) {
+      initialKeys.add(bzlLoadKey);
     }
     Map<SkyKey, ValueOrException2<BzlLoadFailedException, ConfiguredValueCreationException>>
-        baseValues =
+        initialValues =
             env.getValuesOrThrow(
-                keys, BzlLoadFailedException.class, ConfiguredValueCreationException.class);
+                initialKeys.build(),
+                BzlLoadFailedException.class,
+                ConfiguredValueCreationException.class);
 
     if (starlarkAspectClass != null) {
       StarlarkDefinedAspect starlarkAspect;
       try {
-        starlarkAspect = loadStarlarkAspect(starlarkAspectClass, baseValues.get(bzlLoadKey));
+        starlarkAspect = loadStarlarkAspect(starlarkAspectClass, initialValues.get(bzlLoadKey));
       } catch (AspectCreationException e) {
         env.getListener().handle(Event.error(e.getMessage()));
         throw new AspectFunctionException(e);
@@ -196,11 +195,11 @@ final class AspectFunction implements SkyFunction {
     }
 
     // Keep this in sync with the same code in ConfiguredTargetFunction.
-    PackageValue packageValue = (PackageValue) baseValues.get(packageKey).getUnchecked();
-    if (packageValue == null) {
+    PackageValue aspectPackage = (PackageValue) initialValues.get(aspectPackageKey).getUnchecked();
+    if (aspectPackage == null) {
       return null;
     }
-    if (packageValue.getPackage().containsErrors()) {
+    if (aspectPackage.getPackage().containsErrors()) {
       throw new AspectFunctionException(
           new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
     }
@@ -213,7 +212,7 @@ final class AspectFunction implements SkyFunction {
     try {
       baseConfiguredTargetValue =
           (ConfiguredTargetValue)
-              baseValues
+              initialValues
                   .get(baseConfiguredTargetKey)
                   .getOrThrow(ConfiguredValueCreationException.class);
     } catch (ConfiguredValueCreationException e) {
@@ -230,20 +229,12 @@ final class AspectFunction implements SkyFunction {
     BuildConfigurationValue configuration =
         configurationKey == null
             ? null
-            : (BuildConfigurationValue) baseValues.get(configurationKey).getUnchecked();
+            : (BuildConfigurationValue) initialValues.get(configurationKey).getUnchecked();
 
-    PackageValue val =
-        (PackageValue)
-            env.getValue(
-                PackageValue.key(associatedTarget.getOriginalLabel().getPackageIdentifier()));
-    if (val == null) {
-      return null;
-    }
-    Package targetPkg = val.getPackage();
-
+    PackageValue basePackage = (PackageValue) initialValues.get(basePackageKey).getUnchecked();
     Target target;
     try {
-      target = targetPkg.getTarget(associatedTarget.getOriginalLabel().getName());
+      target = basePackage.getPackage().getTarget(associatedTarget.getOriginalLabel().getName());
     } catch (NoSuchTargetException e) {
       throw new IllegalStateException("Name already verified", e);
     }
