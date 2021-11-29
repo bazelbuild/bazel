@@ -86,6 +86,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
 
   @StarlarkMethod(
       name = "custom_malloc",
+      allowReturnNones = true,
       structField = true,
       doc =
           "Returns label pointed to by <a href=\"../../user-manual.html#flag--custom_malloc\">"
@@ -98,6 +99,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "        name = \"custom_malloc\"<br/>"
               + "    )<br/>"
               + ")</pre>")
+  @Nullable
   Label customMalloc();
 
   @StarlarkMethod(

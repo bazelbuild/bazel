@@ -269,8 +269,8 @@ def _get_file_content(objects):
 
 def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_configuration, files_to_build, cc_compilation_outputs, compilation_context, libraries, runtime_objects_for_coverage, common):
     instrumented_object_files = cc_compilation_outputs.objects + cc_compilation_outputs.pic_objects
-    additional_meta_data = None
-    if len(runtime_objects_for_coverage) != 0 and cpp_config.generate_llvm_lcov:
+    additional_meta_data = []
+    if len(runtime_objects_for_coverage) != 0 and cpp_config.generate_llvm_lcov():
         runtime_objects_list = ctx.actions.declare_file(ctx.label.name + "runtime_objects_list.txt")
         file_content = _get_file_content(runtime_objects_for_coverage)
         ctx.actions.write(output = runtime_objects_list, content = file_content, is_executable = False)
@@ -594,7 +594,7 @@ def _create_transitive_linking_actions(
 def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
     if _is_link_shared(ctx):
         return cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration)
-    return cpp_config.force_pic or (cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and ctx.var["COMPILATION_MODE"] != "opt")
+    return cpp_config.force_pic() or (cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and ctx.var["COMPILATION_MODE"] != "opt")
 
 def _collect_linking_context(ctx, cpp_config):
     cc_infos = []
