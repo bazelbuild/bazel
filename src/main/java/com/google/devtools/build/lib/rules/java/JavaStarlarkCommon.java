@@ -341,6 +341,10 @@ public class JavaStarlarkCommon
     JavaInfo.Builder builder = JavaInfo.Builder.create();
     if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
       builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
+    } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
+      builder.addProvider(
+          JavaCompilationArgsProvider.class,
+          javaInfo.getProvider(JavaCompilationArgsProvider.class));
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
       builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());
