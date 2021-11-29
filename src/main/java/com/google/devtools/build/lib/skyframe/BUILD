@@ -244,6 +244,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",

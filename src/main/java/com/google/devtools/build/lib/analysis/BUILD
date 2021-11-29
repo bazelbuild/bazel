@@ -1705,6 +1705,22 @@ java_library(
 )
 
 java_library(
+    name = "config/fragment_factory",
+    srcs = ["config/FragmentFactory.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_options",
+        ":config/fragment",
+        ":config/fragment_options",
+        ":config/invalid_configuration_exception",
+        "//third_party:auto_value",
+        "//third_party:caffeine",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "config/fragment_registry",
     srcs = ["config/FragmentRegistry.java"],
     deps = [
