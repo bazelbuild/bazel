@@ -39,6 +39,9 @@ def _get_repo():
 def _additional_fragments():
     return []
 
+def _get_distribs_attr():
+    return {}
+
 def _get_licenses_attr():
     # TODO(b/182226065): Change to applicable_licenses
     return {}
@@ -67,6 +70,7 @@ semantics = struct(
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     additional_fragments = _additional_fragments,
+    get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,
     get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
 )
