@@ -740,6 +740,12 @@ public final class CppConfiguration extends Fragment
     return getLibcTopLabel();
   }
 
+  @Override
+  public boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return shareNativeDeps();
+  }
+
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
