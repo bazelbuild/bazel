@@ -203,10 +203,6 @@ public class ProtoCompileActionBuilder {
     return result;
   }
 
-  private static String getOutputDirectory(RuleContext ruleContext) {
-    return ruleContext.getBinDirectory().getExecPath().getSegment(0);
-  }
-
   /** Commandline generator for protoc invocations. */
   @VisibleForTesting
   CustomCommandLine.Builder createProtoCompilerCommandLine() {
@@ -412,8 +408,6 @@ public class ProtoCompileActionBuilder {
       }
     }
 
-    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
-
     result
         .addOutputs(outputs)
         .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
@@ -422,14 +416,12 @@ public class ProtoCompileActionBuilder {
         .addCommandLine(
             createCommandLineFromToolchains(
                 toolchainInvocations,
-                getOutputDirectory(ruleContext),
                 protoInfo,
                 ruleLabel,
                 areDepsStrict(ruleContext) ? Deps.STRICT : Deps.NON_STRICT,
                 arePublicImportsStrict(ruleContext) ? useExports : Exports.DO_NOT_USE,
                 allowServices,
-                protoToolchain.getCompilerOptions(),
-                siblingRepositoryLayout),
+                protoToolchain.getCompilerOptions()),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel());
 
@@ -460,14 +452,12 @@ public class ProtoCompileActionBuilder {
    */
   private static CustomCommandLine createCommandLineFromToolchains(
       List<ToolchainInvocation> toolchainInvocations,
-      String outputDirectory,
       ProtoInfo protoInfo,
       Label ruleLabel,
       Deps strictDeps,
       Exports useExports,
       Services allowServices,
-      ImmutableList<String> protocOpts,
-      boolean siblingRepositoryLayout) {
+      ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
     cmdLine.addAll(
