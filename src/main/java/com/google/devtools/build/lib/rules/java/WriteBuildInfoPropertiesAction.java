@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -48,8 +47,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** An action that creates a Java properties file containing the build informations. */
-@AutoCodec
-public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
+public final class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
   private static final String GUID = "19e543c2-3ce4-4aef-80f5-4f8abf4b064f";
 
   private final BuildInfoPropertiesTranslator keyTranslations;

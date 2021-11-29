@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.JavaCompile;
 import com.google.devtools.build.lib.server.FailureDetails.JavaCompile.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -390,8 +389,6 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     return progressMessage.toString();
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
   static class ProgressMessage extends OnDemandString {
 
     private final String prefix;

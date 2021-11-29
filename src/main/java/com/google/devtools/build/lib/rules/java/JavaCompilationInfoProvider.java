@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCompilationInfoProviderApi;
 import javax.annotation.Nullable;
 
@@ -29,7 +28,6 @@ import javax.annotation.Nullable;
  * A class that provides compilation information in Java rules, for perusal of aspects and tools.
  */
 @Immutable
-@AutoCodec
 public final class JavaCompilationInfoProvider
     implements TransitiveInfoProvider, JavaCompilationInfoProviderApi<Artifact> {
   private final ImmutableList<String> javacOpts;
@@ -101,8 +99,7 @@ public final class JavaCompilationInfoProvider
     return bootClasspath.bootclasspath();
   }
 
-  @AutoCodec.VisibleForSerialization
-  JavaCompilationInfoProvider(
+  private JavaCompilationInfoProvider(
       ImmutableList<String> javacOpts,
       @Nullable NestedSet<Artifact> runtimeClasspath,
       @Nullable NestedSet<Artifact> compilationClasspath,

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 // Note: AutoValue v1.4-rc1 has AutoValue.CopyAnnotations which makes it work with Starlark. No need
@@ -32,7 +31,6 @@ import javax.annotation.Nullable;
  * rules.
  */
 @AutoValue
-@AutoCodec
 public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvider {
   public abstract String outReplacementFormatFlag();
 
@@ -63,23 +61,6 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
   // TODO(yannic): Remove after migrating all users to `providedProtoSources()`.
   @Deprecated
   public abstract NestedSet<Artifact> forbiddenProtos();
-
-  @AutoCodec.Instantiator
-  public static ProtoLangToolchainProvider createForDeserialization(
-      String outReplacementFormatFlag,
-      String pluginFormatFlag,
-      FilesToRunProvider pluginExecutable,
-      TransitiveInfoCollection runtime,
-      ImmutableList<ProtoSource> providedProtoSources,
-      NestedSet<Artifact> blacklistedProtos) {
-    return new AutoValue_ProtoLangToolchainProvider(
-        outReplacementFormatFlag,
-        pluginFormatFlag,
-        pluginExecutable,
-        runtime,
-        providedProtoSources,
-        blacklistedProtos);
-  }
 
   public static ProtoLangToolchainProvider create(
       String outReplacementFormatFlag,

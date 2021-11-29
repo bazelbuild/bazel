@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.List;
 import java.util.Map;
@@ -196,8 +195,7 @@ public class MultiArchSplitTransitionProvider
    * platform-specific cpu flag for a particular platform type (for example, --watchos_cpus for
    * watchos platform type).
    */
-  @AutoCodec
-  protected static class AppleBinaryTransition implements SplitTransition {
+  protected static final class AppleBinaryTransition implements SplitTransition {
 
     private final PlatformType platformType;
     // TODO(b/37096178): This should be a mandatory attribute.
