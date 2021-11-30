@@ -364,8 +364,10 @@ public class RemoteExecutionService {
       } else {
         return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
       }
-    } else {
+    } else if (useDiskCache(remoteOptions)) {
       return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
+    } else {
+      return false;
     }
   }
 
