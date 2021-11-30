@@ -1141,15 +1141,16 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Initializes the StarlarkRuleContext for use and returns it.
+   * Initializes the StarlarkRuleContext for use and returns it. No-op if already initialized.
    *
    * <p>Throws RuleErrorException on failure.
    */
   public StarlarkRuleContext initStarlarkRuleContext() throws RuleErrorException {
-    Preconditions.checkState(starlarkRuleContext == null);
-    AspectDescriptor descriptor =
-        aspects.isEmpty() ? null : Iterables.getLast(aspects).getDescriptor();
-    this.starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
+    if (starlarkRuleContext == null) {
+      AspectDescriptor descriptor =
+          aspects.isEmpty() ? null : Iterables.getLast(aspects).getDescriptor();
+      this.starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
+    }
     return starlarkRuleContext;
   }
 
