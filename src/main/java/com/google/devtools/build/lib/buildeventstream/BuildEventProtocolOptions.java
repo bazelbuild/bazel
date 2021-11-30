@@ -24,7 +24,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
 
   @Option(
     name = "legacy_important_outputs",
-    defaultValue = "true",
+    defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Use this to suppress generation of the legacy important_outputs field in the "
