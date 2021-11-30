@@ -344,3 +344,9 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_library(
+    name = "exec_exception",
+    srcs = ["ExecException.java"],
+    deps = ["//src/main/protobuf:failure_details_java_proto"],
+)

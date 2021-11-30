@@ -677,9 +677,10 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       return createFullOutputDeps(
           Iterables.getOnlyElement(results), outputDepsProto, getInputs(), actionExecutionContext);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(
-              e, createFailureDetail(".jdeps read IOException", Code.JDEPS_READ_IO_EXCEPTION))
-          .toActionExecutionException(this);
+      throw ActionExecutionException.fromExecException(
+          new EnvironmentalExecException(
+              e, createFailureDetail(".jdeps read IOException", Code.JDEPS_READ_IO_EXCEPTION)),
+          this);
     }
   }
 
@@ -755,12 +756,13 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
               // We don't create any tree artifacts anyway.
               /*cleanupArchivedArtifacts=*/ false);
         } catch (IOException e) {
-          throw new EnvironmentalExecException(
+          throw ActionExecutionException.fromExecException(
+              new EnvironmentalExecException(
                   e,
                   createFailureDetail(
                       "Failed to delete reduced action outputs",
-                      Code.REDUCED_CLASSPATH_FALLBACK_CLEANUP_FAILURE))
-              .toActionExecutionException(JavaCompileAction.this);
+                      Code.REDUCED_CLASSPATH_FALLBACK_CLEANUP_FAILURE)),
+              JavaCompileAction.this);
         }
         actionExecutionContext.getMetadataHandler().resetOutputs(getOutputs());
         Spawn spawn;
@@ -777,7 +779,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         return new JavaFallbackActionContinuation(
             actionExecutionContext, results, fallbackContinuation);
       } catch (ExecException e) {
-        throw e.toActionExecutionException(JavaCompileAction.this);
+        throw ActionExecutionException.fromExecException(e, JavaCompileAction.this);
       }
     }
   }
@@ -821,7 +823,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             ActionResult.create(
                 ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults))));
       } catch (ExecException e) {
-        throw e.toActionExecutionException(JavaCompileAction.this);
+        throw ActionExecutionException.fromExecException(e, JavaCompileAction.this);
       }
     }
   }

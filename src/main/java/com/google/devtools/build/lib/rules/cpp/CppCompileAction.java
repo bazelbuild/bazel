@@ -478,7 +478,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             createFailureDetail("Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
       }
     } catch (ExecException e) {
-      throw e.toActionExecutionException("include scanning", this);
+      throw ActionExecutionException.fromExecException(e, "include scanning", this);
     }
   }
 
@@ -1853,7 +1853,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
-        throw e.toActionExecutionException(CppCompileAction.this);
+        throw ActionExecutionException.fromExecException(e, CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
         throw e;
@@ -1931,9 +1931,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             }
           }
         } catch (IOException e) {
-          throw new EnvironmentalExecException(
-                  e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE))
-              .toActionExecutionException(CppCompileAction.this);
+          throw ActionExecutionException.fromExecException(
+              new EnvironmentalExecException(
+                  e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE)),
+              CppCompileAction.this);
         }
       }
     }
