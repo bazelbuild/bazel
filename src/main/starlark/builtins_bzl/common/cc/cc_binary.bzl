@@ -553,9 +553,9 @@ def _create_transitive_linking_actions(
     )
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
 
-    cc_info_without_extra_link_time_libraries = cc_common.merge_cc_infos(cc_infos = [deps_cc_info, CcInfo(linking_context = current_cc_linking_context)])
+    cc_info_without_extra_link_time_libraries = cc_common.merge_cc_infos(cc_infos = [CcInfo(linking_context = current_cc_linking_context), deps_cc_info])
     extra_link_time_libraries_cc_info = CcInfo(linking_context = cc_common.create_linking_context(linker_inputs = extra_link_time_libraries_depset))
-    cc_info = cc_common.merge_cc_infos(cc_infos = [extra_link_time_libraries_cc_info, cc_info_without_extra_link_time_libraries])
+    cc_info = cc_common.merge_cc_infos(cc_infos = [cc_info_without_extra_link_time_libraries, extra_link_time_libraries_cc_info])
     cc_linking_context = cc_info.linking_context
 
     # TODO(b/198254254): Enable dynamic filtering.
@@ -572,7 +572,7 @@ def _create_transitive_linking_actions(
         grep_includes = ctx.attr._grep_includes.files_to_run.executable,
         stamp = _is_stamping_enabled(ctx),
         additional_inputs = additional_linker_inputs,
-        linking_contexts = [cc_linking_context, deps_cc_linking_context],
+        linking_contexts = [cc_linking_context],
         name = ctx.label.name,
         use_test_only_flags = cc_helper.is_test_target(ctx),
         # Note: Current Starlark API supports either dynamic or static linking modes,
@@ -1041,7 +1041,7 @@ cc_binary_attrs = {
     ),
     "malloc": attr.label(
         default = Label("@//tools/cpp:malloc"),
-        allow_files = True,
+        allow_files = False,
         allow_rules = ["cc_library"],
         # TODO(b/198254254): Add aspects. in progress
         aspects = [],
@@ -1050,7 +1050,6 @@ cc_binary_attrs = {
     "_default_malloc": attr.label(
         # TODO(b/198254254): Add default value. in progress
         default = configuration_field(fragment = "cpp", name = "custom_malloc"),
-        providers = [CcInfo],
     ),
     "stamp": attr.int(
         default = -1,
