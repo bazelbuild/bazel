@@ -16,6 +16,7 @@
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
+    "artifact_name_pattern",
     "env_entry",
     "env_set",
     "feature",
@@ -3007,7 +3008,15 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-    artifact_name_patterns = []
+    # macOS artifact name patterns differ from the defaults only for dynamic
+    # libraries.
+    artifact_name_patterns = [
+        artifact_name_pattern(
+            category_name = "dynamic_library",
+            prefix = "lib",
+            extension = ".dylib",
+        ),
+    ]
 
     make_variables = [
         make_variable(
