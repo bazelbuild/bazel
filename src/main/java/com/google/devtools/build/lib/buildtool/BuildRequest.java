@@ -134,8 +134,8 @@ public class BuildRequest implements OptionsProvider {
 
     /**
      * If true, build status depends on whether or not requested targets are platform-compatible
-     * ({@link com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider}. If false, this
-     * doesn't matter.
+     * ({@link com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider}). If false,
+     * this doesn't matter.
      *
      * <p>This should be true for builds (where users care if their targets produce meaningful
      * output) and false for queries (where users want to understand target relationships or
