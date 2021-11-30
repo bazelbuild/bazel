@@ -356,24 +356,25 @@ public class RemoteExecutionService {
     }
   }
 
+  public static boolean shouldUploadLocalResults(RemoteOptions remoteOptions,
+      @Nullable Map<String, String> executionInfo) {
+    if (useRemoteCache(remoteOptions)) {
+      if (useDiskCache(remoteOptions)) {
+        return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
+      } else {
+        return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
+      }
+    } else {
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
+    }
+  }
+
   /**
    * Returns {@code true} if the local results of the {@code spawn} should be uploaded to remote
    * cache.
    */
   public boolean shouldUploadLocalResults(Spawn spawn) {
-    if (remoteCache == null) {
-      return false;
-    }
-
-    if (useRemoteCache(remoteOptions)) {
-      if (useDiskCache(remoteOptions)) {
-        return shouldUploadLocalResultsToCombinedDisk(remoteOptions, spawn);
-      } else {
-        return shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn);
-      }
-    } else {
-      return shouldUploadLocalResultsToDiskCache(remoteOptions, spawn);
-    }
+    return shouldUploadLocalResults(remoteOptions, spawn.getExecutionInfo());
   }
 
   /** Returns {@code true} if the spawn may be executed remotely. */
@@ -1140,6 +1141,7 @@ public class RemoteExecutionService {
       throws InterruptedException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
+    checkNotNull(remoteCache, "remoteCache can't be null");
     checkState(
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");

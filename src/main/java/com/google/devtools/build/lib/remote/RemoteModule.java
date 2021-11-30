@@ -129,9 +129,8 @@ public final class RemoteModule extends BlazeModule {
 
   private RemoteActionContextProvider actionContextProvider;
   private RemoteActionInputFetcher actionInputFetcher;
-  private RemoteOutputsMode remoteOutputsMode;
+  private RemoteOptions remoteOptions;
   private RemoteOutputService remoteOutputService;
-  private Boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -248,9 +247,7 @@ public final class RemoteModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
-    Preconditions.checkState(remoteOutputsMode == null, "remoteOutputsMode must be null");
-    Preconditions.checkState(incompatibleRemoteBuildEventUploadRespectNoCache == null,
-        "incompatibleRemoteBuildEventUploadRespectNoCache must be null");
+    Preconditions.checkState(remoteOptions == null, "remoteOptions must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -258,8 +255,7 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
-    remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    incompatibleRemoteBuildEventUploadRespectNoCache = remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache;
+    this.remoteOptions = remoteOptions;
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
@@ -712,8 +708,7 @@ public final class RemoteModule extends BlazeModule {
       AnalysisResult analysisResult) {
     // The actionContextProvider may be null if remote execution is disabled or if there was an
     // error during initialization.
-    if (remoteOutputsMode != null
-        && remoteOutputsMode.downloadToplevelOutputsOnly()
+    if (remoteOptions != null && remoteOptions.remoteOutputsMode.downloadToplevelOutputsOnly()
         && actionContextProvider != null) {
       boolean isTestCommand = env.getCommandName().equals("test");
       TopLevelArtifactContext artifactContext = request.getTopLevelArtifactContext();
@@ -734,8 +729,7 @@ public final class RemoteModule extends BlazeModule {
       actionContextProvider.setFilesToDownload(ImmutableSet.copyOf(filesToDownload));
     }
 
-    if (incompatibleRemoteBuildEventUploadRespectNoCache != null
-        && incompatibleRemoteBuildEventUploadRespectNoCache) {
+    if (remoteOptions != null && remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
       parseNoCacheOutputs(analysisResult);
     }
   }
@@ -750,8 +744,9 @@ public final class RemoteModule extends BlazeModule {
       if (configuredTarget instanceof RuleConfiguredTarget) {
         RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
         for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
-          Map<String, String> executionInfo = action.getExecutionInfo();
-          if (executionInfo != null && !Spawns.mayBeCachedRemotely(executionInfo)) {
+          boolean uploadLocalResults = RemoteExecutionService.shouldUploadLocalResults(
+              remoteOptions, action.getExecutionInfo());
+          if (!uploadLocalResults) {
             for (Artifact output : action.getOutputs()) {
               if (output.isTreeArtifact()) {
                 uploader.omitTree(output.getPath());
@@ -866,8 +861,7 @@ public final class RemoteModule extends BlazeModule {
     remoteDownloaderSupplier.set(null);
     actionContextProvider = null;
     actionInputFetcher = null;
-    remoteOutputsMode = null;
-    incompatibleRemoteBuildEventUploadRespectNoCache = null;
+    remoteOptions = null;
     remoteOutputService = null;
 
     if (failure != null) {
@@ -911,7 +905,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
-    Preconditions.checkNotNull(remoteOutputsMode, "remoteOutputsMode must not be null");
+    Preconditions.checkNotNull(remoteOptions, "remoteOutputsMode must not be null");
 
     if (actionContextProvider == null) {
       return;
@@ -935,7 +929,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (remoteOutputsMode != null && !remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions != null && !remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       remoteOutputService = new RemoteOutputService();
     }
     return remoteOutputService;

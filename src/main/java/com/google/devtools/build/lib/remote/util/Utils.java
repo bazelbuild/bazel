@@ -71,6 +71,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -596,31 +597,58 @@ public final class Utils {
   }
 
   public static boolean shouldUploadLocalResultsToRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
-        && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+        && (executionInfo == null || Spawns.mayBeCachedRemotely(executionInfo));
+  }
+
+  public static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    Map<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
+  }
+
+  public static boolean shouldUploadLocalResultsToDiskCache(
+      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return executionInfo == null || Spawns.mayBeCached(executionInfo);
+    } else {
+      return remoteOptions.remoteUploadLocalResults && (executionInfo == null || Spawns.mayBeCached(
+          executionInfo));
+    }
   }
 
   public static boolean shouldUploadLocalResultsToDiskCache(
       RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    Map<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
+  }
+
+  public static boolean shouldUploadLocalResultsToCombinedDisk(RemoteOptions remoteOptions,
+      @Nullable Map<String, String> executionInfo) {
     if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      return spawn == null || Spawns.mayBeCached(spawn);
+      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
+      // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.
+      return executionInfo == null || Spawns.mayBeCached(executionInfo);
     } else {
-      return remoteOptions.remoteUploadLocalResults && (spawn == null || Spawns.mayBeCached(spawn));
+      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
+      return remoteOptions.remoteUploadLocalResults
+          && (executionInfo == null || Spawns.mayBeCachedRemotely(executionInfo));
     }
   }
 
   public static boolean shouldUploadLocalResultsToCombinedDisk(
       RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
-      // cache. Actions
-      // which are tagged with `no-remote-cache` can still hit the disk cache.
-      return spawn == null || Spawns.mayBeCached(spawn);
-    } else {
-      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
-      return remoteOptions.remoteUploadLocalResults
-          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+    Map<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
     }
+    return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
   }
 }

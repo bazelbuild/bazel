@@ -3269,6 +3269,7 @@ EOF
 
   cat bep.json > $TEST_log
   expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
 }
 
 function test_uploader_respsect_no_cache_trees() {
@@ -3317,6 +3318,29 @@ EOF
   cat bep.json > $TEST_log
   expect_not_log "a:foo.*bytestream://" || fail "local tree files are converted"
   expect_not_log "a/dir/.*bytestream://" || fail "local tree files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+}
+
+function test_uploader_respsect_no_upload_results() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_upload_local_results=false \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
 }
 
 run_suite "Remote execution and remote cache tests"
