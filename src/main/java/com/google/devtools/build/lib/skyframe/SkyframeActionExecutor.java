@@ -617,7 +617,7 @@ public final class SkyframeActionExecutor {
               remoteDefaultProperties,
               isRemoteCacheEnabled);
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
     if (token == null) {
       boolean eventPosted = false;
@@ -709,7 +709,7 @@ public final class SkyframeActionExecutor {
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
 
     try {

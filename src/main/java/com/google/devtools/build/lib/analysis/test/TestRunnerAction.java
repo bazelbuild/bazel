@@ -956,10 +956,10 @@ public class TestRunnerAction extends AbstractAction
           testActionContext.isTestKeepGoing(),
           cancelFuture);
     } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
+      throw ActionExecutionException.fromExecException(e, this);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e, Code.TEST_RUNNER_IO_EXCEPTION)
-          .toActionExecutionException(this);
+      throw ActionExecutionException.fromExecException(
+          new EnvironmentalExecException(e, Code.TEST_RUNNER_IO_EXCEPTION), this);
     }
   }
 
@@ -1256,10 +1256,11 @@ public class TestRunnerAction extends AbstractAction
         Preconditions.checkState(actualMaxAttempts != 0);
         return process(result, actualMaxAttempts);
       } catch (ExecException e) {
-        throw e.toActionExecutionException(this.testRunnerAction);
+        throw ActionExecutionException.fromExecException(e, this.testRunnerAction);
       } catch (IOException e) {
-        throw new EnvironmentalExecException(e, Code.TEST_RUNNER_IO_EXCEPTION)
-            .toActionExecutionException(this.testRunnerAction);
+        throw ActionExecutionException.fromExecException(
+            new EnvironmentalExecException(e, Code.TEST_RUNNER_IO_EXCEPTION),
+            this.testRunnerAction);
       }
     }
 
