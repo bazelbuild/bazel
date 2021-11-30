@@ -434,8 +434,7 @@ public class BuildView {
               topLevelTargetsWithConfigsResult,
               /*includeExecutionPhase=*/ true);
     } else {
-      Set<ConfiguredTarget> targetsToSkip;
-
+      Set<ConfiguredTarget> targetsToSkip = ImmutableSet.of();
       if (reportIncompatibleTargets) {
         TopLevelConstraintSemantics topLevelConstraintSemantics =
             new TopLevelConstraintSemantics(
@@ -462,8 +461,6 @@ public class BuildView {
                         skyframeAnalysisResult.getConfiguredTargets()),
                     platformRestrictions.targetsToSkip())
                 .immutableCopy();
-      } else {
-        targetsToSkip = ImmutableSet.of();
       }
 
       result =
