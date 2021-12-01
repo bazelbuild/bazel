@@ -155,7 +155,11 @@ class SingleplexWorker extends Worker {
       workerProtocol = null;
     }
     if (shutdownHook != null) {
-      Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      try {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      } catch (IllegalStateException e) {
+        // Can only happen if we're already in shutdown, in which case we don't care.
+      }
     }
     if (process != null) {
       wasDestroyed = true;
