@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
@@ -88,8 +87,7 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> exports,
       Sequence<JavaPluginInfo> exportedPlugins,
       Sequence<CcInfo> nativeLibraries,
-      Location location,
-      boolean withExportsProvider) {
+      Location location) {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     javaInfoBuilder.setLocation(location);
 
@@ -124,10 +122,6 @@ final class JavaInfoBuildHelper {
 
     javaInfoBuilder.addProvider(
         JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build());
-
-    if (withExportsProvider) {
-      javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
-    }
 
     javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports));
 
@@ -226,11 +220,6 @@ final class JavaInfoBuildHelper {
             .map(JavaSourceJarsProvider::getTransitiveSourceJars);
 
     return concat(transitiveSourceJars, sourceJars);
-  }
-
-  private JavaExportsProvider createJavaExportsProvider(Iterable<JavaInfo> exports) {
-    return JavaExportsProvider.merge(
-        JavaInfo.fetchProvidersFromList(exports, JavaExportsProvider.class));
   }
 
   private JavaPluginInfo mergeExportedJavaPluginInfo(
@@ -348,9 +337,6 @@ final class JavaInfoBuildHelper {
                 streamProviders(deps, JavaCcInfoProvider.class),
                 Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
             .collect(toImmutableList());
-    if (thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
-      javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
-    }
     return javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(

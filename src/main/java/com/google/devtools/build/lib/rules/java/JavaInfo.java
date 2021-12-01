@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -77,7 +75,6 @@ public final class JavaInfo extends NativeInfo
           JavaSourceJarsProvider.class,
           JavaRuleOutputJarsProvider.class,
           JavaGenJarsProvider.class,
-          JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
           JavaCcInfoProvider.class);
 
@@ -123,7 +120,7 @@ public final class JavaInfo extends NativeInfo
    * Merges the given providers into one {@link JavaInfo}. All the providers with the same type in
    * the given list are merged into one provider that is added to the resulting {@link JavaInfo}.
    */
-  public static JavaInfo merge(List<JavaInfo> providers, boolean withExportsProvider) {
+  public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
@@ -162,13 +159,6 @@ public final class JavaInfo extends NativeInfo
             // TODO(iirina): merge or remove JavaCompilationInfoProvider
             .setRuntimeJars(runtimeJars.build())
             .setJavaConstraints(javaConstraints.build());
-
-    if (withExportsProvider) {
-      List<JavaExportsProvider> javaExportsProviders =
-          JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
-      javaInfoBuilder.addProvider(
-          JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders));
-    }
 
     return javaInfoBuilder.build();
   }
@@ -375,14 +365,6 @@ public final class JavaInfo extends NativeInfo
             JavaSourceJarsProvider.class, JavaSourceJarsProvider::getTransitiveSourceJars));
   }
 
-  @Override
-  public Depset /*<Label>*/ getTransitiveExports() {
-    return Depset.of(
-        Depset.ElementType.of(Label.class),
-        getProviderAsNestedSet(
-            JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
-  }
-
   /** Returns the transitive set of CC native libraries required by the target. */
   public NestedSet<LibraryToLink> getTransitiveNativeLibraries() {
     return getProviderAsNestedSet(
@@ -514,8 +496,7 @@ public final class JavaInfo extends NativeInfo
               Sequence.cast(exports, JavaInfo.class, "exports"),
               Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins"),
               Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-              thread.getCallerLocation(),
-              thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER));
+              thread.getCallerLocation());
     }
   }
 

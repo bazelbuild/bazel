@@ -1923,41 +1923,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar", "foo/libmy_java_lib_c.jar");
   }
 
-  @Test
-  public void testJavaInfoGetTransitiveExports() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_enable_exports_provider",
-        "--experimental_builtins_injection_override=-java_library");
-    scratch.file(
-        "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_exports)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
-        "             deps = [':my_java_lib_b', ':my_java_lib_c'], ",
-        "             exports = [':my_java_lib_b']) ",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
-
-    Depset exports = (Depset) info.getValue("property");
-
-    assertThat(exports.getSet(Label.class).toList())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
-  }
-
   /** Tests that JavaInfo provides information about transitive native libraries in Starlark. */
   @Test
   public void javaInfo_getTransitiveNativeLibraries() throws Exception {
