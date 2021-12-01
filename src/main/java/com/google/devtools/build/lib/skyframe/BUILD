@@ -917,7 +917,6 @@ java_library(
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2094,6 +2093,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -2149,7 +2149,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
@@ -2657,7 +2656,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
@@ -2769,6 +2767,7 @@ java_library(
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
@@ -2798,7 +2797,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],

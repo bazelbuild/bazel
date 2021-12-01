@@ -256,6 +256,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant-annotation",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/testing/common:directory_listing_helper",

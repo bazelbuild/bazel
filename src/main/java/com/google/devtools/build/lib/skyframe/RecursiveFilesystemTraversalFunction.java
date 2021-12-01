@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -72,7 +73,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   private static final byte[] MISSING_FINGERPRINT =
       new BigInteger(1, "NonexistentFileStateValue".getBytes(UTF_8)).toByteArray();
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final HasDigest NON_EXISTENT_HAS_DIGEST = () -> MISSING_FINGERPRINT;
 
   private static final FileInfo NON_EXISTENT_FILE_INFO =

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -28,7 +29,7 @@ import java.util.Objects;
  * the WORKSPACE file.
  */
 public class WorkspaceNameValue implements SkyValue {
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final SkyKey KEY = () -> SkyFunctions.WORKSPACE_NAME;
 
   private final String workspaceName;

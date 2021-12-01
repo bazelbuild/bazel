@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
 /** {@link SkyFunction} that returns all registered execution platforms available. */
 public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
-  @AutoCodec
+  @SerializationConstant
   static final FilteringPolicy HAS_PLATFORM_INFO =
       (Target target, boolean explicit) -> explicit || PlatformLookupUtil.hasPlatformInfo(target);
 
