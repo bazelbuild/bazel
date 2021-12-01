@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -504,28 +505,18 @@ public final class SandboxModule extends BlazeModule {
     public boolean canExecWithLegacyFallback(Spawn spawn) {
       boolean canExec = !sandboxSpawnRunner.canExec(spawn) && fallbackSpawnRunner.canExec(spawn);
       if (canExec) {
-        // We give a single warning to use strategies instead, whether or not we allow the fallback
+        // We give a warning to use strategies instead, whether or not we allow the fallback
         // to happen. This allows people to switch early, but also explains why the build fails
         // once we flip the flag. Unfortunately, we can't easily tell if the flag was explicitly
         // set, if we could we should omit the warnings in that case.
         if (warningEmitted.compareAndSet(false, true)) {
-          if (fallbackAllowed) {
-            reporter.handle(
-                Event.warn(
-                    String.format(
-                        "%s uses implicit fallback from sandbox to local, which is deprecated"
-                            + " because it is not hermetic. Prefer setting an explicit list of"
-                            + " strategies.",
-                        spawn.getMnemonic())));
-          } else {
-            reporter.handle(
-                Event.warn(
-                    String.format(
-                        "Implicit fallback from sandbox to local is deprecated. Prefer setting an"
-                            + " explicit list of strategies for %s, or for now pass"
-                            + " --incompatible_legacy_local_fallback.",
-                        spawn.getMnemonic())));
-          }
+          reporter.handle(
+              Event.warn(
+                  String.format(
+                      "%s uses implicit fallback from sandbox to local, which is deprecated"
+                          + " because it is not hermetic. Prefer setting an explicit list of"
+                          + " strategies, e.g., --strategy=%s=sandbox,standalone",
+                      spawn.getMnemonic(), spawn.getMnemonic())));
         }
       }
       return canExec && fallbackAllowed;
