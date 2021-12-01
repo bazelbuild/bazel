@@ -148,6 +148,8 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
             target_file = input,
             progress_message = "Symlinking original binary as stripped binary",
         )
+        return
+
     if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
         fail("Expected action_config for 'strip' to be configured.")
 
@@ -1030,7 +1032,6 @@ cc_binary_attrs = {
         # TODO(b/198254254): Add aspects. in progress
         aspects = [],
     ),
-    "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_default_malloc": attr.label(
         # TODO(b/198254254): Add default value. in progress
         default = configuration_field(fragment = "cpp", name = "custom_malloc"),
@@ -1044,9 +1045,7 @@ cc_binary_attrs = {
     "data": attr.label_list(
         allow_files = True,
     ),
-    "args": attr.string_list(),
     "env": attr.string_dict(),
-    "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "distribs": attr.string_list(),
     "_is_test": attr.bool(default = False),
     "_grep_includes": attr.label(
@@ -1075,5 +1074,9 @@ cc_binary = rule(
     exec_groups = {
         "cpp_link": exec_group(copy_from_rule = True),
     },
+    toolchains = [
+        "@//tools/cpp:toolchain_type",
+    ],
     incompatible_use_toolchain_transition = True,
+    executable = True,
 )

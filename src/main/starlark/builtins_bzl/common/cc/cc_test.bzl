@@ -20,9 +20,6 @@ testing = _builtins.toplevel.testing
 
 _cc_test_attrs = dict(cc_binary_attrs)
 
-# Test rules define "args" automatically.
-_ = _cc_test_attrs.pop("args")
-
 # Update other cc_test defaults:
 _cc_test_attrs.update(
     _is_test = attr.bool(default = True),
@@ -54,6 +51,9 @@ cc_test = rule(
     exec_groups = {
         "cpp_link": exec_group(copy_from_rule = True),
     },
+    toolchains = [
+        "@//tools/cpp:toolchain_type",
+    ],
     incompatible_use_toolchain_transition = True,
     test = True,
 )
