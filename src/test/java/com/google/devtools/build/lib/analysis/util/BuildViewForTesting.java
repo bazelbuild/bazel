@@ -217,6 +217,7 @@ public class BuildViewForTesting {
         /*checkForActionConflicts=*/ true,
         loadingPhaseThreads,
         topLevelOptions,
+        /*reportIncompatibleTargets=*/ true,
         eventHandler,
         eventBus,
         /*includeExecutionPhase=*/ false,

@@ -975,18 +975,34 @@ function test_cquery_with_glob() {
   expect_log '^//target_skipping:genrule_foo1 '
 }
 
-# Run a cquery on an incompatible target. This should fail.
+# Run a cquery on an incompatible target. This should also pass. Incompatibility
+# is more important for builds, where users want meaningful output. For queries,
+# understanding target and dependency relationships is more important than
+# erroring on unbuildable targets.
 function test_cquery_incompatible_target() {
-  write_query_test_targets
-  cd target_skipping || fail "couldn't cd into workspace"
+  mkdir -p target_skipping
+  cat >> target_skipping/BUILD <<EOF
+sh_test(
+    name = "depender",
+    srcs = ["depender.sh"],
+    data = [":never_compatible"],
+    target_compatible_with = [":foo3"],
+)
+sh_binary(
+    name = "never_compatible",
+    srcs = [":never_used.sh"],
+    target_compatible_with = [":not_compatible"],
+)
+EOF
 
   bazel cquery \
-    --host_platform=@//target_skipping:foo3_platform \
     --platforms=@//target_skipping:foo3_platform \
-    'deps(//target_skipping:sh_foo1)' &> "${TEST_log}" \
-    && fail "Bazel cquery passed unexpectedly."
-  expect_log 'Target //target_skipping:sh_foo1 is incompatible and cannot be built, but was explicitly requested'
-  expect_log "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
+    'somepath(//target_skipping:depender, //target_skipping:never_compatible)' \
+    &> "${TEST_log}" \
+    || fail "Bazel cquery failed unexpectedly."
+  expect_log 'INFO: Found 2 targets'
+  expect_log '//target_skipping:depender (.*)'
+  expect_log "//target_skipping:never_compatible (.*)"
 }
 
 # Runs a cquery and makes sure that we can properly distinguish between
