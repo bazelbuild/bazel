@@ -42,7 +42,10 @@ public final class SkyFunctions {
   public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
-  public static final SkyFunctionName BZL_LOAD = SkyFunctionName.createHermetic("BZL_LOAD");
+  // Never shareable - we don't guarantee that all constructs implement equality, meaning we can't
+  // correctly compare deserialized instances. This is currently the case for attribute descriptors.
+  public static final SkyFunctionName BZL_LOAD =
+      SkyFunctionName.create("BZL_LOAD", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
