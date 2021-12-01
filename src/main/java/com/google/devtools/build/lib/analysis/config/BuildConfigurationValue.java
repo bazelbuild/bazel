@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
@@ -758,6 +759,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.autoCpuEnvironmentGroup;
   }
 
+  @Nullable
   public Class<? extends Fragment> getStarlarkFragmentByName(String name) {
     return starlarkVisibleFragments.get(name);
   }
