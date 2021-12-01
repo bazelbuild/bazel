@@ -1569,6 +1569,7 @@ public class RemoteSpawnRunnerTest {
       @Nullable RemoteExecutionClient executor,
       ImmutableSet<ActionInput> topLevelOutputs,
       RemotePathResolver remotePathResolver) {
+    remoteOptions.remoteExecutor = "mock";
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
