@@ -117,12 +117,8 @@ def _compile_action(
     runtime_deps_javainfo.extend([JavaInfo(jar, None) for jar in extra_runtime_jars])
     exports_javainfo = _filter_javainfo_and_legacy_jars(exports)
 
-    if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY:
-        output = ctx.actions.declare_file(output_prefix + "%s.jar" % ctx.attr.name)
-        output_source_jar = ctx.actions.declare_file(output_prefix + "%s-src.jar" % ctx.attr.name)
-    else:
-        output = ctx.outputs.classjar
-        output_source_jar = ctx.outputs.sourcejar
+    output = ctx.outputs.classjar
+    output_source_jar = ctx.outputs.sourcejar
 
     java_info = java_common.compile(
         ctx,
