@@ -75,6 +75,7 @@ def _collect_plugins(deps, plugins):
 def _compile_action(
         ctx,
         extra_resources,
+        classpath_resources,
         source_files,
         source_jars,
         output_prefix,
@@ -128,6 +129,7 @@ def _compile_action(
         source_files = source_files,
         source_jars = source_jars,
         resources = resources,
+        classpath_resources = classpath_resources,
         plugins = plugins,
         deps = deps_javainfo,
         native_libraries = _filter_provider(CcInfo, deps, runtime_deps, exports),

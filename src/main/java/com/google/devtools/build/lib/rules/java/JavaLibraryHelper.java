@@ -46,6 +46,7 @@ public final class JavaLibraryHelper {
   private final List<Artifact> sourceJars = new ArrayList<>();
   private final List<Artifact> sourceFiles = new ArrayList<>();
   private final List<Artifact> resources = new ArrayList<>();
+  private final List<Artifact> classpathResources = new ArrayList<>();
 
   /**
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
@@ -109,6 +110,11 @@ public final class JavaLibraryHelper {
 
   public JavaLibraryHelper addResources(Iterable<Artifact> resources) {
     Iterables.addAll(this.resources, resources);
+    return this;
+  }
+
+  public JavaLibraryHelper addClasspathResources(Iterable<Artifact> resources) {
+    Iterables.addAll(this.classpathResources, resources);
     return this;
   }
 
@@ -235,6 +241,7 @@ public final class JavaLibraryHelper {
     attributes.addSourceJars(sourceJars);
     attributes.addSourceFiles(sourceFiles);
     addDepsToAttributes(attributes);
+    attributes.addClassPathResources(classpathResources);
     attributes.setStrictJavaDeps(strictDepsMode);
     attributes.setTargetLabel(ruleContext.getLabel());
     attributes.setInjectingRuleKind(injectingRuleKind);
