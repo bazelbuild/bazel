@@ -364,10 +364,8 @@ public class RemoteExecutionService {
       } else {
         return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
       }
-    } else if (useDiskCache(remoteOptions)) {
-      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
     } else {
-      return false;
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
     }
   }
 
@@ -376,6 +374,10 @@ public class RemoteExecutionService {
    * cache.
    */
   public boolean shouldUploadLocalResults(Spawn spawn) {
+    if (remoteCache == null) {
+      return false;
+    }
+
     return shouldUploadLocalResults(remoteOptions, spawn.getExecutionInfo());
   }
 

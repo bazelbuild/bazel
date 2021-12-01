@@ -207,7 +207,6 @@ public class RemoteSpawnCacheTest {
 
   private RemoteSpawnCache createRemoteSpawnCache() {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "mock";
     return remoteSpawnCacheWithOptions(remoteOptions);
   }
 

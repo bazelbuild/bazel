@@ -1585,7 +1585,6 @@ public class RemoteExecutionServiceTest {
 
   private RemoteExecutionService newRemoteExecutionService(
       RemoteOptions remoteOptions, Collection<? extends ActionInput> topLevelOutputs) {
-    remoteOptions.remoteExecutor = "mock";
     return new RemoteExecutionService(
         directExecutor(),
         reporter,
