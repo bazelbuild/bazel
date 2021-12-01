@@ -341,7 +341,7 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
     link_shared = _is_link_shared(ctx)
     if not link_shared:
         malloc = _malloc_for_target(ctx, cpp_config)
-        runfiles_default = builder.merge(_default_runfiles_function(ctx, malloc))
+        builder = builder.merge(_default_runfiles_function(ctx, malloc))
         builder = builder.merge(ctx.runfiles(transitive_files = _runfiles_function(ctx, malloc, linking_mode != _LINKING_DYNAMIC)))
     return (builder.merge(ctx.runfiles(files = builder_artifacts, transitive_files = depset(builder_transitive_artifacts))), runtime_objects_for_coverage)
 
@@ -718,6 +718,12 @@ def cc_binary_impl(ctx):
         unsupported_features = disabled_features,
     )
     compilation_context_deps = [dep[CcInfo].compilation_context for dep in ctx.attr.deps if CcInfo in dep]
+    target_malloc = _malloc_for_target(ctx, cpp_config)
+    malloc_dep = None
+    if CcInfo in target_malloc:
+        malloc_dep = target_malloc[CcInfo].compilation_context
+    if malloc_dep != None:
+        compilation_context_deps.append(malloc_dep)
     stl_compilation_context = [ctx.attr._stl[CcInfo].compilation_context]
     (compilation_context, compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
