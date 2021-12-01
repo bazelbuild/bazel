@@ -149,7 +149,7 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
             progress_message = "Symlinking original binary as stripped binary",
         )
     if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
-        fail("Expected action_config for 'strip' to be configured")
+        fail("Expected action_config for 'strip' to be configured.")
 
     variables = cc_common.create_compile_variables(
         cc_toolchain = cc_toolchain,
@@ -661,6 +661,7 @@ def cc_binary_impl(ctx):
     Returns:
       Appropriate providers for cc_binary/cc_test.
     """
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary")
     common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 
@@ -963,48 +964,25 @@ def cc_binary_impl(ctx):
         result.append(cc_launcher_info)
     return result
 
+ALLOWED_SRC_FILES = []
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_SOURCE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.C_SOURCE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_HEADER)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ASSESMBLER_WITH_C_PREPROCESSOR)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ASSEMBLER)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ARCHIVE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_ARCHIVE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ALWAYSLINK_LIBRARY)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ALWAYSLINK_PIC_LIBRARY)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.SHARED_LIBRARY)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.OBJECT_FILE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_OBJECT_FILE)
+
 # Intended only to be used by cc_test. Do not import.
 cc_binary_attrs = {
     "srcs": attr.label_list(
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
-        # TODO(b/198254254): Versioned library? in progress
-        allow_files = [
-            ".cc",
-            ".cpp",
-            ".cxx",
-            ".c++",
-            ".C",
-            ".cu",
-            ".cl",
-            ".c",
-            ".h",
-            ".hh",
-            ".hpp",
-            ".ipp",
-            ".hxx",
-            ".h++",
-            ".inc",
-            ".inl",
-            ".tlh",
-            ".tli",
-            ".H",
-            ".tcc",
-            ".S",
-            ".s",
-            ".pic.s",
-            ".a",
-            ".lib",
-            ".pic.a",
-            ".lo",
-            ".lo.lib",
-            ".pic.lo",
-            ".so",
-            ".dylib",
-            ".dll",
-            ".o",
-            ".obj",
-            ".pic.o",
-        ],
+        allow_files = True,
     ),
     "win_def_file": attr.label(
         allow_files = [".def"],
