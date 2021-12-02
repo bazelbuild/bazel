@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -126,16 +127,21 @@ final class HeaderDiscovery {
     IncludeProblems problems = new IncludeProblems();
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
+
       if (execPathFragment.isAbsolute()) {
         // Absolute includes from system paths are ignored.
         if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
           continue;
         }
+        Root sourceFileRoot = sourceFile.getRoot().getRoot();
         // Since gcc is given only relative paths on the command line, non-system include paths here
         // should never be absolute. If they are, it's probably due to a non-hermetic #include, and
         // we should stop the build with an error.
         if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
+        } else if (sourceFileRoot.contains(execPath)) {
+          // the dependent path and the source file live in the same repo, therefore tolerable
+          execPathFragment = sourceFileRoot.relativize(execPath);
         } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
           // for --experimental_sibling_repository_layout
           execPathFragment =
