@@ -317,7 +317,7 @@ public final class ActionsTestUtil {
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
    * requested keys, blocking until the values are ready.
    */
-  private static class BlockingSkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
+  private static final class BlockingSkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     private final BuildDriver driver;
     private final EventHandler eventHandler;
 
@@ -372,6 +372,11 @@ public final class ActionsTestUtil {
     @Override
     public ExtendedEventHandler getListener() {
       return null;
+    }
+
+    @Override
+    public void registerDependencies(Iterable<SkyKey> keys) {
+      throw new UnsupportedOperationException();
     }
 
     @Override

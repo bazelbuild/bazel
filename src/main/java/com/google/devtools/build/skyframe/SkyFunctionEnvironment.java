@@ -18,7 +18,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -53,7 +52,7 @@ import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
-class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
+final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final SkyValue NULL_MARKER = new SkyValue() {};
 
@@ -75,7 +74,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private SkyValue value = null;
   private ErrorInfo errorInfo = null;
 
-  private final FunctionHermeticity hermeticity;
   @Nullable private Version maxChildVersion = null;
 
   /** If present, takes precedence over {@link #maxChildVersion}. */
@@ -168,7 +166,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.oldDeps = oldDeps;
     this.evaluatorContext = evaluatorContext;
     this.bubbleErrorInfo = null;
-    this.hermeticity = skyKey.functionName().getHermeticity();
     this.previouslyRequestedDepsValues =
         batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ true);
     Preconditions.checkState(
@@ -189,7 +186,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.oldDeps = oldDeps;
     this.evaluatorContext = evaluatorContext;
     this.bubbleErrorInfo = Preconditions.checkNotNull(bubbleErrorInfo);
-    this.hermeticity = skyKey.functionName().getHermeticity();
     try {
       this.previouslyRequestedDepsValues =
           batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ false);
@@ -559,11 +555,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     if (directDepsValue != null) {
       return directDepsValue;
     }
-    SkyValue newlyRequestedDepsValue = newlyRequestedDepsValues.get(key);
-    if (newlyRequestedDepsValue != null) {
-      return newlyRequestedDepsValue;
-    }
-    return null;
+    return newlyRequestedDepsValues.get(key);
   }
 
   private static SkyValue getValueOrNullMarker(@Nullable NodeEntry nodeEntry)
@@ -841,7 +833,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       evaluationVersion = injectedVersion;
     } else if (evaluatorContext.getEvaluationVersionBehavior()
             == EvaluationVersionBehavior.GRAPH_VERSION
-        || hermeticity == FunctionHermeticity.NONHERMETIC) {
+        || skyKey.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC) {
       evaluationVersion = evaluatorContext.getGraphVersion();
     } else if (evaluationVersion == null) {
       Preconditions.checkState(
@@ -901,23 +893,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   @Override
-  public void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
-    if (EvaluationVersionBehavior.MAX_CHILD_VERSIONS.equals(
-        evaluatorContext.getEvaluationVersionBehavior())) {
-      // Need versions when doing MAX_CHILD_VERSIONS, so can't use optimization. To use the
-      // optimization, the caller would have to know the versions of the passed-in keys. Extensions
-      // of the SkyFunction.Environment interface to make that possible could happen.
-      Map<SkyKey, SkyValue> checkSizeMap = getValues(keys);
-      ImmutableSet<SkyKey> keysSet = ImmutableSet.copyOf(keys);
-      if (checkSizeMap.size() != keysSet.size()) {
-        throw new IllegalStateException(
-            "Missing keys when checking dependencies for "
-                + skyKey
-                + ": "
-                + Sets.difference(keysSet, checkSizeMap.keySet()));
-      }
-      return;
-    }
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    Preconditions.checkState(
+        evaluatorContext.getEvaluationVersionBehavior() == EvaluationVersionBehavior.GRAPH_VERSION,
+        "Dependency registration not supported when tracking max child versions");
     newlyRequestedDeps.startGroup();
     for (SkyKey key : keys) {
       if (!previouslyRequestedDepsValues.containsKey(key)) {
@@ -930,12 +909,13 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   @Override
   public void injectVersionForNonHermeticFunction(Version version) {
-    Preconditions.checkState(hermeticity == FunctionHermeticity.NONHERMETIC, skyKey);
+    Preconditions.checkState(
+        skyKey.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC, skyKey);
     injectedVersion = version;
   }
 
   private void maybeUpdateMaxChildVersion(NodeEntry depEntry) {
-    if (hermeticity != FunctionHermeticity.NONHERMETIC
+    if (skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
         && evaluatorContext.getEvaluationVersionBehavior()
             == EvaluationVersionBehavior.MAX_CHILD_VERSIONS) {
       Version depVersion = depEntry.getVersion();
@@ -958,7 +938,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         .add("newlyRequestedDeps", newlyRequestedDeps)
         .add("childErrorInfos", childErrorInfos)
         .add("depErrorKey", depErrorKey)
-        .add("hermeticity", hermeticity)
         .add("maxChildVersion", maxChildVersion)
         .add("injectedVersion", injectedVersion)
         .add("bubbleErrorInfo", bubbleErrorInfo)

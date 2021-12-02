@@ -411,13 +411,9 @@ public interface SkyFunction {
      * doing.
      *
      * <p>If the {@link EvaluationVersionBehavior} is {@link
-     * EvaluationVersionBehavior#MAX_CHILD_VERSIONS} then this method may fall back to just doing a
-     * {@link #getValues} call internally. Thus, any graph evaluations that require this method to
-     * be performant <i>must</i> run with {@link EvaluationVersionBehavior#GRAPH_VERSION}.
+     * EvaluationVersionBehavior#MAX_CHILD_VERSIONS} then this method must not be called.
      */
-    default void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
-      getValues(keys);
-    }
+    void registerDependencies(Iterable<SkyKey> keys);
 
     /** Returns whether we are currently in error bubbling. */
     @VisibleForTesting

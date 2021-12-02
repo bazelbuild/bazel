@@ -32,7 +32,7 @@ import java.util.Map;
  * A {@link SkyFunction.Environment} backed by a {@link SkyframeExecutor} that can be used to
  * evaluate arbitrary {@link SkyKey}s for testing.
  */
-public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnvironment
+public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnvironment
     implements SkyFunction.Environment {
 
   private final ExtendedEventHandler eventHandler;
@@ -60,6 +60,11 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
   @Override
   public ExtendedEventHandler getListener() {
     return eventHandler;
+  }
+
+  @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    throw new UnsupportedOperationException();
   }
 
   @Override
