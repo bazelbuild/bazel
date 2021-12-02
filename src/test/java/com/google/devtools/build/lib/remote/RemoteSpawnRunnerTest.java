@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
@@ -1268,7 +1267,6 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
-    when(policy.getSpawnInputExpander()).thenReturn(mock(SpawnInputExpander.class));
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
     when(executor.executeRemotely(
@@ -1312,7 +1310,6 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
-    when(policy.getSpawnInputExpander()).thenReturn(mock(SpawnInputExpander.class));
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
     when(executor.executeRemotely(
@@ -1356,7 +1353,6 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
-    when(policy.getSpawnInputExpander()).thenReturn(mock(SpawnInputExpander.class));
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
     when(executor.executeRemotely(
@@ -1417,7 +1413,6 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
-    when(policy.getSpawnInputExpander()).thenReturn(mock(SpawnInputExpander.class));
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
     when(executor.executeRemotely(
@@ -1466,7 +1461,6 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
-    when(policy.getSpawnInputExpander()).thenReturn(mock(SpawnInputExpander.class));
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
     when(executor.executeRemotely(
@@ -1516,7 +1510,6 @@ public class RemoteSpawnRunnerTest {
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
-    when(policy.getSpawnInputExpander()).thenReturn(mock(SpawnInputExpander.class));
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
     when(executor.executeRemotely(

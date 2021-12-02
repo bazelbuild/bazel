@@ -143,7 +143,7 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public ArtifactExpander getArtifactExpander() {
-          return SIMPLE_ARTIFACT_EXPANDER;
+          throw new UnsupportedOperationException();
         }
 
         @Override
