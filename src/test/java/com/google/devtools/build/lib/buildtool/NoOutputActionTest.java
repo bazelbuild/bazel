@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,7 +32,6 @@ public class NoOutputActionTest extends BuildIntegrationTestCase {
 
   @Test
   public void testNoOutput() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     write("nooutput/BUILD",
           "genrule(name = 'nooutput', ",
           "        outs = ['out1', 'out2'],  ",

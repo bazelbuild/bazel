@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -32,7 +31,6 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
 
   @Test
   public void testCorruptionActionCacheErrorMessage() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     write("foo/BUILD",
           "genrule(name = 'foo', ",
           "        outs = ['out'],  ",
