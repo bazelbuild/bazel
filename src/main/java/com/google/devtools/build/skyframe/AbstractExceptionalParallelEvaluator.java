@@ -490,7 +490,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       SkyKey childErrorKey = errorKey;
       errorKey = parent;
       SkyFunctionEnvironment env =
-          new SkyFunctionEnvironment(
+          SkyFunctionEnvironment.createForError(
               parent,
               parentEntry.getTemporaryDirectDeps(),
               bubbleErrorInfo,
@@ -674,7 +674,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   }
 
   @Nullable
-  static SkyValue maybeGetValueFromError(
+  private static SkyValue maybeGetValueFromError(
       SkyKey key,
       @Nullable NodeEntry entry,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo)

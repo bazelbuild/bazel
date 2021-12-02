@@ -155,70 +155,80 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   private final ParallelEvaluatorContext evaluatorContext;
 
-  SkyFunctionEnvironment(
+  static SkyFunctionEnvironment create(
       SkyKey skyKey,
       GroupedList<SkyKey> directDeps,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
-    super(directDeps);
-    this.skyKey = skyKey;
-    this.oldDeps = oldDeps;
-    this.evaluatorContext = evaluatorContext;
-    this.bubbleErrorInfo = null;
-    this.previouslyRequestedDepsValues =
-        batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ true);
-    Preconditions.checkState(
-        !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
-        "%s cannot have a dep on ErrorTransienceValue during building",
-        skyKey);
+    return new SkyFunctionEnvironment(
+        skyKey,
+        directDeps,
+        /*bubbleErrorInfo=*/ null,
+        oldDeps,
+        evaluatorContext,
+        /*throwIfPreviouslyRequestedDepsUndone=*/ true);
   }
 
-  SkyFunctionEnvironment(
+  static SkyFunctionEnvironment createForError(
       SkyKey skyKey,
       GroupedList<SkyKey> directDeps,
       Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
-    super(directDeps);
-    this.skyKey = skyKey;
-    this.oldDeps = oldDeps;
-    this.evaluatorContext = evaluatorContext;
-    this.bubbleErrorInfo = Preconditions.checkNotNull(bubbleErrorInfo);
     try {
-      this.previouslyRequestedDepsValues =
-          batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ false);
+      return new SkyFunctionEnvironment(
+          skyKey,
+          directDeps,
+          Preconditions.checkNotNull(bubbleErrorInfo),
+          oldDeps,
+          evaluatorContext,
+          /*throwIfPreviouslyRequestedDepsUndone=*/ false);
     } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
-      throw new IllegalStateException(
-          "batchPrefetch can't throw UndonePreviouslyRequestedDeps unless assertDone is true",
-          undonePreviouslyRequestedDeps);
+      throw new IllegalStateException(undonePreviouslyRequestedDeps);
     }
+  }
+
+  private SkyFunctionEnvironment(
+      SkyKey skyKey,
+      GroupedList<SkyKey> directDeps,
+      @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
+      Set<SkyKey> oldDeps,
+      ParallelEvaluatorContext evaluatorContext,
+      boolean throwIfPreviouslyRequestedDepsUndone)
+      throws UndonePreviouslyRequestedDeps, InterruptedException {
+    super(directDeps);
+    this.skyKey = Preconditions.checkNotNull(skyKey);
+    this.bubbleErrorInfo = bubbleErrorInfo;
+    this.oldDeps = Preconditions.checkNotNull(oldDeps);
+    this.evaluatorContext = Preconditions.checkNotNull(evaluatorContext);
+    this.previouslyRequestedDepsValues = batchPrefetch(throwIfPreviouslyRequestedDepsUndone);
     Preconditions.checkState(
         !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
         "%s cannot have a dep on ErrorTransienceValue during building",
         skyKey);
   }
 
-  private ImmutableMap<SkyKey, SkyValue> batchPrefetch(
-      SkyKey requestor, GroupedList<SkyKey> depKeys, Set<SkyKey> oldDeps, boolean assertDone)
+  private ImmutableMap<SkyKey, SkyValue> batchPrefetch(boolean throwIfPreviouslyRequestedDepsUndone)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
+    GroupedList<SkyKey> previouslyRequestedDeps = getTemporaryDirectDeps();
     QueryableGraph.PrefetchDepsRequest prefetchDepsRequest =
-        new QueryableGraph.PrefetchDepsRequest(requestor, oldDeps, depKeys);
+        new QueryableGraph.PrefetchDepsRequest(skyKey, oldDeps, previouslyRequestedDeps);
     evaluatorContext.getGraph().prefetchDeps(prefetchDepsRequest);
     Map<SkyKey, ? extends NodeEntry> batchMap =
         evaluatorContext.getBatchValues(
-            requestor,
+            skyKey,
             Reason.PREFETCH,
             prefetchDepsRequest.excludedKeys != null
                 ? prefetchDepsRequest.excludedKeys
-                : depKeys.getAllElementsAsIterable());
-    if (batchMap.size() != depKeys.numElements()) {
-      Set<SkyKey> difference = Sets.difference(depKeys.toSet(), batchMap.keySet());
+                : previouslyRequestedDeps.getAllElementsAsIterable());
+    if (batchMap.size() != previouslyRequestedDeps.numElements()) {
+      Set<SkyKey> difference = Sets.difference(previouslyRequestedDeps.toSet(), batchMap.keySet());
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
-              requestor, difference, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+              skyKey, difference, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
       throw new UndonePreviouslyRequestedDeps(ImmutableList.copyOf(difference));
     }
     ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
@@ -226,7 +236,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     for (Entry<SkyKey, ? extends NodeEntry> entry : batchMap.entrySet()) {
       SkyValue valueMaybeWithMetadata = entry.getValue().getValueMaybeWithMetadata();
       boolean depDone = valueMaybeWithMetadata != null;
-      if (assertDone && !depDone) {
+      if (throwIfPreviouslyRequestedDepsUndone && !depDone) {
         // A previously requested dep may have transitioned from done to dirty between when the node
         // was read during a previous attempt to build this node and now. Notify the graph
         // inconsistency receiver so that we can crash if that's unexpected.
