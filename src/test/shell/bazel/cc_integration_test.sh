@@ -505,8 +505,14 @@ EOF
 
 using namespace std;
 
+#ifdef __APPLE__
+#define DYNAMIC_LIB_EXT "dylib"
+#else
+#define DYNAMIC_LIB_EXT "so"
+#endif
+
 int main() {
-  void* handle = dlopen("libf.so", RTLD_LAZY);
+  void* handle = dlopen("libf." DYNAMIC_LIB_EXT, RTLD_LAZY);
 
   typedef string (*f_t)();
 
