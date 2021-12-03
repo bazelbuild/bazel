@@ -59,12 +59,6 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
   }
 
   @Override
-  public void setupOptions() throws Exception {
-    super.setupOptions();
-    // addOptions("--nouse_action_cache");
-  }
-
-  @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(
