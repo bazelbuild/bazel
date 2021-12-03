@@ -83,7 +83,7 @@ cc_toolchain_suite(
 [
     cc_toolchain_config(
         name = arch,
-        compiler = "compiler",
+        compiler = "clang",
         cpu = arch,
         cxx_builtin_include_directories = [
 %{cxx_builtin_include_directories}
