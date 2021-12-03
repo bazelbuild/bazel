@@ -21,7 +21,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ModifiedFileSet}. */
 @RunWith(JUnit4.class)
-public class ModifiedFileSetTest {
+public final class ModifiedFileSetTest {
 
   @Test
   public void testHashCodeAndEqualsContract() throws Exception {
@@ -40,12 +40,25 @@ public class ModifiedFileSetTest {
     ModifiedFileSet nonEmpty3 = ModifiedFileSet.builder().modify(fragA).modify(fragB).build();
     ModifiedFileSet nonEmpty4 = ModifiedFileSet.builder().modify(fragB).modify(fragA).build();
 
-    ModifiedFileSet everythingModified = ModifiedFileSet.EVERYTHING_MODIFIED;
+    ModifiedFileSet nonEmptySkipsAncestorDirectories1 =
+        ModifiedFileSet.builder()
+            .modify(fragA)
+            .modify(fragB)
+            .setIncludesAncestorDirectories(false)
+            .build();
+    ModifiedFileSet nonEmptySkipsAncestorDirectories2 =
+        ModifiedFileSet.builder()
+            .modify(fragB)
+            .modify(fragA)
+            .setIncludesAncestorDirectories(false)
+            .build();
 
     new EqualsTester()
         .addEqualityGroup(empty1, empty2, empty3)
         .addEqualityGroup(nonEmpty1, nonEmpty2, nonEmpty3, nonEmpty4)
-        .addEqualityGroup(everythingModified)
+        .addEqualityGroup(nonEmptySkipsAncestorDirectories1, nonEmptySkipsAncestorDirectories2)
+        .addEqualityGroup(ModifiedFileSet.EVERYTHING_MODIFIED)
+        .addEqualityGroup(ModifiedFileSet.EVERYTHING_DELETED)
         .testEquals();
   }
 }

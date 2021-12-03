@@ -23,13 +23,26 @@ import javax.annotation.Nullable;
  * information about some specific subset of files. {@link #EVERYTHING_MODIFIED} can be used to
  * indicate that all files of interest have been modified.
  */
-public final class ModifiedFileSet {
+public class ModifiedFileSet {
 
   // When everything is modified that naturally includes all directories.
   public static final ModifiedFileSet EVERYTHING_MODIFIED =
       new ModifiedFileSet(null, /*includesAncestorDirectories=*/ true);
+
+  /**
+   * Special case of {@link #EVERYTHING_MODIFIED}, which indicates that the entire tree has been
+   * deleted.
+   */
+  public static final ModifiedFileSet EVERYTHING_DELETED =
+      new ModifiedFileSet(null, /*includesAncestorDirectories=*/ true) {
+        @Override
+        public boolean treatEverythingAsDeleted() {
+          return true;
+        }
+      };
+
   public static final ModifiedFileSet NOTHING_MODIFIED =
-      new ModifiedFileSet(ImmutableSet.<PathFragment>of(), /*includesAncestorDirectories=*/ true);
+      new ModifiedFileSet(ImmutableSet.of(), /*includesAncestorDirectories=*/ true);
 
   @Nullable private final ImmutableSet<PathFragment> modified;
   private final boolean includesAncestorDirectories;
@@ -39,6 +52,16 @@ public final class ModifiedFileSet {
    */
   public boolean treatEverythingAsModified() {
     return modified == null;
+  }
+
+  /**
+   * Returns whether the diff indicates the whole tree has been deleted.
+   *
+   * <p>This precludes any optimizations like skipping invalidation when we do not check modified
+   * outputs.
+   */
+  public boolean treatEverythingAsDeleted() {
+    return false;
   }
 
   /**
@@ -70,17 +93,24 @@ public final class ModifiedFileSet {
       return false;
     }
     ModifiedFileSet other = (ModifiedFileSet) o;
-    return Objects.equals(modified, other.modified);
+    return treatEverythingAsModified() == other.treatEverythingAsModified()
+        && treatEverythingAsDeleted() == other.treatEverythingAsDeleted()
+        && includesAncestorDirectories == other.includesAncestorDirectories
+        && Objects.equals(modified, other.modified);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(modified);
+    return 31 * 31 * Objects.hashCode(modified)
+        + 31 * Boolean.hashCode(treatEverythingAsModified())
+        + Boolean.hashCode(treatEverythingAsDeleted());
   }
 
   @Override
   public String toString() {
-    if (this.equals(EVERYTHING_MODIFIED)) {
+    if (this.equals(EVERYTHING_DELETED)) {
+      return "EVERYTHING_DELETED";
+    } else if (this.equals(EVERYTHING_MODIFIED)) {
       return "EVERYTHING_MODIFIED";
     } else if (this.equals(NOTHING_MODIFIED)) {
       return "NOTHING_MODIFIED";

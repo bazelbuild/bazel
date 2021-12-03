@@ -115,7 +115,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
   private Path pkgRoot;
 
   @Before
-  public final void setUp() throws Exception  {
+  public void setUp() throws Exception {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
 
     pkgRoot = fs.getPath("/testroot");
@@ -475,6 +475,15 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
+                    ModifiedFileSet.EVERYTHING_DELETED,
+                    /* trustRemoteArtifacts= */ false))
+        .containsExactly(actionKey);
+    assertThat(
+            new FilesystemValueChecker(
+                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    batchStatter,
                     new ModifiedFileSet.Builder().modify(file.getExecPath()).build(),
                     /* trustRemoteArtifacts= */ false))
         .containsExactly(actionKey);
@@ -500,11 +509,34 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         .isEmpty();
   }
 
+  enum ModifiedSetReporting {
+    EVERYTHING_MODIFIED {
+      @Override
+      ModifiedFileSet getModifiedFileSet(PathFragment path) {
+        return ModifiedFileSet.EVERYTHING_MODIFIED;
+      }
+    },
+    EVERYTHING_DELETED {
+      @Override
+      ModifiedFileSet getModifiedFileSet(PathFragment path) {
+        return ModifiedFileSet.EVERYTHING_DELETED;
+      }
+    },
+    SINGLE_PATH {
+      @Override
+      ModifiedFileSet getModifiedFileSet(PathFragment path) {
+        return ModifiedFileSet.builder().modify(path).build();
+      }
+    };
+
+    abstract ModifiedFileSet getModifiedFileSet(PathFragment path);
+  }
+
   @Test
   public void getDirtyActionValues_touchedTreeDirectory_returnsEmptyDiff(
       @TestParameter BatchStatMode batchStatMode,
       @TestParameter({"", "subdir"}) String touchedTreePath,
-      @TestParameter boolean everythingModified)
+      @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "subdir/file");
@@ -521,16 +553,14 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatMode.getBatchStat(fs),
-                    everythingModified
-                        ? ModifiedFileSet.EVERYTHING_MODIFIED
-                        : ModifiedFileSet.builder().modify(tree.getExecPath()).build(),
+                    modifiedSet.getModifiedFileSet(tree.getExecPath()),
                     /*trustRemoteArtifacts=*/ false))
         .isEmpty();
   }
 
   @Test
   public void getDirtyActionValues_deleteEmptyTreeDirectory_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     tree.getPath().createDirectoryAndParents();
@@ -546,9 +576,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatMode.getBatchStat(fs),
-                    everythingModified
-                        ? ModifiedFileSet.EVERYTHING_MODIFIED
-                        : ModifiedFileSet.builder().modify(tree.getExecPath()).build(),
+                    modifiedSet.getModifiedFileSet(tree.getExecPath()),
                     /*trustRemoteArtifacts=*/ false))
         .containsExactly(actionKey);
   }
@@ -581,7 +609,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
 
   @Test
   public void getDirtyActionValues_modifiedTreeFile_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
@@ -598,16 +626,14 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatMode.getBatchStat(fs),
-                    everythingModified
-                        ? ModifiedFileSet.EVERYTHING_MODIFIED
-                        : ModifiedFileSet.builder().modify(treeFile.getExecPath()).build(),
+                    modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
                     /*trustRemoteArtifacts=*/ false))
         .containsExactly(actionKey);
   }
 
   @Test
   public void getDirtyActionValues_addedTreeFile_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file1");
@@ -625,16 +651,14 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatMode.getBatchStat(fs),
-                    everythingModified
-                        ? ModifiedFileSet.EVERYTHING_MODIFIED
-                        : ModifiedFileSet.builder().modify(newFile.getExecPath()).build(),
+                    modifiedSet.getModifiedFileSet(newFile.getExecPath()),
                     /*trustRemoteArtifacts=*/ false))
         .containsExactly(actionKey);
   }
 
   @Test
   public void getDirtyActionValues_addedTreeFileToEmptyTree_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     tree.getPath().createDirectoryAndParents();
@@ -651,16 +675,14 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatMode.getBatchStat(fs),
-                    everythingModified
-                        ? ModifiedFileSet.EVERYTHING_MODIFIED
-                        : ModifiedFileSet.builder().modify(newFile.getExecPath()).build(),
+                    modifiedSet.getModifiedFileSet(newFile.getExecPath()),
                     /*trustRemoteArtifacts=*/ false))
         .containsExactly(actionKey);
   }
 
   @Test
   public void getDirtyActionValues_deletedTreeFile_returnsTreeKey(
-      @TestParameter BatchStatMode batchStatMode, @TestParameter boolean everythingModified)
+      @TestParameter BatchStatMode batchStatMode, @TestParameter ModifiedSetReporting modifiedSet)
       throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
@@ -677,9 +699,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatMode.getBatchStat(fs),
-                    everythingModified
-                        ? ModifiedFileSet.EVERYTHING_MODIFIED
-                        : ModifiedFileSet.builder().modify(treeFile.getExecPath()).build(),
+                    modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
                     /*trustRemoteArtifacts=*/ false))
         .containsExactly(actionKey);
   }

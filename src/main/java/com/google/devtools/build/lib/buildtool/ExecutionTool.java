@@ -888,6 +888,9 @@ public class ExecutionTool {
                 .build()),
         env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
+                // Do not skip invalidation in case the output tree is empty -- this can happen
+                // after it's cleaned or corrupted.
+                || modifiedOutputFiles.treatEverythingAsDeleted()
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),
