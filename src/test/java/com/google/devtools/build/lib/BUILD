@@ -28,6 +28,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/test/java/com/google/devtools/build/lib/events:srcs",
         "//src/test/java/com/google/devtools/build/lib/exec:srcs",
+        "//src/test/java/com/google/devtools/build/lib/generatedprojecttest:srcs",
         "//src/test/java/com/google/devtools/build/lib/generatedprojecttest/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/graph:srcs",
         "//src/test/java/com/google/devtools/build/lib/io:srcs",
