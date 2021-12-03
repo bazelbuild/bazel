@@ -78,3 +78,11 @@ function count_remote_ac_files() {
     echo 0
   fi
 }
+
+function count_remote_cas_files() {
+  if [ -d "$cas_path/cas" ]; then
+    expr $(find "$cas_path/cas" -type f | wc -l)
+  else
+    echo 0
+  fi
+}
