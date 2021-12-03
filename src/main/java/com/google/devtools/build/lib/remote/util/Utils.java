@@ -599,7 +599,8 @@ public final class Utils {
   public static boolean shouldUploadLocalResultsToRemoteCache(
       RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
-        && (executionInfo == null || Spawns.mayBeCachedRemotely(executionInfo));
+        && (executionInfo == null || (Spawns.mayBeCachedRemotely(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD)));
   }
 
   public static boolean shouldUploadLocalResultsToRemoteCache(
@@ -635,11 +636,10 @@ public final class Utils {
     if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
       // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
       // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.
-      return executionInfo == null || Spawns.mayBeCached(executionInfo);
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
     } else {
       // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
-      return remoteOptions.remoteUploadLocalResults
-          && (executionInfo == null || Spawns.mayBeCachedRemotely(executionInfo));
+      return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
     }
   }
 

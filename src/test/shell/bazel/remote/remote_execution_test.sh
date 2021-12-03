@@ -1900,6 +1900,42 @@ EOF
   expect_not_log "remote cache hit"
 }
 
+function test_tag_no_remote_cache_upload() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --modify_execution_info=.*=+no-remote-cache-upload \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  remote_ac_files="$(count_remote_ac_files)"
+  [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+
+  # populate the cache
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --modify_execution_info=.*=+no-remote-cache-upload \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "remote cache hit"
+}
+
 function test_tag_no_remote_cache_for_disk_cache() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
