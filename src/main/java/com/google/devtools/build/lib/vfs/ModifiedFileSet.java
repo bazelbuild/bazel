@@ -101,9 +101,7 @@ public class ModifiedFileSet {
 
   @Override
   public int hashCode() {
-    return 31 * 31 * Objects.hashCode(modified)
-        + 31 * Boolean.hashCode(treatEverythingAsModified())
-        + Boolean.hashCode(treatEverythingAsDeleted());
+    return 31 * Objects.hashCode(modified) + Boolean.hashCode(treatEverythingAsDeleted());
   }
 
   @Override
