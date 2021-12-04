@@ -633,36 +633,12 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     if (!cycleRoots.isEmpty()) {
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
-    if (haveKeys && result.isEmpty()) {
-      Preconditions.checkState(
-          catastrophe && bubbleErrorInfo != null,
-          "No top-level keys were present but we did not have catastrophic error bubbling: %s %s %s"
-              + " %s",
-          skyKeys,
-          catastrophe,
-          bubbleErrorInfo,
-          cycleRoots);
-      boolean exceptionFound = false;
-      for (ValueWithMetadata valueWithMetadata :
-          ImmutableList.copyOf(bubbleErrorInfo.values()).reverse()) {
-        ErrorInfo errorInfo =
-            Preconditions.checkNotNull(
-                valueWithMetadata.getErrorInfo(),
-                "bubbleErrorInfo should have contained element with errorInfo: %s",
-                bubbleErrorInfo);
-        if (errorInfo.getException() != null) {
-          result.setCatastrophe(errorInfo.getException());
-          exceptionFound = true;
-          break;
-        }
-      }
-      Preconditions.checkState(
-          exceptionFound,
-          "Evaluation of %s terminated early with no exception (%s %s %s)",
-          skyKeys,
-          bubbleErrorInfo,
-          result);
-    }
+    Preconditions.checkState(
+        !result.isEmpty() || !haveKeys,
+        "No result for keys %s (%s %s)",
+        skyKeys,
+        bubbleErrorInfo,
+        catastrophe);
     EvaluationResult<T> builtResult = result.build();
     Preconditions.checkState(
         bubbleErrorInfo == null || builtResult.hasError(),
