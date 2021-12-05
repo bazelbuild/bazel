@@ -394,10 +394,11 @@ public interface SkyFunction {
     }
 
     /**
-     * Injects non-hermetic {@link Version} information for this environment.
+     * Injects non-hermetic {@link Version} information for the currently evaluating {@link SkyKey}.
      *
-     * <p>This may be called during the course of {@link SkyFunction#compute(SkyKey, Environment)}
-     * if the function discovers version information for the {@link SkyKey}.
+     * <p>This may be called during the course of {@link SkyFunction#compute} if the function
+     * determines that the currently evaluating key's source dependencies have not changed since the
+     * given {@code version}.
      *
      * <p>Environments that either do not need or wish to ignore non-hermetic version information
      * may keep the default no-op implementation.
@@ -410,8 +411,8 @@ public interface SkyFunction {
      * <p>WARNING: Dependencies here MUST be done! Only use this function if you know what you're
      * doing.
      *
-     * <p>If the {@link EvaluationVersionBehavior} is {@link
-     * EvaluationVersionBehavior#MAX_CHILD_VERSIONS} then this method must not be called.
+     * <p>If {@linkplain NodeEntry#getMaxTransitiveSourceVersion max transitive source versions} are
+     * being tracked, then this method must not be called.
      */
     void registerDependencies(Iterable<SkyKey> keys);
 

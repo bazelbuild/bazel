@@ -95,7 +95,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionJobsThreadPoolSize) {
     super(
@@ -111,7 +110,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
         cpuHeavySkyKeysThreadPoolSize,
         executionJobsThreadPoolSize);
   }
@@ -690,7 +688,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
       }
       prevEntry.markRebuilding();
-      prevEntry.setValue(value, version);
+      prevEntry.setValue(value, version, /*maxTransitiveSourceVersion=*/ null);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }

@@ -754,7 +754,7 @@ public final class InMemoryNodeEntryTest {
     entry.markRebuilding();
     addTemporaryDirectDep(entry, originalChild);
     entry.signalDep(ZERO_VERSION, originalChild);
-    entry.setValue(originalValue, version);
+    entry.setValue(originalValue, version, null);
     entry.addReverseDepAndCheckIfDone(key("parent1"));
     InMemoryNodeEntry clone1 = entry.cloneNodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent2"));
@@ -768,7 +768,7 @@ public final class InMemoryNodeEntryTest {
     addTemporaryDirectDep(clone2, newChild);
     clone2.signalDep(ONE_VERSION, newChild);
     clone2.markRebuilding();
-    clone2.setValue(updatedValue, version.next());
+    clone2.setValue(updatedValue, version.next(), null);
 
     assertThat(entry.getVersion()).isEqualTo(version);
     assertThat(clone1.getVersion()).isEqualTo(version);
@@ -812,7 +812,7 @@ public final class InMemoryNodeEntryTest {
         entry.signalDep(ZERO_VERSION, dep);
       }
     }
-    entry.setValue(new IntegerValue(42), IntVersion.of(42L));
+    entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
     int i = 0;
     GroupedList<SkyKey> entryGroupedDirectDeps =
         GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
@@ -832,7 +832,7 @@ public final class InMemoryNodeEntryTest {
     entry.markRebuilding();
     entry.addTemporaryDirectDeps(GroupedListHelper.create(dep));
     entry.signalDep(ZERO_VERSION, dep);
-    entry.setValue(new IntegerValue(1), ZERO_VERSION);
+    entry.setValue(new IntegerValue(1), ZERO_VERSION, null);
     assertThat(entry.hasAtLeastOneDep()).isTrue();
   }
 
@@ -844,7 +844,7 @@ public final class InMemoryNodeEntryTest {
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     entry.markRebuilding();
     entry.addTemporaryDirectDeps(new GroupedListHelper<>());
-    entry.setValue(new IntegerValue(1), ZERO_VERSION);
+    entry.setValue(new IntegerValue(1), ZERO_VERSION, null);
     assertThat(entry.hasAtLeastOneDep()).isFalse();
   }
 
@@ -853,7 +853,8 @@ public final class InMemoryNodeEntryTest {
       throws InterruptedException {
     return entry.setValue(
         ValueWithMetadata.normal(value, errorInfo, NO_EVENTS, NO_POSTS),
-        IntVersion.of(graphVersion));
+        IntVersion.of(graphVersion),
+        null);
   }
 
   private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -276,9 +278,11 @@ public class InMemoryNodeEntry implements NodeEntry {
    * version and the value.
    */
   @Override
-  public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
+  public synchronized Set<SkyKey> setValue(
+      SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
     Preconditions.checkState(isReady(), "Not ready (this=%s, value=%s)", this, value);
+    Version version = firstNonNull(maxTransitiveSourceVersion, graphVersion);
     Preconditions.checkState(
         this.lastChangedVersion.atMost(version) && this.lastEvaluatedVersion.atMost(version),
         "Bad version (this=%s, version=%s, value=%s)",
@@ -298,29 +302,6 @@ public class InMemoryNodeEntry implements NodeEntry {
       this.value = value;
     }
     return setStateFinishedAndReturnReverseDepsToSignal();
-  }
-
-  /** An exception indicating that the node's value changed but its version did not. */
-  public static final class ChangedValueAtSameVersionException extends IllegalStateException {
-    private final SkyValue newValue;
-
-    private ChangedValueAtSameVersionException(
-        Version lastChangedVersion,
-        Version newVersion,
-        SkyValue newValue,
-        InMemoryNodeEntry nodeEntry) {
-      super(
-          String.format(
-              "Changed value but with the same version? "
-                  + "lastChangedVersion: %s, newVersion: %s newValue: %s, nodeEntry: %s",
-              lastChangedVersion, newVersion, newValue, nodeEntry));
-      this.newValue = newValue;
-    }
-
-    /** Returns the value that this node changed to. */
-    public SkyValue getNewValue() {
-      return newValue;
-    }
   }
 
   @Override

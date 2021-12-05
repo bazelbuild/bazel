@@ -102,8 +102,7 @@ abstract class AbstractParallelEvaluator {
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
-      CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      CycleDetector cycleDetector) {
     this(
         graph,
         graphVersion,
@@ -117,7 +116,6 @@ abstract class AbstractParallelEvaluator {
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
         /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
         /*executionJobsThreadPoolSize=*/ 0);
   }
@@ -135,7 +133,6 @@ abstract class AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionJobsThreadPoolSize) {
     this.graph = graph;
@@ -158,7 +155,6 @@ abstract class AbstractParallelEvaluator {
             () ->
                 new NodeEntryVisitor(
                     quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
-            evaluationVersionBehavior,
             /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0);
   }
 

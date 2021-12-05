@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -74,10 +73,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private SkyValue value = null;
   private ErrorInfo errorInfo = null;
 
-  @Nullable private Version maxChildVersion = null;
-
-  /** If present, takes precedence over {@link #maxChildVersion}. */
-  @Nullable private Version injectedVersion = null;
+  @Nullable private Version maxTransitiveSourceVersion;
 
   /**
    * This is not {@code null} only during cycle detection and error bubbling. The nullness of this
@@ -108,8 +104,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private final Map<SkyKey, SkyValue> newlyRequestedDepsValues = new HashMap<>();
 
   /**
-   * Keys of dependencies registered via {@link #registerDependencies} if not using {@link
-   * EvaluationVersionBehavior#MAX_CHILD_VERSIONS}.
+   * Keys of dependencies registered via {@link #registerDependencies}.
    *
    * <p>The {@link #registerDependencies} method is hacky. Deps registered through it may not have
    * entries in {@link #newlyRequestedDepsValues}, but they are expected to be done. This set tracks
@@ -203,6 +198,13 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.bubbleErrorInfo = bubbleErrorInfo;
     this.oldDeps = Preconditions.checkNotNull(oldDeps);
     this.evaluatorContext = Preconditions.checkNotNull(evaluatorContext);
+    // Cycles can lead to a state where the versions of done children don't accurately reflect the
+    // state that led to this node's value. Be conservative then.
+    this.maxTransitiveSourceVersion =
+        bubbleErrorInfo == null
+                && skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
+            ? MinimalVersion.INSTANCE
+            : null;
     this.previouslyRequestedDepsValues = batchPrefetch(throwIfPreviouslyRequestedDepsUndone);
     Preconditions.checkState(
         !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
@@ -250,10 +252,10 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       }
       depValuesBuilder.put(entry.getKey(), !depDone ? NULL_MARKER : valueMaybeWithMetadata);
       if (depDone) {
-        maybeUpdateMaxChildVersion(entry.getValue());
+        maybeUpdateMaxTransitiveSourceVersion(entry.getValue());
       }
     }
-    return depValuesBuilder.build();
+    return depValuesBuilder.buildOrThrow();
   }
 
   private void checkActive() {
@@ -338,7 +340,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
       state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
       state.signalDep(evaluatorContext.getGraphVersion(), ErrorTransienceValue.KEY);
-      maxChildVersion = evaluatorContext.getGraphVersion();
+      maxTransitiveSourceVersion = null;
     }
 
     this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
@@ -400,7 +402,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       result.put(key, valueOrNullMarker);
       newlyRequestedDepsValues.put(key, valueOrNullMarker);
       if (valueOrNullMarker != NULL_MARKER) {
-        maybeUpdateMaxChildVersion(depEntry);
+        maybeUpdateMaxTransitiveSourceVersion(depEntry);
       }
     }
     return result;
@@ -452,7 +454,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       result.set(i, valueOrNullMarker);
       newlyRequestedDepsValues.put(key, valueOrNullMarker);
       if (valueOrNullMarker != NULL_MARKER) {
-        maybeUpdateMaxChildVersion(depEntry);
+        maybeUpdateMaxTransitiveSourceVersion(depEntry);
       }
     }
     return result;
@@ -535,7 +537,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         Preconditions.checkState(!assertDone, "%s had not done: %s", skyKey, key);
         continue;
       }
-      maybeUpdateMaxChildVersion(depEntry);
+      maybeUpdateMaxTransitiveSourceVersion(depEntry);
       result.add(valueOrNullMarker);
     }
     return result;
@@ -834,33 +836,23 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       }
     }
 
-    Version evaluationVersion = maxChildVersion;
-    if (bubbleErrorInfo != null) {
-      // Cycles can lead to a state where the versions of done children don't accurately reflect the
-      // state that led to this node's value. Be conservative then.
-      evaluationVersion = evaluatorContext.getGraphVersion();
-    } else if (injectedVersion != null) {
-      evaluationVersion = injectedVersion;
-    } else if (evaluatorContext.getEvaluationVersionBehavior()
-            == EvaluationVersionBehavior.GRAPH_VERSION
-        || skyKey.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC) {
-      evaluationVersion = evaluatorContext.getGraphVersion();
-    } else if (evaluationVersion == null) {
-      Preconditions.checkState(
-          temporaryDirectDeps.isEmpty(),
-          "No max child version found, but have direct deps: %s %s",
-          skyKey,
-          primaryEntry);
-      evaluationVersion = evaluatorContext.getGraphVersion();
+    if (temporaryDirectDeps.isEmpty()
+        && skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC) {
+      maxTransitiveSourceVersion = null; // No dependencies on source.
     }
-    Version previousVersion = primaryEntry.getVersion();
-    // If this entry is dirty, setValue may not actually change it, if it determines that
-    // the data being written now is the same as the data already present in the entry.
-    Set<SkyKey> reverseDeps = primaryEntry.setValue(valueWithMetadata, evaluationVersion);
+    Preconditions.checkState(
+        maxTransitiveSourceVersion == null || newlyRegisteredDeps.isEmpty(),
+        "Dependency registration not supported when tracking max transitive source versions");
 
-    // Note that if this update didn't actually change the entry, this version may not be
-    // evaluationVersion.
+    // If this entry is dirty, setValue may not actually change it, if it determines that the data
+    // being written now is the same as the data already present in the entry. We detect this case
+    // by comparing versions before and after setting the value.
+    Version previousVersion = primaryEntry.getVersion();
+    Set<SkyKey> reverseDeps =
+        primaryEntry.setValue(
+            valueWithMetadata, evaluatorContext.getGraphVersion(), maxTransitiveSourceVersion);
     Version currentVersion = primaryEntry.getVersion();
+
     // Tell the receiver that this value was built. If currentVersion.equals(evaluationVersion), it
     // was evaluated this run, and so was changed. Otherwise, it is less than evaluationVersion, by
     // the Preconditions check above, and was not actually changed this run -- when it was written
@@ -904,9 +896,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   @Override
   public void registerDependencies(Iterable<SkyKey> keys) {
-    Preconditions.checkState(
-        evaluatorContext.getEvaluationVersionBehavior() == EvaluationVersionBehavior.GRAPH_VERSION,
-        "Dependency registration not supported when tracking max child versions");
     newlyRequestedDeps.startGroup();
     for (SkyKey key : keys) {
       if (!previouslyRequestedDepsValues.containsKey(key)) {
@@ -921,17 +910,30 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   public void injectVersionForNonHermeticFunction(Version version) {
     Preconditions.checkState(
         skyKey.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC, skyKey);
-    injectedVersion = version;
+    Preconditions.checkState(
+        maxTransitiveSourceVersion == null,
+        "Multiple injected versions (%s, %s) for %s",
+        maxTransitiveSourceVersion,
+        version,
+        skyKey);
+    Preconditions.checkNotNull(version, skyKey);
+    Preconditions.checkState(
+        version.atMost(evaluatorContext.getGraphVersion()),
+        "Invalid injected version (%s > %s) for %s",
+        version,
+        evaluatorContext.getGraphVersion(),
+        skyKey);
+    maxTransitiveSourceVersion = version;
   }
 
-  private void maybeUpdateMaxChildVersion(NodeEntry depEntry) {
-    if (skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
-        && evaluatorContext.getEvaluationVersionBehavior()
-            == EvaluationVersionBehavior.MAX_CHILD_VERSIONS) {
-      Version depVersion = depEntry.getVersion();
-      if (maxChildVersion == null || maxChildVersion.atMost(depVersion)) {
-        maxChildVersion = depVersion;
-      }
+  private void maybeUpdateMaxTransitiveSourceVersion(NodeEntry depEntry) {
+    if (maxTransitiveSourceVersion == null
+        || skyKey.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC) {
+      return;
+    }
+    Version depMtsv = depEntry.getMaxTransitiveSourceVersion();
+    if (depMtsv == null || maxTransitiveSourceVersion.atMost(depMtsv)) {
+      maxTransitiveSourceVersion = depMtsv;
     }
   }
 
@@ -948,8 +950,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         .add("newlyRequestedDeps", newlyRequestedDeps)
         .add("childErrorInfos", childErrorInfos)
         .add("depErrorKey", depErrorKey)
-        .add("maxChildVersion", maxChildVersion)
-        .add("injectedVersion", injectedVersion)
+        .add("maxTransitiveSourceVersion", maxTransitiveSourceVersion)
         .add("bubbleErrorInfo", bubbleErrorInfo)
         .add("evaluatorContext", evaluatorContext)
         .toString();
