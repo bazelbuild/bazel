@@ -149,12 +149,6 @@ public class PackageLookupFunction implements SkyFunction {
   }
 
   @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  @Nullable
   private PackageLookupValue findPackageByBuildFile(
       Environment env, PathPackageLocator pkgLocator, PackageIdentifier packageKey)
       throws PackageLookupFunctionException, InterruptedException {

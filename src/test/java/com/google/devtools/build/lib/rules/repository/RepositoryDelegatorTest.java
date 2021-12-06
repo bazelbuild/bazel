@@ -244,11 +244,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         return ModuleExtensionResolutionValue.create(
                             ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
                       }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
-                      }
                     })
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,

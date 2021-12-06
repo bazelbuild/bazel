@@ -215,10 +215,4 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       return generatingActions.get(artifact);
     }
   }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

@@ -126,10 +126,4 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
       return errorMessage;
     }
   }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

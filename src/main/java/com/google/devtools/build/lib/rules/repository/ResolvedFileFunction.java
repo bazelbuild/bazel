@@ -141,12 +141,6 @@ public class ResolvedFileFunction implements SkyFunction {
         new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message));
   }
 
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static final class ResolvedFileFunctionException extends SkyFunctionException {
     ResolvedFileFunctionException(IOException e) {
       super(e, SkyFunctionException.Transience.PERSISTENT);

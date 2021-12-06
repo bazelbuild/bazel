@@ -66,11 +66,6 @@ public class ExternalPackageFunction implements SkyFunction {
     return new PackageValue(value.getPackage());
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /** Returns the singleton {@link SkyKey} for the external package. */
   public static SkyKey key() {
     return KEY;

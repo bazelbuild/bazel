@@ -31,7 +31,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /**
  * TargetPatternFunction translates a target pattern (eg, "foo/...") into a set of resolved
@@ -121,12 +120,6 @@ public class TargetPatternFunction implements SkyFunction {
       resolvedLabelsBuilder.remove(target.getLabel());
     }
     return new TargetPatternValue(resolvedLabelsBuilder.build());
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

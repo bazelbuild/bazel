@@ -408,11 +408,6 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     public SkyValue compute(SkyKey skyKey, Environment env) {
       return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
     }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private abstract static class TestActionTemplate implements ActionTemplate<DummyAction> {

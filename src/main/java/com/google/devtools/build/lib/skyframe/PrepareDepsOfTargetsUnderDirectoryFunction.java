@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectory
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /**
  * Ensures the graph contains the targets in the directory's package, if any, and in the
@@ -78,11 +77,5 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
       return null;
     }
     return PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

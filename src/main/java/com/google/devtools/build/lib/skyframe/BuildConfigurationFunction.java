@@ -99,11 +99,6 @@ public final class BuildConfigurationFunction implements SkyFunction {
     return fragments.build();
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static final class BuildConfigurationFunctionException extends SkyFunctionException {
     BuildConfigurationFunctionException(InvalidConfigurationException e) {
       super(e, Transience.PERSISTENT);

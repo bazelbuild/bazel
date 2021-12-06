@@ -73,7 +73,9 @@ public interface SkyFunction {
    * messages associated with this value will be shown, no matter what --output_filter says.
    */
   @Nullable
-  String extractTag(SkyKey skyKey);
+  default String extractTag(SkyKey skyKey) {
+    return null;
+  }
 
   /**
    * Sentinel {@link SkyValue} type for {@link #compute} to return, indicating that something went

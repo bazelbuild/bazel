@@ -224,12 +224,6 @@ public class RepositoryMappingFunction implements SkyFunction {
         RepositoryMapping.createAllowingFallback(ImmutableMap.copyOf(mapping)));
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static class RepositoryMappingFunctionException extends SkyFunctionException {
     RepositoryMappingFunctionException() {
       super(

@@ -297,10 +297,5 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           /*discoveredModules=*/ null,
           /*actionDependsOnBuildId=*/ false);
     }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 }

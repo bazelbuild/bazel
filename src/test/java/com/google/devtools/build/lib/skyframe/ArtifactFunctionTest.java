@@ -538,10 +538,5 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           /*discoveredModules=*/ null,
           /*actionDependsOnBuildId=*/ false);
     }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 }

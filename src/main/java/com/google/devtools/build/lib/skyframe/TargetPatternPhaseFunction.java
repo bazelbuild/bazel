@@ -62,7 +62,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Takes a list of target patterns corresponding to a command line and turns it into a set of
@@ -490,12 +489,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                         .stream()
                         .filter(includedTargets::contains)
                         .map(Target::getLabel)));
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /** Represents the expansion of a single target pattern. */

@@ -239,13 +239,6 @@ public class MemoizingEvaluatorTest {
     }
   }
 
-  private abstract static class NoExtractorFunction implements SkyFunction {
-    @Override
-    public final String extractTag(SkyKey skyKey) {
-      return null;
-    }
-  }
-
   @Test
   // Regression test for bug: "[skyframe-m1]: registerIfDone() crash".
   public void bubbleRace() throws Exception {
@@ -256,7 +249,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate("top")
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 env.getValue(toSkyKey("sleepyValue"));
@@ -276,7 +269,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate("sleepyValue")
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 Thread.sleep(99999);
@@ -300,7 +293,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 if (counter.getAndIncrement() > 0) {
@@ -374,12 +367,6 @@ public class MemoizingEvaluatorTest {
                   throw new RuntimeException("I don't like being woken up!", e);
                 }
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     // And another SkyFunction that waits for the first to start, and then throws,
     tester
@@ -421,12 +408,6 @@ public class MemoizingEvaluatorTest {
                 interruptStarted.countDown();
                 Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
                 throw new AssertionError("Shouldn't have slept so long");
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
     // And another SkyFunction that waits for the first to start, and then throws,
@@ -732,7 +713,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(top)
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
@@ -1168,12 +1149,6 @@ public class MemoizingEvaluatorTest {
                 env.getValues(ImmutableList.of(leafKey, bKey));
                 return null;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     // And bKey depends on cKey,
     tester.getOrCreate(bKey).addDependency(cKey);
@@ -1286,12 +1261,6 @@ public class MemoizingEvaluatorTest {
                 Map<SkyKey, SkyValue> result =
                     env.getValues(ImmutableList.of(cycleKey2, cycleKey1));
                 Preconditions.checkState(env.valuesMissing(), result);
-                return null;
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
                 return null;
               }
             });
@@ -1490,7 +1459,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(otherTop)
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 env.getValue(dep1);
@@ -1641,12 +1610,6 @@ public class MemoizingEvaluatorTest {
                 assertThat(env.valuesMissing()).isTrue();
                 return null;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     tester.invalidate();
     // Then evaluation is as expected -- topKey has removed its dep on depKey (since depKey was not
@@ -1754,12 +1717,6 @@ public class MemoizingEvaluatorTest {
                 }
                 throw new GenericFunctionException(
                     new SomeErrorException("bork"), Transience.PERSISTENT);
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
     assertThat(tester.evalAndGet("top")).isEqualTo(depVal);
@@ -2194,11 +2151,6 @@ public class MemoizingEvaluatorTest {
                 }
                 return new StringValue("top");
               }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
 
     // Assert that build fails and "error" really is in error.
@@ -2230,7 +2182,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env)
                   throws SkyFunctionException, InterruptedException {
@@ -2362,7 +2314,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(top)
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Override
               public SkyValue compute(SkyKey key, SkyFunction.Environment env)
                   throws InterruptedException {
@@ -2389,7 +2341,7 @@ public class MemoizingEvaluatorTest {
           .getOrCreate(firstKey, /*markAsModified=*/ true)
           .setConstantValue(null)
           .setBuilder(
-              new NoExtractorFunction() {
+              new SkyFunction() {
                 @Nullable
                 @Override
                 public SkyValue compute(SkyKey skyKey, Environment env)
@@ -2554,12 +2506,6 @@ public class MemoizingEvaluatorTest {
                 }
                 return expectedValue;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
     assertThat(numInconsistencyCalls.get()).isEqualTo(2);
@@ -2639,12 +2585,6 @@ public class MemoizingEvaluatorTest {
                   return null;
                 }
                 return expectedValue;
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
@@ -2732,12 +2672,6 @@ public class MemoizingEvaluatorTest {
                 }
                 return env.valuesMissing() ? null : topValue;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
     deleteKeyFromGraph(missingChild);
@@ -2812,7 +2746,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new NoExtractorFunction() {
+            new SkyFunction() {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env)
                   throws SkyFunctionException, InterruptedException {
@@ -3174,7 +3108,7 @@ public class MemoizingEvaluatorTest {
       tester
           .getOrCreate(leafKey, /*markAsModified=*/ true)
           .setBuilder(
-              new NoExtractorFunction() {
+              new SkyFunction() {
                 @Override
                 public SkyValue compute(SkyKey skyKey, Environment env)
                     throws InterruptedException {
@@ -3361,12 +3295,6 @@ public class MemoizingEvaluatorTest {
                 topEvaluated.set(true);
                 return env.getValue(leaf) == null ? null : fixedTopValue;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     // And top is evaluated,
     StringValue topValue = (StringValue) tester.evalAndGet("top");
@@ -3417,12 +3345,6 @@ public class MemoizingEvaluatorTest {
                 return env.getValue(other) == null || env.getValue(leaf) == null
                     ? null
                     : fixedTopValue;
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
     // And top is evaluated,
@@ -3540,11 +3462,6 @@ public class MemoizingEvaluatorTest {
         public SkyValue compute(SkyKey skyKey, Environment env)
             throws SkyFunctionException, InterruptedException {
           throw new InterruptedException();
-        }
-
-        @Override
-        public String extractTag(SkyKey skyKey) {
-          throw new UnsupportedOperationException();
         }
       };
 
@@ -3754,11 +3671,6 @@ public class MemoizingEvaluatorTest {
               throw new GenericFunctionException(e, Transience.PERSISTENT);
             }
           }
-
-          @Override
-          public String extractTag(SkyKey skyKey) {
-            throw new UnsupportedOperationException();
-          }
         };
     tester.getOrCreate(topKey).setBuilder(errorFunction);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, topKey);
@@ -3868,11 +3780,6 @@ public class MemoizingEvaluatorTest {
               throw new GenericFunctionException(e, Transience.PERSISTENT);
             }
             return null;
-          }
-
-          @Override
-          public String extractTag(SkyKey skyKey) {
-            throw new UnsupportedOperationException();
           }
         };
     tester.getOrCreate(topKey).setBuilder(recoveryErrorFunction);
@@ -4038,11 +3945,6 @@ public class MemoizingEvaluatorTest {
                 throw new GenericFunctionException(
                     new SomeErrorException("error"), Transience.PERSISTENT);
               }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     tester
         .getOrCreate(otherErrorKey)
@@ -4073,11 +3975,6 @@ public class MemoizingEvaluatorTest {
                   fail();
                   return null;
                 }
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
     injectGraphListenerForTesting(
@@ -4250,12 +4147,6 @@ public class MemoizingEvaluatorTest {
 
                 env.getListener().handle(Event.progress(waitEvent));
                 return waitStringValue;
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
     tester
@@ -4894,12 +4785,6 @@ public class MemoizingEvaluatorTest {
                 synchronizeThreads.set(false);
                 throw new InterruptedException();
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     EvaluationResult<StringValue> result =
         tester.eval(/*keepGoing=*/ false, cachedParentKey, uncachedParentKey, waitForShutdownKey);
@@ -4982,12 +4867,6 @@ public class MemoizingEvaluatorTest {
                     errorMarkedClean, "error not marked clean");
                 return null;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/ true);
     tester.invalidate();
@@ -5019,11 +4898,6 @@ public class MemoizingEvaluatorTest {
               return null;
             }
             return new StringValue("parent");
-          }
-
-          @Override
-          public String extractTag(SkyKey skyKey) {
-            return null;
           }
         };
     tester.getOrCreate(parent1Key).setBuilder(parentBuilder);
@@ -5338,11 +5212,6 @@ public class MemoizingEvaluatorTest {
                 }
                 return new StringValue("done!");
               }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     tester.evaluator.injectGraphTransformerForTesting(
         NotifyingHelper.makeNotifyingTransformer(
@@ -5386,12 +5255,6 @@ public class MemoizingEvaluatorTest {
                   throw new IllegalStateException("shouldn't get here");
                 }
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     SomeErrorException parentExn = new SomeErrorException("bad");
     AtomicInteger numParentComputeCalls = new AtomicInteger(0);
@@ -5412,12 +5275,6 @@ public class MemoizingEvaluatorTest {
                   Preconditions.checkState(env.getValue(childKey).equals(childValue));
                 }
                 throw new GenericFunctionException(parentExn, Transience.PERSISTENT);
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
 
@@ -5581,15 +5438,6 @@ public class MemoizingEvaluatorTest {
     @Nullable
     public SkyValue getExistingValue(String key) throws InterruptedException {
       return getExistingValue(toSkyKey(key));
-    }
-  }
-
-  /** {@link SkyFunction} with no tag extraction for easier lambda-izing. */
-  protected interface TaglessSkyFunction extends SkyFunction {
-    @Nullable
-    @Override
-    default String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

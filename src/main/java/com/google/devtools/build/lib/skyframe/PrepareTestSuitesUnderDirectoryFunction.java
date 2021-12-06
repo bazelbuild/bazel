@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.PrepareTestSuitesUnderDirectoryVal
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /**
  * {@link SkyFunction} to recursively traverse a directory and ensure {@link
@@ -65,11 +64,5 @@ public class PrepareTestSuitesUnderDirectoryFunction implements SkyFunction {
       return null;
     }
     return PrepareTestSuitesUnderDirectoryValue.INSTANCE;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

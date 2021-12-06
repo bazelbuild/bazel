@@ -230,12 +230,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     return validPlatformKeys.build();
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
    * not a valid {@link PlatformInfo} provider.

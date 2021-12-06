@@ -128,12 +128,6 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     return PrepareDepsOfPatternValue.INSTANCE;
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
    * PrepareDepsOfPatternFunction#compute}.

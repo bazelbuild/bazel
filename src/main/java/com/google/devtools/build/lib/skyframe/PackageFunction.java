@@ -790,12 +790,6 @@ public class PackageFunction implements SkyFunction {
     return env.valuesMissing() ? null : bzlLoads;
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * For each of a {@link Package.Builder}'s targets, propagate the target's corresponding {@link
    * InconsistentFilesystemException} (if any) and verify that the target's label does not cross
