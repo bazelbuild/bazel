@@ -54,6 +54,7 @@ import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
@@ -249,32 +250,26 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate("top")
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getValue(toSkyKey("sleepyValue"));
-                try {
-                  env.getValueOrThrow(toSkyKey("badValue"), SomeErrorException.class);
-                } catch (SomeErrorException e) {
-                  // In order to trigger this bug, we need to request a dep on an already computed
-                  // value.
-                  env.getValue(toSkyKey("otherValue1"));
-                }
-                if (!env.valuesMissing()) {
-                  throw new AssertionError("SleepyValue should always be unavailable");
-                }
-                return null;
+            (skyKey, env) -> {
+              env.getValue(toSkyKey("sleepyValue"));
+              try {
+                env.getValueOrThrow(toSkyKey("badValue"), SomeErrorException.class);
+              } catch (SomeErrorException e) {
+                // In order to trigger this bug, we need to request a dep on an already computed
+                // value.
+                env.getValue(toSkyKey("otherValue1"));
               }
+              if (!env.valuesMissing()) {
+                throw new AssertionError("SleepyValue should always be unavailable");
+              }
+              return null;
             });
     tester
         .getOrCreate("sleepyValue")
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                Thread.sleep(99999);
-                throw new AssertionError("I should have been interrupted");
-              }
+            (skyKey, env) -> {
+              Thread.sleep(99999);
+              throw new AssertionError("I should have been interrupted");
             });
     tester.getOrCreate("badValue").addDependency("otherValue1").setHasError(true);
     tester.getOrCreate("otherValue1").setConstantValue(new StringValue("otherVal1"));
@@ -293,16 +288,13 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                if (counter.getAndIncrement() > 0) {
-                  deps.addAll(env.getTemporaryDirectDeps().get(0));
-                } else {
-                  assertThat(env.getTemporaryDirectDeps().listSize()).isEqualTo(0);
-                }
-                return env.getValue(bottomKey);
+            (skyKey, env) -> {
+              if (counter.getAndIncrement() > 0) {
+                deps.addAll(env.getTemporaryDirectDeps().get(0));
+              } else {
+                assertThat(env.getTemporaryDirectDeps().listSize()).isEqualTo(0);
               }
+              return env.getValue(bottomKey);
             });
     tester.getOrCreate(bottomKey).setConstantValue(bottomValue);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, "top");
@@ -867,25 +859,22 @@ public class MemoizingEvaluatorTest {
     final SkyKey mid = GraphTester.toSkyKey("zzmid");
     final CountDownLatch valueSet = new CountDownLatch(1);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (!key.equals(mid)) {
-              return;
-            }
-            switch (type) {
-              case ADD_REVERSE_DEP:
-                if (context == null) {
-                  // Context is null when we are enqueuing this value as a top-level job.
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(valueSet, "value not set");
-                }
-                break;
-              case SET_VALUE:
-                valueSet.countDown();
-                break;
-              default:
-                break;
-            }
+        (key, type, order, context) -> {
+          if (!key.equals(mid)) {
+            return;
+          }
+          switch (type) {
+            case ADD_REVERSE_DEP:
+              if (context == null) {
+                // Context is null when we are enqueuing this value as a top-level job.
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(valueSet, "value not set");
+              }
+              break;
+            case SET_VALUE:
+              valueSet.countDown();
+              break;
+            default:
+              break;
           }
         },
         /*deterministic=*/ true);
@@ -1432,21 +1421,16 @@ public class MemoizingEvaluatorTest {
     // We don't do anything on the first build.
     final AtomicBoolean secondBuild = new AtomicBoolean(false);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (!secondBuild.get()) {
-              return;
-            }
-            if (key.equals(otherTop) && type == EventType.SIGNAL) {
-              // otherTop is being signaled that dep1 is done. Tell the error value that it is
-              // ready, then wait until the error is thrown, so that otherTop's builder is not
-              // re-entered.
-              valuesReady.countDown();
-              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                  errorThrown, "error not thrown");
-              return;
-            }
+        (key, type, order, context) -> {
+          if (!secondBuild.get()) {
+            return;
+          }
+          if (key.equals(otherTop) && type == EventType.SIGNAL) {
+            // otherTop is being signaled that dep1 is done. Tell the error value that it is ready,
+            // then wait until the error is thrown, so that otherTop's builder is not re-entered.
+            valuesReady.countDown();
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(errorThrown, "error not thrown");
+            return;
           }
         },
         /*deterministic=*/ true);
@@ -1459,16 +1443,13 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(otherTop)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getValue(dep1);
-                if (env.valuesMissing()) {
-                  return null;
-                }
-                env.getValue(dep2);
-                return env.valuesMissing() ? null : new StringValue("otherTop");
+            (skyKey, env) -> {
+              env.getValue(dep1);
+              if (env.valuesMissing()) {
+                return null;
               }
+              env.getValue(dep2);
+              return env.valuesMissing() ? null : new StringValue("otherTop");
             });
     // Prime the graph with otherTop, so we can dirty it next build.
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, otherTop))
@@ -1667,20 +1648,17 @@ public class MemoizingEvaluatorTest {
       tester
           .getOrCreate("subKey" + i)
           .setComputedValue(
-              new ValueComputer() {
-                @Override
-                public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
-                  int val = inProgressCount.incrementAndGet();
-                  synchronized (lock) {
-                    if (val > maxValue[0]) {
-                      maxValue[0] = val;
-                    }
+              (deps, env) -> {
+                int val = inProgressCount.incrementAndGet();
+                synchronized (lock) {
+                  if (val > maxValue[0]) {
+                    maxValue[0] = val;
                   }
-                  Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
-
-                  inProgressCount.decrementAndGet();
-                  return new StringValue("abc");
                 }
+                Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
+
+                inProgressCount.decrementAndGet();
+                return new StringValue("abc");
               });
     }
     topLevelBuilder.setConstantValue(new StringValue("xyz"));
@@ -2141,16 +2119,12 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                env.getValues(ImmutableList.of(errorKey, midKey, mid2Key));
-                if (env.valuesMissing()) {
-                  return null;
-                }
-                return new StringValue("top");
+            (skyKey, env) -> {
+              env.getValues(ImmutableList.of(errorKey, midKey, mid2Key));
+              if (env.valuesMissing()) {
+                return null;
               }
+              return new StringValue("top");
             });
 
     // Assert that build fails and "error" really is in error.
@@ -2182,23 +2156,19 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                SkyKeyValue val =
-                    ((SkyKeyValue)
-                        env.getValues(ImmutableList.of(groupDepA, groupDepB)).get(groupDepA));
-                if (env.valuesMissing()) {
-                  return null;
-                }
-                try {
-                  env.getValueOrThrow(val.key, SomeErrorException.class);
-                } catch (SomeErrorException e) {
-                  throw new GenericFunctionException(e, Transience.PERSISTENT);
-                }
-                return env.valuesMissing() ? null : new StringValue("top");
+            (skyKey, env) -> {
+              SkyKeyValue val =
+                  ((SkyKeyValue)
+                      env.getValues(ImmutableList.of(groupDepA, groupDepB)).get(groupDepA));
+              if (env.valuesMissing()) {
+                return null;
               }
+              try {
+                env.getValueOrThrow(val.key, SomeErrorException.class);
+              } catch (SomeErrorException e) {
+                throw new GenericFunctionException(e, Transience.PERSISTENT);
+              }
+              return env.valuesMissing() ? null : new StringValue("top");
             });
 
     EvaluationResult<SkyValue> evaluationResult = tester.eval(/*keepGoing=*/ true, groupDepA, depC);
@@ -2314,21 +2284,17 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(top)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey key, SkyFunction.Environment env)
-                  throws InterruptedException {
-                numTopInvocations.incrementAndGet();
-                if (delayTopSignaling.get()) {
-                  // The graph listener will block on firstKey's signaling of otherTop above until
-                  // this thread starts running.
-                  topRequestedDepOrRestartedBuild.countDown();
-                }
-                // top's builder just requests both deps in a group.
-                env.getValuesOrThrow(
-                    ImmutableList.of(firstKey, slowAddingDep), SomeErrorException.class);
-                return env.valuesMissing() ? null : new StringValue("top");
+            (key, env) -> {
+              numTopInvocations.incrementAndGet();
+              if (delayTopSignaling.get()) {
+                // The graph listener will block on firstKey's signaling of otherTop above until
+                // this thread starts running.
+                topRequestedDepOrRestartedBuild.countDown();
               }
+              // top's builder just requests both deps in a group.
+              env.getValuesOrThrow(
+                  ImmutableList.of(firstKey, slowAddingDep), SomeErrorException.class);
+              return env.valuesMissing() ? null : new StringValue("top");
             });
     // First build : just prime the graph.
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, top);
@@ -2408,21 +2374,18 @@ public class MemoizingEvaluatorTest {
     final CountDownLatch changedKeyCanFinish = new CountDownLatch(1);
     final AtomicBoolean controlTiming = new AtomicBoolean(false);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (!controlTiming.get()) {
-              return;
-            }
-            if (key.equals(midKey) && type == EventType.CHECK_IF_DONE && order == Order.BEFORE) {
-              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                  changedKeyStarted, "changed key didn't start");
-            } else if (key.equals(changedKey)
-                && type == EventType.REMOVE_REVERSE_DEP
-                && order == Order.AFTER
-                && midKey.equals(context)) {
-              changedKeyCanFinish.countDown();
-            }
+        (key, type, order, context) -> {
+          if (!controlTiming.get()) {
+            return;
+          }
+          if (key.equals(midKey) && type == EventType.CHECK_IF_DONE && order == Order.BEFORE) {
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                changedKeyStarted, "changed key didn't start");
+          } else if (key.equals(changedKey)
+              && type == EventType.REMOVE_REVERSE_DEP
+              && order == Order.AFTER
+              && midKey.equals(context)) {
+            changedKeyCanFinish.countDown();
           }
         },
         /*deterministic=*/ false);
@@ -2497,16 +2460,7 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(restartingKey)
         .setBuilder(
-            new SkyFunction() {
-
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) {
-                if (numFunctionCalls.getAndIncrement() < 2) {
-                  return Restart.SELF;
-                }
-                return expectedValue;
-              }
-            });
+            (skyKey, env) -> numFunctionCalls.getAndIncrement() < 2 ? Restart.SELF : expectedValue);
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
     assertThat(numInconsistencyCalls.get()).isEqualTo(2);
     assertThat(numFunctionCalls.get()).isEqualTo(3);
@@ -2566,26 +2520,23 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(restartingKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                numFunctionCalls.getAndIncrement();
-                SkyValue dep1 = env.getValue(alreadyRequestedDep);
-                if (dep1 == null) {
-                  return null;
-                }
-                env.getValues(ImmutableList.of(newlyRequestedDoneDep, newlyRequestedNotDoneDep));
-                if (numFunctionCalls.get() < 4) {
-                  return Restart.SELF;
-                } else if (numFunctionCalls.get() == 4) {
-                  if (cleanBuild.get()) {
-                    Preconditions.checkState(
-                        env.valuesMissing(), "Not done dep should never have been enqueued");
-                  }
-                  return null;
-                }
-                return expectedValue;
+            (skyKey, env) -> {
+              numFunctionCalls.getAndIncrement();
+              SkyValue dep1 = env.getValue(alreadyRequestedDep);
+              if (dep1 == null) {
+                return null;
               }
+              env.getValues(ImmutableList.of(newlyRequestedDoneDep, newlyRequestedNotDoneDep));
+              if (numFunctionCalls.get() < 4) {
+                return Restart.SELF;
+              } else if (numFunctionCalls.get() == 4) {
+                if (cleanBuild.get()) {
+                  Preconditions.checkState(
+                      env.valuesMissing(), "Not done dep should never have been enqueued");
+                }
+                return null;
+              }
+              return expectedValue;
             });
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
     assertThat(numInconsistencyCalls.get()).isEqualTo(2);
@@ -2709,21 +2660,18 @@ public class MemoizingEvaluatorTest {
     final SkyKey leaf4 = GraphTester.toSkyKey("leaf4");
     final AtomicBoolean shouldNotBuildLeaf4 = new AtomicBoolean(false);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (shouldNotBuildLeaf4.get()
-                && key.equals(leaf4)
-                && type != EventType.REMOVE_REVERSE_DEP
-                && type != EventType.GET_BATCH) {
-              throw new IllegalStateException(
-                  "leaf4 should not have been considered this build: "
-                      + type
-                      + ", "
-                      + order
-                      + ", "
-                      + context);
-            }
+        (key, type, order, context) -> {
+          if (shouldNotBuildLeaf4.get()
+              && key.equals(leaf4)
+              && type != EventType.REMOVE_REVERSE_DEP
+              && type != EventType.GET_BATCH) {
+            throw new IllegalStateException(
+                "leaf4 should not have been considered this build: "
+                    + type
+                    + ", "
+                    + order
+                    + ", "
+                    + context);
           }
         },
         /*deterministic=*/ false);
@@ -2746,31 +2694,26 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                // Request the first group, [leaf0, leaf1, leaf2].
-                // In the first build, it has values ["leaf2", "leaf3", "leaf4"].
-                // In the second build it has values ["leaf2", "leaf3", "leaf5"]
-                Map<SkyKey, SkyValue> values = env.getValues(leaves);
-                if (env.valuesMissing()) {
-                  return null;
-                }
-
-                // Request the second group. In the first build it's [leaf2, leaf4].
-                // In the second build it's [leaf2, leaf5]
-                env.getValues(
-                    ImmutableList.of(
-                        leaves.get(2),
-                        GraphTester.toSkyKey(
-                            ((StringValue) values.get(leaves.get(2))).getValue())));
-                if (env.valuesMissing()) {
-                  return null;
-                }
-
-                return topValue;
+            (skyKey, env) -> {
+              // Request the first group, [leaf0, leaf1, leaf2].
+              // In the first build, it has values ["leaf2", "leaf3", "leaf4"].
+              // In the second build it has values ["leaf2", "leaf3", "leaf5"]
+              Map<SkyKey, SkyValue> values = env.getValues(leaves);
+              if (env.valuesMissing()) {
+                return null;
               }
+
+              // Request the second group. In the first build it's [leaf2, leaf4].
+              // In the second build it's [leaf2, leaf5]
+              env.getValues(
+                  ImmutableList.of(
+                      leaves.get(2),
+                      GraphTester.toSkyKey(((StringValue) values.get(leaves.get(2))).getValue())));
+              if (env.valuesMissing()) {
+                return null;
+              }
+
+              return topValue;
             });
 
     // First build: assert we can evaluate "top".
@@ -2825,38 +2768,35 @@ public class MemoizingEvaluatorTest {
     // to see if it is changed, and if it is dirty.
     final CountDownLatch threadsStarted = new CountDownLatch(3);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (!blockingEnabled.get()) {
-              return;
-            }
-            if (!key.equals(parent)) {
-              return;
-            }
-            if (type == EventType.IS_CHANGED && order == Order.BEFORE) {
-              threadsStarted.countDown();
-            }
-            // Dirtiness only checked by dirty thread.
-            if (type == EventType.IS_DIRTY && order == Order.BEFORE) {
-              threadsStarted.countDown();
-            }
-            if (type == EventType.MARK_DIRTY) {
-              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                  threadsStarted, "Both threads did not query if value isChanged in time");
-              if (order == Order.BEFORE) {
-                DirtyType dirtyType = (DirtyType) context;
-                if (dirtyType.equals(DirtyType.DIRTY)) {
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                      waitForChanged, "'changed' thread did not mark value changed in time");
-                  return;
-                }
+        (key, type, order, context) -> {
+          if (!blockingEnabled.get()) {
+            return;
+          }
+          if (!key.equals(parent)) {
+            return;
+          }
+          if (type == EventType.IS_CHANGED && order == Order.BEFORE) {
+            threadsStarted.countDown();
+          }
+          // Dirtiness only checked by dirty thread.
+          if (type == EventType.IS_DIRTY && order == Order.BEFORE) {
+            threadsStarted.countDown();
+          }
+          if (type == EventType.MARK_DIRTY) {
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                threadsStarted, "Both threads did not query if value isChanged in time");
+            if (order == Order.BEFORE) {
+              DirtyType dirtyType = (DirtyType) context;
+              if (dirtyType.equals(DirtyType.DIRTY)) {
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    waitForChanged, "'changed' thread did not mark value changed in time");
+                return;
               }
-              if (order == Order.AFTER) {
-                DirtyType dirtyType = ((NotifyingHelper.MarkDirtyAfterContext) context).dirtyType();
-                if (dirtyType.equals(DirtyType.CHANGE)) {
-                  waitForChanged.countDown();
-                }
+            }
+            if (order == Order.AFTER) {
+              DirtyType dirtyType = ((NotifyingHelper.MarkDirtyAfterContext) context).dirtyType();
+              if (dirtyType.equals(DirtyType.CHANGE)) {
+                waitForChanged.countDown();
               }
             }
           }
@@ -3108,18 +3048,14 @@ public class MemoizingEvaluatorTest {
       tester
           .getOrCreate(leafKey, /*markAsModified=*/ true)
           .setBuilder(
-              new SkyFunction() {
-                @Override
-                public SkyValue compute(SkyKey skyKey, Environment env)
-                    throws InterruptedException {
-                  notifyStart.countDown();
-                  if (shouldSleep.get()) {
-                    // Should be interrupted within 5 seconds.
-                    Thread.sleep(5000);
-                    throw new AssertionError("leaf was not interrupted");
-                  }
-                  return new StringValue("crunchy");
+              (skyKey, env) -> {
+                notifyStart.countDown();
+                if (shouldSleep.get()) {
+                  // Should be interrupted within 5 seconds.
+                  Thread.sleep(5000);
+                  throw new AssertionError("leaf was not interrupted");
                 }
+                return new StringValue("crunchy");
               });
       tester.invalidate();
       TestThread evalThread =
@@ -3289,12 +3225,9 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(top)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                topEvaluated.set(true);
-                return env.getValue(leaf) == null ? null : fixedTopValue;
-              }
+            (skyKey, env) -> {
+              topEvaluated.set(true);
+              return env.getValue(leaf) == null ? null : fixedTopValue;
             });
     // And top is evaluated,
     StringValue topValue = (StringValue) tester.evalAndGet("top");
@@ -3337,15 +3270,12 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(top)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                topEvaluated.set(true);
+            (skyKey, env) -> {
+              topEvaluated.set(true);
 
-                return env.getValue(other) == null || env.getValue(leaf) == null
-                    ? null
-                    : fixedTopValue;
-              }
+              return env.getValue(other) == null || env.getValue(leaf) == null
+                  ? null
+                  : fixedTopValue;
             });
     // And top is evaluated,
     StringValue topValue = (StringValue) tester.evalAndGet("top");
@@ -3379,27 +3309,23 @@ public class MemoizingEvaluatorTest {
   public void changedChildChangesDepOfParent() throws Exception {
     SkyKey buildFile = GraphTester.nonHermeticKey("buildFile");
     ValueComputer authorDrink =
-        new ValueComputer() {
-          @Override
-          public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env)
-              throws InterruptedException {
-            String author = ((StringValue) deps.get(buildFile)).getValue();
-            StringValue beverage;
-            switch (author) {
-              case "hemingway":
-                beverage = (StringValue) env.getValue(GraphTester.toSkyKey("absinthe"));
-                break;
-              case "joyce":
-                beverage = (StringValue) env.getValue(GraphTester.toSkyKey("whiskey"));
-                break;
-              default:
-                throw new IllegalStateException(author);
-            }
-            if (beverage == null) {
-              return null;
-            }
-            return new StringValue(author + " drank " + beverage.getValue());
+        (deps, env) -> {
+          String author = ((StringValue) deps.get(buildFile)).getValue();
+          StringValue beverage;
+          switch (author) {
+            case "hemingway":
+              beverage = (StringValue) env.getValue(GraphTester.toSkyKey("absinthe"));
+              break;
+            case "joyce":
+              beverage = (StringValue) env.getValue(GraphTester.toSkyKey("whiskey"));
+              break;
+            default:
+              throw new IllegalStateException(author);
           }
+          if (beverage == null) {
+            return null;
+          }
+          return new StringValue(author + " drank " + beverage.getValue());
         };
 
     tester.set(buildFile, new StringValue("hemingway"));
@@ -3456,13 +3382,8 @@ public class MemoizingEvaluatorTest {
   }
 
   private static final SkyFunction INTERRUPT_BUILDER =
-      new SkyFunction() {
-
-        @Override
-        public SkyValue compute(SkyKey skyKey, Environment env)
-            throws SkyFunctionException, InterruptedException {
-          throw new InterruptedException();
-        }
+      (skyKey, env) -> {
+        throw new InterruptedException();
       };
 
   /**
@@ -3661,15 +3582,11 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(error).setHasTransientError(true);
     SkyKey topKey = GraphTester.toSkyKey("top");
     SkyFunction errorFunction =
-        new SkyFunction() {
-          @Override
-          public SkyValue compute(SkyKey skyKey, Environment env)
-              throws GenericFunctionException, InterruptedException {
-            try {
-              return env.getValueOrThrow(error, SomeErrorException.class);
-            } catch (SomeErrorException e) {
-              throw new GenericFunctionException(e, Transience.PERSISTENT);
-            }
+        (skyKey, env) -> {
+          try {
+            return env.getValueOrThrow(error, SomeErrorException.class);
+          } catch (SomeErrorException e) {
+            throw new GenericFunctionException(e, Transience.PERSISTENT);
           }
         };
     tester.getOrCreate(topKey).setBuilder(errorFunction);
@@ -3770,17 +3687,13 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(error).setHasError(true);
     SkyKey topKey = GraphTester.toSkyKey("top");
     SkyFunction recoveryErrorFunction =
-        new SkyFunction() {
-          @Override
-          public SkyValue compute(SkyKey skyKey, Environment env)
-              throws SkyFunctionException, InterruptedException {
-            try {
-              env.getValueOrThrow(error, SomeErrorException.class);
-            } catch (SomeErrorException e) {
-              throw new GenericFunctionException(e, Transience.PERSISTENT);
-            }
-            return null;
+        (skyKey, env) -> {
+          try {
+            env.getValueOrThrow(error, SomeErrorException.class);
+          } catch (SomeErrorException e) {
+            throw new GenericFunctionException(e, Transience.PERSISTENT);
           }
+          return null;
         };
     tester.getOrCreate(topKey).setBuilder(recoveryErrorFunction);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, topKey);
@@ -3853,30 +3766,26 @@ public class MemoizingEvaluatorTest {
     final CountDownLatch otherThreadWinning = new CountDownLatch(1);
     final AtomicReference<Thread> firstThread = new AtomicReference<>();
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (!waitForSecondCall.get()) {
+        (key, type, order, context) -> {
+          if (!waitForSecondCall.get()) {
+            return;
+          }
+          if (key.equals(midKey)) {
+            if (type == EventType.CREATE_IF_ABSENT) {
+              // The first thread to create midKey will not be the first thread to add a reverse dep
+              // to it.
+              firstThread.compareAndSet(null, Thread.currentThread());
               return;
             }
-            if (key.equals(midKey)) {
-              if (type == EventType.CREATE_IF_ABSENT) {
-                // The first thread to create midKey will not be the first thread to add a
-                // reverse dep to it.
-                firstThread.compareAndSet(null, Thread.currentThread());
-                return;
-              }
-              if (type == EventType.ADD_REVERSE_DEP) {
-                if (order == Order.BEFORE && Thread.currentThread().equals(firstThread.get())) {
-                  // If this thread created midKey, block until the other thread adds a dep on
-                  // it.
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                      otherThreadWinning, "other thread didn't pass this one");
-                } else if (order == Order.AFTER
-                    && !Thread.currentThread().equals(firstThread.get())) {
-                  // This thread has added a dep. Allow the other thread to proceed.
-                  otherThreadWinning.countDown();
-                }
+            if (type == EventType.ADD_REVERSE_DEP) {
+              if (order == Order.BEFORE && Thread.currentThread().equals(firstThread.get())) {
+                // If this thread created midKey, block until the other thread adds a dep on it.
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    otherThreadWinning, "other thread didn't pass this one");
+              } else if (order == Order.AFTER
+                  && !Thread.currentThread().equals(firstThread.get())) {
+                // This thread has added a dep. Allow the other thread to proceed.
+                otherThreadWinning.countDown();
               }
             }
           }
@@ -3934,58 +3843,48 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(errorKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-                // Given that errorKey waits for otherErrorKey to begin evaluation before completing
-                // its evaluation,
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    otherStarted, "otherErrorKey's SkyFunction didn't start in time.");
-                // And given that errorKey throws an error,
-                throw new GenericFunctionException(
-                    new SomeErrorException("error"), Transience.PERSISTENT);
-              }
+            (skyKey, env) -> {
+              // Given that errorKey waits for otherErrorKey to begin evaluation before completing
+              // its evaluation,
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  otherStarted, "otherErrorKey's SkyFunction didn't start in time.");
+              // And given that errorKey throws an error,
+              throw new GenericFunctionException(
+                  new SomeErrorException("error"), Transience.PERSISTENT);
             });
     tester
         .getOrCreate(otherErrorKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                otherStarted.countDown();
-                int invocations = numOtherInvocations.incrementAndGet();
-                // And given that otherErrorKey waits for errorKey's error to be committed before
-                // trying to get errorKey's value,
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    errorCommitted, "errorKey's error didn't get committed to the graph in time");
-                try {
-                  SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
-                  if (value != null) {
-                    nonNullValueMessage.set("bogus non-null value " + value);
-                  }
-                  if (invocations != 1) {
-                    bogusInvocationMessage.set("bogus invocation count: " + invocations);
-                  }
-                  otherDone.countDown();
-                  // And given that otherErrorKey throws an error,
-                  throw new GenericFunctionException(
-                      new SomeErrorException("other"), Transience.PERSISTENT);
-                } catch (SomeErrorException e) {
-                  fail();
-                  return null;
+            (skyKey, env) -> {
+              otherStarted.countDown();
+              int invocations = numOtherInvocations.incrementAndGet();
+              // And given that otherErrorKey waits for errorKey's error to be committed before
+              // trying to get errorKey's value,
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  errorCommitted, "errorKey's error didn't get committed to the graph in time");
+              try {
+                SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
+                if (value != null) {
+                  nonNullValueMessage.set("bogus non-null value " + value);
                 }
+                if (invocations != 1) {
+                  bogusInvocationMessage.set("bogus invocation count: " + invocations);
+                }
+                otherDone.countDown();
+                // And given that otherErrorKey throws an error,
+                throw new GenericFunctionException(
+                    new SomeErrorException("other"), Transience.PERSISTENT);
+              } catch (SomeErrorException e) {
+                fail();
+                return null;
               }
             });
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
-              errorCommitted.countDown();
-              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                  otherDone, "otherErrorKey's SkyFunction didn't finish in time.");
-            }
+        (key, type, order, context) -> {
+          if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
+            errorCommitted.countDown();
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                otherDone, "otherErrorKey's SkyFunction didn't finish in time.");
           }
         },
         /*deterministic=*/ false);
@@ -4138,16 +4037,13 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(wait)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                // Wait for the parent and child actions to complete before computing wait node
-                parentEvaluated.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                assertThatEvents(eventCollector).containsExactly(childEvent, parentEvent);
+            (skyKey, env) -> {
+              // Wait for the parent and child actions to complete before computing wait node
+              parentEvaluated.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+              assertThatEvents(eventCollector).containsExactly(childEvent, parentEvent);
 
-                env.getListener().handle(Event.progress(waitEvent));
-                return waitStringValue;
-              }
+              env.getListener().handle(Event.progress(waitEvent));
+              return waitStringValue;
             });
     tester
         .getOrCreate(child)
@@ -4773,18 +4669,15 @@ public class MemoizingEvaluatorTest {
     tester
         .getOrCreate(waitForShutdownKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                shutdownAwaiterStarted.countDown();
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    ((SkyFunctionEnvironment) env).getExceptionLatchForTesting(),
-                    "exception not thrown");
-                // Threadpool is shutting down. Don't try to synchronize anything in the future
-                // during error bubbling.
-                synchronizeThreads.set(false);
-                throw new InterruptedException();
-              }
+            (skyKey, env) -> {
+              shutdownAwaiterStarted.countDown();
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  ((SkyFunctionEnvironment) env).getExceptionLatchForTesting(),
+                  "exception not thrown");
+              // Threadpool is shutting down. Don't try to synchronize anything in the future
+              // during error bubbling.
+              synchronizeThreads.set(false);
+              throw new InterruptedException();
             });
     EvaluationResult<StringValue> result =
         tester.eval(/*keepGoing=*/ false, cachedParentKey, uncachedParentKey, waitForShutdownKey);
@@ -4823,23 +4716,20 @@ public class MemoizingEvaluatorTest {
     final CountDownLatch topRequestedError = new CountDownLatch(1);
     final CountDownLatch errorMarkedClean = new CountDownLatch(1);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (errorKey.equals(key) && type == EventType.MARK_CLEAN) {
-              if (order == Order.BEFORE) {
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    topRequestedError, "top didn't request");
-              } else {
-                errorMarkedClean.countDown();
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    topSecondEval, "top didn't restart");
-                // Make sure that the other thread notices the error and interrupts this thread.
-                try {
-                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-                } catch (InterruptedException e) {
-                  Thread.currentThread().interrupt();
-                }
+        (key, type, order, context) -> {
+          if (errorKey.equals(key) && type == EventType.MARK_CLEAN) {
+            if (order == Order.BEFORE) {
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  topRequestedError, "top didn't request");
+            } else {
+              errorMarkedClean.countDown();
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  topSecondEval, "top didn't restart");
+              // Make sure that the other thread notices the error and interrupts this thread.
+              try {
+                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
               }
             }
           }
@@ -4889,16 +4779,13 @@ public class MemoizingEvaluatorTest {
     SkyKey errorKey = GraphTester.nonHermeticKey("error");
     final SkyKey otherKey = GraphTester.toSkyKey("other");
     SkyFunction parentBuilder =
-        new SkyFunction() {
-          @Override
-          public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-            env.getValue(errorKey);
-            env.getValue(otherKey);
-            if (env.valuesMissing()) {
-              return null;
-            }
-            return new StringValue("parent");
+        (skyKey, env) -> {
+          env.getValue(errorKey);
+          env.getValue(otherKey);
+          if (env.valuesMissing()) {
+            return null;
           }
+          return new StringValue("parent");
         };
     tester.getOrCreate(parent1Key).setBuilder(parentBuilder);
     tester.getOrCreate(parent2Key).setBuilder(parentBuilder);
@@ -5058,21 +4945,18 @@ public class MemoizingEvaluatorTest {
     Thread mainThread = Thread.currentThread();
     AtomicBoolean shouldInterrupt = new AtomicBoolean(false);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, Object context) {
-            if (shouldInterrupt.get()
-                && key.equals(topKey)
-                && type == EventType.IS_READY
-                && order == Order.BEFORE) {
-              mainThread.interrupt();
-              shouldInterrupt.set(false);
-              try {
-                // Make sure threadpool propagates interrupt.
-                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-              }
+        (key, type, order, context) -> {
+          if (shouldInterrupt.get()
+              && key.equals(topKey)
+              && type == EventType.IS_READY
+              && order == Order.BEFORE) {
+            mainThread.interrupt();
+            shouldInterrupt.set(false);
+            try {
+              // Make sure threadpool propagates interrupt.
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
             }
           }
         },
