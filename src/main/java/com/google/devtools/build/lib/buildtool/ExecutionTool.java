@@ -598,7 +598,7 @@ public class ExecutionTool {
         for (Path entry : entries) {
           directoryDetails.append(" '").append(entry.getBaseName()).append("'");
         }
-        logger.atWarning().log(directoryDetails.toString());
+        logger.atWarning().log("%s", directoryDetails);
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
       }

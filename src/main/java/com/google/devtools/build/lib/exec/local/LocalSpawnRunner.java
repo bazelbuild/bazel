@@ -276,7 +276,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         Level level, @Nullable Throwable cause, @FormatString String fmt, Object... args) {
       String msg = String.format(fmt, args);
       String toLog = String.format("%s (#%d %s)", msg, id, desc());
-      logger.at(level).withCause(cause).log(toLog);
+      logger.at(level).withCause(cause).log("%s", toLog);
     }
 
     private String desc() {

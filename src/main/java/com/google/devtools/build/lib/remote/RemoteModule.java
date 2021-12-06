@@ -820,7 +820,7 @@ public final class RemoteModule extends BlazeModule {
       failure = e;
       failureCode = Code.RPC_LOG_FAILURE;
       failureMessage = "Partially wrote rpc log file";
-      logger.atWarning().withCause(e).log(failureMessage);
+      logger.atWarning().withCause(e).log("%s", failureMessage);
     }
 
     executorService = null;
