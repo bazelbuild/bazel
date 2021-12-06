@@ -93,8 +93,22 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
       "<a href=\"https://docs.bazel.build/versions/main/skylark/rules.html#configurations\">"
-          + "Configuration</a> of the attribute. It can be either <code>\"host\"</code>, "
-          + "<code>\"exec\"</code>, or <code>\"target\"</code>.";
+          + "Configuration</a> of the attribute. It can be either <code>\"exec\"</code>, which "
+          + "indicates that the dependency is built for the <code>execution platform</code>, or "
+          + "<code>\"target\"</code>, which indicates that the dependency is build for the "
+          + "<code>target platform</code>. A typical example of the difference is when building "
+          + "mobile apps, where the <code>target platform</code> is <code>Android</code> or "
+          + "<code>iOS</code> while the <code>execution platform</code> is <code>Linux</code>, "
+          + "<code>macOS</code>, or <code>Windows</code>."
+          + "<p>For historical reasons, this can also be set to <code>\"host\"</code> which "
+          + "indicates that the dependency is built for the <code>host platform</code> (i.e., the"
+          + "platform Bazel runs on). However, this becomes problematic when using "
+          + "<a href=\"https://docs.bazel.build/versions/main/remote-execution.html\">Remote "
+          + "Execution</a>, where the <code>host</code> and <code>target platform</code> can be "
+          + "different (e.g., Bazel runs on <code>macOS</code> and uses a <code>Linux</code> "
+          + "environment for <code>(cross)compiling</code>. New rules should never use "
+          + "<code>cfg = \"host\"</code>, and existing rules should be updated to use "
+          + "<code>cfg = \"exec\"</code> instead.";
 
   String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences

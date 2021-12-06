@@ -726,9 +726,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAttrCfg() throws Exception {
+  public void testAttrCfgHost() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
     assertThat(attr.getTransitionFactory().isHost()).isTrue();
+  }
+
+  @Test
+  public void testAttrCfgHostDisabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_disable_starlark_host_transitions");
+
+    EvalException ex =
+        assertThrows(
+            EvalException.class,
+            () -> ev.eval("attr.label(cfg = 'host')"));
+    assertThat(ex).hasMessageThat().contains("Please use 'cfg = \"exec\"' instead");
   }
 
   @Test
@@ -741,7 +752,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void incompatibleDataTransition() throws Exception {
     EvalException expected =
         assertThrows(EvalException.class, () -> ev.eval("attr.label(cfg = 'data')"));
-    assertThat(expected).hasMessageThat().contains("cfg must be either 'host', 'target'");
+    assertThat(expected).hasMessageThat().contains("cfg must be either 'target', 'exec'");
   }
 
   @Test
