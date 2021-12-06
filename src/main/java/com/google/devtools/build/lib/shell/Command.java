@@ -410,7 +410,7 @@ public final class Command implements DescribableExecutionUnit {
   }
 
   private static void processInput(InputStream stdinInput, Subprocess process) {
-    logger.atFiner().log(stdinInput.toString());
+    logger.atFiner().log("%s", stdinInput);
     try (OutputStream out = process.getOutputStream()) {
       ByteStreams.copy(stdinInput, out);
     } catch (IOException ioe) {
