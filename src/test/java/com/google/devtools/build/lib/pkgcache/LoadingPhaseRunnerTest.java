@@ -71,6 +71,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -84,10 +86,9 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link SkyframeExecutor#loadTargetPatternsWithFilters}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class LoadingPhaseRunnerTest {
 
   private LoadingPhaseTester tester;
@@ -1295,17 +1296,20 @@ public final class LoadingPhaseRunnerTest {
     runTestPackageFileInconsistencyError(false, "//...");
   }
 
-  private void runTestExtensionLoadingError(boolean keepGoing, String... patterns)
+  @Test
+  public void extensionLoadingError(
+      @TestParameter boolean keepGoing,
+      @TestParameter({"//bad:BUILD", "//bad:all", "//bad/...", "//..."}) String pattern)
       throws Exception {
     tester.addFile("bad/f1.bzl", "nope");
     tester.addFile("bad/BUILD", "load(\":f1.bzl\", \"not_a_symbol\")");
     if (keepGoing) {
-      TargetPatternPhaseValue value = tester.loadKeepGoing(patterns);
+      TargetPatternPhaseValue value = tester.loadKeepGoing(pattern);
       assertThat(value.hasError()).isTrue();
       tester.assertContainsWarning("Target pattern parsing failed");
     } else {
       TargetParsingException exn =
-          assertThrows(TargetParsingException.class, () -> tester.load(patterns));
+          assertThrows(TargetParsingException.class, () -> tester.load(pattern));
       assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
       assertThat(exn)
           .hasCauseThat()
@@ -1317,50 +1321,6 @@ public final class LoadingPhaseRunnerTest {
           .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
     }
     tester.assertContainsError("/workspace/bad/f1.bzl:1:1: name 'nope' is not defined");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_explicitTarget() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_explicitTarget() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_targetsInPackage() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:all");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_targetsInPackage() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:all");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_targetsBeneathDirectory() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad/...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_targetsBeneathDirectory() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad/...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_someGoodTargetsBeneathDirectory()
-      throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_someGoodTargetsBeneathDirectory()
-      throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//...");
   }
 
   private static final class LoadingPhaseTester {
