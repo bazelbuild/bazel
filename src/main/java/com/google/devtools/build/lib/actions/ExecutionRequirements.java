@@ -194,6 +194,9 @@ public class ExecutionRequirements {
   /** Disables remote caching of a spawn. Note: does not disable remote execution */
   public static final String NO_REMOTE_CACHE = "no-remote-cache";
 
+  /** Disables upload part of remote caching of a spawn. Note: does not disable remote execution */
+  public static final String NO_REMOTE_CACHE_UPLOAD = "no-remote-cache-upload";
+
   /** Disables remote execution of a spawn. Note: does not disable remote caching */
   public static final String NO_REMOTE_EXEC = "no-remote-exec";
 
