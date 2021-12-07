@@ -75,7 +75,12 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     ListenableFuture<Void> future = diskCache.uploadFile(context, digest, file);
-    if (options.isRemoteExecutionEnabled()
+
+    boolean uploadForSpawn = context.getSpawn() != null;
+    // If not upload for spawn e.g. for build event artifacts, we always upload files to remote
+    // cache.
+    if (!uploadForSpawn
+        || options.isRemoteExecutionEnabled()
         || shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
