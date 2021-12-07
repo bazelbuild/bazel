@@ -218,6 +218,13 @@ public abstract class BuildIntegrationTestCase {
     AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
   }
 
+  @Before
+  public final void addUncaughtExceptionHandler() {
+    Thread.setDefaultUncaughtExceptionHandler(
+        (ignored, exception) ->
+            BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive()));
+  }
+
   protected ServerDirectories createServerDirectories() {
     return new ServerDirectories(
         /*installBase=*/ outputBase,
