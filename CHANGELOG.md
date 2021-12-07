@@ -1,3 +1,253 @@
+## Release 6.0.0-pre.20211117.1 (2021-12-07)
+
+```
+Baseline: e5b3536583f742e0dda9fd377dffbda3c1e3d366
+```
+
+Incompatible changes:
+
+  - Removing java_common.javac_jar Starlark call.
+  - native.existing_rule now returns select values in a form that is
+    accepted by rule instantiation. This is a breaking API change
+    because there is some code that relies on the precise type
+    returned, including brittle workarounds for this bug specifically
+    and insufficiently flexible workarounds for other issues with the
+    intersection of select and native.existing_rule.
+  - flipped incompatible_use_toolchain_resolution_for_java_rules, see
+    #7849
+  - Query output=xml/proto/location for source files will now show
+    the location of line 1 of the source file (as the new default)
+    instead of its location in the BUILD file.
+  - Specifying a target pattern underneath a directory specified by
+    .bazelignore will now emit a warning, not an error.
+  - Query `--order_output=auto` will now sort lexicographically.
+    However, when `somepath` is used as a top level function (e.g.
+    `query 'somepath(a, b)'`), it will continue to output in
+    dependency order. If you do not want the lexicographical output
+    ordering, specify another `--order_output` value (`no`, `deps` or
+    `full`) based on what ordering you require.
+  - In the build event stream,
+    BuildMetrics.TargetMetrics.targets_loaded is no longer populated.
+    Its value was always mostly meaningless.
+    BuildMetrics.TargetMetrics.targets_configured and
+    BuildMetrics.ActionSummary.actions_created now include configured
+    aspect data.
+  - //visibility:legacy_public has been removed.
+  - Flip and remove incompatible_dont_collect_so_artifacts
+    (https://github.com/bazelbuild/bazel/issues/13043).
+  - Remove flag --experimental_no_product_name_out_symlink: it is
+    always true.
+  - The Starlark method generate_dsym in objc fragment has
+    been deleted.  Please use the equivalent apple_generate_dsym in
+    cpp
+    fragment instead.
+  - Native libraries in data attribute are not collected. See
+    https://github.com/bazelbuild/bazel/issues/13550 for details
+  - Enforce the `--profile` path to be absolute.
+  - Enforce the --memory_profile path to be absolute.
+  - JavaToolchainInfo.jvm_opt returns Depset instead of a list.
+  - --apple_sdk has been deleted.  It is a no-op.
+  - --bep_publish_used_heap_size_post_build is now a no-op and will
+    be deleted in a future release. Use --memory_profile=/dev/null
+    instead.
+  - Flipped --incompatible_disallow_resource_jars (see
+    https://github.com/bazelbuild/bazel/issues/13221).
+  - Remove --bep_publish_used_heap_size_post_build
+  - JSON trace profile: rename counter names.
+  - Removed --action_graph from the dump command.
+  - Remove `--{experimental_,}json_trace_compression` option.
+  - Remove `--experimental_profile_cpu_usage`.
+  - flipped --incompatible_java_common_parameters (see #12373)
+
+New features:
+
+  - Args.add_all and Args.add_joined can now accept closures in
+    map_each if explicitly enabled via allow_closure.
+  - Add `--bes_header` flag to pass extra headers to the BES server.
+
+Important changes:
+
+  - Flag --incompatible_objc_compile_info_migration is removed.  See
+    #10854.
+  - Flag --incompatible_objc_compile_info_migration is removed.  See
+    #10854.
+  - Flag --incompatible_objc_compile_info_migration is removed.  See
+    #10854.
+  - none
+    PAIR=cmita
+  - The --incompatible_load_python_rules_from_bzl flag is now a no-op.
+  - Filter all (instead of just C++) source files for coverage output
+    according to --instrumentation_filter and
+    --instrument_test_targets.
+  - The `--incompatible_disable_native_apple_binary_rule` flag has
+    been added which disables the native `apple_binary` rule. Users
+    who need to use `apple_binary` directly (if they cannot use one
+    of the more specific Apple rules) should load it from
+    https://github.com/bazelbuild/rules_apple.
+  - The Android rules' --use_singlejar_apkbuilder is now a no-op.
+    SingleJar will always be used to build APKs.
+  - dict.setdefault(key, ...) now fails if dict is frozen, even if it
+    already contains key. This is an incompatible API change.
+  - Flag --incompatible_objc_provider_remove_compile_info is removed.
+     See #11359.
+  - Starlark now permits def statements to be nested (closures).
+  - native.existing_rule now returns select values in a form that is
+    accepted by rule instantiation. This is a breaking API change,
+    though the fallout is expected to be small.
+  - Starlark now supports lambda (anonymous function) expressions.
+  - The "test" and "coverage" commands no longer return 3 when a
+    test action fails because of a system error. Instead, the exit
+    code
+    reflects the type of system error.
+  - The undocumented ctx.expand feature no longer exists.
+  - Make --legacy_dynamic_scheduler a no-op flag.
+  - Multiplex persistent workers can now use the JSON protocol.
+  - native.existing_rule now returns a mutable list, not a tuple, for
+    a list-valued attributes. This is an incompatible API change.
+  - Roll back change to have native.existing_rules use list instead
+    of tuple.
+  - BEP includes test suite expansions.
+  - config_setting now honors `visibility` attribute (and defaults to
+    `//visibility:public`)
+  - Change the MultiArchSplitTransitionProvider to be based on
+    platform type + CPU instead of fixed "ios_" + cpu.
+  - enforce config_setting visibility. See
+    https://github.com/bazelbuild/bazel/issues/12932 for details.
+  - add a flag to build v4 signature file
+  - Added _direct_source_jars output group to Java related targets.
+    END_PUBLIC
+  - pkg_deb is no longer part of @bazel_tools//build_defs/pkg:pkg.bzl.
+    Use https://github.com/bazelbuild/rules_pkg/tree/main/pkg instead
+  - Allowing the lipo operations to be conditional in the
+    linkMultiArchBinary API for Apple binaries. Single architecture
+    slices are now returned through AppleBinaryOutput and the
+    Starlark API.
+  - Release restriction for "-" in the package name for Python
+    sources. Now `py_binary` and `py_test` targets can have main
+    source file with "-" in the path.
+  - Users consuming BEP may assume that a `named_set_of_files` event
+    will
+    appear before any event referencing that `named_set` by ID. This
+    allows consumers
+    to process the files for such events (eg. `TargetCompleted`)
+    immediately.
+  - BEP includes all files from successful actions in requested
+    output groups.
+    Previously, an output group's files were excluded if any file in
+    the output group
+    was not produced due to a failing action. Users can expect BEP
+    output to be larger
+    for failed builds.
+  - In BEP, TargetComplete.output_group has a new field `incomplete`
+    indicating that the file_sets field is missing one or more
+    declared artifacts
+    whose generating actions failed.
+  - The flag `--toolchain_resolution_debug` now takes a regex
+    argument, which is used to check which toolchain types should
+    have debug info printed. You may use `.*` as an argument to keep
+    the current behavior of debugging every toolchain type.
+  - Add runfiles.merge_all() for merging a sequence of runfiles
+    objects.
+  - runfiles.merge() and merge_all() now respect
+    --nested_set_depth_limit.
+    If you hit the depth limit because you were calling merge() in a
+    loop, use
+    merge_all() on a sequence of runfiles objects instead.
+  - Bazel will no longer create a bazel-out symlink if
+    --symlink_prefix is specified: the directory pointed to via the
+    bazel-out symlink is accessible via ${symlink_prefix}-out. If
+    this causes problems for you, set
+    --experimental_no_product_name_out_symlink=false in your builds
+    and file an issue.
+  - Updates worker protocol with cancellation fields, and adds
+    experimental_worker_cancellation flag to control cancellation.
+  - Simplify build failure output by always using `NNN arguments`.
+  - trim_test_configuration now defaults to on
+  - Mark genrule.srcs as a source attribute for coverage.
+  - When using --allow_analysis_failures (for example, via
+    bazel-skylib's
+    analysistest with `expect_failure = True`), analysis-time
+    failures in aspect
+    implementation functions will now be propagated and saved in
+    AnalysisFailureInfo, just like analysis-time failures in rules.
+  - cquery --noimplicit_deps now correctly filters out resolved
+    cc_toolchains
+  - Sign apks deterministically.
+  - Make gcov optional in cc_toolchain tools.
+  - If --experimental_prefer_mutual_xcode is passed, Bazel will
+    choose the local default (instead of the newest mutually
+    available version) if it's available both locally and remotely.
+  - Remove java_lite_proto_library.strict_deps attribute.
+  - Generate proguard configurations deterministically.
+  - Adds a new flag, `--incompatible_enable_cc_test_feature` which
+    switches from the use of build variables to the feature of the
+    same name.
+  - Dropped fragile xz support from built in pkg_tar. Users requiring
+    xz
+    compression should switch to bazlebuild/rules_pkg.
+  - If all strategies of one branch (the local or remote execution
+    branch) of the `dynamic` strategy fail to even accept (via the
+    response they give from `canExec`) the action, `dynamic` will now
+    try to see if the other branch can accept it. (Trying to run it
+    and it failing will still cause a failure if it was the first
+    result, this is about strategies claiming they can't even try the
+    action)
+  - Add `disable_annotation_processing` option to
+    `java_common.compile`, which disables any annotation processors
+    passed to `plugins` or in `exported_plugins` of `deps`
+  - Remove obsolete --incompatible_prohibit_aapt1
+  - The minimum Android build tools version for the Android rules is
+    now 30.0.0
+  - Adds --experimental_reuse_sandbox_directories flag to reuse
+    already-created non-worker sandboxes with cleanup.
+  - --experimental_force_gc_after_build is deprecated and will be
+    removed soon. Use --bep_publish_used_heap_size_post_build instead
+  - Forward coverage-instrumented files from non-tool dependencies by
+    default.
+  - The used_heap_size_post_build field in BEP is populated when the
+    --memory_profile flag is set
+  - --run_validations defaults to true.
+  - Consider label_keyed_string_dict attributes when gathering
+    instrumented files for coverage.
+  - Remove flag
+    --experimental_forward_instrumented_files_info_by_default, now
+    that this behavior is the default.
+  - When using MemoryProfiler with multiple GCs via the
+    --memory_profile_stable_heap_parameters flag, we do a more
+    precise calculation of heap used at the end of the build. This
+    will generally result in lower values.
+  - --bep_publish_used_heap_size_post_build is deprecated. Use
+    --memory_profile=/dev/null instead.
+  - Disable --all_incompatible_changes flag.
+  - The --all_incompatible_changes flag is now a no-op
+  - The `--toolchain_resolution_debug` flag now accepts regexes
+    matching targets, as well as toolchain types, when choosing what
+    debug messages to print.
+  - Adds --experimental_existing_rules_immutable_view flag to make the
+    native.existing_rule and native.existing_rules functions more
+    efficient by
+    returning immutable, lightweight dict-like view objects instead
+    of mutable
+    dicts.
+  - Add support to length-delimited protos as undeclared output
+    annotations []
+  - The deprecated "relative_to_caller_repository" parameter has been
+    removed from the Label constructor.
+  - The toolchain transition is now enabled for all toolchains.
+  - incompatible_disable_depset_items is flipped
+  - The --experimental_existing_rules_immutable_view flag has been
+    renamed to  --incompatible_existing_rules_immutable_view
+  - Bazel no longer supports Java 8. From this version on, the
+    minimum required JDK is OpenJDK 11.
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+  - The Build Event Protocol now contains file digests and sizes
+    along with the file name and URI.
+  - Refactor system suspend event handling.
+
+This release contains contributions from many people at Google, as well as Adam Liddell, Alessandro Patti, Alex Eagle, Alex Eagle, Alex Eagle, Andrew Katson, Anthony Pratti, Artem V. Navrotskiy, Austin Schuh, Benedek Thaler, Benjamin Lee, Benjamin Peterson, Benjamin Peterson, Ben Lee, Brandon Jacklyn, Brentley Jones, bromano, Cameron Mulhern, Christopher Peterson Sauer, Christopher Sauer, Cristian Hancila, crydell-ericsson, Dan Bamikiya, Daniel McCarney, Daniel Wagner-Hall, Danny Wolf, Dave MacLachlan, Dave Nicponski, David Cummings, David, David Ostrovsky, Delwin9999, Denys Kurylenko, Dmitry Ivankov, dorranh, ecngtng, Ed Schouten, Eitan Adler, Elliotte Rusty Harold, erenon, Eric Cousineau, Ethan Steinberg, Fabian Meumertzheim, Fabian Meumertzheim, FaBrand, Felix Ehrenpfort, Finn Ball, frazze-jobb, Fredrik Medley, Garrett Holmstrom, Gautam Korlam, George Gensure, goodspark, Greg Estren, Grzegorz Lukasik, Grzegorz Lukasik, hvadehra, Ikko Ashimine, Jesse Chan, Joe Lencioni, Johannes Abt, John Laxson, Jonathan Schear, Justus Tumacder, Keith Smiley, kekxv, Kevin Hogeland, Lauri Peltonen, Liu Liu, Lszl Csomor, m, Marc Zych, Mark Karpov, Masoud Koleini, Mathieu Olivari, Matt Mackay, Mauricio Galindo, Max Liu, Menny Even Danan, menny, Michael Chinen, Nathaniel Brough, Nick Korostelev, Niek Peeters, Nikolay Shelukhin, odisseus, Oleh Stolyar, Olek Wojnar, Olle Lundberg, Omar Zuniga, Paul Gschwendtner, Peter Kasting, Philipp Schrader, Pras Velagapudi, Qais Patankar, Rabi Shanker Guha, Rahul Butani, Rai, ron-stripe, Ryan Beasley, samhowes, Samuel Giddins, Sebastian Olsson, Sergey Tyurin, Steve Siano, steve-the-bayesian, Stiopa Koltsov, susinmotion, tatiana, Tetsuo Kiso, Thaler Benedek, Thi Doan, Thi Don, Thomas Carmet, ThomasCJY, Timothe Peignier, Timothy Klim, Tobi, Torgil Svensson, Trustin Lee, Ulf Adams, Ulrik Falklof, Uri Baghin, Vaidas Pilkauskas, Vertexwahn, William Muir, wisechengyi, Wren Turkal, Xavier Bonaventura, Yannic Bonenberger, Yannic Bonenberger, Yannic, Yury Evtikhov, Yuval Kaplan, Yuval K, Yuval, [zqzzq].
+
 ## Release 4.2.2 (2021-12-02)
 
 ```
