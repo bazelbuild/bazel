@@ -270,6 +270,16 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteUploadLocalResults;
 
   @Option(
+      name = "incompatible_remote_build_event_upload_respect_no_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
+              + " generating action cannot be cached remotely.")
+  public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
+
+  @Option(
       name = "incompatible_remote_results_ignore_disk",
       defaultValue = "false",
       category = "remote",

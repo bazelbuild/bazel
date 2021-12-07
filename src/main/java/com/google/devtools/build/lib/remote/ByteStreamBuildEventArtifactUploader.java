@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -65,6 +66,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final AtomicBoolean shutdown = new AtomicBoolean();
   private final Scheduler scheduler;
 
+  private final Set<Path> omittedFiles = Sets.newConcurrentHashSet();
+  private final Set<Path> omittedTreeRoots = Sets.newConcurrentHashSet();
+
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
       ExtendedEventHandler reporter,
@@ -81,6 +85,14 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.commandId = commandId;
     this.remoteServerInstanceName = remoteServerInstanceName;
     this.scheduler = Schedulers.from(executor);
+  }
+
+  public void omitFile(Path file) {
+    omittedFiles.add(file);
+  }
+
+  public void omitTree(Path treeRoot) {
+    omittedTreeRoots.add(treeRoot);
   }
 
   /** Returns {@code true} if Bazel knows that the file is stored on a remote system. */
@@ -124,10 +136,21 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    * Collects metadata for {@code file}. Depending on the underlying filesystem used this method
    * might do I/O.
    */
-  private static PathMetadata readPathMetadata(Path file) throws IOException {
+  private PathMetadata readPathMetadata(Path file) throws IOException {
     if (file.isDirectory()) {
       return new PathMetadata(file, /* digest= */ null, /* directory= */ true, /* remote= */ false);
     }
+    if (omittedFiles.contains(file)) {
+      return new PathMetadata(file, /*digest=*/ null, /*directory=*/ false, /*remote=*/ false);
+    }
+
+    for (Path treeRoot : omittedTreeRoots) {
+      if (file.startsWith(treeRoot)) {
+        omittedFiles.add(file);
+        return new PathMetadata(file, /*digest=*/ null, /*directory=*/ false, /*remote=*/ false);
+      }
+    }
+
     DigestUtil digestUtil = new DigestUtil(file.getFileSystem().getDigestFunction());
     Digest digest = digestUtil.compute(file);
     return new PathMetadata(file, digest, /* directory= */ false, isRemoteFile(file));
@@ -248,7 +271,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 .collect(Collectors.toList())
                 .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
                 .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
-                .map(paths -> new PathConverterImpl(remoteServerInstanceName, paths)),
+                .map(paths -> new PathConverterImpl(remoteServerInstanceName, paths, omittedFiles)),
         RemoteCache::release);
   }
 
@@ -280,8 +303,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final String remoteServerInstanceName;
     private final Map<Path, Digest> pathToDigest;
     private final Set<Path> skippedPaths;
+    private final Set<Path> localPaths;
 
-    PathConverterImpl(String remoteServerInstanceName, List<PathMetadata> uploads) {
+    PathConverterImpl(
+        String remoteServerInstanceName, List<PathMetadata> uploads, Set<Path> localPaths) {
       Preconditions.checkNotNull(uploads);
       this.remoteServerInstanceName = remoteServerInstanceName;
       pathToDigest = new HashMap<>(uploads.size());
@@ -296,11 +321,17 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         }
       }
       this.skippedPaths = skippedPaths.build();
+      this.localPaths = localPaths;
     }
 
     @Override
     public String apply(Path path) {
       Preconditions.checkNotNull(path);
+
+      if (localPaths.contains(path)) {
+        return String.format("file://%s", path.getPathString());
+      }
+
       Digest digest = pathToDigest.get(path);
       if (digest == null) {
         if (skippedPaths.contains(path)) {
