@@ -19,24 +19,33 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 
 /** Helper methods relating to implementations of {@link Spawn}. */
 public final class Spawns {
   private Spawns() {}
 
-  /**
-   * Returns {@code true} if the result of {@code spawn} may be cached.
-   */
+  /** Returns {@code true} if the result of {@code spawn} may be cached. */
   public static boolean mayBeCached(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
+    return mayBeCached(spawn.getExecutionInfo());
+  }
+
+  /** Returns {@code true} if the result of {@code spawn} may be cached. */
+  public static boolean mayBeCached(Map<String, String> executionInfo) {
+    return !executionInfo.containsKey(ExecutionRequirements.NO_CACHE)
+        && !executionInfo.containsKey(ExecutionRequirements.LOCAL);
   }
 
   /** Returns {@code true} if the result of {@code spawn} may be cached remotely. */
   public static boolean mayBeCachedRemotely(Spawn spawn) {
-    return mayBeCached(spawn)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE_CACHE);
+    return mayBeCachedRemotely(spawn.getExecutionInfo());
+  }
+
+  /** Returns {@code true} if the result of {@code spawn} may be cached remotely. */
+  public static boolean mayBeCachedRemotely(Map<String, String> executionInfo) {
+    return mayBeCached(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE);
   }
 
   /** Returns {@code true} if {@code spawn} may be executed remotely. */
