@@ -3037,8 +3037,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         e =
             new InvalidConfigurationException(
                 "cannot load build configuration because of this cycle", Code.CYCLE);
-      } else if (e instanceof NoSuchThingException) {
-        e = new InvalidConfigurationException(((NoSuchThingException) e).getDetailedExitCode(), e);
+      } else if (e instanceof DetailedException) {
+        e = new InvalidConfigurationException(((DetailedException) e).getDetailedExitCode(), e);
       }
       if (e != null) {
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
