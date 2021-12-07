@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -369,6 +370,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Iterable<SkyKey> roots,
       Set<SkyKey> rdepsToBubbleUpTo)
       throws InterruptedException {
+    // Remove all the compute states so as to give the SkyFunctions a chance to do fresh
+    // computations during error bubbling.
+    skyKeyComputeStateManager.removeAll();
+
     Set<SkyKey> rootValues = ImmutableSet.copyOf(roots);
     ErrorInfo error = leafFailure;
     LinkedHashMap<SkyKey, ValueWithMetadata> bubbleErrorInfo = new LinkedHashMap<>();
@@ -494,12 +499,17 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               bubbleErrorInfo,
               ImmutableSet.of(),
               evaluatorContext);
+      SkyKeyComputeState skyKeyComputeStateToUse = skyKeyComputeStateManager.maybeGet(parent);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
       boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
         // care about a return value.
-        factory.compute(parent, env);
+        if (skyKeyComputeStateToUse == null) {
+          factory.compute(parent, env);
+        } else {
+          factory.compute(parent, skyKeyComputeStateToUse, env);
+        }
         completedRun = true;
       } catch (InterruptedException interruptedException) {
         logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
