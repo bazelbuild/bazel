@@ -25,6 +25,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -71,6 +72,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -596,9 +598,20 @@ public final class Utils {
   }
 
   public static boolean shouldUploadLocalResultsToRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
-        && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+        && (executionInfo == null
+            || (Spawns.mayBeCachedRemotely(executionInfo)
+                && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD)));
+  }
+
+  public static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    ImmutableMap<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
   }
 
   public static boolean shouldUploadLocalResultsToDiskCache(
@@ -614,13 +627,11 @@ public final class Utils {
       RemoteOptions remoteOptions, @Nullable Spawn spawn) {
     if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
       // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
-      // cache. Actions
-      // which are tagged with `no-remote-cache` can still hit the disk cache.
-      return spawn == null || Spawns.mayBeCached(spawn);
+      // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, spawn);
     } else {
       // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
-      return remoteOptions.remoteUploadLocalResults
-          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+      return shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn);
     }
   }
 }
