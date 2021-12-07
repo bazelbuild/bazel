@@ -280,7 +280,7 @@ public final class HelpCommand implements BlazeCommand {
     flagBuilder.addAllEffectTags(optionEffectTags);
 
     List<String> optionMetadataTags = Arrays.stream(option.getOptionMetadataTags())
-        .filter(tag -> OptionMetadataTag.INTERNAL.equals(tag))
+        .filter(tag -> !OptionMetadataTag.INTERNAL.equals(tag))
         .map(Enum::toString)
         .collect(Collectors.toList());
     flagBuilder.addAllMetadataTags(optionMetadataTags);
