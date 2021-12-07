@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -126,9 +127,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
+import org.junit.runners.model.Statement;
 
 /**
  * A base class for integration tests that use the {@link BuildTool}. These tests basically run a
@@ -156,6 +161,8 @@ public abstract class BuildIntegrationTestCase {
           .build();
     }
   }
+
+  @Rule public TestRule crashHandler = createHandleCrashHandlerRule();
 
   protected FileSystem fileSystem;
   protected EventCollectionApparatus events = createEvents();
@@ -216,13 +223,6 @@ public abstract class BuildIntegrationTestCase {
     createRuntimeWrapper();
 
     AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
-  }
-
-  @Before
-  public final void addUncaughtExceptionHandler() {
-    Thread.setDefaultUncaughtExceptionHandler(
-        (ignored, exception) ->
-            BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive()));
   }
 
   protected ServerDirectories createServerDirectories() {
@@ -991,5 +991,26 @@ public abstract class BuildIntegrationTestCase {
     public synchronized void clear() {
       exceptions.clear();
     }
+  }
+
+  /**
+   * Creates a JUnit rule to set a default handler for uncaught exceptions to run {@link
+   * BugReport#handleCrash(Crash, CrashContext)}.
+   */
+  private static TestRule createHandleCrashHandlerRule() {
+    return (base, description) ->
+        new Statement() {
+          @Override
+          public void evaluate() throws Throwable {
+            @Nullable UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();
+            Thread.setDefaultUncaughtExceptionHandler(
+                (ignored, exception) ->
+                    BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive()));
+
+            base.evaluate();
+
+            Thread.setDefaultUncaughtExceptionHandler(old);
+          }
+        };
   }
 }
