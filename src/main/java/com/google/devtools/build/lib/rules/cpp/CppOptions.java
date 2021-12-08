@@ -257,6 +257,16 @@ public class CppOptions extends FragmentOptions {
   public boolean forcePic;
 
   @Option(
+      name = "disable_cpp_include_validation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, Bazel will not validate inclusions.")
+  public boolean disableCppIncludeValidation;
+
+  @Option(
       name = "process_headers_in_dependencies",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,

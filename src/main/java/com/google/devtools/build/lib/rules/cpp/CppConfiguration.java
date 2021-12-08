@@ -823,6 +823,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.validateTopLevelHeaderInclusions;
   }
 
+  public boolean disableCppIncludeValidation() {
+    return cppOptions.disableCppIncludeValidation;
+  }
+
   public boolean appleGenerateDsym() {
     return appleGenerateDsym;
   }
