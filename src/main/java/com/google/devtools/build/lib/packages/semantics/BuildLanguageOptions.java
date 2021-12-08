@@ -312,17 +312,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
   public boolean incompatibleDisableTargetProviderFields;
 
-  @Option(
-      name = "incompatible_disable_depset_items",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, disable the 'items' parameter of the depset constructor. Use "
-              + "the 'transitive' and 'direct' parameters instead.")
-  public boolean incompatibleDisableDepsetItems;
-
   // For Bazel, this flag is a no-op. Bazel doesn't support built-in third party license checking
   // (see https://github.com/bazelbuild/bazel/issues/7444).
   //
