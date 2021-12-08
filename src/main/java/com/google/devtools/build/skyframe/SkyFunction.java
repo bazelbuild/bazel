@@ -129,7 +129,7 @@ public interface SkyFunction {
    *
    * Now {@code someExpensiveComputation(x)} gets called exactly once for each {@code x}!
    *
-   * <p>TODO(b/204331343): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
+   * <p>TODO(b/209701268): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
    * sort of optimization.
    */
   @ThreadSafe
