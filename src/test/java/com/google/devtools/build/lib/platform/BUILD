@@ -39,3 +39,27 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "SystemMemoryPressureEventTest",
+    timeout = "short",
+    srcs = ["SystemMemoryPressureEventTest.java"],
+    data = select({
+        "//src/conditions:darwin": [
+            "//src/test/java/com/google/devtools/build/lib/platform/darwin:notifier",
+        ],
+        "//conditions:default": [
+        ],
+    }),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_module",
+        "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@bazel_tools//tools/java/runfiles",
+    ],
+)

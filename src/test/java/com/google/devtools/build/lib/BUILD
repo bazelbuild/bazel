@@ -40,6 +40,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/packages/metrics:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages/semantics:srcs",
         "//src/test/java/com/google/devtools/build/lib/platform:srcs",
+        "//src/test/java/com/google/devtools/build/lib/platform/darwin:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
