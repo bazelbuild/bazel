@@ -78,7 +78,8 @@ public class JavaHeaderCompileActionBuilder {
   private final RuleContext ruleContext;
 
   private Artifact outputJar;
-  @Nullable private Artifact outputDepsProto;
+  // Only non-null before set.
+  private Artifact outputDepsProto;
   @Nullable private Artifact manifestOutput;
   @Nullable private Artifact gensrcOutputJar;
   @Nullable private Artifact resourceOutputJar;
@@ -109,8 +110,8 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the output jdeps file. */
-  public JavaHeaderCompileActionBuilder setOutputDepsProto(@Nullable Artifact outputDepsProto) {
-    this.outputDepsProto = outputDepsProto;
+  public JavaHeaderCompileActionBuilder setOutputDepsProto(Artifact outputDepsProto) {
+    this.outputDepsProto = checkNotNull(outputDepsProto);
     return this;
   }
 

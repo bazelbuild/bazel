@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -96,7 +97,7 @@ import net.starlark.java.eval.StarlarkList;
 /** Action that represents a Java compilation. */
 @ThreadCompatible
 @Immutable
-public class JavaCompileAction extends AbstractAction implements CommandAction {
+public final class JavaCompileAction extends AbstractAction implements CommandAction {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
@@ -132,7 +133,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> transitiveInputs;
   private final NestedSet<Artifact> dependencyArtifacts;
-  private final Artifact outputDepsProto;
+  @Nullable private final Artifact outputDepsProto;
   private final JavaClasspathMode classpathMode;
 
   @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
@@ -193,6 +194,10 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     this.dependencyArtifacts = dependencyArtifacts;
     this.outputDepsProto = outputDepsProto;
     this.classpathMode = classpathMode;
+    checkState(
+        outputDepsProto != null || classpathMode != JavaClasspathMode.BAZEL,
+        "Cannot have null outputDepsProto with reduced class path mode BAZEL %s",
+        describe());
   }
 
   @Override
@@ -347,8 +352,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException {
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
     LinkedHashMap<String, String> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(effectiveEnvironment, clientEnv);
@@ -477,9 +481,9 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   private final class JavaSpawn extends BaseSpawn {
-    final NestedSet<ActionInput> inputs;
+    private final NestedSet<ActionInput> inputs;
 
-    public JavaSpawn(
+    JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
         Map<String, String> executionInfo,
@@ -714,13 +718,10 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         }
 
         List<SpawnResult> results = nextContinuation.get();
-        Deps.Dependencies dependencies = null;
-        if (outputDepsProto != null) {
-          dependencies = readFullOutputDeps(results, actionExecutionContext);
-        }
         if (reducedClasspath == null) {
           return ActionContinuationOrResult.of(ActionResult.create(results));
         }
+        Deps.Dependencies dependencies = readFullOutputDeps(results, actionExecutionContext);
 
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
