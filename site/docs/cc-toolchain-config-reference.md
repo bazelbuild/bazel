@@ -481,8 +481,8 @@ With Bazel, this process can instead be implemented as follows, with
 
     action_configs = [
         action_config (
-            config_name = "ACTION_NAMES.cpp_link_executable",
-            action_name = "ACTION_NAMES.cpp_link_executable",
+            config_name = ACTION_NAMES.cpp_link_executable,
+            action_name = ACTION_NAMES.cpp_link_executable,
             tools = [
                 tool(
                     with_features = [
@@ -501,8 +501,8 @@ With Bazel, this process can instead be implemented as follows, with
             flag_sets = [
                 flag_set (
                     actions = [
-                        "ACTION_NAMES.c_compile",
-                        "ACTION_NAMES.cpp_compile"
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile
                     ],
                     flag_groups = [
                         flag_group(
@@ -525,7 +525,7 @@ follows:
 
     action_configs = [
         action_config (
-            name = "ACTION_NAMES.cpp_compile",
+            name = ACTION_NAMES.cpp_compile,
             tools = [
                 tool(
                     tool_path = "toolchain/bin/gcc",
@@ -540,7 +540,7 @@ follows:
             requires = [with_feature_set(features = ["dbg"])],
             flag_sets = [
                 flag_set(
-                    actions = ["ACTION_NAMES.cpp_compile"],
+                    actions = [ACTION_NAMES.cpp_compile],
                     flag_groups = [
                         flag_group(
                             flags = ["-gsplit-dwarf"],
@@ -548,7 +548,7 @@ follows:
                     ],
                 ),
                 flag_set(
-                    actions = ["ACTION_NAMES.cpp_link_executable"],
+                    actions = [ACTION_NAMES.cpp_link_executable],
                     flag_groups = [
                         flag_group(
                             flags = ["-Wl", "--gdb-index"],

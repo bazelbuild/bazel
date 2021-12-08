@@ -159,7 +159,7 @@ public class SimpleCycleDetector implements CycleDetector {
         SkyFunctionEnvironment env;
         try {
           env =
-              new SkyFunctionEnvironment(
+              SkyFunctionEnvironment.create(
                   key,
                   directDeps,
                   Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
@@ -235,7 +235,7 @@ public class SimpleCycleDetector implements CycleDetector {
           ValueWithMetadata dummyValue = ValueWithMetadata.wrapWithMetadata(new SkyValue() {});
 
           SkyFunctionEnvironment env =
-              new SkyFunctionEnvironment(
+              SkyFunctionEnvironment.createForError(
                   key,
                   entry.getTemporaryDirectDeps(),
                   ImmutableMap.of(cycleChild, dummyValue),

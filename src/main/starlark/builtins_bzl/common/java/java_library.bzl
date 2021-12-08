@@ -55,17 +55,11 @@ java_library = create_rule(
         {
             "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         },
-        **dict(
-            semantics.EXTRA_ATTRIBUTES,
-            **({
-                "classjar": attr.output(),
-                "sourcejar": attr.output(),
-            } if semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else {})
-        )
+        **semantics.EXTRA_ATTRIBUTES
     ),
     deps = [JAVA_COMMON_DEP, VALIDATE_PROGUARD_SPECS] + semantics.EXTRA_DEPS,
     provides = [JavaInfo],
-    outputs = {} if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY or semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else {
+    outputs = {
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },

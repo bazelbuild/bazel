@@ -1900,6 +1900,42 @@ EOF
   expect_not_log "remote cache hit"
 }
 
+function test_tag_no_remote_cache_upload() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --modify_execution_info=.*=+no-remote-cache-upload \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  remote_ac_files="$(count_remote_ac_files)"
+  [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
+
+  # populate the cache
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --modify_execution_info=.*=+no-remote-cache-upload \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "remote cache hit"
+}
+
 function test_tag_no_remote_cache_for_disk_cache() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -3258,6 +3294,122 @@ EOF
     --remote_download_toplevel \
     "$@" \
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
+}
+
+function test_uploader_respsect_no_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+  tags = ["no-cache"],
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+}
+
+function test_uploader_respsect_no_cache_trees() {
+  mkdir -p a
+  cat > a/output_dir.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+    ctx.actions.run_shell(
+        outputs = [output_dir],
+        inputs = [],
+        command = """
+          mkdir -p $1/sub; \
+          index=0; while ((index<10)); do echo $index >$1/$index.txt; index=$(($index+1)); done
+          echo "Shuffle, duffle, muzzle, muff" > $1/sub/bar
+        """,
+        arguments = [output_dir.path],
+        execution_requirements = {"no-cache": ""},
+    )
+    return [
+        DefaultInfo(files = depset(direct = [output_dir])),
+    ]
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+
+  cat > a/BUILD <<EOF
+load(":output_dir.bzl", "gen_output_dir")
+gen_output_dir(
+    name = "foo",
+    outdir = "dir",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local tree files are converted"
+  expect_not_log "a/dir/.*bytestream://" || fail "local tree files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+}
+
+function test_uploader_respsect_no_upload_results() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_upload_local_results=false \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+}
+
+function test_uploader_respsect_no_upload_results_combined_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --disk_cache="${TEST_TMPDIR}/disk_cache" \
+      --remote_upload_local_results=false \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+  remote_cas_files="$(count_remote_cas_files)"
+  [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_cas_files"
 }
 
 run_suite "Remote execution and remote cache tests"

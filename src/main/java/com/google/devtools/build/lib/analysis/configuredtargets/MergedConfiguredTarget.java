@@ -273,7 +273,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @VisibleForTesting
-  public ConfiguredTarget getBaseConfiguredTarget() {
+  public ConfiguredTarget getBaseConfiguredTargetForTesting() {
     return base;
   }
 }

@@ -318,7 +318,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
+      throw ActionExecutionException.fromExecException(e, this);
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
     }
@@ -1413,7 +1413,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (ExecException e) {
-        throw e.toActionExecutionException(SpawnAction.this);
+        throw ActionExecutionException.fromExecException(e, SpawnAction.this);
       }
     }
   }

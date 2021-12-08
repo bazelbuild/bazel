@@ -42,6 +42,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
+import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
@@ -90,6 +91,8 @@ abstract class AbstractParallelEvaluator {
    */
   private final AtomicInteger globalEnqueuedIndex = new AtomicInteger(Integer.MIN_VALUE);
 
+  protected final SkyKeyComputeStateManager skyKeyComputeStateManager;
+
   AbstractParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
@@ -102,8 +105,7 @@ abstract class AbstractParallelEvaluator {
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
-      CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      CycleDetector cycleDetector) {
     this(
         graph,
         graphVersion,
@@ -117,7 +119,6 @@ abstract class AbstractParallelEvaluator {
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
         /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
         /*executionJobsThreadPoolSize=*/ 0);
   }
@@ -135,7 +136,6 @@ abstract class AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionJobsThreadPoolSize) {
     this.graph = graph;
@@ -158,8 +158,8 @@ abstract class AbstractParallelEvaluator {
             () ->
                 new NodeEntryVisitor(
                     quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
-            evaluationVersionBehavior,
             /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0);
+    this.skyKeyComputeStateManager = new SkyKeyComputeStateManager(skyFunctions);
   }
 
   private Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(
@@ -559,7 +559,7 @@ abstract class AbstractParallelEvaluator {
               .getProgressReceiver()
               .stateStarting(skyKey, NodeState.INITIALIZING_ENVIRONMENT);
           env =
-              new SkyFunctionEnvironment(
+              SkyFunctionEnvironment.create(
                   skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
@@ -581,11 +581,15 @@ abstract class AbstractParallelEvaluator {
                 state);
 
         SkyValue value = null;
+        SkyKeyComputeState skyKeyComputeStateToUse = skyKeyComputeStateManager.maybeGet(skyKey);
         long startTimeNanos = BlazeClock.instance().nanoTime();
         try {
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
-            value = factory.compute(skyKey, env);
+            value =
+                skyKeyComputeStateToUse == null
+                    ? factory.compute(skyKey, env)
+                    : factory.compute(skyKey, skyKeyComputeStateToUse, env);
           } finally {
             evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE);
             long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTimeNanos;
@@ -599,6 +603,10 @@ abstract class AbstractParallelEvaluator {
             }
           }
         } catch (final SkyFunctionException builderException) {
+          if (skyKeyComputeStateToUse != null) {
+            skyKeyComputeStateManager.remove(skyKey);
+          }
+
           ReifiedSkyFunctionException reifiedBuilderException =
               new ReifiedSkyFunctionException(builderException);
           // In keep-going mode, we do not let SkyFunctions complete with a thrown error if they
@@ -664,6 +672,7 @@ abstract class AbstractParallelEvaluator {
         }
 
         if (maybeHandleRestart(skyKey, state, value)) {
+          skyKeyComputeStateManager.removeAll();
           cancelExternalDeps(env);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
@@ -674,6 +683,10 @@ abstract class AbstractParallelEvaluator {
         GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
 
         if (value != null) {
+          if (skyKeyComputeStateToUse != null) {
+            skyKeyComputeStateManager.remove(skyKey);
+          }
+
           Preconditions.checkState(
               !env.valuesMissing(),
               "Evaluation of %s returned non-null value but requested dependencies that weren't "

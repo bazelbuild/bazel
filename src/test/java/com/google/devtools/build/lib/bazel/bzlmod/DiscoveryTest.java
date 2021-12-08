@@ -109,11 +109,6 @@ public class DiscoveryTest extends FoundationTestCase {
       ImmutableMap<ModuleKey, Module> depGraph = Discovery.run(env, root);
       return depGraph == null ? null : DiscoveryValue.create(depGraph);
     }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   @Before

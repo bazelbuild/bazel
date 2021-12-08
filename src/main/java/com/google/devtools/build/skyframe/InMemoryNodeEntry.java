@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -194,13 +196,13 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (isDone()) {
       return getErrorInfo() == null ? getValue() : null;
     } else if (isChanged() || isDirty()) {
-      SkyValue lastBuildValue = null;
+      SkyValue lastBuildValue;
       try {
         lastBuildValue = dirtyBuildingState.getLastBuildValue();
       } catch (InterruptedException e) {
         throw new IllegalStateException("Interruption unexpected: " + this, e);
       }
-      return (lastBuildValue == null) ? null : ValueWithMetadata.justValue(lastBuildValue);
+      return ValueWithMetadata.justValue(lastBuildValue);
     } else {
       // Value has not finished evaluating. It's probably about to be cleaned from the graph.
       return null;
@@ -268,81 +270,38 @@ public class InMemoryNodeEntry implements NodeEntry {
     return ReverseDepsUtility.returnNewElements(this, getOpToStoreBare());
   }
 
-  // In this method it is critical that this.lastChangedVersion is set prior to this.value because
-  // although this method itself is synchronized, there are unsynchronized consumers of the version
-  // and the value.
+  /**
+   * {@inheritDoc}
+   *
+   * <p>In this method it is crucial that {@link #lastChangedVersion} is set prior to {@link #value}
+   * because although this method itself is synchronized, there are unsynchronized consumers of the
+   * version and the value.
+   */
   @Override
-  public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
+  public synchronized Set<SkyKey> setValue(
+      SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
-    Preconditions.checkState(isReady(), "%s %s", this, value);
-    assertVersionCompatibleWhenSettingValue(version, value);
+    Preconditions.checkState(isReady(), "Not ready (this=%s, value=%s)", this, value);
+    Version version = firstNonNull(maxTransitiveSourceVersion, graphVersion);
+    Preconditions.checkState(
+        this.lastChangedVersion.atMost(version) && this.lastEvaluatedVersion.atMost(version),
+        "Bad version (this=%s, version=%s, value=%s)",
+        this,
+        version,
+        value);
     this.lastEvaluatedVersion = version;
 
-    if (!isEligibleForChangePruningOnUnchangedValue()) {
-      this.lastChangedVersion = version;
-      this.value = value;
-    } else if (dirtyBuildingState.unchangedFromLastBuild(value)) {
+    if (dirtyBuildingState.unchangedFromLastBuild(value)) {
       // If the value is the same as before, just use the old value. Note that we don't use the new
       // value, because preserving == equality is even better than .equals() equality.
       this.value = dirtyBuildingState.getLastBuildValue();
     } else {
-      boolean forcedRebuild = dirtyBuildingState.getDirtyState() == DirtyState.FORCED_REBUILDING;
-      if (!forcedRebuild && this.lastChangedVersion.equals(version)) {
-        logError(
-            new ChangedValueAtSameVersionException(this.lastChangedVersion, version, value, this));
-      }
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
       this.lastChangedVersion = version;
       this.value = value;
     }
     return setStateFinishedAndReturnReverseDepsToSignal();
-  }
-
-  /**
-   * Returns {@code true} if this node is eligible to be change pruned when its value has not
-   * changed from the last build.
-   *
-   * <p>Implementations need not check whether the value has changed - this will only be called if
-   * the value has not changed.
-   */
-  public boolean isEligibleForChangePruningOnUnchangedValue() {
-    return true;
-  }
-
-  protected void assertVersionCompatibleWhenSettingValue(
-      Version version, SkyValue valueForDebugging) {
-    if (!this.lastChangedVersion.atMost(version)) {
-      logError(
-          new IllegalStateException("Bad ch: " + this + ", " + version + ", " + valueForDebugging));
-    }
-    if (!this.lastEvaluatedVersion.atMost(version)) {
-      logError(
-          new IllegalStateException("Bad ev: " + this + ", " + version + ", " + valueForDebugging));
-    }
-  }
-
-  /** An exception indicating that the node's value changed but its version did not. */
-  public static final class ChangedValueAtSameVersionException extends IllegalStateException {
-    private final SkyValue newValue;
-
-    private ChangedValueAtSameVersionException(
-        Version lastChangedVersion,
-        Version newVersion,
-        SkyValue newValue,
-        InMemoryNodeEntry nodeEntry) {
-      super(
-          String.format(
-              "Changed value but with the same version? "
-                  + "lastChangedVersion: %s, newVersion: %s newValue: %s, nodeEntry: %s",
-              lastChangedVersion, newVersion, newValue, nodeEntry));
-      this.newValue = newValue;
-    }
-
-    /** Returns the value that this node changed to. */
-    public SkyValue getNewValue() {
-      return newValue;
-    }
   }
 
   @Override
@@ -490,8 +449,10 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkNotNull(dirtyBuildingState, "%s %s", this, childForDebugging);
     Preconditions.checkState(dirtyBuildingState.isEvaluating(), "%s %s", this, childForDebugging);
     dirtyBuildingState.signalDep();
-    dirtyBuildingState.signalDepPostProcess(
-        childCausesReevaluation(lastEvaluatedVersion, childVersion), getNumTemporaryDirectDeps());
+
+    // childVersion > lastEvaluatedVersion means the child has changed since the last evaluation.
+    boolean childChanged = !childVersion.atMost(lastEvaluatedVersion);
+    dirtyBuildingState.signalDepPostProcess(childChanged, getNumTemporaryDirectDeps());
     return isReady();
   }
 
@@ -572,7 +533,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(!dirtyBuildingState.isChanged(), "shouldn't be changed: %s", this);
     Set<SkyKey> rDepsToSignal = setStateFinishedAndReturnReverseDepsToSignal();
-    return new NodeValueAndRdepsToSignal(this.getValueMaybeWithMetadata(), rDepsToSignal);
+    return new NodeValueAndRdepsToSignal(this.value, rDepsToSignal);
   }
 
   @Override
@@ -638,8 +599,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void markRebuilding() {
-    Preconditions.checkNotNull(dirtyBuildingState, this);
-    dirtyBuildingState.markRebuilding(isEligibleForChangePruningOnUnchangedValue());
+    Preconditions.checkNotNull(dirtyBuildingState, this).markRebuilding();
   }
 
   @SuppressWarnings("unchecked")
@@ -648,7 +608,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkState(!isDone(), "temporary shouldn't be done: %s", this);
     if (directDeps == null) {
       // Initialize lazily, to save a little bit of memory.
-      directDeps = new GroupedList<SkyKey>();
+      directDeps = new GroupedList<>();
     }
     return (GroupedList<SkyKey>) directDeps;
   }
@@ -692,17 +652,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
     Preconditions.checkState(!isDone(), "add group temp shouldn't be done: %s %s", group, this);
     getTemporaryDirectDeps().appendGroup(group);
-  }
-
-  /** True if the child should cause re-evaluation of this node. */
-  private static boolean childCausesReevaluation(
-      Version lastEvaluatedVersion, Version childVersion) {
-    // childVersion > lastEvaluatedVersion
-    return !childVersion.atMost(lastEvaluatedVersion);
-  }
-
-  protected void logError(RuntimeException error) {
-    throw error;
   }
 
   protected synchronized MoreObjects.ToStringHelper toStringHelper() {

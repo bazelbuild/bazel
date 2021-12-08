@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,6 +40,8 @@ public final class SystemSuspensionEventTest extends BuildIntegrationTestCase {
 
     @Subscribe
     public void suspensionEvent(SystemSuspensionEvent event) {
+      assertThat(event.reason()).isEqualTo(SystemSuspensionEvent.Reason.SIGCONT);
+      assertThat(event.logString()).isEqualTo("SystemSuspensionEvent: Signal SIGCONT");
       ++suspensionEventCount;
     }
   }
@@ -55,19 +57,16 @@ public final class SystemSuspensionEventTest extends BuildIntegrationTestCase {
 
   @Test
   public void testSuspendCounter() throws Exception {
-    if (OS.getCurrent() == OS.DARWIN) {
-      MockGenruleSupport.setup(mockToolsConfig);
-      StringBuilder buildFile = new StringBuilder();
-      // Send a SIGCONT to ourselves which should cause our signal handler to fire.
-      buildFile
-          .append("genrule(name='signal', ")
-          .append("outs=['signal.out'], ")
-          .append("cmd='/bin/kill -s CONT ")
-          .append(ProcessHandle.current().pid())
-          .append(" > $@')\n");
-      write("system_suspension_event/BUILD", buildFile.toString());
-      buildTarget("//system_suspension_event:signal");
-      assertThat(eventListener.suspensionEventCount).isEqualTo(1);
-    }
+    Assume.assumeTrue(OS.getCurrent() == OS.DARWIN);
+    // Send a SIGCONT to ourselves which should cause our signal handler to fire.
+    write(
+        "system_suspension_event/BUILD",
+        "genrule(",
+        "  name = 'signal',",
+        "  outs = ['signal.out'],",
+        "  cmd = '/bin/kill -s CONT " + ProcessHandle.current().pid() + " > $@',",
+        ")");
+    buildTarget("//system_suspension_event:signal");
+    assertThat(eventListener.suspensionEventCount).isEqualTo(1);
   }
 }

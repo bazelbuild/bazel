@@ -18,30 +18,8 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":blaze/common/toplevel_aliases.bzl", "CcInfo", "cc_common", "cc_internal")
 load(":common/cc/semantics.bzl", "semantics")
 
-def _check_src_extension(file):
-    extension = "." + file.extension
-    if cc_helper.matches_extension(extension, ALLOWED_SRC_FILES) or cc_helper.is_shared_library_extension_valid(file.path):
-        return True
-    return False
-
-def _check_srcs_extensions(ctx):
-    for src in ctx.attr.srcs:
-        if DefaultInfo in src:
-            files = src[DefaultInfo].files.to_list()
-            if len(files) == 1 and files[0].is_source:
-                if not _check_src_extension(files[0]) and not files[0].is_directory:
-                    fail("source file '{}' is misplaced here".format(str(src.label)), attr = "srcs")
-            else:
-                at_least_one_good = False
-                for file in files:
-                    if _check_src_extension(file) or file.is_directory:
-                        at_least_one_good = True
-                        break
-                if not at_least_one_good:
-                    fail("'{}' does not produce any cc_library srcs files".format(str(src.label)), attr = "srcs")
-
 def _cc_library_impl(ctx):
-    _check_srcs_extensions(ctx)
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library")
     cpp_config = ctx.fragments.cpp
 
     if (not cpp_config.experimental_cc_implementation_deps() and

@@ -146,15 +146,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalEnableAndroidMigrationApis;
 
   @Option(
-      name = "incompatible_enable_exports_provider",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "This flag enables exports provider and JavaInfo.transitive_exports call.")
-  public boolean incompatibleEnableExportsProvider;
-
-  @Option(
       name = "incompatible_existing_rules_immutable_view",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -569,7 +560,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
-            .setBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER, incompatibleEnableExportsProvider)
             .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
@@ -640,8 +630,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
-  public static final String INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER =
-      "-incompatible_enable_exports_provider";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
       "-incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";

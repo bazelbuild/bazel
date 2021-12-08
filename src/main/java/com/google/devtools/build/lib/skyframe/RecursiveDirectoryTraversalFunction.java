@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
  * traversal.
  */
 public abstract class RecursiveDirectoryTraversalFunction<
-    TConsumer extends RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer, TReturn> {
+    ConsumerT extends RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer, ReturnT> {
   private final BlazeDirectories directories;
 
   protected RecursiveDirectoryTraversalFunction(BlazeDirectories directories) {
@@ -62,7 +62,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
    * a package, and which will lastly be provided to {@link #aggregateWithSubdirectorySkyValues} to
    * compute the {@code TReturn} value returned by {@link #visitDirectory}.
    */
-  protected abstract TConsumer getInitialConsumer();
+  protected abstract ConsumerT getInitialConsumer();
 
   /**
    * Called by {@link #visitDirectory} to get the {@link SkyKey}s associated with recursive
@@ -80,8 +80,8 @@ public abstract class RecursiveDirectoryTraversalFunction<
    * function of {@code consumer} and the {@link SkyValue}s computed for subdirectories of the
    * directory specified by {@code recursivePkgKey}, contained in {@code subdirectorySkyValues}.
    */
-  protected abstract TReturn aggregateWithSubdirectorySkyValues(
-      TConsumer consumer, Map<SkyKey, SkyValue> subdirectorySkyValues);
+  protected abstract ReturnT aggregateWithSubdirectorySkyValues(
+      ConsumerT consumer, Map<SkyKey, SkyValue> subdirectorySkyValues);
 
   /**
    * A type of consumer used by {@link #visitDirectory} as it checks for a package in the directory
@@ -119,7 +119,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
    * {@link RecursiveDirectoryTraversalFunction}'s abstract methods that were given {@code env}.
    */
   @Nullable
-  public final TReturn visitDirectory(RecursivePkgKey recursivePkgKey, Environment env)
+  public final ReturnT visitDirectory(RecursivePkgKey recursivePkgKey, Environment env)
       throws InterruptedException {
     ProcessPackageDirectoryResult processPackageDirectoryResult =
         getProcessPackageDirectoryResult(recursivePkgKey, env);
@@ -128,7 +128,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
     }
 
     Iterable<SkyKey> childDeps = processPackageDirectoryResult.getChildDeps();
-    TConsumer consumer = getInitialConsumer();
+    ConsumerT consumer = getInitialConsumer();
 
     Map<SkyKey, SkyValue> subdirectorySkyValuesFromDeps;
     if (processPackageDirectoryResult.packageExists()) {

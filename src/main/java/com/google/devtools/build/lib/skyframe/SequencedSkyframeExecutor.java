@@ -651,7 +651,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    logger.atInfo().log(result.toString());
+    logger.atInfo().log("%s", result);
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -1001,7 +1001,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                           .setCode(
                               FailureDetails.Workspaces.Code
                                   .WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES))
-                  .build()));
+                  .build()),
+          e);
     }
     if (oldWorkspaceFileState != null && !oldWorkspaceFileState.equals(newWorkspaceFileState)) {
       recordingDiffer.invalidate(ImmutableSet.of(workspaceFileStateKey));

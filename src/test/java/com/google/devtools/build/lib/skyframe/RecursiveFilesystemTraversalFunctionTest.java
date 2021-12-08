@@ -1042,12 +1042,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       }
     }
 
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
-
     void addNewTreeFileArtifact(TreeFileArtifact input) throws IOException {
       if (tree == null) {
         tree = TreeArtifactValue.newBuilder(input.getParent());
@@ -1061,12 +1055,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       return env.getValue(new NonHermeticArtifactSkyKey(skyKey));
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private final class ActionFakeFunction implements SkyFunction {
@@ -1077,12 +1065,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
           new NonHermeticArtifactSkyKey(
               Preconditions.checkNotNull(
                   artifacts.get(((ActionLookupData) skyKey).getActionIndex()), skyKey)));
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

@@ -145,8 +145,7 @@ public class EagerInvalidatorTest {
             new DirtyTrackingProgressReceiver(null),
             GraphInconsistencyReceiver.THROWING,
             () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
-            new SimpleCycleDetector(),
-            EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
+            new SimpleCycleDetector());
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }

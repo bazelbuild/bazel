@@ -2311,6 +2311,7 @@ public abstract class CcModule
       Object useTestOnlyFlags,
       Object pdbFile,
       Object winDefFile,
+      Object useShareableArtifactFactory,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
@@ -2330,7 +2331,8 @@ public abstract class CcModule
         onlyForDynamicLibsObject,
         useTestOnlyFlags,
         pdbFile,
-        winDefFile)) {
+        winDefFile,
+        useShareableArtifactFactory)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -2436,6 +2438,9 @@ public abstract class CcModule
     }
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
+    }
+    if (convertFromNoneable(useShareableArtifactFactory, false)) {
+      helper.setLinkArtifactFactory(CppLinkActionBuilder.SHAREABLE_LINK_ARTIFACT_FACTORY);
     }
     try {
       return helper.link(

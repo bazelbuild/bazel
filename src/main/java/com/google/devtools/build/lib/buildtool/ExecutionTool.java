@@ -598,7 +598,7 @@ public class ExecutionTool {
         for (Path entry : entries) {
           directoryDetails.append(" '").append(entry.getBaseName()).append("'");
         }
-        logger.atWarning().log(directoryDetails.toString());
+        logger.atWarning().log("%s", directoryDetails);
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
       }
@@ -888,6 +888,9 @@ public class ExecutionTool {
                 .build()),
         env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
+                // Do not skip invalidation in case the output tree is empty -- this can happen
+                // after it's cleaned or corrupted.
+                || modifiedOutputFiles.treatEverythingAsDeleted()
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),

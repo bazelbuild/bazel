@@ -17,6 +17,7 @@
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
+    "artifact_name_pattern",
     "feature",
     "feature_set",
     "flag_group",
@@ -1185,6 +1186,8 @@ def _impl(ctx):
 
     # TODO(#8303): Mac crosstool should also declare every feature.
     if is_linux:
+        # Linux artifact name patterns are the default.
+        artifact_name_patterns = []
         features = [
             dependency_file_feature,
             random_seed_feature,
@@ -1233,6 +1236,15 @@ def _impl(ctx):
             unfiltered_compile_flags_feature,
         ] + layering_check_features(ctx.attr.compiler)
     else:
+        # macOS artifact name patterns differ from the defaults only for dynamic
+        # libraries.
+        artifact_name_patterns = [
+            artifact_name_pattern(
+                category_name = "dynamic_library",
+                prefix = "lib",
+                extension = ".dylib",
+            ),
+        ]
         features = [
             supports_pic_feature,
         ] + (
@@ -1257,6 +1269,7 @@ def _impl(ctx):
         ctx = ctx,
         features = features,
         action_configs = action_configs,
+        artifact_name_patterns = artifact_name_patterns,
         cxx_builtin_include_directories = ctx.attr.cxx_builtin_include_directories,
         toolchain_identifier = ctx.attr.toolchain_identifier,
         host_system_name = ctx.attr.host_system_name,

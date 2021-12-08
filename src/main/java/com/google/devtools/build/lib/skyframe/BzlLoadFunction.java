@@ -1117,11 +1117,6 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * A manager abstracting over the method for obtaining {@code BzlCompileValue}s. See comment in
    * {@link #create}.

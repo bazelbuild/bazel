@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -37,14 +36,12 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A provider for Java per-package configuration. */
-@AutoCodec
 @AutoValue
 @Immutable
 public abstract class JavaPackageConfigurationProvider
     implements TransitiveInfoProvider, StarlarkValue {
 
   /** Creates a {@link JavaPackageConfigurationProvider}. */
-  @AutoCodec.Instantiator
   public static JavaPackageConfigurationProvider create(
       ImmutableList<PackageSpecificationProvider> packageSpecifications,
       ImmutableList<String> javacopts,

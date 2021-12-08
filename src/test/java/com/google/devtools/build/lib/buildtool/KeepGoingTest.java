@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import java.io.IOException;
 import java.util.Iterator;
 import org.junit.Before;
@@ -39,11 +38,6 @@ import org.junit.runners.JUnit4;
 /** A test of the semantics of the keepGoing flag: continue as much as possible after an error. */
 @RunWith(JUnit4.class)
 public class KeepGoingTest extends BuildIntegrationTestCase {
-
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-  }
 
   @Before
   public final void addOptions() {

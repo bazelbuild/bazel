@@ -16,6 +16,7 @@
 
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary.bzl", "cc_binary")
+load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
 load("@_builtins//:common/java/java_library_macro.bzl", "java_library")
 load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "cc_shared_library", "cc_shared_library_permissions")
@@ -44,6 +45,7 @@ exported_rules = {
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
     "-cc_binary": cc_binary,
+    "-cc_test": cc_test,
 }
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,

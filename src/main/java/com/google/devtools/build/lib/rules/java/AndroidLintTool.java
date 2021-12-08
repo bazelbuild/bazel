@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -35,7 +34,6 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** The Android Lint part of {@code java_toolchain}. */
 @AutoValue
-@AutoCodec
 abstract class AndroidLintTool implements StarlarkValue {
 
   abstract JavaToolchainTool tool();
@@ -70,8 +68,7 @@ abstract class AndroidLintTool implements StarlarkValue {
     return create(tool, options, packageConfiguration);
   }
 
-  @AutoCodec.Instantiator
-  static AndroidLintTool create(
+  private static AndroidLintTool create(
       JavaToolchainTool tool,
       ImmutableList<String> options,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {

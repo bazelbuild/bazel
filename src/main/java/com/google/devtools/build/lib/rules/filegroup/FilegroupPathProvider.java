@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -26,7 +25,6 @@ import net.starlark.java.annot.StarlarkMethod;
 /** A transitive info provider for dependent targets to query {@code path} attributes. */
 @Immutable
 @StarlarkBuiltin(name = "FilegroupPathInfo", documented = false)
-@AutoCodec
 public final class FilegroupPathProvider extends NativeInfo {
   private final PathFragment pathFragment;
 
@@ -35,7 +33,6 @@ public final class FilegroupPathProvider extends NativeInfo {
       new BuiltinProvider<FilegroupPathProvider>(
           "FilegroupPathInfo", FilegroupPathProvider.class) {};
 
-  @AutoCodec.Instantiator
   public FilegroupPathProvider(PathFragment pathFragment) {
     this.pathFragment = pathFragment;
   }

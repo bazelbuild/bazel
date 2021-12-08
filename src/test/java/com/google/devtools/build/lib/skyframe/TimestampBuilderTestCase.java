@@ -85,7 +85,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
@@ -137,7 +137,7 @@ import org.junit.Before;
  * The common code that's shared between various builder tests.
  */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
-  @AutoCodec
+  @SerializationConstant
   protected static final ActionLookupKey ACTION_LOOKUP_KEY =
       new InjectedActionLookupKey("action_lookup_key");
 

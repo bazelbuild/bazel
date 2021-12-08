@@ -46,7 +46,6 @@ class ParallelEvaluatorContext {
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  private final EvaluationVersionBehavior evaluationVersionBehavior;
   private final boolean mergingSkyframeAnalysisExecutionPhases;
 
   /**
@@ -81,14 +80,12 @@ class ParallelEvaluatorContext {
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      EvaluationVersionBehavior evaluationVersionBehavior,
       boolean mergingSkyframeAnalysisExecutionPhases) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
-    this.evaluationVersionBehavior = evaluationVersionBehavior;
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
     this.replayingNestedSetPostableVisitor =
@@ -187,10 +184,6 @@ class ParallelEvaluatorContext {
 
   ErrorInfoManager getErrorInfoManager() {
     return errorInfoManager;
-  }
-
-  EvaluationVersionBehavior getEvaluationVersionBehavior() {
-    return evaluationVersionBehavior;
   }
 
   boolean restartPermitted() {

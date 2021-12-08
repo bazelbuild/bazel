@@ -16,6 +16,7 @@
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
+    "artifact_name_pattern",
     "env_entry",
     "env_set",
     "feature",
@@ -66,7 +67,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_armv7"):
         target_system_name = "armv7-apple-ios"
     elif (ctx.attr.cpu == "watchos_armv7k"):
-        target_system_name = "armv7-apple-watchos"
+        target_system_name = "armv7k-apple-watchos"
     elif (ctx.attr.cpu == "ios_i386"):
         target_system_name = "i386-apple-ios"
     elif (ctx.attr.cpu == "watchos_i386"):
@@ -3007,7 +3008,15 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-    artifact_name_patterns = []
+    # macOS artifact name patterns differ from the defaults only for dynamic
+    # libraries.
+    artifact_name_patterns = [
+        artifact_name_pattern(
+            category_name = "dynamic_library",
+            prefix = "lib",
+            extension = ".dylib",
+        ),
+    ]
 
     make_variables = [
         make_variable(

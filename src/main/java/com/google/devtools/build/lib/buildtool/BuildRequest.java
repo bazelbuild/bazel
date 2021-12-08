@@ -85,6 +85,7 @@ public class BuildRequest implements OptionsProvider {
     private boolean needsInstrumentationFilter;
     private boolean runTests;
     private boolean checkForActionConflicts = true;
+    private boolean reportIncompatibleTargets = true;
 
     private Builder() {}
 
@@ -138,6 +139,20 @@ public class BuildRequest implements OptionsProvider {
       return this;
     }
 
+    /**
+     * If true, build status depends on whether or not requested targets are platform-compatible
+     * ({@link com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider}). If false, this
+     * doesn't matter.
+     *
+     * <p>This should be true for builds (where users care if their targets produce meaningful
+     * output) and false for queries (where users want to understand target relationships or
+     * diagnose why incompatible targets are incompatible).
+     */
+    public Builder setReportIncompatibleTargets(boolean report) {
+      this.reportIncompatibleTargets = report;
+      return this;
+    }
+
     public BuildRequest build() {
       return new BuildRequest(
           commandName,
@@ -149,7 +164,8 @@ public class BuildRequest implements OptionsProvider {
           startTimeMillis,
           needsInstrumentationFilter,
           runTests,
-          checkForActionConflicts);
+          checkForActionConflicts,
+          reportIncompatibleTargets);
     }
   }
 
@@ -175,6 +191,7 @@ public class BuildRequest implements OptionsProvider {
   private final boolean runningInEmacs;
   private final boolean runTests;
   private final boolean checkForActionConflicts;
+  private final boolean reportIncompatibleTargets;
 
   private BuildRequest(
       String commandName,
@@ -186,7 +203,8 @@ public class BuildRequest implements OptionsProvider {
       long startTimeMillis,
       boolean needsInstrumentationFilter,
       boolean runTests,
-      boolean checkForActionConflicts) {
+      boolean checkForActionConflicts,
+      boolean reportIncompatibleTargets) {
     this.commandName = commandName;
     this.optionsDescription = OptionsUtils.asShellEscapedString(options);
     this.outErr = outErr;
@@ -208,6 +226,7 @@ public class BuildRequest implements OptionsProvider {
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
     this.checkForActionConflicts = checkForActionConflicts;
+    this.reportIncompatibleTargets = reportIncompatibleTargets;
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
@@ -429,5 +448,9 @@ public class BuildRequest implements OptionsProvider {
 
   public boolean getCheckForActionConflicts() {
     return checkForActionConflicts;
+  }
+
+  public boolean reportIncompatibleTargets() {
+    return reportIncompatibleTargets;
   }
 }

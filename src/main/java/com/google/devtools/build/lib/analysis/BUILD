@@ -445,6 +445,7 @@ java_library(
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
         "//third_party:caffeine",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
@@ -1698,6 +1699,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/fragment_factory",
+    srcs = ["config/FragmentFactory.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_options",
+        ":config/fragment",
+        ":config/fragment_options",
+        ":config/invalid_configuration_exception",
+        "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

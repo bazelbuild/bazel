@@ -32,6 +32,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.common.testing.GcFinalization;
+import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -40,7 +42,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -50,11 +51,12 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
-import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
+import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +68,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -119,8 +122,7 @@ public class ParallelEvaluatorTest {
         revalidationReceiver,
         GraphInconsistencyReceiver.THROWING,
         () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
-        new SimpleCycleDetector(),
-        EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
+        new SimpleCycleDetector());
   }
 
   private ParallelEvaluator makeEvaluator(
@@ -173,23 +175,15 @@ public class ParallelEvaluatorTest {
     tester
         .getOrCreate(parentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                SettableFuture<SkyValue> future = SettableFuture.create();
-                future.set(new StringValue("good"));
-                env.dependOnFuture(future);
-                assertThat(env.valuesMissing()).isFalse();
-                try {
-                  return future.get();
-                } catch (ExecutionException e) {
-                  throw new RuntimeException(e);
-                }
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
+            (skyKey, env) -> {
+              SettableFuture<SkyValue> future = SettableFuture.create();
+              future.set(new StringValue("good"));
+              env.dependOnFuture(future);
+              assertThat(env.valuesMissing()).isFalse();
+              try {
+                return future.get();
+              } catch (ExecutionException e) {
+                throw new RuntimeException(e);
               }
             });
     graph = new InMemoryGraphImpl();
@@ -229,22 +223,14 @@ public class ParallelEvaluatorTest {
                 assertThat(expected.getCause()).isInstanceOf(UnsupportedOperationException.class);
                 return new StringValue("Caught!");
               }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     graph =
         NotifyingHelper.makeNotifyingTransformer(
-                new Listener() {
-                  @Override
-                  public void accept(SkyKey key, EventType type, Order order, Object context) {
-                    // NodeEntry.addExternalDep is called as part of bookkeeping at the end of
-                    // AbstractParallelEvaluator.Evaluate#run.
-                    if (key == parentKey && type == EventType.ADD_EXTERNAL_DEP) {
-                      doneLatch.countDown();
-                    }
+                (key, type, order, context) -> {
+                  // NodeEntry.addExternalDep is called as part of bookkeeping at the end of
+                  // AbstractParallelEvaluator.Evaluate#run.
+                  if (key == parentKey && type == EventType.ADD_EXTERNAL_DEP) {
+                    doneLatch.countDown();
                   }
                 })
             .transform(new InMemoryGraphImpl());
@@ -294,20 +280,12 @@ public class ParallelEvaluatorTest {
                 }
                 return new StringValue("All done!");
               }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     graph =
         NotifyingHelper.makeNotifyingTransformer(
-                new Listener() {
-                  @Override
-                  public void accept(SkyKey key, EventType type, Order order, Object context) {
-                    if (key == childKey && type == EventType.SET_VALUE) {
-                      doneLatch.countDown();
-                    }
+                (key, type, order, context) -> {
+                  if (key == childKey && type == EventType.SET_VALUE) {
+                    doneLatch.countDown();
                   }
                 })
             .transform(new InMemoryGraphImpl());
@@ -321,33 +299,21 @@ public class ParallelEvaluatorTest {
    */
   @Test
   public void interruptedFunction() throws Exception {
-    runInterruptionTest(new SkyFunctionFactory() {
-      @Override
-      public SkyFunction create(final Semaphore threadStarted, final String[] errorMessage) {
-        return new SkyFunction() {
-          @Override
-          public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
-            // Signal the waiting test thread that the evaluator thread has really started.
-            threadStarted.release();
+    runInterruptionTest(
+        (threadStarted, errorMessage) ->
+            (key, env) -> {
+              // Signal the waiting test thread that the evaluator thread has really started.
+              threadStarted.release();
 
-            // Simulate a SkyFunction that runs for 10 seconds (this number was chosen arbitrarily).
-            // The main thread should interrupt it shortly after it got started.
-            Thread.sleep(10 * 1000);
+              // Simulate a SkyFunction that runs for 10 seconds (this number was chosen
+              // arbitrarily). The main thread should interrupt it shortly after it got started.
+              Thread.sleep(10 * 1000);
 
-            // Set an error message to indicate that the expected interruption didn't happen.
-            // We can't use Assert.fail(String) on an async thread.
-            errorMessage[0] = "SkyFunction should have been interrupted";
-            return null;
-          }
-
-          @Nullable
-          @Override
-          public String extractTag(SkyKey skyKey) {
-            return null;
-          }
-        };
-      }
-    });
+              // Set an error message to indicate that the expected interruption didn't happen.
+              // We can't use Assert.fail(String) on an async thread.
+              errorMessage[0] = "SkyFunction should have been interrupted";
+              return null;
+            });
   }
 
   /**
@@ -360,10 +326,8 @@ public class ParallelEvaluatorTest {
   @Test
   public void interruptedEvaluatorThread() throws Exception {
     runInterruptionTest(
-        new SkyFunctionFactory() {
-          @Override
-          public SkyFunction create(final Semaphore threadStarted, final String[] errorMessage) {
-            return new SkyFunction() {
+        (threadStarted, errorMessage) ->
+            new SkyFunction() {
               // No need to synchronize access to this field; we always request just one more
               // dependency, so it's only one SkyFunction running at any time.
               private int valueIdCounter = 0;
@@ -382,15 +346,7 @@ public class ParallelEvaluatorTest {
                 // SkyFunctions.
                 return null;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
-            };
-          }
-        });
+            });
   }
 
   @Test
@@ -434,24 +390,19 @@ public class ParallelEvaluatorTest {
     };
     // And A's SkyFunction tries to observe an interrupt after it starts computing,
     AtomicBoolean keyAComputeInterrupted = new AtomicBoolean(false);
-    tester.getOrCreate(keyA).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-        keyAStartedComputingLatch.countDown();
-        try {
-          Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-          throw new IllegalStateException("shouldn't get here");
-        } catch (InterruptedException e) {
-          keyAComputeInterrupted.set(true);
-          throw e;
-        }
-      }
-
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+    tester
+        .getOrCreate(keyA)
+        .setBuilder(
+            (skyKey, env) -> {
+              keyAStartedComputingLatch.countDown();
+              try {
+                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                throw new IllegalStateException("shouldn't get here");
+              } catch (InterruptedException e) {
+                keyAComputeInterrupted.set(true);
+                throw e;
+              }
+            });
 
     // And we have a dedicated thread that kicks off the evaluation of A and B together (in that
     // order).
@@ -486,19 +437,14 @@ public class ParallelEvaluatorTest {
     final SkyKey waitKey = GraphTester.toSkyKey("wait");
     final SkyKey fastKey = GraphTester.toSkyKey("fast");
     SkyKey leafKey = GraphTester.toSkyKey("leaf");
-    tester.getOrCreate(waitKey).setBuilder(new SkyFunction() {
-          @Override
-          public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-            allValuesReady.countDown();
-            Thread.sleep(10000);
-            throw new AssertionError("Should have been interrupted");
-          }
-
-          @Override
-          public String extractTag(SkyKey skyKey) {
-            return null;
-          }
-        });
+    tester
+        .getOrCreate(waitKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              allValuesReady.countDown();
+              Thread.sleep(10000);
+              throw new AssertionError("Should have been interrupted");
+            });
     tester.getOrCreate(fastKey).setBuilder(new ChainedFunction(null, null, allValuesReady, false,
         new StringValue("fast"), ImmutableList.of(leafKey)));
     tester.set(leafKey, new StringValue("leaf"));
@@ -585,23 +531,22 @@ public class ParallelEvaluatorTest {
                 GraphTester.NODE_TYPE, valueBuilderFactory.create(threadStarted, wasError)),
             false);
 
-    Thread t = new Thread(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            evaluator.eval(ImmutableList.of(GraphTester.toSkyKey("a")));
+    Thread t =
+        new Thread(
+            () -> {
+              try {
+                evaluator.eval(ImmutableList.of(GraphTester.toSkyKey("a")));
 
-            // There's no real need to set an error here. If the thread is not interrupted then
-            // threadInterrupted is not released and the test thread will fail to acquire it.
-            wasError[0] = "evaluation should have been interrupted";
-          } catch (InterruptedException e) {
-            // This is the interrupt we are waiting for. It should come straight from the
-            // evaluator (more precisely, the AbstractQueueVisitor).
-            // Signal the waiting test thread that the interrupt was acknowledged.
-            threadInterrupted.release();
-          }
-        }
-    });
+                // There's no real need to set an error here. If the thread is not interrupted then
+                // threadInterrupted is not released and the test thread will fail to acquire it.
+                wasError[0] = "evaluation should have been interrupted";
+              } catch (InterruptedException e) {
+                // This is the interrupt we are waiting for. It should come straight from the
+                // evaluator (more precisely, the AbstractQueueVisitor).
+                // Signal the waiting test thread that the interrupt was acknowledged.
+                threadInterrupted.release();
+              }
+            });
 
     // Start the thread and wait for a semaphore. This ensures that the thread was really started.
     t.start();
@@ -636,12 +581,6 @@ public class ParallelEvaluatorTest {
       public SkyValue compute(SkyKey skyKey, Environment env)
           throws SkyFunctionException, InterruptedException {
         throw expected;
-      }
-
-      @Override
-      @Nullable
-      public String extractTag(SkyKey skyKey) {
-        return null;
       }
     };
 
@@ -715,21 +654,14 @@ public class ParallelEvaluatorTest {
     set("a", "a").setWarning("warning on 'a'");
     SkyKey a = GraphTester.toSkyKey("a");
     SkyKey top = GraphTester.toSkyKey("top");
-    tester.getOrCreate(top).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey key, Environment env)
-          throws SkyFunctionException, InterruptedException {
-        // The event from a should already have been posted.
-        assertThat(storedEventHandler.getEvents()).hasSize(1);
-        return new StringValue("foo");
-      }
-
-      @Override
-      @Nullable
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            (key, env) -> {
+              // The event from a should already have been posted.
+              assertThat(storedEventHandler.getEvents()).hasSize(1);
+              return new StringValue("foo");
+            });
     // Build a so that it is already in the graph.
     eval(false, a);
     storedEventHandler.clear();
@@ -746,27 +678,21 @@ public class ParallelEvaluatorTest {
     SkyKey b = GraphTester.toSkyKey("b");
     tester.getOrCreate(b).setHasError(true);
     Event errorEvent = Event.error("foobar");
-    tester.getOrCreate(a).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey key, Environment env)
-          throws SkyFunctionException, InterruptedException {
-        try {
-          if (env.getValueOrThrow(b, SomeErrorException.class) == null) {
-            return null;
-          }
-        } catch (SomeErrorException ignored) {
-          // Continue silently.
-        }
-        env.getListener().handle(errorEvent);
-        throw new SkyFunctionException(new SomeErrorException("bazbar"), Transience.PERSISTENT) {};
-      }
-
-      @Override
-      @Nullable
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+    tester
+        .getOrCreate(a)
+        .setBuilder(
+            (key, env) -> {
+              try {
+                if (env.getValueOrThrow(b, SomeErrorException.class) == null) {
+                  return null;
+                }
+              } catch (SomeErrorException ignored) {
+                // Continue silently.
+              }
+              env.getListener().handle(errorEvent);
+              throw new SkyFunctionException(
+                  new SomeErrorException("bazbar"), Transience.PERSISTENT) {};
+            });
     eval(false, a);
     assertThat(storedEventHandler.getEvents()).containsExactly(errorEvent);
   }
@@ -784,12 +710,6 @@ public class ParallelEvaluatorTest {
         env.getListener().handle(Event.error(null, "boop"));
         env.getListener().handle(Event.warn(null, "beep"));
         return new StringValue("a");
-      }
-
-      @Nullable
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
       }
     });
     ParallelEvaluator evaluator =
@@ -875,12 +795,6 @@ public class ParallelEvaluatorTest {
                   }
                 };
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
 
     tester.getOrCreate(otherKey).setBuilder(new SkyFunction() {
@@ -889,12 +803,6 @@ public class ParallelEvaluatorTest {
       public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
         new CountDownLatch(1).await();
         throw new RuntimeException("can't get here");
-      }
-
-      @Nullable
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
       }
     });
 
@@ -926,12 +834,6 @@ public class ParallelEvaluatorTest {
                   }
                 };
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
 
     EvaluationResult<StringValue> result =
@@ -958,12 +860,6 @@ public class ParallelEvaluatorTest {
                   }
                 };
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     SkyKey topKey = skyKey("top");
     tester
@@ -985,12 +881,6 @@ public class ParallelEvaluatorTest {
                     }
                   };
                 }
-                return null;
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
                 return null;
               }
             });
@@ -1018,12 +908,6 @@ public class ParallelEvaluatorTest {
                 env.getValues(ImmutableList.of(cycleKey));
                 return env.valuesMissing() ? null : topValue;
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     tester
         .getOrCreate(cycleKey)
@@ -1034,12 +918,6 @@ public class ParallelEvaluatorTest {
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 env.getValues(ImmutableList.of(cycleKey, catastropheKey));
                 Preconditions.checkState(env.valuesMissing());
-                return null;
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
                 return null;
               }
             });
@@ -1057,12 +935,6 @@ public class ParallelEvaluatorTest {
                     return true;
                   }
                 };
-              }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
               }
             });
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(topKey));
@@ -1725,12 +1597,6 @@ public class ParallelEvaluatorTest {
                   throw new SkyFunctionException(topException, Transience.PERSISTENT) {};
                 }
               }
-
-              @Nullable
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
             });
     EvaluationResult<StringValue> result2 = eval(/*keepGoing=*/ true, ImmutableList.of(topKey));
     assertThatEvaluationResult(result2).hasError();
@@ -1916,8 +1782,6 @@ public class ParallelEvaluatorTest {
       public SkyValue compute(SkyKey skyKey, Environment env) {
         throw new IllegalStateException("I WANT A PONY!!!");
       }
-
-      @Override public String extractTag(SkyKey skyKey) { return null; }
     }
 
     class ParentFunction implements SkyFunction {
@@ -1929,8 +1793,6 @@ public class ParallelEvaluatorTest {
         }
         throw new IllegalStateException();  // Should never get here.
       }
-
-      @Override public String extractTag(SkyKey skyKey) { return null; }
     }
 
     ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
@@ -1961,17 +1823,12 @@ public class ParallelEvaluatorTest {
     graph = new InMemoryGraphImpl();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     final SomeOtherErrorException exception = new SomeOtherErrorException("error exception");
-    tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new SkyFunctionException(exception, Transience.PERSISTENT) {};
-      }
-
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        throw new UnsupportedOperationException();
-      }
-    });
+    tester
+        .getOrCreate(errorKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              throw new SkyFunctionException(exception, Transience.PERSISTENT) {};
+            });
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE);
@@ -2000,44 +1857,30 @@ public class ParallelEvaluatorTest {
     final SomeErrorException exception = new SomeErrorException("error exception");
     final SomeErrorException topException = new SomeErrorException("top exception");
     final StringValue topValue = new StringValue("top");
-    tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException {
-        throw new GenericFunctionException(exception, Transience.PERSISTENT);
-      }
-
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        throw new UnsupportedOperationException();
-      }
-    });
+    tester
+        .getOrCreate(errorKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              throw new GenericFunctionException(exception, Transience.PERSISTENT);
+            });
     SkyKey topKey = GraphTester.toSkyKey("top");
     final SkyKey parentKey = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
     tester
         .getOrCreate(topKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws GenericFunctionException, InterruptedException {
-                try {
-                  if (env.getValueOrThrow(parentKey, SomeErrorException.class) == null) {
-                    return null;
-                  }
-                } catch (SomeErrorException e) {
-                  assertWithMessage(e.toString()).that(e).isEqualTo(exception);
+            (skyKey, env) -> {
+              try {
+                if (env.getValueOrThrow(parentKey, SomeErrorException.class) == null) {
+                  return null;
                 }
-                if (keepGoing) {
-                  return topValue;
-                } else {
-                  throw new GenericFunctionException(topException, Transience.PERSISTENT);
-                }
+              } catch (SomeErrorException e) {
+                assertWithMessage(e.toString()).that(e).isEqualTo(exception);
               }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                throw new UnsupportedOperationException();
+              if (keepGoing) {
+                return topValue;
+              } else {
+                throw new GenericFunctionException(topException, Transience.PERSISTENT);
               }
             });
     tester.getOrCreate(topKey).addErrorDependency(errorKey, new StringValue("recovered"))
@@ -2081,37 +1924,31 @@ public class ParallelEvaluatorTest {
     }
     final SkyKey leaf4 = GraphTester.toSkyKey("leaf4");
     tester.set(leaf4, new StringValue("leaf" + 4));
-    tester.getOrCreate(topKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
-          InterruptedException {
-        if (valuesOrThrow) {
-          env.getValuesOrThrow(leaves, SomeErrorException.class);
-        } else {
-          env.getValues(leaves);
-        }
-        if (twoCalls && env.valuesMissing()) {
-          return null;
-        }
-        SkyKey first = sameFirst ? leaves.get(0) : leaf4;
-        SkyKey second = sameFirst ? leaf4 : leaves.get(2);
-        List<SkyKey> secondRequest = ImmutableList.of(first, second);
-        if (valuesOrThrow) {
-          env.getValuesOrThrow(secondRequest, SomeErrorException.class);
-        } else {
-          env.getValues(secondRequest);
-        }
-        if (env.valuesMissing()) {
-          return null;
-        }
-        return new StringValue("top");
-      }
-
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+    tester
+        .getOrCreate(topKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              if (valuesOrThrow) {
+                env.getValuesOrThrow(leaves, SomeErrorException.class);
+              } else {
+                env.getValues(leaves);
+              }
+              if (twoCalls && env.valuesMissing()) {
+                return null;
+              }
+              SkyKey first = sameFirst ? leaves.get(0) : leaf4;
+              SkyKey second = sameFirst ? leaf4 : leaves.get(2);
+              ImmutableList<SkyKey> secondRequest = ImmutableList.of(first, second);
+              if (valuesOrThrow) {
+                env.getValuesOrThrow(secondRequest, SomeErrorException.class);
+              } else {
+                env.getValues(secondRequest);
+              }
+              if (env.valuesMissing()) {
+                return null;
+              }
+              return new StringValue("top");
+            });
     eval(/*keepGoing=*/false, topKey);
     assertThat(eval(/*keepGoing=*/false, topKey)).isEqualTo(new StringValue("top"));
   }
@@ -2161,17 +1998,12 @@ public class ParallelEvaluatorTest {
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     final SkyKey errorDep = GraphTester.toSkyKey("errorChild");
     final SomeErrorException childExn = new SomeErrorException("child error");
-    tester.getOrCreate(errorDep).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new GenericFunctionException(childExn, Transience.PERSISTENT);
-      }
-
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+    tester
+        .getOrCreate(errorDep)
+        .setBuilder(
+            (skyKey, env) -> {
+              throw new GenericFunctionException(childExn, Transience.PERSISTENT);
+            });
     final List<SkyKey> deps = new ArrayList<>();
     for (int i = 1; i <= 3; i++) {
       SkyKey dep = GraphTester.toSkyKey("child" + i);
@@ -2182,29 +2014,20 @@ public class ParallelEvaluatorTest {
     tester
         .getOrCreate(parentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                try {
-                  SkyValue value = env.getValueOrThrow(errorDep, SomeErrorException.class);
-                  if (value == null) {
-                    return null;
-                  }
-                } catch (SomeErrorException e) {
-                  // Recover from the child error.
-                }
-                env.getValues(deps);
-                if (env.valuesMissing()) {
+            (skyKey, env) -> {
+              try {
+                SkyValue value = env.getValueOrThrow(errorDep, SomeErrorException.class);
+                if (value == null) {
                   return null;
                 }
-                throw new GenericFunctionException(parentExn, Transience.PERSISTENT);
+              } catch (SomeErrorException e) {
+                // Recover from the child error.
               }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
+              env.getValues(deps);
+              if (env.valuesMissing()) {
                 return null;
               }
+              throw new GenericFunctionException(parentExn, Transience.PERSISTENT);
             });
     EvaluationResult<StringValue> evaluationResult = eval(keepGoing, ImmutableList.of(parentKey));
     assertThat(evaluationResult.hasError()).isTrue();
@@ -2279,11 +2102,8 @@ public class ParallelEvaluatorTest {
     ExtendedEventHandler reporter =
         new Reporter(
             new EventBus(),
-            new EventHandler() {
-              @Override
-              public void handle(Event e) {
-                throw new IllegalStateException();
-              }
+            e -> {
+              throw new IllegalStateException();
             });
 
     MemoizingEvaluator aug =
@@ -2341,52 +2161,42 @@ public class ParallelEvaluatorTest {
     tester
         .getOrCreate(parentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                int invocations = numParentInvocations.incrementAndGet();
-                if (handleChildError) {
-                  try {
-                    SkyValue value = env.getValueOrThrow(childKey, SomeErrorException.class);
-                    // On the first invocation, either the child error should already be cached and
-                    // not propagated, or it should be computed freshly and not propagated. On the
-                    // second build (error bubbling), the child error should be propagated.
-                    assertWithMessage("bogus non-null value " + value).that(value == null).isTrue();
-                    assertWithMessage("parent incorrectly re-computed during normal evaluation")
-                        .that(invocations)
-                        .isEqualTo(1);
-                    assertWithMessage("child error not propagated during error bubbling")
-                        .that(env.inErrorBubblingForTesting())
-                        .isFalse();
-                    return value;
-                  } catch (SomeErrorException e) {
-                    assertWithMessage("child error propagated during normal evaluation")
-                        .that(env.inErrorBubblingForTesting())
-                        .isTrue();
-                    assertThat(invocations).isEqualTo(2);
-                    return null;
-                  }
-                } else {
-                  if (invocations == 1) {
-                    assertWithMessage(
-                            "parent's first computation should be during normal evaluation")
-                        .that(env.inErrorBubblingForTesting())
-                        .isFalse();
-                    return env.getValue(childKey);
-                  } else {
-                    assertThat(invocations).isEqualTo(2);
-                    assertWithMessage("parent incorrectly re-computed during normal evaluation")
-                        .that(env.inErrorBubblingForTesting())
-                        .isTrue();
-                    return env.getValue(childKey);
-                  }
+            (skyKey, env) -> {
+              int invocations = numParentInvocations.incrementAndGet();
+              if (handleChildError) {
+                try {
+                  SkyValue value = env.getValueOrThrow(childKey, SomeErrorException.class);
+                  // On the first invocation, either the child error should already be cached and
+                  // not propagated, or it should be computed freshly and not propagated. On the
+                  // second build (error bubbling), the child error should be propagated.
+                  assertWithMessage("bogus non-null value " + value).that(value == null).isTrue();
+                  assertWithMessage("parent incorrectly re-computed during normal evaluation")
+                      .that(invocations)
+                      .isEqualTo(1);
+                  assertWithMessage("child error not propagated during error bubbling")
+                      .that(env.inErrorBubblingForTesting())
+                      .isFalse();
+                  return value;
+                } catch (SomeErrorException e) {
+                  assertWithMessage("child error propagated during normal evaluation")
+                      .that(env.inErrorBubblingForTesting())
+                      .isTrue();
+                  assertThat(invocations).isEqualTo(2);
+                  return null;
                 }
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
+              } else {
+                if (invocations == 1) {
+                  assertWithMessage("parent's first computation should be during normal evaluation")
+                      .that(env.inErrorBubblingForTesting())
+                      .isFalse();
+                  return env.getValue(childKey);
+                } else {
+                  assertThat(invocations).isEqualTo(2);
+                  assertWithMessage("parent incorrectly re-computed during normal evaluation")
+                      .that(env.inErrorBubblingForTesting())
+                      .isTrue();
+                  return env.getValue(childKey);
+                }
               }
             });
     if (childErrorCached) {
@@ -2439,83 +2249,51 @@ public class ParallelEvaluatorTest {
     tester
         .getOrCreate(otherParentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                int invocations = numOtherParentInvocations.incrementAndGet();
-                assertWithMessage("otherParentKey should not be restarted")
-                    .that(invocations)
-                    .isEqualTo(1);
-                return env.getValue(otherKey);
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
+            (skyKey, env) -> {
+              int invocations = numOtherParentInvocations.incrementAndGet();
+              assertWithMessage("otherParentKey should not be restarted")
+                  .that(invocations)
+                  .isEqualTo(1);
+              return env.getValue(otherKey);
             });
     tester
         .getOrCreate(otherKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-                otherStarted.countDown();
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    errorCommitted, "error didn't get committed to the graph in time");
-                return new StringValue("other");
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
+            (skyKey, env) -> {
+              otherStarted.countDown();
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  errorCommitted, "error didn't get committed to the graph in time");
+              return new StringValue("other");
             });
     tester
         .getOrCreate(errorKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    otherStarted, "other didn't start in time");
-                throw new GenericFunctionException(
-                    new SomeErrorException("error"), Transience.PERSISTENT);
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
-              }
+            (skyKey, env) -> {
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  otherStarted, "other didn't start in time");
+              throw new GenericFunctionException(
+                  new SomeErrorException("error"), Transience.PERSISTENT);
             });
     tester
         .getOrCreate(errorParentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                int invocations = numErrorParentInvocations.incrementAndGet();
-                try {
-                  SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
-                  assertWithMessage("bogus non-null value " + value).that(value == null).isTrue();
-                  if (invocations == 1) {
-                    return null;
-                  } else {
-                    assertThat(env.inErrorBubblingForTesting()).isFalse();
-                    fail("RACE CONDITION: errorParentKey was restarted!");
-                    return null;
-                  }
-                } catch (SomeErrorException e) {
-                  assertWithMessage("child error propagated during normal evaluation")
-                      .that(env.inErrorBubblingForTesting())
-                      .isTrue();
-                  assertThat(invocations).isEqualTo(2);
+            (skyKey, env) -> {
+              int invocations = numErrorParentInvocations.incrementAndGet();
+              try {
+                SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
+                assertWithMessage("bogus non-null value " + value).that(value == null).isTrue();
+                if (invocations == 1) {
+                  return null;
+                } else {
+                  assertThat(env.inErrorBubblingForTesting()).isFalse();
+                  fail("RACE CONDITION: errorParentKey was restarted!");
                   return null;
                 }
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
+              } catch (SomeErrorException e) {
+                assertWithMessage("child error propagated during normal evaluation")
+                    .that(env.inErrorBubblingForTesting())
+                    .isTrue();
+                assertThat(invocations).isEqualTo(2);
                 return null;
               }
             });
@@ -2573,20 +2351,15 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(errorKey));
     assertThatEvaluationResult(result).hasSingletonErrorThat(errorKey);
     SkyKey rogueKey = GraphTester.toSkyKey("rogue");
-    tester.getOrCreate(rogueKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) {
-        // This SkyFunction could do an arbitrarily bad computation, e.g. loop-forever. So we want
-        // to make sure that it is never run when we want to fail-fast anyway.
-        fail("eval call should have already terminated");
-        return null;
-      }
-
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+    tester
+        .getOrCreate(rogueKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              // This SkyFunction could do an arbitrarily bad computation, e.g. loop-forever. So we
+              // want to make sure that it is never run when we want to fail-fast anyway.
+              fail("eval call should have already terminated");
+              return null;
+            });
     result = eval(/*keepGoing=*/false, ImmutableList.of(errorKey, rogueKey));
     assertThatEvaluationResult(result).hasErrorMapThat().hasSize(1);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(errorKey);
@@ -2616,28 +2389,20 @@ public class ParallelEvaluatorTest {
     tester
         .getOrCreate(parentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                switch (numComputes.incrementAndGet()) {
-                  case 1:
-                    env.getValue(child1Key);
-                    Preconditions.checkState(env.valuesMissing());
-                    return null;
-                  case 2:
-                    env.getValue(child2Key);
-                    Preconditions.checkState(env.valuesMissing());
-                    return null;
-                  case 3:
-                    return new StringValue("the third time's the charm!");
-                  default:
-                    throw new IllegalStateException();
-                }
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
+            (skyKey, env) -> {
+              switch (numComputes.incrementAndGet()) {
+                case 1:
+                  env.getValue(child1Key);
+                  Preconditions.checkState(env.valuesMissing());
+                  return null;
+                case 2:
+                  env.getValue(child2Key);
+                  Preconditions.checkState(env.valuesMissing());
+                  return null;
+                case 3:
+                  return new StringValue("the third time's the charm!");
+                default:
+                  throw new IllegalStateException();
               }
             });
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, ImmutableList.of(parentKey));
@@ -2658,44 +2423,26 @@ public class ParallelEvaluatorTest {
     tester
         .getOrCreate(grandparentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                try {
-                  return env.getValueOrThrow(parentKey, SomeErrorException.class);
-                } catch (SomeErrorException e) {
-                  errorPropagated.set(true);
-                  throw new GenericFunctionException(e, Transience.PERSISTENT);
-                }
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
+            (skyKey, env) -> {
+              try {
+                return env.getValueOrThrow(parentKey, SomeErrorException.class);
+              } catch (SomeErrorException e) {
+                errorPropagated.set(true);
+                throw new GenericFunctionException(e, Transience.PERSISTENT);
               }
             });
     tester
         .getOrCreate(parentKey)
         .setBuilder(
-            new SkyFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env)
-                  throws SkyFunctionException, InterruptedException {
-                if (explicitlyPropagateError) {
-                  try {
-                    return env.getValueOrThrow(childKey, SomeErrorException.class);
-                  } catch (SomeErrorException e) {
-                    throw new GenericFunctionException(e);
-                  }
-                } else {
-                  return env.getValue(childKey);
+            (skyKey, env) -> {
+              if (explicitlyPropagateError) {
+                try {
+                  return env.getValueOrThrow(childKey, SomeErrorException.class);
+                } catch (SomeErrorException e) {
+                  throw new GenericFunctionException(e);
                 }
-              }
-
-              @Override
-              public String extractTag(SkyKey skyKey) {
-                return null;
+              } else {
+                return env.getValue(childKey);
               }
             });
     tester.getOrCreate(childKey).setHasError(/*hasError=*/true);
@@ -2758,5 +2505,237 @@ public class ParallelEvaluatorTest {
     public SkyFunctionName functionName() {
       return PARENT_TYPE;
     }
+  }
+
+  private static class SkyKeyForSkyKeyComputeStateTests extends AbstractSkyKey<String> {
+    private static final SkyFunctionName FUNCTION_NAME =
+        SkyFunctionName.createHermetic("SKY_KEY_COMPUTE_STATE_TESTS");
+
+    private SkyKeyForSkyKeyComputeStateTests(String arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return FUNCTION_NAME;
+    }
+  }
+
+  // Test for the basic functionality of SkyKeyComputeState.
+  @Test
+  public void skyKeyComputeState() throws InterruptedException {
+    // When we have 3 nodes: key1, key2, key3.
+    // (with dependency graph key1 -> key2; key2 -> key3, to be declared later in this test)
+    // (and we'll be evaluating key1 later in this test)
+    SkyKey key1 = new SkyKeyForSkyKeyComputeStateTests("key1");
+    SkyKey key2 = new SkyKeyForSkyKeyComputeStateTests("key2");
+    SkyKey key3 = new SkyKeyForSkyKeyComputeStateTests("key3");
+
+    // And an SkyKeyComputeState implementation that tracks global instance counts and per-instance
+    // usage counts,
+    AtomicInteger globalStateInstanceCounter = new AtomicInteger();
+    class State implements SkyKeyComputeState {
+      final int instanceCount = globalStateInstanceCounter.incrementAndGet();
+      int usageCount = 0;
+    }
+
+    // And a SkyFunction for these nodes,
+    AtomicLongMap<SkyKey> numCalls = AtomicLongMap.create();
+    AtomicReference<WeakReference<State>> stateForKey2Ref = new AtomicReference<>();
+    AtomicReference<WeakReference<State>> stateForKey3Ref = new AtomicReference<>();
+    SkyFunction skyFunctionForTest =
+        new SkyFunction() {
+          // That supports compute state
+          @Override
+          public boolean supportsSkyKeyComputeState() {
+            return true;
+          }
+
+          @Override
+          public State createNewSkyKeyComputeState() {
+            return new State();
+          }
+
+          // And crashes if the normal #compute method is called
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            fail();
+            throw new IllegalStateException();
+          }
+
+          // And whose #compute is such that
+          @Override
+          public SkyValue compute(
+              SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
+              throws InterruptedException {
+            State state = (State) skyKeyComputeState;
+            state.usageCount++;
+            int numCallsForKey = (int) numCalls.incrementAndGet(skyKey);
+            // The number of calls to #compute is expected to be equal to the number of usages of
+            // the state for that key,
+            assertThat(state.usageCount).isEqualTo(numCallsForKey);
+            if (skyKey.equals(key1)) {
+              // And the semantics for key1 are:
+
+              // The state for key1 is expected to be the first one created (since key1 is expected
+              // to be the first node we attempt to compute).
+              assertThat(state.instanceCount).isEqualTo(1);
+              // And key1 declares a dep on key2,
+              if (env.getValue(key2) == null) {
+                // (And that dep is expected to be missing on the initial #compute call for key1)
+                assertThat(numCallsForKey).isEqualTo(1);
+                return null;
+              }
+              // And if that dep is not missing, then we expect:
+              //   - We're on the second #compute call for key1
+              assertThat(numCallsForKey).isEqualTo(2);
+              //   - The state for key2 should have been eligible for GC. This is because the node
+              //     for key2 must have been fully computed, meaning its compute state is no longer
+              //     needed, and so ParallelEvaluator ought to have made it eligible for GC.
+              GcFinalization.awaitClear(stateForKey2Ref.get());
+              return new StringValue("value1");
+            } else if (skyKey.equals(key2)) {
+              // And the semantics for key2 are:
+
+              // The state for key2 is expected to be the second one created.
+              assertThat(state.instanceCount).isEqualTo(2);
+              stateForKey2Ref.set(new WeakReference<>(state));
+              // And key2 declares a dep on key3,
+              if (env.getValue(key3) == null) {
+                // (And that dep is expected to be missing on the initial #compute call for key2)
+                assertThat(numCallsForKey).isEqualTo(1);
+                return null;
+              }
+              // And if that dep is not missing, then we expect the same sort of things we expected
+              // for key1 in this situation.
+              assertThat(numCallsForKey).isEqualTo(2);
+              GcFinalization.awaitClear(stateForKey3Ref.get());
+              return new StringValue("value2");
+            } else if (skyKey.equals(key3)) {
+              // And the semantics for key3 are:
+
+              // The state for key3 is expected to be the third one created.
+              assertThat(state.instanceCount).isEqualTo(3);
+              stateForKey3Ref.set(new WeakReference<>(state));
+              // And key3 declares no deps.
+              return new StringValue("value3");
+            }
+            throw new IllegalStateException();
+          }
+        };
+
+    tester.putSkyFunction(SkyKeyForSkyKeyComputeStateTests.FUNCTION_NAME, skyFunctionForTest);
+    graph = new InMemoryGraphImpl();
+    // Then, when we evaluate key1,
+    SkyValue resultValue = eval(/*keepGoing=*/ true, key1);
+    // It successfully produces the value we expect, confirming all our other expectations about
+    // the compute states were correct.
+    assertThat(resultValue).isEqualTo(new StringValue("value1"));
+  }
+
+  // Test for SkyKeyComputeState in the situation of an error for one node causing normal evaluation
+  // to fail-fast, but when there are SkyKeyComputeState instances for other inflight nodes.
+  @Test
+  public void skyKeyComputeState_noKeepGoingWithAnError() throws InterruptedException {
+    // When we have 3 nodes: key1, key2, key3.
+    // (with dependency graph key1 -> key2; key3, to be declared later in this test)
+    // (and we'll be evaluating key1 & key3 in parallel later in this test)
+    SkyKey key1 = new SkyKeyForSkyKeyComputeStateTests("key1");
+    SkyKey key2 = new SkyKeyForSkyKeyComputeStateTests("key2");
+    SkyKey key3 = new SkyKeyForSkyKeyComputeStateTests("key3");
+
+    class State implements SkyKeyComputeState {}
+
+    class SkyFunctionExceptionForTest extends SkyFunctionException {
+      public SkyFunctionExceptionForTest(String message) {
+        super(new SomeErrorException(message), Transience.PERSISTENT);
+      }
+    }
+
+    // And a SkyFunction for these nodes,
+    AtomicReference<WeakReference<State>> stateForKey1Ref = new AtomicReference<>();
+    AtomicReference<WeakReference<State>> stateForKey3Ref = new AtomicReference<>();
+    CountDownLatch key3SleepingLatch = new CountDownLatch(1);
+    AtomicBoolean onNormalEvaluation = new AtomicBoolean(true);
+    SkyFunction skyFunctionForTest =
+        new SkyFunction() {
+          // That supports compute state
+          @Override
+          public boolean supportsSkyKeyComputeState() {
+            return true;
+          }
+
+          @Override
+          public State createNewSkyKeyComputeState() {
+            return new State();
+          }
+
+          // And crashes if the normal #compute method is called
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            fail();
+            throw new IllegalStateException();
+          }
+
+          // And whose #compute is such that
+          @Override
+          public SkyValue compute(
+              SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
+              throws InterruptedException, SkyFunctionException {
+            if (onNormalEvaluation.get()) {
+              // When we're on the normal evaluation:
+
+              State state = (State) skyKeyComputeState;
+              if (skyKey.equals(key1)) {
+                // For key1:
+
+                stateForKey1Ref.set(new WeakReference<>(state));
+                // We declare a dep on key.
+                return env.getValue(key2);
+              } else if (skyKey.equals(key2)) {
+                // For key2:
+
+                // We wait for the thread computing key3 to be sleeping
+                key3SleepingLatch.await();
+                // And then we throw an error, which will fail the normal evaluation and trigger
+                // error bubbling.
+                onNormalEvaluation.set(false);
+                throw new SkyFunctionExceptionForTest("normal evaluation");
+              } else if (skyKey.equals(key3)) {
+                // For key3:
+
+                stateForKey3Ref.set(new WeakReference<>(state));
+                key3SleepingLatch.countDown();
+                // We sleep forever. (To be interrupted by ParallelEvaluator when the normal
+                // evaluation fails).
+                Thread.sleep(Long.MAX_VALUE);
+              }
+              throw new IllegalStateException();
+            } else {
+              // When we're in error bubbling:
+
+              // The states for the nodes from normal evaluation should have been eligible for GC.
+              // This is because ParallelEvaluator ought to have them eligible for GC before
+              // starting error bubbling.
+              GcFinalization.awaitClear(stateForKey1Ref.get());
+              GcFinalization.awaitClear(stateForKey3Ref.get());
+
+              // We bubble up a unique error message.
+              throw new SkyFunctionExceptionForTest("error bubbling for " + skyKey.argument());
+            }
+          }
+        };
+
+    tester.putSkyFunction(SkyKeyForSkyKeyComputeStateTests.FUNCTION_NAME, skyFunctionForTest);
+    graph = new InMemoryGraphImpl();
+    // Then, when we do a nokeep_going evaluation of key1 and key3 in parallel,
+    assertThatEvaluationResult(eval(/*keepGoing=*/ false, key1, key3))
+        // The evaluation fails (as expected),
+        .hasErrorEntryForKeyThat(key1)
+        .hasExceptionThat()
+        .hasMessageThat()
+        // And the error message for key1 is from error bubbling,
+        .isEqualTo("error bubbling for key1");
+    // Confirming that all our other expections about the compute states were correct.
   }
 }

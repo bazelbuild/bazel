@@ -107,12 +107,6 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
   }
 
   @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  @Nullable
   private static StarlarkDefinedAspect loadStarlarkAspect(
       Environment env, StarlarkAspectClass aspectClass, boolean allowTopLevelAspectsParameters)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {

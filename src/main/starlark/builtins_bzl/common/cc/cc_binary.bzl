@@ -148,8 +148,10 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
             target_file = input,
             progress_message = "Symlinking original binary as stripped binary",
         )
+        return
+
     if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
-        fail("Expected action_config for 'strip' to be configured")
+        fail("Expected action_config for 'strip' to be configured.")
 
     variables = cc_common.create_compile_variables(
         cc_toolchain = cc_toolchain,
@@ -166,7 +168,6 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
     execution_info = {}
     for execution_requirement in cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = "strip"):
         execution_info[execution_requirement] = ""
-
     ctx.actions.run(
         inputs = depset(
             direct = [input],
@@ -270,8 +271,8 @@ def _get_file_content(objects):
 
 def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_configuration, files_to_build, cc_compilation_outputs, compilation_context, libraries, runtime_objects_for_coverage, common):
     instrumented_object_files = cc_compilation_outputs.objects + cc_compilation_outputs.pic_objects
-    additional_meta_data = None
-    if len(runtime_objects_for_coverage) != 0 and cpp_config.generate_llvm_lcov:
+    additional_meta_data = []
+    if len(runtime_objects_for_coverage) != 0 and cpp_config.generate_llvm_lcov():
         runtime_objects_list = ctx.actions.declare_file(ctx.label.name + "runtime_objects_list.txt")
         file_content = _get_file_content(runtime_objects_for_coverage)
         ctx.actions.write(output = runtime_objects_list, content = file_content, is_executable = False)
@@ -279,7 +280,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
 
     instrumented_files_provider = common.instrumented_files_info_from_compilation_context(
         files = instrumented_object_files,
-        with_base_line_coverage = not ctx.label.name.endswith("_test"),
+        with_base_line_coverage = not ctx.attr._is_test,
         compilation_context = compilation_context,
         additional_metadata = additional_meta_data,
     )
@@ -342,7 +343,7 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
     link_shared = _is_link_shared(ctx)
     if not link_shared:
         malloc = _malloc_for_target(ctx, cpp_config)
-        runfiles_default = builder.merge(_default_runfiles_function(ctx, malloc))
+        builder = builder.merge(_default_runfiles_function(ctx, malloc))
         builder = builder.merge(ctx.runfiles(transitive_files = _runfiles_function(ctx, malloc, linking_mode != _LINKING_DYNAMIC)))
     return (builder.merge(ctx.runfiles(files = builder_artifacts, transitive_files = depset(builder_transitive_artifacts))), runtime_objects_for_coverage)
 
@@ -528,10 +529,21 @@ def _create_transitive_linking_actions(
                 )
                 libraries_for_current_cc_linking_context.append(library_to_link)
             elif _matches([".pic.lo", ".lo", ".lo.lib"], artifact.basename):
-                library_to_link = cc_common.create_library_to_link(ctx.actions, feature_configuration, cc_toolchain, static_library = artifact, alwayslink = True)
+                library_to_link = cc_common.create_library_to_link(
+                    actions = ctx.actions,
+                    feature_configuration = feature_configuration,
+                    cc_toolchain = cc_toolchain,
+                    static_library = artifact,
+                    alwayslink = True,
+                )
                 libraries_for_current_cc_linking_context.append(library_to_link)
             elif _matches([".a", ".lib", ".pic.a", ".rlib"], artifact.basename) and not _matches([".if.lib"], artifact.basename):
-                library_to_link = cc_common.create_library_to_link(ctx.actions, feature_configuration, cc_toolchain, static_library = artifact)
+                library_to_link = cc_common.create_library_to_link(
+                    actions = ctx.actions,
+                    feature_configuration = feature_configuration,
+                    cc_toolchain = cc_toolchain,
+                    static_library = artifact,
+                )
                 libraries_for_current_cc_linking_context.append(library_to_link)
 
     # TODO(b/198254254): ctx getSymbolGenerator()
@@ -543,9 +555,9 @@ def _create_transitive_linking_actions(
     )
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
 
-    cc_info_without_extra_link_time_libraries = cc_common.merge_cc_infos(cc_infos = [deps_cc_info, CcInfo(linking_context = current_cc_linking_context)])
+    cc_info_without_extra_link_time_libraries = cc_common.merge_cc_infos(cc_infos = [CcInfo(linking_context = current_cc_linking_context), deps_cc_info])
     extra_link_time_libraries_cc_info = CcInfo(linking_context = cc_common.create_linking_context(linker_inputs = extra_link_time_libraries_depset))
-    cc_info = cc_common.merge_cc_infos(cc_infos = [extra_link_time_libraries_cc_info, cc_info_without_extra_link_time_libraries])
+    cc_info = cc_common.merge_cc_infos(cc_infos = [cc_info_without_extra_link_time_libraries, extra_link_time_libraries_cc_info])
     cc_linking_context = cc_info.linking_context
 
     # TODO(b/198254254): Enable dynamic filtering.
@@ -562,7 +574,7 @@ def _create_transitive_linking_actions(
         grep_includes = ctx.attr._grep_includes.files_to_run.executable,
         stamp = _is_stamping_enabled(ctx),
         additional_inputs = additional_linker_inputs,
-        linking_contexts = [cc_linking_context, deps_cc_linking_context],
+        linking_contexts = [cc_linking_context],
         name = ctx.label.name,
         use_test_only_flags = cc_helper.is_test_target(ctx),
         # Note: Current Starlark API supports either dynamic or static linking modes,
@@ -584,7 +596,7 @@ def _create_transitive_linking_actions(
 def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
     if _is_link_shared(ctx):
         return cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration)
-    return cpp_config.force_pic or (cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and ctx.var["COMPILATION_MODE"] != "opt")
+    return cpp_config.force_pic() or (cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and ctx.var["COMPILATION_MODE"] != "opt")
 
 def _collect_linking_context(ctx, cpp_config):
     cc_infos = []
@@ -593,14 +605,17 @@ def _collect_linking_context(ctx, cpp_config):
             cc_infos.append(dep[CcInfo])
 
     if not _is_link_shared(ctx):
-        cc_info = _malloc_for_target(ctx, cpp_config)[CcInfo]
+        cc_info = None
+        malloc_for_target = _malloc_for_target(ctx, cpp_config)
+        if CcInfo in malloc_for_target:
+            cc_info = malloc_for_target[CcInfo]
         if cc_info != None:
             cc_infos.append(cc_info)
 
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context
 
 def _malloc_for_target(ctx, cpp_config):
-    if ctx.attr._default_malloc != None:
+    if cpp_config.custom_malloc != None:
         return ctx.attr._default_malloc
     return ctx.attr.malloc
 
@@ -637,7 +652,18 @@ def _is_apple_platform(target_cpu):
         return True
     return False
 
-def _cc_binary_impl(ctx):
+def cc_binary_impl(ctx):
+    """Implementation function of cc_binary rule.
+
+    Do NOT import outside cc_test.
+
+    Args:
+      ctx: The Starlark rule context.
+
+    Returns:
+      Appropriate providers for cc_binary/cc_test.
+    """
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary")
     common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 
@@ -684,7 +710,7 @@ def _cc_binary_impl(ctx):
     features = ctx.features
     features.append(linking_mode)
     disabled_features = ctx.disabled_features
-    if ctx.label.name.endswith("_test") and cpp_config.incompatible_enable_cc_test_feature:
+    if ctx.attr._is_test and cpp_config.incompatible_enable_cc_test_feature:
         features.append("is_cc_test")
         disabled_features.append("legacy_is_cc_test")
     feature_configuration = cc_common.configure_features(
@@ -694,6 +720,12 @@ def _cc_binary_impl(ctx):
         unsupported_features = disabled_features,
     )
     compilation_context_deps = [dep[CcInfo].compilation_context for dep in ctx.attr.deps if CcInfo in dep]
+    target_malloc = _malloc_for_target(ctx, cpp_config)
+    malloc_dep = None
+    if CcInfo in target_malloc:
+        malloc_dep = target_malloc[CcInfo].compilation_context
+    if malloc_dep != None:
+        compilation_context_deps.append(malloc_dep)
     stl_compilation_context = [ctx.attr._stl[CcInfo].compilation_context]
     (compilation_context, compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
@@ -747,7 +779,7 @@ def _cc_binary_impl(ctx):
             grep_includes = ctx.attr._grep_includes.files_to_run.executable,
             linking_contexts = [cc_helper.get_linking_context_from_deps(_malloc_for_target(ctx, cpp_config))] + cc_helper.get_linking_context_from_deps(ctx.attr.deps),
             stamp = _is_stamping_enabled(ctx),
-            test_only_target = cc_helper.is_test_target(ctx) or ctx.label.name.endswith("_test"),
+            test_only_target = cc_helper.is_test_target(ctx) or ctx.attr._is_test,
             always_link = True,
         )
 
@@ -843,7 +875,7 @@ def _cc_binary_impl(ctx):
     explicit_dwp_file = dwp_file
     if not cc_helper.should_create_per_object_debug_info(feature_configuration, cpp_config):
         explicit_dwp_file = None
-    elif ctx.label.name.endswith("_test") and linking_mode != _LINKING_DYNAMIC and cpp_config.build_test_dwp:
+    elif ctx.attr._is_test and linking_mode != _LINKING_DYNAMIC and cpp_config.build_test_dwp():
         files_to_build_list.append(dwp_file)
 
     # If the binary is linked dynamically and COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, collect
@@ -889,7 +921,7 @@ def _cc_binary_impl(ctx):
         runtime_objects_for_coverage,
         common,
     )
-    if _is_apple_platform(cc_toolchain.cpu) and ctx.label.name.endswith("_test"):
+    if _is_apple_platform(cc_toolchain.cpu) and ctx.attr._is_test:
         # TODO(b/198254254): Add ExecutionInfo.
         execution_info = None
 
@@ -940,117 +972,99 @@ def _cc_binary_impl(ctx):
         result.append(cc_launcher_info)
     return result
 
+ALLOWED_SRC_FILES = []
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_SOURCE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.C_SOURCE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_HEADER)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ASSESMBLER_WITH_C_PREPROCESSOR)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ASSEMBLER)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ARCHIVE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_ARCHIVE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ALWAYSLINK_LIBRARY)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ALWAYSLINK_PIC_LIBRARY)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.SHARED_LIBRARY)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.OBJECT_FILE)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_OBJECT_FILE)
+
+# Intended only to be used by cc_test. Do not import.
+cc_binary_attrs = {
+    "srcs": attr.label_list(
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
+        allow_files = True,
+    ),
+    "win_def_file": attr.label(
+        allow_files = [".def"],
+    ),
+    "reexport_deps": attr.label_list(
+        allow_files = True,
+        allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+    ),
+    "linkopts": attr.string_list(),
+    "copts": attr.string_list(),
+    "defines": attr.string_list(),
+    "local_defines": attr.string_list(),
+    "includes": attr.string_list(),
+    "nocopts": attr.string(),
+    # TODO(b/198254254): Only once inside Google? in progress
+    # TODO(b/198254254): Add default = cc_internal.default_hdrs_check_computed_default().
+    "hdrs_check": attr.string(),
+    "linkstatic": attr.bool(
+        default = True,
+    ),
+    "additional_linker_inputs": attr.label_list(
+        allow_files = True,
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+    ),
+    "deps": attr.label_list(
+        allow_files = semantics.ALLOWED_FILES_IN_DEPS,
+        allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_WITH_WARNINGS_IN_DEPS,
+        flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+        providers = [CcInfo],
+    ),
+    "dynamic_deps": attr.label_list(
+        allow_files = False,
+        providers = [CcSharedLibraryInfo],
+    ),
+    "malloc": attr.label(
+        default = Label("@//tools/cpp:malloc"),
+        allow_files = False,
+        allow_rules = ["cc_library"],
+        # TODO(b/198254254): Add aspects. in progress
+        aspects = [],
+    ),
+    "_default_malloc": attr.label(
+        # TODO(b/198254254): Add default value. in progress
+        default = configuration_field(fragment = "cpp", name = "custom_malloc"),
+    ),
+    "stamp": attr.int(
+        default = -1,
+    ),
+    "linkshared": attr.bool(
+        default = False,
+    ),
+    "data": attr.label_list(
+        allow_files = True,
+    ),
+    "env": attr.string_dict(),
+    "distribs": attr.string_list(),
+    "_is_test": attr.bool(default = False),
+    "_grep_includes": attr.label(
+        allow_files = True,
+        executable = True,
+        cfg = "host",
+        default = Label("@//tools/cpp:grep-includes"),
+    ),
+    "_stl": attr.label(default = "@//third_party/stl"),
+    "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
+    "_cc_toolchain_type": attr.label(default = "@//tools/cpp:toolchain_type"),
+}
+cc_binary_attrs.update(semantics.get_licenses_attr())
+cc_binary_attrs.update(semantics.get_distribs_attr())
+cc_binary_attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
+
 cc_binary = rule(
-    implementation = _cc_binary_impl,
-    attrs = {
-        "srcs": attr.label_list(
-            flags = ["DIRECT_COMPILE_TIME_INPUT"],
-            # TODO(b/198254254): Versioned library? in progress
-            allow_files = [
-                ".cc",
-                ".cpp",
-                ".cxx",
-                ".c++",
-                ".C",
-                ".cu",
-                ".cl",
-                ".c",
-                ".h",
-                ".hh",
-                ".hpp",
-                ".ipp",
-                ".hxx",
-                ".h++",
-                ".inc",
-                ".inl",
-                ".tlh",
-                ".tli",
-                ".H",
-                ".tcc",
-                ".S",
-                ".s",
-                ".pic.s",
-                ".a",
-                ".lib",
-                ".pic.a",
-                ".lo",
-                ".lo.lib",
-                ".pic.lo",
-                ".so",
-                ".dylib",
-                ".dll",
-                ".o",
-                ".obj",
-                ".pic.o",
-            ],
-        ),
-        "win_def_file": attr.label(
-            allow_files = [".def"],
-        ),
-        "reexport_deps": attr.label_list(
-            allow_files = True,
-            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-        ),
-        "linkopts": attr.string_list(),
-        "copts": attr.string_list(),
-        "defines": attr.string_list(),
-        "local_defines": attr.string_list(),
-        "includes": attr.string_list(),
-        "nocopts": attr.string(),
-        # TODO(b/198254254): Only once inside Google? in progress
-        # TODO(b/198254254): Add default = cc_internal.default_hdrs_check_computed_default().
-        "hdrs_check": attr.string(),
-        "linkstatic": attr.bool(
-            default = True,
-        ),
-        "additional_linker_inputs": attr.label_list(
-            allow_files = True,
-            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-        ),
-        "deps": attr.label_list(
-            allow_files = semantics.ALLOWED_FILES_IN_DEPS,
-            allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_WITH_WARNINGS_IN_DEPS,
-            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-            providers = [CcInfo],
-        ),
-        "dynamic_deps": attr.label_list(
-            allow_files = False,
-            providers = [CcSharedLibraryInfo],
-        ),
-        "malloc": attr.label(
-            default = Label("@//tools/cpp:malloc"),
-            allow_files = False,
-            allow_rules = ["cc_library"],
-            # TODO(b/198254254): Add aspects. in progress
-            aspects = [],
-        ),
-        "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        "_default_malloc": attr.label(
-            # TODO(b/198254254): Add default value. in progress
-            default = configuration_field(fragment = "cpp", name = "custom_malloc"),
-        ),
-        "stamp": attr.int(
-            default = -1,
-        ),
-        "linkshared": attr.bool(
-            default = False,
-        ),
-        "data": attr.label_list(
-            allow_files = True,
-        ),
-        "args": attr.string_list(),
-        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        "distribs": attr.string_list(),
-        "_grep_includes": attr.label(
-            allow_files = True,
-            executable = True,
-            cfg = "host",
-            default = Label("@//tools/cpp:grep-includes"),
-        ),
-        "_stl": attr.label(default = "@//third_party/stl"),
-        "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
-        "_cc_toolchain_type": attr.label(default = "@//tools/cpp:toolchain_type"),
-    },
+    implementation = cc_binary_impl,
+    attrs = cc_binary_attrs,
     outputs = {
         # TODO(b/198254254): Handle case for windows.
         "stripped_binary": "%{name}.stripped",
@@ -1060,5 +1074,9 @@ cc_binary = rule(
     exec_groups = {
         "cpp_link": exec_group(copy_from_rule = True),
     },
+    toolchains = [
+        "@//tools/cpp:toolchain_type",
+    ],
     incompatible_use_toolchain_transition = True,
+    executable = True,
 )

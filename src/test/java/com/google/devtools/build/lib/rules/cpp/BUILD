@@ -36,7 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:guava",
     ],
 )
@@ -124,6 +124,7 @@ java_test(
 
 java_test(
     name = "CcCommonTest",
+    timeout = "long",
     srcs = ["CcCommonTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",

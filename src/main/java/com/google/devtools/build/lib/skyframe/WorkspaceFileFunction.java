@@ -441,11 +441,6 @@ public class WorkspaceFileFunction implements SkyFunction {
     return builder.build();
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {
     WorkspaceFileFunctionException(NoSuchPackageException e, Transience transience) {
       super(e, transience);

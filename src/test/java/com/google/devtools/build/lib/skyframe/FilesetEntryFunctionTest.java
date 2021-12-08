@@ -998,11 +998,5 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         throws SkyFunctionException, InterruptedException {
       return WorkspaceNameValue.withName("workspace");
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 }

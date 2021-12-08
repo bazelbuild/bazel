@@ -385,7 +385,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         nodeEntry.addReverseDepAndCheckIfDone(null);
         nodeEntry.markRebuilding();
         try {
-          nodeEntry.setValue(value, ignored -> false);
+          nodeEntry.setValue(value, ignored -> false, null);
         } catch (InterruptedException e) {
           throw new RuntimeException();
         }

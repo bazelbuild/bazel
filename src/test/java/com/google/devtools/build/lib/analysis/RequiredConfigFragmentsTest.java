@@ -441,4 +441,21 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
       assertThat(requiredFragments.getDefines()).doesNotContain("my_var");
     }
   }
+
+  @Test
+  public void invalidStarlarkFragmentsFiltered() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "",
+        "my_rule = rule(implementation = _my_rule_impl, fragments = ['java', 'doesnotexist'])");
+    scratch.file("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'example')");
+
+    useConfiguration("--include_config_fragments_provider=direct");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:example").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getFragmentClasses()).contains(JavaConfiguration.class);
+  }
 }

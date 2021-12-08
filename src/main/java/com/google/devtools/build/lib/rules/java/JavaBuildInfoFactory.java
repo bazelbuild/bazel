@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.TimestampFormatter;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -54,9 +52,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       DateTimeFormatter.ofPattern("EEE MMM d HH:mm:ss yyyy");
 
   // A default formatter that returns a date in UTC format.
-  @AutoCodec
-  @VisibleForSerialization
-  static class DefaultTimestampFormatter implements TimestampFormatter {
+  private static class DefaultTimestampFormatter implements TimestampFormatter {
     @Override
     public String format(long timestamp) {
       return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(DEFAULT_TIME_FORMAT)

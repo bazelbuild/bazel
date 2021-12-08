@@ -153,9 +153,11 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+    public Set<SkyKey> setValue(
+        SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
+        throws InterruptedException {
       TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-      result.addAll(super.setValue(value, version));
+      result.addAll(super.setValue(value, graphVersion, maxTransitiveSourceVersion));
       return result;
     }
 

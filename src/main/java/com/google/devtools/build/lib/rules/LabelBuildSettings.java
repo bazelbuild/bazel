@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.rules.LateBoundAlias.AbstractAliasRule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * Native implementation of label setting and flags.
@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  * possible today and could easily introduce large performance issues.
  */
 public class LabelBuildSettings {
-  @AutoCodec @VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   // TODO(b/65746853): find a way to do this without passing the entire BuildConfigurationValue
   static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
       LabelLateBoundDefault.fromTargetConfiguration(

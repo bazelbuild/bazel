@@ -73,12 +73,6 @@ public class TargetPatternErrorFunction implements SkyFunction {
         Transience.PERSISTENT);
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static class TargetErrorFunctionException extends SkyFunctionException {
     public TargetErrorFunctionException(
         TargetParsingException cause, Transience transience) {

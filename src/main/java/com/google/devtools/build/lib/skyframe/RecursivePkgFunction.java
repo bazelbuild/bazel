@@ -25,7 +25,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * RecursivePkgFunction builds up the set of packages underneath a given directory
@@ -110,11 +109,5 @@ public class RecursivePkgFunction implements SkyFunction {
     RecursivePkgValue createRecursivePkgValue() {
       return RecursivePkgValue.create(packages, hasErrors);
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

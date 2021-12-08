@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
  *
  * <p>Otherwise, delegates calls to its wrapped {@link SkyFunction.Environment}.
  */
-class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
+final class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
 
   private final SkyFunction.Environment delegate;
   private final ProgressSuppressingEventHandler suppressingEventHandler;
@@ -278,7 +278,7 @@ class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
   }
 
   @Override
-  public void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
+  public void registerDependencies(Iterable<SkyKey> keys) {
     delegate.registerDependencies(keys);
   }
 

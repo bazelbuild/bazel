@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -371,7 +371,7 @@ public class BazelCppRuleClasses {
           .add(attr("linkstatic", BOOLEAN).value(true))
           .add(
               attr("$def_parser", LABEL)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .singleArtifact()
                   .value(
                       new Attribute.ComputedDefault() {

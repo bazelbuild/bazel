@@ -38,8 +38,6 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.Iterator;
 import javax.annotation.Nullable;
@@ -48,8 +46,7 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
-@AutoCodec
-public class JavaToolchainProvider extends NativeInfo
+public final class JavaToolchainProvider extends NativeInfo
     implements JavaToolchainStarlarkApiProviderApi {
 
   public static final BuiltinProvider<JavaToolchainProvider> PROVIDER =
@@ -181,8 +178,7 @@ public class JavaToolchainProvider extends NativeInfo
   private final JavaSemantics javaSemantics;
   private final JavaRuntimeInfo javaRuntime;
 
-  @VisibleForSerialization
-  JavaToolchainProvider(
+  private JavaToolchainProvider(
       Label label,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,

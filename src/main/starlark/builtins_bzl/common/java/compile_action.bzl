@@ -75,11 +75,13 @@ def _collect_plugins(deps, plugins):
 def _compile_action(
         ctx,
         extra_resources,
+        classpath_resources,
         source_files,
         source_jars,
         output_prefix,
         enable_compile_jar_action = True,
         extra_runtime_jars = [],
+        extra_runtime_deps = [],
         extra_deps = []):
     if extra_deps:
         deps = []
@@ -88,7 +90,7 @@ def _compile_action(
     else:
         deps = ctx.attr.deps
 
-    runtime_deps = _get_attr_safe(ctx, "runtime_deps", [])
+    runtime_deps = _get_attr_safe(ctx, "runtime_deps", []) + extra_runtime_deps
     exports = _get_attr_safe(ctx, "exports", [])
     exported_plugins = _get_attr_safe(ctx, "exported_plugins", [])
 
@@ -115,18 +117,15 @@ def _compile_action(
     runtime_deps_javainfo.extend([JavaInfo(jar, None) for jar in extra_runtime_jars])
     exports_javainfo = _filter_javainfo_and_legacy_jars(exports)
 
-    if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY:
-        output = ctx.actions.declare_file(output_prefix + "%s.jar" % ctx.attr.name)
-        output_source_jar = ctx.actions.declare_file(output_prefix + "%s-src.jar" % ctx.attr.name)
-    else:
-        output = ctx.outputs.classjar
-        output_source_jar = ctx.outputs.sourcejar
+    output = ctx.outputs.classjar
+    output_source_jar = ctx.outputs.sourcejar
 
     java_info = java_common.compile(
         ctx,
         source_files = source_files,
         source_jars = source_jars,
         resources = resources,
+        classpath_resources = classpath_resources,
         plugins = plugins,
         deps = deps_javainfo,
         native_libraries = _filter_provider(CcInfo, deps, runtime_deps, exports),

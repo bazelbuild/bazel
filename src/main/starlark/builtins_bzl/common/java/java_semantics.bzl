@@ -50,8 +50,6 @@ def _get_coverage_runner(ctx):
     return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
 
 semantics = struct(
-    EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
-    EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = False,
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_LITE_PROTO_TOOLCHAIN_LABEL = "@//tools/proto/toolchains:javalite",

@@ -208,7 +208,6 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
                             AbstractQueueVisitor.createExecutorService(
                                 evaluationContext.getParallelism(), "skyframe-evaluator")),
                 new SimpleCycleDetector(),
-                EvaluationVersionBehavior.GRAPH_VERSION,
                 evaluationContext.getCPUHeavySkyKeysThreadPoolSize(),
                 evaluationContext.getExecutionPhaseThreadPoolSize());
         result = evaluator.eval(roots);

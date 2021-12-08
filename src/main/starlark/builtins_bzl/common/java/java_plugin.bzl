@@ -67,7 +67,7 @@ java_plugin = create_rule(
         VALIDATE_PROGUARD_SPECS,
     ] + semantics.EXTRA_PLUGIN_DEPS,
     provides = [JavaPluginInfo],
-    outputs = {} if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY else {
+    outputs = {
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },

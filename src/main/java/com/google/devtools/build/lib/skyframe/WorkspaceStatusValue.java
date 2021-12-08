@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
@@ -34,7 +34,7 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
   private final Artifact volatileArtifact;
 
   // There should only ever be one BuildInfo value in the graph.
-  @AutoCodec public static final BuildInfoKey BUILD_INFO_KEY = new BuildInfoKey();
+  @SerializationConstant public static final BuildInfoKey BUILD_INFO_KEY = new BuildInfoKey();
 
   WorkspaceStatusValue(
       Artifact stableArtifact,

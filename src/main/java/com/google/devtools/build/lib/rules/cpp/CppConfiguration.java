@@ -426,6 +426,7 @@ public final class CppConfiguration extends Fragment
   @StarlarkConfigurationField(
       name = "custom_malloc",
       doc = "The label specified in --custom_malloc")
+  @Nullable
   public Label customMalloc() {
     return cppOptions.customMalloc;
   }
@@ -738,6 +739,12 @@ public final class CppConfiguration extends Fragment
   public Label getLibcTopLabelStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return getLibcTopLabel();
+  }
+
+  @Override
+  public boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return shareNativeDeps();
   }
 
   /**

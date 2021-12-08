@@ -89,16 +89,14 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
               return this;
             }
           } catch (ExecException e) {
-            throw e.toActionExecutionException(
-                AbstractFileWriteAction.this);
+            throw ActionExecutionException.fromExecException(e, AbstractFileWriteAction.this);
           }
           afterWrite(actionExecutionContext);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
       };
     } catch (ExecException e) {
-      throw e.toActionExecutionException(
-          this);
+      throw ActionExecutionException.fromExecException(e, this);
     }
   }
 

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -228,6 +229,13 @@ class DataBindingV2Context implements DataBindingContext {
       for (DataBindingV2Provider provider : providers) {
         setterStoreFiles.addTransitive(provider.getSetterStores());
       }
+      if (context.attributes().has("application_resources")) {
+        DataBindingV2Provider p =
+            context.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
+        if (p != null) {
+          setterStoreFiles.addAll(p.getSetterStores().toList());
+        }
+      }
     }
     return setterStoreFiles.build();
   }
@@ -406,6 +414,13 @@ class DataBindingV2Context implements DataBindingContext {
   }
 
   private static Artifact getClassInfoFile(RuleContext context) {
+    if (shouldGetDatabindingArtifactsFromApplicationResources(context)) {
+      DataBindingV2Provider p =
+          context.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
+      if (p != null) {
+        return Iterables.getOnlyElement(p.getClassInfos().toList());
+      }
+    }
     return context.getUniqueDirectoryArtifact("databinding", "class-info.zip");
   }
 
@@ -418,7 +433,8 @@ class DataBindingV2Context implements DataBindingContext {
 
   private static boolean shouldGetDatabindingArtifactsFromApplicationResources(
       RuleContext context) {
-    if (!context.attributes().isAttributeValueExplicitlySpecified("application_resources")) {
+    if (!context.attributes().has("application_resources")
+        || !context.attributes().isAttributeValueExplicitlySpecified("application_resources")) {
       return false;
     }
     AndroidApplicationResourceInfo androidApplicationResourceInfo =
