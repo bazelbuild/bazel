@@ -174,7 +174,7 @@ public class BazelRuleClassProviderTest {
             "--experimental_strict_action_env",
             "--action_env=FOO=bar");
 
-    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.getActionEnvironment(options);
+    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options);
     assertThat(env.getFixedEnv().toMap()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
     assertThat(env.getFixedEnv().toMap()).containsEntry("FOO", "bar");
   }

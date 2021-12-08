@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSe
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -183,7 +182,7 @@ public class BazelRuleClassProvider {
     public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
   }
 
-  public static final ActionEnvironmentProvider SHELL_ACTION_ENV =
+  public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
       (BuildOptions options) -> {
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
         OS os = OS.getCurrent();

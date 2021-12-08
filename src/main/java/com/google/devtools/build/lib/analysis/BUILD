@@ -1524,6 +1524,8 @@ java_library(
         ":config/core_options",
         ":config/fragment",
         ":config/fragment_class_set",
+        ":config/fragment_factory",
+        ":config/fragment_registry",
         ":config/invalid_configuration_exception",
         ":config/run_under",
         ":platform_options",

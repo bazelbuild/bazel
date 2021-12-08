@@ -47,6 +47,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
@@ -86,9 +87,14 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
       BlazeInterners.newWeakInterner();
 
-  /** Compute the default shell environment for actions from the command line options. */
-  public interface ActionEnvironmentProvider {
+  /** Global state necessary to build a BuildConfiguration. */
+  public interface GlobalStateProvider {
+    /** Computes the default shell environment for actions from the command line options. */
     ActionEnvironment getActionEnvironment(BuildOptions options);
+
+    FragmentRegistry getFragmentRegistry();
+
+    ImmutableSet<String> getReservedActionMnemonics();
   }
 
   private final OutputDirectories outputDirectories;
@@ -153,14 +159,55 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return ActionEnvironment.split(testEnv);
   }
 
-  public BuildConfigurationValue(
+  // Only BuildConfigurationFunction (and tests for mocking purposes) should instantiate this.
+  public static BuildConfigurationValue create(
+      BuildOptions buildOptions,
+      RepositoryName mainRepositoryName,
+      boolean siblingRepositoryLayout,
+      // Arguments below this are server-global.
+      BlazeDirectories directories,
+      GlobalStateProvider globalProvider,
+      FragmentFactory fragmentFactory)
+      throws InvalidConfigurationException {
+
+    FragmentClassSet fragmentClasses = globalProvider.getFragmentRegistry().getAllFragments();
+    ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments =
+        getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
+
+    return new BuildConfigurationValue(
+        buildOptions,
+        mainRepositoryName,
+        siblingRepositoryLayout,
+        directories,
+        fragments,
+        globalProvider.getReservedActionMnemonics(),
+        globalProvider.getActionEnvironment(buildOptions));
+  }
+
+  private static ImmutableSortedMap<Class<? extends Fragment>, Fragment> getConfigurationFragments(
+      BuildOptions buildOptions, FragmentClassSet fragmentClasses, FragmentFactory fragmentFactory)
+      throws InvalidConfigurationException {
+    ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
+        ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
+    for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
+      Fragment fragment = fragmentFactory.createFragment(buildOptions, fragmentClass);
+      if (fragment != null) {
+        fragments.put(fragmentClass, fragment);
+      }
+    }
+    return fragments.build();
+  }
+
+  // Package-visible for serialization purposes.
+  BuildConfigurationValue(
+      BuildOptions buildOptions,
+      RepositoryName mainRepositoryName,
+      boolean siblingRepositoryLayout,
+      // Arguments below this are either server-global and constant or completely dependent values.
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
-      BuildOptions buildOptions,
       ImmutableSet<String> reservedActionMnemonics,
-      ActionEnvironment actionEnvironment,
-      RepositoryName mainRepositoryName,
-      boolean siblingRepositoryLayout)
+      ActionEnvironment actionEnvironment)
       throws InvalidMnemonicException {
     this.fragments =
         fragmentsInterner.intern(
@@ -217,6 +264,26 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
     this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof BuildConfigurationValue)) {
+      return false;
+    }
+    // Only considering arguments that are non-dependent and non-server-global.
+    BuildConfigurationValue otherVal = (BuildConfigurationValue) other;
+    return this.buildOptions.equals(otherVal.buildOptions)
+        && this.mainRepositoryName.equals(otherVal.mainRepositoryName)
+        && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(buildOptions, mainRepositoryName, siblingRepositoryLayout);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {

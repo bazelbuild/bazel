@@ -64,7 +64,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -72,6 +71,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.annotation.Nullable;
@@ -86,7 +86,8 @@ import net.starlark.java.eval.StarlarkThread;
  * configuration options is guaranteed not to change over the life time of the Blaze server.
  */
 // This class has no subclasses except those created by the evil that is mockery.
-public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider {
+public /*final*/ class ConfiguredRuleClassProvider
+    implements RuleClassProvider, BuildConfigurationValue.GlobalStateProvider {
 
   /**
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
@@ -158,7 +159,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
         ImmutableList.builder();
     private final Set<String> reservedActionMnemonics = new TreeSet<>();
-    private BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider =
+    private Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
     private ConstraintSemantics<RuleContext> constraintSemantics =
         new RuleContextConstraintSemantics();
@@ -327,7 +328,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     }
 
     public Builder setActionEnvironmentProvider(
-        BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider) {
+        Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider) {
       this.actionEnvironmentProvider = actionEnvironmentProvider;
       return this;
     }
@@ -422,10 +423,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       try {
         Constructor<? extends RuleConfiguredTargetFactory> ctor = factoryClass.getConstructor();
         return ctor.newInstance();
-      } catch (NoSuchMethodException
-          | IllegalAccessException
-          | InstantiationException
-          | InvocationTargetException e) {
+      } catch (ReflectiveOperationException e) {
         throw new IllegalStateException(e);
       }
     }
@@ -440,7 +438,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       RuleDefinition.Metadata metadata = instance.getMetadata();
       checkArgument(
           ruleClassMap.get(metadata.name()) == null,
-          "The rule " + metadata.name() + " was committed already, use another name");
+          "The rule %s was committed already, use another name",
+          metadata.name());
 
       List<Class<? extends RuleDefinition>> ancestors = metadata.ancestors();
 
@@ -649,7 +648,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
-  private final BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider;
+  private final Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider;
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
@@ -682,7 +681,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
-      BuildConfigurationValue.ActionEnvironmentProvider actionEnvironmentProvider,
+      Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       @Nullable Label networkAllowlistForTests) {
@@ -761,6 +760,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return nativeAspectClassMap.get(key);
   }
 
+  @Override
   public FragmentRegistry getFragmentRegistry() {
     return fragmentRegistry;
   }
@@ -910,11 +910,13 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */
+  @Override
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }
 
-  public BuildConfigurationValue.ActionEnvironmentProvider getActionEnvironmentProvider() {
-    return actionEnvironmentProvider;
+  @Override
+  public ActionEnvironment getActionEnvironment(BuildOptions buildOptions) {
+    return actionEnvironmentProvider.apply(buildOptions);
   }
 }
