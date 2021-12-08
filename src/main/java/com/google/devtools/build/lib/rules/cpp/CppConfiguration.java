@@ -766,6 +766,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.targetLibcTopLabel;
   }
 
+  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
+  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return enableLegacyCcProvider();
+  }
+
   public boolean enableLegacyCcProvider() {
     return !cppOptions.disableLegacyCcProvider;
   }
@@ -847,6 +853,16 @@ public final class CppConfiguration extends Fragment
 
   public boolean objcShouldGenerateDotdFiles() {
     return cppOptions.objcGenerateDotdFiles;
+  }
+
+  @StarlarkMethod(
+      name = "experimental_cc_implementation_deps",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcImplementationDeps();
   }
 
   public boolean experimentalCcImplementationDeps() {
