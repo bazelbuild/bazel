@@ -77,7 +77,28 @@ public class PackageLookupFunction implements SkyFunction {
   }
 
   @Override
+  public boolean supportsSkyKeyComputeState() {
+    return true;
+  }
+
+  private static class State implements SkyKeyComputeState {
+    private int packagePathEntryPos = 0;
+    private int buildFileNamePos = 0;
+  }
+
+  @Override
+  public State createNewSkyKeyComputeState() {
+    return new State();
+  }
+
+  @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
+      throws PackageLookupFunctionException, InterruptedException {
+    return compute(skyKey, createNewSkyKeyComputeState(), env);
+  }
+
+  @Override
+  public SkyValue compute(SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -116,7 +137,7 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
-    return findPackageByBuildFile(env, pkgLocator, packageKey);
+    return findPackageByBuildFile((State) skyKeyComputeState, env, pkgLocator, packageKey);
   }
 
   /**
@@ -150,16 +171,12 @@ public class PackageLookupFunction implements SkyFunction {
 
   @Nullable
   private PackageLookupValue findPackageByBuildFile(
-      Environment env, PathPackageLocator pkgLocator, PackageIdentifier packageKey)
+      State state, Environment env, PathPackageLocator pkgLocator, PackageIdentifier packageKey)
       throws PackageLookupFunctionException, InterruptedException {
-    // TODO(bazel-team): The following is O(n^2) on the number of elements on the package path due
-    // to having restart the SkyFunction after every new dependency. However, if we try to batch
-    // the missing value keys, more dependencies than necessary will be declared. This wart can be
-    // fixed once we have nicer continuation support [skyframe-loading]
-    for (Root packagePathEntry : pkgLocator.getPathEntries()) {
-
-      // This checks for the build file names in the correct precedence order.
-      for (BuildFileName buildFileName : buildFilesByPriority) {
+    while (state.packagePathEntryPos < pkgLocator.getPathEntries().size()) {
+      while (state.buildFileNamePos < buildFilesByPriority.size()) {
+        Root packagePathEntry = pkgLocator.getPathEntries().get(state.packagePathEntryPos);
+        BuildFileName buildFileName = buildFilesByPriority.get(state.buildFileNamePos);
         PackageLookupValue result =
             getPackageLookupValue(env, packagePathEntry, packageKey, buildFileName);
         if (result == null) {
@@ -168,9 +185,11 @@ public class PackageLookupFunction implements SkyFunction {
         if (result != PackageLookupValue.NO_BUILD_FILE_VALUE) {
           return result;
         }
+        state.buildFileNamePos++;
       }
+      state.buildFileNamePos = 0;
+      state.packagePathEntryPos++;
     }
-
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
