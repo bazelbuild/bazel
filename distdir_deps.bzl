@@ -11,7 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""List the distribution dependencies we need to build Bazel."""
+"""List the distribution dependencies we need to build Bazel.
+
+Note for Bazel users: This is not the file that you are looking for.
+This is internal source and is not intended to tell you what version
+you should use for each dependency.
+"""
 
 DIST_DEPS = {
     ########################################
