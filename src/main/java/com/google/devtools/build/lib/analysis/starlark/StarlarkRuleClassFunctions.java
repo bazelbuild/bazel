@@ -98,7 +98,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
-import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
@@ -271,13 +270,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   @Override
   public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {
-    Collection<String> fieldNames =
-        fields instanceof Sequence
-            ? Sequence.cast(fields, String.class, "fields")
-            : fields instanceof Dict
-                ? Dict.cast(fields, String.class, String.class, "fields").keySet()
-                : null;
-    return StarlarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
+    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    if (fields instanceof Sequence) {
+      builder.setSchema(Sequence.cast(fields, String.class, "fields"));
+    } else if (fields instanceof Dict) {
+      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
+    }
+    return builder.build();
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
