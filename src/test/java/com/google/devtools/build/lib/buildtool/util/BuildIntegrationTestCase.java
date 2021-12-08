@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
@@ -496,11 +495,7 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(getRulesModule())
             .addBlazeModule(getStrategyModule());
 
-    if ("blaze".equals(TestConstants.PRODUCT_NAME)) {
-      // include scanning isn't supported in bazel
-      builder.addBlazeModule(new IncludeScanningModule());
-
-    } else {
+    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
       // Add in modules implicitly added in internal integration test case.
       builder
           .addBlazeModule(new NoSpawnCacheModule())

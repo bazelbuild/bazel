@@ -837,6 +837,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.generateLlvmLcov;
   }
 
+  public boolean experimentalIncludeScanning() {
+    return cppOptions.experimentalIncludeScanning;
+  }
+
   public boolean objcShouldScanIncludes() {
     return cppOptions.objcScanIncludes;
   }

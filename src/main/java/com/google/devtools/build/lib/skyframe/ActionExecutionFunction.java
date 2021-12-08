@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -274,7 +275,11 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     CheckInputResults checkedInputs = null;
-    NestedSet<Artifact> allInputs = state.allInputs.getAllInputs();
+    NestedSet<Artifact> allInputs =
+        state.allInputs.getAllInputs(
+            !skyframeActionExecutor
+                .actionFileSystemType()
+                .equals(ActionFileSystemType.STAGE_REMOTE_FILES));
 
     Iterable<SkyKey> depKeys = getInputDepKeys(allInputs, state);
     // We do this unconditionally to maintain our invariant of asking for the same deps each build.
@@ -614,37 +619,57 @@ public class ActionExecutionFunction implements SkyFunction {
       Preconditions.checkState(env.valuesMissing(), action);
       return null;
     }
-    return new AllInputs(allKnownInputs, actionCacheInputs, resolver.packageLookupsRequested);
+    return new AllInputs(
+        allKnownInputs,
+        actionCacheInputs,
+        action.getAllowedDerivedInputs(),
+        resolver.packageLookupsRequested);
   }
 
   static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
+    @Nullable final NestedSet<Artifact> allowedDerivedInputs;
     @Nullable final List<Artifact> actionCacheInputs;
     @Nullable final List<ContainingPackageLookupValue.Key> packageLookupsRequested;
 
     AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = null;
+      this.allowedDerivedInputs = null;
       this.packageLookupsRequested = null;
     }
 
     AllInputs(
         NestedSet<Artifact> defaultInputs,
         List<Artifact> actionCacheInputs,
+        NestedSet<Artifact> allowedDerivedInputs,
         List<ContainingPackageLookupValue.Key> packageLookupsRequested) {
       this.defaultInputs = checkNotNull(defaultInputs);
+      this.allowedDerivedInputs = checkNotNull(allowedDerivedInputs);
       this.actionCacheInputs = checkNotNull(actionCacheInputs);
       this.packageLookupsRequested = packageLookupsRequested;
     }
 
-    NestedSet<Artifact> getAllInputs() {
+    /**
+     * Compute the inputs to request from Skyframe.
+     *
+     * @param prune If true, only return default inputs and any inputs from action cache checker.
+     *     Otherwise, return default inputs and all possible derived inputs of the action. Bazel's
+     *     {@link com.google.devtools.build.lib.remote.RemoteActionFileSystem} requires the metadata
+     *     from all derived inputs to know if they are remote or not during input discovery.
+     */
+    NestedSet<Artifact> getAllInputs(boolean prune) {
       if (actionCacheInputs == null) {
         return defaultInputs;
       }
 
       NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
-      // actionCacheInputs is never a NestedSet.
-      builder.addAll(actionCacheInputs);
+      if (prune) {
+        // actionCacheInputs is never a NestedSet.
+        builder.addAll(actionCacheInputs);
+      } else {
+        builder.addTransitive(allowedDerivedInputs);
+      }
       builder.addTransitive(defaultInputs);
       return builder.build();
     }

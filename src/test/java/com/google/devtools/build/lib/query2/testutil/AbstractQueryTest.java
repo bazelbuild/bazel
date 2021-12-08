@@ -621,13 +621,7 @@ public abstract class AbstractQueryTest<T> {
     if (testConfigurableAttributes()) {
       String implicitDeps = "";
       if (analysisMock.isThisBazel()) {
-        implicitDeps =
-            " + "
-                + helper.getToolsRepository()
-                + "//tools/def_parser:def_parser"
-                + " + "
-                + helper.getToolsRepository()
-                + "//tools/cpp:grep-includes";
+        implicitDeps = " + " + helper.getToolsRepository() + "//tools/def_parser:def_parser";
       }
       assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
           .containsExactlyElementsIn(
@@ -967,10 +961,7 @@ public abstract class AbstractQueryTest<T> {
               + "//tools/def_parser:def_parser"
               + " + "
               + helper.getToolsRepository()
-              + "//tools/def_parser:def_parser.exe"
-              + " + "
-              + helper.getToolsRepository()
-              + "//tools/cpp:grep-includes";
+              + "//tools/def_parser:def_parser.exe";
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";

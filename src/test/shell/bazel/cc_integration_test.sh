@@ -1388,4 +1388,35 @@ EOF
       fail "bazel build should've succeeded with --features=compiler_param_file"
 }
 
+function test_include_scanning_smoketest() {
+  # Make sure there are no packages containing tools/cpp/INCLUDE_HINTS to exercise that case in
+  # IncludeHintsFunction.
+  rm -rf BUILD tools
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'bin',
+  srcs = ['bin.cc'],
+  deps = [':spurious_dep'],
+)
+
+cc_library(
+  name = 'spurious_dep',
+  hdrs = ['dep.h'],
+)
+EOF
+
+  cat > pkg/bin.cc <<EOF
+#define NASTY "dep.h"
+#include NASTY
+int main() { return 0; }
+EOF
+
+  touch pkg/dep.h
+
+  bazel build --experimental_unsupported_and_brittle_include_scanning --features=cc_include_scanning //pkg:bin &>"$TEST_log" && fail 'include scanning did not (wrongly) remove dependency' || true
+  expect_log "Include scanning enabled. This feature is unsupported."
+  expect_log "fatal error: '\?dep.h'\?"
+}
+
 run_suite "cc_integration_test"
