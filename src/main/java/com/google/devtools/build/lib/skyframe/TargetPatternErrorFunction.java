@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -29,37 +28,53 @@ import javax.annotation.Nullable;
 
 /**
  * SkyFunction that throws a {@link TargetParsingException} for target pattern that could not be
- * parsed. Must only be requested when a SkyFunction wishes to ignore the errors
- * in a target pattern in keep_going mode, but to shut down the build in nokeep_going mode.
+ * parsed. Must only be requested when a SkyFunction wishes to ignore the errors in a target pattern
+ * in keep_going mode, but to shut down the build in nokeep_going mode.
  *
  * <p>This SkyFunction never returns a value, only throws a {@link TargetParsingException}, and
  * should never return null, since all of its dependencies should already be present.
  */
 public class TargetPatternErrorFunction implements SkyFunction {
-  // We pass in the error message, which isn't ideal. We could consider reparsing the original
-  // pattern instead, but that requires more information.
-  public static Key key(String errorMessage) {
-    return Key.create(errorMessage);
+  public static Key key(TargetParsingException e) {
+    return Key.create(e.getMessage(), e.getDetailedExitCode());
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<String> {
+  static class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private final String message;
+    private final DetailedExitCode detailedExitCode;
 
-    private Key(String arg) {
-      super(arg);
+    private Key(String message, DetailedExitCode detailedExitCode) {
+      this.message = message;
+      this.detailedExitCode = detailedExitCode;
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static Key create(String arg) {
-      return interner.intern(new Key(arg));
+    static Key create(String message, DetailedExitCode detailedExitCode) {
+      return interner.intern(new Key(message, detailedExitCode));
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.TARGET_PATTERN_ERROR;
+    }
+
+    @Override
+    public int hashCode() {
+      return 43 * message.hashCode() + detailedExitCode.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Key)) {
+        return false;
+      }
+      Key that = (Key) obj;
+      return this.message.equals(that.message)
+          && this.detailedExitCode.equals(that.detailedExitCode);
     }
   }
 
@@ -67,15 +82,13 @@ public class TargetPatternErrorFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws TargetErrorFunctionException, InterruptedException {
-    String errorMessage = (String) skyKey.argument();
     throw new TargetErrorFunctionException(
-        new TargetParsingException(errorMessage, TargetPatterns.Code.TARGET_PATTERN_PARSE_FAILURE),
+        new TargetParsingException(((Key) skyKey).message, ((Key) skyKey).detailedExitCode),
         Transience.PERSISTENT);
   }
 
   private static class TargetErrorFunctionException extends SkyFunctionException {
-    public TargetErrorFunctionException(
-        TargetParsingException cause, Transience transience) {
+    public TargetErrorFunctionException(TargetParsingException cause, Transience transience) {
       super(cause, transience);
     }
   }

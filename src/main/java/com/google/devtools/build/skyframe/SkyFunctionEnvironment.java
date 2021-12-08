@@ -318,7 +318,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * dependencies of this node <i>must</i> already have been registered, since this method may
    * register a dependence on the error transience node, which should always be the last dep.
    */
-  void setError(NodeEntry state, ErrorInfo errorInfo)  throws InterruptedException {
+  void setError(NodeEntry state, ErrorInfo errorInfo) throws InterruptedException {
     Preconditions.checkState(value == null, "%s %s %s", skyKey, value, errorInfo);
     Preconditions.checkState(this.errorInfo == null, "%s %s %s", skyKey, this.errorInfo, errorInfo);
 
@@ -796,8 +796,10 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   Set<SkyKey> commitAndGetParents(NodeEntry primaryEntry) throws InterruptedException {
     // Construct the definitive error info, if there is one.
     if (errorInfo == null) {
-      errorInfo = evaluatorContext.getErrorInfoManager().getErrorInfoToUse(
-          skyKey, value != null, childErrorInfos);
+      errorInfo =
+          evaluatorContext
+              .getErrorInfoManager()
+              .getErrorInfoToUse(skyKey, value != null, childErrorInfos);
       // TODO(b/166268889, b/172223413): remove when fixed.
       if (errorInfo != null && errorInfo.getException() instanceof IOException) {
         logger.atInfo().withCause(errorInfo.getException()).log(
@@ -890,7 +892,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
     return bubbleErrorInfo != null;
   }
 

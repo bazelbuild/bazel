@@ -17,10 +17,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -28,7 +31,9 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -36,17 +41,31 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.devtools.build.skyframe.TrackingAwaiter;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -152,15 +171,19 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Test
   public void testTargetLiteralWithMissingTargets() throws Exception {
     getHelper().turnOffFailFast();
-    super.testTargetLiteralWithMissingTargets();
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, super::testTargetLiteralWithMissingTargets);
+    checkResultOfTargetLiteralWithMissingTargets(
+        e.getMessage(), e.getDetailedExitCode().getFailureDetail());
   }
 
   @Override
   @Test
   public void testBadTargetLiterals() throws Exception {
     getHelper().turnOffFailFast();
-    // Post-analysis query test infrastructure clobbers certain detailed failures.
-    runBadTargetLiteralsTest(/*checkDetailedCode=*/ false);
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, super::testBadTargetLiterals);
+    checkResultofBadTargetLiterals(e.getMessage(), e.getDetailedExitCode().getFailureDetail());
   }
 
   @SuppressWarnings("TruthIncompatibleType")
@@ -523,6 +546,77 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     assertThat(getConfiguration(Iterables.getOnlyElement(eval("//test:dep"))))
         .isNotEqualTo(getConfiguration(Iterables.getOnlyElement(eval("//test:top-level"))));
+  }
+
+  @Test
+  public void inconsistentSkyQueryIncremental() throws Exception {
+    PathFragment barBuild = PathFragment.create("bar/BUILD");
+    PathFragment bar = barBuild.getParentDirectory();
+    PostAnalysisQueryHelper.AnalysisHelper analysisHelper =
+        new PostAnalysisQueryHelper.AnalysisHelper() {
+          @Override
+          protected FileSystem createFileSystem() {
+            return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256) {
+              @Nullable
+              @Override
+              public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+                  throws IOException {
+                return path.endsWith(barBuild) ? null : super.statIfFound(path, followSymlinks);
+              }
+            };
+          }
+
+          @Override
+          protected FlagBuilder defaultFlags() {
+            // This is normally done in the test body, but easy to just piggyback here.
+            reporter.removeHandler(failFastHandler);
+            return super.defaultFlags().with(Flag.KEEP_GOING);
+          }
+        };
+    CountDownLatch directoryListingLatch = new CountDownLatch(1);
+    createQueryHelper();
+    getHelper().setUp(analysisHelper);
+    // Make sure the directory listing populates the syscalls cache before the stat is done, so that
+    // the stat can happen after syscalls cache has already confirmed that it's a file. The usual
+    // testing technique of turning off the syscalls cache is undone via the preliminaries that
+    // AnalysisTestCase performs on each evaluation.
+    analysisHelper
+        .getSkyframeExecutor()
+        .getEvaluatorForTesting()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (NotifyingHelper.EventType.IS_READY.equals(type)
+                      && FileStateValue.FILE_STATE.equals(key.functionName())
+                      && barBuild.equals(((RootedPath) key.argument()).getRootRelativePath())) {
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                        directoryListingLatch, "Directory never listed");
+                  } else if (NotifyingHelper.EventType.SET_VALUE.equals(type)
+                      && NotifyingHelper.Order.AFTER.equals(order)
+                      && SkyFunctions.DIRECTORY_LISTING_STATE.equals(key.functionName())
+                      && bar.equals(((RootedPath) key.argument()).getRootRelativePath())) {
+                    directoryListingLatch.countDown();
+                  }
+                }));
+    disableOrderedResults();
+    writeFile("foo/BUILD");
+    writeFile("bar/BUILD");
+    getHelper().setUniverseScope("//bar/...");
+    TargetParsingException targetParsingException =
+        assertThrows(TargetParsingException.class, () -> eval("set()"));
+    assertThat(
+            targetParsingException
+                .getDetailedExitCode()
+                .getFailureDetail()
+                .getPackageLoading()
+                .getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
+    getHelper().setUniverseScope("//foo/...");
+    QueryException queryException = assertThrows(QueryException.class, () -> eval("bar"));
+    assertThat(queryException.getFailureDetail().getTargetPatterns().getCode())
+        .isEqualTo(FailureDetails.TargetPatterns.Code.CANNOT_DETERMINE_TARGET_FROM_FILENAME);
+    TrackingAwaiter.INSTANCE.assertNoErrors();
+    assertThat(directoryListingLatch.await(0, SECONDS)).isTrue();
   }
 
   private void writeSimpleTarget() throws Exception {

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
@@ -516,9 +515,19 @@ public interface SkyFunction {
      */
     void registerDependencies(Iterable<SkyKey> keys);
 
-    /** Returns whether we are currently in error bubbling. */
-    @VisibleForTesting
-    boolean inErrorBubblingForTesting();
+    /**
+     * Returns whether we are currently in error bubbling. Should only be used by SkyFunctions that
+     * can fully recover from a dependency's throwing an exception in --keep_going mode, returning a
+     * value instead of transforming the exception. {@link
+     * com.google.devtools.build.lib.skyframe.TargetPatternFunction} is the classic example of such
+     * a SkyFunction, since it can encounter errors while processing target patterns like
+     * '//foo/...' but still return the list of all found targets.
+     *
+     * <p>Such a SkyFunction cannot unconditionally return a value, since in --nokeep_going mode it
+     * may be called upon to transform a lower-level exception. This method can tell it whether to
+     * transform a dependency's exception or ignore it and return a value as usual.
+     */
+    boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
 
     /**
      * Adds a dependency on a Skyframe-external event. If the given future is already complete, this

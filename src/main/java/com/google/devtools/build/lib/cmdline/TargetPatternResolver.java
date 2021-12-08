@@ -21,32 +21,31 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
 /**
- * A callback that is used during the process of converting target patterns (such as
- * <code>//foo:all</code>) into one or more lists of targets (such as <code>//foo:foo,
+ * A callback that is used during the process of converting target patterns (such as <code>//foo:all
+ * </code>) into one or more lists of targets (such as <code>//foo:foo,
  * //foo:bar</code>). During a call to {@link TargetPattern#eval}, the {@link TargetPattern} makes
  * calls to this interface to implement the target pattern semantics. The generic type {@code T} is
  * only for compile-time type safety; there are no requirements to the actual type.
  */
 public abstract class TargetPatternResolver<T> {
 
-  /**
-   * Reports the given warning.
-   */
+  /** Reports the given warning. */
   public abstract void warn(String msg);
 
   /**
    * Returns a single target corresponding to the given label, or null. This method may only throw
    * an exception if the current thread was interrupted.
    */
-  public abstract T getTargetOrNull(Label label) throws InterruptedException;
+  public abstract T getTargetOrNull(Label label)
+      throws InterruptedException, InconsistentFilesystemException;
 
-  /**
-   * Returns a single target corresponding to the given label, or an empty or failed result.
-   */
+  /** Returns a single target corresponding to the given label, or an empty or failed result. */
   public abstract ResolvedTargets<T> getExplicitTarget(Label label)
       throws TargetParsingException, InterruptedException;
 
@@ -89,6 +88,8 @@ public abstract class TargetPatternResolver<T> {
    * @param callback the callback to receive the result, possibly in multiple batches.
    * @param exceptionClass The class type of the parameterized exception.
    * @throws TargetParsingException under implementation-specific failure conditions
+   * @throws ProcessPackageDirectoryException only when called from within Skyframe and an
+   *     inconsistent filesystem state is observed
    */
   public abstract <E extends Exception & QueryExceptionMarkerInterface>
       void findTargetsBeneathDirectory(
@@ -100,10 +101,11 @@ public abstract class TargetPatternResolver<T> {
           ImmutableSet<PathFragment> excludedSubdirectories,
           BatchCallback<T, E> callback,
           Class<E> exceptionClass)
-          throws TargetParsingException, E, InterruptedException;
+          throws TargetParsingException, E, InterruptedException, ProcessPackageDirectoryException;
 
   /**
-   * Async version of {@link #findTargetsBeneathDirectory}
+   * Async version of {@link #findTargetsBeneathDirectory}. Never call this from within Skyframe
+   * evaluation.
    *
    * <p>Default implementation is synchronous.
    */
@@ -118,7 +120,7 @@ public abstract class TargetPatternResolver<T> {
           BatchCallback<T, E> callback,
           Class<E> exceptionClass,
           ListeningExecutorService executor) {
-      try {
+    try {
       findTargetsBeneathDirectory(
           repository,
           originalPattern,
@@ -129,16 +131,23 @@ public abstract class TargetPatternResolver<T> {
           callback,
           exceptionClass);
       return immediateVoidFuture();
-      } catch (TargetParsingException e) {
+    } catch (TargetParsingException e) {
       return immediateFailedFuture(e);
-      } catch (InterruptedException e) {
+    } catch (InterruptedException e) {
       return immediateCancelledFuture();
-      } catch (Exception e) {
-        if (exceptionClass.isInstance(e)) {
+    } catch (ProcessPackageDirectoryException e) {
+      throw new IllegalStateException(
+          "Async find targets beneath directory isn't called from within Skyframe: traversing "
+              + directory
+              + " for "
+              + originalPattern,
+          e);
+    } catch (Exception e) {
+      if (exceptionClass.isInstance(e)) {
         return immediateFailedFuture(e);
-        }
-        throw new IllegalStateException(e);
       }
+      throw new IllegalStateException(e);
+    }
   }
 
   /**
@@ -146,10 +155,8 @@ public abstract class TargetPatternResolver<T> {
    * file with the name {@code packageName/BUILD} exists in the appropriate repository.
    */
   public abstract boolean isPackage(PackageIdentifier packageIdentifier)
-      throws InterruptedException;
+      throws InterruptedException, InconsistentFilesystemException;
 
-  /**
-   * Returns the target kind of the given target, for example {@code cc_library rule}.
-   */
+  /** Returns the target kind of the given target, for example {@code cc_library rule}. */
   public abstract String getTargetKind(T target);
 }

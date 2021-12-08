@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMu
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper.ResultAndTargets;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
@@ -96,8 +97,13 @@ public abstract class AbstractQueryTest<T> {
 
   @Before
   public final void initializeQueryHelper() throws Exception {
-    helper = createQueryHelper();
+    QueryHelper<T> helper = createQueryHelper();
     helper.setUp();
+    setUpWithQueryHelper(helper);
+  }
+
+  protected final void setUpWithQueryHelper(QueryHelper<T> helper) throws Exception {
+    this.helper = helper;
     mockToolsConfig = new MockToolsConfig(helper.getRootDirectory());
     analysisMock = AnalysisMock.get();
     helper.setUniverseScope(getDefaultUniverseScope());
@@ -258,13 +264,6 @@ public abstract class AbstractQueryTest<T> {
     assertThat(failureDetail.getPackageLoading().getCode()).isEqualTo(code);
   }
 
-  protected static void assertQueryCode(ResultAndTargets<Target> result, Query.Code code) {
-    FailureDetail failureDetail =
-        result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
-    assertThat(failureDetail).isNotNull();
-    assertQueryCode(failureDetail, code);
-  }
-
   protected static void assertQueryCode(FailureDetail failureDetail, Query.Code code) {
     assertThat(failureDetail.getQuery().getCode()).isEqualTo(code);
   }
@@ -272,12 +271,21 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testTargetLiteralWithMissingTargets() throws Exception {
     writeFile("a/BUILD");
-    assertThat(evalThrows("//a:b", false).getMessage())
+    EvalThrowsResult evalThrowsResult = evalThrows("//a:b", false);
+    checkResultOfTargetLiteralWithMissingTargets(
+        evalThrowsResult.getMessage(), evalThrowsResult.getFailureDetail());
+  }
+
+  protected final void checkResultOfTargetLiteralWithMissingTargets(
+      String message, FailureDetail failureDetail) {
+    assertThat(message)
         .isEqualTo(
             "no such target '//a:b': target 'b' not declared in package 'a' "
                 + "defined by "
                 + helper.getRootDirectory().getPathString()
                 + "/a/BUILD");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
 
   protected void writeBuildFiles1() throws Exception {
@@ -302,16 +310,14 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testBadTargetLiterals() throws Exception {
-    runBadTargetLiteralsTest(true);
+    EvalThrowsResult result = evalThrows("bad:*:*", false);
+    checkResultofBadTargetLiterals(result.getMessage(), result.getFailureDetail());
   }
 
-  protected void runBadTargetLiteralsTest(boolean checkDetailedCode) throws Exception {
-    EvalThrowsResult result = evalThrows("bad:*:*", false);
-    if (checkDetailedCode) {
-      assertThat(result.getFailureDetail().getTargetPatterns().getCode())
-          .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-    }
-    assertThat(result.getMessage()).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
+  protected final void checkResultofBadTargetLiterals(String message, FailureDetail failureDetail) {
+    assertThat(failureDetail.getTargetPatterns().getCode())
+        .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
+    assertThat(message).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
   }
 
   @Test
@@ -2086,9 +2092,9 @@ public abstract class AbstractQueryTest<T> {
     QueryEnvironment<T> getQueryEnvironment();
 
     /** Evaluates the given query and returns the result. Query is expected to have valid syntax. */
-    ResultAndTargets<T> evaluateQuery(String query) throws QueryException, InterruptedException;
+    ResultAndTargets<T> evaluateQuery(String query) throws Exception;
 
-    default Set<T> evaluateQueryRaw(String query) throws QueryException, InterruptedException {
+    default Set<T> evaluateQueryRaw(String query) throws Exception {
       return evaluateQuery(query).results;
     }
 

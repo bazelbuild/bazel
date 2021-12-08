@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.PrepareTestSuitesUnderDirectoryValue.Key;
+import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -35,7 +36,8 @@ public class PrepareTestSuitesUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     Key argument = (Key) skyKey.argument();
     ProcessPackageDirectory processPackageDirectory =
         new ProcessPackageDirectory(directories, PrepareTestSuitesUnderDirectoryValue::key);

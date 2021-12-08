@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -24,6 +26,9 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -79,6 +84,14 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     EvaluationResult<SkyValue> result =
         skyframeExecutor.targetPatterns(
             allKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
+    Exception catastrophe = result.getCatastrophe();
+    Throwables.propagateIfPossible(catastrophe, TargetParsingException.class);
+    if (catastrophe != null) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Non-TargetParsingException catastrophe for " + result + " and " + patterns,
+              catastrophe));
+    }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
     for (PatternLookup patternLookup : patternLookups) {
       SkyKey key = patternLookup.skyKey;
@@ -106,17 +119,31 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         String errorMessage;
         TargetParsingException targetParsingException;
         if (error.getException() != null) {
-          // This exception could be a TargetParsingException, a NoSuchPackageException, or
-          // potentially a lower-level exception. If the exception is the former two, then the
-          // DetailedExitCode can be extracted from the exception.
+          // This exception could be a TargetParsingException for a target pattern, a
+          // NoSuchPackageException for a label (or package wildcard), or potentially a lower-level
+          // exception if there is a bug in error handling.
           Exception exception = error.getException();
           errorMessage = exception.getMessage();
-          targetParsingException =
-              DetailedException.getDetailedExitCode(exception) != null
-                  ? new TargetParsingException(
-                      errorMessage, exception, DetailedException.getDetailedExitCode(exception))
-                  : new TargetParsingException(
-                      errorMessage, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
+          if (exception instanceof TargetParsingException) {
+            targetParsingException = (TargetParsingException) exception;
+          } else if (key instanceof PackageValue.Key
+              && exception instanceof NoSuchPackageException) {
+            targetParsingException =
+                new TargetParsingException(
+                    errorMessage,
+                    exception,
+                    ((NoSuchPackageException) exception).getDetailedExitCode());
+          } else {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "Unexpected exception when processing " + key, exception));
+            targetParsingException =
+                DetailedException.getDetailedExitCode(exception) != null
+                    ? new TargetParsingException(
+                        errorMessage, exception, DetailedException.getDetailedExitCode(exception))
+                    : new TargetParsingException(
+                        errorMessage, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
+          }
         } else if (!error.getCycleInfo().isEmpty()) {
           errorMessage = "cycles detected during target parsing";
           targetParsingException =
@@ -219,7 +246,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         SkyValue value,
         WalkableGraph walkableGraph,
         boolean keepGoing)
-        throws InterruptedException {
+        throws InterruptedException, TargetParsingException {
       TargetPatternValue resultValue = (TargetPatternValue) value;
       ResolvedTargets<Label> results = resultValue.getTargets();
       resultBuilder.addLabelsOfPositivePattern(results);
@@ -257,16 +284,21 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
               /* packageSemaphore= */ null,
               SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
-      targetPattern.eval(
-          resolver,
-          /*ignoredSubdirectories=*/ ImmutableSet::of,
-          /*excludedSubdirectories=*/ ImmutableSet.of(),
-          partialResult ->
-              result.set(
-                  partialResult instanceof Collection
-                      ? (Collection<Target>) partialResult
-                      : ImmutableSet.copyOf(partialResult)),
-          QueryExceptionMarkerInterface.MarkerRuntimeException.class);
+      try {
+        targetPattern.eval(
+            resolver,
+            /*ignoredSubdirectories=*/ ImmutableSet::of,
+            /*excludedSubdirectories=*/ ImmutableSet.of(),
+            partialResult ->
+                result.set(
+                    partialResult instanceof Collection
+                        ? (Collection<Target>) partialResult
+                        : ImmutableSet.copyOf(partialResult)),
+            QueryExceptionMarkerInterface.MarkerRuntimeException.class);
+      } catch (ProcessPackageDirectoryException | InconsistentFilesystemException e) {
+        throw new IllegalStateException(
+            "PackageBackedRecursivePackageProvider doesn't throw for " + targetPattern, e);
+      }
       return result.get();
     }
   }
