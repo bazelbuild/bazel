@@ -406,7 +406,7 @@ def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, 
         else:
             transitive_dwo_files = cc_debug_context.files
 
-    return depset(dwo_files, transitive = transitive_dwo_files.to_list())
+    return depset(dwo_files, transitive = [transitive_dwo_files])
 
 def _separate_static_and_dynamic_link_libraries(direct_children, can_be_linked_dynamically):
     link_statically_labels = {}
@@ -1057,6 +1057,8 @@ cc_binary_attrs = {
     "_stl": attr.label(default = "@//third_party/stl"),
     "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
     "_cc_toolchain_type": attr.label(default = "@//tools/cpp:toolchain_type"),
+    # TODO(b/198254254): Add default computed value once it is available in the API.
+    "_default_copts": attr.string_list(),
 }
 cc_binary_attrs.update(semantics.get_licenses_attr())
 cc_binary_attrs.update(semantics.get_distribs_attr())
