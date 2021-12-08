@@ -321,8 +321,8 @@ public final class GroupedList<T> implements Iterable<List<T>> {
   }
 
   @SuppressWarnings("unchecked")
-  public Set<T> toSet() {
-    ImmutableSet.Builder<T> builder = ImmutableSet.builderWithExpectedSize(numElements());
+  public ImmutableSet<T> toSet() {
+    ImmutableSet.Builder<T> builder = ImmutableSet.builderWithExpectedSize(size);
     for (Object obj : elements) {
       if (obj instanceof List) {
         builder.addAll((List<T>) obj);

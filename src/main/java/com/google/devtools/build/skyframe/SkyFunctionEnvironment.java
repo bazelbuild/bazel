@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -215,15 +216,14 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private ImmutableMap<SkyKey, SkyValue> batchPrefetch(boolean throwIfPreviouslyRequestedDepsUndone)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
     GroupedList<SkyKey> previouslyRequestedDeps = getTemporaryDirectDeps();
-    QueryableGraph.PrefetchDepsRequest prefetchDepsRequest =
-        new QueryableGraph.PrefetchDepsRequest(skyKey, oldDeps, previouslyRequestedDeps);
-    evaluatorContext.getGraph().prefetchDeps(prefetchDepsRequest);
+    ImmutableSet<SkyKey> excludedKeys =
+        evaluatorContext.getGraph().prefetchDeps(skyKey, oldDeps, previouslyRequestedDeps);
     Map<SkyKey, ? extends NodeEntry> batchMap =
         evaluatorContext.getBatchValues(
             skyKey,
             Reason.PREFETCH,
-            prefetchDepsRequest.excludedKeys != null
-                ? prefetchDepsRequest.excludedKeys
+            excludedKeys != null
+                ? excludedKeys
                 : previouslyRequestedDeps.getAllElementsAsIterable());
     if (batchMap.size() != previouslyRequestedDeps.numElements()) {
       Set<SkyKey> difference = Sets.difference(previouslyRequestedDeps.toSet(), batchMap.keySet());
