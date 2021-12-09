@@ -123,7 +123,7 @@ public final class ProcessPackageDirectory {
 
     PackageIdentifier packageId = PackageIdentifier.create(repositoryName, rootRelativePath);
 
-    if ((packageId.getRepository().isDefault() || packageId.getRepository().isMain())
+    if (packageId.getRepository().isMain()
         && fileValue.isSymlink()
         && fileValue
             .getUnresolvedLinkTarget()

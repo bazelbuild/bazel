@@ -55,6 +55,7 @@ java_library(
     name = "cmdline-primitives",
     srcs = [
         "LabelConstants.java",
+        "LabelParser.java",
         "LabelSyntaxException.java",
         "PackageIdentifier.java",
         "RepositoryMapping.java",

@@ -163,7 +163,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1020,8 +1019,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue config) {
     try {
-      return view.getConfiguredTargetForTesting(
-          reporter, BlazeTestUtils.convertLabel(label), config);
+      return view.getConfiguredTargetForTesting(reporter, label, config);
     } catch (InvalidConfigurationException
         | StarlarkTransition.TransitionException
         | InterruptedException e) {

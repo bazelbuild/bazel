@@ -739,9 +739,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Collect the labels of the configured targets we need to resolve.
     List<Label> configLabels =
-        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).stream()
-            .map(configLabel -> target.getLabel().resolveRepositoryRelative(configLabel))
-            .collect(Collectors.toList());
+        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST);
     if (configLabels.isEmpty()) {
       return ConfigConditions.EMPTY;
     }

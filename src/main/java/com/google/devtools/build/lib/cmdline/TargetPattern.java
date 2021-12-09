@@ -421,7 +421,6 @@ public abstract class TargetPattern {
         boolean rulesOnly,
         boolean checkWildcardConflict) {
       super(originalPattern);
-      Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
       this.packageIdentifier = packageIdentifier;
       this.suffix = Preconditions.checkNotNull(suffix);
       this.wasOriginallyAbsolute = wasOriginallyAbsolute;
@@ -551,7 +550,6 @@ public abstract class TargetPattern {
     private TargetsBelowDirectory(
         String originalPattern, PackageIdentifier directory, boolean rulesOnly) {
       super(originalPattern);
-      Preconditions.checkArgument(!directory.getRepository().isDefault());
       this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
     }

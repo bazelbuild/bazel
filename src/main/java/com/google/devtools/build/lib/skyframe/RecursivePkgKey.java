@@ -42,7 +42,6 @@ public class RecursivePkgKey {
       RootedPath rootedPath,
       ImmutableSet<PathFragment> excludedPaths) {
     PathFragment.checkAllPathsAreUnder(excludedPaths, rootedPath.getRootRelativePath());
-    Preconditions.checkState(!repositoryName.isDefault());
     this.repositoryName = repositoryName;
     this.rootedPath = Preconditions.checkNotNull(rootedPath);
     this.excludedPaths = Preconditions.checkNotNull(excludedPaths);

@@ -150,7 +150,6 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Label label) {
-    Preconditions.checkArgument(!label.getRepository().isDefault());
     return label;
   }
 

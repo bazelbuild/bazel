@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -656,8 +655,6 @@ public class PackageFunction implements SkyFunction {
       List<BzlLoadValue.Key> keys,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining)
       throws NoSuchPackageException, InterruptedException {
-    checkArgument(!packageId.getRepository().isDefault());
-
     List<BzlLoadValue> bzlLoads;
     try {
       bzlLoads =

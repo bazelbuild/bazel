@@ -687,16 +687,17 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testLabelAttrDefaultValueAsStringBadValue() throws Exception {
     ev.checkEvalErrorContains(
         "invalid label '/foo:bar' in parameter 'default' of attribute 'label': "
-            + "invalid target name '/foo:bar'",
+            + "invalid package name '/foo': package names may not start with '/'",
         "attr.label(default = '/foo:bar')");
 
     ev.checkEvalErrorContains(
         "invalid label '/bar:foo' in element 1 of parameter 'default' of attribute "
-            + "'label_list': invalid target name '/bar:foo'",
+            + "'label_list': invalid package name '/bar': package names may not start with '/'",
         "attr.label_list(default = ['//foo:bar', '/bar:foo'])");
 
     ev.checkEvalErrorContains(
-        "invalid label '/bar:foo' in dict key element: invalid target name '/bar:foo'",
+        "invalid label '/bar:foo' in dict key element: invalid package name '/bar': "
+            + "package names may not start with '/'",
         "attr.label_keyed_string_dict(default = {'//foo:bar': 'a', '/bar:foo': 'b'})");
   }
 

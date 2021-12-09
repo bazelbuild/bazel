@@ -76,11 +76,6 @@ public abstract class AbstractQueryTest<T> {
 
   private static final String DEFAULT_UNIVERSE = "//...:*";
 
-  protected static final String BAD_PACKAGE_NAME =
-      "package names may contain "
-          + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
-          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
-
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
   protected AnalysisMock analysisMock;
@@ -317,7 +312,11 @@ public abstract class AbstractQueryTest<T> {
   protected final void checkResultofBadTargetLiterals(String message, FailureDetail failureDetail) {
     assertThat(failureDetail.getTargetPatterns().getCode())
         .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-    assertThat(message).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
+    // TODO(bazel-team): This error message could use some improvement. It's verbose (duplicate
+    //   message) and shows an extra "@" that wasn't in the input.
+    assertThat(message)
+        .isEqualTo(
+            "Invalid package name 'bad:*': invalid package identifier '@//bad:*': contains ':'");
   }
 
   @Test

@@ -130,7 +130,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   try {
                     return Label.parseAbsolute(
                         from,
-                        /* defaultToMain=*/ false,
                         /* repositoryMapping= */ ImmutableMap.of());
                   } catch (LabelSyntaxException e) {
                     throw new Exception(from);

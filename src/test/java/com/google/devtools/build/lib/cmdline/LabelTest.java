@@ -219,20 +219,6 @@ public class LabelTest {
   }
 
   @Test
-  public void testGetRepositoryRelative() throws Exception {
-    Label defaultBase = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
-    Label repoBase = Label.parseAbsolute("@repo//foo/bar:baz", ImmutableMap.of());
-    Label mainBase = Label.parseAbsolute("@//foo/bar:baz", ImmutableMap.of());
-    Label externalTarget = Label.parseAbsolute("//external:target", ImmutableMap.of());
-    Label l = defaultBase.resolveRepositoryRelative(externalTarget);
-    assertThat(l.getRepository().isMain()).isTrue();
-    assertThat(l.getPackageName()).isEqualTo("external");
-    assertThat(l.getName()).isEqualTo("target");
-    assertThat(repoBase.resolveRepositoryRelative(externalTarget)).isEqualTo(l);
-    assertThat(mainBase.resolveRepositoryRelative(externalTarget)).isEqualTo(l);
-  }
-
-  @Test
   public void testFactory() throws Exception {
     Label l = Label.create("foo/bar", "quux");
     assertThat(l.getPackageName()).isEqualTo("foo/bar");
@@ -422,7 +408,9 @@ public class LabelTest {
             () -> Label.parseAbsolute("foo//bar/baz:bat/boo", ImmutableMap.of()));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("invalid repository name 'foo': workspace names must start with '@'");
+        .isEqualTo(
+            "invalid package name 'foo//bar/baz': package names may not contain '//' path"
+                + " separators");
   }
 
   @Test
