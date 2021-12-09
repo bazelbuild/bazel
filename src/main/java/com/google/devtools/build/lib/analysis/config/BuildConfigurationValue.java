@@ -673,6 +673,18 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return isExecConfiguration() || isHostConfiguration();
   }
 
+  @Override
+  public boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getName())) {
+      throw Starlark.errorf("private API only for use in builtins");
+    }
+    return isToolConfiguration();
+  }
+
   public boolean checkVisibility() {
     return options.checkVisibility;
   }
