@@ -130,9 +130,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TestRule;
-import org.junit.runners.model.Statement;
 
 /**
  * A base class for integration tests that use the {@link BuildTool}. These tests basically run a
@@ -161,8 +158,6 @@ public abstract class BuildIntegrationTestCase {
     }
   }
 
-  @Rule public TestRule crashHandler = createHandleCrashHandlerRule();
-
   protected FileSystem fileSystem;
   protected EventCollectionApparatus events = createEvents();
   protected OutErr outErr = OutErr.SYSTEM_OUT_ERR;
@@ -179,6 +174,8 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
+
+  @Nullable private UncaughtExceptionHandler oldExceptionHandler;
 
   private static final ImmutableList<Injected> BAZEL_REPOSITORY_PRECOMPUTED_VALUES =
       ImmutableList.of(
@@ -222,6 +219,29 @@ public abstract class BuildIntegrationTestCase {
     createRuntimeWrapper();
 
     AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
+  }
+
+  @Before
+  public final void setUncaughtExceptionHandler() {
+    oldExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
+    Thread.setDefaultUncaughtExceptionHandler(createUncaughtExceptionHandler());
+  }
+
+  @After
+  public final void restoreUncaughtExceptionHandler() {
+    Thread.setDefaultUncaughtExceptionHandler(oldExceptionHandler);
+  }
+
+  /**
+   * Creates an uncaught exception handler to be used in {@link
+   * Thread#setDefaultUncaughtExceptionHandler}.
+   *
+   * <p>Returns {@code null} if ne exception handler should be used.
+   */
+  @Nullable
+  protected UncaughtExceptionHandler createUncaughtExceptionHandler() {
+    return (ignored, exception) ->
+        BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive());
   }
 
   protected ServerDirectories createServerDirectories() {
@@ -986,26 +1006,5 @@ public abstract class BuildIntegrationTestCase {
     public synchronized void clear() {
       exceptions.clear();
     }
-  }
-
-  /**
-   * Creates a JUnit rule to set a default handler for uncaught exceptions to run {@link
-   * BugReport#handleCrash(Crash, CrashContext)}.
-   */
-  private static TestRule createHandleCrashHandlerRule() {
-    return (base, description) ->
-        new Statement() {
-          @Override
-          public void evaluate() throws Throwable {
-            @Nullable UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();
-            Thread.setDefaultUncaughtExceptionHandler(
-                (ignored, exception) ->
-                    BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive()));
-
-            base.evaluate();
-
-            Thread.setDefaultUncaughtExceptionHandler(old);
-          }
-        };
   }
 }

@@ -81,6 +81,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -163,6 +164,14 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   private void afterBuildCommand() throws Exception {
     runtimeWrapper.newCommand();
+  }
+
+  @Override
+  @Nullable
+  protected UncaughtExceptionHandler createUncaughtExceptionHandler() {
+    // Disable the crash handler since this test leaves runaway threads e.g. accessing shut down
+    // fakeServer.
+    return null;
   }
 
   @Before
