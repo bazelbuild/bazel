@@ -608,7 +608,7 @@ public class TestRunnerAction extends AbstractAction
                   .getContext(TestActionContext.class)
                   .newCachedTestResult(executor.getExecRoot(), this, cachedTestResultData.get()));
     } catch (IOException e) {
-      logger.atInfo().log(getErrorMessageOnNewCachedTestResultError(e.getMessage()));
+      logger.atInfo().log("%s", getErrorMessageOnNewCachedTestResultError(e.getMessage()));
       executor
           .getEventHandler()
           .handle(Event.warn(getErrorMessageOnNewCachedTestResultError(e.getMessage())));
