@@ -334,6 +334,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       new AtomicReference<>();
   protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
+  private GlobFunction globFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
 
@@ -513,7 +514,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new BzlCompileFunction(pkgFactory, getHashFunction()));
     map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
-    map.put(SkyFunctions.GLOB, newGlobFunction());
+    GlobFunction globFunction = newGlobFunction();
+    map.put(SkyFunctions.GLOB, globFunction);
+    this.globFunction = globFunction;
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
     map.put(
@@ -665,7 +668,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return new DirectoryListingStateFunction(externalFilesHelper, syscalls);
   }
 
-  protected SkyFunction newGlobFunction() {
+  protected GlobFunction newGlobFunction() {
     return new GlobFunction(/*alwaysUseDirListing=*/ false);
   }
 
@@ -858,6 +861,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+    globFunction.complete();
   }
 
   /**
