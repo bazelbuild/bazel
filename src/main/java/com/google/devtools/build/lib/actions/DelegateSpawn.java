@@ -84,7 +84,7 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
-  public ResourceSet getLocalResources() {
+  public ResourceSet getLocalResources() throws ExecException {
     return spawn.getLocalResources();
   }
 

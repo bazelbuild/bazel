@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -24,8 +26,12 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
@@ -49,23 +55,35 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -74,6 +92,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private final StarlarkRuleContext context;
   /** Counter for actions.run_shell helper scripts. Every script must have a unique name. */
   private int runShellOutputCounter = 0;
+
+  private static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
+  private static final Set<String> validResources =
+      new HashSet<>(Arrays.asList("cpu", "memory", "local_test"));
 
   public StarlarkActionFactory(StarlarkRuleContext context) {
     this.context = context;
@@ -339,7 +361,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
-      Object shadowedActionUnchecked)
+      Object shadowedActionUnchecked,
+      Object resourceSetUnchecked)
       throws EvalException {
     context.checkMutable("actions.run");
 
@@ -377,6 +400,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         inputManifestsUnchecked,
         execGroupUnchecked,
         shadowedActionUnchecked,
+        resourceSetUnchecked,
         builder);
   }
 
@@ -430,7 +454,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
-      Object shadowedActionUnchecked)
+      Object shadowedActionUnchecked,
+      Object resourceSetUnchecked)
       throws EvalException {
     context.checkMutable("actions.run_shell");
     RuleContext ruleContext = getRuleContext();
@@ -497,6 +522,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         inputManifestsUnchecked,
         execGroupUnchecked,
         shadowedActionUnchecked,
+        resourceSetUnchecked,
         builder);
   }
 
@@ -543,6 +569,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
+      Object resourceSetUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -648,8 +675,125 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setShadowedAction(Optional.of((Action) shadowedActionUnchecked));
     }
 
+    if (getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_ACTION_RESOURCE_SET)
+        && resourceSetUnchecked != Starlark.NONE) {
+      validateResourceSetBuilder(resourceSetUnchecked);
+      builder.setResources(
+          new StarlarkActionResourceSetBuilder(
+              (StarlarkFunction) resourceSetUnchecked, mnemonic, getSemantics()));
+    }
+
     // Always register the action
     registerAction(builder.build(ruleContext));
+  }
+
+  private static class StarlarkActionResourceSetBuilder implements ResourceSetOrBuilder {
+    private final StarlarkCallable fn;
+    private final String mnemonic;
+    private final StarlarkSemantics semantics;
+
+    public StarlarkActionResourceSetBuilder(
+        StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
+      this.fn = fn;
+      this.mnemonic = mnemonic;
+      this.semantics = semantics;
+    }
+
+    @Override
+    public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
+      try (Mutability mu = Mutability.create("resource_set_builder_function")) {
+        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        StarlarkInt inputInt = StarlarkInt.of(inputsSize);
+        Object response =
+            Starlark.call(
+                thread,
+                this.fn,
+                ImmutableList.of(os.getCanonicalName(), inputInt),
+                ImmutableMap.of());
+        Map<String, Object> resourceSetMapRaw =
+            Dict.cast(response, String.class, Object.class, "resource_set");
+
+        if (!validResources.containsAll(resourceSetMapRaw.keySet())) {
+          String message =
+              String.format(
+                  "Illegal resource keys: (%s)",
+                  Joiner.on(",").join(Sets.difference(resourceSetMapRaw.keySet(), validResources)));
+          throw new EvalException(message);
+        }
+
+        return ResourceSet.create(
+            getNumericOrDefault(resourceSetMapRaw, "memory", DEFAULT_RESOURCE_SET.getMemoryMb()),
+            getNumericOrDefault(resourceSetMapRaw, "cpu", DEFAULT_RESOURCE_SET.getCpuUsage()),
+            (int)
+                getNumericOrDefault(
+                    resourceSetMapRaw,
+                    "local_test",
+                    (double) DEFAULT_RESOURCE_SET.getLocalTestCount()));
+      } catch (EvalException e) {
+        throw new UserExecException(
+            FailureDetail.newBuilder()
+                .setMessage(
+                    String.format("Could not build resources for %s. %s", mnemonic, e.getMessage()))
+                .setStarlarkAction(
+                    FailureDetails.StarlarkAction.newBuilder()
+                        .setCode(FailureDetails.StarlarkAction.Code.STARLARK_ACTION_UNKNOWN)
+                        .build())
+                .build());
+      } catch (InterruptedException e) {
+        throw new UserExecException(
+            FailureDetail.newBuilder()
+                .setMessage(e.getMessage())
+                .setInterrupted(
+                    Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED).build())
+                .build());
+      }
+    }
+
+    private static double getNumericOrDefault(
+        Map<String, Object> resourceSetMap, String key, double defaultValue) throws EvalException {
+      if (!resourceSetMap.containsKey(key)) {
+        return defaultValue;
+      }
+
+      Object value = resourceSetMap.get(key);
+      if (value instanceof StarlarkInt) {
+        return ((StarlarkInt) value).toDouble();
+      }
+
+      if (value instanceof StarlarkFloat) {
+        return ((StarlarkFloat) value).toDouble();
+      }
+      throw new EvalException(
+          String.format(
+              "Illegal resource value type for key %s: got %s, want int or float",
+              key, Starlark.type(value)));
+    }
+  }
+
+  private static StarlarkFunction validateResourceSetBuilder(Object fn) throws EvalException {
+    if (!(fn instanceof StarlarkFunction)) {
+      throw Starlark.errorf(
+          "resource_set should be a Starlark-defined function, but got %s instead",
+          Starlark.type(fn));
+    }
+
+    StarlarkFunction sfn = (StarlarkFunction) fn;
+
+    // Reject non-global functions, because arbitrary closures may cause large
+    // analysis-phase data structures to remain live into the execution phase.
+    // We require that the function is "global" as opposed to "not a closure"
+    // because a global function may be closure if it refers to load bindings.
+    // This unfortunately disallows such trivially safe non-global
+    // functions as "lambda x: x".
+    // See https://github.com/bazelbuild/bazel/issues/12701.
+    if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
+      throw Starlark.errorf(
+          "to avoid unintended retention of analysis data structures, "
+              + "the resource_set function (declared at %s) must be declared "
+              + "by a top-level def statement",
+          sfn.getLocation());
+    }
+    return (StarlarkFunction) fn;
   }
 
   private String getMnemonic(Object mnemonicUnchecked) {

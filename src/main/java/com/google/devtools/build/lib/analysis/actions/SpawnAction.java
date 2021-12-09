@@ -590,8 +590,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           executionInfo,
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
-          SpawnAction.this.resourceSetOrBuilder.buildResourceSet(inputs));
-
+          SpawnAction.this.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs.toList()) {

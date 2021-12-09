@@ -297,8 +297,7 @@ java_library(
         "ResourceSetOrBuilder.java",
     ],
     deps = [
-        ":artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        ":exec_exception",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -347,6 +346,9 @@ java_library(
 
 java_library(
     name = "exec_exception",
-    srcs = ["ExecException.java"],
+    srcs = [
+        "ExecException.java",
+        "UserExecException.java",
+    ],
     deps = ["//src/main/protobuf:failure_details_java_proto"],
 )
