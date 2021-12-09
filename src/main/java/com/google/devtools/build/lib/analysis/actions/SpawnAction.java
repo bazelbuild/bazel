@@ -353,6 +353,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getSpawn(getInputs());
   }
 
+  @VisibleForTesting
+  public ResourceSetOrBuilder getResourceSetOrBuilder() {
+    return resourceSetOrBuilder;
+  }
+
   final Spawn getSpawn(NestedSet<Artifact> inputs)
       throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
@@ -579,8 +584,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           executionInfo,
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
-          SpawnAction.this.resourceSetOrBuilder.buildResourceSet(inputs));
-
+          SpawnAction.this.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs.toList()) {

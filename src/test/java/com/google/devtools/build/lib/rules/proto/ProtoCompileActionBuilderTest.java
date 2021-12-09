@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -512,17 +513,12 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
 
     assertThat(
             new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
-                .buildResourceSet(NestedSetBuilder.emptySet(STABLE_ORDER)))
+                .buildResourceSet(OS.DARWIN, 0))
         .isEqualTo(ResourceSet.createWithRamCpu(25, 1));
 
     assertThat(
             new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
-                .buildResourceSet(
-                    NestedSetBuilder.wrap(
-                        STABLE_ORDER,
-                        ImmutableList.of(
-                            artifact("//:dont-care", "protoc-gen-javalite.exe"),
-                            artifact("//:dont-care-2", "protoc-gen-javalite-2.exe")))))
+                .buildResourceSet(OS.LINUX, 2))
         .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
   }
 }
