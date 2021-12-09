@@ -289,7 +289,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
     ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
 
-    assertThat(getConfiguration(toolDep).isHostConfiguration()).isTrue();
+    // host config has been replaced with exec.
+    assertThat(getConfiguration(toolDep).isHostConfiguration()).isFalse();
   }
 
   @Test
