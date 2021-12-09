@@ -6994,7 +6994,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "grte_top()",
             "enable_legacy_cc_provider()",
             "experimental_cc_implementation_deps()",
-            "share_native_deps()");
+            "share_native_deps()",
+            "experimental_platform_cc_test()");
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'cpp_config_rule')",

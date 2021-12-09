@@ -1110,6 +1110,19 @@ public class CppOptions extends FragmentOptions {
               + " CppCompileAction.")
   public boolean experimentalCppCompileResourcesEstimation;
 
+  @Option(
+      name = "experimental_platform_cc_test",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, a Starlark version of cc_test can be used which will use platform-based"
+              + " toolchain() resolution to choose a test runner.")
+  public boolean experimentalPlatformCcTest;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {

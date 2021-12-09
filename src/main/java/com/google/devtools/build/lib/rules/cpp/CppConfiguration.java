@@ -485,6 +485,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalCcSharedLibraryDebug;
   }
 
+  public boolean experimentalPlatformCcTest() {
+    return cppOptions.experimentalPlatformCcTest;
+  }
+
   public boolean legacyWholeArchive() {
     return cppOptions.legacyWholeArchive;
   }
@@ -945,6 +949,12 @@ public final class CppConfiguration extends Fragment
   public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalCcSharedLibraryDebug();
+  }
+
+  @Override
+  public boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalPlatformCcTest();
   }
 
   /**
