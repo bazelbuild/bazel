@@ -1908,12 +1908,17 @@ public abstract class CcModule
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
     try {
+      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
       ImmutableList<LibraryToLink> libraryToLink = ImmutableList.of();
-      CcLinkingOutputs ccLinkingOutputs = helper.link(compilationOutputs);
-      if (!ccLinkingOutputs.isEmpty()) {
-        libraryToLink =
-            ImmutableList.of(
-                ccLinkingOutputs.getLibraryToLink().toBuilder().setAlwayslink(alwayslink).build());
+      if (!compilationOutputs.isEmpty()) {
+        ccLinkingOutputs = helper.link(compilationOutputs);
+        if (!ccLinkingOutputs.isEmpty()) {
+          libraryToLink =
+              ImmutableList.of(
+                  ccLinkingOutputs.getLibraryToLink().toBuilder()
+                      .setAlwayslink(alwayslink)
+                      .build());
+        }
       }
       CcLinkingContext linkingContext =
           helper.buildCcLinkingContextFromLibrariesToLink(
@@ -2023,7 +2028,7 @@ public abstract class CcModule
       Object textualHeadersStarlarkObject,
       Object additionalExportedHeadersObject,
       Sequence<?> includes, // <String> expected
-      Object starlarkLooseIncludes,
+      Object starlarkIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
       Sequence<?> frameworkIncludes, // <String> expected
@@ -2063,7 +2068,7 @@ public abstract class CcModule
         hdrsCheckingModeObject,
         implementationCcCompilationContextsObject,
         coptsFilterObject,
-        starlarkLooseIncludes)) {
+        starlarkIncludes)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -2071,7 +2076,7 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider =
         convertFromNoneable(starlarkCcToolchainProvider, null);
 
-    ImmutableList<String> looseIncludes = asClassImmutableList(starlarkLooseIncludes);
+    ImmutableList<String> looseIncludes = asClassImmutableList(starlarkIncludes);
     CppModuleMap moduleMap = convertFromNoneable(moduleMapNoneable, /* defaultValue= */ null);
     ImmutableList<CppModuleMap> additionalModuleMaps =
         asClassImmutableList(additionalModuleMapsNoneable);
@@ -2201,7 +2206,7 @@ public abstract class CcModule
                 .collect(ImmutableList.toImmutableList()))
         .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
         .setCodeCoverageEnabled(codeCoverageEnabled)
-        .setHeadersCheckingMode(HeadersCheckingMode.getValue(hdrsCheckingMode));
+        .setHeadersCheckingMode(HeadersCheckingMode.valueOf(Ascii.toUpperCase(hdrsCheckingMode)));
 
     ImmutableList<PathFragment> looseIncludeDirs =
         looseIncludes.stream().map(PathFragment::create).collect(ImmutableList.toImmutableList());
