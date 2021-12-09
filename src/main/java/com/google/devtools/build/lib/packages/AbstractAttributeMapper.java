@@ -148,6 +148,11 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public boolean isPackageDefaultHdrsCheckSet() {
+    return rule.getPackage().isDefaultHdrsCheckSet();
+  }
+
+  @Override
   public Boolean getPackageDefaultTestOnly() {
     return rule.getPackage().getDefaultTestOnly();
   }

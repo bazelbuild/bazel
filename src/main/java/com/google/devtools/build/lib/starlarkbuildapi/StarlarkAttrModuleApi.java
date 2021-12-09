@@ -188,6 +188,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             defaultValue = "''",
             doc = DEFAULT_DOC,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NativeComputedDefaultApi.class)
+            },
             named = true,
             positional = false),
         @Param(
@@ -214,7 +218,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringAttribute(
-      String defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
+      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -360,7 +364,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NativeComputedDefaultApi.class)
+            },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,
@@ -369,11 +376,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringListAttribute(
-      Boolean mandatory,
-      Boolean allowEmpty,
-      Sequence<?> defaultValue,
-      String doc,
-      StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
