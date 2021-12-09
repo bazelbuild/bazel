@@ -74,7 +74,7 @@ public final class SystemMemoryPressureEventTest extends BuildIntegrationTestCas
         runfiles.rlocation(
             "io_bazel/src/test/java/com/google/devtools/build/lib/platform/darwin/notifier");
     write(
-        "system_suspension_event/BUILD",
+        "system_memory_pressure_event/BUILD",
         "genrule(",
         "  name = 'fire_memory_pressure_notifications',",
         "  outs = ['fire_memory_pressure_notifications.out'],",
@@ -85,7 +85,7 @@ public final class SystemMemoryPressureEventTest extends BuildIntegrationTestCas
             + notifierFilePath
             + " com.google.bazel.test.memorypressurelevel.critical 0 >> $@',",
         ")");
-    buildTarget("//system_suspension_event:fire_memory_pressure_notifications");
+    buildTarget("//system_memory_pressure_event:fire_memory_pressure_notifications");
     assertThat(eventListener.memoryPressureWarningEventCount).isGreaterThan(0);
     assertThat(eventListener.memoryPressureCriticalEventCount).isGreaterThan(0);
   }
