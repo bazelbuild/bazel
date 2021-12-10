@@ -16,7 +16,10 @@ filegroup(
 
 java_library(
     name = "repository",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        include = ["*.java"],
+        exclude = ["RepositoryOptions.java"],
+    ),
     resources = [
         "local_config_platform.WORKSPACE",
     ],
@@ -51,5 +54,17 @@ java_library(
         "//third_party:java-diff-utils",
         "//third_party:jsr305",
         "//third_party:xz",
+    ],
+)
+
+java_library(
+    name = "repository_options",
+    srcs = ["RepositoryOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//third_party:auto_value",
     ],
 )
