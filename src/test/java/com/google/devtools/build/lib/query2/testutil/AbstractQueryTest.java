@@ -362,62 +362,37 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testKindOperator() throws Exception {
     writeBuildFiles2();
-    if (isWindows()) {
-      assertThat(evalToString("c:*"))
-              .isEqualTo(
-                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d");
-      assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
-      assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("kind(file, c:*)"))
-              .isEqualTo("//c:BUILD //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("kind(gener.*, c:*)"))
-              .isEqualTo("//c:d.dwp //c:d.stripped.exe //c:r //c:s");
-      assertThat(evalToString("kind(gen.*, c:*)"))
-              .isEqualTo("//c:c //c:d.dwp //c:d.stripped.exe //c:r //c:s");
-      assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
-      assertThat(evalToString("kind('source file', c:*)"))
-              .isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
-    } else {
-      assertThat(evalToString("c:*"))
-              .isEqualTo(
-                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d");
-      assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
-      assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("kind(file, c:*)"))
-              .isEqualTo("//c:BUILD //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("kind(gener.*, c:*)"))
-              .isEqualTo("//c:d.dwp //c:d.stripped //c:r //c:s");
-      assertThat(evalToString("kind(gen.*, c:*)"))
-              .isEqualTo("//c:c //c:d.dwp //c:d.stripped //c:r //c:s");
-      assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
-      assertThat(evalToString("kind('source file', c:*)"))
-              .isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
-    }
+
+    assertThat(evalToString("c:*"))
+            .isEqualTo(String.format(
+                    "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped%s //c:e.cc //c:p //c:q //c:r //c:s", isWindows() ? ".exe" : ""));
+    assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d");
+    assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
+    assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("kind(file, c:*)"))
+            .isEqualTo(String.format("//c:BUILD //c:d.dwp //c:d.stripped%s //c:e.cc //c:p //c:q //c:r //c:s", isWindows() ? ".exe" : "");
+    assertThat(evalToString("kind(gener.*, c:*)"))
+            .isEqualTo(String.format("//c:d.dwp //c:d.stripped%s //c:r //c:s", isWindows() ? ".exe" : ""));
+    assertThat(evalToString("kind(gen.*, c:*)"))
+            .isEqualTo(String.format("//c:c //c:d.dwp //c:d.stripped%s //c:r //c:s", isWindows() ? ".exe" : ""));
+    assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+    assertThat(evalToString("kind('source file', c:*)"))
+            .isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
 
   }
 
   @Test
   public void testFilterOperator() throws Exception {
     writeBuildFiles2();
-    if (isWindows()) {
-      assertThat(evalToString("c:*"))
-              .isEqualTo(
-                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("filter(BUILD, c:*)")).isEqualTo("//c:BUILD");
-      assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc");
-      assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc");
-      assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:p //c:q //c:r //c:s");
-    } else {
-      assertThat(evalToString("c:*"))
-              .isEqualTo(
-                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("filter(BUILD, c:*)")).isEqualTo("//c:BUILD");
-      assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc");
-      assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc");
-      assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:p //c:q //c:r //c:s");
-    }
+
+    assertThat(evalToString("c:*"))
+            .isEqualTo(String.format(
+                    "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped%s //c:e.cc //c:p //c:q //c:r //c:s", isWindows() ? ".exe" : ""));
+    assertThat(evalToString("filter(BUILD, c:*)")).isEqualTo("//c:BUILD");
+    assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc");
+    assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc");
+    assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:p //c:q //c:r //c:s");
+
   }
 
   @Test
@@ -437,37 +412,20 @@ public abstract class AbstractQueryTest<T> {
     writeBuildFiles2();
     writeBuildFilesWithConfigurableAttributes();
 
-    if (isWindows()) {
-      assertThat(evalToString("c:*"))
-              .isEqualTo(
-                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped.exe //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("attr(cmd,':', c:*)")).isEqualTo("//c:c");
-      // Using "empty" pattern will just check existence of the attribute.
-      assertThat(evalToString("attr(cmd,'', c:*)")).isEqualTo("//c:c");
-      assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("attr('data', 'r', c:*)")).isEqualTo("//c:d");
-      // Empty list attribute value always resolves to '[]'. If list attribute has
-      // more than one value, the will be delimited with ','.
-      assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("c:*"))
+            .isEqualTo(String.format(
+                    "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped%s //c:e.cc //c:p //c:q //c:r //c:s", isWindows() ? ".exe" : ""));
+    assertThat(evalToString("attr(cmd,':', c:*)")).isEqualTo("//c:c");
+    // Using "empty" pattern will just check existence of the attribute.
+    assertThat(evalToString("attr(cmd,'', c:*)")).isEqualTo("//c:c");
+    assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("attr('data', 'r', c:*)")).isEqualTo("//c:d");
+    // Empty list attribute value always resolves to '[]'. If list attribute has
+    // more than one value, the will be delimited with ','.
+    assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d");
 
-    } else {
-      assertThat(evalToString("c:*"))
-              .isEqualTo(
-                      "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-      assertThat(evalToString("attr(cmd,':', c:*)")).isEqualTo("//c:c");
-      // Using "empty" pattern will just check existence of the attribute.
-      assertThat(evalToString("attr(cmd,'', c:*)")).isEqualTo("//c:c");
-      assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("attr('data', 'r', c:*)")).isEqualTo("//c:d");
-      // Empty list attribute value always resolves to '[]'. If list attribute has
-      // more than one value, the will be delimited with ','.
-      assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d");
-      assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d");
-
-    }
 
     // Configurable attributes:
     if (testConfigurableAttributes()) {
