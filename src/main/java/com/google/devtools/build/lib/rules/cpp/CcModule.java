@@ -2206,7 +2206,7 @@ public abstract class CcModule
                 .collect(ImmutableList.toImmutableList()))
         .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
         .setCodeCoverageEnabled(codeCoverageEnabled)
-        .setHeadersCheckingMode(HeadersCheckingMode.valueOf(Ascii.toUpperCase(hdrsCheckingMode)));
+        .setHeadersCheckingMode(HeadersCheckingMode.getValue(hdrsCheckingMode));
 
     ImmutableList<PathFragment> looseIncludeDirs =
         looseIncludes.stream().map(PathFragment::create).collect(ImmutableList.toImmutableList());
