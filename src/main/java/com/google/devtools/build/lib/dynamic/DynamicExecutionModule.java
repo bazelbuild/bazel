@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -133,10 +134,16 @@ public class DynamicExecutionModule extends BlazeModule {
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
       throws AbruptExitException {
+    DynamicExecutionOptions options = env.getOptions().getOptions(DynamicExecutionOptions.class);
+    com.google.devtools.build.lib.exec.ExecutionOptions execOptions =
+        env.getOptions().getOptions(com.google.devtools.build.lib.exec.ExecutionOptions.class);
     registerSpawnStrategies(
         registryBuilder,
-        env.getOptions().getOptions(DynamicExecutionOptions.class),
-        env.getReporter());
+        options,
+        env.getReporter(),
+        options.cpuLimited
+            ? (int) execOptions.localCpuResources
+            : env.getOptions().getOptions(BuildRequestOptions.class).jobs);
   }
 
   // CommandEnvironment is difficult to access in tests, so use this method for testing.
@@ -144,7 +151,8 @@ public class DynamicExecutionModule extends BlazeModule {
   final void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder,
       DynamicExecutionOptions options,
-      Reporter reporter)
+      Reporter reporter,
+      int numCpus)
       throws AbruptExitException {
     if (!options.internalSpawnScheduler) {
       return;
@@ -156,7 +164,8 @@ public class DynamicExecutionModule extends BlazeModule {
             options,
             this::getExecutionPolicy,
             this::getPostProcessingSpawnForLocalExecution,
-            firstBuild);
+            firstBuild,
+            numCpus);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
     registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
     registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));

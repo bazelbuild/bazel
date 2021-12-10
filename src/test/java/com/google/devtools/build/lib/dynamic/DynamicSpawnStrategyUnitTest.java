@@ -442,7 +442,8 @@ public class DynamicSpawnStrategyUnitTest {
         options,
         ignored -> executionPolicy,
         getPostProcessingSpawnForLocalExecution,
-        isFirst);
+        isFirst,
+        10);
   }
 
   private static ActionExecutionContext createMockActionExecutionContext(
