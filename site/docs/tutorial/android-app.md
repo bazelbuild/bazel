@@ -396,6 +396,7 @@ installing it.
 
 For more details, see these pages:
 
+* View open feature requests and issues on [Bazel's GitHub](https://github.com/bazelbuild/bazel/issues)
 * More information on [mobile-install](../mobile-install.md)
 * Integrate external dependencies like AppCompat, Guava and JUnit from Maven
   repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
