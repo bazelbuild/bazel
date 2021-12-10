@@ -528,7 +528,8 @@ public final class RemoteModule extends BlazeModule {
             cacheChannel.retain(),
             callCredentialsProvider,
             remoteOptions.remoteTimeout.getSeconds(),
-            retrier);
+            retrier,
+            remoteOptions.maximumOpenFiles);
 
     cacheChannel.release();
     RemoteCacheClient cacheClient =

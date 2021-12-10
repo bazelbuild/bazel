@@ -27,6 +27,7 @@ import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.flogger.GoogleLogger;
@@ -59,6 +60,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -93,6 +95,8 @@ class ByteStreamUploader extends AbstractReferenceCounted {
   @GuardedBy("lock")
   private boolean isShutdown;
 
+  @Nullable private final Semaphore openedFilePermits;
+
   /**
    * Creates a new instance.
    *
@@ -109,14 +113,15 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       long callTimeoutSecs,
-      RemoteRetrier retrier) {
+      RemoteRetrier retrier,
+      int maximumOpenFiles) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
-
     this.instanceName = instanceName;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
+    this.openedFilePermits = maximumOpenFiles != -1 ? new Semaphore(maximumOpenFiles) : null;
   }
 
   @VisibleForTesting
@@ -254,7 +259,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       if (inProgress != null) {
         return inProgress;
       }
-
       ListenableFuture<Void> uploadResult =
           Futures.transform(
               startAsyncUpload(context, digest, chunker),
@@ -339,6 +343,16 @@ class ByteStreamUploader extends AbstractReferenceCounted {
             retrier,
             resourceName,
             chunker);
+    if (openedFilePermits != null) {
+      try {
+        openedFilePermits.acquire();
+      } catch (InterruptedException e) {
+        return Futures.immediateFailedFuture(
+            new InterruptedException(
+                "Unexpected interrupt while acquiring open file permit. Original error message: "
+                    + e.getMessage()));
+      }
+    }
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {
@@ -371,7 +385,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     return this;
   }
 
-  private static class AsyncUpload {
+  private class AsyncUpload {
 
     private final RemoteActionExecutionContext context;
     private final Channel channel;
@@ -420,6 +434,18 @@ class ByteStreamUploader extends AbstractReferenceCounted {
                           } catch (IOException resetException) {
                             e.addSuppressed(resetException);
                           }
+                          String tooManyOpenFilesError = "Too many open files";
+                          if (Ascii.toLowerCase(e.getMessage())
+                              .contains(Ascii.toLowerCase(tooManyOpenFilesError))) {
+                            String newMessage =
+                                "An IOException was thrown because the process opened too many"
+                                    + " files. We recommend setting"
+                                    + " --bep_maximum_open_remote_upload_files flag to a number"
+                                    + " lower than your system default (run 'ulimit -a' for"
+                                    + " *nix-based operating systems). Original error message: "
+                                    + e.getMessage();
+                            return Futures.immediateFailedFuture(new IOException(newMessage, e));
+                          }
                           return Futures.immediateFailedFuture(e);
                         }
                         if (chunker.hasNext()) {
@@ -429,7 +455,9 @@ class ByteStreamUploader extends AbstractReferenceCounted {
                       },
                       progressiveBackoff),
               callCredentialsProvider);
-
+      if (openedFilePermits != null) {
+        callFuture.addListener(openedFilePermits::release, MoreExecutors.directExecutor());
+      }
       return Futures.transformAsync(
           callFuture,
           (result) -> {
@@ -631,5 +659,10 @@ class ByteStreamUploader extends AbstractReferenceCounted {
         call.cancel("Cancelled by user.", null);
       }
     }
+  }
+
+  @VisibleForTesting
+  public Semaphore getOpenedFilePermits() {
+    return openedFilePermits;
   }
 }

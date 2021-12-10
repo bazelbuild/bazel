@@ -178,7 +178,55 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
+            "instance",
+            refCntChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            3,
+            retrier,
+            /*maximumOpenFiles=*/ -1);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    for (Path file : filesToUpload.keySet()) {
+      String hash = BaseEncoding.base16().lowerCase().encode(file.getDigest());
+      long size = file.getFileSize();
+      String conversion = pathConverter.apply(file);
+      assertThat(conversion)
+          .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
+    }
+
+    artifactUploader.release();
+
+    assertThat(uploader.refCnt()).isEqualTo(0);
+    assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
+  @Test
+  public void uploadsShouldWork_fewerPermitsThanUploads() throws Exception {
+    int numUploads = 2;
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    Random rand = new Random();
+    for (int i = 0; i < numUploads; i++) {
+      Path file = fs.getPath("/file" + i);
+      OutputStream out = file.getOutputStream();
+      int blobSize = rand.nextInt(100) + 1;
+      byte[] blob = new byte[blobSize];
+      rand.nextBytes(blob);
+      out.write(blob);
+      out.close();
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
+    }
+    serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
+
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    // number of permits is less than number of uploads to affirm permit is released
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier, 1);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
@@ -207,7 +255,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
+            "instance",
+            refCntChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            3,
+            retrier,
+            /*maximumOpenFiles=*/ -1);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
@@ -270,7 +323,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
-            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
+            "instance",
+            refCntChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            3,
+            retrier,
+            /*maximumOpenFiles=*/ -1);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     artifactUploader.upload(filesToUpload).get();
@@ -298,7 +356,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamUploader uploader =
         spy(
             new ByteStreamUploader(
-                "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier));
+                "instance",
+                refCntChannel,
+                CallCredentialsProvider.NO_CREDENTIALS,
+                3,
+                retrier,
+                /*maximumOpenFiles=*/ -1));
     RemoteActionInputFetcher actionInputFetcher = Mockito.mock(RemoteActionInputFetcher.class);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
@@ -356,7 +419,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamUploader uploader =
         spy(
             new ByteStreamUploader(
-                "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier));
+                "instance",
+                refCntChannel,
+                CallCredentialsProvider.NO_CREDENTIALS,
+                3,
+                retrier,
+                /*maximumOpenFiles=*/ -1));
     doReturn(Futures.immediateFuture(null))
         .when(uploader)
         .uploadBlobAsync(any(), any(Digest.class), any(), anyBoolean());
