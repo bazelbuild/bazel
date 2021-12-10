@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
@@ -1063,7 +1064,7 @@ public abstract class AbstractQueryTest<T> {
 
     // Works for implicit edges too.  This is for consistency with --output
     // xml, which exposes them too.
-    String toolsRepository = helper.getToolsRepository();
+    RepositoryName toolsRepository = helper.getToolsRepository();
     assertThat(eval("labels(\"$py_toolchain_type\", //k)"))
         .isEqualTo(eval(toolsRepository + "//tools/python:toolchain_type"));
 
@@ -2097,8 +2098,8 @@ public abstract class AbstractQueryTest<T> {
       return evaluateQuery(query).results;
     }
 
-    default String getToolsRepository() {
-      return "";
+    default RepositoryName getToolsRepository() {
+      return RepositoryName.MAIN;
     }
 
     /**

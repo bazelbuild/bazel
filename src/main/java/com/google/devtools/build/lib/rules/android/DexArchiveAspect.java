@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -130,10 +131,10 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       new FlagMatcher(
           ImmutableList.of("--no-locals", "--no-optimize", "--no-warnings", "--positions"));
 
-  private final String toolsRepository;
+  private final RepositoryName toolsRepository;
   private final String sdkToolchainLabel;
 
-  public DexArchiveAspect(String toolsRepository, String sdkToolchainLabel) {
+  public DexArchiveAspect(RepositoryName toolsRepository, String sdkToolchainLabel) {
     this.toolsRepository = toolsRepository;
     this.sdkToolchainLabel = sdkToolchainLabel;
   }
@@ -254,7 +255,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters params,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
 

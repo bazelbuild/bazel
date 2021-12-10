@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -132,7 +133,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();
     private Label preludeLabel;
     private String runfilesPrefix;
-    private String toolsRepository;
+    private RepositoryName toolsRepository;
     @Nullable private String builtinsBzlZipResource;
     private boolean useDummyBuiltinsBzlInsteadOfResource = false;
     @Nullable private String builtinsBzlPackagePathInSource;
@@ -202,7 +203,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
 
-    public Builder setToolsRepository(String toolsRepository) {
+    public Builder setToolsRepository(RepositoryName toolsRepository) {
       this.toolsRepository = toolsRepository;
       return this;
     }
@@ -567,7 +568,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     @Override
-    public String getToolsRepository() {
+    public RepositoryName getToolsRepository() {
       return toolsRepository;
     }
 
@@ -595,7 +596,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   private final String runfilesPrefix;
 
   /** The path to the tools repository. */
-  private final String toolsRepository;
+  private final RepositoryName toolsRepository;
 
   /**
    * Where the builtins bzl files are located (if not overridden by
@@ -662,7 +663,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
-      String toolsRepository,
+      RepositoryName toolsRepository,
       @Nullable Root bundledBuiltinsRoot,
       @Nullable String builtinsBzlPackagePathInSource,
       ImmutableMap<String, RuleClass> ruleClassMap,
@@ -729,7 +730,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public String getToolsRepository() {
+  public RepositoryName getToolsRepository() {
     return toolsRepository;
   }
 

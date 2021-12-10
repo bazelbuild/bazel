@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -177,7 +178,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
-    String toolsRepository = env.getToolsRepository();
+    RepositoryName toolsRepository = env.getToolsRepository();
     RuleClass.Builder builder =
         new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
             .requiresConfigurationFragments(TestConfiguration.class)

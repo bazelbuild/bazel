@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
@@ -139,8 +140,6 @@ import javax.annotation.Nullable;
 
 /** A rule class provider implementing the rules Bazel knows. */
 public class BazelRuleClassProvider {
-  public static final String TOOLS_REPOSITORY = "@bazel_tools";
-
   /** Command-line options. */
   public static class StrictActionEnvOptions extends FragmentOptions {
     @Option(
@@ -241,7 +240,7 @@ public class BazelRuleClassProvider {
 
   /** Adds this class's definitions to a builder. */
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
-    builder.setToolsRepository(TOOLS_REPOSITORY);
+    builder.setToolsRepository(RepositoryName.BAZEL_TOOLS);
     builder.setBuiltinsBzlZipResource(
         ResourceFileLoader.resolveResource(BazelRuleClassProvider.class, "builtins_bzl.zip"));
     builder.setBuiltinsBzlPackagePathInSource("src/main/starlark/builtins_bzl");
@@ -340,7 +339,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          String toolsRepository = checkNotNull(builder.getToolsRepository());
+          RepositoryName toolsRepository = checkNotNull(builder.getToolsRepository());
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
           builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);

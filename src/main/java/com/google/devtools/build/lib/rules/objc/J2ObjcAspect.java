@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -118,7 +119,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           null,
           (rule, attributes, j2objcConfig) -> j2objcConfig.deadCodeReport());
 
-  private final String toolsRepository;
+  private final RepositoryName toolsRepository;
   private final Label ccToolchainType;
   private final LabelLateBoundDefault<CppConfiguration> ccToolchain;
   private final Label javaToolchain;
@@ -240,7 +241,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredTarget base = ctadBase.getConfiguredTarget();
     if (isProtoRule(base)) {

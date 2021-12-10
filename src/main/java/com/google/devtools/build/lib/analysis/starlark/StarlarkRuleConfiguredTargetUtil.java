@@ -77,7 +77,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
    */
   @Nullable
   public static ConfiguredTarget buildRule(
-      RuleContext ruleContext, AdvertisedProviderSet advertisedProviders, String toolsRepository)
+      RuleContext ruleContext, AdvertisedProviderSet advertisedProviders)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
     if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {

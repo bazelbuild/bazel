@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -382,7 +383,7 @@ public class BazelCppRuleClasses {
                           // To avoid cycles in the dependency graph, return null for rules under
                           // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
                           String label = rule.getLabel().toString();
-                          String toolsRepository = env.getToolsRepository();
+                          RepositoryName toolsRepository = env.getToolsRepository();
                           return label.startsWith(toolsRepository + "//third_party/def_parser")
                                   // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
                                   // are implicit dependencies of all cc rules,

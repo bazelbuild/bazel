@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -54,7 +55,7 @@ public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
   @Before
   public final void setup() throws Exception  {
     scratch.file("test_starlark/BUILD");
-    String toolsRepo = TestConstants.TOOLS_REPOSITORY;
+    RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
     String toolsLoc = toolsRepo + "//tools/objc";
 
     scratch.file(

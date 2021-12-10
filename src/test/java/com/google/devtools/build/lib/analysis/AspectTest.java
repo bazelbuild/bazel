@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.util.TestAspects.ExtraAttributeAsp
 import com.google.devtools.build.lib.analysis.util.TestAspects.RuleInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -462,7 +463,7 @@ public class AspectTest extends AnalysisTestCase {
           ConfiguredTargetAndData ctadBase,
           RuleContext ruleContext,
           AspectParameters parameters,
-          String toolsRepository)
+          RepositoryName toolsRepository)
           throws InterruptedException, ActionConflictException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late");
         return new ConfiguredAspect.Builder(ruleContext)
@@ -535,7 +536,7 @@ public class AspectTest extends AnalysisTestCase {
           ConfiguredTargetAndData ctadBase,
           RuleContext ruleContext,
           AspectParameters parameters,
-          String toolsRepository)
+          RepositoryName toolsRepository)
           throws InterruptedException, ActionConflictException {
         ruleContext.registerAction(new NullAction(ruleContext.createOutputArtifact()));
         return new ConfiguredAspect.Builder(ruleContext).build();
