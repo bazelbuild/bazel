@@ -156,8 +156,6 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
             null,
             null,
             null,
-            null,
-            null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             PackageFunction.IncrementalityIntent.INCREMENTAL,

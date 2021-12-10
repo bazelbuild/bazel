@@ -170,7 +170,6 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
-import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCacheEntry;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -283,16 +282,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // The limit of how many times we will traverse through an exception chain when catching a
   // target parsing exception.
   private static final int EXCEPTION_TRAVERSAL_LIMIT = 10;
-
-  // Cache of partially constructed Package instances, stored between reruns of the PackageFunction
-  // (because of missing dependencies, within the same evaluate() run) to avoid loading the same
-  // package twice (first time loading to find load()ed bzl files and declare Skyframe
-  // dependencies).
-  private final Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
-      Caffeine.newBuilder().build();
-  // Cache of parsed BUILD files, for PackageFunction. Same motivation as above.
-  private final Cache<PackageIdentifier, PackageFunction.CompiledBuildFile> compiledBuildFileCache =
-      Caffeine.newBuilder().build();
 
   // Cache of parsed bzl files, for use when we're inlining BzlCompileFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
@@ -547,8 +536,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             pkgFactory,
             packageManager,
             showLoadingProgress,
-            packageFunctionCache,
-            compiledBuildFileCache,
             numPackagesLoaded,
             bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
@@ -1448,8 +1435,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // Clear internal caches used by SkyFunctions used for package loading. If the SkyFunctions
     // never had a chance to restart (e.g. due to user interrupt, or an error in a --nokeep_going
     // build), these may have stale entries.
-    packageFunctionCache.invalidateAll();
-    compiledBuildFileCache.invalidateAll();
     bzlCompileCache.invalidateAll();
 
     numPackagesLoaded.set(0);

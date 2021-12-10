@@ -286,8 +286,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         null,
                         null,
                         null,
-                        null,
-                        null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
