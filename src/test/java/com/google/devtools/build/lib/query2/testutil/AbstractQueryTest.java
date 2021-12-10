@@ -370,7 +370,7 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
     assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
     assertThat(evalToString("kind(file, c:*)"))
-            .isEqualTo(String.format("//c:BUILD //c:d.dwp //c:d.stripped%s //c:e.cc //c:p //c:q //c:r //c:s", isWindows() ? ".exe" : "");
+            .isEqualTo(String.format("//c:BUILD //c:d.dwp //c:d.stripped%s //c:e.cc //c:p //c:q //c:r //c:s", isWindows() ? ".exe" : ""));
     assertThat(evalToString("kind(gener.*, c:*)"))
             .isEqualTo(String.format("//c:d.dwp //c:d.stripped%s //c:r //c:s", isWindows() ? ".exe" : ""));
     assertThat(evalToString("kind(gen.*, c:*)"))
