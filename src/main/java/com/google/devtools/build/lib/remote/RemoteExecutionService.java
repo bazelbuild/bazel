@@ -1060,12 +1060,14 @@ public class RemoteExecutionService {
     }
 
     FileOutErr.dump(tmpOutErr, outErr);
-    tmpOutErr.clearOut();
-    tmpOutErr.clearErr();
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
     // strategy.
-    action.spawnExecutionContext.lockOutputFiles();
+    action.spawnExecutionContext.lockOutputFiles(
+        result.getExitCode(), result.getMessage(), tmpOutErr);
+    // Will these be properly garbage-collected if the above throws an exception?
+    tmpOutErr.clearOut();
+    tmpOutErr.clearErr();
 
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads);

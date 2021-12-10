@@ -242,7 +242,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public void lockOutputFiles() throws InterruptedException {
+    public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
+        throws InterruptedException {
       lockOutputFilesCalled = true;
     }
 

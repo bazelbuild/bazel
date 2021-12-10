@@ -154,7 +154,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         spawnMetrics.setQueueTime(queueStopwatch.elapsed());
         context.report(SpawnExecutingEvent.create(getName()));
         if (!localExecutionOptions.localLockfreeOutput) {
-          context.lockOutputFiles();
+          // Without local-lockfree, we grab the lock before running the action, so we can't
+          // check for failures while taking the lock.
+          context.lockOutputFiles(0, "", context.getFileOutErr());
         }
         return new SubprocessHandler(spawn, context, spawnMetrics, totalTimeStopwatch).run();
       }
@@ -466,6 +468,10 @@ public class LocalSpawnRunner implements SpawnRunner {
             wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
         Status status =
             wasTimeout ? Status.TIMEOUT : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
+        if (exitCode != 0 && localExecutionOptions.localLockfreeOutput && context.speculating()) {
+          // We already "have" the lock, but this also checks if we should ignore failures.
+          context.lockOutputFiles(exitCode, "", outErr);
+        }
         spawnResultBuilder.setStatus(status).setExitCode(exitCode).setWallTime(wallTime);
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));

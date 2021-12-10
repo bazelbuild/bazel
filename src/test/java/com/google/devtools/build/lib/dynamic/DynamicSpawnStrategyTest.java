@@ -166,7 +166,7 @@ public class DynamicSpawnStrategyTest {
 
       doExecBeforeStop.run(this, spawn, actionExecutionContext);
       if (stopConcurrentSpawns != null) {
-        stopConcurrentSpawns.stop();
+        stopConcurrentSpawns.stop(0, "", outErr);
         doExecAfterStop.run(this, spawn, actionExecutionContext);
       }
 

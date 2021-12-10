@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.HashMap;
 import java.util.List;
@@ -165,7 +166,8 @@ public class DynamicExecutionModule extends BlazeModule {
             this::getExecutionPolicy,
             this::getPostProcessingSpawnForLocalExecution,
             firstBuild,
-            numCpus);
+            numCpus,
+            this::canIgnoreFailure);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
     registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
     registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));
@@ -216,6 +218,30 @@ public class DynamicExecutionModule extends BlazeModule {
    */
   protected Optional<Spawn> getPostProcessingSpawnForLocalExecution(Spawn spawn) {
     return Optional.empty();
+  }
+
+  /**
+   * If true, the failure passed in can be ignored in one branch to allow the other branch to finish
+   * it instead. This can e.g. allow ignoring remote execution timeouts or local-only permission
+   * failures.
+   *
+   * @param spawn The spawn being executed.
+   * @param exitCode The exit code from executing the spawn
+   * @param errorMessage Error messages returned from executing the spawn
+   * @param outErr The location of the stdout and stderr from the spawn.
+   * @param isLocal True if this is the locally-executed branch.
+   * @return True if this failure is one that we want to allow the other branch to succeed at, even
+   *     though this branch failed already.
+   */
+  protected boolean canIgnoreFailure(
+      Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal) {
+    return false;
+  }
+
+  @FunctionalInterface
+  interface IgnoreFailureCheck {
+    boolean canIgnoreFailure(
+        Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal);
   }
 
   @Subscribe
