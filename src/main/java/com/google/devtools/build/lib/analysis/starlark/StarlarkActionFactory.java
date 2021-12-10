@@ -604,7 +604,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       for (Object toolUnchecked : tools) {
         if (toolUnchecked instanceof Artifact) {
           Artifact artifact = (Artifact) toolUnchecked;
-          builder.addInput(artifact);
+          builder.addTool(artifact);
           FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
           if (provider != null) {
             builder.addTool(provider);
