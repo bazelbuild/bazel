@@ -27,6 +27,7 @@ filegroup(
             "darwin/fsevents.cc",
             "darwin/file_jni.cc",
             "darwin/sleep_prevention_jni.cc",
+            "darwin/system_disk_space_monitor_jni.cc",
             "darwin/system_load_advisory_monitor_jni.cc",
             "darwin/system_memory_pressure_jni.cc",
             "darwin/system_suspension_monitor_jni.cc",
