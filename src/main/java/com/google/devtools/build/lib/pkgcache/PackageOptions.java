@@ -189,9 +189,22 @@ public class PackageOptions extends OptionsBase {
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Check for modifications made to the output files of a build. Consider setting "
-            + "this flag to false to see the effect on incremental build times."
+            + "this flag to false if you don't expect these files to change outside of bazel "
+            + "since it will speed up incremental build times."
   )
   public boolean checkOutputFiles;
+
+  @Option(
+    name = "experimental_check_external_files",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Check for modifications made to the external files of a build. Consider setting "
+            + "this flag to false if you don't expect these files to change outside of bazel "
+            + "since it will speed up incremental build times."
+  )
+  public boolean checkExternalFiles;
 
   /**
    * A converter from strings containing comma-separated names of packages to lists of strings.
