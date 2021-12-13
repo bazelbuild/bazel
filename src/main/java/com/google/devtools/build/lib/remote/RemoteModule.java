@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
+import io.grpc.Channel;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
@@ -516,7 +517,15 @@ public final class RemoteModule extends BlazeModule {
 
     String remoteBytestreamUriPrefix = remoteOptions.remoteBytestreamUriPrefix;
     if (Strings.isNullOrEmpty(remoteBytestreamUriPrefix)) {
-      remoteBytestreamUriPrefix = cacheChannel.authority();
+      try {
+        remoteBytestreamUriPrefix = cacheChannel.withChannelBlocking(Channel::authority);
+      } catch (IOException e) {
+        handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
+        return;
+      } catch (InterruptedException e) {
+        handleInitFailure(env, new IOException(e), Code.CACHE_INIT_FAILURE);
+        return;
+      }
       if (!Strings.isNullOrEmpty(remoteOptions.remoteInstanceName)) {
         remoteBytestreamUriPrefix += "/" + remoteOptions.remoteInstanceName;
       }

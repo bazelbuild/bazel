@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamFutureStub;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
+import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
@@ -388,7 +389,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
   private class AsyncUpload {
 
     private final RemoteActionExecutionContext context;
-    private final Channel channel;
+    private final ReferenceCountedChannel channel;
     private final CallCredentialsProvider callCredentialsProvider;
     private final long callTimeoutSecs;
     private final Retrier retrier;
@@ -399,7 +400,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
     AsyncUpload(
         RemoteActionExecutionContext context,
-        Channel channel,
+        ReferenceCountedChannel channel,
         CallCredentialsProvider callCredentialsProvider,
         long callTimeoutSecs,
         Retrier retrier,
@@ -480,7 +481,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           MoreExecutors.directExecutor());
     }
 
-    private ByteStreamFutureStub bsFutureStub() {
+    private ByteStreamFutureStub bsFutureStub(Channel channel) {
       return ByteStreamGrpc.newFutureStub(channel)
           .withInterceptors(
               TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
@@ -491,7 +492,10 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     private ListenableFuture<Void> callAndQueryOnFailure(
         AtomicLong committedOffset, ProgressiveBackoff progressiveBackoff) {
       return Futures.catchingAsync(
-          call(committedOffset),
+          Futures.transform(
+              channel.withChannelFuture(channel -> call(committedOffset, channel)),
+              written -> null,
+              MoreExecutors.directExecutor()),
           Exception.class,
           (e) -> guardQueryWithSuppression(e, committedOffset, progressiveBackoff),
           MoreExecutors.directExecutor());
@@ -528,10 +532,14 @@ class ByteStreamUploader extends AbstractReferenceCounted {
         AtomicLong committedOffset, ProgressiveBackoff progressiveBackoff) {
       ListenableFuture<Long> committedSizeFuture =
           Futures.transform(
-              bsFutureStub()
-                  .queryWriteStatus(
-                      QueryWriteStatusRequest.newBuilder().setResourceName(resourceName).build()),
-              (response) -> response.getCommittedSize(),
+              channel.withChannelFuture(
+                  channel ->
+                      bsFutureStub(channel)
+                          .queryWriteStatus(
+                              QueryWriteStatusRequest.newBuilder()
+                                  .setResourceName(resourceName)
+                                  .build())),
+              QueryWriteStatusResponse::getCommittedSize,
               MoreExecutors.directExecutor());
       ListenableFuture<Long> guardedCommittedSizeFuture =
           Futures.catchingAsync(
@@ -561,14 +569,14 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           MoreExecutors.directExecutor());
     }
 
-    private ListenableFuture<Void> call(AtomicLong committedOffset) {
+    private ListenableFuture<Long> call(AtomicLong committedOffset, Channel channel) {
       CallOptions callOptions =
           CallOptions.DEFAULT
               .withCallCredentials(callCredentialsProvider.getCallCredentials())
               .withDeadlineAfter(callTimeoutSecs, SECONDS);
       call = channel.newCall(ByteStreamGrpc.getWriteMethod(), callOptions);
 
-      SettableFuture<Void> uploadResult = SettableFuture.create();
+      SettableFuture<Long> uploadResult = SettableFuture.create();
       ClientCall.Listener<WriteResponse> callListener =
           new ClientCall.Listener<WriteResponse>() {
 
@@ -596,7 +604,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
             @Override
             public void onClose(Status status, Metadata trailers) {
               if (status.isOk()) {
-                uploadResult.set(null);
+                uploadResult.set(committedOffset.get());
               } else {
                 uploadResult.setException(status.asRuntimeException());
               }
