@@ -196,7 +196,7 @@ public class PackageOptions extends OptionsBase {
 
   @Option(
     name = "experimental_check_external_files",
-    defaultValue = "true",
+    defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
