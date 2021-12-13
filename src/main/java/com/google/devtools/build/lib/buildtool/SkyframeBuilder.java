@@ -276,7 +276,7 @@ public class SkyframeBuilder implements Builder {
       }
 
       if (result.getCatastrophe() != null) {
-        rethrow(result.getCatastrophe(), bugReporter);
+        rethrow(result.getCatastrophe(), bugReporter, result);
       }
       if (keepGoing) {
         return getDetailedExitCode(result);
@@ -294,7 +294,7 @@ public class SkyframeBuilder implements Builder {
             ExecutionDetailedExitCodeHelper.createDetailedExecutionExitCode(
                 "cycle found during execution", Code.CYCLE));
       } else {
-        rethrow(exception, bugReporter);
+        rethrow(exception, bugReporter, result);
       }
     }
 
@@ -335,7 +335,8 @@ public class SkyframeBuilder implements Builder {
 
   /** Figure out why an action's execution failed and rethrow the right kind of exception. */
   @VisibleForTesting
-  public static void rethrow(Throwable cause, BugReporter bugReporter)
+  public static void rethrow(
+      Throwable cause, BugReporter bugReporter, EvaluationResult<?> resultForDebugging)
       throws BuildFailedException, TestExecException {
     Throwables.throwIfUnchecked(cause);
     Throwable innerCause = cause.getCause();
@@ -364,7 +365,8 @@ public class SkyframeBuilder implements Builder {
     if (cause instanceof BuildFileNotFoundException) {
       // Sadly, this can happen because we may load new packages during input discovery. Any
       // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
-      LoggingUtil.logToRemote(Level.WARNING, "undesirable loading exception", cause);
+      LoggingUtil.logToRemote(
+          Level.WARNING, "undesirable loading exception with result " + resultForDebugging, cause);
       throw new BuildFailedException(
           cause.getMessage(),
           DetailedExitCode.of(
@@ -379,7 +381,9 @@ public class SkyframeBuilder implements Builder {
     // an exception-processing bug in our code, such as lower level exceptions not being properly
     // handled, or in our expectations in this method.
     bugReporter.sendBugReport(
-        new IllegalStateException("action terminated with unexpected exception", cause));
+        new IllegalStateException(
+            "action terminated with unexpected exception with result " + resultForDebugging,
+            cause));
     String message =
         "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
     throw new BuildFailedException(

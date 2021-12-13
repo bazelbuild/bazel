@@ -418,7 +418,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           } else {
             SkyframeBuilder.rethrow(
                 Preconditions.checkNotNull(result.getError().getException()),
-                BugReporter.defaultInstance());
+                BugReporter.defaultInstance(),
+                result);
           }
         }
       }
