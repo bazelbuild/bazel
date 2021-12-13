@@ -9,7 +9,6 @@ filegroup(
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
-        "//third_party/aws-sdk-auth-lite:srcs",
         "//third_party/bazel-toolchains:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
@@ -143,12 +142,6 @@ distrib_java_import(
 )
 
 distrib_java_import(
-    name = "apache_commons_logging",
-    enable_distributions = ["debian"],
-    jars = ["apache_commons_logging/commons-logging-1.1.1.jar"],
-)
-
-distrib_java_import(
     name = "apache_commons_pool2",
     enable_distributions = ["debian"],
     jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
@@ -223,7 +216,6 @@ distrib_java_import(
     runtime_deps = [
         ":api_client",
         ":guava",
-        "//third_party/aws-sdk-auth-lite",
     ],
 )
 
