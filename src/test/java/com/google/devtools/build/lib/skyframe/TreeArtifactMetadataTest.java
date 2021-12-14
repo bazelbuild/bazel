@@ -295,7 +295,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableMap.of(output, tree.build()),
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,
-          /*actionDependsOnBuildId=*/ false);
+          /*shareable=*/ true);
     }
   }
 }

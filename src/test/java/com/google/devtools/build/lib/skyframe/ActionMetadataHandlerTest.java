@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.HasDigest.ByteStringDigest;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -409,7 +410,11 @@ public final class ActionMetadataHandlerTest {
     // Make sure that all children are transferred properly into the ActionExecutionValue. If any
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
-        ActionExecutionValue.createFromOutputStore(handler.getOutputStore(), null, null, false);
+        ActionExecutionValue.createFromOutputStore(
+            handler.getOutputStore(),
+            /*outputSymlinks=*/ null,
+            new NullAction(),
+            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 

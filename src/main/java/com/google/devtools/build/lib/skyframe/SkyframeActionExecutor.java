@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -85,7 +84,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -1266,10 +1264,8 @@ public final class SkyframeActionExecutor {
       return ActionExecutionValue.createFromOutputStore(
           this.metadataHandler.getOutputStore(),
           actionExecutionContext.getOutputSymlinks(),
-          (action instanceof IncludeScannable)
-              ? ((IncludeScannable) action).getDiscoveredModules()
-              : null,
-          Actions.dependsOnBuildId(action));
+          action,
+          actionLookupData);
     }
 
     /** A closure to continue an asynchronously running action. */

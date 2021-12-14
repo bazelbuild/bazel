@@ -938,11 +938,11 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
       }
     }
     return ActionExecutionValue.create(
-        artifactData,
+        ImmutableMap.copyOf(artifactData),
         /*treeArtifactData=*/ ImmutableMap.of(),
         /*outputSymlinks=*/ null,
         /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
+        /*shareable=*/ true);
   }
 
   private static ActionExecutionValue actionValueWithTreeArtifact(
@@ -952,7 +952,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         ImmutableMap.of(output, tree),
         /*outputSymlinks=*/ null,
         /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
+        /*shareable=*/ true);
   }
 
   private static ActionExecutionValue actionValueWithRemoteArtifact(

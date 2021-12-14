@@ -110,10 +110,10 @@ public class FilesystemValueCheckerTestBase {
 
     return ActionExecutionValue.create(
         /*artifactData=*/ ImmutableMap.of(),
-        treeArtifactData,
+        ImmutableMap.copyOf(treeArtifactData),
         /*outputSymlinks=*/ null,
         /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
+        /*shareable=*/ true);
   }
 
   private static FileArtifactValue createMetadataFromFileSystem(Artifact artifact)

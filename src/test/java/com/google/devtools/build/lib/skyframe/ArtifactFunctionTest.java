@@ -153,9 +153,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
-    evaluate(
-        Iterables.toArray(
-            Artifact.keys(ImmutableSet.of(input2, input1, input2, tree)), SkyKey.class));
+    evaluate(Iterables.toArray(Artifact.keys(ImmutableSet.of(input2, input1, tree)), SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
     ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
     inputs.addAll(((RunfilesArtifactValue) value).getFileArtifacts());
@@ -341,8 +339,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableMap.of(treeArtifact, tree),
             ImmutableList.of(filesetOutputSymlink),
-            null,
-            true);
+            /*discoveredModules=*/ null,
+            /*shareable=*/ false);
     new SerializationTester(actionExecutionValue)
         .addDependency(FileSystem.class, root.getFileSystem())
         .addDependency(
@@ -532,11 +530,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         throw new IllegalStateException(e);
       }
       return ActionExecutionValue.create(
-          artifactData,
-          treeArtifactData,
+          ImmutableMap.copyOf(artifactData),
+          ImmutableMap.copyOf(treeArtifactData),
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,
-          /*actionDependsOnBuildId=*/ false);
+          /*shareable=*/ true);
     }
   }
 }

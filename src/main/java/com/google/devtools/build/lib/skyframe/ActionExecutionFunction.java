@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -820,12 +819,7 @@ public class ActionExecutionFunction implements SkyFunction {
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
       return ActionExecutionValue.createFromOutputStore(
-          metadataHandler.getOutputStore(),
-          /*outputSymlinks=*/ null,
-          (action instanceof IncludeScannable)
-              ? ((IncludeScannable) action).getDiscoveredModules()
-              : null,
-          Actions.dependsOnBuildId(action));
+          metadataHandler.getOutputStore(), /*outputSymlinks=*/ null, action, actionLookupData);
     }
 
     metadataHandler.prepareForActionExecution();

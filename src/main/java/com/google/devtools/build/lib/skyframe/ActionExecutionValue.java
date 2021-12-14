@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -20,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -31,7 +34,9 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
+import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -60,8 +65,8 @@ public class ActionExecutionValue implements SkyValue {
    * @param discoveredModules cpp modules discovered
    */
   private ActionExecutionValue(
-      Map<Artifact, FileArtifactValue> artifactData,
-      Map<Artifact, TreeArtifactValue> treeArtifactData,
+      ImmutableMap<Artifact, FileArtifactValue> artifactData,
+      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
       @Nullable NestedSet<Artifact> discoveredModules) {
     for (Map.Entry<Artifact, FileArtifactValue> entry : artifactData.entrySet()) {
@@ -93,8 +98,8 @@ public class ActionExecutionValue implements SkyValue {
       }
     }
 
-    this.artifactData = ImmutableMap.copyOf(artifactData);
-    this.treeArtifactData = ImmutableMap.copyOf(treeArtifactData);
+    this.artifactData = artifactData;
+    this.treeArtifactData = treeArtifactData;
     this.outputSymlinks = outputSymlinks;
     this.discoveredModules = discoveredModules;
   }
@@ -102,26 +107,30 @@ public class ActionExecutionValue implements SkyValue {
   static ActionExecutionValue createFromOutputStore(
       OutputStore outputStore,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      @Nullable NestedSet<Artifact> discoveredModules,
-      boolean actionDependsOnBuildId) {
+      Action action,
+      ActionLookupData lookupData) {
     return create(
         outputStore.getAllArtifactData(),
         outputStore.getAllTreeArtifactData(),
         outputSymlinks,
-        discoveredModules,
-        actionDependsOnBuildId);
+        action instanceof IncludeScannable
+            ? ((IncludeScannable) action).getDiscoveredModules()
+            : null,
+        !Actions.dependsOnBuildId(action)
+            && lookupData.getShareabilityOfValue() != ShareabilityOfValue.NEVER);
   }
 
+  @VisibleForTesting
   static ActionExecutionValue create(
-      Map<Artifact, FileArtifactValue> artifactData,
-      Map<Artifact, TreeArtifactValue> treeArtifactData,
+      ImmutableMap<Artifact, FileArtifactValue> artifactData,
+      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
       @Nullable NestedSet<Artifact> discoveredModules,
-      boolean actionDependsOnBuildId) {
-    return actionDependsOnBuildId
-        ? new CrossServerUnshareableActionExecutionValue(
+      boolean shareable) {
+    return shareable
+        ? new ActionExecutionValue(
             artifactData, treeArtifactData, outputSymlinks, discoveredModules)
-        : new ActionExecutionValue(
+        : new CrossServerUnshareableActionExecutionValue(
             artifactData, treeArtifactData, outputSymlinks, discoveredModules);
   }
 
@@ -237,8 +246,8 @@ public class ActionExecutionValue implements SkyValue {
   private static final class CrossServerUnshareableActionExecutionValue
       extends ActionExecutionValue {
     CrossServerUnshareableActionExecutionValue(
-        Map<Artifact, FileArtifactValue> artifactData,
-        Map<Artifact, TreeArtifactValue> treeArtifactData,
+        ImmutableMap<Artifact, FileArtifactValue> artifactData,
+        ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
         @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
         @Nullable NestedSet<Artifact> discoveredModules) {
       super(artifactData, treeArtifactData, outputSymlinks, discoveredModules);
@@ -325,6 +334,6 @@ public class ActionExecutionValue implements SkyValue {
         outputSymlinks,
         // Discovered modules come from the action's inputs, and so don't need to be transformed.
         discoveredModules,
-        !dataIsShareable());
+        dataIsShareable());
   }
 }

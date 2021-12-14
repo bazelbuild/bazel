@@ -261,7 +261,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
         treeArtifacts,
         /*outputSymlinks=*/ null,
         /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
+        /*shareable=*/ true);
   }
 
   private static void createFile(Path file) throws IOException {

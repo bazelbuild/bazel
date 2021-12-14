@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -1692,9 +1693,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private static ActionLookupValue createActionLookupValue(
-      ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey) {
+      ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey)
+      throws ActionConflictException, InterruptedException {
     return new BasicActionLookupValue(
-        Actions.GeneratingActions.fromSingleAction(generatingAction, actionLookupKey));
+        Actions.assignOwnersAndFindAndThrowActionConflict(
+            new ActionKeyContext(), ImmutableList.of(generatingAction), actionLookupKey));
   }
 
   @Test
