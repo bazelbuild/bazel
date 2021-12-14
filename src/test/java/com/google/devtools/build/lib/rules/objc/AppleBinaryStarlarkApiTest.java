@@ -82,7 +82,7 @@ public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
         "                fragment='apple', name='xcode_config_label'),),",
         "        '_xcrunwrapper': attr.label(",
         "            executable=True,",
-        "            cfg='host',",
+        "            cfg='exec',",
         "            default=Label('" + toolsLoc + ":xcrunwrapper')),",
         "        'binary_type': attr.string(),",
         "        'bundle_loader': attr.label(),",
