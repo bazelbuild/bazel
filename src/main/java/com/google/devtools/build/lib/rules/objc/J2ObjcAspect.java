@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -324,9 +323,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addNativeDeclaredProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addNativeDeclaredProvider(common.getObjcProvider())
-        .addProvider(
-            J2ObjcCcInfo.build(
-                CcInfo.builder().setCcCompilationContext(ccCompilationContext).build()))
+        .addNativeDeclaredProvider(
+            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
         .build();
   }
 
@@ -882,13 +880,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
         ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attrName)) {
-          J2ObjcCcInfo j2objcCcInfo = dep.getProvider(J2ObjcCcInfo.class);
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
-          // If a dep has both a J2ObjcCcInfo and a CcInfo, skip the CcInfo.  This can only happen
-          // for a proto_library, whose CcInfo we don't use and may have poisoned defines.
-          if (j2objcCcInfo != null) {
-            ccInfoList.add(j2objcCcInfo.getCcInfo());
-          } else if (ccInfo != null) {
+          if (ccInfo != null) {
             ccInfoList.add(ccInfo);
           }
         }
@@ -909,25 +902,5 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addIncludes(headerSearchPaths)
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
-  }
-
-  /**
-   * A wrapper for {@link CcInfo}. The aspect generates this instead of a raw CcInfo, because it may
-   * visit a proto_library rule which already has a CcInfo.
-   */
-  public static final class J2ObjcCcInfo implements TransitiveInfoProvider {
-    private final CcInfo ccInfo;
-
-    public J2ObjcCcInfo(CcInfo ccInfo) {
-      this.ccInfo = ccInfo;
-    }
-
-    public CcInfo getCcInfo() {
-      return ccInfo;
-    }
-
-    public static J2ObjcCcInfo build(CcInfo ccInfo) {
-      return new J2ObjcCcInfo(ccInfo);
-    }
   }
 }
