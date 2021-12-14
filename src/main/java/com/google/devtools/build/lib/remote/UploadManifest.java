@@ -354,8 +354,11 @@ public class UploadManifest {
     try {
       return uploadAsync(context, remoteCache, reporter).blockingGet();
     } catch (RuntimeException e) {
-      throwIfInstanceOf(e.getCause(), InterruptedException.class);
-      throwIfInstanceOf(e.getCause(), IOException.class);
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        throwIfInstanceOf(cause, InterruptedException.class);
+        throwIfInstanceOf(cause, IOException.class);
+      }
       throw e;
     }
   }
