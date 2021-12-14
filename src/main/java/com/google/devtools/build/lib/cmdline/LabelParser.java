@@ -14,26 +14,12 @@
 
 package com.google.devtools.build.lib.cmdline;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.errorprone.annotations.FormatMethod;
 import javax.annotation.Nullable;
 
 /** Utilities to help parse labels. */
 final class LabelParser {
-  /**
-   * Package names that aren't made relative to the current repository because they mean special
-   * things to Bazel.
-   */
-  private static final ImmutableSet<String> ABSOLUTE_PACKAGE_NAMES =
-      ImmutableSet.of(
-          // Used for select's `//conditions:default` label (not a target)
-          "conditions",
-          // Used for the public and private visibility labels (not targets)
-          "visibility",
-          // There is only one //external package
-          LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString());
-
   private LabelParser() {}
 
   /**
@@ -67,12 +53,9 @@ final class LabelParser {
     private static Parts validateAndCreate(
         @Nullable String repo, boolean pkgIsAbsolute, String pkg, String target, String raw)
         throws LabelSyntaxException {
-      return new Parts(
-          validateAndProcessRepoName(repo, pkg),
-          pkgIsAbsolute,
-          validateAndProcessPackageName(pkg, target),
-          validateAndProcessTargetName(pkg, target),
-          raw);
+      validateRepoName(repo);
+      validatePackageName(pkg, target);
+      return new Parts(repo, pkgIsAbsolute, pkg, validateAndProcessTargetName(pkg, target), raw);
     }
 
     /**
@@ -135,30 +118,22 @@ final class LabelParser {
     }
 
     @Nullable
-    private static String validateAndProcessRepoName(@Nullable String repo, String pkg)
-        throws LabelSyntaxException {
-      if (repo == null && ABSOLUTE_PACKAGE_NAMES.contains(pkg)) {
-        // These package names when used without a "@" part are always absolutely in the main repo.
-        return "";
-      }
+    private static void validateRepoName(@Nullable String repo) throws LabelSyntaxException {
       if (repo == null) {
-        return null;
+        return;
       }
       String error = RepositoryName.validate('@' + repo);
       if (error != null) {
         throw syntaxErrorf("invalid repository name '@%s': %s", repo, error);
       }
-      return repo;
     }
 
-    private static String validateAndProcessPackageName(String pkg, String target)
-        throws LabelSyntaxException {
+    private static void validatePackageName(String pkg, String target) throws LabelSyntaxException {
       String pkgError = LabelValidator.validatePackageName(pkg);
       if (pkgError != null) {
         throw syntaxErrorf(
             "invalid package name '%s': %s%s", pkg, pkgError, perhapsYouMeantMessage(pkg, target));
       }
-      return pkg;
     }
 
     void checkPkgIsAbsolute() throws LabelSyntaxException {

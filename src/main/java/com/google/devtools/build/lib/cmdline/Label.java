@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProce
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -53,6 +54,18 @@ import net.starlark.java.eval.StarlarkValue;
 @Immutable
 @ThreadSafe
 public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
+  /**
+   * Package names that aren't made relative to the current repository because they mean special
+   * things to Bazel.
+   */
+  private static final ImmutableSet<String> ABSOLUTE_PACKAGE_NAMES =
+      ImmutableSet.of(
+          // Used for select's `//conditions:default` label (not a target)
+          "conditions",
+          // Used for the public and private visibility labels (not targets)
+          "visibility",
+          // There is only one //external package
+          LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString());
 
   // Intern "__pkg__" and "__subpackages__" pseudo-targets, which appears in labels used for
   // visibility specifications. This saves a couple tenths of a percent of RAM off the loading
@@ -83,6 +96,18 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
+  /** Computes the repo name for the label, within the context of a current repo. */
+  private static RepositoryName computeRepoNameWithRepoContext(
+      Parts parts, RepositoryName currentRepo, RepositoryMapping repoMapping) {
+    if (parts.repo == null) {
+      // Certain package names when used without a "@" part are always absolutely in the main repo,
+      // disregarding the current repo and repo mappings.
+      return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg) ? RepositoryName.MAIN : currentRepo;
+    }
+    // TODO(b/200024947): Make repo mapping take a string and return a RepositoryName.
+    return repoMapping.get(RepositoryName.createFromValidStrippedName(parts.repo));
+  }
+
   // TODO(b/200024947): Make this public.
   /**
    * Parses a raw label string within the context of a current repo. It must be of the form {@code
@@ -94,11 +119,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
     parts.checkPkgIsAbsolute();
-    // TODO(b/200024947): Make repo mapping take a string and return a RepositoryName.
-    RepositoryName repoName =
-        parts.repo == null
-            ? currentRepo
-            : repoMapping.get(RepositoryName.createFromValidStrippedName(parts.repo));
+    RepositoryName repoName = computeRepoNameWithRepoContext(parts, currentRepo, repoMapping);
     return createUnvalidated(
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
@@ -119,11 +140,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     if (!parts.pkg.isEmpty()) {
       parts.checkPkgIsAbsolute();
     }
-    // TODO(b/200024947): Make repo mapping take a string and return a RepositoryName.
     RepositoryName repoName =
-        parts.repo == null
-            ? packageIdentifier.getRepository()
-            : repoMapping.get(RepositoryName.createFromValidStrippedName(parts.repo));
+        computeRepoNameWithRepoContext(parts, packageIdentifier.getRepository(), repoMapping);
     PathFragment pkgFragment =
         parts.pkgIsAbsolute
             ? PathFragment.create(parts.pkg)
