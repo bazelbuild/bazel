@@ -571,22 +571,51 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAspectParameterRequiresValues() throws Exception {
-    ev.checkEvalErrorContains(
-        "Aspect parameter attribute 'param' must have type 'string' and use the 'values' "
-            + "restriction.",
+  public void testAspectParameterWithDefaultValue() throws Exception {
+    evalAndExport(
+        ev,
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(_impl,",
-        "   attrs = { 'param' : attr.string(default = 'c') }",
+        "   attrs = { 'param' : attr.string(default = 'a', values=['a', 'b']) }",
         ")");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
+    assertThat(attribute.getName()).isEqualTo("param");
+    assertThat(((String) attribute.getDefaultValueUnchecked())).isEqualTo("a");
+  }
+
+  @Test
+  public void testAspectParameterBadDefaultValue() throws Exception {
+    ev.checkEvalErrorContains(
+        "Aspect parameter attribute 'param' has a bad default value: has to be"
+            + " one of 'b' instead of 'a'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.string(default = 'a', values = ['b']) }",
+        ")");
+  }
+
+  @Test
+  public void testAspectParameterNotRequireValues() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.string(default = 'val') }",
+        ")");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
+    assertThat(attribute.getName()).isEqualTo("param");
+    assertThat(((String) attribute.getDefaultValueUnchecked())).isEqualTo("val");
   }
 
   @Test
   public void testAspectParameterBadType() throws Exception {
     ev.checkEvalErrorContains(
-        "Aspect parameter attribute 'param' must have type 'string' and use the 'values' "
-            + "restriction.",
+        "Aspect parameter attribute 'param' must have type 'string'.",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(_impl,",

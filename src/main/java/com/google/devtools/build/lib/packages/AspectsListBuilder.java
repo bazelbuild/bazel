@@ -112,7 +112,7 @@ public final class AspectsListBuilder {
 
   /** Wraps the information necessary to construct an Aspect. */
   @VisibleForSerialization
-  abstract static class AspectDetails<C extends AspectClass> {
+  public abstract static class AspectDetails<C extends AspectClass> {
     final C aspectClass;
     final Function<Rule, AspectParameters> parametersExtractor;
     final String baseAspectName;
@@ -132,12 +132,16 @@ public final class AspectsListBuilder {
       this.baseAspectName = baseAspectName;
     }
 
-    String getName() {
+    public String getName() {
       return this.aspectClass.getName();
     }
 
-    ImmutableSet<String> getRequiredParameters() {
+    public ImmutableSet<String> getRequiredParameters() {
       return ImmutableSet.of();
+    }
+
+    public ImmutableList<Attribute> getAspectAttributes() {
+      return ImmutableList.of();
     }
 
     protected abstract Aspect getAspect(Rule rule);
@@ -191,6 +195,11 @@ public final class AspectsListBuilder {
     @Override
     public ImmutableSet<String> getRequiredParameters() {
       return aspect.getParamAttributes();
+    }
+
+    @Override
+    public ImmutableList<Attribute> getAspectAttributes() {
+      return aspect.getAttributes();
     }
 
     @Override

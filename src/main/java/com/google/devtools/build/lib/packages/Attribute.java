@@ -227,14 +227,6 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
-  public ImmutableMap<String, ImmutableSet<String>> getRequiredAspectParameters() {
-    ImmutableMap.Builder<String, ImmutableSet<String>> paramBuilder = ImmutableMap.builder();
-    for (AspectDetails<?> aspect : aspects) {
-      paramBuilder.put(aspect.getName(), aspect.getRequiredParameters());
-    }
-    return paramBuilder.build();
-  }
-
   /**
    * Creates a new attribute builder.
    *
@@ -1599,7 +1591,7 @@ public final class Attribute implements Comparable<Attribute> {
       super(useHostConfiguration, fragmentClass, defaultValue);
     }
   }
-  
+
   @AutoCodec.VisibleForSerialization
   static class AlwaysNullLateBoundDefault extends SimpleLateBoundDefault<Void, Void> {
     @SerializationConstant @AutoCodec.VisibleForSerialization
@@ -2096,6 +2088,10 @@ public final class Attribute implements Comparable<Attribute> {
       result.add(aspect.getAspectClass());
     }
     return result.build();
+  }
+
+  public ImmutableList<AspectDetails<?>> getAspectsDetails() {
+    return aspects;
   }
 
   /**
