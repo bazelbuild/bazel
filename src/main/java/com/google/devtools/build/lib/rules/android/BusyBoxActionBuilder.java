@@ -344,10 +344,12 @@ public final class BusyBoxActionBuilder {
 
     if (dataContext.isPersistentBusyboxToolsEnabled()) {
       commandLine.add("--logWarnings=false");
-      spawnActionBuilder
-          .addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);
-
+      spawnActionBuilder.addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);
       executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+
+      if (dataContext.isPersistentMultiplexBusyboxTools()) {
+        executionInfo.putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
+      }
     } else {
       spawnActionBuilder.addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO);
     }

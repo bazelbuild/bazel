@@ -232,6 +232,13 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean persistentBusyboxTools();
 
   @StarlarkMethod(
+      name = "experimental_persistent_multiplex_busybox_tools",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean persistentMultiplexBusyboxTools();
+
+  @StarlarkMethod(
       name = "get_output_directory_name",
       structField = true,
       doc = "",
