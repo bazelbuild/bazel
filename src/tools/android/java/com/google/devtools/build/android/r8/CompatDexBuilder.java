@@ -80,11 +80,13 @@ public class CompatDexBuilder {
 
   public static void main(String[] args)
       throws IOException, InterruptedException, ExecutionException {
-    new CompatDexBuilder().run(args);
+    CompatDexBuilder compatDexBuilder = new CompatDexBuilder();
+    int exitCode = compatDexBuilder.run(args);
+    System.exit(exitCode);
   }
 
   @SuppressWarnings("JdkObsolete")
-  private void run(String[] args) throws IOException, InterruptedException, ExecutionException {
+  private int run(String[] args) throws IOException, InterruptedException, ExecutionException {
     List<String> flags = new ArrayList<>();
 
     for (String arg : args) {
@@ -128,18 +130,18 @@ public class CompatDexBuilder {
           break;
         default:
           System.err.println("Unsupported option: " + flag);
-          System.exit(1);
+          return 1;
       }
     }
 
     if (input == null) {
       System.err.println("No input jar specified");
-      System.exit(1);
+      return 1;
     }
 
     if (output == null) {
       System.err.println("No output jar specified");
-      System.exit(1);
+      return 1;
     }
 
     ExecutorService executor = Executors.newWorkStealingPool(numberOfThreads);
@@ -174,6 +176,8 @@ public class CompatDexBuilder {
     } finally {
       executor.shutdown();
     }
+
+    return 0;
   }
 
   private DexConsumer dexEntry(ZipFile zipFile, ZipEntry classEntry, ExecutorService executor)
