@@ -905,8 +905,14 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     @Nullable
     private String errorMessage = null;
 
+    /**
+     * Synchronizing this method can lead to deadlocks -- it calls into {@link
+     * io.grpc.inprocess.InProcessTransport} which takes a locks on itself. Opposite order of locks
+     * happens for {@link #publishBuildToolEventStream} called while holding the lock on {@link
+     * io.grpc.inprocess.InProcessTransport}.
+     */
     @Override
-    public synchronized void publishLifecycleEvent(
+    public void publishLifecycleEvent(
         PublishLifecycleEventRequest request, StreamObserver<Empty> responseObserver) {
       responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();
