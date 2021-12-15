@@ -81,7 +81,11 @@ public class CompatDexBuilder {
   public static void main(String[] args)
       throws IOException, InterruptedException, ExecutionException {
     CompatDexBuilder compatDexBuilder = new CompatDexBuilder();
-    int exitCode = compatDexBuilder.run(args);
+    compatDexBuilder.processRequest(args);
+  }
+
+  private void processRequest(String[] args) throws IOException, ExecutionException, InterruptedException {
+    int exitCode = run(args);
     System.exit(exitCode);
   }
 
