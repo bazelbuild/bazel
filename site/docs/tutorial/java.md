@@ -354,7 +354,7 @@ and your target label was `//src/main/java/com/example/cmdline:runner`.
 
 ## Create and run tests with JUnit
 
-Before deploying, it makes sense to run tests to ensure functional correctness of your code. Let's walk through an example of writing and running tests using the `bazel test` command.
+Prior to deployment, you will want to run tests on your code to ensure functional correctness. Let's walk through an example of writing and running tests using the `bazel test` command.
 
 Consider adding the following class to your `src/main/java/com/example` directory:
 
@@ -369,7 +369,7 @@ public class Calculator {
 
 ```
 
-To ensure the correctness of this function, you'll want to add an additional test directory as well as testing code to your project. You can achieve this goal by adding a new folder, `src/test/java/com/example`, to your main directory and creating the following class:
+To ensure this class works as expected, you'll want to add an additional test directory as well as testing code to your project. You can achieve this goal by adding a new folder, `src/test/java/com/example`, to your main directory and creating the following class:
 
 ```
 package com.example;
@@ -416,7 +416,7 @@ maven_install(
 )
 ```
 
-Next, you'll want to add instructions to your BUILD file to ensure these dependencies can be used in code. You can add these imports as follows:
+You'll also need to add instructions to your BUILD file to ensure the dependencies specified in the WORKSPACE file can be used in code, as follows:
 
 ```
 # Since tests are dependent on the code contained in the source classes of the project,
