@@ -352,6 +352,95 @@ However, for targets in the `//src/main/java/com/example/cmdline/BUILD` file you
 had to specify the full package path of `//src/main/java/com/example/cmdline`
 and your target label was `//src/main/java/com/example/cmdline:runner`.
 
+## Create and run tests with JUnit
+
+Prior to deployment, you will want to run tests on your code to ensure functional correctness. Let's walk through an example of writing and running tests using the `bazel test` command.
+
+Consider adding the following class to your `src/main/java/com/example` directory:
+
+```
+package com.example;
+
+public class Calculator {
+    public static int add(int a, int b) {
+        return a+b;
+    }
+}
+
+```
+
+To ensure this class works as expected, you'll want to add an additional test directory as well as testing code to your project. You can achieve this goal by adding a new folder, `src/test/java/com/example`, to your main directory and creating the following class:
+
+```
+package com.example;
+
+import com.example.Calculator;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+
+public class RunnerTest {
+    @Test
+    public void evaluatesExpression() {
+        Calculator calculator = new Calculator();
+        int sum = calculator.add(4,2);
+        assertEquals(6, sum);
+    }
+}
+```
+
+In order to run tests, you will need to add additional information to your WORKSPACE file to import the JUnit external dependencies. Paste the following code into your WORKSPACE file:
+
+```
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+RULES_JVM_EXTERNAL_TAG = "4.2"
+RULES_JVM_EXTERNAL_SHA = "cd1a77b7b02e8e008439ca76fd34f5b07aecb8c752961f9640dea15e9e5ba1ca"
+
+http_archive(
+    name = "rules_jvm_external",
+    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
+    sha256 = RULES_JVM_EXTERNAL_SHA,
+    url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
+)
+
+load("@rules_jvm_external//:defs.bzl", "maven_install")
+
+maven_install(
+    artifacts = [
+        "junit:junit:4.12"
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+)
+```
+
+You'll also need to add instructions to your BUILD file to ensure the dependencies specified in the WORKSPACE file can be used in code, as follows:
+
+```
+# Since tests are dependent on the code contained in the source classes of the project,
+# the BUILD file needs to provide a rule like this compiling the source code as a library
+# that can be used by the tests.
+java_library(
+    name = "java-maven-lib",
+    srcs = glob(["src/main/java/com/example/*.java"]),
+)
+
+# compiles the tests written earlier
+java_test(
+    name = "runner_tests",
+    srcs = glob(["src/test/java/com/example/*.java"]),
+    test_class = "com.example.RunnerTest",
+    deps = [
+        ":java-maven-lib", # since the tests are dependent on the code in the classes under test, this ensures the dep is imported
+        "@maven//:junit_junit",
+    ],
+)
+```
+
+Finally, you can see these tests in action by running the command `bazel test :runner_tests`.
+
 ## Package a Java target for deployment
 
 Let’s now package a Java target for deployment by building the binary with all
