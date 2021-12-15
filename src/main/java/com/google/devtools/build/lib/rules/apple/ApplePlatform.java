@@ -51,7 +51,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("watchos_armv7k", "watchos_arm64_32");
   private static final ImmutableSet<String> TVOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("tvos_x86_64");
+      ImmutableSet.of("tvos_x86_64", "tvos_sim_arm64");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
   private static final ImmutableSet<String> CATALYST_TARGET_CPUS =
