@@ -639,9 +639,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           throw Starlark.errorf(
               "Aspect parameter attribute '%s' must have type 'string'.", nativeName);
         }
-        if (!hasDefault) {
-          requiredParams.add(nativeName);
-        } else if (attribute.checkAllowedValues()) {
+        if (hasDefault && attribute.checkAllowedValues()) {
           PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
           Object defaultVal = attribute.getDefaultValue(null);
           if (!allowed.apply(defaultVal)) {
@@ -649,6 +647,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                 "Aspect parameter attribute '%s' has a bad default value: %s",
                 nativeName, allowed.getErrorReason(defaultVal));
           }
+        }
+        if (!hasDefault || attribute.isMandatory()) {
+          requiredParams.add(nativeName);
         }
       } else if (!hasDefault) { // Implicit or late bound attribute
         String starlarkName = "_" + nativeName.substring(1);

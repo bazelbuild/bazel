@@ -7338,6 +7338,203 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             + " 'string' and use the 'values' restriction.");
   }
 
+  @Test
+  public void testRuleAspectWithMandatoryParameterNotProvided() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label(aspects = [aspect_a]) },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update("//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:main_target"));
+    }
+    assertContainsEvent(
+        "Aspect //test:defs.bzl%aspect_a requires rule my_rule to specify attribute 'p' with type"
+            + " string");
+  }
+
+  @Test
+  public void testRuleAspectWithMandatoryParameterProvidedWrongType() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = ['aspect_a on target {}, p = {}'.",
+        "                                    format(target.label, ctx.attr.p)]",
+        "  if ctx.rule.attr.dep:",
+        "    result += ctx.rule.attr.dep.aspect_a_result",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "   attrs = { 'dep' : attr.label(aspects = [aspect_a]),",
+        "             'p': attr.int() } ",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target_1',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_1',",
+        "  dep = ':dep_target_2',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target_2',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
+    // suite. Otherwise, it fails and throws a TargetParsingException.
+    if (keepGoing()) {
+      AnalysisResult analysisResult = update("//test:main_target");
+      assertThat(analysisResult.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:main_target"));
+    }
+    assertContainsEvent(
+        "Aspect //test:defs.bzl%aspect_a requires rule my_rule to specify attribute 'p' with type"
+            + " string");
+  }
+
+  @Test
+  public void testRuleAspectWithMandatoryParameter_useRuleDefault() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v1', values = ['p_v1', 'p_v2'],",
+        "                              mandatory = True) },",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)",
+        "  pass",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [aspect_a]),",
+        "    'p' : attr.string(default = 'p_v2'),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "main_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target, p = p_v2");
+  }
+
+  @Test
+  public void testRuleAspectWithMandatoryParameterProvided() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = { 'p' : attr.string(default = 'p_v2', values = ['p_v1', 'p_v2'],",
+        "                              mandatory = True) },",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  if ctx.attr.dep:",
+        "    return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)",
+        "  pass",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [aspect_a]),",
+        "    'p' : attr.string(mandatory = True),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        "  p = 'p_v1',",
+        ")",
+        "main_rule(",
+        "  name = 'dep_target',",
+        "  p = 'p_v2',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target, p = p_v1");
+  }
+
   private ConfiguredAspect getConfiguredAspect(
       Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName) {
     for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
