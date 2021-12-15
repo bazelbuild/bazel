@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
@@ -28,8 +33,7 @@ import net.starlark.java.eval.Starlark;
 /**
  * AspectsList represents the list of aspects specified via --aspects command line option or
  * declared in attribute aspects list. The class is responsible for wrapping the information
- * necessary for constructing those aspects including the inherited information for aspects required
- * by other aspects via `requires` attribute.
+ * necessary for constructing those aspects.
  */
 public final class AspectsListBuilder {
 
@@ -48,147 +52,105 @@ public final class AspectsListBuilder {
     return ImmutableList.copyOf(aspects.values());
   }
 
-  /**
-   * Returns a list of Aspect objects for top level aspects.
-   *
-   * <p>Since top level aspects do not have parameters, a rule is not required to create their
-   * Aspect objects.
-   */
-  public ImmutableList<Aspect> buildAspects() {
+  /** Returns a list of Aspect objects for top level aspects. */
+  public ImmutableList<Aspect> buildAspects(ImmutableMap<String, String> aspectsParameters)
+      throws EvalException {
+    Preconditions.checkArgument(aspectsParameters != null, "aspectsParameters cannot be null");
+
     ImmutableList.Builder<Aspect> aspectsList = ImmutableList.builder();
     for (AspectDetails<?> aspect : aspects.values()) {
-      aspectsList.add(aspect.getAspect(null));
+      aspectsList.add(aspect.getTopLevelAspect(aspectsParameters));
     }
     return aspectsList.build();
   }
 
+  /**
+   * Validates top-level aspects parameters and reports error in the following cases:
+   *
+   * <p>If a parameter name is specified in command line but no aspect has a parameter with that
+   * name.
+   *
+   * <p>If a mandatory aspect attribute is not given a value in the top-level parameters list.
+   */
+  public boolean validateTopLevelAspectsParameters(ImmutableMap<String, String> aspectsParameters)
+      throws EvalException {
+    Preconditions.checkArgument(aspectsParameters != null, "aspectsParameters cannot be null");
+
+    ImmutableSet.Builder<String> usedParametersBuilder = ImmutableSet.builder();
+    for (AspectDetails<?> aspectDetails : aspects.values()) {
+      if (aspectDetails instanceof StarlarkAspectDetails) {
+        ImmutableList<Attribute> aspectAttributes =
+            ((StarlarkAspectDetails) aspectDetails).aspect.getAttributes();
+        for (Attribute attr : aspectAttributes) {
+          if (attr.isImplicit() || attr.isLateBound()) {
+            continue;
+          }
+          String attrName = attr.getName();
+          if (aspectsParameters.containsKey(attrName)) {
+            usedParametersBuilder.add(attrName);
+          } else if (attr.isMandatory()) {
+            throw Starlark.errorf(
+                "Missing mandatory attribute '%s' for aspect '%s'.",
+                attrName, aspectDetails.getName());
+          }
+        }
+      }
+    }
+    ImmutableSet<String> usedParameters = usedParametersBuilder.build();
+    ImmutableList<String> unusedParameters =
+        aspectsParameters.keySet().stream()
+            .filter(p -> !usedParameters.contains(p))
+            .collect(toImmutableList());
+    if (!unusedParameters.isEmpty()) {
+      throw Starlark.errorf(
+          "Parameters '%s' are not parameters of any of the top-level aspects but they are"
+              + " specified in --aspects_parameters.",
+          unusedParameters);
+    }
+    return true;
+  }
+
   /** Wraps the information necessary to construct an Aspect. */
   @VisibleForSerialization
-  abstract static class AspectDetails<C extends AspectClass> {
-    private static final ImmutableList<String> ALL_ATTR_ASPECTS = ImmutableList.of("*");
-
+  public abstract static class AspectDetails<C extends AspectClass> {
     final C aspectClass;
     final Function<Rule, AspectParameters> parametersExtractor;
-
-    String baseAspectName;
-    ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders;
-    ImmutableList.Builder<String> inheritedAttributeAspects;
-    boolean inheritedAllProviders = false;
-    boolean inheritedAllAttributes = false;
+    final String baseAspectName;
 
     private AspectDetails(C aspectClass, Function<Rule, AspectParameters> parametersExtractor) {
       this.aspectClass = aspectClass;
       this.parametersExtractor = parametersExtractor;
-      this.inheritedRequiredProviders = ImmutableList.builder();
-      this.inheritedAttributeAspects = ImmutableList.builder();
+      this.baseAspectName = null;
     }
 
     private AspectDetails(
         C aspectClass,
         Function<Rule, AspectParameters> parametersExtractor,
-        String baseAspectName,
-        ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
-        ImmutableList<String> inheritedAttributeAspects) {
+        String baseAspectName) {
       this.aspectClass = aspectClass;
       this.parametersExtractor = parametersExtractor;
       this.baseAspectName = baseAspectName;
-      this.inheritedRequiredProviders = null;
-      this.inheritedAttributeAspects = null;
-      if (baseAspectName != null) {
-        if (inheritedRequiredProviders == null) {
-          // Should only happen during deserialization
-          inheritedAllProviders = true;
-        } else {
-          updateInheritedRequiredProviders(inheritedRequiredProviders);
-        }
-        if (inheritedAttributeAspects == null) {
-          // Should only happen during deserialization
-          inheritedAllAttributes = true;
-        } else {
-          updateInheritedAttributeAspects(inheritedAttributeAspects);
-        }
-      }
     }
 
-    String getName() {
+    public String getName() {
       return this.aspectClass.getName();
     }
 
-    ImmutableSet<String> getRequiredParameters() {
+    public ImmutableSet<String> getRequiredParameters() {
       return ImmutableSet.of();
     }
 
-    protected abstract Aspect getAspect(@Nullable Rule rule);
+    public ImmutableList<Attribute> getAspectAttributes() {
+      return ImmutableList.of();
+    }
+
+    protected abstract Aspect getAspect(Rule rule);
+
+    protected abstract Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException;
 
     C getAspectClass() {
       return aspectClass;
-    }
-
-    void updateInheritedRequiredProviders(
-        ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders) {
-      if (!inheritedAllProviders && !requiredProviders.isEmpty()) {
-        if (inheritedRequiredProviders == null) {
-          inheritedRequiredProviders = ImmutableList.builder();
-        }
-        inheritedRequiredProviders.addAll(requiredProviders);
-      } else {
-        inheritedAllProviders = true;
-        inheritedRequiredProviders = null;
-      }
-    }
-
-    void updateInheritedAttributeAspects(ImmutableList<String> attributeAspects) {
-      if (!inheritedAllAttributes && !ALL_ATTR_ASPECTS.equals(attributeAspects)) {
-        if (inheritedAttributeAspects == null) {
-          inheritedAttributeAspects = ImmutableList.builder();
-        }
-        inheritedAttributeAspects.addAll(attributeAspects);
-      } else {
-        inheritedAllAttributes = true;
-        inheritedAttributeAspects = null;
-      }
-    }
-
-    RequiredProviders buildInheritedRequiredProviders() {
-      if (baseAspectName == null) {
-        return RequiredProviders.acceptNoneBuilder().build();
-      } else if (inheritedAllProviders) {
-        return RequiredProviders.acceptAnyBuilder().build();
-      } else {
-        ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProvidersList =
-            inheritedRequiredProviders.build();
-        RequiredProviders.Builder inheritedRequiredProvidersBuilder =
-            RequiredProviders.acceptAnyBuilder();
-        for (ImmutableSet<StarlarkProviderIdentifier> providerSet :
-            inheritedRequiredProvidersList) {
-          if (!providerSet.isEmpty()) {
-            inheritedRequiredProvidersBuilder.addStarlarkSet(providerSet);
-          }
-        }
-        return inheritedRequiredProvidersBuilder.build();
-      }
-    }
-
-    @Nullable
-    ImmutableSet<String> buildInheritedAttributeAspects() {
-      if (baseAspectName == null) {
-        return ImmutableSet.of();
-      } else if (inheritedAllAttributes) {
-        return null;
-      } else {
-        return ImmutableSet.copyOf(inheritedAttributeAspects.build());
-      }
-    }
-
-    @VisibleForSerialization
-    public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>>
-        getInheritedRequiredProvidersList() {
-      return inheritedRequiredProviders == null ? null : inheritedRequiredProviders.build();
-    }
-
-    @VisibleForSerialization
-    public ImmutableList<String> getInheritedAttributeAspectsList() {
-      return inheritedAttributeAspects == null ? null : inheritedAttributeAspects.build();
     }
   }
 
@@ -201,32 +163,21 @@ public final class AspectsListBuilder {
     NativeAspectDetails(
         NativeAspectClass aspectClass,
         Function<Rule, AspectParameters> parametersExtractor,
-        String baseAspectName,
-        ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProvidersList,
-        ImmutableList<String> inheritedAttributeAspectsList) {
-      super(
-          aspectClass,
-          parametersExtractor,
-          baseAspectName,
-          inheritedRequiredProvidersList,
-          inheritedAttributeAspectsList);
+        String baseAspectName) {
+      super(aspectClass, parametersExtractor, baseAspectName);
     }
 
     @Override
     public Aspect getAspect(Rule rule) {
-      AspectParameters params;
-      if (rule == null) {
-        params = AspectParameters.EMPTY;
-      } else {
-        params = parametersExtractor.apply(rule);
-      }
-      return params == null
-          ? null
-          : Aspect.forNative(
-              aspectClass,
-              params,
-              buildInheritedRequiredProviders(),
-              buildInheritedAttributeAspects());
+      AspectParameters params = parametersExtractor.apply(rule);
+      return params == null ? null : Aspect.forNative(aspectClass, params);
+    }
+
+    @Override
+    protected Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException {
+      // Native aspects ignore their top-level parameters values for now.
+      return Aspect.forNative(aspectClass, AspectParameters.EMPTY);
     }
   }
 
@@ -236,17 +187,8 @@ public final class AspectsListBuilder {
     private final StarlarkDefinedAspect aspect;
 
     @VisibleForSerialization
-    StarlarkAspectDetails(
-        StarlarkDefinedAspect aspect,
-        String baseAspectName,
-        ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProvidersList,
-        ImmutableList<String> inheritedAttributeAspectsList) {
-      super(
-          aspect.getAspectClass(),
-          aspect.getDefaultParametersExtractor(),
-          baseAspectName,
-          inheritedRequiredProvidersList,
-          inheritedAttributeAspectsList);
+    StarlarkAspectDetails(StarlarkDefinedAspect aspect, String baseAspectName) {
+      super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor(), baseAspectName);
       this.aspect = aspect;
     }
 
@@ -256,19 +198,21 @@ public final class AspectsListBuilder {
     }
 
     @Override
+    public ImmutableList<Attribute> getAspectAttributes() {
+      return aspect.getAttributes();
+    }
+
+    @Override
     public Aspect getAspect(Rule rule) {
-      AspectParameters params;
-      if (rule == null) {
-        params = AspectParameters.EMPTY;
-      } else {
-        params = parametersExtractor.apply(rule);
-      }
-      return Aspect.forStarlark(
-          aspectClass,
-          aspect.getDefinition(params),
-          params,
-          buildInheritedRequiredProviders(),
-          buildInheritedAttributeAspects());
+      AspectParameters params = parametersExtractor.apply(rule);
+      return Aspect.forStarlark(aspectClass, aspect.getDefinition(params), params);
+    }
+
+    @Override
+    public Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException {
+      AspectParameters params = aspect.extractTopLevelParameters(aspectParameters);
+      return Aspect.forStarlark(aspectClass, aspect.getDefinition(params), params);
     }
   }
 
@@ -285,9 +229,15 @@ public final class AspectsListBuilder {
     public Aspect getAspect(Rule rule) {
       return aspect;
     }
+
+    @Override
+    public Aspect getTopLevelAspect(ImmutableMap<String, String> aspectParameters)
+        throws EvalException {
+      return aspect;
+    }
   }
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
   /**
@@ -317,72 +267,36 @@ public final class AspectsListBuilder {
 
   /**
    * Adds a starlark defined aspect to the aspects list with its base aspect (the aspect that
-   * required it), its inherited required providers and its inherited propagation atttributes if
-   * any.
+   * required it).
    *
    * @param starlarkAspect the starlark defined aspect to be added
    * @param baseAspectName is the name of the base aspect requiring this aspect, can be {@code null}
    *     if the aspect is directly listed in the aspects list
-   * @param inheritedRequiredProviders is the list of required providers inherited from the aspect
-   *     parent aspects
-   * @param inheritedAttributeAspects is the list of attribute aspects inherited from the aspect
-   *     parent aspects
    */
-  public void addAspect(
-      StarlarkDefinedAspect starlarkAspect,
-      @Nullable String baseAspectName,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
-      ImmutableList<String> inheritedAttributeAspects)
+  public void addAspect(StarlarkDefinedAspect starlarkAspect, @Nullable String baseAspectName)
       throws EvalException {
-    boolean needsToAdd =
-        checkAndUpdateExistingAspects(
-            starlarkAspect.getName(),
-            baseAspectName,
-            inheritedRequiredProviders,
-            inheritedAttributeAspects);
+    boolean needsToAdd = checkAndUpdateExistingAspects(starlarkAspect.getName(), baseAspectName);
     if (needsToAdd) {
       StarlarkAspectDetails starlarkAspectDetails =
-          new StarlarkAspectDetails(
-              starlarkAspect,
-              baseAspectName,
-              inheritedRequiredProviders,
-              inheritedAttributeAspects);
+          new StarlarkAspectDetails(starlarkAspect, baseAspectName);
       this.aspects.put(starlarkAspect.getName(), starlarkAspectDetails);
     }
   }
 
   /**
-   * Adds a native aspect to the aspects list with its base aspect (the aspect that required it),
-   * its inherited required providers and its inherited propagation atttributes if any.
+   * Adds a native aspect to the aspects list with its base aspect (the aspect that required it).
    *
    * @param nativeAspect the native aspect to be added
    * @param baseAspectName is the name of the base aspect requiring this aspect, can be {@code null}
    *     if the aspect is directly listed in the aspects list
-   * @param inheritedRequiredProviders is the list of required providers inherited from the aspect
-   *     parent aspects
-   * @param inheritedAttributeAspects is the list of attribute aspects inherited from the aspect
-   *     parent aspects
    */
-  public void addAspect(
-      StarlarkNativeAspect nativeAspect,
-      @Nullable String baseAspectName,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
-      ImmutableList<String> inheritedAttributeAspects)
+  public void addAspect(StarlarkNativeAspect nativeAspect, @Nullable String baseAspectName)
       throws EvalException {
-    boolean needsToAdd =
-        checkAndUpdateExistingAspects(
-            nativeAspect.getName(),
-            baseAspectName,
-            inheritedRequiredProviders,
-            inheritedAttributeAspects);
+    boolean needsToAdd = checkAndUpdateExistingAspects(nativeAspect.getName(), baseAspectName);
     if (needsToAdd) {
       NativeAspectDetails nativeAspectDetails =
           new NativeAspectDetails(
-              nativeAspect,
-              nativeAspect.getDefaultParametersExtractor(),
-              baseAspectName,
-              inheritedRequiredProviders,
-              inheritedAttributeAspects);
+              nativeAspect, nativeAspect.getDefaultParametersExtractor(), baseAspectName);
       this.aspects.put(nativeAspect.getName(), nativeAspectDetails);
     }
   }
@@ -398,27 +312,18 @@ public final class AspectsListBuilder {
     }
   }
 
-  private boolean checkAndUpdateExistingAspects(
-      String aspectName,
-      String baseAspectName,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
-      ImmutableList<String> inheritedAttributeAspects)
+  private boolean checkAndUpdateExistingAspects(String aspectName, @Nullable String baseAspectName)
       throws EvalException {
 
     AspectDetails<?> oldAspect = this.aspects.get(aspectName);
 
     if (oldAspect != null) {
-      // If the aspect to be added is required by another aspect, i.e. {@code baseAspectName} is
-      // not null, then we need to update its inherited required providers and propgation
-      // attributes.
       if (baseAspectName != null) {
-        oldAspect.baseAspectName = baseAspectName;
-        oldAspect.updateInheritedRequiredProviders(inheritedRequiredProviders);
-        oldAspect.updateInheritedAttributeAspects(inheritedAttributeAspects);
-        return false; // no need to add the new aspect
+        // If the aspect to be added already exists and it is required by another aspect, no need to
+        // add it again.
+        return false;
       } else {
-        // If the aspect to be added is not required by another aspect, then we
-        // should throw an error
+        // If the aspect to be added is not required by another aspect, then we should throw error
         String oldAspectBaseAspectName = oldAspect.baseAspectName;
         if (oldAspectBaseAspectName != null) {
           throw Starlark.errorf(

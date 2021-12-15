@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
@@ -58,11 +58,11 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
     // This call could be combined with the call below, but this SkyFunction is evaluated so rarely
     // it's not worth optimizing.
-    BuildConfigurationValue value = (BuildConfigurationValue) env.getValue(key.configurationKey());
+    BuildConfigurationValue configuration =
+        (BuildConfigurationValue) env.getValue(key.configurationKey());
     if (env.valuesMissing()) {
       return null;
     }
-    BuildConfiguration configuration = value.getConfiguration();
 
     // Get all toolchains.
     RegisteredToolchainsValue toolchains;
@@ -79,11 +79,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       throw new ToolchainResolutionFunctionException(e);
     }
 
-    // Find the right one.
+    // Check if we are debugging the target or the toolchain type.
     boolean debug =
-        configuration
-            .getFragment(PlatformConfiguration.class)
-            .debugToolchainResolution(key.toolchainTypeLabel());
+        key.debugTarget()
+            || configuration
+                .getFragment(PlatformConfiguration.class)
+                .debugToolchainResolution(key.toolchainTypeLabel());
+
+    // Find the right one.
     return resolveConstraints(
         key.toolchainTypeLabel(),
         key.availableExecutionPlatformKeys(),
@@ -289,12 +292,6 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     }
 
     return mismatchSettingsWithDefault.isEmpty();
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /** Used to indicate that a toolchain was not found for the current request. */

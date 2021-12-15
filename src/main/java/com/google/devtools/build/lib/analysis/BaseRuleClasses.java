@@ -29,7 +29,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import net.starlark.java.eval.StarlarkInt;
 
@@ -59,7 +60,7 @@ public class BaseRuleClasses {
 
   private BaseRuleClasses() {}
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Attribute.ComputedDefault testonlyDefault =
       new Attribute.ComputedDefault() {
         @Override
@@ -73,7 +74,7 @@ public class BaseRuleClasses {
         }
       };
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Attribute.ComputedDefault deprecationDefault =
       new Attribute.ComputedDefault() {
         @Override
@@ -87,7 +88,7 @@ public class BaseRuleClasses {
         }
       };
 
-  @AutoCodec
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   public static final Attribute.ComputedDefault TIMEOUT_DEFAULT =
       new Attribute.ComputedDefault() {
         @Override
@@ -117,15 +118,15 @@ public class BaseRuleClasses {
    * they only run on the target configuration and should not operate on action_listeners and
    * extra_actions themselves (to avoid cycles).
    */
-  @AutoCodec @VisibleForTesting
+  @SerializationConstant @AutoCodec.VisibleForSerialization @VisibleForTesting
   static final LabelListLateBoundDefault<?> ACTION_LISTENER =
       LabelListLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           (rule, attributes, configuration) -> configuration.getActionListeners());
 
   public static final String DEFAULT_COVERAGE_SUPPORT_VALUE = "//tools/test:coverage_support";
 
-  @AutoCodec
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Resolver<TestConfiguration, Label> COVERAGE_SUPPORT_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getCoverageSupport();
 
@@ -141,7 +142,7 @@ public class BaseRuleClasses {
   private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
       "@bazel_tools//tools/test:lcov_merger";
 
-  @AutoCodec
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
 
@@ -151,13 +152,13 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
-  public static LabelLateBoundDefault<BuildConfiguration> getCoverageOutputGeneratorLabel() {
+  public static LabelLateBoundDefault<BuildConfigurationValue> getCoverageOutputGeneratorLabel() {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        BuildConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
+        BuildConfigurationValue.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
   }
 
-  @AutoCodec
-  static final Resolver<BuildConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+  @SerializationConstant @AutoCodec.VisibleForSerialization
+  static final Resolver<BuildConfigurationValue, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
       (rule, attributes, configuration) -> {
         if (configuration.isCodeCoverageEnabled()) {
           return Label.parseAbsoluteUnchecked(DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE);
@@ -168,10 +169,10 @@ public class BaseRuleClasses {
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
-  @AutoCodec
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   public static final LabelLateBoundDefault<?> RUN_UNDER =
       LabelLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           null,
           (rule, attributes, configuration) -> {
             RunUnder runUnder = configuration.getRunUnder();
@@ -265,7 +266,7 @@ public class BaseRuleClasses {
           .ifPresent(
               label ->
                   builder.add(
-                      Allowlist.getAttributeFromAllowlistName("$network_allowlist").value(label)));
+                      Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
 
       return builder.build();
     }

@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.analysis.buildinfo;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
 /** A collection of build-info files for both stamped and unstamped modes. */
-@AutoCodec
 public final class BuildInfoCollection {
   private final ImmutableList<ActionAnalysisMetadata> actions;
   private final ImmutableList<Artifact> stampedBuildInfo;
@@ -34,9 +32,7 @@ public final class BuildInfoCollection {
         ImmutableList.copyOf(redactedBuildInfo));
   }
 
-  @AutoCodec.Instantiator
-  @AutoCodec.VisibleForSerialization
-  BuildInfoCollection(
+  private BuildInfoCollection(
       ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableList<Artifact> stampedBuildInfo,
       ImmutableList<Artifact> redactedBuildInfo) {

@@ -96,6 +96,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
@@ -170,7 +171,6 @@ bootstrap_java_library(
         "//third_party/grpc:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",
     ],
-    neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
     tags = ["manual"],
 )
 
@@ -217,7 +217,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/java/jdk/langtools:javac",
         "//third_party/protobuf:protobuf_java",
     ],
 )

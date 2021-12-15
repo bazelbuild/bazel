@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.rules.LateBoundAlias.AbstractAliasRule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * Native implementation of label setting and flags.
@@ -49,11 +49,11 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  * possible today and could easily introduce large performance issues.
  */
 public class LabelBuildSettings {
-  @AutoCodec @VisibleForSerialization
-  // TODO(b/65746853): find a way to do this without passing the entire BuildConfiguration
-  static final LabelLateBoundDefault<BuildConfiguration> ACTUAL =
+  @SerializationConstant @VisibleForSerialization
+  // TODO(b/65746853): find a way to do this without passing the entire BuildConfigurationValue
+  static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
       LabelLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           null,
           (rule, attributes, configuration) -> {
             if (rule == null || configuration == null) {

@@ -363,4 +363,14 @@ public final class StableSortTest {
     List<SpawnExec> l = testStableSort(ImmutableList.of(f, e, d, c, b, a));
     assertThat(l).containsExactly(d, a, c, b, e, f).inOrder();
   }
+
+  @Test
+  public void stableSort_execsWithDuplicateOutputs() throws Exception {
+    SpawnExec a = createSpawnExec(ImmutableList.of("a"), ImmutableList.of("c"));
+    SpawnExec b = createSpawnExec(ImmutableList.of("b"), ImmutableList.of("c"));
+    SpawnExec c = createSpawnExec(ImmutableList.of("c"), ImmutableList.of("d"));
+
+    List<SpawnExec> l = testStableSort(ImmutableList.of(a, b, c));
+    assertThat(l).containsExactly(a, b, c).inOrder();
+  }
 }

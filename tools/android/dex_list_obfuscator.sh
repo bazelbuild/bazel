@@ -20,12 +20,13 @@
 set -eu
 input=
 output=
+obfuscation_map=
 while [[ "$#" -gt 0 ]]; do
   arg="$1"; shift;
   case "${arg}" in
     --input) input="$1"; shift ;;
     --output) output="$1"; shift ;;
-    ---obfuscation_map=*) shift ;;
+    --obfuscation_map) obfuscation_map="$1"; shift ;;
     *) echo "Unknown flag: ${arg}"; exit 1 ;;
   esac
 done

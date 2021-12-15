@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
+import javax.annotation.Nullable;
 
 /**
  * {@link SkyKey} for an "analysis object": either an {@link ActionLookupValue} or a {@link
@@ -28,4 +30,12 @@ import com.google.devtools.build.skyframe.SkyKey;
  * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,
  * while remaining agnostic to what action lookup values actually exist.
  */
-public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {}
+public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {
+
+  /**
+   * Returns the {@link BuildConfigurationKey} for the configuration associated with this key, or
+   * {@code null} if this key has no associated configuration.
+   */
+  @Nullable
+  BuildConfigurationKey getConfigurationKey();
+}

@@ -17,15 +17,23 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.ExtraLinkTimeLibrary.BuildLibraryOutput;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
 /**
  * A list of extra libraries to include in a link. These are non-C++ libraries that are built from
@@ -33,17 +41,14 @@ import java.util.Map;
  * one will add an ExtraLinkTimeLibrary to its CcLinkParams. ExtraLinkTimeLibrary is an interface,
  * and all ExtraLinkTimeLibrary objects of the same class will be gathered together.
  */
-@AutoCodec
-public final class ExtraLinkTimeLibraries {
+public final class ExtraLinkTimeLibraries implements StarlarkValue {
   /**
    * We can have multiple different kinds of lists of libraries to include
    * at link time.  We map from the class type to an actual instance.
    */
   private final Collection<ExtraLinkTimeLibrary> extraLibraries;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  ExtraLinkTimeLibraries(Collection<ExtraLinkTimeLibrary> extraLibraries) {
+  private ExtraLinkTimeLibraries(Collection<ExtraLinkTimeLibrary> extraLibraries) {
     this.extraLibraries = extraLibraries;
   }
 
@@ -52,6 +57,14 @@ public final class ExtraLinkTimeLibraries {
    */
   public Collection<ExtraLinkTimeLibrary> getExtraLibraries() {
     return extraLibraries;
+  }
+
+  /** Get the set of extra libraries for Starlark. */
+  @StarlarkMethod(name = "extra_libraries", documented = false, useStarlarkThread = true)
+  public Sequence<ExtraLinkTimeLibrary> getExtraLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getExtraLibraries());
   }
 
   public static final Builder builder() {
@@ -115,5 +128,33 @@ public final class ExtraLinkTimeLibraries {
       runtimeLibraries.addTransitive(buildLibraryOutput.getRuntimeLibraries());
     }
     return new BuildLibraryOutput(linkerInputs.build(), runtimeLibraries.build());
+  }
+
+  @StarlarkMethod(
+      name = "build_libraries",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "static_mode", positional = false, named = true),
+        @Param(name = "for_dynamic_library", positional = false, named = true),
+      })
+  public Tuple getBuildLibrariesForStarlark(
+      StarlarkRuleContext starlarkRuleContext,
+      boolean staticMode,
+      boolean forDynamicLibrary,
+      StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    try {
+      BuildLibraryOutput buildLibraryOutput =
+          buildLibraries(starlarkRuleContext.getRuleContext(), staticMode, forDynamicLibrary);
+      Depset linkerInputs =
+          Depset.of(CcLinkingContext.LinkerInput.TYPE, buildLibraryOutput.getLinkerInputs());
+      Depset runtimeLibraries = Depset.of(Artifact.TYPE, buildLibraryOutput.getRuntimeLibraries());
+      return Tuple.pair(linkerInputs, runtimeLibraries);
+    } catch (InterruptedException | RuleErrorException e) {
+      throw new EvalException(e);
+    }
   }
 }

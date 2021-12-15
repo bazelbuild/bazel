@@ -137,6 +137,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Object cfg,
       Object execGroups,
       Object compileOneFiletype,
+      Object name,
       StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
@@ -154,9 +155,11 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
-    // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
+    // Only the Builder is passed to RuleInfoWrapper as the rule name may not be available yet.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
-
+    if (name != Starlark.NONE) {
+      ruleInfo.setRuleName((String) name);
+    }
     Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
 
@@ -164,12 +167,10 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException {
+  public Label label(String labelString, StarlarkThread thread) throws EvalException {
     try {
       return Label.parseAbsolute(
           labelString,
-          /* defaultToMain= */ false,
           /* repositoryMapping= */ ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);

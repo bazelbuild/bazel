@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -27,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -36,6 +34,7 @@ import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 
@@ -135,15 +134,11 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     return Optional.of(ImmutableMap.copyOf(expectedValues));
   }
 
-  /** Returns the feature flags this rule sets as user-friendly strings. */
-  public static ImmutableSet<String> getFlagNames(RuleContext ruleContext) {
-    return ruleContext
-        .attributes()
+  /** Returns the feature flags set by the rule with the given attributes. */
+  public static Set<Label> getFeatureFlags(AttributeMap attributes) {
+    return attributes
         .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
-        .keySet()
-        .stream()
-        .map(Label::toString)
-        .collect(toImmutableSet());
+        .keySet();
   }
 
   /**

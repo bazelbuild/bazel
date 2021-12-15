@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Servi
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
@@ -88,7 +88,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository,
       Iterable<String> additionalProtocOpts)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(ruleContext);
@@ -111,10 +110,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
-    return createWithProtocOpts(
-        ctadBase, ruleContext, parameters, toolsRepository, ImmutableList.of());
+    return createWithProtocOpts(ctadBase, ruleContext, parameters, ImmutableList.of());
   }
 
   @Override
@@ -143,8 +141,17 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     rpcSupport.mutateAspectDefinition(result, aspectParameters);
 
+    mutateAspectDefinition(result, aspectParameters);
+
     return result.build();
   }
+
+  /**
+   * Invoked after the default aspect definition has been created. Override this to add further
+   * attributes, etc. Default implementation does nothing.
+   */
+  protected void mutateAspectDefinition(
+      AspectDefinition.Builder builder, AspectParameters aspectParameters) {}
 
   private static class Impl {
 
@@ -203,7 +210,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         transitiveOutputJars.addTransitive(provider.getJars());
       }
 
-      if (shouldGenerateCode()) {
+      if (aspectCommon.shouldGenerateCode(protoInfo, "java_proto_library")) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
         Artifact outputJar = aspectCommon.getOutputJarArtifact();
@@ -266,25 +273,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                       javaProtoLibraryAspectProviders,
                       generatedCompilationArgsProvider,
                       aspectCommon.getProtoRuntimeDeps())));
-    }
-
-    /**
-     * Decides whether code should be generated for the .proto files in the currently-processed
-     * proto_library.
-     */
-    private boolean shouldGenerateCode() {
-      if (protoInfo.getDirectSources().isEmpty()) {
-        return false;
-      }
-
-      NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
-      forbiddenProtos.addTransitive(aspectCommon.getProtoToolchainProvider().forbiddenProtos());
-      forbiddenProtos.addTransitive(rpcSupport.getForbiddenProtos(ruleContext));
-
-      final ProtoSourceFileExcludeList protoExcludeList =
-          new ProtoSourceFileExcludeList(ruleContext, forbiddenProtos.build());
-
-      return protoExcludeList.checkSrcs(protoInfo.getDirectSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {

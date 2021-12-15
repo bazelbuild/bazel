@@ -20,13 +20,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -36,7 +32,7 @@ import java.util.Objects;
 @Immutable
 @ThreadSafe
 final class TestExpansionValue implements SkyValue {
-  private ResolvedTargets<Label> labels;
+  private final ResolvedTargets<Label> labels;
 
   TestExpansionValue(ResolvedTargets<Label> labels) {
     this.labels = Preconditions.checkNotNull(labels);
@@ -44,21 +40,6 @@ final class TestExpansionValue implements SkyValue {
 
   public ResolvedTargets<Label> getLabels() {
     return labels;
-  }
-
-  @SuppressWarnings("unused")
-  private void writeObject(ObjectOutputStream out) {
-    throw new NotSerializableRuntimeException();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObject(ObjectInputStream in) {
-    throw new NotSerializableRuntimeException();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObjectNoData() {
-    throw new IllegalStateException();
   }
 
   /**
@@ -74,7 +55,7 @@ final class TestExpansionValue implements SkyValue {
 
   /** A list of targets of which all test suites should be expanded. */
   @ThreadSafe
-  static final class TestExpansionKey implements SkyKey, Serializable {
+  static final class TestExpansionKey implements SkyKey {
     private final Label label;
     private final boolean strict;
 

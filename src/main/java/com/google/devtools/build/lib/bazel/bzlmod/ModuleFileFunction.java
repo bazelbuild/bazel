@@ -63,6 +63,8 @@ import net.starlark.java.syntax.SyntaxError;
 public class ModuleFileFunction implements SkyFunction {
 
   public static final Precomputed<List<String>> REGISTRIES = new Precomputed<>("registries");
+  public static final Precomputed<Boolean> IGNORE_DEV_DEPS =
+      new Precomputed<>("ignore_dev_dependency");
 
   private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
@@ -93,10 +95,17 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     ModuleFileGlobals moduleFileGlobals =
-        execModuleFile(getModuleFileResult.moduleFileContents, moduleKey, starlarkSemantics, env);
+        execModuleFile(
+            getModuleFileResult.moduleFileContents,
+            getModuleFileResult.registry,
+            moduleKey,
+            // Dev dependencies should always be ignored if the current module isn't the root module
+            /* ignoreDevDeps= */ true,
+            starlarkSemantics,
+            env);
 
     // Perform some sanity checks.
-    Module module = moduleFileGlobals.buildModule(getModuleFileResult.registry);
+    Module module = moduleFileGlobals.buildModule();
     if (!module.getName().equals(moduleKey.getName())) {
       throw errorf(
           Code.BAD_MODULE,
@@ -128,8 +137,14 @@ public class ModuleFileFunction implements SkyFunction {
     }
     byte[] moduleFile = readFile(moduleFilePath.asPath());
     ModuleFileGlobals moduleFileGlobals =
-        execModuleFile(moduleFile, ModuleKey.ROOT, starlarkSemantics, env);
-    Module module = moduleFileGlobals.buildModule(null);
+        execModuleFile(
+            moduleFile,
+            /*registry=*/ null,
+            ModuleKey.ROOT,
+            /* ignoreDevDeps= */ Objects.requireNonNull(IGNORE_DEV_DEPS.get(env)),
+            starlarkSemantics,
+            env);
+    Module module = moduleFileGlobals.buildModule();
 
     // Check that overrides don't contain the root module itself.
     ImmutableMap<String, ModuleOverride> overrides = moduleFileGlobals.buildOverrides();
@@ -150,7 +165,12 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   private ModuleFileGlobals execModuleFile(
-      byte[] moduleFile, ModuleKey moduleKey, StarlarkSemantics starlarkSemantics, Environment env)
+      byte[] moduleFile,
+      @Nullable Registry registry,
+      ModuleKey moduleKey,
+      boolean ignoreDevDeps,
+      StarlarkSemantics starlarkSemantics,
+      Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     StarlarkFile starlarkFile =
         StarlarkFile.parse(ParserInput.fromUTF8(moduleFile, moduleKey + "/MODULE.bazel"));
@@ -159,7 +179,7 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "error parsing MODULE.bazel file for %s", moduleKey);
     }
 
-    ModuleFileGlobals moduleFileGlobals = new ModuleFileGlobals();
+    ModuleFileGlobals moduleFileGlobals = new ModuleFileGlobals(moduleKey, registry, ignoreDevDeps);
     try (Mutability mu = Mutability.create("module file", moduleKey)) {
       net.starlark.java.eval.Module predeclaredEnv =
           getPredeclaredEnv(moduleFileGlobals, starlarkSemantics);
@@ -168,8 +188,12 @@ public class ModuleFileFunction implements SkyFunction {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       Starlark.execFileProgram(program, predeclaredEnv, thread);
-    } catch (SyntaxError.Exception | EvalException e) {
-      throw errorf(Code.BAD_MODULE, e, "error executing MODULE.bazel file for %s", moduleKey);
+    } catch (SyntaxError.Exception e) {
+      Event.replayEventsOn(env.getListener(), e.errors());
+      throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
     return moduleFileGlobals;
   }
@@ -268,11 +292,6 @@ public class ModuleFileFunction implements SkyFunction {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, moduleFileGlobals, starlarkSemantics);
     return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.build());
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   @FormatMethod

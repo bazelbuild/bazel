@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,6 +43,11 @@ public class WorkerMultiplexerManagerTest {
   @Before
   public void setUp() {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
+    WorkerMultiplexerManager.reset();
+  }
+
+  @After
+  public void tearDown() {
     WorkerMultiplexerManager.reset();
   }
 

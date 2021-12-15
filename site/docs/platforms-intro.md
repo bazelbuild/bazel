@@ -375,7 +375,7 @@ migration):
    --cpu=... --crosstool_top=...`
 
     This has some maintenance cost (you have to manually make sure the settings
-    match). But this should work in the absense of renegade
+    match). But this should work in the absence of renegade
     [transitions](#transitions).
 
 1. Write [platform mappings](#platform-mappings) to support both styles by

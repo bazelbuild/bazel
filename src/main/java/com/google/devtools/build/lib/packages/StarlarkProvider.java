@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import java.util.Objects;
@@ -54,61 +53,56 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   // as it lets us verify table ⊆ schema in O(n) time without temporaries.
   @Nullable private final ImmutableList<String> schema;
 
-  /** Null iff this provider has not yet been exported. */
+  /** Null iff this provider has not yet been exported. Mutated by {@link export}. */
   @Nullable private Key key;
 
   /**
-   * Creates an unexported {@link StarlarkProvider} with no schema.
+   * Returns a new empty builder.
    *
-   * <p>The resulting object needs to be exported later (via {@link #export}).
+   * <p>By default (unless {@link Builder#setExported} is called), the builder will build a provider
+   * which is unexported and would need to be exported later via {@link #export}.
+   *
+   * <p>By default (unless {@link Builder#setSchema} is called), the builder will build a provider
+   * which is schemaless.
    *
    * @param location the location of the Starlark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
-  public static StarlarkProvider createUnexportedSchemaless(Location location) {
-    return new StarlarkProvider(/*key=*/ null, /*schema=*/ null, location);
+  public static Builder builder(Location location) {
+    return new Builder(location);
   }
 
-  /**
-   * Creates an unexported {@link StarlarkProvider} with a schema.
-   *
-   * <p>The resulting object needs to be exported later (via {@link #export}).
-   *
-   * @param schema the allowed field names for instances of this provider
-   * @param location the location of the Starlark definition for this provider (tests may use {@link
-   *     Location#BUILTIN})
-   */
-  // TODO(adonovan): in what sense is this "schemaful" if schema may be null?
-  public static StarlarkProvider createUnexportedSchemaful(
-      @Nullable Collection<String> schema, Location location) {
-    return new StarlarkProvider(
-        /*key=*/ null, schema == null ? null : ImmutableList.sortedCopyOf(schema), location);
-  }
+  /** A builder which may be used to construct a StarlarkProvider. */
+  public static final class Builder {
+    private final Location location;
 
-  /**
-   * Creates an exported {@link StarlarkProvider} with no schema.
-   *
-   * @param key the key that identifies this provider
-   * @param location the location of the Starlark definition for this provider (tests may use {@link
-   *     Location#BUILTIN})
-   */
-  public static StarlarkProvider createExportedSchemaless(Key key, Location location) {
-    return new StarlarkProvider(key, /*schema=*/ null, location);
-  }
+    @Nullable private ImmutableList<String> schema;
 
-  /**
-   * Creates an exported {@link StarlarkProvider} with no schema.
-   *
-   * @param key the key that identifies this provider
-   * @param schema the allowed field names for instances of this provider
-   * @param location the location of the Starlark definition for this provider (tests may use {@link
-   *     Location#BUILTIN})
-   */
-  // TODO(adonovan): in what sense is this "schemaful" if schema may be null?
-  public static StarlarkProvider createExportedSchemaful(
-      Key key, @Nullable Collection<String> schema, Location location) {
-    return new StarlarkProvider(
-        key, schema == null ? null : ImmutableList.sortedCopyOf(schema), location);
+    @Nullable private Key key;
+
+    private Builder(Location location) {
+      this.location = location;
+    }
+
+    /**
+     * Sets the schema (the list of allowed field names) for instances of the provider built by this
+     * builder.
+     */
+    public Builder setSchema(Collection<String> schema) {
+      this.schema = ImmutableList.sortedCopyOf(schema);
+      return this;
+    }
+
+    /** Sets the provider built by this builder to be exported with the given key. */
+    public Builder setExported(Key key) {
+      this.key = key;
+      return this;
+    }
+
+    /** Builds a StarlarkProvider. */
+    public StarlarkProvider build() {
+      return new StarlarkProvider(location, schema, key);
+    }
   }
 
   /**
@@ -118,10 +112,10 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * is schemaless.
    */
   private StarlarkProvider(
-      @Nullable Key key, @Nullable ImmutableList<String> schema, Location location) {
-    this.schema = schema;
+      Location location, @Nullable ImmutableList<String> schema, @Nullable Key key) {
     this.location = location;
-    this.key = key;  // possibly null
+    this.schema = schema;
+    this.key = key;
   }
 
   @Override
@@ -221,8 +215,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * A serializable representation of Starlark-defined {@link StarlarkProvider} that uniquely
    * identifies all {@link StarlarkProvider}s that are exposed to SkyFrame.
    */
-  @AutoCodec
-  public static class Key extends Provider.Key {
+  public static final class Key extends Provider.Key {
     private final Label extensionLabel;
     private final String exportedName;
 

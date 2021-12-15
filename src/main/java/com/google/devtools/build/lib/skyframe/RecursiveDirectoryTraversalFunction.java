@@ -23,11 +23,13 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -35,9 +37,18 @@ import javax.annotation.Nullable;
  * RecursiveDirectoryTraversalFunction allows for a custom recursive traversal of the subdirectories
  * of a directory, building up a value based on package existence and results of the recursive
  * traversal.
+ *
+ * <p>It attempts to ignore package-definition-related errors, and even file symlink cycles, which
+ * means that in keep-going mode, it will produce a result even if the traversed directory contains
+ * such errors. In no-keep-going mode, such exceptions will shut down the build, so callers must be
+ * prepared to handle {@link com.google.devtools.build.lib.packages.NoSuchPackageException} and
+ * {@link com.google.devtools.build.lib.io.FileSymlinkException}.
+ *
+ * <p>It will always eagerly fail on exceptions indicating filesystem inconsistencies, since they
+ * indicate bad disk that may make results unreliable.
  */
 public abstract class RecursiveDirectoryTraversalFunction<
-    TConsumer extends RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer, TReturn> {
+    ConsumerT extends RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer, ReturnT> {
   private final BlazeDirectories directories;
 
   protected RecursiveDirectoryTraversalFunction(BlazeDirectories directories) {
@@ -45,9 +56,11 @@ public abstract class RecursiveDirectoryTraversalFunction<
   }
 
   /** Called by {@link #visitDirectory}, which will then recursive traverse the directory. */
+  @ForOverride
   @Nullable
   protected ProcessPackageDirectoryResult getProcessPackageDirectoryResult(
-      RecursivePkgKey recursivePkgKey, Environment env) throws InterruptedException {
+      RecursivePkgKey recursivePkgKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     return new ProcessPackageDirectory(directories, this::getSkyKeyForSubdirectory)
         .getPackageExistenceAndSubdirDeps(
             recursivePkgKey.getRootedPath(),
@@ -62,7 +75,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
    * a package, and which will lastly be provided to {@link #aggregateWithSubdirectorySkyValues} to
    * compute the {@code TReturn} value returned by {@link #visitDirectory}.
    */
-  protected abstract TConsumer getInitialConsumer();
+  protected abstract ConsumerT getInitialConsumer();
 
   /**
    * Called by {@link #visitDirectory} to get the {@link SkyKey}s associated with recursive
@@ -80,8 +93,8 @@ public abstract class RecursiveDirectoryTraversalFunction<
    * function of {@code consumer} and the {@link SkyValue}s computed for subdirectories of the
    * directory specified by {@code recursivePkgKey}, contained in {@code subdirectorySkyValues}.
    */
-  protected abstract TReturn aggregateWithSubdirectorySkyValues(
-      TConsumer consumer, Map<SkyKey, SkyValue> subdirectorySkyValues);
+  protected abstract ReturnT aggregateWithSubdirectorySkyValues(
+      ConsumerT consumer, Map<SkyKey, SkyValue> subdirectorySkyValues);
 
   /**
    * A type of consumer used by {@link #visitDirectory} as it checks for a package in the directory
@@ -117,10 +130,13 @@ public abstract class RecursiveDirectoryTraversalFunction<
    *
    * <p>Returns null if {@code env.valuesMissing()} is true, checked after each call to one of
    * {@link RecursiveDirectoryTraversalFunction}'s abstract methods that were given {@code env}.
+   *
+   * <p>Will propagate {@link com.google.devtools.build.lib.packages.NoSuchPackageException} during
+   * a no-keep-going evaluation
    */
   @Nullable
-  public final TReturn visitDirectory(RecursivePkgKey recursivePkgKey, Environment env)
-      throws InterruptedException {
+  public final ReturnT visitDirectory(RecursivePkgKey recursivePkgKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     ProcessPackageDirectoryResult processPackageDirectoryResult =
         getProcessPackageDirectoryResult(recursivePkgKey, env);
     if (env.valuesMissing()) {
@@ -128,7 +144,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
     }
 
     Iterable<SkyKey> childDeps = processPackageDirectoryResult.getChildDeps();
-    TConsumer consumer = getInitialConsumer();
+    ConsumerT consumer = getInitialConsumer();
 
     Map<SkyKey, SkyValue> subdirectorySkyValuesFromDeps;
     if (processPackageDirectoryResult.packageExists()) {
@@ -136,6 +152,9 @@ public abstract class RecursiveDirectoryTraversalFunction<
       SkyKey packageErrorMessageKey =
           PackageErrorMessageValue.key(
               PackageIdentifier.create(recursivePkgKey.getRepositoryName(), rootRelativePath));
+      // In a no-keep-going build during error bubbling, PackageErrorMessageFunction may throw a
+      // NoSuchPackageException. Since we don't catch such an exception here, this SkyFunction will
+      // return immediately with a missing value, and the NoSuchPackageException will propagate up.
       Map<SkyKey, SkyValue> dependentSkyValues =
           env.getValues(Iterables.concat(childDeps, ImmutableList.of(packageErrorMessageKey)));
       if (env.valuesMissing()) {

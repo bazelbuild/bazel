@@ -104,6 +104,14 @@ message Action {
   // The execution platform for this action. Empty if the action has no
   // execution platform.
   string execution_platform = 14;
+
+  // The template content of the action, if it is TemplateExpand action.
+  string template_content = 15;
+
+  // The list of substitution should be performed on the template. The key is
+  // the string to be substituted and the value is the string to be substituted
+  // to.
+  repeated KeyValuePair substitutions = 16;
 }
 
 // Represents a single target (without configuration information) that is

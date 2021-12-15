@@ -34,6 +34,7 @@ public class EvaluationContext {
   private final boolean useForkJoinPool;
   private final boolean isExecutionPhase;
   private final int cpuHeavySkyKeysThreadPoolSize;
+  private final int executionPhaseThreadPoolSize;
 
   protected EvaluationContext(
       int numThreads,
@@ -42,7 +43,8 @@ public class EvaluationContext {
       ExtendedEventHandler eventHandler,
       boolean useForkJoinPool,
       boolean isExecutionPhase,
-      int cpuHeavySkyKeysThreadPoolSize) {
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionPhaseThreadPoolSize) {
     Preconditions.checkArgument(0 < numThreads, "numThreads must be positive");
     this.numThreads = numThreads;
     this.executorServiceSupplier = executorServiceSupplier;
@@ -51,6 +53,7 @@ public class EvaluationContext {
     this.useForkJoinPool = useForkJoinPool;
     this.isExecutionPhase = isExecutionPhase;
     this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
+    this.executionPhaseThreadPoolSize = executionPhaseThreadPoolSize;
   }
 
   public int getParallelism() {
@@ -80,7 +83,8 @@ public class EvaluationContext {
           this.eventHandler,
           this.useForkJoinPool,
           this.isExecutionPhase,
-          this.cpuHeavySkyKeysThreadPoolSize);
+          this.cpuHeavySkyKeysThreadPoolSize,
+          this.executionPhaseThreadPoolSize);
     }
   }
 
@@ -102,6 +106,14 @@ public class EvaluationContext {
     return cpuHeavySkyKeysThreadPoolSize;
   }
 
+  /**
+   * Returns the size of the thread pool to be used for the execution phase. Only applicable with
+   * --experimental_merged_skyframe_analysis_execution.
+   */
+  public int getExecutionPhaseThreadPoolSize() {
+    return executionPhaseThreadPoolSize;
+  }
+
   public boolean isExecutionPhase() {
     return isExecutionPhase;
   }
@@ -118,6 +130,7 @@ public class EvaluationContext {
     private ExtendedEventHandler eventHandler;
     private boolean useForkJoinPool;
     private int cpuHeavySkyKeysThreadPoolSize;
+    private int executionJobsThreadPoolSize = 0;
     private boolean isExecutionPhase = false;
 
     private Builder() {}
@@ -129,6 +142,7 @@ public class EvaluationContext {
       this.eventHandler = evaluationContext.eventHandler;
       this.isExecutionPhase = evaluationContext.isExecutionPhase;
       this.useForkJoinPool = evaluationContext.useForkJoinPool;
+      this.executionJobsThreadPoolSize = evaluationContext.executionPhaseThreadPoolSize;
       this.cpuHeavySkyKeysThreadPoolSize = evaluationContext.cpuHeavySkyKeysThreadPoolSize;
       return this;
     }
@@ -163,6 +177,11 @@ public class EvaluationContext {
       return this;
     }
 
+    public Builder setExecutionPhaseThreadPoolSize(int executionJobsThreadPoolSize) {
+      this.executionJobsThreadPoolSize = executionJobsThreadPoolSize;
+      return this;
+    }
+
     public Builder setExecutionPhase() {
       isExecutionPhase = true;
       return this;
@@ -176,7 +195,8 @@ public class EvaluationContext {
           eventHandler,
           useForkJoinPool,
           isExecutionPhase,
-          cpuHeavySkyKeysThreadPoolSize);
+          cpuHeavySkyKeysThreadPoolSize,
+          executionJobsThreadPoolSize);
     }
   }
 }

@@ -38,7 +38,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  * "precomputed" from skyframe's perspective and so the graph needs to be prepopulated with them
  * (e.g. via injection).
  */
-@AutoCodec
 public class PrecomputedValue implements SkyValue {
   /**
    * An externally-injected precomputed value. Exists so that modules can inject precomputed values
@@ -96,7 +95,7 @@ public class PrecomputedValue implements SkyValue {
 
   private final Object value;
 
-  @AutoCodec.Instantiator
+  @VisibleForTesting
   public PrecomputedValue(Object value) {
     this.value = Preconditions.checkNotNull(value);
   }

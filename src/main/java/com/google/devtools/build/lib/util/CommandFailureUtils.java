@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.util;
 
 import static java.util.Map.Entry.comparingByKey;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
@@ -144,20 +144,21 @@ public class CommandFailureUtils {
   private CommandFailureUtils() {} // Prevent instantiation.
 
   /**
-   * Construct a string that describes the command.
-   * Currently this returns a message of the form "foo bar baz",
-   * with shell meta-characters appropriately quoted and/or escaped,
-   * prefixed (if verbose is true) with an "env" command to set the environment.
+   * Construct a string that describes the command. Currently this returns a message of the form
+   * "foo bar baz", with shell meta-characters appropriately quoted and/or escaped, prefixed (if
+   * verbose is true) with an "env" command to set the environment.
    *
-   * @param form Form of the command to generate; see the documentation of the
-   * {@link CommandDescriptionForm} values.
+   * @param form Form of the command to generate; see the documentation of the {@link
+   *     CommandDescriptionForm} values.
    */
   public static String describeCommand(
       CommandDescriptionForm form,
       boolean prettyPrintArgs,
       Collection<String> commandLineElements,
       @Nullable Map<String, String> environment,
-      @Nullable String cwd) {
+      @Nullable String cwd,
+      @Nullable String configurationChecksum,
+      @Nullable String executionPlatformAsLabelString) {
 
     Preconditions.checkNotNull(form);
     StringBuilder message = new StringBuilder();
@@ -238,19 +239,39 @@ public class CommandFailureUtils {
       describeCommandImpl.describeCommandEndIsolate(message);
     }
 
+    if (form == CommandDescriptionForm.COMPLETE) {
+
+      if (configurationChecksum != null) {
+        message.append("\n");
+        message.append("# Configuration: ").append(configurationChecksum);
+      }
+
+      if (executionPlatformAsLabelString != null) {
+        message.append("\n");
+        message.append("# Execution platform: ").append(executionPlatformAsLabelString);
+      }
+    }
+
     return message.toString();
   }
 
   /**
    * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "error executing command foo bar baz".
+   * message of the form "foo failed: error executing command /dir/foo bar baz".
    */
-  public static String describeCommandError(
+  @VisibleForTesting
+  static String describeCommandFailure(
       boolean verbose,
       Collection<String> commandLineElements,
       Map<String, String> env,
-      String cwd,
-      @Nullable PlatformInfo executionPlatform) {
+      @Nullable String cwd,
+      @Nullable String configurationChecksum,
+      @Nullable String targetLabel,
+      @Nullable String executionPlatformAsLabelString) {
+
+    String commandName = commandLineElements.iterator().next();
+    // Extract the part of the command name after the last "/", if any.
+    String shortCommandName = new File(commandName).getName();
 
     CommandDescriptionForm form = verbose
         ? CommandDescriptionForm.COMPLETE
@@ -258,34 +279,33 @@ public class CommandFailureUtils {
 
     StringBuilder output = new StringBuilder();
     output.append("error executing command ");
+    if (targetLabel != null) {
+      output.append("(from target ").append(targetLabel).append(") ");
+    }
     if (verbose) {
       output.append("\n  ");
     }
     output.append(
-        describeCommand(form, /* prettyPrintArgs= */ false, commandLineElements, env, cwd));
-    if (verbose && executionPlatform != null) {
-      output.append("\n");
-      output.append("Execution platform: ").append(executionPlatform.label());
-    }
-    return output.toString();
+        describeCommand(
+            form,
+            /* prettyPrintArgs= */ false,
+            commandLineElements,
+            env,
+            cwd,
+            configurationChecksum,
+            executionPlatformAsLabelString));
+    return shortCommandName + " failed: " + output;
   }
 
-  /**
-   * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "foo failed: error executing command /dir/foo bar baz".
-   */
   public static String describeCommandFailure(
-      boolean verbose,
-      Collection<String> commandLineElements,
-      Map<String, String> env,
-      String cwd,
-      @Nullable PlatformInfo executionPlatform) {
-
-    String commandName = commandLineElements.iterator().next();
-    // Extract the part of the command name after the last "/", if any.
-    String shortCommandName = new File(commandName).getName();
-    return shortCommandName
-        + " failed: "
-        + describeCommandError(verbose, commandLineElements, env, cwd, executionPlatform);
+      boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
+    return describeCommandFailure(
+        verboseFailures,
+        command.getArguments(),
+        command.getEnvironment(),
+        cwd,
+        command.getConfigurationChecksum(),
+        command.getTargetLabel(),
+        command.getExecutionPlatformLabelString());
   }
 }

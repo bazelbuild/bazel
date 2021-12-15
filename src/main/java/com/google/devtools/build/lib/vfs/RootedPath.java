@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -31,7 +30,7 @@ import javax.annotation.Nullable;
  * clients via #asPath or #getRoot.
  */
 @AutoCodec
-public class RootedPath implements Serializable, Comparable<RootedPath> {
+public class RootedPath implements Comparable<RootedPath> {
   private final Root root;
   private final PathFragment rootRelativePath;
 
@@ -100,7 +99,7 @@ public class RootedPath implements Serializable, Comparable<RootedPath> {
 
   @Nullable
   public RootedPath getParentDirectory() {
-    PathFragment rootRelativeParentDirectory = getRootRelativePath().getParentDirectory();
+    PathFragment rootRelativeParentDirectory = rootRelativePath.getParentDirectory();
     if (rootRelativeParentDirectory == null) {
       return null;
     }

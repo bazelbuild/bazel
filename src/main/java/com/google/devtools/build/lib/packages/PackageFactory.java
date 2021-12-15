@@ -24,7 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -458,7 +458,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       String workspaceName,
       StarlarkSemantics starlarkSemantics,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      RepositoryMapping repositoryMapping) {
     return new Package.Builder(
         packageSettings,
         packageId,
@@ -661,10 +661,10 @@ public final class PackageFactory {
               BazelStarlarkContext.Phase.LOADING,
               ruleClassProvider.getToolsRepository(),
               /*fragmentNameToClass=*/ null,
-              pkgBuilder.getRepositoryMapping(),
               pkgBuilder.getConvertedLabelsInPackage(),
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.

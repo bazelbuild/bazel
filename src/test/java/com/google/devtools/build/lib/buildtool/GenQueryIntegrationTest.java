@@ -35,6 +35,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
+
   @Test
   public void testDoesNotFailHorribly() throws Exception {
     write(

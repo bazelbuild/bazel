@@ -64,7 +64,10 @@ public final class TestSuiteRule implements RuleDefinition {
           <a href="https://docs.bazel.build/versions/main/guide.html#specifying-targets-to-build">target patterns</a>.
           There, <code>test_suite</code> targets tagged "manual" are filtered out (and thus not
           expanded). This behavior is consistent with how <code>blaze build</code> and
-          <code>blaze test</code> handle wildcard target patterns in general.
+          <code>blaze test</code> handle wildcard target patterns in general. Note that this is
+          explicitly different from how <code>blaze query 'tests(E)'</code> behaves, as suites are
+          always expanded by the <code>tests</code> query function, regardless of the
+          <code>manual</code> tag.
         </p>
         <p>
           Note that a test's <code>size</code> is considered a tag for the purpose of filtering.

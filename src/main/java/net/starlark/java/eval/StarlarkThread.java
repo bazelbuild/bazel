@@ -396,7 +396,10 @@ public final class StarlarkThread {
    * Constructs a StarlarkThread.
    *
    * @param mu the (non-frozen) mutability of values created by this thread.
-   * @param semantics the StarlarkSemantics for this thread.
+   * @param semantics the StarlarkSemantics for this thread. Note that it is generally a code smell
+   *     to use {@link StarlarkSemantics#DEFAULT} if the application permits customizing the
+   *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
+   *     the same application would use the same {@code StarlarkSemantics} instance.
    */
   public StarlarkThread(Mutability mu, StarlarkSemantics semantics) {
     Preconditions.checkArgument(!mu.isFrozen());

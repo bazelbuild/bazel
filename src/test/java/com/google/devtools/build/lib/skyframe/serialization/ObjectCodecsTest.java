@@ -24,33 +24,30 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link ObjectCodecs}. */
 @RunWith(JUnit4.class)
-public class ObjectCodecsTest {
+public final class ObjectCodecsTest {
 
   /** Dummy ObjectCodec implementation so we can verify nice type system interaction. */
   private static class IntegerCodec implements ObjectCodec<Integer> {
+
     @Override
     public Class<Integer> getEncodedClass() {
       return Integer.class;
     }
 
-    // We have to override the default explicitly here because Mockito can't delegate to default
-    // methods on interfaces.
     @Override
-    public ImmutableList<Class<? extends Integer>> additionalEncodedClasses() {
-      return ImmutableList.of();
+    public boolean autoRegister() {
+      return false;
     }
 
     @Override
@@ -64,24 +61,14 @@ public class ObjectCodecsTest {
         throws SerializationException, IOException {
       return codedIn.readInt32();
     }
-
-    /** Disables auto-registration. */
-    @SuppressWarnings("unused") // Used reflectively.
-    private static class IntegerCodecRegisterer implements CodecRegisterer<IntegerCodec> {}
   }
 
-  private ObjectCodec<Integer> spyObjectCodec;
+  private final ObjectCodec<Integer> spyObjectCodec = spy(new IntegerCodec());
 
-  private ObjectCodecs underTest;
-
-  @Before
-  public final void setup() {
-    spyObjectCodec = spy(new IntegerCodec());
-    this.underTest =
-        new ObjectCodecs(
-            ObjectCodecRegistry.newBuilder().add(spyObjectCodec).build(),
-            ImmutableClassToInstanceMap.of());
-  }
+  private final ObjectCodecs underTest =
+      new ObjectCodecs(
+          ObjectCodecRegistry.newBuilder().add(spyObjectCodec).build(),
+          ImmutableClassToInstanceMap.of());
 
   @Test
   public void testSerializeDeserializeUsesCustomLogicWhenAvailable() throws Exception {

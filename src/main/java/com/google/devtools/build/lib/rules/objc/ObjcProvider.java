@@ -120,14 +120,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       new Key<>(LINK_ORDER, "imported_library", Artifact.class);
 
   /**
-   * J2ObjC JRE emulation libraries and their dependencies. Separate from LIBRARY because these
-   * dependencies are specified further up the tree from where the dependency actually exists and
-   * they must be forced to the end of the link order.
-   */
-  public static final Key<Artifact> JRE_LIBRARY =
-      new Key<>(LINK_ORDER, "jre_library", Artifact.class);
-
-  /**
    * Indicates which libraries to load with {@code -force_load}. This is a subset of the union of
    * the {@link #LIBRARY} and {@link #IMPORTED_LIBRARY} sets.
    */
@@ -152,10 +144,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       new Key<>(LINK_ORDER, "strict_include", PathFragment.class);
 
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER, "sdk_dylib", String.class);
-  public static final Key<SdkFramework> SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "sdk_framework", SdkFramework.class);
-  public static final Key<SdkFramework> WEAK_SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "weak_sdk_framework", SdkFramework.class);
+  public static final Key<String> SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "sdk_framework", String.class);
+  public static final Key<String> WEAK_SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "weak_sdk_framework", String.class);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
@@ -245,7 +237,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           HEADER,
           IMPORTED_LIBRARY,
           J2OBJC_LIBRARY,
-          JRE_LIBRARY,
           LIBRARY,
           LINK_INPUTS,
           LINKOPT,
@@ -321,11 +312,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   @Override
-  public Depset /*<Artifact>*/ jreLibrary() {
-    return Depset.of(Artifact.TYPE, get(JRE_LIBRARY));
-  }
-
-  @Override
   public Depset /*<Artifact>*/ library() {
     return Depset.of(Artifact.TYPE, get(LIBRARY));
   }
@@ -357,8 +343,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset sdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(SDK_FRAMEWORK, get(SDK_FRAMEWORK));
+    return Depset.of(Depset.ElementType.STRING, get(SDK_FRAMEWORK));
   }
 
   @Override
@@ -391,9 +376,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset weakSdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(
-            WEAK_SDK_FRAMEWORK, get(WEAK_SDK_FRAMEWORK));
+    return Depset.of(Depset.ElementType.STRING, get(WEAK_SDK_FRAMEWORK));
   }
 
   /**
@@ -515,7 +498,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   /** Returns the list of .a files required for linking that arise from objc libraries. */
-  @StarlarkMethod(name = "jre_ordered_objc_libraries", documented = false, useStarlarkThread = true)
+  @StarlarkMethod(name = "flattened_objc_libraries", documented = false, useStarlarkThread = true)
   public Sequence<Artifact> getObjcLibrariesForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
@@ -523,13 +506,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   ImmutableList<Artifact> getObjcLibraries() {
-    // JRE libraries must be ordered after all regular objc libraries.
-    NestedSet<Artifact> jreLibs = get(JRE_LIBRARY);
-    return ImmutableList.<Artifact>builder()
-        .addAll(
-            Iterables.filter(get(LIBRARY).toList(), Predicates.not(Predicates.in(jreLibs.toSet()))))
-        .addAll(jreLibs.toList())
-        .build();
+    return get(LIBRARY).toList();
   }
 
   @StarlarkMethod(name = "flattened_cc_libraries", documented = false, useStarlarkThread = true)

@@ -169,7 +169,7 @@ Then:
 
 *   its test rule type should be named `foo_test` (`provider_contents_test`)
 
-*   the label of the target of this rule type should be `foo`
+*   the label of the target of this rule type should be `foo_test`
     (`provider_contents_test`)
 
 *   the implementation function for the testing rule should be named
@@ -296,10 +296,12 @@ above.
 
 ## For validating artifacts
 
-There are two main ways of checking that your generated files are correct: You
-can write a test script in shell, Python, or another language, and create a
-target of the appropriate `*_test` rule type; or you can use a specialized rule
-for the kind of test you want to perform.
+The main ways to check that your generated files are correct are:
+
+*   You can write a test script in shell, Python, or another language, and
+    create a target of the appropriate `*_test` rule type.
+
+*   You can use a specialized rule for the kind of test you want to perform.
 
 ### Using a test target
 

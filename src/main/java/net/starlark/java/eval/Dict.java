@@ -15,6 +15,7 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -90,7 +91,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + " order, positional arguments before named. As with comprehensions, duplicate keys"
             + " are permitted.\n"
             + "</ol>")
-public final class Dict<K, V>
+public class Dict<K, V>
     implements Map<K, V>,
         StarlarkValue,
         Mutability.Freezable,
@@ -163,7 +164,7 @@ public final class Dict<K, V>
 
   @Override
   public Iterator<K> iterator() {
-    return contents.keySet().iterator();
+    return keySet().iterator();
   }
 
   @StarlarkMethod(
@@ -448,11 +449,20 @@ public final class Dict<K, V>
       return build(null);
     }
 
+    /** Returns a new {@link ImmutableKeyTrackingDict} containing the entries added so far. */
+    public ImmutableKeyTrackingDict<K, V> buildImmutableWithKeyTracking() {
+      return new ImmutableKeyTrackingDict<>(buildMap());
+    }
+
     /**
      * Returns a new Dict containing the entries added so far. The result has the specified
      * mutability; null means immutable.
      */
     public Dict<K, V> build(@Nullable Mutability mu) {
+      return wrap(mu, buildMap());
+    }
+
+    private LinkedHashMap<K, V> buildMap() {
       int n = items.size() / 2;
       LinkedHashMap<K, V> map = Maps.newLinkedHashMapWithExpectedSize(n);
       for (int i = 0; i < n; i++) {
@@ -462,7 +472,7 @@ public final class Dict<K, V>
         V v = (V) items.get(2 * i + 1); // safe
         map.put(k, v);
       }
-      return wrap(mu, map);
+      return map;
     }
   }
 
@@ -662,5 +672,57 @@ public final class Dict<K, V>
   @Override
   public V remove(Object key) {
     throw new UnsupportedOperationException();
+  }
+
+  /**
+   * An immutable {@code Dict} that tracks accessed keys.
+   *
+   * <p>Only keys present in the dict are tracked. Any call to {@link #keySet} or {@link #entrySet}
+   * conservatively results in all keys being considered as accessed - notably, this happens with
+   * iteration, {@link #repr}, and a mutable copy.
+   */
+  public static final class ImmutableKeyTrackingDict<K, V> extends Dict<K, V> {
+    private final ImmutableSet.Builder<K> accessedKeys = ImmutableSet.builder();
+
+    private ImmutableKeyTrackingDict(LinkedHashMap<K, V> contents) {
+      super(Mutability.IMMUTABLE, contents);
+    }
+
+    public ImmutableSet<K> getAccessedKeys() {
+      return accessedKeys.build();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked") // Present keys must be of type K.
+    public boolean containsKey(Object key) {
+      if (super.containsKey(key)) {
+        accessedKeys.add((K) key);
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked") // Present keys must be of type K.
+    public V get(Object key) {
+      V value = super.get(key);
+      if (value != null) {
+        accessedKeys.add((K) key);
+      }
+      return value;
+    }
+
+    @Override
+    public Set<K> keySet() {
+      Set<K> keySet = super.keySet();
+      accessedKeys.addAll(keySet);
+      return keySet;
+    }
+
+    @Override
+    public Set<Map.Entry<K, V>> entrySet() {
+      accessedKeys.addAll(super.keySet());
+      return super.entrySet();
+    }
   }
 }

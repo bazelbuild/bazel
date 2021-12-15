@@ -372,7 +372,7 @@ You must pass these two startup flags to *every* Bazel invocation:
   --host_jvm_args=-DRULE_MEMORY_TRACKER=1
   ```
   **NOTE**: The bazel repository comes with an allocation instrumenter.
-  Make sure to adjust '$(BAZEL)' for your repository location.
+  Make sure to adjust `$(BAZEL)` for your repository location.
 
 These start the server in memory tracking mode. If you forget these for even
 one Bazel invocation the server will restart and you will have to start over.

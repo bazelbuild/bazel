@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import javax.annotation.Nullable;
 
 /**
@@ -30,7 +28,6 @@ import javax.annotation.Nullable;
  * are exposed to Starlark and Bazel via {@link ToolchainInfo} providers.
  */
 @AutoValue
-@AutoCodec
 public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   /**
    * The type of the toolchain being declared. This will be a label of a toolchain_type() target.
@@ -132,18 +129,6 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   /** Returns a new {@link Builder} for creating {@link DeclaredToolchainInfo} instances. */
   public static Builder builder() {
     return new Builder();
-  }
-
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  static DeclaredToolchainInfo create(
-      ToolchainTypeInfo toolchainType,
-      ConstraintCollection execConstraints,
-      ConstraintCollection targetConstraints,
-      ImmutableList<ConfigMatchingProvider> targetSettings,
-      Label toolchainLabel) {
-    return new AutoValue_DeclaredToolchainInfo(
-        toolchainType, execConstraints, targetConstraints, targetSettings, toolchainLabel);
   }
 
   /**

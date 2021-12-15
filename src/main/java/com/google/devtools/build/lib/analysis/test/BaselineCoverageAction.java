@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -42,14 +40,12 @@ import javax.annotation.Nullable;
 
 /** Generates baseline (empty) coverage for the given non-test target. */
 @VisibleForTesting
-@AutoCodec
 @Immutable
 public final class BaselineCoverageAction extends AbstractFileWriteAction
     implements NotifyOnActionCacheHit {
   private final NestedSet<Artifact> instrumentedFiles;
 
-  @VisibleForSerialization
-  BaselineCoverageAction(
+  private BaselineCoverageAction(
       ActionOwner owner, NestedSet<Artifact> instrumentedFiles, Artifact primaryOutput) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
     this.instrumentedFiles = instrumentedFiles;
@@ -91,15 +87,17 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public void actionCacheHit(ActionCachedContext context) {
+  public boolean actionCacheHit(ActionCachedContext context) {
     notifyAboutBaselineCoverage(context.getEventHandler());
+    return true;
   }
 
   /** Notify interested parties about new baseline coverage data. */
-  private void notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
+  private boolean notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
     Artifact output = Iterables.getOnlyElement(getOutputs());
     String ownerString = Label.print(getOwner().getLabel());
     eventHandler.post(new BaselineCoverageResult(output, ownerString));
+    return true;
   }
 
   /**

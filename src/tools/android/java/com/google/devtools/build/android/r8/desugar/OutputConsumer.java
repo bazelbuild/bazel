@@ -29,7 +29,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.android.desugar.DependencyCollector;
+import com.google.devtools.build.android.r8.DependencyCollector;
 import com.google.devtools.build.android.r8.DescriptorUtils;
 import com.google.devtools.build.android.r8.Desugar;
 import com.google.devtools.build.android.r8.ZipUtils;

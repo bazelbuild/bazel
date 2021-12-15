@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -29,9 +31,12 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -55,12 +60,10 @@ public class UrlRewriter {
 
   private final UrlRewriterConfig config;
   private final Function<URL, List<URL>> rewriter;
-  private final Consumer<String> log;
 
   @VisibleForTesting
   UrlRewriter(Consumer<String> log, String filePathForErrorReporting, Reader reader)
       throws UrlRewriterParseException {
-    this.log = Preconditions.checkNotNull(log);
     Preconditions.checkNotNull(reader, "UrlRewriterConfig source must be set");
     this.config = new UrlRewriterConfig(filePathForErrorReporting, reader);
 
@@ -102,11 +105,35 @@ public class UrlRewriter {
     ImmutableList<URL> rewritten =
         urls.stream().map(rewriter).flatMap(Collection::stream).collect(toImmutableList());
 
-    if (!urls.equals(rewritten)) {
-      log.accept(String.format("Rewritten %s as %s", urls, rewritten));
+    return rewritten;
+  }
+
+  /**
+   * Updates {@code authHeaders} using the userInfo available in the provided {@code urls}.
+   *
+   * @param urls The input list of {@link URL}s. May be empty.
+   * @param authHeaders A map of the URLs and their corresponding auth tokens.
+   * @return A map of the updated authentication headers.
+   */
+  public Map<URI, Map<String, String>> updateAuthHeaders(
+      List<URL> urls, Map<URI, Map<String, String>> authHeaders) {
+    ImmutableMap.Builder<URI, Map<String, String>> authHeadersBuilder =
+        ImmutableMap.<URI, Map<String, String>>builder().putAll(authHeaders);
+
+    for (URL url : urls) {
+      String userInfo = url.getUserInfo();
+      if (userInfo != null) {
+        try {
+          String token =
+              "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
+          authHeadersBuilder.put(url.toURI(), ImmutableMap.of("Authorization", token));
+        } catch (URISyntaxException e) {
+          // If the credentials extraction failed, we're letting bazel try without credentials.
+        }
+      }
     }
 
-    return rewritten;
+    return authHeadersBuilder.build();
   }
 
   private ImmutableList<URL> rewrite(URL url) {

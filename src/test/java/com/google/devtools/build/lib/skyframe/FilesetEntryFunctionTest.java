@@ -32,13 +32,13 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory;
+import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory.SymlinkBehavior;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -245,7 +245,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*ownerLabel=*/ label("//foo"),
             /*fileToTraverse=*/ file,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
+            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(params, symlink("output-name", file));
@@ -278,12 +278,12 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   @Test
   public void testFileTraversalForFileSymlinkNoFollow() throws Exception {
-    assertFileTraversalForFileSymlink(SymlinkBehavior.COPY);
+    assertFileTraversalForFileSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
   }
 
   @Test
   public void testFileTraversalForFileSymlinkFollow() throws Exception {
-    assertFileTraversalForFileSymlink(SymlinkBehavior.DEREFERENCE);
+    assertFileTraversalForFileSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
   }
 
   @Test
@@ -297,7 +297,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*ownerLabel=*/ label("//foo"),
             /*fileToTraverse=*/ dir,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
+            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS,
             /*strictFilesetOutput*/ false);
     assertSymlinksCreatedInOrder(
@@ -333,12 +333,13 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   @Test
   public void testFileTraversalForDirectorySymlinkFollow() throws Exception {
-    assertFileTraversalForDirectorySymlink(SymlinkBehavior.COPY);
+    assertFileTraversalForDirectorySymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
   }
 
   @Test
   public void testFileTraversalForDirectorySymlinkNoFollow() throws Exception {
-    assertFileTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE);
+    assertFileTraversalForDirectorySymlink(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
   }
 
   private void assertRecursiveTraversalForDirectory(
@@ -397,32 +398,37 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   @Test
   public void testRecursiveTraversalForDirectoryCrossNoFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(SymlinkBehavior.COPY, CROSS);
+    assertRecursiveTraversalForDirectory(FilesetTraversalParamsFactory.SymlinkBehavior.COPY, CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectoryDontCrossNoFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(SymlinkBehavior.COPY, DONT_CROSS);
+    assertRecursiveTraversalForDirectory(
+        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, DONT_CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectoryReportErrorNoFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(SymlinkBehavior.COPY, REPORT_ERROR);
+    assertRecursiveTraversalForDirectory(
+        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, REPORT_ERROR);
   }
 
   @Test
   public void testRecursiveTraversalForDirectoryCrossFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(SymlinkBehavior.DEREFERENCE, CROSS);
+    assertRecursiveTraversalForDirectory(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectoryDontCrossFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(SymlinkBehavior.DEREFERENCE, DONT_CROSS);
+    assertRecursiveTraversalForDirectory(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, DONT_CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectoryReportErrorFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
+    assertRecursiveTraversalForDirectory(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
   }
 
   private void assertRecursiveTraversalForDirectorySymlink(
@@ -486,32 +492,38 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   @Test
   public void testRecursiveTraversalForDirectorySymlinkNoFollowCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.COPY, CROSS);
+    assertRecursiveTraversalForDirectorySymlink(
+        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectorySymlinkNoFollowDontCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.COPY, DONT_CROSS);
+    assertRecursiveTraversalForDirectorySymlink(
+        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, DONT_CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectorySymlinkNoFollowReportError() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.COPY, REPORT_ERROR);
+    assertRecursiveTraversalForDirectorySymlink(
+        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, REPORT_ERROR);
   }
 
   @Test
   public void testRecursiveTraversalForDirectorySymlinkFollowCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE, CROSS);
+    assertRecursiveTraversalForDirectorySymlink(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectorySymlinkFollowDontCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE, DONT_CROSS);
+    assertRecursiveTraversalForDirectorySymlink(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, DONT_CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForDirectorySymlinkFollowReportError() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
+    assertRecursiveTraversalForDirectorySymlink(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
   }
 
   private void assertRecursiveTraversalForPackage(
@@ -579,32 +591,37 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   @Test
   public void testRecursiveTraversalForPackageNoFollowCross() throws Exception {
-    assertRecursiveTraversalForPackage(SymlinkBehavior.COPY, CROSS);
+    assertRecursiveTraversalForPackage(FilesetTraversalParamsFactory.SymlinkBehavior.COPY, CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForPackageNoFollowDontCross() throws Exception {
-    assertRecursiveTraversalForPackage(SymlinkBehavior.COPY, DONT_CROSS);
+    assertRecursiveTraversalForPackage(
+        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, DONT_CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForPackageNoFollowReportError() throws Exception {
-    assertRecursiveTraversalForPackage(SymlinkBehavior.COPY, REPORT_ERROR);
+    assertRecursiveTraversalForPackage(
+        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, REPORT_ERROR);
   }
 
   @Test
   public void testRecursiveTraversalForPackageFollowCross() throws Exception {
-    assertRecursiveTraversalForPackage(SymlinkBehavior.DEREFERENCE, CROSS);
+    assertRecursiveTraversalForPackage(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForPackageFollowDontCross() throws Exception {
-    assertRecursiveTraversalForPackage(SymlinkBehavior.DEREFERENCE, DONT_CROSS);
+    assertRecursiveTraversalForPackage(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, DONT_CROSS);
   }
 
   @Test
   public void testRecursiveTraversalForPackageFollowReportError() throws Exception {
-    assertRecursiveTraversalForPackage(SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
+    assertRecursiveTraversalForPackage(
+        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
   }
 
   @Test
@@ -619,7 +636,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*ownerLabel=*/ label("//foo"),
             /*fileToTraverse=*/ linkName,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
+            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -648,7 +665,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         params,
         symlink("output-name/BUILD", buildFile),
         symlink("output-name/file.actual", linkTarget),
-        symlinkBehavior == SymlinkBehavior.COPY
+        symlinkBehavior == FilesetTraversalParamsFactory.SymlinkBehavior.COPY
             ? symlink("output-name/file.sym", "file.actual")
             : symlink("output-name/file.sym", linkTarget));
 
@@ -670,12 +687,12 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   @Test
   public void testExclusionOfDanglingSymlinkWithSymlinkModeCopy() throws Exception {
-    assertExclusionOfDanglingSymlink(SymlinkBehavior.COPY);
+    assertExclusionOfDanglingSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
   }
 
   @Test
   public void testExclusionOfDanglingSymlinkWithSymlinkModeDereference() throws Exception {
-    assertExclusionOfDanglingSymlink(SymlinkBehavior.DEREFERENCE);
+    assertExclusionOfDanglingSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
   }
 
   @Test
@@ -693,7 +710,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* buildFile */ buildFile,
             PathFragment.create("output-name"),
             /* excludes */ ImmutableSet.of(),
-            /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
+            /* symlinkBehaviorMode */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(
@@ -709,7 +726,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* buildFile */ buildFile,
             PathFragment.create("output-name"),
             /* excludes */ ImmutableSet.of("dir"),
-            /* symlinkBehaviorMode */ SymlinkBehavior.COPY,
+            /* symlinkBehaviorMode */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(
@@ -726,7 +743,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*ownerLabel=*/ label("//foo"),
             /*fileToTraverse=*/ path,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
+            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -745,7 +762,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*directoryToTraverse=*/ linkName,
             PathFragment.create("output-name"),
             /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
+            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -761,7 +778,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /*directoryToTraverse=*/ path,
             PathFragment.create("output-name"),
             /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
+            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
             /*pkgBoundaryMode=*/ DONT_CROSS,
             /*strictFilesetOutput=*/ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -865,7 +882,9 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             .put("destPath", partOfFingerprint("out1", "out2"))
             .put(
                 "symlinkBehaviorMode",
-                partOfFingerprint(SymlinkBehavior.COPY, SymlinkBehavior.DEREFERENCE))
+                partOfFingerprint(
+                    FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
+                    FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
             .build()) {
@@ -894,7 +913,9 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                 partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.<String>of("blah")))
             .put(
                 "symlinkBehaviorMode",
-                partOfFingerprint(SymlinkBehavior.COPY, SymlinkBehavior.DEREFERENCE))
+                partOfFingerprint(
+                    FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
+                    FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
             .build()) {
@@ -925,7 +946,9 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                 partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.<String>of("blah")))
             .put(
                 "symlinkBehaviorMode",
-                partOfFingerprint(SymlinkBehavior.COPY, SymlinkBehavior.DEREFERENCE))
+                partOfFingerprint(
+                    FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
+                    FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .build()) {
       @SuppressWarnings("unchecked")
@@ -974,12 +997,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
       return WorkspaceNameValue.withName("workspace");
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 }

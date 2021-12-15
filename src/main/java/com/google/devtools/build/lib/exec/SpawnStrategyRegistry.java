@@ -393,7 +393,10 @@ public final class SpawnStrategyRegistry
       ListMultimap<RegexFilter, SpawnStrategy> filterToStrategies = LinkedListMultimap.create();
       for (FilterAndIdentifiers filterAndIdentifier : orderedFilterAndIdentifiers) {
         RegexFilter filter = filterAndIdentifier.filter();
-        filterToStrategies.putAll(filter, toStrategies(filterAndIdentifier.identifiers(), filter));
+        if (!filterToStrategies.containsKey(filter)) {
+          filterToStrategies.putAll(
+              filter, toStrategies(filterAndIdentifier.identifiers(), filter));
+        }
       }
 
       ImmutableListMultimap.Builder<String, SpawnStrategy> mnemonicToStrategies =

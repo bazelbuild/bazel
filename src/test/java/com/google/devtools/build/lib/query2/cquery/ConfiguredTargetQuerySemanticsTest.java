@@ -23,7 +23,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -35,10 +35,12 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -348,7 +350,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertConfigurableQueryCode(
         execResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
 
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)")));
 
     assertThat(configuration).isNotNull();
@@ -375,7 +377,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertConfigurableQueryCode(
         hostResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
 
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, host)")));
 
     assertThat(configuration).isNotNull();
@@ -417,8 +419,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     ImmutableList<KeyedConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
     int myDepIndex = stableOrderList.get(0).getLabel().toString().equals("//test:mydep") ? 0 : 1;
-    BuildConfiguration myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
-    BuildConfiguration stringFlagConfig = getConfiguration(stableOrderList.get(1 - myDepIndex));
+    BuildConfigurationValue myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
+    BuildConfigurationValue stringFlagConfig =
+        getConfiguration(stableOrderList.get(1 - myDepIndex));
 
     // Note: eval() resets the universe scope after each call. We have to xplicitly set it again.
     helper.setUniverseScope("//test:buildme");
@@ -494,10 +497,16 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     helper.setKeepGoing(false);
     getHelper().turnOffFailFast();
-    assertThat(evalThrows("//parent/...", true).getMessage())
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> eval("//parent/..."));
+    assertThat(e)
+        .hasMessageThat()
         .isEqualTo(
-            "no such package 'parent/child': Symlink cycle detected while trying to "
-                + "find BUILD file /workspace/parent/child/BUILD");
+            "error loading package under directory 'parent': no such package 'parent/child':"
+                + " Symlink cycle detected while trying to find BUILD file"
+                + " /workspace/parent/child/BUILD");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
   }
 
   // Regression test for b/175739699

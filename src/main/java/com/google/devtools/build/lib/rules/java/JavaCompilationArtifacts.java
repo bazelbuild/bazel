@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -37,11 +37,10 @@ import javax.annotation.Nullable;
  * transitive closure of targets, so these still need to be collected using some other mechanism,
  * such as the {@link JavaCompilationArgsProvider}.
  */
-@AutoCodec
 @Immutable
 @AutoValue
 public abstract class JavaCompilationArtifacts {
-  @AutoCodec public static final JavaCompilationArtifacts EMPTY = new Builder().build();
+  @SerializationConstant public static final JavaCompilationArtifacts EMPTY = new Builder().build();
 
   public abstract ImmutableList<Artifact> getRuntimeJars();
 
@@ -57,9 +56,7 @@ public abstract class JavaCompilationArtifacts {
     return new Builder();
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  static JavaCompilationArtifacts create(
+  private static JavaCompilationArtifacts create(
       ImmutableList<Artifact> runtimeJars,
       ImmutableList<Artifact> compileTimeJars,
       ImmutableList<Artifact> fullCompileTimeJars,

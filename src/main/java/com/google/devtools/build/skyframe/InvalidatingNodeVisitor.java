@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -71,7 +72,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   // Default thread count is equal to the number of cores to exploit
   // that level of hardware parallelism, since invalidation should be CPU-bound.
   // We may consider increasing this in the future.
-  private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+  @VisibleForTesting
+  static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+
   private static final int EXPECTED_PENDING_SET_SIZE = DEFAULT_THREAD_COUNT * 8;
   private static final int EXPECTED_VISITED_SET_SIZE = 1024;
 
@@ -125,7 +128,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   /** Initiates visitation and waits for completion. */
   final void run() throws InterruptedException {
     try (AutoProfiler ignored =
-        GoogleAutoProfilerUtils.logged("invalidation", MIN_TIME_FOR_LOGGING)) {
+        GoogleAutoProfilerUtils.logged(
+            "invalidation of " + pendingVisitations.size() + " nodes", MIN_TIME_FOR_LOGGING)) {
       // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
       // the caller, and which are added by other threads during the run. Since no tasks have been
       // started yet, this is thread-safe.
@@ -213,16 +217,28 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   }
 
   static final class DeletingInvalidationState extends InvalidationState {
-    private final ConcurrentHashMap<SkyKey, Boolean> doneKeysWithRdepsToRemove =
-        new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT);
+    private ConcurrentHashMap<SkyKey, Boolean> doneKeysWithRdepsToRemove;
+    private ConcurrentHashMap<SkyKey, Boolean> visitedKeysAcrossInterruptions;
 
     DeletingInvalidationState() {
       super(InvalidationType.DELETED);
+      initializeFields();
+    }
+
+    private void initializeFields() {
+      doneKeysWithRdepsToRemove =
+          new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT);
+      visitedKeysAcrossInterruptions =
+          new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT);
     }
 
     @Override
     boolean isEmpty() {
       return super.isEmpty() && doneKeysWithRdepsToRemove.isEmpty();
+    }
+
+    void clear() {
+      initializeFields();
     }
   }
 
@@ -230,7 +246,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   static final class DeletingNodeVisitor extends InvalidatingNodeVisitor<InMemoryGraph> {
     private final Set<SkyKey> visited = Sets.newConcurrentHashSet();
     private final boolean traverseGraph;
-    private final ConcurrentHashMap<SkyKey, Boolean> doneKeysWithRdepsToRemove;
+    private final DeletingInvalidationState state;
 
     DeletingNodeVisitor(
         InMemoryGraph graph,
@@ -243,26 +259,29 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           state,
           NamedForkJoinPool.newNamedPool("deleting node visitor", DEFAULT_THREAD_COUNT));
       this.traverseGraph = traverseGraph;
-      this.doneKeysWithRdepsToRemove = state.doneKeysWithRdepsToRemove;
+      this.state = state;
     }
 
     @Override
     protected void runInternal(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList)
         throws InterruptedException {
       try (AutoProfiler ignored =
-          GoogleAutoProfilerUtils.logged("invalidation enqueuing", MIN_TIME_FOR_LOGGING)) {
+          GoogleAutoProfilerUtils.logged(
+              "invalidation enqueuing for " + pendingList.size() + " nodes",
+              MIN_TIME_FOR_LOGGING)) {
         // To avoid contention and scheduling too many jobs for our #cpus, we start
         // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
         int listSize = pendingList.size();
-        for (int i = 0; i < DEFAULT_THREAD_COUNT; i++) {
+        int numThreads = min(DEFAULT_THREAD_COUNT, listSize);
+        for (int i = 0; i < numThreads; i++) {
           int index = i;
           executor.execute(
               () ->
                   visit(
                       Iterables.transform(
                           pendingList.subList(
-                              index * listSize / DEFAULT_THREAD_COUNT,
-                              Math.min(listSize, (index + 1) * listSize / DEFAULT_THREAD_COUNT)),
+                              (index * listSize) / numThreads,
+                              ((index + 1) * listSize) / numThreads),
                           Pair::getFirst),
                       InvalidationType.DELETED));
         }
@@ -271,18 +290,26 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           GoogleAutoProfilerUtils.logged("invalidation graph traversal", MIN_TIME_FOR_LOGGING)) {
         executor.awaitQuiescence(/*interruptWorkers=*/ true);
       }
+      ConcurrentHashMap.KeySetView<SkyKey, Boolean> deletedKeys =
+          state.visitedKeysAcrossInterruptions.keySet();
+      // TODO(b/150299871): this is uninterruptible.
       try (AutoProfiler ignored =
-          GoogleAutoProfilerUtils.logged("reverse dep removal", MIN_TIME_FOR_LOGGING)) {
-        doneKeysWithRdepsToRemove.forEachEntry(
+          GoogleAutoProfilerUtils.logged(
+              "reverse dep removal of "
+                  + deletedKeys.size()
+                  + " deleted rdeps from "
+                  + state.doneKeysWithRdepsToRemove.size()
+                  + " deps",
+              MIN_TIME_FOR_LOGGING)) {
+        state.doneKeysWithRdepsToRemove.forEachEntry(
             /*parallelismThreshold=*/ 1024,
             e -> {
               NodeEntry entry = graph.get(null, Reason.RDEP_REMOVAL, e.getKey());
-              if (entry == null) {
-                return;
+              if (entry != null) {
+                entry.removeReverseDepsFromDoneEntryDueToDeletion(deletedKeys);
               }
-              entry.removeReverseDepsFromDoneEntryDueToDeletion(visited);
             });
-        doneKeysWithRdepsToRemove.clear();
+        state.clear();
       }
     }
 
@@ -348,7 +375,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                         Iterables.filter(
                             directDeps,
                             k ->
-                                !visited.contains(k)
+                                !state.visitedKeysAcrossInterruptions.containsKey(k)
                                     && !pendingVisitations.contains(
                                         Pair.of(k, InvalidationType.DELETED))));
                 if (!depMap.isEmpty()) {
@@ -361,7 +388,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                       continue;
                     }
                     if (dep.isDone()) {
-                      doneKeysWithRdepsToRemove.putIfAbsent(directDepEntry.getKey(), Boolean.TRUE);
+                      state.doneKeysWithRdepsToRemove.putIfAbsent(
+                          directDepEntry.getKey(), Boolean.TRUE);
                       continue;
                     }
                     if (!signalingDeps.contains(directDepEntry.getKey())) {
@@ -393,7 +421,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
               // Actually remove the node.
               graph.remove(key);
 
-              // Remove the node from the set as the last operation.
+              // Remove the node from the set and add it to global visited as the last operation.
+              state.visitedKeysAcrossInterruptions.put(key, Boolean.TRUE);
               pendingVisitations.remove(invalidationPair);
             });
       }

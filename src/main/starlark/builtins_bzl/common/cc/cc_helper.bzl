@@ -18,6 +18,29 @@ load(":common/objc/semantics.bzl", "semantics")
 
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
+cc_internal = _builtins.internal.cc_internal
+
+def _check_src_extension(file, allowed_src_files):
+    extension = "." + file.extension
+    if _matches_extension(extension, allowed_src_files) or _is_shared_library_extension_valid(file.path):
+        return True
+    return False
+
+def _check_srcs_extensions(ctx, allowed_src_files, rule_name):
+    for src in ctx.attr.srcs:
+        if DefaultInfo in src:
+            files = src[DefaultInfo].files.to_list()
+            if len(files) == 1 and files[0].is_source:
+                if not _check_src_extension(files[0], allowed_src_files) and not files[0].is_directory:
+                    fail("in srcs attribute of {} rule {}: source file '{}' is misplaced here".format(rule_name, ctx.label, str(src.label)))
+            else:
+                at_least_one_good = False
+                for file in files:
+                    if _check_src_extension(file, allowed_src_files) or file.is_directory:
+                        at_least_one_good = True
+                        break
+                if not at_least_one_good:
+                    fail("'{}' does not produce any {} srcs files".format(str(src.label), rule_name), attr = "srcs")
 
 def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
     debug_context = cc_common.create_debug_context(compilation_outputs)
@@ -30,10 +53,11 @@ def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
 def _is_code_coverage_enabled(ctx):
     if ctx.coverage_instrumented():
         return True
-    for dep in ctx.attr.deps:
-        if CcInfo in dep:
-            if ctx.coverage_instrumented(dep):
-                return True
+    if hasattr(ctx.attr, "deps"):
+        for dep in ctx.attr.deps:
+            if CcInfo in dep:
+                if ctx.coverage_instrumented(dep):
+                    return True
     return False
 
 def _get_dynamic_libraries_for_runtime(cc_linking_context, linking_statically):
@@ -105,7 +129,7 @@ def _build_output_groups_for_emitting_compile_providers(
         use_pic = use_pic,
     )
     output_groups_builder["compilation_outputs"] = files_to_compile
-    output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx, compilation_context)
+    output_groups_builder["compilation_prerequisites_INTERNAL_"] = cc_internal.collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(
@@ -128,23 +152,40 @@ OBJC_SOURCE = [".m"]
 OBJCPP_SOURCE = [".mm"]
 CLIF_INPUT_PROTO = [".ipb"]
 CLIF_OUTPUT_PROTO = [".opb"]
-CC_AND_OBJC_EXTENSIONS = []
-CC_AND_OBJC_EXTENSIONS.extend(CC_SOURCE)
-CC_AND_OBJC_EXTENSIONS.extend(C_SOURCE)
-CC_AND_OBJC_EXTENSIONS.extend(OBJC_SOURCE)
-CC_AND_OBJC_EXTENSIONS.extend(OBJCPP_SOURCE)
-CC_AND_OBJC_EXTENSIONS.extend(CLIF_INPUT_PROTO)
-CC_AND_OBJC_EXTENSIONS.extend(CLIF_OUTPUT_PROTO)
+CC_AND_OBJC = []
+CC_AND_OBJC.extend(CC_SOURCE)
+CC_AND_OBJC.extend(C_SOURCE)
+CC_AND_OBJC.extend(OBJC_SOURCE)
+CC_AND_OBJC.extend(OBJCPP_SOURCE)
+CC_AND_OBJC.extend(CLIF_INPUT_PROTO)
+CC_AND_OBJC.extend(CLIF_OUTPUT_PROTO)
 
-def _collect_compilation_prerequisites(ctx, compilation_context):
-    # This doesn't go through the same code path as the native one. The native
-    # method accesses other fields in compilation_context. So far this has not
-    # been a problem for any migrated rule.
-    direct = []
-    for src in ctx.files.srcs:
-        if src.extension in CC_AND_OBJC_EXTENSIONS:
-            direct.append(src)
-    return depset(direct = direct, transitive = [compilation_context.transitive_compilation_prerequisites()])
+CC_HEADER = [".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H", ".tcc"]
+ASSESMBLER_WITH_C_PREPROCESSOR = [".S"]
+ASSEMBLER = [".s"]
+ARCHIVE = [".a", ".lib"]
+PIC_ARCHIVE = [".pic.a"]
+ALWAYSLINK_LIBRARY = [".lo"]
+ALWAYSLINK_PIC_LIBRARY = [".pic.lo"]
+SHARED_LIBRARY = [".so", ".dylib", ".dll"]
+OBJECT_FILE = [".o"]
+PIC_OBJECT_FILE = [".pic.o"]
+
+extensions = struct(
+    CC_SOURCE = CC_SOURCE,
+    C_SOURCE = C_SOURCE,
+    CC_HEADER = CC_HEADER,
+    ASSESMBLER_WITH_C_PREPROCESSOR = ASSESMBLER_WITH_C_PREPROCESSOR,
+    ASSEMBLER = ASSEMBLER,
+    ARCHIVE = ARCHIVE,
+    PIC_ARCHIVE = PIC_ARCHIVE,
+    ALWAYSLINK_LIBRARY = ALWAYSLINK_LIBRARY,
+    ALWAYSLINK_PIC_LIBRARY = ALWAYSLINK_PIC_LIBRARY,
+    SHARED_LIBRARY = SHARED_LIBRARY,
+    OBJECT_FILE = OBJECT_FILE,
+    PIC_OBJECT_FILE = PIC_OBJECT_FILE,
+    CC_AND_OBJC = CC_AND_OBJC,
+)
 
 def _collect_header_tokens(
         ctx,
@@ -169,8 +210,10 @@ def _collect_library_hidden_top_level_artifacts(
         ctx,
         files_to_compile):
     artifacts_to_force_builder = [files_to_compile]
-    for dep in ctx.attr.deps:
-        artifacts_to_force_builder.append(dep[OutputGroupInfo]["_hidden_top_level_INTERNAL_"])
+    if hasattr(ctx.attr, "deps"):
+        for dep in ctx.attr.deps:
+            if OutputGroupInfo in dep:
+                artifacts_to_force_builder.append(dep[OutputGroupInfo]["_hidden_top_level_INTERNAL_"])
 
     return depset(transitive = artifacts_to_force_builder)
 
@@ -218,6 +261,121 @@ def _is_test_target(ctx):
 
     return False
 
+def _get_compilation_contexts_from_deps(deps):
+    compilation_contexts = []
+    for dep in deps:
+        if CcInfo in dep:
+            compilation_contexts.append(dep[CcInfo].compilation_context)
+    return compilation_contexts
+
+def _is_compiltion_outputs_empty(compilation_outputs):
+    return (len(compilation_outputs.pic_objects) == 0 and
+            len(compilation_outputs.objects) == 0)
+
+def _matches_extension(extension, patterns):
+    for pattern in patterns:
+        if extension.endswith(pattern):
+            return True
+    return False
+
+def _build_precompiled_files(ctx):
+    objects = []
+    pic_objects = []
+    static_libraries = []
+    pic_static_libraries = []
+    alwayslink_static_libraries = []
+    pic_alwayslink_static_libraries = []
+    shared_libraries = []
+
+    for src in ctx.files.srcs:
+        short_path = src.short_path
+
+        # For compatibility with existing BUILD files, any ".o" files listed
+        # in srcs are assumed to be position-independent code, or
+        # at least suitable for inclusion in shared libraries, unless they
+        # end with ".nopic.o". (The ".nopic.o" extension is an undocumented
+        # feature to give users at least some control over this.) Note that
+        # some target platforms do not require shared library code to be PIC.
+        if _matches_extension(short_path, OBJECT_FILE):
+            objects.append(src)
+            if not short_path.endswith(".nopic.o"):
+                pic_objects.append(src)
+
+            if _matches_extension(short_path, PIC_OBJECT_FILE):
+                pic_objects.append(src)
+
+        elif _matches_extension(short_path, PIC_ARCHIVE):
+            pic_static_libraries.append(src)
+        elif _matches_extension(short_path, ARCHIVE):
+            static_libraries.append(src)
+        elif _matches_extension(short_path, ALWAYSLINK_PIC_LIBRARY):
+            pic_alwayslink_static_libraries.append(src)
+        elif _matches_extension(short_path, ALWAYSLINK_LIBRARY):
+            alwayslink_static_libraries.append(src)
+        elif _is_shared_library_extension_valid(short_path):
+            shared_libraries.append(src)
+    return (
+        objects,
+        pic_objects,
+        static_libraries,
+        pic_static_libraries,
+        alwayslink_static_libraries,
+        pic_alwayslink_static_libraries,
+        shared_libraries,
+    )
+
+def _is_shared_library_extension_valid(shared_library_name):
+    if (shared_library_name.endswith(".so") or
+        shared_library_name.endswith(".dll") or
+        shared_library_name.endswith(".dylib")):
+        return True
+
+    # Validate against the regex "^.+\.so(\.\d\w*)+$" for versioned .so files
+    parts = shared_library_name.split(".")
+    if len(parts) == 1:
+        return False
+    extension = parts[1]
+    if extension != "so":
+        return False
+    version_parts = parts[2:]
+    for part in version_parts:
+        if not part[0].isdigit():
+            return False
+        for c in part[1:].elems():
+            if not (c.isalnum() or c == "_"):
+                return False
+    return True
+
+def _get_providers(deps, provider):
+    providers = []
+    for dep in deps:
+        if provider in dep:
+            providers.append(dep[provider])
+    return providers
+
+def _is_compilation_outputs_empty(compilation_outputs):
+    return len(compilation_outputs.pic_objects) == 0 and len(compilation_outputs.objects) == 0
+
+def _get_static_mode_params_for_dynamic_library_libraries(libs):
+    linker_inputs = []
+    for lib in libs.to_list():
+        if lib.pic_static_library:
+            linker_inputs.append(lib.pic_static_library)
+        elif lib.static_library:
+            linker_inputs.append(lib.static_library)
+        elif lib.interface_library:
+            linker_inputs.append(lib.interface_library)
+        else:
+            linker_inputs.append(lib.dynamic_library)
+    return linker_inputs
+
+def _should_create_per_object_debug_info(feature_configuration, cpp_configuration):
+    return cpp_configuration.fission_active_for_current_compilation_mode() and \
+           cc_common.is_enabled(
+               feature_configuration = feature_configuration,
+               feature_name = "per_object_debug_info",
+           )
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -229,5 +387,15 @@ cc_helper = struct(
     rule_error = _rule_error,
     attribute_error = _attribute_error,
     get_linking_contexts_from_deps = _get_linking_contexts_from_deps,
+    get_compilation_contexts_from_deps = _get_compilation_contexts_from_deps,
     is_test_target = _is_test_target,
+    extensions = extensions,
+    build_precompiled_files = _build_precompiled_files,
+    is_shared_library_extension_valid = _is_shared_library_extension_valid,
+    get_providers = _get_providers,
+    is_compilation_outputs_empty = _is_compilation_outputs_empty,
+    matches_extension = _matches_extension,
+    get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
+    should_create_per_object_debug_info = _should_create_per_object_debug_info,
+    check_srcs_extensions = _check_srcs_extensions,
 )

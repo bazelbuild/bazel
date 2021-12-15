@@ -21,7 +21,7 @@ import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.testutil.TestFileOutErr;
+import com.google.devtools.build.lib.events.Event.ProcessOutput;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -180,29 +180,59 @@ public class EventTest {
   }
 
   @Test
-  public void stdoutStderr() throws Exception {
+  public void testWithProcessOutput() throws Exception {
+    String stdoutPath = "/stdout";
+    byte[] stdout = "some stdout output".getBytes(UTF_8);
+    String stderrPath = "/stderr";
+    byte[] stderr = "some stderr error".getBytes(UTF_8);
+
+    ProcessOutput testProcessOutput =
+        new ProcessOutput() {
+          @Override
+          public String getStdOutPath() {
+            return stdoutPath;
+          }
+
+          @Override
+          public long getStdOutSize() {
+            return stdout.length;
+          }
+
+          @Override
+          public byte[] getStdOut() {
+            return stdout;
+          }
+
+          @Override
+          public String getStdErrPath() {
+            return stderrPath;
+          }
+
+          @Override
+          public long getStdErrSize() {
+            return stderr.length;
+          }
+
+          @Override
+          public byte[] getStdErr() {
+            return stderr;
+          }
+        };
+
     Event event = Event.of(EventKind.WARNING, "myMessage");
-    TestFileOutErr testFileOutErr = new TestFileOutErr();
-    String stdoutText = "some stdout output";
-    String stderrText = "some stderr error";
-    testFileOutErr.printOut(stdoutText);
-    testFileOutErr.printErr(stderrText);
-    Event eventWithStdoutStderr = event.withStdoutStderr(testFileOutErr);
+    Event eventWithProcessOutput = event.withProcessOutput(testProcessOutput);
 
-    assertThat(event.hasStdoutStderr()).isFalse();
-    assertThat(eventWithStdoutStderr.hasStdoutStderr()).isTrue();
+    assertThat(eventWithProcessOutput).isNotEqualTo(event);
+    assertThat(event.getProcessOutput()).isNull();
+    assertThat(eventWithProcessOutput.getProcessOutput()).isNotNull();
 
-    byte[] stdoutBytes = stdoutText.getBytes(UTF_8);
-    int stdoutLength = stdoutBytes.length;
-    assertThat(eventWithStdoutStderr.getStdOut()).isEqualTo(stdoutBytes);
-    assertThat(eventWithStdoutStderr.getStdOutSize()).isEqualTo(stdoutLength);
-    assertThat(eventWithStdoutStderr.getStdOut()).isEqualTo(stdoutBytes);
+    assertThat(eventWithProcessOutput.getStdOut()).isEqualTo(stdout);
+    assertThat(eventWithProcessOutput.getProcessOutput().getStdOut()).isEqualTo(stdout);
+    assertThat(eventWithProcessOutput.getProcessOutput().getStdOutSize()).isEqualTo(stdout.length);
 
-    byte[] stderrBytes = stderrText.getBytes(UTF_8);
-    int stderrLength = stderrBytes.length;
-    assertThat(eventWithStdoutStderr.getStdErr()).isEqualTo(stderrBytes);
-    assertThat(eventWithStdoutStderr.getStdErrSize()).isEqualTo(stderrLength);
-    assertThat(eventWithStdoutStderr.getStdErr()).isEqualTo(stderrBytes);
+    assertThat(eventWithProcessOutput.getStdErr()).isEqualTo(stderr);
+    assertThat(eventWithProcessOutput.getProcessOutput().getStdErr()).isEqualTo(stderr);
+    assertThat(eventWithProcessOutput.getProcessOutput().getStdErrSize()).isEqualTo(stderr.length);
   }
 
   @Test

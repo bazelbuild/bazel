@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * A helper class for PredicateWithMessage with default predicates.
  */
 public abstract class PredicatesWithMessage implements PredicateWithMessage<Object> {
 
-  @AutoCodec @VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final PredicateWithMessage<?> ALWAYS_TRUE =
       new PredicateWithMessage<Object>() {
         @Override

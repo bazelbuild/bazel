@@ -17,13 +17,6 @@ java_library(
 
 java_library(
     name = "string",
-    srcs = [
-        "RuntimeVersion.java",
-        "StringUnsafe.java",
-    ],
-    deps = [
-        ":unsafe-provider",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    srcs = ["StringUnsafe.java"],
+    deps = [":unsafe-provider"],
 )

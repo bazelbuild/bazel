@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,11 +34,10 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 
 /** Provider for users of Java plugins. */
-@AutoCodec
 @Immutable
 @AutoValue
 public abstract class JavaPluginInfo extends NativeInfo
-    implements JavaPluginInfoApi<JavaPluginData> {
+    implements JavaPluginInfoApi<Artifact, JavaPluginData, JavaOutput> {
   public static final String PROVIDER_NAME = "JavaPluginInfo";
   public static final Provider PROVIDER = new Provider();
 
@@ -55,19 +54,18 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
 
     @Override
-    public JavaPluginInfoApi<JavaPluginData> javaPluginInfo(
+    public JavaPluginInfoApi<Artifact, JavaPluginData, JavaOutput> javaPluginInfo(
         Sequence<?> runtimeDeps, Object processorClass, Object processorData, Boolean generatesApi)
         throws EvalException {
       NestedSet<String> processorClasses =
           processorClass == Starlark.NONE
               ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
               : NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, (String) processorClass);
+      JavaInfo javaInfos =
+          JavaInfo.merge(Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"));
+
       NestedSet<Artifact> processorClasspath =
-          JavaInfo.merge(
-                  Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-                  /*withExportsProvider=*/ false)
-              .getProvider(JavaCompilationArgsProvider.class)
-              .getRuntimeJars();
+          javaInfos.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars();
 
       final NestedSet<Artifact> data;
       if (processorData instanceof Depset) {
@@ -79,12 +77,13 @@ public abstract class JavaPluginInfo extends NativeInfo
       }
 
       return JavaPluginInfo.create(
-          JavaPluginData.create(processorClasses, processorClasspath, data), generatesApi);
+          JavaPluginData.create(processorClasses, processorClasspath, data),
+          generatesApi,
+          javaInfos.getJavaOutputs());
     }
   }
 
   /** Information about a Java plugin, except for whether it generates API. */
-  @AutoCodec
   @Immutable
   @AutoValue
   public abstract static class JavaPluginData implements JavaPluginInfoApi.JavaPluginDataApi {
@@ -97,7 +96,6 @@ public abstract class JavaPluginInfo extends NativeInfo
           processorClasses, processorClasspath, data);
     }
 
-    @AutoCodec.Instantiator
     public static JavaPluginData empty() {
       return create(
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
@@ -158,11 +156,11 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
   }
 
-  public static JavaPluginInfo merge(JavaPluginInfo a, JavaPluginInfo b) {
-    return a.isEmpty() ? b : b.isEmpty() ? a : merge(ImmutableList.of(a, b));
+  public static JavaPluginInfo mergeWithoutJavaOutputs(JavaPluginInfo a, JavaPluginInfo b) {
+    return a.isEmpty() ? b : b.isEmpty() ? a : mergeWithoutJavaOutputs(ImmutableList.of(a, b));
   }
 
-  public static JavaPluginInfo merge(Iterable<JavaPluginInfo> providers) {
+  public static JavaPluginInfo mergeWithoutJavaOutputs(Iterable<JavaPluginInfo> providers) {
     List<JavaPluginData> plugins = new ArrayList<>();
     List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfo provider : providers) {
@@ -170,17 +168,20 @@ public abstract class JavaPluginInfo extends NativeInfo
       apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
     }
     return new AutoValue_JavaPluginInfo(
-        JavaPluginData.merge(plugins), JavaPluginData.merge(apiGeneratingPlugins));
+        ImmutableList.of(),
+        JavaPluginData.merge(plugins),
+        JavaPluginData.merge(apiGeneratingPlugins));
   }
 
-  public static JavaPluginInfo create(JavaPluginData javaPluginData, boolean generatesApi) {
+  public static JavaPluginInfo create(
+      JavaPluginData javaPluginData, boolean generatesApi, ImmutableList<JavaOutput> javaOutputs) {
     return new AutoValue_JavaPluginInfo(
-        javaPluginData, generatesApi ? javaPluginData : JavaPluginData.empty());
+        javaOutputs, javaPluginData, generatesApi ? javaPluginData : JavaPluginData.empty());
   }
 
-  @AutoCodec.Instantiator
   public static JavaPluginInfo empty() {
-    return new AutoValue_JavaPluginInfo(JavaPluginData.empty(), JavaPluginData.empty());
+    return new AutoValue_JavaPluginInfo(
+        ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
   }
 
   public abstract JavaPluginData plugins();
@@ -208,6 +209,6 @@ public abstract class JavaPluginInfo extends NativeInfo
    */
   public JavaPluginInfo disableAnnotationProcessing() {
     return JavaPluginInfo.create(
-        plugins().disableAnnotationProcessing(), /* generatesApi= */ false);
+        plugins().disableAnnotationProcessing(), /* generatesApi= */ false, getJavaOutputs());
   }
 }

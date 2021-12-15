@@ -39,14 +39,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Core options affecting a {@link BuildConfiguration} that don't belong in domain-specific {@link
- * FragmentOptions}. All options defined here should be universal in that they affect configuration
- * regardless of which languages a build uses. In other words, this should only contain options that
- * aren't suitable for Starlark configuration.
+ * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
+ * {@link FragmentOptions}. All options defined here should be universal in that they affect
+ * configuration regardless of which languages a build uses. In other words, this should only
+ * contain options that aren't suitable for Starlark configuration.
  *
  * <p>(Note: any client that creates a view will also need to declare BuildView.Options, which
  * affect the <i>mechanism</i> of view construction, even if they don't affect the value of the
- * BuildConfiguration instances.)
+ * BuildConfigurationValue instances.)
  *
  * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
  * propagated to the host configuration or not.
@@ -64,22 +64,26 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, the genfiles directory is folded into the bin directory.")
   public boolean mergeGenfilesDirectory;
+
+  @Option(
+      name = "experimental_platform_in_output_dir",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, the target platform is used in the output directory name instead of the CPU.")
+  public boolean platformInOutputDir;
 
   @Option(
       name = "incompatible_use_platforms_repo_for_constraints",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, constraint settings from @bazel_tools are removed.")
   public boolean usePlatformsRepoForConstraints;
 
@@ -113,6 +117,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = AutoCpuConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "The target CPU.")
   public String cpu;
 
@@ -222,6 +227,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "fastbuild",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
+      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "Specify the mode the binary will be built in. Values: 'fastbuild', 'dbg', 'opt'.")
   public CompilationMode compilationMode;
 
@@ -236,38 +242,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "'fastbuild', 'dbg', 'opt'.")
   public CompilationMode hostCompilationMode;
 
-  /**
-   * This option is used internally to set output directory name of the <i>host</i> configuration to
-   * a constant, so that the output files for the host are completely independent of those for the
-   * target, no matter what options are in force (k8/piii, opt/dbg, etc).
-   */
   @Option(
-      name = "output directory name",
-      defaultValue = "null",
+      name = "experimental_enable_aspect_hints",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public String outputDirectoryName;
-
-  /**
-   * This option is used by starlark transitions to add a distinguishing element to the output
-   * directory name, in order to avoid name clashing.
-   */
-  @Option(
-      name = "transition directory name fragment",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public String transitionDirectoryNameFragment;
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
+  public boolean enableAspectHints;
 
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
   public static class EmptyListConverter implements Converter<List<String>> {
@@ -284,9 +265,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   /**
-   * This internal option is a *set* of names (e.g. "cpu") of *native* options that have been
-   * changed by starlark transitions at any point in the build at the time of accessing. This is
-   * used to regenerate {@code transitionDirectoryNameFragment} after each starlark transition.
+   * This internal option is a *set* of names of options that have been changed by starlark
+   * transitions at any point in the build at the time of accessing. It contains both native and
+   * starlark options in label form. e.g. "//command_line_option:cpu" for native options and
+   * "//myapp:foo" for starlark options. This is used to regenerate {@code
+   * transitionDirectoryNameFragment} after each starlark transition.
    */
   @Option(
       name = "affected by starlark transition",
@@ -555,7 +538,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "800",
+      defaultValue = "1000",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -703,10 +686,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "Use graphless query and disable output ordering for genquery.")
   public Void incompatibleUseGraphlessQuery;
 
@@ -747,16 +727,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "INTERNAL BLAZE DEVELOPER FEATURE: If \"direct\", all configured targets expose "
               + "RequiredConfigFragmentsProvider with the configuration fragments they directly "
-              + "require (use \"direct_host_only\" to limit to targets in the host configuration). "
+              + "require. "
               + "If \"transitive\", they do the same but also include the fragments their "
               + "transitive dependencies require. If \"off\", the provider is omitted. "
               + ""
               + "If not \"off\", this also populates config_setting's "
-              + " ConfigMatchingProvider.requiredFragmentOptions with the fragment options "
-              + " the config_setting requires."
+              + "ConfigMatchingProvider.requiredFragmentOptions with the fragment options the "
+              + "config_setting requires."
               + ""
               + "Be careful using this feature: it adds memory to every configured target in the "
-              + "build")
+              + "build.")
   public IncludeConfigFragmentsEnum includeRequiredConfigFragmentsProvider;
 
   @Option(
@@ -820,6 +800,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " artifacts.")
   public RegexFilter archivedArtifactsMnemonicsFilter;
 
+  @Option(
+      name = "experimental_debug_selects_always_succeed",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "When set, select functions with no matching clause will return an empty value, instead"
+              + " of failing. This is to help use cquery diagnose failures in select.")
+  public boolean debugSelectsAlwaysSucceed;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -827,11 +817,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
      * information and don't need the extra memory hit over every configured target.
      */
     OFF,
-    /**
-     * Provide the fragments required <em>directly</em> by this rule if it is being analyzed in the
-     * host configuration.
-     */
-    DIRECT_HOST_ONLY,
     /** Provide the fragments required <em>directly</em> by this rule. */
     DIRECT,
     /** Provide the fragments required by this rule and its transitive dependencies. */
@@ -850,8 +835,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
 
-    host.outputDirectoryName = "host";
-    host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     host.affectedByStarlarkTransition = affectedByStarlarkTransition;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
@@ -862,8 +845,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.commandLineBuildVariables = commandLineBuildVariables;
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
+    host.platformInOutputDir = platformInOutputDir;
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
+    host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
@@ -900,6 +885,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     // Pass archived tree artifacts filter.
     host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
+
+    host.enableAspectHints = enableAspectHints;
 
     return host;
   }

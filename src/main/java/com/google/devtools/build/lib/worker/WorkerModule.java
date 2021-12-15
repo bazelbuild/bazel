@@ -84,10 +84,10 @@ public class WorkerModule extends BlazeModule {
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
 
-    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir, options.workerSandboxing);
+    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir);
     if (!newWorkerFactory.equals(workerFactory)) {
-      try {
-        if (!workerDir.createDirectory()) {
+      if (workerDir.exists()) {
+        try {
           // Clean out old log files.
           for (Path logFile : workerDir.getDirectoryEntries()) {
             if (logFile.getBaseName().endsWith(".log")) {
@@ -96,21 +96,21 @@ public class WorkerModule extends BlazeModule {
               } catch (IOException e) {
                 env.getReporter()
                     .handle(
-                        Event.error(
+                        Event.warn(
                             String.format(
                                 "Could not delete old worker log '%s': %s",
                                 logFile, e.getMessage())));
               }
             }
           }
+        } catch (IOException e) {
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      String.format(
+                          "Could not delete old worker logs in '%s': %s",
+                          workerDir, e.getMessage())));
         }
-      } catch (IOException e) {
-        env.getReporter()
-            .handle(
-                Event.error(
-                    String.format(
-                        "Could not create worker base directory '%s': %s",
-                        workerDir, e.getMessage())));
       }
 
       shutdownPool(
@@ -146,21 +146,21 @@ public class WorkerModule extends BlazeModule {
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     checkNotNull(workerPool);
     SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
-    WorkerOptions options = env.getOptions().getOptions(WorkerOptions.class);
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
             new SandboxHelpers(sandboxOptions.delayVirtualInputMaterialization),
             env.getExecRoot(),
             workerPool,
-            options.workerMultiplex,
             env.getReporter(),
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE,
-            env.getOptions().getOptions(WorkerOptions.class));
+            env.getOptions().getOptions(WorkerOptions.class),
+            env.getEventBus(),
+            Runtime.getRuntime());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(

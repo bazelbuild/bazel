@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -33,6 +32,7 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -96,8 +96,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
-      int cpuHeavySkyKeysThreadPoolSize) {
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionJobsThreadPoolSize) {
     super(
         graph,
         graphVersion,
@@ -111,8 +111,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
-        cpuHeavySkyKeysThreadPoolSize);
+        cpuHeavySkyKeysThreadPoolSize,
+        executionJobsThreadPoolSize);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
@@ -370,6 +370,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Iterable<SkyKey> roots,
       Set<SkyKey> rdepsToBubbleUpTo)
       throws InterruptedException {
+    // Remove all the compute states so as to give the SkyFunctions a chance to do fresh
+    // computations during error bubbling.
+    skyKeyComputeStateManager.removeAll();
+
     Set<SkyKey> rootValues = ImmutableSet.copyOf(roots);
     ErrorInfo error = leafFailure;
     LinkedHashMap<SkyKey, ValueWithMetadata> bubbleErrorInfo = new LinkedHashMap<>();
@@ -489,18 +493,23 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       SkyKey childErrorKey = errorKey;
       errorKey = parent;
       SkyFunctionEnvironment env =
-          new SkyFunctionEnvironment(
+          SkyFunctionEnvironment.createForError(
               parent,
               parentEntry.getTemporaryDirectDeps(),
               bubbleErrorInfo,
               ImmutableSet.of(),
               evaluatorContext);
+      SkyKeyComputeState skyKeyComputeStateToUse = skyKeyComputeStateManager.maybeGet(parent);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
       boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
         // care about a return value.
-        factory.compute(parent, env);
+        if (skyKeyComputeStateToUse == null) {
+          factory.compute(parent, env);
+        } else {
+          factory.compute(parent, skyKeyComputeStateToUse, env);
+        }
         completedRun = true;
       } catch (InterruptedException interruptedException) {
         logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
@@ -538,7 +547,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         Thread.interrupted();
       }
       // TODO(b/166268889, b/172223413): remove when fixed.
-      if (completedRun && error.getException() instanceof IOException) {
+      if (completedRun
+          && error.getException() != null
+          && (error.getException() instanceof IOException
+              || error.getException().getClass().getName().endsWith("SourceArtifactException"))) {
         logger.atInfo().log(
             "SkyFunction did not rethrow error, may be a bug that it did not expect one: %s"
                 + " via %s, %s (%s)",
@@ -592,8 +604,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         bubbleErrorInfo);
     EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
-    boolean nonCycleErrorFound = false;
+    boolean haveKeys = false;
     for (SkyKey skyKey : skyKeys) {
+      haveKeys = true;
       SkyValue unwrappedValue =
           maybeGetValueFromError(
               skyKey, graph.get(null, Reason.PRE_OR_POST_EVALUATION, skyKey), bubbleErrorInfo);
@@ -613,7 +626,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
       if (!evaluatorContext.keepGoing() && errorInfo != null) {
         // value will be null here unless the value was already built on a prior keepGoing build.
-        nonCycleErrorFound = true;
         result.addError(skyKey, errorInfo);
         continue;
       }
@@ -621,7 +633,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // Note that we must be in the keepGoing case. Only make this value an error if it doesn't
         // have a value. The error shouldn't matter to the caller since the value succeeded after a
         // fashion.
-        nonCycleErrorFound = true;
         result.addError(skyKey, errorInfo);
       } else {
         result.addResult(skyKey, value);
@@ -630,51 +641,12 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     if (!cycleRoots.isEmpty()) {
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
-    if (catastrophe && bubbleErrorInfo != null && !result.hasCatastrophe()) {
-      // We may not have a top-level node completed. Inform the caller of at least one catastrophic
-      // exception that shut down the evaluation so that it has some context.
-      // TODO(b/159006108): Sometimes we get here and not every exception is catastrophic, so we
-      //  alert when that happens. If we didn't need to guard against that case, we could simply
-      //  take the last element of bubbleErrorInfo#values() and make that the catastrophe.
-      boolean catastropheFound = false;
-      @Nullable Exception nonCatastrophicExceptionForBugHandler = null;
-      for (ValueWithMetadata valueWithMetadata : bubbleErrorInfo.values()) {
-        ErrorInfo errorInfo =
-            Preconditions.checkNotNull(
-                valueWithMetadata.getErrorInfo(),
-                "bubbleErrorInfo should have contained element with errorInfo: %s",
-                bubbleErrorInfo);
-        if (errorInfo.isCatastrophic()) {
-          if (!result.hasCatastrophe()) {
-            result.setCatastrophe(errorInfo.getException());
-          }
-          catastropheFound = true;
-        } else {
-          // Alert for the known bug of a non-catastrophic exception.
-          BugReport.sendBugReport(
-              new IllegalStateException(
-                  String.format(
-                      "bubbleErrorInfo should have contained element with catastrophe: %s"
-                          + " (bubbleErrorInfo: %s)",
-                      valueWithMetadata, bubbleErrorInfo)));
-          if (errorInfo.getException() != null) {
-            nonCatastrophicExceptionForBugHandler = errorInfo.getException();
-          }
-        }
-      }
-      if (!catastropheFound && !nonCycleErrorFound) {
-        Preconditions.checkNotNull(
-            nonCatastrophicExceptionForBugHandler,
-            "There were no exceptions in bubbleErrorInfo despite a catastrophic failure (%s)",
-            bubbleErrorInfo);
-        // Alert for the never-seen bug of *no* catastrophic exceptions.
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "No element in bubbleErrorInfo was catastrophic: " + bubbleErrorInfo,
-                nonCatastrophicExceptionForBugHandler));
-        result.setCatastrophe(nonCatastrophicExceptionForBugHandler);
-      }
-    }
+    Preconditions.checkState(
+        !result.isEmpty() || !haveKeys,
+        "No result for keys %s (%s %s)",
+        skyKeys,
+        bubbleErrorInfo,
+        catastrophe);
     EvaluationResult<T> builtResult = result.build();
     Preconditions.checkState(
         bubbleErrorInfo == null || builtResult.hasError(),
@@ -686,7 +658,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   }
 
   @Nullable
-  static SkyValue maybeGetValueFromError(
+  private static SkyValue maybeGetValueFromError(
       SkyKey key,
       @Nullable NodeEntry entry,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo)
@@ -726,7 +698,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
       }
       prevEntry.markRebuilding();
-      prevEntry.setValue(value, version);
+      prevEntry.setValue(value, version, /*maxTransitiveSourceVersion=*/ null);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }

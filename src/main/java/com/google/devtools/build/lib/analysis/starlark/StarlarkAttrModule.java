@@ -41,10 +41,11 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -136,14 +137,18 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             new StarlarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
       } else if (defaultValue instanceof StarlarkLateBoundDefault) {
         builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
+      } else if (defaultValue instanceof NativeComputedDefaultApi) {
+        // TODO(b/200065655#comment3): This hack exists until default_copts and default_hdrs_check
+        //  in package() is replaced by proper package defaults. We don't check the particular
+        //  instance to avoid adding a dependency to the C++ package.
+        builder.value((NativeComputedDefaultApi) defaultValue);
       } else {
-        BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
+        BazelModuleContext moduleContext =
+            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
-                BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-                bazelStarlarkContext.getRepoMapping(),
-                bazelStarlarkContext.getConvertedLabelsInPackage()),
+                moduleContext.label(), moduleContext.repoMapping(), new HashMap<>()),
             DEFAULT_ARG);
       }
     }
@@ -169,7 +174,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
         throw Starlark.errorf(
             "cfg parameter is mandatory when executable=True is provided. Please see "
-                + "https://www.bazel.build/versions/main/docs/skylark/rules.html#configurations "
+                + "https://docs.bazel.build/versions/main/skylark/rules.html#configurations "
                 + "for more details.");
       }
     }
@@ -265,10 +270,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             /** baseAspectName= */
             null,
             builder.getAspectsListBuilder(),
-            /** inheritedRequiredProviders= */
-            ImmutableList.of(),
-            /** inheritedAttributeAspects= */
-            ImmutableList.of(),
             /** allowAspectsParameters= */
             true);
       }
@@ -425,11 +426,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringAttribute(
-      String defaultValue,
-      String doc,
-      Boolean mandatory,
-      Sequence<?> values,
-      StarlarkThread thread)
+      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string");
     return createAttrDescriptor(
@@ -502,11 +499,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory,
-      Boolean allowEmpty,
-      Sequence<?> defaultValue,
-      String doc,
-      StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list");
     return createAttrDescriptor(
@@ -726,13 +719,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   /** A descriptor of an attribute defined in Starlark. */
-  @AutoCodec
   public static final class Descriptor implements StarlarkAttrModuleApi.Descriptor {
     private final ImmutableAttributeFactory attributeFactory;
     private final String name;
 
-    @AutoCodec.VisibleForSerialization
-    Descriptor(String name, ImmutableAttributeFactory attributeFactory) {
+    private Descriptor(String name, ImmutableAttributeFactory attributeFactory) {
       this.attributeFactory = Preconditions.checkNotNull(attributeFactory);
       this.name = name;
     }

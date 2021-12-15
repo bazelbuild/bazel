@@ -22,6 +22,12 @@ using std::ifstream;
 using std::regex;
 using std::string;
 using std::unordered_set;
+using std::vector;
+
+const regex libRegex = regex(".*\\.a$");
+const regex noArgFlags =
+    regex("-static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols");
+const regex singleArgFlags = regex("-arch_only|-syslibroot|-o");
 
 string getBasename(const string &path) {
   // Assumes we're on an OS with "/" as the path separator
@@ -32,43 +38,72 @@ string getBasename(const string &path) {
   return path.substr(idx + 1);
 }
 
-// Returns 0 if there are no duplicate basenames in the object files (both via
-// -filelist as well as shell args), 1 otherwise
-int main(int argc, const char *argv[]) {
+vector<string> readFile(const string path) {
+  vector<string> lines;
+  ifstream file(path);
+  string line;
+  while (std::getline(file, line)) {
+    if (!line.empty()) {
+      lines.push_back(line);
+    }
+  }
+
+  return lines;
+}
+
+unordered_set<string> parseArgs(vector<string> args) {
   unordered_set<string> basenames;
-  const regex libRegex = regex(".*\\.a$");
-  const regex noArgFlags =
-      regex("-static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols");
-  const regex singleArgFlags = regex("-arch_only|-syslibroot|-o");
-  // Set i to 1 to skip executable path
-  for (int i = 1; argv[i] != nullptr; i++) {
-    const string arg = argv[i];
+  for (auto it = args.begin(); it != args.end(); ++it) {
+    const string arg = *it;
     if (arg == "-filelist") {
-      ifstream list(argv[i + 1]);
+      ++it;
+      ifstream list(*it);
       for (string line; getline(list, line);) {
         const string basename = getBasename(line);
         const auto pair = basenames.insert(basename);
         if (!pair.second) {
-          return EXIT_FAILURE;
+          exit(EXIT_FAILURE);
         }
       }
       list.close();
-      i++;
+    } else if (arg[0] == '@') {
+      string paramsFilePath(arg.substr(1));
+      auto newBasenames = parseArgs(readFile(paramsFilePath));
+      for (auto newBasename : newBasenames) {
+        const auto pair = basenames.insert(newBasename);
+        if (!pair.second) {
+          exit(EXIT_FAILURE);
+        }
+      }
     } else if (regex_match(arg, noArgFlags)) {
     } else if (regex_match(arg, singleArgFlags)) {
-      i++;
+      ++it;
     } else if (arg[0] == '-') {
-      return EXIT_FAILURE;
-      // Unrecognized flag, let the wrapper deal with it
+      exit(EXIT_FAILURE);
+      // Unrecognized flag, let the wrapper deal with it, any flags added to
+      // libtool.sh should also be added here.
     } else if (regex_match(arg, libRegex)) {
       // Archive inputs can remain untouched, as they come from other targets.
     } else {
       const string basename = getBasename(arg);
       const auto pair = basenames.insert(basename);
       if (!pair.second) {
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
       }
     }
   }
+
+  return basenames;
+}
+
+// Returns 0 if there are no duplicate basenames in the object files (via
+// -filelist, params files, and shell args), 1 otherwise
+int main(int argc, const char *argv[]) {
+  vector<string> args;
+  // Set i to 1 to skip executable path
+  for (int i = 1; argv[i] != nullptr; i++) {
+    args.push_back(argv[i]);
+  }
+  parseArgs(args);
   return EXIT_SUCCESS;
 }

@@ -16,6 +16,8 @@
 #
 # bash_completion_test.sh: tests of bash command completion.
 
+set -euo pipefail
+
 : ${DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
@@ -170,9 +172,8 @@ source ${COMPLETION}
 assert_expansion_function() {
   local ws=${PWD}
   local function="$1" displacement="$2" type="$3" expected="$4" current="$5"
-  disable_errexit
-  local actual_result=$(eval "_bazel__${function} \"${ws}\" \"${displacement}\" \"${current}\" \"${type}\"" | sort)
-  enable_errexit
+  # Disable the test ERR trap for the generated function itself.
+  local actual_result=$(trap - ERR; "_bazel__${function}" "${ws}" "${displacement}" "${current}" "${type}" | sort)
   assert_equals "$(echo -ne "${expected}")" "${actual_result}"
 }
 

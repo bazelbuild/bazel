@@ -182,18 +182,21 @@ public class PackageFunctionTest extends BuildViewTestCase {
     return value.getPackage();
   }
 
+  private Exception evaluatePackageToException(String pkg) throws Exception {
+    return evaluatePackageToException(pkg, /*keepGoing=*/ false);
+  }
+
   /**
    * Helper that evaluates the given package and returns the expected exception.
    *
    * <p>Disables the failFastHandler as a side-effect.
    */
-  private Exception evaluatePackageToException(String pkg) throws Exception {
+  private Exception evaluatePackageToException(String pkg, boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse(pkg));
     EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+        SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(), skyKey, keepGoing, reporter);
     assertThat(result.hasError()).isTrue();
     return result.getError(skyKey).getException();
   }
@@ -401,7 +404,18 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("foo/bar/baz.sh");
     fs.scheduleMakeUnreadableAfterReaddir(barDir);
 
-    Exception ex = evaluatePackageToException("@//foo");
+    Exception ex =
+        evaluatePackageToException(
+            "@//foo",
+            // Use --keep_going, not --nokeep_going, semantics so as to exercise the situation we
+            // want to exercise.
+            //
+            // In --nokeep_going semantics, the GlobValue node's error would halt normal evaluation
+            // and trigger error bubbling. Then, during error bubbling we would freshly compute the
+            // PackageValue node again, meaning we would do non-Skyframe globbing except this time
+            // non-Skyframe globbing would encounter the io error, meaning there actually wouldn't
+            // be a discrepancy.
+            /*keepGoing=*/ true);
     String msg = ex.getMessage();
     assertThat(msg).contains("Inconsistent filesystem operations");
     assertThat(msg).contains("Encountered error '/workspace/foo/bar (Permission denied)'");
@@ -924,6 +938,48 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .contains(
             "no such package 'pkg/sub': Symlink cycle detected while trying to find BUILD file");
     assertContainsEvent("circular symlinks detected");
+  }
+
+  // Regression test for b/206459361.
+  @Test
+  public void nonSkyframeGlobbingIOException_andLabelCrossingSubpackageBoundaries_withKeepGoing()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    // When a package's BUILD file and the relevant filesystem state is such that non-Skyframe
+    // globbing will encounter an IOException due to a directory symlink cycle *and* the BUILD file
+    // defines a target with a label that crosses subpackage boundaries,
+    Path pkgBUILDPath =
+        scratch.file(
+            "pkg/BUILD",
+            "exports_files(['sub/blah'])  # label crossing subpackage boundaries", //
+            "glob(['globcycle/**/foo.txt'])  # triggers non-Skyframe globbing error");
+    scratch.file("pkg/sub/BUILD");
+    Path pkgGlobcyclePath = pkgBUILDPath.getParentDirectory().getChild("globcycle");
+    FileSystemUtils.ensureSymbolicLink(pkgGlobcyclePath, pkgGlobcyclePath);
+    assertThrows(IOException.class, () -> pkgGlobcyclePath.statIfFound(Symlinks.FOLLOW));
+
+    invalidatePackages();
+
+    // ... and we evaluate the package with keepGoing == true, we expect the evaluation to fail with
+    // the non-Skyframe globbing error, but for the label crossing event to *not* get added (because
+    // the globbing IOException would put Package.Builder in a state on which we cannot run
+    // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions).
+    SkyKey pkgKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /*keepGoing=*/ true, reporter);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .isInstanceOf(NoSuchPackageException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Symlink cycle: /workspace/pkg/globcycle");
+    assertDoesNotContainEvent(
+        "Label '//pkg:sub/blah' is invalid because 'pkg/sub' is a subpackage");
   }
 
   @Test

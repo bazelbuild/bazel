@@ -51,6 +51,8 @@ DEFAULT_JAVACOPTS = [
     "-XDcompilePolicy=simple",
     "-g",
     "-parameters",
+    # https://github.com/bazelbuild/java_tools/issues/51#issuecomment-927940699
+    "-XepOpt:ReturnValueIgnored:ObjectMethods=false",
 ]
 
 # java_toolchain parameters without specifying javac, java.compiler,
@@ -72,6 +74,9 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "8",
     target_version = "8",
+    reduced_classpath_incompatible_processors = [
+        "dagger.hilt.processor.internal.root.RootProcessor",  # see b/21307381
+    ],
 )
 
 JVM8_TOOLCHAIN_CONFIGURATION = dict(

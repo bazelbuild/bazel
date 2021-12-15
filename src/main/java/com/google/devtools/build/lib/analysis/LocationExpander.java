@@ -28,7 +28,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -68,13 +68,13 @@ public final class LocationExpander {
 
   private final RuleErrorConsumer ruleErrorConsumer;
   private final ImmutableMap<String, LocationFunction> functions;
-  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final RepositoryMapping repositoryMapping;
 
   @VisibleForTesting
   LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
       Map<String, LocationFunction> functions,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      RepositoryMapping repositoryMapping) {
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.functions = ImmutableMap.copyOf(functions);
     this.repositoryMapping = repositoryMapping;
@@ -86,7 +86,7 @@ public final class LocationExpander {
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
       boolean legacyExternalRunfiles,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      RepositoryMapping repositoryMapping) {
     this(
         ruleErrorConsumer,
         allLocationFunctions(root, locationMap, execPaths, legacyExternalRunfiles),
@@ -260,8 +260,7 @@ public final class LocationExpander {
      * @param repositoryMapping map of {@code RepositoryName}s defined in the main workspace
      * @return The expanded value
      */
-    public String apply(
-        String arg, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+    public String apply(String arg, RepositoryMapping repositoryMapping) {
       Label label;
       try {
         label = root.getRelativeWithRemapping(arg, repositoryMapping);

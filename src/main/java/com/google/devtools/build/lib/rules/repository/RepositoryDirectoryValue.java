@@ -54,6 +54,12 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   public abstract boolean isFetchingDelayed();
 
   /**
+   * For an unsuccessful repository lookup, gets a detailed error message that is suitable for
+   * reporting to a user.
+   */
+  public abstract String getErrorMsg();
+
+  /**
    * Returns the set of relative (to the workspace root) paths to managed directories for this
    * repository. We need to keep this information in a value, since managed directories are part of
    * the repository definition.
@@ -87,6 +93,11 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     @Override
     public boolean repositoryExists() {
       return true;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      throw new IllegalStateException();
     }
 
     @Override
@@ -135,11 +146,20 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
 
   /** Represents an unsuccessful repository lookup. */
   public static final class NoRepositoryDirectoryValue extends RepositoryDirectoryValue {
-    private NoRepositoryDirectoryValue() {}
+    private final String errorMsg;
+
+    public NoRepositoryDirectoryValue(String errorMsg) {
+      this.errorMsg = errorMsg;
+    }
 
     @Override
     public boolean repositoryExists() {
       return false;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return this.errorMsg;
     }
 
     @Override
@@ -157,9 +177,6 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       throw new IllegalStateException();
     }
   }
-
-  public static final NoRepositoryDirectoryValue NO_SUCH_REPOSITORY_VALUE =
-      new NoRepositoryDirectoryValue();
 
   /** Creates a key from the given repository name. */
   public static Key key(RepositoryName repository) {

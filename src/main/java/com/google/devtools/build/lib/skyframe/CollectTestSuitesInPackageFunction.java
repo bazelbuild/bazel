@@ -74,10 +74,4 @@ public class CollectTestSuitesInPackageFunction implements SkyFunction {
     }
     return CollectTestSuitesInPackageValue.INSTANCE;
   }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

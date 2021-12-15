@@ -124,7 +124,7 @@ final class ActionExecutionState {
       result = state.get();
     }
     sharedActionCallback.actionCompleted();
-    return result.transformForSharedAction(action.getOutputs());
+    return result.transformForSharedAction(action);
   }
 
   private static void scheduleRestart(Environment env) {

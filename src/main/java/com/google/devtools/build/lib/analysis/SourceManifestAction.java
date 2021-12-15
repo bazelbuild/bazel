@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
@@ -49,7 +48,6 @@ import javax.annotation.Nullable;
  *
  * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
-@AutoCodec
 @Immutable // if all ManifestWriter implementations are immutable
 public final class SourceManifestAction extends AbstractFileWriteAction {
 
@@ -128,7 +126,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    */
-  @AutoCodec.Instantiator
   public SourceManifestAction(
       ManifestWriter manifestWriter,
       ActionOwner owner,

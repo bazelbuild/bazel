@@ -48,12 +48,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -73,6 +75,13 @@ java_library(
     srcs = ["CPUHeavySkyKey.java"],
     visibility = ["//visibility:public"],
     deps = ["skyframe-objects"],
+)
+
+java_library(
+    name = "execution_phase_skykey",
+    srcs = ["ExecutionPhaseSkyKey.java"],
+    visibility = ["//visibility:public"],
+    deps = [":skyframe-objects"],
 )
 
 proto_library(

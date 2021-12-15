@@ -58,7 +58,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ToolchainsForTargetsTest extends AnalysisTestCase {
-  /** Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair. */
+  /** Returns a {@link SkyKey} for a given <Target, BuildConfigurationValue> pair. */
   private static Key key(
       TargetAndConfiguration targetAndConfiguration, ConfiguredTargetKey configuredTargetKey) {
     return new AutoValue_ToolchainsForTargetsTest_Key(targetAndConfiguration, configuredTargetKey);
@@ -115,7 +115,7 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
                 env,
                 stateProvider.lateBoundRuleClassProvider(),
                 key.targetAndConfiguration(),
-                key.configuredTargetKey().getToolchainContextKey());
+                key.configuredTargetKey().getExecutionPlatformLabel());
         if (env.valuesMissing()) {
           return null;
         }
@@ -131,11 +131,6 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
       ComputeUnloadedToolchainContextsException(Exception cause) {
         super(cause, Transience.PERSISTENT); // We can generalize the transience if/when needed.
       }
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 
@@ -457,19 +452,14 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
         "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
 
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a").getTargetsToBuild());
-    ToolchainContextKey parentKey =
-        ToolchainContextKey.key()
-            .configurationKey(target.getConfigurationKey())
-            // Force the constraint label, to make the exec platform be local_platform_b.
-            .execConstraintLabels(Label.parseAbsoluteUnchecked("//platforms:local_value_b"))
-            .build();
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
         getToolchainCollection(
             target,
             ConfiguredTargetKey.builder()
                 .setLabel(target.getOriginalLabel())
                 .setConfigurationKey(target.getConfigurationKey())
-                .setToolchainContextKey(parentKey)
+                .setExecutionPlatformLabel(
+                    Label.parseAbsoluteUnchecked("//platforms:local_platform_b"))
                 .build());
 
     assertThat(toolchainCollection).isNotNull();

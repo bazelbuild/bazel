@@ -101,7 +101,7 @@ public final class SimpleLogHandlerTest {
         SimpleLogHandler.builder().setPrefix(tmp.getRoot() + File.separator + "hello").build();
     handler.publish(new LogRecord(Level.SEVERE, "Hello world")); // To open the log file.
     assertThat(handler.getCurrentLogFilePath().get().toString())
-        .endsWith("." + SimpleLogHandler.getPidString());
+        .endsWith("." + ProcessHandle.current().pid());
   }
 
   @Test
@@ -179,7 +179,7 @@ public final class SimpleLogHandlerTest {
     Path logPath = handler.getCurrentLogFilePath().get();
     handler.close();
 
-    assertThat(new String(Files.readAllBytes(logPath), UTF_8)).isEqualTo("Hello world\n");
+    assertThat(Files.readString(logPath)).isEqualTo("Hello world\n");
   }
 
   @Test
@@ -238,7 +238,7 @@ public final class SimpleLogHandlerTest {
   }
 
   @Test
-  public void testSymlinkDisabling() throws Exception {
+  public void testSymlinkDisabling() {
     SimpleLogHandler handler =
         SimpleLogHandler.builder()
             .setPrefix(tmp.getRoot() + File.separator + "hello")
@@ -256,7 +256,7 @@ public final class SimpleLogHandlerTest {
             .setPrefix(tmp.getRoot() + File.separator + "hello")
             .setSymlinkName("bye" + File.separator + "bye")
             .setCreateSymlink(true);
-    assertThrows(IllegalArgumentException.class, () -> builder.build());
+    assertThrows(IllegalArgumentException.class, builder::build);
   }
 
   @Test

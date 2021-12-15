@@ -119,8 +119,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             null,
             null,
             null,
-            null,
-            null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             PackageFunction.IncrementalityIntent.INCREMENTAL,
@@ -307,7 +305,9 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     assertThat(value.hasContainingPackage()).isFalse();
     assertThat(value.getClass()).isEqualTo(NoContainingPackage.class);
     assertThat(value.getReasonForNoContainingPackage())
-        .isEqualTo("The repository '@some_repo' could not be resolved");
+        .isEqualTo(
+            "The repository '@some_repo' could not be resolved: Repository '@some_repo' is not"
+                + " defined");
   }
 
   @Test

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.repository;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.mockito.Mockito.mock;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Rule;
@@ -160,8 +162,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             null,
             null,
             null,
-            null,
-            null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             PackageFunction.IncrementalityIntent.INCREMENTAL,
@@ -186,6 +186,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
+    RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, false);
   }
 
   @Test
@@ -381,12 +382,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
       }
       return GetRuleByNameValue.create(rule);
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   // GetRegisteredToolchains.
@@ -413,17 +408,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredToolchains = RegisteredToolchainsFunction.getWorkspaceToolchains(env);
+      List<TargetPattern> registeredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(env);
       if (registeredToolchains == null) {
         return null;
       }
-      return GetRegisteredToolchainsValue.create(registeredToolchains);
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
+      return GetRegisteredToolchainsValue.create(
+          registeredToolchains.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
   }
 
@@ -447,18 +440,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredExecutionPlatforms =
+      List<TargetPattern> registeredExecutionPlatforms =
           RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
       if (registeredExecutionPlatforms == null) {
         return null;
       }
-      return GetRegisteredExecutionPlatformsValue.create(registeredExecutionPlatforms);
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
+      return GetRegisteredExecutionPlatformsValue.create(
+          registeredExecutionPlatforms.stream()
+              .map(TargetPattern::getOriginalPattern)
+              .collect(toImmutableList()));
     }
   }
 

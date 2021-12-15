@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
@@ -42,7 +41,6 @@ import net.starlark.java.syntax.TokenKind;
     name = "selector",
     doc = "A selector between configuration-dependent values.",
     documented = false)
-@AutoCodec
 public final class SelectorValue implements StarlarkValue, HasBinary {
 
   // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.

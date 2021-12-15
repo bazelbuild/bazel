@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.function.Supplier;
 
 /**
  * A lazy, automatically populated registry.
@@ -36,7 +36,8 @@ public class AutoRegistry {
 
   // Build codecs only for Bazel and Starlark classes.
   private static boolean packageFilter(String name) {
-    return name.startsWith("com.google.devtools.build")
+    return name.startsWith("com.google.devtools.build.lib")
+        || name.startsWith("com.google.devtools.build.sky")
         || name.startsWith("com.google.devtools.common.options") // e.g. for Tristate
         || name.startsWith("net.starlark.java");
   }
@@ -51,7 +52,7 @@ public class AutoRegistry {
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
           "com.google.devtools.build.skyframe.SkyFunctionEnvironment");
 
-  /** Classes outside {@link AutoRegistry#PACKAGE_PREFIX} that need to be serialized. */
+  /** Classes outside {@link AutoRegistry#packageFilter} that need to be serialized. */
   private static final ImmutableList<String> EXTERNAL_CLASS_NAMES_TO_REGISTER =
       ImmutableList.of(
           "java.io.FileNotFoundException",

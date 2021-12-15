@@ -15,15 +15,26 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 
 /**
  * A marker provider for rules that are to be linked statically.
  *
- * Used in license checking.
+ * <p>Used in license checking.
  */
 @Immutable
-public class StaticallyLinkedMarkerProvider implements TransitiveInfoProvider {
+public class StaticallyLinkedMarkerProvider extends NativeInfo {
   private final boolean isLinkedStatically;
+
+  /** Provider class for {@link StaticallyLinkedMarkerProvider} objects. */
+  public static class Provider extends BuiltinProvider<StaticallyLinkedMarkerProvider> {
+    private Provider() {
+      super("StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.class);
+    }
+  }
+
+  public static final Provider PROVIDER = new Provider();
 
   public StaticallyLinkedMarkerProvider(boolean isLinkedStatically) {
     this.isLinkedStatically = isLinkedStatically;
@@ -31,5 +42,10 @@ public class StaticallyLinkedMarkerProvider implements TransitiveInfoProvider {
 
   public boolean isLinkedStatically() {
     return isLinkedStatically;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 }

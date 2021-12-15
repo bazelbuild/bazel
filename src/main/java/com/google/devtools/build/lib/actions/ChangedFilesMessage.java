@@ -13,39 +13,42 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Set;
 
 /**
  * A message sent conveying a set of changed files. This is sent over the event bus if a build is
- * discovered to have changed files. If many files have changed, the set of changed files will
- * be empty, but {@link #getChangedFileCount} will still return the correct number.
+ * discovered to have changed files. If many files have changed, the set of changed files will be
+ * empty, but {@link #changedFileCount} will still return the correct number.
  */
-public class ChangedFilesMessage {
-
-  private final Set<PathFragment> changedFiles;
-  private final int changedFileCount;
-
-  public ChangedFilesMessage(Set<PathFragment> changedFiles, int changedFileCount) {
-    this.changedFiles = ImmutableSet.copyOf(changedFiles);
-    this.changedFileCount = changedFileCount;
-  }
+@AutoValue
+public abstract class ChangedFilesMessage {
 
   /**
-   * Returns a set with one PathFragment for each file that was changed since the last build, or
-   * an empty set if the set is unknown or would be too big.
+   * Returns a set with one PathFragment for each file that was changed since the last build, or an
+   * empty set if the set is unknown or would be too big.
    */
-  public Set<PathFragment> getChangedFiles() {
-    return changedFiles;
-  }
+  public abstract ImmutableSet<PathFragment> changedFiles();
 
   /**
    * Returns the number of changed files. This will always be the correct number of files, even when
-   * {@link #getChangedFiles} might return an empty set, because the actual set would be too big.
+   * {@link #changedFiles} might return an empty set, because the actual set would be too big.
    */
-  public int getChangedFileCount() {
-    return changedFileCount;
+  public abstract int changedFileCount();
+
+  /**
+   * Returns the number of {@link FileValue} nodes invalidated in the build.
+   *
+   * <p>This is different from {@link #changedFiles}, in particular a single file change can result
+   * with multiple {@linkplain FileValue FVs}.
+   */
+  public abstract int invalidatedFileValueCount();
+
+  public static ChangedFilesMessage create(
+      Set<PathFragment> changedFiles, int changedFileCount, int invalidatedFileValueCount) {
+    return new AutoValue_ChangedFilesMessage(
+        ImmutableSet.copyOf(changedFiles), changedFileCount, invalidatedFileValueCount);
   }
 }

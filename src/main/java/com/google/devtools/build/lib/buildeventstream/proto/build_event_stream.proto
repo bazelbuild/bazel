@@ -479,6 +479,13 @@ message File {
     // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;
   }
+
+  // Digest of the file, using the build tool's configured digest algorithm,
+  // hex-encoded.
+  string digest = 5;
+
+  // Length of the file in bytes.
+  int64 length = 6;
 }
 
 // Payload of a message to describe a set of files, usually build artifacts, to
@@ -792,6 +799,7 @@ message BuildFinished {
     // Examples of suspensions are SIGSTOP, or the hardware being put to sleep.
     // If was_suspended is true, then most of the timings for this build are
     // suspect.
+    // NOTE: This is no longer set and is deprecated.
     bool was_suspended = 1;
   }
 
@@ -812,7 +820,7 @@ message BuildFinished {
   // End of the build.
   google.protobuf.Timestamp finish_time = 5;
 
-  AnomalyReport anomaly_report = 4;
+  AnomalyReport anomaly_report = 4 [deprecated = true];
 }
 
 message BuildMetrics {
@@ -873,6 +881,16 @@ message BuildMetrics {
     // Size of the peak JVM heap size in bytes post GC. Note that this reports 0
     // if there was no major GC during the build.
     int64 peak_post_gc_heap_size = 2;
+
+    message GarbageMetrics {
+      // Type of garbage collected, e.g. G1 Old Gen.
+      string type = 1;
+      // Number of bytes of garbage of the given type collected during this
+      // invocation.
+      int64 garbage_collected = 2;
+    }
+
+    repeated GarbageMetrics garbage_metrics = 3;
   }
   MemoryMetrics memory_metrics = 2;
 
@@ -996,6 +1014,35 @@ message BuildMetrics {
   }
 
   BuildGraphMetrics build_graph_metrics = 8;
+
+  // Information about all workers that were alive during the invocation.
+  message WorkerMetrics {
+    // Unique id of worker.
+    int32 worker_id = 1;
+    // Worker process id. If there is no process for worker, equals to zero.
+    uint32 process_id = 2;
+    // Mnemonic of running worker.
+    string mnemonic = 3;
+    // Multiplex or singleplex worker.
+    bool is_multiplex = 4;
+    // Using worker sandbox file system or not.
+    bool is_sandbox = 5;
+    // Shows is worker stats measured at the end of invocation.
+    bool is_measurable = 6;
+
+    // Information collected from worker at some point.
+    message WorkerStats {
+      // Epoch unix time of collection of metrics.
+      int64 collect_time_in_ms = 1;
+      // RSS size of worker process.
+      int32 worker_memory_in_kb = 2;
+    }
+
+    // Combined workers statistics.
+    repeated WorkerStats worker_stats = 7;
+  }
+
+  repeated WorkerMetrics worker_metrics = 9;
 }
 
 // Event providing additional statistics/logs after completion of the build.

@@ -20,7 +20,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Objects;
@@ -45,7 +44,6 @@ import javax.annotation.Nullable;
  *
  * <p>Do not put shortcuts to specific files here!
  */
-@AutoCodec
 @Immutable
 public final class BlazeDirectories {
   // Include directory name, relative to execRoot/blaze-out/configuration. Only one segment allowed.
@@ -69,7 +67,6 @@ public final class BlazeDirectories {
   private final Path localOutputPath;
   private final String productName;
 
-  @AutoCodec.Instantiator
   public BlazeDirectories(
       ServerDirectories serverDirectories,
       Path workspace,

@@ -116,8 +116,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
                 .createSymlinksDirectly(
                     action.getOutputManifest().getPath().getParentDirectory(), runfiles);
           } catch (IOException e) {
-            throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION)
-                .toActionExecutionException(action);
+            throw ActionExecutionException.fromExecException(
+                new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION), action);
           }
 
           Path inputManifest =
@@ -136,7 +136,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
                   actionExecutionContext.getFileOutErr());
         }
       } catch (ExecException e) {
-        throw e.toActionExecutionException(action);
+        throw ActionExecutionException.fromExecException(e, action);
       }
     }
   }

@@ -23,14 +23,10 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.Serializable;
 import javax.annotation.Nullable;
 
-/**
- * Interface for classes which order, format and print the result of a Blaze
- * graph query.
- */
-public abstract class OutputFormatter implements Serializable {
+/** Interface for classes which order, format and print the result of a Blaze graph query. */
+public abstract class OutputFormatter {
 
   /** Returns the user-visible name of the output formatter. */
   public abstract String getName();

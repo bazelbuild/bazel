@@ -25,11 +25,11 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -358,7 +358,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("jspecify_packages", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes()
-                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id()))
                 .undocumented("experimental"))
         .build();
   }

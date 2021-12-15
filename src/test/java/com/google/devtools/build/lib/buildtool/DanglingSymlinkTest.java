@@ -17,9 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,7 +30,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for dangling symlinks. */
 @RunWith(JUnit4.class)
-public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
+public class DanglingSymlinkTest extends BuildIntegrationTestCase {
 
   @Before
   public final void addNoJobsOption() throws Exception  {
@@ -44,7 +43,6 @@ public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
    */
   @Test
   public void testDanglingSymlinks() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     write("test/BUILD",
           "genrule(name='test_ln', srcs=[], outs=['test.out']," +
           " cmd='/bin/ln -sf wrong.out $(@D)/test.out')\n");
@@ -65,10 +63,8 @@ public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
    */
   @Test
   public void testGeneratedLibs() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
+    write("test/liba.so");
     write("test/BUILD",
-        "cc_library(name = 'a',",
-        "           srcs = ['a.cc'])",
         "genrule(name = 'b',",
         "        srcs = ['liba.so'],",
         "        outs = ['libb.so'],",

@@ -50,14 +50,6 @@ _COMPILING_RULE = {
         allow_files = [".m", ".mm"],
     ),
     "pch": attr.label(allow_single_file = [".pch"]),
-    "deps": attr.label_list(
-        providers = [ObjcInfo],
-        allow_rules = [
-            "cc_library",
-            "cc_inc_library",
-        ],
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-    ),
     "runtime_deps": attr.label_list(
         providers = [AppleDynamicFrameworkInfo],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
@@ -80,12 +72,20 @@ _COMPILE_DEPENDENCY_RULE = {
     ),
     "includes": attr.string_list(),
     "sdk_includes": attr.string_list(),
+    "deps": attr.label_list(
+        providers = [ObjcInfo],
+        allow_rules = [
+            "cc_library",
+            "cc_inc_library",
+        ],
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
+    ),
 }
 
 _INCLUDE_SCANNING_RULE = {
     "_grep_includes": attr.label(
         allow_single_file = True,
-        cfg = "host",
+        cfg = "exec",
         default = "@" + semantics.get_repo() + "//tools/cpp:grep-includes",
         executable = True,
     ),
@@ -101,9 +101,9 @@ _COPTS_RULE = {
     "copts": attr.string_list(),
 }
 
-_X_C_RUNE_RULE = {
+_XCRUN_RULE = {
     "_xcrunwrapper": attr.label(
-        cfg = "host",
+        cfg = "exec",
         default = "@" + semantics.get_repo() + "//tools/objc:xcrunwrapper",
         executable = True,
     ),
@@ -134,7 +134,7 @@ common_attrs = struct(
     INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,
     SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
     COPTS_RULE = _COPTS_RULE,
-    X_C_RUNE_RULE = _X_C_RUNE_RULE,
+    XCRUN_RULE = _XCRUN_RULE,
     LICENSES = semantics.get_licenses_attr(),
     PLATFORM_RULE = _PLATFORM_RULE,
 )

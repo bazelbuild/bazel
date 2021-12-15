@@ -29,8 +29,6 @@ android/ @ahumesky
 
 # Apple
 
-/src/objc_tools/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
-
 /src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
 
 # Documentation
@@ -67,3 +65,12 @@ android/ @ahumesky
 /tools/test/collect_coverage.sh @lberki
 /tools/test/collect_cc_coverage.sh @lberki
 /tools/test/CoverageOutputGenerator/ @lberki
+
+# Remote Execution
+
+/src/main/java/com/google/devtools/build/lib/remote @bazelbuild/remote-execution
+/src/test/java/com/google/devtools/build/lib/remote @bazelbuild/remote-execution
+/src/test/py/bazel/remote @bazelbuild/remote-execution
+/src/test/shell/bazel/remote @bazelbuild/remote-execution
+/src/tools/remote @bazelbuild/remote-execution
+/third_party/remoteapis/build/bazel/remote @bazelbuild/remote-execution

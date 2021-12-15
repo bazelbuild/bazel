@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationAssembler;
@@ -76,7 +75,7 @@ public class DeclarationAssemblerTest {
   @Test
   public void testMergeTwoDifferentBuffers() throws Exception {
     List<Pair<Long, String>> offsetStringPairList = Lists.newArrayList();
-    String unrelatedFirstBuffer = Strings.repeat(" ", 100);
+    String unrelatedFirstBuffer = " ".repeat(100);
     String s1 = "hello";
     String s2 = "goodbye";
     byte[] chars1 = (unrelatedFirstBuffer + s1).getBytes(ISO_8859_1);

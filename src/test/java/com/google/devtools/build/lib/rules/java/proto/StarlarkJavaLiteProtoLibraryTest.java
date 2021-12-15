@@ -42,10 +42,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.runtime.Runfiles;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -56,31 +53,12 @@ import org.junit.runners.JUnit4;
 /** Tests for the Starlark version of java_lite_proto_library rule. */
 @RunWith(JUnit4.class)
 public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
-  private static final String RULE_DIRECTORY = "tools/build_rules/java_lite_proto_library";
   private ActionsTestUtil actionsTestUtil;
 
   @Before
   public final void setUpMocks() throws Exception {
-    scratch.file(
-        "java/com/google/io/protocol/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_import(name = 'protocol',",
-        "            jars = [ 'protocol.jar' ])");
-    scratch.file(
-        "java/com/google/io/protocol2/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_import(name = 'protocol2',",
-        "            jars = [ 'protocol2.jar' ])");
-
-    scratch.file("net/proto2/compiler/public/BUILD", "exports_files(['protocol_compiler'])");
-
-    // TODO(b/77901188): remove once j_p_l migration is complete
-    scratch.file(
-        "third_party/java/jsr250_annotations/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "licenses(['notice'])",
-        "java_import(name = 'jsr250_source_annotations',",
-        "            jars = [ 'jsr250_source_annotations.jar' ])");
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
     mockToolchains();
 
@@ -89,14 +67,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupStarlarkRule() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
-
-    File[] files = Runfiles.location(RULE_DIRECTORY).listFiles();
-    for (File file : files) {
-      scratch.file(RULE_DIRECTORY + "/" + file.getName(), Files.readAllBytes(file.toPath()));
-    }
-    scratch.file(RULE_DIRECTORY + "/BUILD", "exports_files(['java_lite_proto_library.bzl'])");
-    invalidatePackages();
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_lite_proto_library");
   }
 
   private void mockToolchains() throws IOException {
@@ -124,8 +95,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void testBinaryDeps() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//" + RULE_DIRECTORY + ":java_lite_proto_library.bzl', ",
-        "      'java_lite_proto_library')",
         "java_lite_proto_library(name = 'lite_pb2', deps = [':foo'])",
         "proto_library(name = 'foo', srcs = ['foo.proto', 'bar.proto'], deps = [':baz'])",
         "proto_library(name = 'baz', srcs = ['baz.proto'])");
@@ -135,7 +104,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     Iterable<String> deps = prettyArtifactNames(actionsTestUtil.artifactClosureOf(filesToBuild));
 
     // Should depend on compiler and Java proto1 API.
-    assertThat(deps).contains("net/proto2/compiler/public/protocol_compiler");
+    assertThat(deps).contains("proto/compiler");
 
     // Also should not depend on RPC APIs.
     assertThat(deps).doesNotContain("apps/xplat/rpc/codegen/protoc-gen-rpc");
@@ -155,8 +124,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void testJavaProto2CompilerArgs() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//" + RULE_DIRECTORY + ":java_lite_proto_library.bzl',",
-        "      'java_lite_proto_library')",
         "java_lite_proto_library(name = 'lite_pb2', deps = [':protolib'])",
         "proto_library(name = 'protolib', srcs = ['file.proto'])");
 
@@ -182,8 +149,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "java",
             "lite_pb2",
-            "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-            "      'java_lite_proto_library')",
             "java_lite_proto_library(name = 'lite_pb2', deps = [':compiled'])",
             "proto_library(name = 'compiled',",
             "              srcs = [ 'ok.proto' ])");
@@ -198,8 +163,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void testCommandLineContainsTargetLabel() throws Exception {
     scratch.file(
         "java/lib/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "      'java_lite_proto_library')",
         "java_lite_proto_library(name = 'lite_pb2', deps = [':proto'])",
         "proto_library(name = 'proto', srcs = ['dummy.proto'])");
 
@@ -219,8 +182,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "notbad",
             "lite_pb2",
-            "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-            "      'java_lite_proto_library')",
             "java_lite_proto_library(name = 'lite_pb2', deps = [':null_lib'])",
             "proto_library(name = 'null_lib')");
     JavaCompilationArgsProvider compilationArgsProvider =
@@ -236,8 +197,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void testSameVersionCompilerArguments() throws Exception {
     scratch.file(
         "cross/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "      'java_lite_proto_library')",
         "java_lite_proto_library(name = 'lite_pb2', deps = ['bravo'])",
         "proto_library(name = 'bravo', srcs = ['bravo.proto'], deps = [':alpha'])",
         "proto_library(name = 'alpha')");
@@ -277,8 +236,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     scratch.file(
         "x/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "      'java_lite_proto_library')",
         "java_lite_proto_library(name = 'lite_pb2', deps = [':foo'])",
         "proto_library(name = 'foo', deps = [':bar'])",
         "proto_library(name = 'bar')");
@@ -295,8 +252,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void testExperimentalProtoExtraActions() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "      'java_lite_proto_library')",
         "java_lite_proto_library(name = 'lite_pb2', deps = [':foo'])",
         "proto_library(name = 'foo', srcs = ['foo.proto'])");
 
@@ -310,7 +265,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "    mnemonics = ['Javac'],",
         "    extra_actions = [':xa'])");
 
-    useConfiguration("--experimental_action_listener=//xa:al");
+    useConfiguration("--experimental_action_listener=//xa:al", "--proto_compiler=//proto:compiler");
     ConfiguredTarget ct = getConfiguredTarget("//x:lite_pb2");
     NestedSet<DerivedArtifact> artifacts =
         ct.getProvider(ExtraActionArtifactsProvider.class).getTransitiveExtraActionArtifacts();
@@ -340,10 +295,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "  },",
         ")");
     scratch.file(
-        "proto/BUILD",
+        "protolib/BUILD",
         "load('//proto:extensions.bzl', 'custom_rule')",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "      'java_lite_proto_library')",
         "proto_library(",
         "    name = 'proto',",
         "    srcs = [ 'file.proto' ],",
@@ -351,7 +304,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "java_lite_proto_library(name = 'lite_pb2', deps = [':proto'])",
         "custom_rule(name = 'custom', dep = ':lite_pb2')");
     update(
-        ImmutableList.of("//proto:custom"),
+        ImmutableList.of("//protolib:custom"),
         /* keepGoing= */ false,
         /* loadingPhaseThreads= */ 1,
         /* doAnalysis= */ true,
@@ -363,16 +316,14 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   @Test
   public void testProtoLibraryInterop() throws Exception {
     scratch.file(
-        "proto/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "      'java_lite_proto_library')",
+        "protolib/BUILD",
         "proto_library(",
         "    name = 'proto',",
         "    srcs = [ 'file.proto' ],",
         ")",
         "java_lite_proto_library(name = 'lite_pb2', deps = [':proto'])");
     update(
-        ImmutableList.of("//proto:lite_pb2"),
+        ImmutableList.of("//protolib:lite_pb2"),
         /* keepGoing= */ false,
         /* loadingPhaseThreads= */ 1,
         /* doAnalysis= */ true,
@@ -390,8 +341,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void jplCorrectlyDefinesDirectJars_strictDepsEnabled() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "          'java_lite_proto_library')",
         "java_lite_proto_library(name = 'foo_lite_pb2', deps = [':foo'])",
         "proto_library(",
         "    name = 'foo',",
@@ -455,8 +404,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void jplCorrectlyDefinesDirectJars_strictDepsEnabled_aliasProto() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "          'java_lite_proto_library')",
         "java_lite_proto_library(name = 'foo_java_proto_lite', deps = [':foo_proto'])",
         "proto_library(",
         "    name = 'foo_proto',",
@@ -487,8 +434,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   public void jplCorrectlyDefinesDirectJars_strictDepsDisabled() throws Exception {
     scratch.file(
         "x/BUILD",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "          'java_lite_proto_library')",
         "java_lite_proto_library(name = 'foo_lite_pb', deps = [':foo'])",
         "proto_library(",
         "    name = 'foo',",
@@ -543,8 +488,6 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         "load(':aspect.bzl', 'foo_rule')",
-        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "          'java_lite_proto_library')",
         "java_lite_proto_library(name = 'foo_java_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'], java_lib = ':lib')",
         "foo_rule(name = 'foo_rule', dep = 'foo_java_proto')");

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -27,10 +26,12 @@ import com.google.protobuf.Message;
 import java.io.IOException;
 import java.util.Map;
 
-class InMemoryRemoteCache extends RemoteCache {
+class InMemoryRemoteCache extends RemoteExecutionCache {
 
   InMemoryRemoteCache(
-      Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
+      Map<Digest, byte[]> casEntries,
+      RemoteOptions options,
+      DigestUtil digestUtil) {
     super(new InMemoryCacheClient(casEntries), options, digestUtil);
   }
 
@@ -75,14 +76,7 @@ class InMemoryRemoteCache extends RemoteCache {
     return ((InMemoryCacheClient) cacheProtocol).getNumFailedDownloads();
   }
 
-  ImmutableSet<Digest> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests)
-      throws IOException, InterruptedException {
-    return Utils.getFromFuture(cacheProtocol.findMissingDigests(context, digests));
-  }
-
-  @Override
-  public void close() {
-    cacheProtocol.close();
+  Map<Digest, Integer> getNumFindMissingDigests() {
+    return ((InMemoryCacheClient) cacheProtocol).getNumFindMissingDigests();
   }
 }

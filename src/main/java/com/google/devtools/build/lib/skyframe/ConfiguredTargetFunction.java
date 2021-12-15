@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -88,6 +88,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -199,7 +200,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
     Label label = configuredTargetKey.getLabel();
-    BuildConfiguration configuration = null;
+    BuildConfigurationValue configuration = null;
     ImmutableSet<SkyKey> packageAndMaybeConfiguration;
     SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
     SkyKey configurationKeyMaybe = configuredTargetKey.getConfigurationKey();
@@ -216,8 +217,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
     if (configurationKeyMaybe != null) {
       configuration =
-          ((BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe))
-              .getConfiguration();
+          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
     }
 
     // TODO(ulfjack): This tries to match the logic in TransitiveTargetFunction /
@@ -275,7 +275,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Determine what toolchains are needed by this target.
       ComputedToolchainContexts result =
           computeUnloadedToolchainContexts(
-              env, ruleClassProvider, ctgValue, configuredTargetKey.getToolchainContextKey());
+              env, ruleClassProvider, ctgValue, configuredTargetKey.getExecutionPlatformLabel());
       if (env.valuesMissing()) {
         return null;
       }
@@ -328,7 +328,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   : unloadedToolchainContexts.asToolchainContexts(),
               DependencyResolver.shouldUseToolchainTransition(configuration, ctgValue.getTarget()),
               ruleClassProvider,
-              view.getHostConfiguration(configuration),
+              view.getHostConfiguration(),
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses);
       if (!transitiveRootCauses.isEmpty()) {
@@ -369,6 +369,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               view,
               env,
               ctgValue,
+              configuredTargetKey,
               depValueMap,
               configConditions,
               toolchainContexts,
@@ -463,13 +464,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       RuleClassProvider ruleClassProvider,
       TargetAndConfiguration targetAndConfig,
-      @Nullable ToolchainContextKey parentToolchainContextKey)
+      @Nullable Label parentExecutionPlatformLabel)
       throws InterruptedException, ToolchainException {
     if (!(targetAndConfig.getTarget() instanceof Rule)) {
       return new ComputedToolchainContexts();
     }
     Rule rule = ((Rule) targetAndConfig.getTarget());
-    BuildConfiguration configuration = targetAndConfig.getConfiguration();
+    BuildConfigurationValue configuration = targetAndConfig.getConfiguration();
 
     ImmutableSet<Label> requiredDefaultToolchains =
         rule.getRuleClassObject().getRequiredToolchains();
@@ -485,7 +486,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         ExecGroupCollection.builder(defaultExecGroup, rule.getRuleClassObject().getExecGroups());
 
     // Short circuit and end now if this target doesn't require toolchain resolution.
-    if (!rule.getRuleClassObject().useToolchainResolution()) {
+    if (!rule.useToolchainResolution()) {
       ComputedToolchainContexts result = new ComputedToolchainContexts();
       result.execGroupCollectionBuilder = execGroupCollectionBuilder;
       return result;
@@ -521,33 +522,29 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 toolchainTaggedTrimmingTransition.requiresOptionFragments()),
             env.getListener());
 
-    BuildConfigurationValue.Key toolchainConfig =
-        BuildConfigurationValue.keyWithoutPlatformMapping(
-            configuration.fragmentClasses(), toolchainOptions);
+    BuildConfigurationKey toolchainConfig =
+        BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
+
+    // Check if this specific target should be debugged for toolchain resolution.
+    boolean debugTarget =
+        configuration
+            .getFragment(PlatformConfiguration.class)
+            .debugToolchainResolution(targetAndConfig.getLabel());
 
     ToolchainContextKey.Builder toolchainContextKeyBuilder =
         ToolchainContextKey.key()
             .configurationKey(toolchainConfig)
             .requiredToolchainTypeLabels(requiredDefaultToolchains)
-            .execConstraintLabels(defaultExecConstraintLabels);
+            .execConstraintLabels(defaultExecConstraintLabels)
+            .debugTarget(debugTarget);
 
-    if (parentToolchainContextKey != null) {
+    if (parentExecutionPlatformLabel != null) {
       // Find out what execution platform the parent used, and force that.
-      // This key should always be present, but check just in case.
-      ToolchainContext parentToolchainContext =
-          (ToolchainContext)
-              env.getValueOrThrow(parentToolchainContextKey, ToolchainException.class);
-      if (env.valuesMissing()) {
-        return null;
-      }
-
-      Label execPlatform = parentToolchainContext.executionPlatform().label();
-      if (execPlatform != null) {
-        toolchainContextKeyBuilder.forceExecutionPlatform(execPlatform);
-      }
+      // This should only be set for direct toolchain dependencies.
+      toolchainContextKeyBuilder.forceExecutionPlatform(parentExecutionPlatformLabel);
     }
 
     ToolchainContextKey toolchainContextKey = toolchainContextKeyBuilder.build();
@@ -560,6 +557,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               .configurationKey(toolchainConfig)
               .requiredToolchainTypeLabels(execGroup.requiredToolchains())
               .execConstraintLabels(execGroup.execCompatibleWith())
+              .debugTarget(debugTarget)
               .build());
     }
 
@@ -640,14 +638,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       boolean useToolchainTransition,
       RuleClassProvider ruleClassProvider,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
       NestedSetBuilder<Cause> transitiveRootCauses)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, transition) pairs.
     OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
-    BuildConfiguration configuration = ctgValue.getConfiguration();
+    BuildConfigurationValue configuration = ctgValue.getConfiguration();
     Label label = ctgValue.getLabel();
     try {
       initialDependencies =
@@ -741,9 +739,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Collect the labels of the configured targets we need to resolve.
     List<Label> configLabels =
-        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).stream()
-            .map(configLabel -> target.getLabel().resolveRepositoryRelative(configLabel))
-            .collect(Collectors.toList());
+        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST);
     if (configLabels.isEmpty()) {
       return ConfigConditions.EMPTY;
     }
@@ -851,69 +847,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     for (int i = 0; i < 2; i++) {
       for (Dependency dep : depsToProcess) {
         SkyKey key = dep.getConfiguredTargetKey();
+        ConfiguredTargetValue depValue;
         try {
-          ConfiguredTargetValue depValue =
-              (ConfiguredTargetValue) depValuesOrExceptions.get(key).get();
-
-          if (depValue == null) {
-            missedValues = true;
-          } else {
-            ConfiguredTarget depCt = depValue.getConfiguredTarget();
-            Label depLabel = depCt.getLabel();
-            SkyKey packageKey = PackageValue.key(depLabel.getPackageIdentifier());
-            PackageValue pkgValue;
-            if (i == 0) {
-              ValueOrException<ConfiguredValueCreationException> packageResult =
-                  depValuesOrExceptions.get(packageKey);
-              if (packageResult == null) {
-                aliasPackagesToFetch.add(packageKey);
-                aliasDepsToRedo.add(dep);
-                continue;
-              } else {
-                pkgValue = (PackageValue) packageResult.get();
-                if (pkgValue == null) {
-                  // In a race, the getValuesOrThrow call above may have retrieved the package
-                  // before it was done but the configured target after it was done. Since
-                  // SkyFunctionEnvironment may cache absent values, re-requesting it on this
-                  // evaluation may be useless, just treat it as missing.
-                  missedValues = true;
-                  continue;
-                }
-              }
-            } else {
-              // We were doing AliasConfiguredTarget mop-up.
-              pkgValue = (PackageValue) aliasPackageValues.get(packageKey);
-              if (pkgValue == null) {
-                // This is unexpected: on the second iteration, all packages should be present,
-                // since the configured targets that depend on them are present. But since that is
-                // not a guarantee Skyframe makes, we tolerate their absence.
-                missedValues = true;
-                continue;
-              }
-            }
-            try {
-              BuildConfiguration depConfiguration = dep.getConfiguration();
-              BuildConfigurationValue.Key depKey =
-                  depValue.getConfiguredTarget().getConfigurationKey();
-              if (depKey != null && !depKey.equals(BuildConfigurationValue.key(depConfiguration))) {
-                depConfiguration =
-                    ((BuildConfigurationValue) env.getValue(depKey)).getConfiguration();
-              }
-              result.put(
-                  key,
-                  new ConfiguredTargetAndData(
-                      depValue.getConfiguredTarget(),
-                      pkgValue.getPackage().getTarget(depLabel.getName()),
-                      depConfiguration,
-                      dep.getTransitionKeys()));
-            } catch (NoSuchTargetException e) {
-              throw new IllegalStateException("Target already verified for " + dep, e);
-            }
-            if (transitivePackagesForPackageRootResolution != null) {
-              transitivePackagesForPackageRootResolution.addTransitive(
-                  depValue.getTransitivePackagesForPackageRootResolution());
-            }
-          }
+          depValue = (ConfiguredTargetValue) depValuesOrExceptions.get(key).get();
         } catch (ConfiguredValueCreationException e) {
           transitiveRootCauses.addTransitive(e.getRootCauses());
           detailedExitCode =
@@ -922,24 +858,82 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           if (e.getDetailedExitCode().equals(detailedExitCode)) {
             rootError = e;
           }
+          continue;
+        }
+        if (depValue == null) {
+          missedValues = true;
+          continue;
+        }
+
+        ConfiguredTarget depCt = depValue.getConfiguredTarget();
+        Label depLabel = depCt.getLabel();
+        SkyKey packageKey = PackageValue.key(depLabel.getPackageIdentifier());
+        PackageValue pkgValue;
+        if (i == 0) {
+          ValueOrUntypedException packageResult = depValuesOrExceptions.get(packageKey);
+          if (packageResult == null) {
+            aliasPackagesToFetch.add(packageKey);
+            aliasDepsToRedo.add(dep);
+            continue;
+          } else {
+            pkgValue = (PackageValue) packageResult.getUnchecked();
+            if (pkgValue == null) {
+              // In a race, the getValuesOrThrow call above may have retrieved the package before it
+              // was done but the configured target after it was done. Since SkyFunctionEnvironment
+              // may cache absent values, re-requesting it on this evaluation may be useless, just
+              // treat it as missing.
+              missedValues = true;
+              continue;
+            }
+          }
+        } else {
+          // We were doing AliasConfiguredTarget mop-up.
+          pkgValue = (PackageValue) aliasPackageValues.get(packageKey);
+          if (pkgValue == null) {
+            // This is unexpected: on the second iteration, all packages should be present, since
+            // the configured targets that depend on them are present. But since that is not a
+            // guarantee Skyframe makes, we tolerate their absence.
+            missedValues = true;
+            continue;
+          }
+        }
+
+        try {
+          BuildConfigurationValue depConfiguration = dep.getConfiguration();
+          BuildConfigurationKey depKey = depValue.getConfiguredTarget().getConfigurationKey();
+          if (depKey != null && !depKey.equals(depConfiguration.getKey())) {
+            depConfiguration = (BuildConfigurationValue) env.getValue(depKey);
+          }
+          result.put(
+              key,
+              new ConfiguredTargetAndData(
+                  depValue.getConfiguredTarget(),
+                  pkgValue.getPackage().getTarget(depLabel.getName()),
+                  depConfiguration,
+                  dep.getTransitionKeys()));
+        } catch (NoSuchTargetException e) {
+          throw new IllegalStateException("Target already verified for " + dep, e);
+        }
+        if (transitivePackagesForPackageRootResolution != null) {
+          transitivePackagesForPackageRootResolution.addTransitive(
+              depValue.getTransitivePackagesForPackageRootResolution());
         }
       }
+
       if (aliasDepsToRedo.isEmpty()) {
         break;
       }
       aliasPackageValues = env.getValues(aliasPackagesToFetch);
       depsToProcess = aliasDepsToRedo;
     }
+
     if (rootError != null) {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
               ctgValue, rootError.getMessage(), transitiveRootCauses.build(), detailedExitCode),
           /*depReportedOwnError=*/ true);
-    } else if (missedValues) {
-      return null;
-    } else {
-      return result;
     }
+    return missedValues ? null : result;
   }
 
   @Override
@@ -952,6 +946,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       SkyframeBuildView view,
       Environment env,
       TargetAndConfiguration ctgValue,
+      ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
@@ -959,8 +954,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredValueCreationException, InterruptedException {
     Target target = ctgValue.getTarget();
-    BuildConfiguration configuration = ctgValue.getConfiguration();
-    ConfiguredTargetKey configuredTargetKey = ctgValue.getConfiguredTargetKey();
+    BuildConfigurationValue configuration = ctgValue.getConfiguration();
 
     // Should be successfully evaluated and cached from the loading phase.
     StarlarkBuiltinsValue starlarkBuiltinsValue =

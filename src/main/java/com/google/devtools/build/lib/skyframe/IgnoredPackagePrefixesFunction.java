@@ -132,12 +132,6 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     }
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static final class IgnoredPatternsFunctionException extends SkyFunctionException {
     public IgnoredPatternsFunctionException(InconsistentFilesystemException e) {
       super(e, Transience.TRANSIENT);

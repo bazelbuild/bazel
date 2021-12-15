@@ -259,6 +259,7 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_compile_variables",
       doc = "Returns variables used for compilation actions.",
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "cc_toolchain",
@@ -400,6 +401,26 @@ public interface CcModuleApi<
             positional = false,
             allowedTypes = {@ParamType(type = Dict.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "strip_opts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            }),
+        @Param(
+            name = "input_file",
+            documented = false,
+            named = true,
+            positional = false,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
       })
   CcToolchainVariablesT getCompileBuildVariables(
       CcToolchainProviderT ccToolchainProvider,
@@ -417,7 +438,10 @@ public interface CcModuleApi<
       Object thinLtoOutputObjectFile,
       boolean usePic,
       boolean addLegacyCxxOptions,
-      Object variablesExtension)
+      Object variablesExtension,
+      Object stripOpts,
+      Object inputFile,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -549,11 +573,13 @@ public interface CcModuleApi<
         @Param(
             name = "feature_configuration",
             doc = "<code>feature_configuration</code> to be queried.",
+            defaultValue = "None",
             positional = false,
             named = true),
         @Param(
             name = "cc_toolchain",
             doc = "<code>CcToolchainInfo</code> provider to be used.",
+            defaultValue = "None",
             positional = false,
             named = true),
         @Param(
@@ -680,14 +706,19 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
-            doc = "Depset of user link flags passed as strings. Sequence not accepted for now.",
+            doc =
+                "User link flags passed as strings. Accepts either [String], [[String]] or"
+                    + " depset(String). The latter is discouraged as it's only kept for"
+                    + " compatibility purposes, the depset is flattened. If you want to propagate"
+                    + " user_link_flags via unflattened depsets() wrap them in a LinkerInput so"
+                    + " that they are not flattened till the end.",
             positional = false,
             named = true,
             defaultValue = "None",
             allowedTypes = {
               @ParamType(type = NoneType.class),
-              @ParamType(type = Depset.class),
-              @ParamType(type = Sequence.class)
+              @ParamType(type = Depset.class, generic1 = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class)
             }),
         @Param(
             name = "additional_inputs",
@@ -1015,8 +1046,10 @@ public interface CcModuleApi<
         @Param(
             name = "host_system_name",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The system name which is required by the toolchain to run."),
+            doc = "Ignored."),
         @Param(
             name = "target_system_name",
             positional = false,
@@ -1040,11 +1073,15 @@ public interface CcModuleApi<
         @Param(
             name = "abi_version",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc = "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\""),
         @Param(
             name = "abi_libc_version",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc = "The glibc version used by the abi we're using."),
         @Param(
@@ -1087,13 +1124,13 @@ public interface CcModuleApi<
       Sequence<?> artifactNamePatterns, // <StructApi> expected
       Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
-      String hostSystemName,
+      Object hostSystemName,
       String targetSystemName,
       String targetCpu,
       String targetLibc,
       String compiler,
-      String abiVersion,
-      String abiLibcVersion,
+      Object abiVersion,
+      Object abiLibcVersion,
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
@@ -1193,6 +1230,12 @@ public interface CcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = Dict.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "stamp",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "unbound"),
       })
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -1209,6 +1252,7 @@ public interface CcModuleApi<
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Object variablesExtension,
+      Object stamp,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
@@ -1291,5 +1335,17 @@ public interface CcModuleApi<
       })
   CompilationContextT mergeCompilationContexts(
       Sequence<?> compilationContexts) // <CcCompilationContextApi> expected
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_tool_requirement_for_action",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "action_name", named = true, positional = false),
+      })
+  Sequence<String> getToolRequirementForAction(
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
       throws EvalException;
 }

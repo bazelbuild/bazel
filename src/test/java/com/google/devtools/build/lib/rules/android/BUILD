@@ -369,6 +369,7 @@ java_test(
 
 java_test(
     name = "AndroidDataBindingV2Test",
+    timeout = "long",
     srcs = ["AndroidDataBindingV2Test.java"],
     tags = ["manual"],
     deps = [
@@ -426,6 +427,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",

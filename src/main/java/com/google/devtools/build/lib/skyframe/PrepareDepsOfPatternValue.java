@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
@@ -23,12 +24,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
 
@@ -47,7 +47,7 @@ import java.util.List;
 public class PrepareDepsOfPatternValue implements SkyValue {
   // Note that this value does not guarantee singleton-like reference equality because we use Java
   // deserialization. Java deserialization can create other instances.
-  @AutoCodec
+  @SerializationConstant
   public static final PrepareDepsOfPatternValue INSTANCE = new PrepareDepsOfPatternValue();
 
   private PrepareDepsOfPatternValue() {
@@ -92,16 +92,15 @@ public class PrepareDepsOfPatternValue implements SkyValue {
         ImmutableList.builder();
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyException> resultExceptionsBuilder =
         ImmutableList.builder();
-    Iterable<TargetPatternSkyKeyOrException> keysMaybe =
-        TargetPatternValue.keys(patterns, FilteringPolicies.NO_FILTER, offset);
+    TargetPattern.Parser parser = TargetPattern.mainRepoParser(offset);
     ImmutableList.Builder<TargetPatternKey> targetPatternKeysBuilder = ImmutableList.builder();
-    for (TargetPatternSkyKeyOrException keyMaybe : keysMaybe) {
+    for (String pattern : patterns) {
       try {
-        SkyKey key = keyMaybe.getSkyKey();
-        targetPatternKeysBuilder.add((TargetPatternKey) key.argument());
+        targetPatternKeysBuilder.add(
+            TargetPatternValue.key(
+                SignedTargetPattern.parse(pattern, parser), FilteringPolicies.NO_FILTER));
       } catch (TargetParsingException e) {
-        resultExceptionsBuilder.add(
-            new PrepareDepsOfPatternSkyKeyException(e, keyMaybe.getOriginalPattern()));
+        resultExceptionsBuilder.add(new PrepareDepsOfPatternSkyKeyException(e, pattern));
       }
     }
     // This code path is evaluated only for query universe preloading, and the quadratic cost of

@@ -19,6 +19,7 @@ Definition of java_library rule.
 load(":common/java/java_common.bzl", "JAVA_COMMON_DEP")
 load(":common/rule_util.bzl", "create_rule")
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
 
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
@@ -35,6 +36,10 @@ def _java_library_rule_impl(ctx):
 
     base_info = JAVA_COMMON_DEP.call(ctx, extra_resources = extra_resources, output_prefix = "lib")
 
+    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx)
+    base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
+    base_info.extra_providers.append(proguard_specs_provider)
+
     java_info = semantics.postprocess(ctx, base_info)
 
     return [
@@ -48,35 +53,15 @@ java_library = create_rule(
     _java_library_rule_impl,
     attrs = dict(
         {
-            "runtime_deps": attr.label_list(
-                allow_files = [".jar"],
-                allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-                providers = [[CcInfo], [JavaInfo]],
-                flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-            ),
-            "exports": attr.label_list(
-                allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-                providers = [[JavaInfo], [CcInfo]],
-            ),
-            "exported_plugins": attr.label_list(
-                providers = [JavaPluginInfo],
-                cfg = "exec",
-            ),
             "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         },
-        **dict(
-            semantics.EXTRA_ATTRIBUTES,
-            **({
-                "classjar": attr.output(),
-                "sourcejar": attr.output(),
-            } if semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else {})
-        )
+        **semantics.EXTRA_ATTRIBUTES
     ),
-    deps = [JAVA_COMMON_DEP] + semantics.EXTRA_DEPS,
+    deps = [JAVA_COMMON_DEP, VALIDATE_PROGUARD_SPECS] + semantics.EXTRA_DEPS,
     provides = [JavaInfo],
-    outputs = {} if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY or semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else {
+    outputs = {
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },
-    compile_one_filetype = ".java",
+    compile_one_filetype = [".java"],
 )

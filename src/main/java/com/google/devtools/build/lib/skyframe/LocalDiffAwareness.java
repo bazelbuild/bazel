@@ -53,7 +53,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
             "On Linux/macOS: If true, %{product} tries to use the operating system's file watch "
                 + "service for local changes instead of scanning every file for a change. On "
                 + "Windows: this flag currently is a non-op but can be enabled in conjunction "
-                + "with --experimental_windows_watchfs.")
+                + "with --experimental_windows_watchfs. On any OS: The behavior is undefined "
+                + "if your workspace is on a network file system, and files are edited on a "
+                + "remote machine.")
     public boolean watchFS;
 
     @Option(

@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -379,7 +379,7 @@ public final class Crosstool {
   private final String crosstoolTop;
   private final Label crosstoolTopLabel;
   private String ccToolchainConfigFileContents;
-  private ImmutableList<String> archs;
+  private final List<String> archs;
   private boolean supportsHeaderParsing;
   private ImmutableList<CcToolchainConfig> ccToolchainConfigList = ImmutableList.of();
 
@@ -387,6 +387,7 @@ public final class Crosstool {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
     this.crosstoolTopLabel = crosstoolTopLabel;
+    this.archs = new ArrayList<>();
   }
 
   public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
@@ -395,7 +396,8 @@ public final class Crosstool {
   }
 
   public Crosstool setSupportedArchs(ImmutableList<String> archs) {
-    this.archs = archs;
+    this.archs.clear();
+    this.archs.addAll(archs);
     return this;
   }
 
@@ -551,7 +553,9 @@ public final class Crosstool {
                 "    srcs = ['build_interface_so'],",
                 ")",
                 // We add an empty :malloc target in case we need it.
-                "cc_library(name = 'malloc')");
+                "cc_library(name = 'malloc')",
+                // Fake targets to get us through loading/analysis.
+                "exports_files(['grep-includes', 'link_dynamic_library'])");
 
     config.create(crosstoolTop + "/mock_version/x86/bin/gcc");
     config.create(crosstoolTop + "/mock_version/x86/bin/ld");
@@ -563,6 +567,10 @@ public final class Crosstool {
         String.format(
             "register_toolchains('%s:all')",
             crosstoolTopLabel.getPackageIdentifier().getCanonicalForm()));
+    // Empty files to satisfy fake targets.
+    config.create(crosstoolTop + "/grep-includes");
+    config.create(crosstoolTop + "/build_interface_so");
+    config.create(crosstoolTop + "/link_dynamic_library");
   }
 
   public void writeOSX() throws IOException {

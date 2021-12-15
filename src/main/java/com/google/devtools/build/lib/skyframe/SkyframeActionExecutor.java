@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -85,7 +84,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -102,7 +100,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -205,16 +202,16 @@ public final class SkyframeActionExecutor {
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
-  private ProgressSupplier progressSupplier;
-  private ActionCompletedReceiver completionReceiver;
+  @Nullable private ProgressSupplier progressSupplier;
+
+  @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
-  private NestedSetExpander nestedSetExpander;
-  private final PathFragment relativeOutputPath;
+  private DiscoveredModulesPruner discoveredModulesPruner;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -222,7 +219,6 @@ public final class SkyframeActionExecutor {
       MetadataConsumerForMetrics outputArtifactsFromActionCache,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
-      PathFragment relativeOutputPath,
       AtomicReference<FilesystemCalls> syscalls,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
     this.actionKeyContext = actionKeyContext;
@@ -230,7 +226,6 @@ public final class SkyframeActionExecutor {
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.relativeOutputPath = relativeOutputPath;
     this.syscalls = syscalls;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
   }
@@ -250,7 +245,9 @@ public final class SkyframeActionExecutor {
 
       @Override
       public void actionCompleted() {
-        completionReceiver.actionCompleted(actionLookupData);
+        if (completionReceiver != null) {
+          completionReceiver.actionCompleted(actionLookupData);
+        }
       }
     };
   }
@@ -417,7 +414,9 @@ public final class SkyframeActionExecutor {
   }
 
   void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
-    this.completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
+    if (completionReceiver != null) {
+      completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
+    }
   }
 
   /**
@@ -554,7 +553,7 @@ public final class SkyframeActionExecutor {
         artifactExpander,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander,
+        discoveredModulesPruner,
         syscalls.get(),
         threadStateReceiverFactory.apply(actionLookupData));
   }
@@ -592,25 +591,31 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver pathResolver)
       throws ActionExecutionException, InterruptedException {
     Token token;
+    RemoteOptions remoteOptions;
+    SortedMap<String, String> remoteDefaultProperties;
+    EventHandler handler;
+    boolean isRemoteCacheEnabled;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
-      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
-      SortedMap<String, String> remoteDefaultProperties =
+      remoteOptions = this.options.getOptions(RemoteOptions.class);
+      remoteDefaultProperties =
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
+      isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      handler =
+          options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
               clientEnv,
-              options.getOptions(BuildRequestOptions.class).explanationPath != null
-                  ? reporter
-                  : null,
+              handler,
               metadataHandler,
               artifactExpander,
-              remoteDefaultProperties);
+              remoteDefaultProperties,
+              isRemoteCacheEnabled);
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
     if (token == null) {
       boolean eventPosted = false;
@@ -655,7 +660,19 @@ public final class SkyframeActionExecutor {
                 return executorEngine.getContext(type);
               }
             };
-        notify.actionCacheHit(context);
+        boolean recordActionCacheHit = notify.actionCacheHit(context);
+        if (!recordActionCacheHit) {
+          token =
+              actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
+                  action,
+                  resolvedCacheArtifacts,
+                  clientEnv,
+                  handler,
+                  metadataHandler,
+                  artifactExpander,
+                  remoteDefaultProperties,
+                  isRemoteCacheEnabled);
+        }
       }
 
       // We still need to check the outputs so that output file data is available to the value.
@@ -690,7 +707,7 @@ public final class SkyframeActionExecutor {
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
 
     try {
@@ -757,7 +774,7 @@ public final class SkyframeActionExecutor {
             clientEnv,
             env,
             actionFileSystem,
-            nestedSetExpander,
+            discoveredModulesPruner,
             syscalls.get(),
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
@@ -854,10 +871,10 @@ public final class SkyframeActionExecutor {
   public void configure(
       MetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
-      NestedSetExpander nestedSetExpander) {
+      DiscoveredModulesPruner discoveredModulesPruner) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
-    this.nestedSetExpander = nestedSetExpander;
+    this.discoveredModulesPruner = discoveredModulesPruner;
   }
 
   /**
@@ -913,7 +930,7 @@ public final class SkyframeActionExecutor {
     private final long actionStartTime;
     private final ActionExecutionContext actionExecutionContext;
     private final ActionLookupData actionLookupData;
-    private final ActionExecutionStatusReporter statusReporter;
+    @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
 
     ActionRunner(
@@ -953,6 +970,7 @@ public final class SkyframeActionExecutor {
       try (SilentCloseable c =
           profiler.profileAction(
               ProfilerTask.ACTION,
+              action.getMnemonic(),
               action.describe(),
               action.getPrimaryOutput().getExecPathString(),
               getOwnerLabelAsString(action))) {
@@ -972,7 +990,9 @@ public final class SkyframeActionExecutor {
           // that they can be reposted when rewinding and simplify this code path. Maybe also keep
           // track of the rewind attempt, so that listeners can use that to adjust their behavior.
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
-          statusReporter.updateStatus(event);
+          if (statusReporter != null) {
+            statusReporter.updateStatus(event);
+          }
           env.getListener().post(event);
           if (!actionFileSystemType().inMemoryFileSystem()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
@@ -983,7 +1003,7 @@ public final class SkyframeActionExecutor {
                   actionExecutionContext.getExecRoot(),
                   actionExecutionContext.getPathResolver(),
                   outputService != null ? outputService.bulkDeleter() : null,
-                  useArchivedTreeArtifacts(action) ? relativeOutputPath : null);
+                  useArchivedTreeArtifacts(action));
             } catch (IOException e) {
               logger.atWarning().withCause(e).log(
                   "failed to delete output files before executing action: '%s'", action);
@@ -1041,16 +1061,17 @@ public final class SkyframeActionExecutor {
 
     private void notifyActionCompletion(
         ExtendedEventHandler eventHandler, boolean postActionCompletionEvent) {
-      statusReporter.remove(action);
+      if (statusReporter != null) {
+        statusReporter.remove(action);
+      }
       if (postActionCompletionEvent) {
         eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
       }
       String message = action.getProgressMessage();
       if (message != null) {
-        // Tell the receiver that the action has completed *before* telling the reporter.
-        // This way the latter will correctly show the number of completed actions when task
-        // completion messages are enabled (--show_task_finish).
-        completionReceiver.actionCompleted(actionLookupData);
+        if (completionReceiver != null) {
+          completionReceiver.actionCompleted(actionLookupData);
+        }
         reporter.finishTask(null, prependExecPhaseStats(message));
       }
     }
@@ -1243,10 +1264,8 @@ public final class SkyframeActionExecutor {
       return ActionExecutionValue.createFromOutputStore(
           this.metadataHandler.getOutputStore(),
           actionExecutionContext.getOutputSymlinks(),
-          (action instanceof IncludeScannable)
-              ? ((IncludeScannable) action).getDiscoveredModules()
-              : null,
-          Actions.dependsOnBuildId(action));
+          action,
+          actionLookupData);
     }
 
     /** A closure to continue an asynchronously running action. */
@@ -1337,9 +1356,15 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  /**
+   * Returns a progress message like:
+   *
+   * <p>[2608/6445] Compiling foo/bar.cc [host]
+   */
   private String prependExecPhaseStats(String message) {
-    // Prints a progress message like:
-    //   [2608/6445] Compiling foo/bar.cc [host]
+    if (progressSupplier == null) {
+      return "";
+    }
     return progressSupplier.getProgressString() + " " + message;
   }
 
@@ -1645,7 +1670,7 @@ public final class SkyframeActionExecutor {
     }
     if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
       // Bind the output to the prefix event.
-      eventHandler.handle(prefixEvent.withStdoutStderr(outErrBuffer));
+      eventHandler.handle(prefixEvent.withProcessOutput(new ActionOutputEventData(outErrBuffer)));
     } else {
       eventHandler.handle(prefixEvent);
     }
@@ -1734,6 +1759,45 @@ public final class SkyframeActionExecutor {
     public ActionInput getInput(String execPath) {
       ActionInput input = perActionCache.getInput(execPath);
       return input != null ? input : perBuildFileCache.getInput(execPath);
+    }
+  }
+
+  /** Adapts a {@link FileOutErr} to an {@link Event.ProcessOutput}. */
+  private static class ActionOutputEventData implements Event.ProcessOutput {
+    private final FileOutErr fileOutErr;
+
+    private ActionOutputEventData(FileOutErr fileOutErr) {
+      this.fileOutErr = fileOutErr;
+    }
+
+    @Override
+    public String getStdOutPath() {
+      return fileOutErr.getOutputPathFragment().getPathString();
+    }
+
+    @Override
+    public long getStdOutSize() throws IOException {
+      return fileOutErr.outSize();
+    }
+
+    @Override
+    public byte[] getStdOut() {
+      return fileOutErr.outAsBytes();
+    }
+
+    @Override
+    public String getStdErrPath() {
+      return fileOutErr.getErrorPathFragment().getPathString();
+    }
+
+    @Override
+    public long getStdErrSize() throws IOException {
+      return fileOutErr.errSize();
+    }
+
+    @Override
+    public byte[] getStdErr() {
+      return fileOutErr.errAsBytes();
     }
   }
 }

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -136,7 +136,7 @@ public final class AnalysisPhaseRunner {
       reportTargets(env, analysisResult);
 
       for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
-        BuildConfiguration config =
+        BuildConfigurationValue config =
             env.getSkyframeExecutor()
                 .getConfiguration(env.getReporter(), target.getConfigurationKey());
         Label label = target.getLabel();
@@ -220,13 +220,17 @@ public final class AnalysisPhaseRunner {
             multiCpu,
             explicitTargetPatterns,
             request.getAspects(),
+            request.getAspectsParameters(),
             request.getViewOptions(),
             request.getKeepGoing(),
             request.getCheckForActionConflicts(),
             request.getLoadingPhaseThreadCount(),
             request.getTopLevelArtifactContext(),
+            request.reportIncompatibleTargets(),
             env.getReporter(),
-            env.getEventBus());
+            env.getEventBus(),
+            /*includeExecutionPhase=*/ false,
+            /*mergedPhasesExecutionJobsCount=*/ 0);
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus()
@@ -238,24 +242,20 @@ public final class AnalysisPhaseRunner {
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
                 env.getSkyframeExecutor().wasAnalysisCacheDiscardedAndResetBit()));
-    ImmutableSet<BuildConfigurationValue.Key> configurationKeys =
+    ImmutableSet<BuildConfigurationKey> configurationKeys =
         Stream.concat(
-                analysisResult
-                    .getTargetsToBuild()
-                    .stream()
+                analysisResult.getTargetsToBuild().stream()
                     .map(ConfiguredTarget::getConfigurationKey)
                     .distinct(),
                 analysisResult.getTargetsToTest() == null
                     ? Stream.empty()
-                    : analysisResult
-                        .getTargetsToTest()
-                        .stream()
+                    : analysisResult.getTargetsToTest().stream()
                         .map(ConfiguredTarget::getConfigurationKey)
                         .distinct())
             .filter(Objects::nonNull)
             .distinct()
             .collect(ImmutableSet.toImmutableSet());
-    Map<BuildConfigurationValue.Key, BuildConfiguration> configurationMap =
+    Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap =
         env.getSkyframeExecutor().getConfigurations(env.getReporter(), configurationKeys);
     env.getEventBus()
         .post(
@@ -314,7 +314,7 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env, List<String> requestedTargetPatterns)
       throws ViewCreationFailedException {
     ImmutableSet.Builder<String> explicitTargetPatterns = ImmutableSet.builder();
-    TargetPattern.Parser parser = new TargetPattern.Parser(env.getRelativeWorkingDirectory());
+    TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
       if (requestedTargetPattern.startsWith("-")) {

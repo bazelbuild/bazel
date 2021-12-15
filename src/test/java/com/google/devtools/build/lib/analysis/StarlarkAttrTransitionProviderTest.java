@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -54,9 +55,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for StarlarkAttributeTransitionProvider. */
+/** Tests for {@link StarlarkAttributeTransitionProvider}. */
 @RunWith(JUnit4.class)
-public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
+public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -73,7 +74,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     scratch.file("myinfo/BUILD");
   }
 
-  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
+  private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
+      throws Exception {
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
@@ -340,6 +342,50 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   public void testFunctionSplitTransitionCheckAttrDep() throws Exception {
     writeBasicTestFiles();
     testSplitTransitionCheckAttrDep(getConfiguredTarget("//test/starlark:test"));
+  }
+
+  @Test
+  public void testNullTransitionAttributeWithMissingSkyframeDep() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def transition_func(settings, attr):",
+        "  return {'//test/starlark/nested:flag': True}",
+        "my_transition = transition(",
+        "  implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = ['//test/starlark/nested:flag']",
+        ")",
+        "def _impl(ctx): ",
+        "  return MyInfo(data = ctx.attr.data)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'data': attr.label_list(cfg = my_transition, allow_files = True, default = []),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  }",
+        ")",
+        "def _basic_impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")");
+
+    scratch.file(
+        "test/starlark/nested/BUILD",
+        "load('//test/starlark:rules.bzl', 'bool_flag')",
+        "bool_flag(name = 'flag', build_setting_default = False)");
+    scratch.file("test/starlark/some_file.txt", "Random content");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "my_rule(name = 'test', data = ['some_file.txt'])");
+
+    assertThat(getConfiguredTarget("//test/starlark:test")).isNotNull();
   }
 
   @Test
@@ -1075,6 +1121,22 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         ")");
   }
 
+  private CoreOptions getCoreOptions(ConfiguredTarget target) {
+    return getConfiguration(target).getOptions().get(CoreOptions.class);
+  }
+
+  private ImmutableMap<Label, Object> getStarlarkOptions(ConfiguredTarget target) {
+    return getConfiguration(target).getOptions().getStarlarkOptions();
+  }
+
+  private Object getStarlarkOption(ConfiguredTarget target, String absName) {
+    return getStarlarkOptions(target).get(Label.parseAbsoluteUnchecked(absName));
+  }
+
+  private String getTransitionDirectoryNameFragment(ConfiguredTarget target) {
+    return getConfiguration(target).getTransitionDirectoryNameFragment();
+  }
+
   @Test
   public void testTransitionOnBuildSetting_fromDefault() throws Exception {
     writeAllowlistFile();
@@ -1135,8 +1197,180 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         .isEqualTo(StarlarkInt.of(42));
   }
 
-  private CoreOptions getCoreOptions(ConfiguredTarget target) {
-    return getConfiguration(target).getOptions().get(CoreOptions.class);
+  @Test
+  public void testTransitionBackToStarlarkDefaultOK() throws Exception {
+    writeAllowlistFile();
+    writeBuildSettingsBzl();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//test/starlark:the-answer': attr.answer_for_dep,",
+        "    '//test/starlark:did-transition': 1,",
+        "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test/starlark:the-answer', '//test/starlark:did-transition']",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    'answer_for_dep': attr.int(),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
+        "  }",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
+        "my_rule(name = 'test', dep = ':dep1', answer_for_dep=0)",
+        "my_rule(name = 'dep1', dep = ':dep2', answer_for_dep=42)",
+        "my_rule(name = 'dep2', dep = ':dep3', answer_for_dep=0)",
+        "my_rule(name = 'dep3')",
+        "int_flag(name = 'the-answer', build_setting_default=0)",
+        "int_flag(name = 'did-transition', build_setting_default=0)");
+    useConfiguration(ImmutableMap.of(), "--cpu=FOO");
+
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
+
+    // '//test/starlark:did-transition ensures ST-hash is 'turned on' since :test has no ST-hash
+    //   and thus will trivially have a unique getTransitionDirectoryNameFragment
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep1 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep2 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(dep1).getValue("dep"));
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep3 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(dep2).getValue("dep"));
+
+    // These must be true
+    assertThat(getTransitionDirectoryNameFragment(dep1))
+        .isNotEqualTo(getTransitionDirectoryNameFragment(dep2));
+
+    assertThat(getTransitionDirectoryNameFragment(dep2))
+        .isNotEqualTo(getTransitionDirectoryNameFragment(dep3));
+
+    // TODO(blaze-configurability-team): When "affected by starlark transition" is gone,
+    //    will be equal and thus getTransitionDirectoryNameFragment can be equal.
+    if (!getConfiguration(dep1).equals(getConfiguration(dep3))) {
+      assertThat(getTransitionDirectoryNameFragment(dep1))
+          .isNotEqualTo(getTransitionDirectoryNameFragment(dep3));
+    }
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_onlyTransitionsAffectsDirectory() throws Exception {
+    writeAllowlistFile();
+    writeBuildSettingsBzl();
+    writeRulesWithAttrTransitionBzl();
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "my_rule(name = 'dep')",
+        "int_flag(name = 'the-answer', build_setting_default = 0)",
+        "int_flag(name = 'cmd-line-option', build_setting_default = 0)");
+
+    useConfiguration(ImmutableMap.of("//test/starlark:cmd-line-option", 100), "--cpu=FOO");
+
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    // Assert starlark option set via transition.
+    assertThat(getStarlarkOption(dep, "//test/starlark:the-answer")).isEqualTo(StarlarkInt.of(42));
+
+    // Assert starlark option set via command line.
+    assertThat(getStarlarkOption(dep, "//test/starlark:cmd-line-option")).isEqualTo(100);
+
+    // Assert native option set via command line.
+    assertThat(getCoreOptions(dep).cpu).isEqualTo("FOO");
+
+    // Assert that transitionDirectoryNameFragment is only affected by options
+    // set via transitions. Not by native or starlark options set via command line,
+    // never touched by any transition.
+    assertThat(getTransitionDirectoryNameFragment(dep))
+        .isEqualTo(
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("//test/starlark:the-answer=42")));
+  }
+
+  @Test
+  public void testTransitionOnCompilationMode_hasNoHash() throws Exception {
+    writeAllowlistFile();
+    writeBuildSettingsBzl();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//command_line_option:compilation_mode': attr.cmode_for_dep,",
+        "}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:compilation_mode']",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    'cmode_for_dep': attr.string(),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
+        "  }",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
+        "my_rule(name = 'test', dep = ':dep1', cmode_for_dep='opt')",
+        "my_rule(name = 'dep1', dep = ':dep2', cmode_for_dep='fastbuild')",
+        "my_rule(name = 'dep2')");
+    useConfiguration(ImmutableMap.of(), "--compilation_mode=fastbuild");
+
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep1 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep2 =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(dep1).getValue("dep"));
+
+    // Assert transitionDirectoryNameFragment is empty for all configurations
+    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getTransitionDirectoryNameFragment(dep1)).isEmpty();
+    assertThat(getTransitionDirectoryNameFragment(dep2)).isEmpty();
+
+    // test and dep1 should have different configurations b/c compilation_mode changed
+    assertThat(getConfiguration(test)).isNotEqualTo(getConfiguration(dep1));
+
+    // test and dep2 should have identical configurations
+    assertThat(getConfiguration(test)).isEqualTo(getConfiguration(dep2));
   }
 
   @Test
@@ -1180,7 +1414,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     List<String> affectedOptions = getCoreOptions(test).affectedByStarlarkTransition;
 
-    assertThat(affectedOptions).containsExactly("foo");
+    assertThat(affectedOptions).containsExactly("//command_line_option:foo");
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -1189,17 +1423,19 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     affectedOptions = getCoreOptions(dep).affectedByStarlarkTransition;
 
-    assertThat(affectedOptions).containsExactly("foo", "bar");
+    assertThat(affectedOptions)
+        .containsExactly("//command_line_option:foo", "//command_line_option:bar");
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(test))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("foo=foosball")));
+                ImmutableList.of("//command_line_option:foo=foosball")));
 
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(dep))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("bar=barsball", "foo=foosball")));
+                ImmutableList.of(
+                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball")));
   }
 
   // Test that a no-op starlark transition to an already starlark transitioned configuration
@@ -1249,8 +1485,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
@@ -1293,8 +1529,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   // Test that setting all starlark options back to default != null hash of top level.
@@ -1355,7 +1591,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             (List<ConfiguredTarget>)
                 getMyInfoFromTarget(getConfiguredTarget("//test")).getValue("dep"));
 
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment).isNotNull();
+    assertThat(getTransitionDirectoryNameFragment(dep)).isNotEmpty();
   }
 
   /** See comment above {@link FunctionTransitionUtil#updateOutputDirectoryNameFragment} */
@@ -1410,11 +1646,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(test))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=1")));
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(dep))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=true")));
@@ -1464,8 +1700,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
@@ -1521,13 +1757,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptions =
         getConfiguration(dep).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    // Assert that affectedOptions is empty but final fragment is still different.
-    assertThat(affectedOptions).isEmpty();
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
+    assertThat(affectedOptions).containsExactly("//test:bar", "//test:foo");
+    assertThat(getTransitionDirectoryNameFragment(test))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=foosball")));
-    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(dep))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:bar=barsball", "//test:foo=foosball")));
@@ -1609,12 +1844,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptionsTop =
         getConfiguration(top).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    assertThat(affectedOptionsTop).containsExactly("foo");
+    assertThat(affectedOptionsTop).containsExactly("//command_line_option:foo");
     assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
-    assertThat(getCoreOptions(top).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(top))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("foo=foosball")));
+                ImmutableList.of("//command_line_option:foo=foosball")));
 
     // test:middle (foo_transition, zee_transition, bar_transition)
     @SuppressWarnings("unchecked")
@@ -1624,14 +1859,20 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptionsMiddle =
         getConfiguration(middle).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    assertThat(affectedOptionsMiddle).containsExactly("foo", "bar");
+    assertThat(affectedOptionsMiddle)
+        .containsExactly("//command_line_option:foo", "//command_line_option:bar", "//test:zee");
+
     assertThat(getConfiguration(middle).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"));
-    assertThat(getCoreOptions(middle).transitionDirectoryNameFragment)
+
+    assertThat(getTransitionDirectoryNameFragment(middle))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("//test:zee=zeesball", "bar=barsball", "foo=foosball")));
+                ImmutableList.of(
+                    "//command_line_option:bar=barsball",
+                    "//command_line_option:foo=foosball",
+                    "//test:zee=zeesball")));
 
     // test:bottom (foo_transition, zee_transition, bar_transition, xan_transition)
     @SuppressWarnings("unchecked")
@@ -1642,16 +1883,20 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptionsBottom =
         getConfiguration(bottom).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    assertThat(affectedOptionsBottom).containsExactly("foo", "bar");
+    assertThat(affectedOptionsBottom)
+        .containsExactly(
+            "//command_line_option:foo", "//command_line_option:bar", "//test:xan", "//test:zee");
+
     assertThat(getConfiguration(bottom).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"),
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:xan"), "xansball"));
-    assertThat(getCoreOptions(bottom).transitionDirectoryNameFragment)
+    assertThat(getTransitionDirectoryNameFragment(bottom))
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of(
-                    "//test:xan=xansball", "//test:zee=zeesball", "bar=barsball", "foo=foosball")));
+                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball",
+                    "//test:xan=xansball", "//test:zee=zeesball")));
   }
 
   @Test
@@ -1861,15 +2106,17 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertNoEvents();
     Rule testTarget = (Rule) ct.getTarget();
     ConfiguredAttributeMapper attributes =
-        ConfiguredAttributeMapper.of(
-            testTarget, ImmutableMap.of(), ct.getConfiguration().checksum());
+        ConfiguredAttributeMapper.of(testTarget, ImmutableMap.of(), ct.getConfiguration());
     ConfigurationTransition attrTransition =
         attributes
             .getAttributeDefinition("dep")
             .getTransitionFactory()
             .create(AttributeTransitionData.builder().attributes(attributes).build());
-    assertThat(attrTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
-        .containsExactly("CppOptions");
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
+    attrTransition.addRequiredFragments(
+        requiredFragments, ct.getConfiguration().getBuildOptionDetails());
+    assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 
   /**
@@ -1914,8 +2161,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     ConfiguredTarget dep =
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
@@ -1982,8 +2229,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     ConfiguredTarget dep =
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-    assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo(getCoreOptions(dep).transitionDirectoryNameFragment);
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(getTransitionDirectoryNameFragment(dep));
   }
 
   @Test
@@ -2002,7 +2249,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOptionConversionDynamicMode() throws Exception {
+  public void testOptionConversionDynamicMode() {
     // TODO(waltl): check that dynamic_mode is parsed properly.
   }
 
@@ -2140,5 +2387,166 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
+  }
+
+  @Test
+  public void testEffectiveNoopTransitionTrimsInputBuildSettings() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "def _string_impl(ctx):",
+        "    return []",
+        "string_flag = rule(",
+        "    implementation = _string_impl,",
+        "    build_setting = config.string(flag = True),",
+        ")",
+        "def _no_op_transition_impl(settings, attr):",
+        "    return {",
+        "        '//test/starlark:input_and_output': settings['//test/starlark:input_and_output'],",
+        "        '//test/starlark:output_only': 'output_only_default',",
+        "    }",
+        "_no_op_transition = transition(",
+        "    implementation = _no_op_transition_impl,",
+        "    inputs = [",
+        "        '//test/starlark:input_only',",
+        "        '//test/starlark:input_and_output',",
+        "    ],",
+        "    outputs = [",
+        "        '//test/starlark:input_and_output',",
+        "        '//test/starlark:output_only',",
+        "    ],",
+        ")",
+        "def _apply_transition_impl(ctx):",
+        "    ctx.actions.symlink(",
+        "        output = ctx.outputs.out,",
+        "        target_file = ctx.file.target,",
+        "    )",
+        "    return [DefaultInfo(executable = ctx.outputs.out)]",
+        "apply_transition = rule(",
+        "    implementation = _apply_transition_impl,",
+        "    attrs = {",
+        "        'target': attr.label(",
+        "            cfg = _no_op_transition,",
+        "            allow_single_file = True,",
+        "        ),",
+        "        'out': attr.output(),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        "    executable = False,",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'apply_transition', 'string_flag')",
+        "",
+        "string_flag(",
+        "    name = 'input_only',",
+        "    build_setting_default = 'input_only_default',",
+        ")",
+        "string_flag(",
+        "    name = 'input_and_output',",
+        "    build_setting_default = 'input_and_output_default',",
+        ")",
+        "string_flag(",
+        "    name = 'output_only',",
+        "    build_setting_default = 'output_only_default',",
+        ")",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        ")",
+        "apply_transition(",
+        "    name = 'transitioned_main',",
+        "    target = ':main',",
+        "    out = 'main_out',",
+        ")");
+
+    update(
+        ImmutableList.of("//test/starlark:main", "//test/starlark:transitioned_main"),
+        /*keepGoing=*/ false,
+        LOADING_PHASE_THREADS,
+        /*doAnalysis=*/ true,
+        new EventBus());
+    assertNoEvents();
+  }
+
+  @Test
+  public void testExplicitNoopTransitionTrimsInputBuildSettings() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "def _string_impl(ctx):",
+        "    return []",
+        "string_flag = rule(",
+        "    implementation = _string_impl,",
+        "    build_setting = config.string(flag = True),",
+        ")",
+        "def _no_op_transition_impl(settings, attr):",
+        "    return {}",
+        "_no_op_transition = transition(",
+        "    implementation = _no_op_transition_impl,",
+        "    inputs = [",
+        "        '//test/starlark:input_only',",
+        "        '//test/starlark:input_and_output',",
+        "    ],",
+        "    outputs = [",
+        "        '//test/starlark:input_and_output',",
+        "        '//test/starlark:output_only',",
+        "    ],",
+        ")",
+        "def _apply_transition_impl(ctx):",
+        "    ctx.actions.symlink(",
+        "        output = ctx.outputs.out,",
+        "        target_file = ctx.file.target,",
+        "    )",
+        "    return [DefaultInfo(executable = ctx.outputs.out)]",
+        "apply_transition = rule(",
+        "    implementation = _apply_transition_impl,",
+        "    attrs = {",
+        "        'target': attr.label(",
+        "            cfg = _no_op_transition,",
+        "            allow_single_file = True,",
+        "        ),",
+        "        'out': attr.output(),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        "    executable = False,",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'apply_transition', 'string_flag')",
+        "",
+        "string_flag(",
+        "    name = 'input_only',",
+        "    build_setting_default = 'input_only_default',",
+        ")",
+        "string_flag(",
+        "    name = 'input_and_output',",
+        "    build_setting_default = 'input_and_output_default',",
+        ")",
+        "string_flag(",
+        "    name = 'output_only',",
+        "    build_setting_default = 'output_only_default',",
+        ")",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        ")",
+        "apply_transition(",
+        "    name = 'transitioned_main',",
+        "    target = ':main',",
+        "    out = 'main_out',",
+        ")");
+
+    update(
+        ImmutableList.of("//test/starlark:main", "//test/starlark:transitioned_main"),
+        /*keepGoing=*/ false,
+        LOADING_PHASE_THREADS,
+        /*doAnalysis=*/ true,
+        new EventBus());
+    assertNoEvents();
   }
 }

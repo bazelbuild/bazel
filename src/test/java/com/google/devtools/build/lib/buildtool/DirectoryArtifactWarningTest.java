@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,7 +26,6 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
 
   @Test
   public void testOutputArtifactDirectoryWarning() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     write("x/BUILD",
           "genrule(name = 'x',",
           "        outs = ['dir'],",
@@ -42,7 +40,6 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
 
   @Test
   public void testInputArtifactDirectoryWarning() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     write("x/BUILD",
           "genrule(name = 'x',",
           "        outs = ['out'],",

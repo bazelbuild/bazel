@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -41,12 +43,17 @@ public class ExternalFilesHelper {
   private final BlazeDirectories directories;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
+  private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
 
   // These variables are set to true from multiple threads, but only read in the main thread.
   // So volatility or an AtomicBoolean is not needed.
   private boolean anyOutputFilesSeen = false;
-  private boolean anyNonOutputExternalFilesSeen = false;
+  private boolean tooManyNonOutputExternalFilesSeen = false;
+  private boolean anyFilesInExternalReposSeen = false;
 
+  // This is a set of external files that are not in managed directories or
+  // external repositories.
+  private Set<RootedPath> nonOutputExternalFilesSeen = Sets.newConcurrentHashSet();
   private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   private ExternalFilesHelper(
@@ -190,24 +197,37 @@ public class ExternalFilesHelper {
 
   static class ExternalFilesKnowledge {
     final boolean anyOutputFilesSeen;
-    final boolean anyNonOutputExternalFilesSeen;
+    final Set<RootedPath> nonOutputExternalFilesSeen;
+    final boolean anyFilesInExternalReposSeen;
+    final boolean tooManyNonOutputExternalFilesSeen;
 
-    private ExternalFilesKnowledge(boolean anyOutputFilesSeen,
-        boolean anyNonOutputExternalFilesSeen) {
+    private ExternalFilesKnowledge(
+        boolean anyOutputFilesSeen,
+        Set<RootedPath> nonOutputExternalFilesSeen,
+        boolean anyFilesInExternalReposSeen,
+        boolean tooManyNonOutputExternalFilesSeen) {
       this.anyOutputFilesSeen = anyOutputFilesSeen;
-      this.anyNonOutputExternalFilesSeen = anyNonOutputExternalFilesSeen;
+      this.nonOutputExternalFilesSeen = nonOutputExternalFilesSeen;
+      this.anyFilesInExternalReposSeen = anyFilesInExternalReposSeen;
+      this.tooManyNonOutputExternalFilesSeen = tooManyNonOutputExternalFilesSeen;
     }
   }
 
   @ThreadCompatible
   ExternalFilesKnowledge getExternalFilesKnowledge() {
-    return new ExternalFilesKnowledge(anyOutputFilesSeen, anyNonOutputExternalFilesSeen);
+    return new ExternalFilesKnowledge(
+        anyOutputFilesSeen,
+        nonOutputExternalFilesSeen,
+        anyFilesInExternalReposSeen,
+        tooManyNonOutputExternalFilesSeen);
   }
 
   @ThreadCompatible
   void setExternalFilesKnowledge(ExternalFilesKnowledge externalFilesKnowledge) {
     anyOutputFilesSeen = externalFilesKnowledge.anyOutputFilesSeen;
-    anyNonOutputExternalFilesSeen = externalFilesKnowledge.anyNonOutputExternalFilesSeen;
+    nonOutputExternalFilesSeen = externalFilesKnowledge.nonOutputExternalFilesSeen;
+    anyFilesInExternalReposSeen = externalFilesKnowledge.anyFilesInExternalReposSeen;
+    tooManyNonOutputExternalFilesSeen = externalFilesKnowledge.tooManyNonOutputExternalFilesSeen;
   }
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
@@ -227,12 +247,19 @@ public class ExternalFilesHelper {
     RepositoryName repositoryName =
         managedDirectoriesKnowledge.getOwnerRepository(rootedPath.getRootRelativePath());
     if (repositoryName != null) {
-      anyNonOutputExternalFilesSeen = true;
+      anyFilesInExternalReposSeen = true;
       return Pair.of(FileType.EXTERNAL_IN_MANAGED_DIRECTORY, repositoryName);
     }
     FileType fileType = detectFileType(rootedPath);
-    if (FileType.EXTERNAL == fileType || FileType.EXTERNAL_REPO == fileType) {
-      anyNonOutputExternalFilesSeen = true;
+    if (FileType.EXTERNAL == fileType) {
+      if (nonOutputExternalFilesSeen.size() >= MAX_EXTERNAL_FILES_TO_TRACK) {
+        tooManyNonOutputExternalFilesSeen = true;
+      } else {
+        nonOutputExternalFilesSeen.add(rootedPath);
+      }
+    }
+    if (FileType.EXTERNAL_REPO == fileType) {
+      anyFilesInExternalReposSeen = true;
     }
     if (FileType.OUTPUT == fileType) {
       anyOutputFilesSeen = true;
@@ -255,20 +282,16 @@ public class ExternalFilesHelper {
     // The outputBase may be null if we're not actually running a build.
     Path outputBase = packageLocator.getOutputBase();
     if (outputBase == null) {
-      anyNonOutputExternalFilesSeen = true;
       return FileType.EXTERNAL;
     }
     if (rootedPath.asPath().startsWith(outputBase)) {
       Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
       if (rootedPath.asPath().startsWith(externalRepoDir)) {
-        anyNonOutputExternalFilesSeen = true;
         return FileType.EXTERNAL_REPO;
       } else {
-        anyOutputFilesSeen = true;
         return FileType.OUTPUT;
       }
     }
-    anyNonOutputExternalFilesSeen = true;
     return FileType.EXTERNAL;
   }
 

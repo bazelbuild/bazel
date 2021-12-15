@@ -35,12 +35,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-
 /**
  * Test to make sure that context provider initialization failure is handled correctly.
  */
 @RunWith(JUnit4.class)
 public class ContextProviderInitializationTest extends BuildIntegrationTestCase {
+
   private static class BadContextProviderModule extends BlazeModule {
     @Override
     public void executorInit(

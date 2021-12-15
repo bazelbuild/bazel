@@ -17,12 +17,12 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** No-op configuration transition. */
 public final class NoTransition implements PatchTransition {
 
-  @AutoCodec public static final NoTransition INSTANCE = new NoTransition();
+  @SerializationConstant public static final NoTransition INSTANCE = new NoTransition();
 
   private NoTransition() {}
 

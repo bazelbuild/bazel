@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -36,9 +36,9 @@ import java.util.Collection;
 public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final Target target;
-  private final Collection<BuildConfiguration> configurations;
+  private final Collection<BuildConfigurationValue> configurations;
 
-  TargetConfiguredEvent(Target target, Collection<BuildConfiguration> configurations) {
+  TargetConfiguredEvent(Target target, Collection<BuildConfigurationValue> configurations) {
     this.configurations = configurations;
     this.target = target;
   }
@@ -46,7 +46,7 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   @Override
   public Collection<BuildEvent> getConfigurations() {
     ImmutableList.Builder<BuildEvent> builder = new ImmutableList.Builder<>();
-    for (BuildConfiguration config : configurations) {
+    for (BuildConfigurationValue config : configurations) {
       if (config != null) {
         builder.add(config.toBuildEvent());
       } else {
@@ -64,7 +64,7 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
-    for (BuildConfiguration config : configurations) {
+    for (BuildConfigurationValue config : configurations) {
       if (config != null) {
         childrenBuilder.add(
             BuildEventIdUtil.targetCompleted(target.getLabel(), config.getEventId()));

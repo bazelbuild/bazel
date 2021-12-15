@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
@@ -32,7 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +43,7 @@ public final class BuildTypeTest {
   private final LabelConversionContext labelConversionContext =
       new LabelConversionContext(
           currentRule,
-          /*repositoryMapping=*/ ImmutableMap.of(),
+          RepositoryMapping.ALWAYS_FALLBACK,
           /*convertedLabelsInPackage=*/ new HashMap<>());
 
   @Test
@@ -269,53 +266,13 @@ public final class BuildTypeTest {
   }
 
   @Test
-  public void testFilesetEntry() throws Exception {
-    Label srcDir = Label.create("foo", "src");
-    Label entryLabel = Label.create("foo", "entry");
-    FilesetEntry input =
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entryLabel),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null);
-    assertThat(BuildType.FILESET_ENTRY.convert(input, null, currentRule)).isEqualTo(input);
-    assertThat(collectLabels(BuildType.FILESET_ENTRY, input)).containsExactly(entryLabel);
-  }
-
-  @Test
-  public void testFilesetEntryList() throws Exception {
-    Label srcDir = Label.create("foo", "src");
-    Label entry1Label = Label.create("foo", "entry1");
-    Label entry2Label = Label.create("foo", "entry");
-    List<FilesetEntry> input = ImmutableList.of(
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entry1Label),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null),
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entry2Label),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null));
-    assertThat(BuildType.FILESET_ENTRY_LIST.convert(input, null, currentRule)).isEqualTo(input);
-    assertThat(collectLabels(BuildType.FILESET_ENTRY_LIST, input)).containsExactly(
-        entry1Label, entry2Label);
-  }
-
-  @Test
   public void testLabelWithRemapping() throws Exception {
     LabelConversionContext context =
         new LabelConversionContext(
             currentRule,
-            ImmutableMap.of(
-                RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo")),
+            RepositoryMapping.createAllowingFallback(
+                ImmutableMap.of(
+                    RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"))),
             /* convertedLabelsInPackage= */ new HashMap<>());
     Label label = BuildType.LABEL.convert("@orig_repo//foo:bar", null, context);
     assertThat(label)
@@ -598,119 +555,6 @@ public final class BuildTypeTest {
                     BuildType.LABEL)
                 .isUnconditional())
         .isTrue();
-  }
-
-  private static FilesetEntry makeFilesetEntry() {
-    return new FilesetEntry(
-        /*srcLabel=*/ Label.parseAbsoluteUnchecked("//foo:bar"),
-        /*files=*/ ImmutableList.of(),
-        /*excludes=*/ ImmutableSet.of("xyz"),
-        /*destDir=*/ null,
-        /*symlinkBehavior=*/ null,
-        /*stripPrefix=*/ null);
-  }
-
-  private static String createExpectedFilesetEntryString(
-      FilesetEntry.SymlinkBehavior symlinkBehavior) {
-    return String.format(
-        "FilesetEntry(srcdir = \"//x:x\","
-            + " files = [\"//x:x\"],"
-            + " excludes = [],"
-            + " destdir = \"\","
-            + " strip_prefix = \".\","
-            + " symlinks = \"%s\")",
-        symlinkBehavior.toString().toLowerCase());
-  }
-
-  private static FilesetEntry createTestFilesetEntry(FilesetEntry.SymlinkBehavior symlinkBehavior)
-      throws LabelSyntaxException {
-    Label label = Label.parseAbsolute("//x", ImmutableMap.of());
-    return new FilesetEntry(
-        /*srcLabel=*/ label,
-        /*files=*/ ImmutableList.of(label),
-        /*excludes=*/ null,
-        /*destDir=*/ null,
-        /*symlinkBehavior=*/ symlinkBehavior,
-        /*stripPrefix=*/ null);
-  }
-
-  private static FilesetEntry createTestFilesetEntry() throws LabelSyntaxException {
-    return createTestFilesetEntry(FilesetEntry.SymlinkBehavior.COPY);
-  }
-
-  @Test
-  public void testRegressionCrashInPrettyPrintValue() throws Exception {
-    // Would cause crash in code such as this:
-    //  Fileset(name='x', entries=[], out=[FilesetEntry(files=['a'])])
-    // While formatting the "expected x, got y" message for the 'out'
-    // attribute, prettyPrintValue(FilesetEntry) would be recursively called
-    // with a List<Label> even though this isn't a valid datatype in the
-    // interpreter.
-    // Fileset isn't part of bazel, even though FilesetEntry is.
-    assertThat(Starlark.repr(createTestFilesetEntry()))
-        .isEqualTo(createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.COPY));
-  }
-
-  @Test
-  public void testFilesetEntrySymlinkAttr() throws Exception {
-    FilesetEntry entryDereference =
-        createTestFilesetEntry(FilesetEntry.SymlinkBehavior.DEREFERENCE);
-
-    assertThat(Starlark.repr(entryDereference))
-        .isEqualTo(createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.DEREFERENCE));
-  }
-
-  private static FilesetEntry createStripPrefixFilesetEntry(String stripPrefix) throws Exception {
-    Label label = Label.parseAbsolute("//x", ImmutableMap.of());
-    return new FilesetEntry(
-        /*srcLabel=*/ label,
-        /*files=*/ ImmutableList.of(label),
-        /*excludes=*/ null,
-        /*destDir=*/ null,
-        /*symlinkBehavior=*/ FilesetEntry.SymlinkBehavior.DEREFERENCE,
-        /*stripPrefix=*/ stripPrefix);
-  }
-
-  @Test
-  public void testFilesetEntryStripPrefixAttr() throws Exception {
-    FilesetEntry withoutStripPrefix = createStripPrefixFilesetEntry(".");
-    FilesetEntry withStripPrefix = createStripPrefixFilesetEntry("orange");
-
-    String prettyWithout = Starlark.repr(withoutStripPrefix);
-    String prettyWith = Starlark.repr(withStripPrefix);
-
-    assertThat(prettyWithout).contains("strip_prefix = \".\"");
-    assertThat(prettyWith).contains("strip_prefix = \"orange\"");
-  }
-
-  @Test
-  public void testPrintFilesetEntry() throws Exception {
-    assertThat(
-            Starlark.repr(
-                new FilesetEntry(
-                    /*srcLabel=*/ Label.parseAbsolute("//foo:BUILD", ImmutableMap.of()),
-                    /*files=*/ ImmutableList.of(
-                        Label.parseAbsolute("//foo:bar", ImmutableMap.of())),
-                    /*excludes=*/ ImmutableSet.of("baz"),
-                    /*destDir=*/ "qux",
-                    /*symlinkBehavior=*/ FilesetEntry.SymlinkBehavior.DEREFERENCE,
-                    /*stripPrefix=*/ "blah")))
-        .isEqualTo(
-            Joiner.on(" ")
-                .join(
-                    ImmutableList.of(
-                        "FilesetEntry(srcdir = \"//foo:BUILD\",",
-                        "files = [\"//foo:bar\"],",
-                        "excludes = [\"baz\"],",
-                        "destdir = \"qux\",",
-                        "strip_prefix = \"blah\",",
-                        "symlinks = \"dereference\")")));
-  }
-
-  @Test
-  public void testFilesetTypeDefinition() throws Exception {
-    assertThat(Starlark.type(makeFilesetEntry())).isEqualTo("FilesetEntry");
-    assertThat(Starlark.isImmutable(makeFilesetEntry())).isTrue();
   }
 
   private static <T> ImmutableList<Label> collectLabels(Type<T> type, T value) {

@@ -18,7 +18,6 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
-import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -33,12 +32,12 @@ import javax.annotation.concurrent.Immutable;
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 @Immutable
-public final class TaggedEvents implements Serializable {
+public final class TaggedEvents {
   private final ImmutableList<Event> events;
   private final int hashCode;
 
   @VisibleForTesting
-  public TaggedEvents(final @Nullable String tag, ImmutableCollection<Event> events) {
+  public TaggedEvents(@Nullable String tag, ImmutableCollection<Event> events) {
     this.events =
         events.isEmpty()
             ? ImmutableList.of()

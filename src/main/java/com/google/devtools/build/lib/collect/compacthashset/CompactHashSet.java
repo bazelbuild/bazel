@@ -31,11 +31,6 @@ package com.google.devtools.build.lib.collect.compacthashset;
 
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
-import java.io.IOException;
-import java.io.InvalidObjectException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.AbstractSet;
 import java.util.Arrays;
@@ -48,28 +43,27 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * CompactHashSet is an implementation of a Set. All optional operations (adding and
- * removing) are supported. The elements can be any objects.
+ * CompactHashSet is an implementation of a Set. All optional operations (adding and removing) are
+ * supported. The elements can be any objects.
  *
  * <p>{@code contains(x)}, {@code add(x)} and {@code remove(x)}, are all (expected and amortized)
- * constant time operations. Expected in the hashtable sense (depends on the hash function
- * doing a good job of distributing the elements to the buckets to a distribution not far from
- * uniform), and amortized since some operations can trigger a hash table resize.
+ * constant time operations. Expected in the hashtable sense (depends on the hash function doing a
+ * good job of distributing the elements to the buckets to a distribution not far from uniform), and
+ * amortized since some operations can trigger a hash table resize.
  *
- * <p>Unlike {@code java.util.HashSet}, iteration is only proportional to the actual
- * {@code size()}, which is optimal, and <i>not</i> the size of the internal hashtable,
- * which could be much larger than {@code size()}. Furthermore, this structure only depends
- * on a fixed number of arrays; {@code add(x)} operations <i>do not</i> create objects
- * for the garbage collector to deal with, and for every element added, the garbage collector
- * will have to traverse {@code 1.5} references on average, in the marking phase, not {@code 5.0}
- * as in {@code java.util.HashSet}.
+ * <p>Unlike {@code java.util.HashSet}, iteration is only proportional to the actual {@code size()},
+ * which is optimal, and <i>not</i> the size of the internal hashtable, which could be much larger
+ * than {@code size()}. Furthermore, this structure only depends on a fixed number of arrays; {@code
+ * add(x)} operations <i>do not</i> create objects for the garbage collector to deal with, and for
+ * every element added, the garbage collector will have to traverse {@code 1.5} references on
+ * average, in the marking phase, not {@code 5.0} as in {@code java.util.HashSet}.
  *
  * <p>If there are no removals, then {@link #iterator iteration} order is the same as insertion
  * order. Any removal invalidates any ordering guarantees.
  */
 // TODO(bazel-team): This was branched of an internal version of guava. If the class is released, we
 // should remove this again.
-public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
+public class CompactHashSet<E> extends AbstractSet<E> {
   // TODO(bazel-team): cache all field accesses in local vars
 
   // A partial copy of com.google.common.collect.Hashing.
@@ -94,24 +88,22 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
 
   private static final int MAX_TABLE_SIZE = Ints.MAX_POWER_OF_TWO;
 
-  private static int closedTableSize(int expectedEntries, double loadFactor) {
+  private static int closedTableSize(int expectedEntries) {
     // Get the recommended table size.
     // Round down to the nearest power of 2.
     expectedEntries = Math.max(expectedEntries, 2);
     int tableSize = Integer.highestOneBit(expectedEntries);
     // Check to make sure that we will not exceed the maximum load factor.
-    if (expectedEntries > (int) (loadFactor * tableSize)) {
+    if (expectedEntries > (int) (LOAD_FACTOR * tableSize)) {
       tableSize <<= 1;
       return (tableSize > 0) ? tableSize : MAX_TABLE_SIZE;
     }
     return tableSize;
   }
 
-  /**
-   * Creates an empty {@code CompactHashSet} instance.
-   */
+  /** Creates an empty {@code CompactHashSet} instance. */
   public static <E> CompactHashSet<E> create() {
-    return new CompactHashSet<>();
+    return new CompactHashSet<>(DEFAULT_SIZE);
   }
 
   /**
@@ -156,8 +148,7 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
 
   private static final int MAXIMUM_CAPACITY = 1 << 30;
 
-  // TODO(bazel-team): decide, and inline, load factor. 0.75?
-  private static final float DEFAULT_LOAD_FACTOR = 1.0f;
+  private static final float LOAD_FACTOR = 1.0f;
 
   /**
    * Bitmask that selects the low 32 bits.
@@ -172,7 +163,7 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
   // TODO(bazel-team): decide default size
   private static final int DEFAULT_SIZE = 3;
 
-  static final int UNSET = -1;
+  private static final int UNSET = -1;
 
   /**
    * The hashtable. Its values are indexes to both the elements and entries arrays.
@@ -192,23 +183,15 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
    */
   private transient long[] entries;
 
-  /**
-   * The elements contained in the set, in the range of [0, size()).
-   */
-  transient Object[] elements;
-
-  /**
-   * The load factor.
-   */
-  transient float loadFactor;
+  /** The elements contained in the set, in the range of [0, size()). */
+  private transient Object[] elements;
 
   /**
    * Keeps track of modifications of this set, to make it possible to throw
-   * ConcurrentModificationException in the iterator. Note that we choose not to
-   * make this volatile, so we do less of a "best effort" to track such errors,
-   * for better performance.
+   * ConcurrentModificationException in the iterator. Note that we choose not to make this volatile,
+   * so we do less of a "best effort" to track such errors, for better performance.
    */
-  transient int modCount;
+  private transient int modCount;
 
   /**
    * When we have this many elements, resize the hashtable.
@@ -221,33 +204,17 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
   private transient int size;
 
   /**
-   * Constructs a new empty instance of {@code CompactHashSet}.
-   */
-  CompactHashSet() {
-    init(DEFAULT_SIZE, DEFAULT_LOAD_FACTOR);
-  }
-
-  /**
    * Constructs a new instance of {@code CompactHashSet} with the specified capacity.
    *
    * @param expectedSize the initial capacity of this {@code CompactHashSet}.
    */
-  CompactHashSet(int expectedSize) {
-    init(expectedSize, DEFAULT_LOAD_FACTOR);
-  }
-
-  /**
-   * Pseudoconstructor for serialization support.
-   */
-  void init(int expectedSize, float loadFactor) {
+  private CompactHashSet(int expectedSize) {
     Preconditions.checkArgument(expectedSize >= 0, "Initial capacity must be non-negative");
-    Preconditions.checkArgument(loadFactor > 0, "Illegal load factor");
-    int buckets = closedTableSize(expectedSize, loadFactor);
+    int buckets = closedTableSize(expectedSize);
     this.table = newTable(buckets);
-    this.loadFactor = loadFactor;
     this.elements = new Object[expectedSize];
     this.entries = newEntries(expectedSize);
-    this.threshold = Math.max(1, (int) (buckets * loadFactor));
+    this.threshold = Math.max(1, (int) (buckets * LOAD_FACTOR));
   }
 
   private static int[] newTable(int size) {
@@ -322,10 +289,9 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
   }
 
   /**
-   * Creates a fresh entry with the specified object at the specified position in the entry
-   * arrays.
+   * Creates a fresh entry with the specified object at the specified position in the entry arrays.
    */
-  void insertEntry(int entryIndex, E object, int hash) {
+  private void insertEntry(int entryIndex, E object, int hash) {
     this.entries[entryIndex] = ((long) hash << 32) | (NEXT_MASK & UNSET);
     this.elements[entryIndex] = object;
   }
@@ -347,10 +313,10 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
   }
 
   /**
-   * Resizes the internal entries array to the specified capacity, which may be greater or less
-   * than the current capacity.
+   * Resizes the internal entries array to the specified capacity, which may be greater or less than
+   * the current capacity.
    */
-  void resizeEntries(int newCapacity) {
+  private void resizeEntries(int newCapacity) {
     this.elements = Arrays.copyOf(elements, newCapacity);
     long[] entries = this.entries;
     int oldSize = entries.length;
@@ -368,7 +334,7 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
       threshold = Integer.MAX_VALUE;
       return;
     }
-    int newThreshold = 1 + (int) (newCapacity * loadFactor);
+    int newThreshold = 1 + (int) (newCapacity * LOAD_FACTOR);
     int[] newTable = newTable(newCapacity);
     long[] entries = this.entries;
 
@@ -436,7 +402,7 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
   /**
    * Moves the last entry in the entry array into {@code dstIndex}, and nulls out its old position.
    */
-  void moveEntry(int dstIndex) {
+  private void moveEntry(int dstIndex) {
     int srcIndex = size() - 1;
     if (dstIndex < srcIndex) {
       // move last entry to deleted spot
@@ -551,10 +517,10 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
     // but that may not be a power of two. We floor it to a power of two by
     // keeping its highest bit. But the smaller table may have a load factor
     // larger than what we want; then we want to go to the next power of 2 if we can
-    int minimumTableSize = Math.max(1, Integer.highestOneBit((int) (size / loadFactor)));
+    int minimumTableSize = Math.max(1, Integer.highestOneBit((int) (size / LOAD_FACTOR)));
     if (minimumTableSize < MAXIMUM_CAPACITY) {
       double load = (double) size / minimumTableSize;
-      if (load > loadFactor) {
+      if (load > LOAD_FACTOR) {
         minimumTableSize <<= 1; // increase to next power if possible
       }
     }
@@ -571,32 +537,5 @@ public class CompactHashSet<E> extends AbstractSet<E> implements Serializable {
     Arrays.fill(table, UNSET);
     Arrays.fill(entries, UNSET);
     this.size = 0;
-  }
-
-  private void writeObject(ObjectOutputStream stream) throws IOException {
-    stream.defaultWriteObject();
-    stream.writeInt(table.length);
-    stream.writeFloat(loadFactor);
-    stream.writeInt(size);
-    for (E e : this) {
-      stream.writeObject(e);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
-    stream.defaultReadObject();
-    int length = stream.readInt();
-    float loadFactor = stream.readFloat();
-    int elementCount = stream.readInt();
-    try {
-      init(length, loadFactor);
-    } catch (IllegalArgumentException e) {
-      throw new InvalidObjectException(e.getMessage());
-    }
-    for (int i = elementCount; --i >= 0;) {
-      E element = (E) stream.readObject();
-      add(element);
-    }
   }
 }

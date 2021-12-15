@@ -41,7 +41,7 @@ public class LexerTest {
   private Lexer createLexer(String input) {
     ParserInput inputSource = ParserInput.fromString(input, "");
     errors.clear();
-    return new Lexer(inputSource, FileOptions.DEFAULT, errors);
+    return new Lexer(inputSource, errors);
   }
 
   private static class Token {
@@ -353,22 +353,22 @@ public class LexerTest {
 
   @Test
   public void testStringEscapes() throws Exception {
-    check("'a\\tb\\nc\\rd'", "STRING(a\tb\nc\rd) NEWLINE EOF"); // \t \r \n
+    check(
+        "'a\\tb\\nc\\rd\\fe\\vf\\ag\\bh'",
+        "STRING(a\tb\nc\rd\fe\u000bf\u0007g\bh) NEWLINE EOF"); // \t \r \n \f \v \a \b
     checkErrors(
         "'x\\hx'", //
         "STRING(x\\hx) NEWLINE EOF",
-        "   ^ invalid escape sequence: \\h. You can enable unknown escape sequences by passing the"
-            + " flag --incompatible_restrict_string_escapes=false");
+        "   ^ invalid escape sequence: \\h. Use '\\\\' to insert '\\'.");
     checkErrors(
         "'\\$$'", //
         "STRING(\\$$) NEWLINE EOF",
-        "  ^ invalid escape sequence: \\$. You can enable unknown escape sequences by passing the"
-            + " flag --incompatible_restrict_string_escapes=false");
+        "  ^ invalid escape sequence: \\$. Use '\\\\' to insert '\\'.");
     check("'a\\\nb'", "STRING(ab) NEWLINE EOF"); // escape end of line
     checkErrors(
         "\"ab\\ucd\"", //
-        "STRING(abcd) NEWLINE EOF",
-        "    ^ invalid escape sequence: \\u");
+        "STRING(ab\\ucd) NEWLINE EOF",
+        "    ^ invalid escape sequence: \\u. Use '\\\\' to insert '\\'.");
   }
 
   @Test
@@ -645,10 +645,7 @@ public class LexerTest {
     assertUnquoteError("'", "unclosed string literal");
     assertUnquoteError("\"", "unclosed string literal");
     assertUnquoteError("'abc", "unclosed string literal");
-    assertUnquoteError(
-        "'\\g'",
-        "invalid escape sequence: \\g. You can enable unknown escape sequences by passing the flag"
-            + " --incompatible_restrict_string_escapes=false"); // this temporary hint is a lie
+    assertUnquoteError("'\\g'", "invalid escape sequence: \\g. Use '\\\\' to insert '\\'.");
   }
 
   private static void assertUnquoteEquals(String literal, String value) {

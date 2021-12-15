@@ -30,7 +30,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An environment that wraps each call to its delegate by informing injected {@link Informee}s. */
-class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
+final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   private final SkyFunction.Environment delegate;
   private final Informee preFetch;
   private final Informee postFetch;
@@ -149,7 +149,7 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
       throws InterruptedException {
     preFetch.inform();
     try {
-    return delegate.getValues(depKeys);
+      return delegate.getValues(depKeys);
     } finally {
       postFetch.inform();
     }
@@ -352,8 +352,8 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
-    return delegate.inErrorBubblingForTesting();
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
   }
 
   @Nullable
@@ -365,6 +365,11 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   @Override
   public void injectVersionForNonHermeticFunction(Version version) {
     delegate.injectVersionForNonHermeticFunction(version);
+  }
+
+  @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    delegate.registerDependencies(keys);
   }
 
   @Override

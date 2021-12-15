@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -67,7 +70,10 @@ import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -142,8 +148,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         /*packageFactory=*/ null,
                         /*pkgLocator=*/ null,
                         /*showLoadingProgress=*/ null,
-                        /*packageFunctionCache=*/ null,
-                        /*compiledBuildFileCache=*/ null,
                         /*numPackagesLoaded=*/ null,
                         /*bzlLoadFunctionForInlining=*/ null,
                         /*packageProgress=*/ null,
@@ -164,6 +168,38 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                     SkyFunctions.BZL_LOAD,
                     BzlLoadFunction.create(
                         pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
+                .put(
+                    SkyFunctions.BAZEL_MODULE_RESOLUTION,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env)
+                          throws SkyFunctionException, InterruptedException {
+                        // Dummy function that returns a dep graph with just the root module in it.
+                        return BazelModuleResolutionFunction.createValue(
+                            ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
+                            ImmutableMap.of());
+                      }
+                    })
+                .put(
+                    SkyFunctions.REPOSITORY_MAPPING,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        // Dummy function that always falls back.
+                        return RepositoryMappingValue.withMapping(
+                            RepositoryMapping.ALWAYS_FALLBACK);
+                      }
+                    })
+                .put(
+                    SkyFunctions.MODULE_EXTENSION_RESOLUTION,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        // Dummy function that returns nothing.
+                        return ModuleExtensionResolutionValue.create(
+                            ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
+                      }
+                    })
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
@@ -267,6 +303,26 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void createRepoRule_localConfigPlatform() throws Exception {
+    // Skip this test in Blaze because local_config_platform is not available.
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    EvaluationResult<BzlmodRepoRuleValue> result =
+        driver.evaluate(
+            ImmutableList.of(BzlmodRepoRuleValue.key("local_config_platform")), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    BzlmodRepoRuleValue bzlmodRepoRuleValue =
+        result.get(BzlmodRepoRuleValue.key("local_config_platform"));
+    Rule repoRule = bzlmodRepoRuleValue.getRule();
+
+    assertThat(repoRule.getRuleClass()).isEqualTo("local_config_platform");
+    assertThat(repoRule.getName()).isEqualTo("local_config_platform");
+  }
+
+  @Test
   public void createRepoRule_overrides() throws Exception {
     EvaluationResult<BzlmodRepoRuleValue> result =
         driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("A")), evaluationContext);
@@ -284,6 +340,8 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
 
   @Test
   public void createRepoRule_bazelModules() throws Exception {
+    // Using a starlark rule in a RepoSpec requires having run Selection first.
+    driver.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     EvaluationResult<BzlmodRepoRuleValue> result =
         driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("B")), evaluationContext);
     if (result.hasError()) {
@@ -301,6 +359,8 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
 
   @Test
   public void createRepoRule_moduleRules() throws Exception {
+    // Using a starlark rule in a RepoSpec requires having run Selection first.
+    driver.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     EvaluationResult<BzlmodRepoRuleValue> result =
         driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("C")), evaluationContext);
     if (result.hasError()) {

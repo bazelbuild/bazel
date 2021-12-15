@@ -192,10 +192,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.ACTION_COMMAND_LINES,
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Prevents Bazel from adding compiler options to Objective-C compilation actions. Options"
               + " set in the crosstool are still applied.")
@@ -208,10 +205,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       effectTags = {
         OptionEffectTag.EAGERNESS_TO_EXIT,
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If enabled, direct usage of the native apple_binary rule is disabled. Please use the"
               + " Starlark rule from https://github.com/bazelbuild/rules_apple instead.")

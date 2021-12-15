@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -42,13 +41,14 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -118,7 +118,6 @@ import net.starlark.java.eval.Starlark;
  * involving artifacts should always go through {@link Artifact#key} since ordinary derived
  * artifacts should not be requested directly from Skyframe.
  */
-@Immutable
 public abstract class Artifact
     implements FileType.HasFileType,
         ActionInput,
@@ -309,7 +308,7 @@ public abstract class Artifact
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
-  protected final ArtifactRoot root;
+  private final ArtifactRoot root;
 
   private final int hashCode;
   private final PathFragment execPath;
@@ -383,27 +382,37 @@ public abstract class Artifact
     /**
      * Content-based output paths are experimental. Only derived artifacts that are explicitly opted
      * in by their creating rules should use them and only when {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}
+     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}
      * is on.
      */
     private final boolean contentBasedPath;
 
-    /** Standard constructor for derived artifacts. */
-    public DerivedArtifact(ArtifactRoot root, PathFragment execPath, ActionLookupKey owner) {
-      this(root, execPath, owner, /*contentBasedPath=*/ false);
+    /** Standard factory method for derived artifacts. */
+    public static DerivedArtifact create(
+        ArtifactRoot root, PathFragment execPath, ActionLookupKey owner) {
+      return create(root, execPath, owner, /*contentBasedPath=*/ false);
     }
 
     /**
-     * Same as {@link #DerivedArtifact(ArtifactRoot, PathFragment, ActionLookupKey)} but includes
-     * tge option to use a content-based path for this artifact (see {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}).
+     * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKey)} but includes the option
+     * to use a content-based path for this artifact (see {@link
+     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
      */
-    public DerivedArtifact(
+    public static DerivedArtifact create(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, boolean contentBasedPath) {
+      return new DerivedArtifact(root, execPath, owner, contentBasedPath);
+    }
+
+    private DerivedArtifact(ArtifactRoot root, PathFragment execPath, Object owner) {
+      this(root, execPath, owner, /*contentBasedPath=*/ false);
+    }
+
+    private DerivedArtifact(
+        ArtifactRoot root, PathFragment execPath, Object owner, boolean contentBasedPath) {
       super(root, execPath);
       Preconditions.checkState(
           !root.getExecPath().isEmpty(), "Derived root has no exec path: %s, %s", root, execPath);
-      this.owner = owner;
+      this.owner = Preconditions.checkNotNull(owner);
       this.contentBasedPath = contentBasedPath;
     }
 
@@ -414,7 +423,9 @@ public abstract class Artifact
     @VisibleForTesting
     public final void setGeneratingActionKey(ActionLookupData generatingActionKey) {
       Preconditions.checkState(
-          this.owner instanceof ArtifactOwner,
+          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
+      Preconditions.checkState(
+          this.owner instanceof ActionLookupKey,
           "Already set generating action key: %s (%s %s)",
           this,
           this.owner,
@@ -425,7 +436,7 @@ public abstract class Artifact
           this,
           this.owner,
           generatingActionKey);
-      this.owner = Preconditions.checkNotNull(generatingActionKey, this);
+      this.owner = generatingActionKey;
     }
 
     @VisibleForTesting
@@ -441,6 +452,8 @@ public abstract class Artifact
 
     @Override
     public final ActionLookupKey getArtifactOwner() {
+      Preconditions.checkState(
+          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
       return owner instanceof ActionLookupData
           ? getGeneratingActionKey().getActionLookupKey()
           : (ActionLookupKey) owner;
@@ -453,8 +466,8 @@ public abstract class Artifact
 
     @Override
     public final String toDebugString() {
-      if (hasGeneratingActionKey()) {
-        return super.toDetailString() + " (" + getGeneratingActionKey() + ")";
+      if (hasGeneratingActionKey() || owner == OMITTED_FOR_SERIALIZATION) {
+        return super.toDetailString() + " (" + owner + ")";
       }
       return super.toDebugString();
     }
@@ -481,8 +494,44 @@ public abstract class Artifact
     }
   }
 
+  /** Supplies {@link SourceArtifact} instances and allows for interning of derived artifacts. */
+  public interface ArtifactSerializationContext {
+
+    SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
+
+    /**
+     * Whether to include the generating action key when serializing the given derived artifact.
+     *
+     * <p>If {@code false} is returned, upon deserialization the generating action key is replaced
+     * with the marker {@link #OMITTED_FOR_SERIALIZATION}. The artifact is then only intended for
+     * use with {@link #equalsWithoutOwner} or {@link OwnerlessArtifactWrapper} - any operation
+     * accessing the generating action key will fail.
+     */
+    default boolean includeGeneratingActionKey(DerivedArtifact artifact) {
+      return true;
+    }
+
+    default DerivedArtifact intern(DerivedArtifact original) {
+      return original;
+    }
+  }
+
+  /**
+   * Marker stored in place of the generating action key for deserialized artifacts when {@link
+   * ArtifactSerializationContext#includeGeneratingActionKey} is {@code false}.
+   */
+  @SerializationConstant @VisibleForSerialization
+  static final Object OMITTED_FOR_SERIALIZATION =
+      new Object() {
+        @Override
+        public String toString() {
+          return "OMITTED_FOR_SERIALIZATION";
+        }
+      };
+
   @SuppressWarnings("unused") // Codec used by reflection.
-  private static class DerivedArtifactCodec implements ObjectCodec<DerivedArtifact> {
+  private static final class DerivedArtifactCodec implements ObjectCodec<DerivedArtifact> {
+
     @Override
     public Class<DerivedArtifact> getEncodedClass() {
       return DerivedArtifact.class;
@@ -493,48 +542,49 @@ public abstract class Artifact
         SerializationContext context, DerivedArtifact obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serialize(obj.getRoot(), codedOut);
-      context.serialize(obj.getGeneratingActionKey(), codedOut);
       context.serialize(obj.getRootRelativePath(), codedOut);
+      context.serialize(getGeneratingActionKeyForSerialization(obj, context), codedOut);
     }
 
     @Override
     public DerivedArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       ArtifactRoot root = context.deserialize(codedIn);
-      ActionLookupData generatingActionKey = context.deserialize(codedIn);
+      PathFragment rootRelativePath = context.deserialize(codedIn);
+      Object generatingActionKey = context.deserialize(codedIn);
       DerivedArtifact artifact =
           new DerivedArtifact(
               root,
-              validateAndGetRootExecPath(root, generatingActionKey, context, codedIn),
-              generatingActionKey.getActionLookupKey(),
-              /*contentBasedPath=*/ false);
-      artifact.setGeneratingActionKey(generatingActionKey);
-      return context
-          .getDependency(ArtifactResolver.ArtifactResolverSupplier.class)
-          .intern(artifact);
+              getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
+              generatingActionKey);
+      return context.getDependency(ArtifactSerializationContext.class).intern(artifact);
     }
+  }
 
-    static PathFragment validateAndGetRootExecPath(
-        ArtifactRoot root,
-        ActionLookupData generatingActionKey,
-        DeserializationContext context,
-        CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      PathFragment rootRelativePath = context.deserialize(codedIn);
-      if (rootRelativePath == null
-          || rootRelativePath.isAbsolute() != root.getRoot().isAbsolute()) {
-        throw new IllegalArgumentException(
-            rootRelativePath
-                + ": illegal rootRelativePath for "
-                + root
-                + " (generatingActionKey: "
-                + generatingActionKey
-                + ")");
-      }
-      Preconditions.checkState(
-          !root.isSourceRoot(), "Root not derived: %s %s", root, rootRelativePath);
-      return root.getExecPath().getRelative(rootRelativePath);
-    }
+  private static Object getGeneratingActionKeyForSerialization(
+      DerivedArtifact artifact, SerializationContext context) {
+    return context
+            .getDependency(ArtifactSerializationContext.class)
+            .includeGeneratingActionKey(artifact)
+        ? artifact.getGeneratingActionKey()
+        : OMITTED_FOR_SERIALIZATION;
+  }
+
+  private static PathFragment getExecPathForDeserialization(
+      ArtifactRoot root, PathFragment rootRelativePath, Object generatingActionKey) {
+    Preconditions.checkArgument(
+        !root.isSourceRoot(),
+        "Root not derived: %s (rootRelativePath=%s, generatingActionKey=%s)",
+        root,
+        rootRelativePath,
+        generatingActionKey);
+    Preconditions.checkArgument(
+        root.getRoot().isAbsolute() == rootRelativePath.isAbsolute(),
+        "Illegal root relative path: %s (root=%s, generatingActionKey=%s)",
+        rootRelativePath,
+        root,
+        generatingActionKey);
+    return root.getExecPath().getRelative(rootRelativePath);
   }
 
   public final Path getPath() {
@@ -561,7 +611,7 @@ public abstract class Artifact
    */
   @Override
   public final String getDirname() {
-    PathFragment parent = getExecPath().getParentDirectory();
+    PathFragment parent = execPath.getParentDirectory();
     return (parent == null) ? "/" : parent.getSafePathString();
   }
 
@@ -570,19 +620,19 @@ public abstract class Artifact
    */
   @Override
   public final String getFilename() {
-    return getExecPath().getBaseName();
+    return execPath.getBaseName();
   }
 
   @Override
   public final String getExtension() {
-    return getExecPath().getFileExtension();
+    return execPath.getFileExtension();
   }
 
   /**
    * Checks whether this artifact is of the supplied file type.
    *
    * <p>Prefer this method to pulling out strings from the Artifact and passing to {@link
-   * FileType#matches(String)} manually. This method has been optimized to generate a minimum of
+   * FileType#apply(String)} manually. This method has been optimized to generate a minimum of
    * garbage.
    */
   public boolean isFileType(FileType fileType) {
@@ -596,7 +646,7 @@ public abstract class Artifact
 
   @Override
   public final String filePathForFileTypeMatcher() {
-    return getExecPath().filePathForFileTypeMatcher();
+    return execPath.filePathForFileTypeMatcher();
   }
 
   @Override
@@ -687,7 +737,7 @@ public abstract class Artifact
   /** Returns this.getExecPath().getPathString(). */
   @Override
   public final String getExecPathString() {
-    return getExecPath().getPathString();
+    return execPath.getPathString();
   }
 
   public final String getRootRelativePathString() {
@@ -699,20 +749,14 @@ public abstract class Artifact
   }
 
   @Override
-  public boolean contentBasedPath() {
-    return false;
-  }
-
-  @Override
   public boolean isSymlink() {
     return false;
   }
 
   /**
-   * Returns the path of this Artifact relative to this containing Artifact. Since
-   * ordinary Artifacts correspond to only one Artifact -- itself -- for ordinary Artifacts,
-   * this just returns the empty path. For special Artifacts, throws
-   * {@link UnsupportedOperationException}. See also {@link Artifact#getParentRelativePath()}.
+   * Returns the path of this Artifact relative to this containing Artifact. Since ordinary
+   * Artifacts correspond to only one Artifact -- itself -- for ordinary Artifacts, this just
+   * returns the empty path. For special Artifacts, returns {@code null}.
    */
   public PathFragment getParentRelativePath() {
     return PathFragment.EMPTY_FRAGMENT;
@@ -750,7 +794,7 @@ public abstract class Artifact
    * <p>If true, this artifact is necessarily a {@link DerivedArtifact}.
    */
   public final boolean isMiddlemanArtifact() {
-    return getRoot().isMiddlemanRoot();
+    return root.isMiddlemanRoot();
   }
 
   /**
@@ -823,7 +867,7 @@ public abstract class Artifact
         // i.e. external/<repo name>/... and bazel-out/<repo name>/...
         // This is a pure coincidence, and the below line needs to be updated if any of the
         // directory structures change.
-        String repoName = getExecPath().getSegment(1);
+        String repoName = execPath.getSegment(1);
         relativePath =
             LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX
                 .getRelative(repoName)
@@ -895,7 +939,7 @@ public abstract class Artifact
   }
 
   public String toDebugString() {
-    if (getOwner() == null || getOwner().toPathFragment().equals(getExecPath())) {
+    if (getOwner() == null || getOwner().toPathFragment().equals(execPath)) {
       return toDetailString();
     }
     return toDetailString() + " (" + getArtifactOwner() + ")";
@@ -933,7 +977,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      return root.isExternal() ? getExecPath().subFragment(2) : getExecPath();
+      return getRoot().isExternal() ? getExecPath().subFragment(2) : getExecPath();
     }
 
     @Override
@@ -963,6 +1007,36 @@ public abstract class Artifact
 
     boolean differentOwnerOrRoot(ArtifactOwner owner, ArtifactRoot root) {
       return !this.owner.equals(owner) || !this.getRoot().equals(root);
+    }
+  }
+
+  /** {@link ObjectCodec} for {@link SourceArtifact} */
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
+
+    @Override
+    public Class<SourceArtifact> getEncodedClass() {
+      return SourceArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getExecPath(), codedOut);
+      context.serialize(obj.getRoot(), codedOut);
+      context.serialize(obj.getArtifactOwner(), codedOut);
+    }
+
+    @Override
+    public SourceArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      PathFragment execPath = context.deserialize(codedIn);
+      ArtifactRoot artifactRoot = context.deserialize(codedIn);
+      ArtifactOwner owner = context.deserialize(codedIn);
+      return context
+          .getDependency(ArtifactSerializationContext.class)
+          .getSourceArtifact(execPath, artifactRoot.getRoot(), owner);
     }
   }
 
@@ -996,14 +1070,18 @@ public abstract class Artifact
    * order to save memory. The proportion of artifacts that are special is very small, and by not
    * having to keep around the attribute for the rest we save some memory.
    */
-  @Immutable
   public static final class SpecialArtifact extends DerivedArtifact {
     private final SpecialArtifactType type;
 
     @VisibleForTesting
-    public SpecialArtifact(
+    public static SpecialArtifact create(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, SpecialArtifactType type) {
-      super(root, execPath, owner, /*contentBasedPath=*/ false);
+      return new SpecialArtifact(root, execPath, owner, type);
+    }
+
+    private SpecialArtifact(
+        ArtifactRoot root, PathFragment execPath, Object owner, SpecialArtifactType type) {
+      super(root, execPath, owner);
       this.type = type;
     }
 
@@ -1034,12 +1112,6 @@ public abstract class Artifact
 
     @Override
     @Nullable
-    public SpecialArtifact getParent() {
-      return null;
-    }
-
-    @Override
-    @Nullable
     public PathFragment getParentRelativePath() {
       return null;
     }
@@ -1051,8 +1123,9 @@ public abstract class Artifact
   }
 
   // Keep in sync with DerivedArtifactCodec.
-  @SuppressWarnings("unused") // Used by reflection
-  private static class SpecialArtifactCodec implements ObjectCodec<SpecialArtifact> {
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class SpecialArtifactCodec implements ObjectCodec<SpecialArtifact> {
+
     @Override
     public Class<SpecialArtifact> getEncodedClass() {
       return SpecialArtifact.class;
@@ -1063,27 +1136,26 @@ public abstract class Artifact
         SerializationContext context, SpecialArtifact obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serialize(obj.getRoot(), codedOut);
-      context.serialize(obj.getGeneratingActionKey(), codedOut);
-      context.serialize(obj.type, codedOut);
       context.serialize(obj.getRootRelativePath(), codedOut);
+      context.serialize(getGeneratingActionKeyForSerialization(obj, context), codedOut);
+      context.serialize(obj.type, codedOut);
     }
 
     @Override
     public SpecialArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       ArtifactRoot root = context.deserialize(codedIn);
-      ActionLookupData generatingActionKey = context.deserialize(codedIn);
+      PathFragment rootRelativePath = context.deserialize(codedIn);
+      Object generatingActionKey = context.deserialize(codedIn);
       SpecialArtifactType type = context.deserialize(codedIn);
       SpecialArtifact artifact =
           new SpecialArtifact(
               root,
-              DerivedArtifactCodec.validateAndGetRootExecPath(
-                  root, generatingActionKey, context, codedIn),
-              generatingActionKey.getActionLookupKey(),
+              getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
+              generatingActionKey,
               type);
-      artifact.setGeneratingActionKey(generatingActionKey);
       return (SpecialArtifact)
-          context.getDependency(ArtifactResolverSupplier.class).intern(artifact);
+          context.getDependency(ArtifactSerializationContext.class).intern(artifact);
     }
   }
 
@@ -1095,15 +1167,20 @@ public abstract class Artifact
    * TreeFileArtifact children} (and nothing else) of the tree artifact with their filesystem
    * structure, relative to the {@linkplain SpecialArtifact#getExecPath() tree artifact directory}.
    */
-  @AutoCodec
   public static final class ArchivedTreeArtifact extends DerivedArtifact {
-    private static final PathFragment ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT =
+    private static final PathFragment DEFAULT_DERIVED_TREE_ROOT =
         PathFragment.create(":archived_tree_artifacts");
+
     private final SpecialArtifact treeArtifact;
 
-    public ArchivedTreeArtifact(
-        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
-      super(root, execPath, treeArtifact.getArtifactOwner());
+    private ArchivedTreeArtifact(
+        SpecialArtifact treeArtifact,
+        ArtifactRoot root,
+        PathFragment execPath,
+        Object generatingActionKey) {
+      super(root, execPath, generatingActionKey);
+      Preconditions.checkArgument(
+          treeArtifact.isTreeArtifact(), "Not a tree artifact: %s", treeArtifact);
       this.treeArtifact = treeArtifact;
     }
 
@@ -1113,20 +1190,22 @@ public abstract class Artifact
     }
 
     /**
-     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact. Returned artifact is
-     * stored in a permanent location, therefore can be shared across actions and builds.
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact at the path inferred from
+     * the provided tree.
+     *
+     * <p>Returned artifact is stored in a permanent location, therefore can be shared across
+     * actions and builds.
      *
      * <p>Example: for a tree artifact of {@code bazel-out/k8-fastbuild/bin/directory} returns an
      * {@linkplain ArchivedTreeArtifact artifact} of: {@code
      * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
      */
-    public static ArchivedTreeArtifact create(
-        SpecialArtifact treeArtifact, PathFragment derivedPathPrefix) {
-      return createWithCustomDerivedTreeRoot(
+    public static ArchivedTreeArtifact createForTree(SpecialArtifact treeArtifact) {
+      return createInternal(
           treeArtifact,
-          derivedPathPrefix,
-          ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT,
-          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"));
+          DEFAULT_DERIVED_TREE_ROOT,
+          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"),
+          treeArtifact.getGeneratingActionKey());
     }
 
     /**
@@ -1135,35 +1214,30 @@ public abstract class Artifact
      *
      * <p>Example: for a tree artifact with root of {@code bazel-out/k8-fastbuild/bin} returns an
      * {@linkplain ArchivedTreeArtifact artifact} of: {@code
-     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin/{rootRelativePath}} with root of: {@code
-     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     * bazel-out/{derivedTreeRoot}/k8-fastbuild/bin/{rootRelativePath}} with root of: {@code
+     * bazel-out/{derivedTreeRoot}/k8-fastbuild/bin}.
+     *
+     * <p>Such artifacts should only be used as outputs of intermediate spawns. Action execution
+     * results must come from {@link #createForTree}.
      */
     public static ArchivedTreeArtifact createWithCustomDerivedTreeRoot(
-        SpecialArtifact treeArtifact,
-        PathFragment derivedPathPrefix,
-        PathFragment customDerivedTreeRoot,
-        PathFragment rootRelativePath) {
-      ArtifactRoot artifactRoot =
-          createRootForArchivedArtifact(
-              treeArtifact.getRoot(), derivedPathPrefix, customDerivedTreeRoot);
-      ArchivedTreeArtifact archivedTreeArtifact =
-          new ArchivedTreeArtifact(
-              treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
-
-      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
-      return archivedTreeArtifact;
+        SpecialArtifact treeArtifact, PathFragment derivedTreeRoot, PathFragment rootRelativePath) {
+      return createInternal(
+          treeArtifact, derivedTreeRoot, rootRelativePath, treeArtifact.getGeneratingActionKey());
     }
 
-    private static ArtifactRoot createRootForArchivedArtifact(
-        ArtifactRoot treeArtifactRoot,
-        PathFragment derivedPathPrefix,
-        PathFragment customDerivedTreeRoot) {
-      return ArtifactRoot.asDerivedRoot(
-          getExecRoot(treeArtifactRoot),
-          // e.g. bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin
-          RootType.Output,
-          getExecPathWithinCustomDerivedRoot(
-              derivedPathPrefix, customDerivedTreeRoot, treeArtifactRoot.getExecPath()));
+    private static ArchivedTreeArtifact createInternal(
+        SpecialArtifact treeArtifact,
+        PathFragment derivedTreeRoot,
+        PathFragment rootRelativePath,
+        Object generatingActionKey) {
+      ArtifactRoot treeRoot = treeArtifact.getRoot();
+      PathFragment archiveRoot = embedDerivedTreeRoot(treeRoot.getExecPath(), derivedTreeRoot);
+      return new ArchivedTreeArtifact(
+          treeArtifact,
+          ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.Output, archiveRoot),
+          archiveRoot.getRelative(rootRelativePath),
+          generatingActionKey);
     }
 
     /**
@@ -1173,23 +1247,22 @@ public abstract class Artifact
      * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
      * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
      */
-    public static PathFragment getExecPathWithinArchivedArtifactsTree(
-        PathFragment derivedPathPrefix, PathFragment execPath) {
-      return getExecPathWithinCustomDerivedRoot(
-          derivedPathPrefix, ARCHIVED_ARTIFACTS_DERIVED_TREE_ROOT, execPath);
+    public static PathFragment getExecPathWithinArchivedArtifactsTree(PathFragment execPath) {
+      return embedDerivedTreeRoot(execPath, DEFAULT_DERIVED_TREE_ROOT);
     }
 
     /**
      * Translates provided output {@code execPath} to one under provided derived tree root.
      *
      * <p>Example: {@code bazel-out/k8-fastbuild/bin ->
-     * bazel-out/{customDerivedTreeRoot}/k8-fastbuild/bin}.
+     * bazel-out/{derivedTreeRoot}/k8-fastbuild/bin}.
      */
-    private static PathFragment getExecPathWithinCustomDerivedRoot(
-        PathFragment derivedPathPrefix, PathFragment customDerivedTreeRoot, PathFragment execPath) {
-      return derivedPathPrefix
-          .getRelative(customDerivedTreeRoot)
-          .getRelative(execPath.relativeTo(derivedPathPrefix));
+    private static PathFragment embedDerivedTreeRoot(
+        PathFragment execPath, PathFragment derivedTreeRoot) {
+      return execPath
+          .subFragment(0, 1)
+          .getRelative(derivedTreeRoot)
+          .getRelative(execPath.subFragment(1));
     }
 
     private static Path getExecRoot(ArtifactRoot artifactRoot) {
@@ -1202,14 +1275,42 @@ public abstract class Artifact
               0, rootPathFragment.segmentCount() - artifactRoot.getExecPath().segmentCount());
       return rootPath.getFileSystem().getPath(execRootPath);
     }
+  }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static ArchivedTreeArtifact createForDeserialization(
-        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
-      ArchivedTreeArtifact result = new ArchivedTreeArtifact(treeArtifact, root, execPath);
-      result.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
-      return result;
+  @SuppressWarnings("unused") // Codec used by reflection.
+  private static final class ArchivedTreeArtifactCodec
+      implements ObjectCodec<ArchivedTreeArtifact> {
+
+    @Override
+    public Class<ArchivedTreeArtifact> getEncodedClass() {
+      return ArchivedTreeArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ArchivedTreeArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      PathFragment derivedTreeRoot = obj.getRoot().getExecPath().subFragment(1, 2);
+
+      context.serialize(obj.getParent(), codedOut);
+      context.serialize(derivedTreeRoot, codedOut);
+      context.serialize(obj.getRootRelativePath(), codedOut);
+    }
+
+    @Override
+    public ArchivedTreeArtifact deserialize(
+        DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SpecialArtifact treeArtifact = context.deserialize(codedIn);
+      PathFragment derivedTreeRoot = context.deserialize(codedIn);
+      PathFragment rootRelativePath = context.deserialize(codedIn);
+      Object generatingActionKey =
+          treeArtifact.hasGeneratingActionKey()
+              ? treeArtifact.getGeneratingActionKey()
+              : OMITTED_FOR_SERIALIZATION;
+
+      return ArchivedTreeArtifact.createInternal(
+          treeArtifact, derivedTreeRoot, rootRelativePath, generatingActionKey);
     }
   }
 
@@ -1236,8 +1337,6 @@ public abstract class Artifact
    *       return {@code false}.
    * </ol>
    */
-  @Immutable
-  @AutoCodec
   public static final class TreeFileArtifact extends DerivedArtifact {
     private final SpecialArtifact parent;
     private final PathFragment parentRelativePath;
@@ -1264,7 +1363,7 @@ public abstract class Artifact
           parent,
           generatingActionKey.getActionLookupKey(),
           parentRelativePath);
-      return createInternal(parent, parentRelativePath, generatingActionKey);
+      return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
     }
 
     /**
@@ -1304,12 +1403,8 @@ public abstract class Artifact
     }
 
     private TreeFileArtifact(
-        SpecialArtifact parent, PathFragment parentRelativePath, ActionLookupKey owner) {
-      super(
-          parent.getRoot(),
-          parent.getExecPath().getRelative(parentRelativePath),
-          owner,
-          /*contentBasedPath=*/ false);
+        SpecialArtifact parent, PathFragment parentRelativePath, Object owner) {
+      super(parent.getRoot(), parent.getExecPath().getRelative(parentRelativePath), owner);
       Preconditions.checkArgument(
           parent.isTreeArtifact(),
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
@@ -1321,19 +1416,6 @@ public abstract class Artifact
           parentRelativePath);
       this.parent = parent;
       this.parentRelativePath = parentRelativePath;
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static TreeFileArtifact createInternal(
-        SpecialArtifact parent,
-        PathFragment parentRelativePath,
-        ActionLookupData generatingActionKey) {
-      TreeFileArtifact result =
-          new TreeFileArtifact(
-              parent, parentRelativePath, generatingActionKey.getActionLookupKey());
-      result.setGeneratingActionKey(generatingActionKey);
-      return result;
     }
 
     @Override
@@ -1361,35 +1443,30 @@ public abstract class Artifact
     }
   }
 
-  /** {@link ObjectCodec} for {@link SourceArtifact} */
-  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
-  private static class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class TreeFileArtifactCodec implements ObjectCodec<TreeFileArtifact> {
 
     @Override
-    public Class<? extends SourceArtifact> getEncodedClass() {
-      return SourceArtifact.class;
+    public Class<TreeFileArtifact> getEncodedClass() {
+      return TreeFileArtifact.class;
     }
 
     @Override
     public void serialize(
-        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
+        SerializationContext context, TreeFileArtifact obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      context.serialize(obj.getExecPath(), codedOut);
-      context.serialize(obj.getRoot(), codedOut);
-      context.serialize(obj.getArtifactOwner(), codedOut);
+      context.serialize(obj.parent, codedOut);
+      context.serialize(obj.parentRelativePath, codedOut);
+      context.serialize(getGeneratingActionKeyForSerialization(obj, context), codedOut);
     }
 
     @Override
-    public SourceArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public TreeFileArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      PathFragment execPath = context.deserialize(codedIn);
-      ArtifactRoot artifactRoot = context.deserialize(codedIn);
-      ArtifactOwner owner = context.deserialize(codedIn);
-      return (SourceArtifact)
-          context
-              .getDependency(ArtifactResolverSupplier.class)
-              .get()
-              .getSourceArtifact(execPath, artifactRoot.getRoot(), owner);
+      SpecialArtifact parent = context.deserialize(codedIn);
+      PathFragment parentRelativePath = context.deserialize(codedIn);
+      Object generatingActionKey = context.deserialize(codedIn);
+      return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
     }
   }
 
@@ -1494,7 +1571,7 @@ public abstract class Artifact
       Iterable<Artifact> artifacts,
       Collection<? super Artifact> output,
       ArtifactExpander artifactExpander) {
-    addExpandedArtifacts(artifacts, output, Functions.<Artifact>identity(), artifactExpander);
+    addExpandedArtifacts(artifacts, output, Functions.identity(), artifactExpander);
   }
 
   /**
@@ -1538,7 +1615,7 @@ public abstract class Artifact
   public static List<Artifact> filterFiles(Iterable<Artifact> artifacts, FileType allowedType) {
     List<Artifact> filesToBuild = new ArrayList<>();
     for (Artifact artifact : artifacts) {
-      if (allowedType.matches(artifact.getFilename())) {
+      if (allowedType.apply(artifact.getFilename())) {
         filesToBuild.add(artifact);
       }
     }
@@ -1578,7 +1655,7 @@ public abstract class Artifact
    * A utility class that compares {@link Artifact}s without taking their owners into account.
    * Should only be used for detecting action conflicts and merging shared action data.
    */
-  public static class OwnerlessArtifactWrapper {
+  public static final class OwnerlessArtifactWrapper {
     private final Artifact artifact;
 
     public OwnerlessArtifactWrapper(Artifact artifact) {
@@ -1599,10 +1676,7 @@ public abstract class Artifact
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("artifact", artifact)
-          .add("owner", artifact.getArtifactOwner())
-          .toString();
+      return MoreObjects.toStringHelper(this).add("artifact", artifact.toDebugString()).toString();
     }
   }
 }

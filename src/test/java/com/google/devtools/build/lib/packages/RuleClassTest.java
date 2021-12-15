@@ -33,7 +33,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -264,7 +264,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
             StarlarkSemantics.DEFAULT,
-            /*repositoryMapping=*/ ImmutableMap.of())
+            RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 
@@ -1149,7 +1149,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
                 new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
                     .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
                     .add(attr("tags", STRING_LIST))
-                    .add(attr(Strings.repeat("x", 150), STRING))
+                    .add(attr("x".repeat(150), STRING))
                     .build());
 
     assertThat(expected)

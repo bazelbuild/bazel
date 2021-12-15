@@ -15,6 +15,7 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -105,11 +106,16 @@ final class ParamDescriptor {
     // "a or b"
     // "a, b, or c"
     StringBuilder buf = new StringBuilder();
-    for (int i = 0, n = allowedClasses.size(); i < n; i++) {
+    // TODO(b/200065655#comment3): Remove when we have an official way for package defaults.
+    ImmutableList<Class<?>> allowedClassesFiltered =
+        allowedClasses.stream()
+            .filter(x -> !Starlark.classType(x).equals("NativeComputedDefault"))
+            .collect(ImmutableList.toImmutableList());
+    for (int i = 0, n = allowedClassesFiltered.size(); i < n; i++) {
       if (i > 0) {
         buf.append(n == 2 ? " or " : i < n - 1 ? ", " : ", or ");
       }
-      buf.append(Starlark.classType(allowedClasses.get(i)));
+      buf.append(Starlark.classType(allowedClassesFiltered.get(i)));
     }
     return buf.toString();
   }

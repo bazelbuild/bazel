@@ -42,7 +42,10 @@ public final class SkyFunctions {
   public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
-  public static final SkyFunctionName BZL_LOAD = SkyFunctionName.createHermetic("BZL_LOAD");
+  // Never shareable - we don't guarantee that all constructs implement equality, meaning we can't
+  // correctly compare deserialized instances. This is currently the case for attribute descriptors.
+  public static final SkyFunctionName BZL_LOAD =
+      SkyFunctionName.create("BZL_LOAD", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
@@ -145,6 +148,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName REPOSITORY_MAPPING =
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
+  public static final SkyFunctionName REPO_MAPPING_FOR_BZLMOD_BZL_LOAD =
+      SkyFunctionName.createHermetic("REPO_MAPPING_FOR_BZLMOD_BZL_LOAD");
   public static final SkyFunctionName RESOLVED_FILE =
       SkyFunctionName.createHermetic("RESOLVED_FILE");
   public static final SkyFunctionName RESOLVED_HASH_VALUES =
@@ -153,8 +158,16 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("LOCAL_CONFIG_PLATFORM");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
-  public static final SkyFunctionName DISCOVERY = SkyFunctionName.createHermetic("DISCOVERY");
-  public static final SkyFunctionName SELECTION = SkyFunctionName.createHermetic("SELECTION");
+  public static final SkyFunctionName BUILD_DRIVER =
+      SkyFunctionName.createNonHermetic("BUILD_DRIVER");
+  public static final SkyFunctionName BAZEL_MODULE_RESOLUTION =
+      SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
+  public static final SkyFunctionName MODULE_EXTENSION_RESOLUTION =
+      SkyFunctionName.createHermetic("MODULE_EXTENSION_RESOLUTION");
+  public static final SkyFunctionName SINGLE_EXTENSION_USAGES =
+      SkyFunctionName.createHermetic("SINGLE_EXTENSION_USAGES");
+  public static final SkyFunctionName SINGLE_EXTENSION_EVAL =
+      SkyFunctionName.createNonHermetic("SINGLE_EXTENSION_EVAL");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

@@ -51,8 +51,7 @@ public final class ConfigFeatureFlagConfigurationTest {
 
   @Test
   public void getOutputDirectoryName_returnsNullWhenFlagMapIsEmpty() throws Exception {
-    assertThat(getConfigurationWithFlags(ImmutableMap.<Label, String>of()).getOutputDirectoryName())
-        .isNull();
+    assertThat(getConfigurationWithFlags(ImmutableMap.of()).getOutputDirectoryName()).isNull();
   }
 
   @Test

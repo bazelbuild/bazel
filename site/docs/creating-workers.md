@@ -44,12 +44,12 @@ for singleplex workers.
 
 ```json
 {
-  “args” : [“--some_argument”],
-  “inputs” : [
-    { “/path/to/my/file/1” : “fdk3e2ml23d”},
-    { “/path/to/my/file/2” : “1fwqd4qdd” }
- ],
-  “request_id” : 12
+  "args" : ["--some_argument"],
+  "inputs" : [
+    { "/path/to/my/file/1" : "fdk3e2ml23d"},
+    { "/path/to/my/file/2" : "1fwqd4qdd" }
+  ],
+  "request_id" : 12
 }
 ```
 
@@ -70,10 +70,9 @@ to redirect the `stdout` of any tools it uses to `stderr`.
 
 ```json
 {
-  “exit_code” : 1,
-  “output” : “Action failed with the following message:\nCould not find input
-    file “/path/to/my/file/1”,
-  “request_id” : 12
+  "exit_code" : 1,
+  "output" : "Action failed with the following message:\nCould not find input file \"/path/to/my/file/1\"",
+  "request_id" : 12
 }
 ```
 
@@ -84,7 +83,7 @@ id, so the request id must be specified if it is nonzero. This is a valid
 
 ```json
 {
-  “request_id” : 12,
+  "request_id" : 12,
 }
 ```
 
@@ -152,8 +151,8 @@ associated rule:
 
 ```python
 java_binary(
-    name = “worker”,
-    srcs = [“MyWorker.Java”],
+    name = "worker",
+    srcs = ["MyWorker.Java"],
 )
 ```
 
@@ -187,12 +186,12 @@ actions have a couple of requirements.
   rule can write non-startup arguments for the worker to this flagfile.
 
 * The _“execution-requirements”_ field, which takes a dictionary containing
-  `“supports-workers” : “1”`, `“supports-multiplex-workers” : “1”`, or both.
+  `"supports-workers" : "1"`, `"supports-multiplex-workers" : "1"`, or both.
 
   The "arguments" and "execution-requirements" fields are required for all
   actions sent to workers. Additionally, actions that should be executed by
-  JSON workers need to include `“requires-worker-protocol” : “json”` in the
-  execution requirements field. `“requires-worker-protocol” : “proto”` is also
+  JSON workers need to include `"requires-worker-protocol" : "json"` in the
+  execution requirements field. `"requires-worker-protocol" : "proto"` is also
   a valid execution requirement, though it’s not required for proto workers,
   since they are the default.
 
@@ -215,13 +214,14 @@ startup args, the call to `ctx.actions.run` might be:
 ```python
 ctx.actions.run(
   inputs=ctx.files.srcs,
-  outputs=[ctx.attr.output],
-  executable=ctx.attr.worker,
+  outputs=[ctx.outputs.output],
+  executable=ctx.executable.worker,
   mnemonic="someMnemonic",
   execution_requirements={
-    “supports-workers” : “1”,
-    “requires-worker-protocol” : “json},
-  arguments=ctx.attr.args + [“@flagfile”]
+    "supports-workers" : "1",
+    "requires-worker-protocol" : "json",
+  },
+  arguments=ctx.attr.args + ["@flagfile"]
  )
 ```
 

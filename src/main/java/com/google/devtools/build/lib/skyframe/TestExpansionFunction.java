@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /**
  * TestExpansionFunction takes a single test_suite target and expands all of the tests it contains,
@@ -201,11 +200,5 @@ final class TestExpansionFunction implements SkyFunction {
       }
     }
     return hasError;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

@@ -29,8 +29,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/../sandboxing_test_utils.sh" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
-enable_errexit
-
 readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
 

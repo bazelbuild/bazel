@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Utility to dump stack traces to logs and remotely log on slow interrupt. */
 public class ThreadUtils {
@@ -48,12 +50,14 @@ public class ThreadUtils {
   }
 
   /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
-  public static synchronized void warnAboutSlowInterrupt() {
-    warnAboutSlowInterrupt(BugReporter.defaultInstance());
+  public static synchronized void warnAboutSlowInterrupt(
+      @Nullable String slowInterruptMessageSuffix) {
+    warnAboutSlowInterrupt(slowInterruptMessageSuffix, BugReporter.defaultInstance());
   }
 
   @VisibleForTesting
-  static synchronized void warnAboutSlowInterrupt(BugReporter bugReporter) {
+  static synchronized void warnAboutSlowInterrupt(
+      @Nullable String slowInterruptMessageSuffix, BugReporter bugReporter) {
     logger.atWarning().log("Interrupt took too long. Dumping thread state.");
     AtomicReference<StackTraceAndState> firstTrace = new AtomicReference<>();
     Thread.getAllStackTraces().entrySet().stream()
@@ -64,11 +68,16 @@ public class ThreadUtils {
         .forEach(
             e -> {
               StackTraceAndState stackTraceAndState = e.getKey();
-              // Store longest trace but omit "Unsafe.park" calls: they are interruptible, so can't
-              // be the cause of the slow interrupt.
+              // Store longest trace but omit "Unsafe#park" and "Object#wait" calls: they are
+              // interruptible, so can't be the cause of the slow interrupt. In some cases, we
+              // do these calls in a loop on interrupt (see
+              // AbstractQueueVisitor#reallyAwaitTermination) but unless there's a bug, there should
+              // still be another thread waiting for interrupt somewhere.
               if (firstTrace.get() == null
                   && (!stackTraceAndState.trace[0].getClassName().endsWith("misc.Unsafe")
-                      || !stackTraceAndState.trace[0].getMethodName().equals("park"))) {
+                      || !stackTraceAndState.trace[0].getMethodName().equals("park"))
+                  && (!stackTraceAndState.trace[0].getClassName().endsWith("java.lang.Object")
+                      || !stackTraceAndState.trace[0].getMethodName().equals("wait"))) {
                 firstTrace.compareAndSet(null, stackTraceAndState);
               }
               logger.atWarning().log(
@@ -79,14 +88,17 @@ public class ThreadUtils {
             });
 
     SlowInterruptInnerException inner =
-        new SlowInterruptInnerException("Wrapper exception for longest stack trace");
+        new SlowInterruptInnerException(
+            Joiner.on(' ')
+                .skipNulls()
+                .join("(Wrapper exception for longest stack trace)", slowInterruptMessageSuffix));
     inner.setStackTrace(firstTrace.get().trace);
     SlowInterruptException ex = new SlowInterruptException(inner);
     bugReporter.sendBugReport(ex);
   }
 
   private static final class SlowInterruptException extends RuntimeException {
-    public SlowInterruptException(Exception inner) {
+    public SlowInterruptException(SlowInterruptInnerException inner) {
       super("Slow interrupt", inner);
     }
   }

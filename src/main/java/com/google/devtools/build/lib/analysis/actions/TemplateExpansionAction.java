@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.util.List;
@@ -43,7 +42,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 
 /** Action to expand a template and write the expanded content to a file. */
-@AutoCodec
 @Immutable // if all substitutions are immutable
 public final class TemplateExpansionAction extends AbstractAction {
 
@@ -64,9 +62,7 @@ public final class TemplateExpansionAction extends AbstractAction {
    *     will be applied in order.
    * @param makeExecutable iff true will change the output file to be executable.
    */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  TemplateExpansionAction(
+  private TemplateExpansionAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       Artifact primaryOutput,
@@ -168,8 +164,7 @@ public final class TemplateExpansionAction extends AbstractAction {
             return this;
           }
         } catch (ExecException e) {
-          throw e.toActionExecutionException(
-              TemplateExpansionAction.this);
+          throw ActionExecutionException.fromExecException(e, TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       }

@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil;
@@ -71,7 +71,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -133,7 +133,7 @@ public final class ConfiguredTargetFactory {
         // minimally invasive way of providing a sane error message in case a
         // cycle is created by a visibility attribute.
         if (group != null) {
-          provider = group.getProvider(PackageSpecificationProvider.class);
+          provider = group.get(PackageGroupConfiguredTarget.PROVIDER);
         }
         if (provider != null) {
           result.addTransitive(provider.getPackageSpecifications());
@@ -174,8 +174,8 @@ public final class ConfiguredTargetFactory {
       AnalysisEnvironment analysisEnvironment,
       ArtifactFactory artifactFactory,
       Target target,
-      BuildConfiguration config,
-      BuildConfiguration hostConfig,
+      BuildConfigurationValue config,
+      BuildConfigurationValue hostConfig,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
@@ -226,13 +226,6 @@ public final class ConfiguredTargetFactory {
       Verify.verifyNotNull(rule);
       Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
 
-      DeniedImplicitOutputMarkerProvider deniedProvider =
-          rule.get(DeniedImplicitOutputMarkerProvider.PROVIDER);
-      if (deniedProvider != null) {
-        analysisEnvironment.getEventHandler().handle(Event.error(deniedProvider.getErrorMessage()));
-        return null;
-      }
-
       return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
@@ -282,43 +275,35 @@ public final class ConfiguredTargetFactory {
   private ConfiguredTarget createRule(
       AnalysisEnvironment env,
       Rule rule,
-      BuildConfiguration configuration,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue configuration,
+      BuildConfigurationValue hostConfiguration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
+    RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
-        rule.getRuleClassObject().getConfigurationFragmentPolicy();
+        ruleClass.getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
-        new RuleContext.Builder(
-                env,
-                rule,
-                ImmutableList.of(),
-                configuration,
-                hostConfiguration,
-                ruleClassProvider.getPrerequisiteValidator(),
-                configurationFragmentPolicy,
-                configuredTargetKey)
-            .setToolsRepository(ruleClassProvider.getToolsRepository())
-            .setStarlarkSemantics(env.getStarlarkSemantics())
+        new RuleContext.Builder(env, rule, /*aspects=*/ ImmutableList.of(), configuration)
+            .setRuleClassProvider(ruleClassProvider)
+            .setHostConfiguration(hostConfiguration)
+            .setConfigurationFragmentPolicy(configurationFragmentPolicy)
+            .setActionOwnerSymbol(configuredTargetKey)
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContexts(toolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
-            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
-                RequiredFragmentsUtil.getRequiredFragments(
+                RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(
                     rule,
                     configuration,
-                    ruleClassProvider.getUniversalFragments(),
-                    configurationFragmentPolicy,
+                    ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();
@@ -362,21 +347,19 @@ public final class ConfiguredTargetFactory {
       }
 
       try {
-        if (rule.getRuleClassObject().isStarlark()) {
+        if (ruleClass.isStarlark()) {
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
           ConfiguredTarget target =
               StarlarkRuleConfiguredTargetUtil.buildRule(
-                  ruleContext,
-                  rule.getRuleClassObject().getAdvertisedProviders(),
-                  ruleClassProvider.getToolsRepository());
+                  ruleContext, ruleClass.getAdvertisedProviders());
 
           return target != null ? target : erroredConfiguredTarget(ruleContext);
-        } else {
-          RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
-              factory = rule.getRuleClassObject().getConfiguredTargetFactory();
-          Preconditions.checkNotNull(factory, rule.getRuleClassObject());
-          return factory.create(ruleContext);
         }
+        return Preconditions.checkNotNull(
+                ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
+                "No configured target factory for %s",
+                ruleClass)
+            .create(ruleContext);
       } finally {
         ruleContext.close();
       }
@@ -499,51 +482,37 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ResolvedToolchainContext toolchainContext,
-      BuildConfiguration aspectConfiguration,
-      BuildConfiguration hostConfiguration,
-      AspectValueKey.AspectKey aspectKey)
+      BuildConfigurationValue aspectConfiguration,
+      BuildConfigurationValue hostConfiguration,
+      AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
-
-    RuleContext.Builder builder =
-        new RuleContext.Builder(
-            env,
-            associatedTarget.getTarget(),
-            aspectPath,
-            aspectConfiguration,
-            hostConfiguration,
-            ruleClassProvider.getPrerequisiteValidator(),
-            aspect.getDefinition().getConfigurationFragmentPolicy(),
-            aspectKey);
-
-    Map<String, Attribute> aspectAttributes = mergeAspectAttributes(aspectPath);
-
     RuleContext ruleContext =
-        builder
-            .setToolsRepository(ruleClassProvider.getToolsRepository())
-            .setStarlarkSemantics(env.getStarlarkSemantics())
+        new RuleContext.Builder(env, associatedTarget.getTarget(), aspectPath, aspectConfiguration)
+            .setRuleClassProvider(ruleClassProvider)
+            .setHostConfiguration(hostConfiguration)
+            .setConfigurationFragmentPolicy(aspect.getDefinition().getConfigurationFragmentPolicy())
+            .setActionOwnerSymbol(aspectKey)
             .setMutability(Mutability.create("aspect"))
             .setVisibility(
                 convertVisibility(
                     prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget()))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
-            .setAspectAttributes(aspectAttributes)
+            .setAspectAttributes(mergeAspectAttributes(aspectPath))
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
             // TODO(b/161222568): Implement the exec_properties attr for aspects and read its value
             // here.
             .setExecGroupCollectionBuilder(ExecGroupCollection.emptyBuilder())
             .setExecProperties(ImmutableMap.of())
-            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
-                RequiredFragmentsUtil.getRequiredFragments(
+                RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
                     aspect,
+                    aspectFactory,
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
-                    ruleClassProvider.getUniversalFragments(),
-                    aspect.getDefinition().getConfigurationFragmentPolicy(),
+                    ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions.asProviders(),
-                    prerequisiteMap.values()))
+                    Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors
@@ -648,7 +617,7 @@ public final class ConfiguredTargetFactory {
 
   private static void validateAdvertisedProviders(
       ConfiguredAspect configuredAspect,
-      AspectValueKey.AspectKey aspectKey,
+      AspectKeyCreator.AspectKey aspectKey,
       AdvertisedProviderSet advertisedProviders,
       Target target,
       EventHandler eventHandler) {

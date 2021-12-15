@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariab
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -46,7 +45,6 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
-@AutoCodec
 public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
             FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
@@ -97,7 +95,6 @@ public final class CcToolchainProvider extends NativeInfo
   private final String abiGlibcVersion;
   private final String abi;
   private final String targetLibc;
-  private final String hostSystemName;
   private final String targetSystemName;
   private final Label ccToolchainLabel;
   private final String solibDirectory;
@@ -170,7 +167,6 @@ public final class CcToolchainProvider extends NativeInfo
       PathFragment defaultSysroot,
       PathFragment runtimeSysroot,
       String targetLibc,
-      String hostSystemName,
       Label ccToolchainLabel,
       String solibDirectory,
       String abi,
@@ -235,7 +231,6 @@ public final class CcToolchainProvider extends NativeInfo
     this.targetCpu = targetCpu;
     this.targetOS = targetOS;
     this.targetLibc = targetLibc;
-    this.hostSystemName = hostSystemName;
     this.ccToolchainLabel = ccToolchainLabel;
     this.solibDirectory = solibDirectory;
     this.abi = abi;
@@ -352,12 +347,19 @@ public final class CcToolchainProvider extends NativeInfo
     // TODO(bazel-team): delete all of these.
     result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
 
-    // TODO(kmensah): Remove when Starlark dependencies can be updated to rely on
+    // TODO(bazel-team): Remove when Starlark dependencies can be updated to rely on
     // CcToolchainProvider.
     result.putAll(getAdditionalMakeVariables());
 
-    result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
-    result.put("ABI", getAbi());
+    String abiGlibcVersion = getAbiGlibcVersion();
+    if (abiGlibcVersion != null) {
+      result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
+    }
+
+    String abi = getAbi();
+    if (abi != null) {
+      result.put("ABI", getAbi());
+    }
 
     globalMakeEnvBuilder.putAll(result.build());
   }
@@ -536,6 +538,12 @@ public final class CcToolchainProvider extends NativeInfo
 
   public NestedSet<Artifact> getDwpFiles() {
     return dwpFiles;
+  }
+
+  @Override
+  public Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getDwpFiles());
   }
 
   /** Returns the files necessary for capturing code coverage. */
@@ -792,9 +800,9 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /**
-   * Returns a map of additional make variables for use by {@link BuildConfiguration}. These are to
-   * used to allow some build rules to avoid the limits on stack frame sizes and variable-length
-   * arrays.
+   * Returns a map of additional make variables for use by {@link BuildConfigurationValue}. These
+   * are to used to allow some build rules to avoid the limits on stack frame sizes and
+   * variable-length arrays.
    *
    * <p>The returned map must contain an entry for {@code STACK_FRAME_UNLIMITED}, though the entry
    * may be an empty string.
@@ -877,11 +885,6 @@ public final class CcToolchainProvider extends NativeInfo
   @Deprecated
   public String getTargetOS() {
     return targetOS;
-  }
-
-  /** Returns the system name which is required by the toolchain to run. */
-  public String getHostSystemName() {
-    return hostSystemName;
   }
 
   /** Returns the GNU System Name */

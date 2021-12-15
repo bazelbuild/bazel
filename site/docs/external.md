@@ -9,6 +9,8 @@ category: getting-started
 Bazel can depend on targets from other projects. Dependencies from these other
 projects are called _external dependencies_.
 
+Note: Bazel 5.0 and newer has a new external dependency system, codenamed "Bzlmod", which renders a lot of the content on this page obsolete. See [Bzlmod user guide](bzlmod.md) for more information.
+
 The `WORKSPACE` file (or `WORKSPACE.bazel` file) in the [workspace directory](build-ref.html#workspace)
 tells Bazel how to get other projects' sources. These other projects can
 contain one or more `BUILD` files with their own targets. `BUILD` files within
@@ -80,8 +82,7 @@ local_repository(
 
 If your coworker has a target `//foo:bar`, your project can refer to it as
 `@coworkers_project//foo:bar`. External project names must be
-[valid workspace names](skylark/lib/globals.html#workspace), so `_` (valid) is used to
-replace `-` (invalid) in the name `coworkers_project`.
+[valid workspace names](skylark/lib/globals.html#workspace).
 
 <a name="non-bazel-projects"></a>
 ### Depending on non-Bazel projects

@@ -406,6 +406,11 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" && \
    shopt -s failglob
    cat "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"/*.part > "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
   ) 2> /dev/null
+  (
+   # length-delimited proto files
+   shopt -s failglob
+   cat $TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR/*.pb > "${TEST_UNDECLARED_OUTPUTS_ANNOTATIONS}.pb"
+  ) 2> /dev/null
 fi
 
 # Zip up undeclared outputs.

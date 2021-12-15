@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -42,9 +40,8 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** Information about the system APIs for a Java compilation. */
-@AutoCodec
 @Immutable
-public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
+public final class BootClassPathInfo extends NativeInfo implements StarlarkValue {
 
   /** Provider singleton constant. */
   public static final Provider PROVIDER = new Provider();
@@ -154,9 +151,7 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
   private final NestedSet<Artifact> systemInputs;
   private final Optional<PathFragment> systemPath;
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  public BootClassPathInfo(
+  private BootClassPathInfo(
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> auxiliary,
       NestedSet<Artifact> systemInputs,

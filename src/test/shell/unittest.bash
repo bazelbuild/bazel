@@ -84,22 +84,6 @@ export BAZEL_SHELL_TEST=1
 
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-#### Configuration variables (may be overridden by testenv.sh or the suite):
-
-# This function may be called by testenv.sh or a test suite to enable errexit
-# in a way that enables us to print pretty stack traces when something fails.
-function enable_errexit() {
-  set -o errtrace
-  set -eu
-  trap __test_terminated_err ERR
-}
-
-function disable_errexit() {
-  set +o errtrace
-  set +eu
-  trap - ERR
-}
-
 # Load the environment support utilities.
 source "${DIR}/unittest_utils.sh" || { echo "unittest_utils.sh not found" >&2; exit 1; }
 
@@ -163,10 +147,12 @@ function __show_log() {
 function __pad() {
     local title=$1
     local pad=$2
+    # Ignore the subshell error -- `head` closes the fd before reading to the
+    # end, therefore the subshell will get SIGPIPE while stuck in `write`.
     {
         echo -n "$pad$pad $title "
         printf "%80s" " " | tr ' ' "$pad"
-    } | head -c 80
+    } | head -c 80 || true
     echo
 }
 
@@ -704,7 +690,22 @@ function run_suite() {
         # Run test in a subshell.
         rm -f $TEST_TMPDIR/__err_handled
         __trap_with_arg __test_terminated INT KILL PIPE TERM ABRT FPE ILL QUIT SEGV
+
+        # Remember -o pipefail value and disable it for the subshell result
+        # collection.
+        if [[ "${SHELLOPTS}" =~ (^|:)pipefail(:|$) ]]; then
+          local __opt_switch=-o
+        else
+          local __opt_switch=+o
+        fi
+        set +o pipefail
         (
+          set "${__opt_switch}" pipefail
+          # if errexit is enabled, make sure we run cleanup and collect the log.
+          if [[ "$-" = *e* ]]; then
+            set -E
+            trap __test_terminated_err ERR
+          fi
           timestamp >$TEST_TMPDIR/__ts_start
           testenv_set_up
           set_up
@@ -719,6 +720,7 @@ function run_suite() {
         # their stdout.
 
         test_subshell_status=${PIPESTATUS[0]}
+        set "${__opt_switch}" pipefail
         if [ "$test_subshell_status" != 0 ]; then
           TEST_passed="false"
           # Ensure that an end time is recorded in case the test subshell

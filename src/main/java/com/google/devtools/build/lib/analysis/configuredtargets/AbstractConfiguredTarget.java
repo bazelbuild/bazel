@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -47,7 +47,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public abstract class AbstractConfiguredTarget implements ConfiguredTarget, VisibilityProvider {
   private final Label label;
-  private final BuildConfigurationValue.Key configurationKey;
+  private final BuildConfigurationKey configurationKey;
 
   private final NestedSet<PackageGroupContents> visibility;
 
@@ -68,7 +68,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   private static final ImmutableSet<String> SPECIAL_FIELD_NAMES =
       ImmutableSet.of(
           LABEL_FIELD,
-          KIND_FIELD,
           FILES_FIELD,
           DEFAULT_RUNFILES_FIELD,
           DATA_RUNFILES_FIELD,
@@ -76,13 +75,13 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
-  public AbstractConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
+  public AbstractConfiguredTarget(Label label, BuildConfigurationKey configurationKey) {
     this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   protected AbstractConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       NestedSet<PackageGroupContents> visibility) {
     this.label = label;
     this.configurationKey = configurationKey;
@@ -100,7 +99,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
-  public BuildConfigurationValue.Key getConfigurationKey() {
+  public BuildConfigurationKey getConfigurationKey() {
     return configurationKey;
   }
 
@@ -142,8 +141,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     switch (name) {
       case LABEL_FIELD:
         return getLabel();
-      case KIND_FIELD:
-        return getRuleClassString();
       case ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
@@ -196,7 +193,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
             DATA_RUNFILES_FIELD,
             DEFAULT_RUNFILES_FIELD,
             LABEL_FIELD,
-            KIND_FIELD,
             FILES_FIELD,
             FilesToRunProvider.STARLARK_NAME));
     if (get(OutputGroupInfo.STARLARK_CONSTRUCTOR) != null) {

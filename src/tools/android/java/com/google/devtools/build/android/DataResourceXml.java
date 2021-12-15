@@ -329,6 +329,11 @@ public class DataResourceXml implements DataResource {
         if ("macro".equals(resourceType.getName())) {
           return XmlResourceValues.parseMacro(eventReader, start, namespacesCollector);
         }
+        if ("overlayable".equals(resourceType.getName())) {
+          return XmlResourceValues.parseSimple(
+              eventReader, resourceType,
+              start, namespacesCollector);
+        }
         throw new XMLStreamException(
             String.format("Unhandled resourceType %s", resourceType), start.getLocation());
     }

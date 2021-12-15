@@ -21,6 +21,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -137,21 +138,33 @@ public final class Profiler {
     final long startTimeNanos;
     final int id;
     final ProfilerTask type;
+    final MnemonicData mnemonic;
     final String description;
 
     long duration;
 
-    TaskData(int id, long startTimeNanos, ProfilerTask eventType, String description) {
+    TaskData(
+        int id,
+        long startTimeNanos,
+        ProfilerTask eventType,
+        MnemonicData mnemonic,
+        String description) {
       this.id = id;
       this.threadId = Thread.currentThread().getId();
       this.startTimeNanos = startTimeNanos;
       this.type = eventType;
+      this.mnemonic = mnemonic;
       this.description = Preconditions.checkNotNull(description);
+    }
+
+    TaskData(int id, long startTimeNanos, ProfilerTask eventType, String description) {
+      this(id, startTimeNanos, eventType, MnemonicData.getEmptyMnemonic(), description);
     }
 
     TaskData(long threadId, long startTimeNanos, long duration, String description) {
       this.id = -1;
       this.type = ProfilerTask.UNKNOWN;
+      this.mnemonic = MnemonicData.getEmptyMnemonic();
       this.threadId = threadId;
       this.startTimeNanos = startTimeNanos;
       this.duration = duration;
@@ -172,10 +185,11 @@ public final class Profiler {
         int id,
         long startTimeNanos,
         ProfilerTask eventType,
+        MnemonicData mnemonic,
         String description,
         String primaryOutputPath,
         String targetLabel) {
-      super(id, startTimeNanos, eventType, description);
+      super(id, startTimeNanos, eventType, mnemonic, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
     }
@@ -365,11 +379,11 @@ public final class Profiler {
       boolean recordAllDurations,
       Clock clock,
       long execStartTimeNanos,
-      boolean enabledCpuUsageProfiling,
       boolean slimProfile,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
-      boolean collectTaskHistograms)
+      boolean collectTaskHistograms,
+      BugReporter bugReporter)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -387,7 +401,7 @@ public final class Profiler {
         TASK_COUNT < 256,
         "The profiler implementation supports only up to 255 different ProfilerTask values.");
 
-    // reset state for the new profiling session
+    // Reset state for the new profiling session.
     taskId.set(0);
     this.recordAllDurations = recordAllDurations;
     FileWriter writer = null;
@@ -419,15 +433,14 @@ public final class Profiler {
     }
     this.writerRef.set(writer);
 
-    // activate profiler
+    // Activate profiler.
     profileStartTime = execStartTimeNanos;
     profileCpuStartTime = getProcessCpuTime();
 
-    if (enabledCpuUsageProfiling) {
-      cpuUsageThread = new CollectLocalResourceUsage();
-      cpuUsageThread.setDaemon(true);
-      cpuUsageThread.start();
-    }
+    // Start collecting Bazel and system-wide CPU metric collection.
+    cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
+    cpuUsageThread.setDaemon(true);
+    cpuUsageThread.start();
   }
 
   /**
@@ -688,7 +701,11 @@ public final class Profiler {
    * primaryOutput.
    */
   public SilentCloseable profileAction(
-      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
+      ProfilerTask type,
+      String mnemonic,
+      String description,
+      String primaryOutput,
+      String targetLabel) {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       TaskData taskData =
@@ -696,6 +713,7 @@ public final class Profiler {
               taskId.incrementAndGet(),
               clock.nanoTime(),
               type,
+              new MnemonicData(mnemonic),
               description,
               primaryOutput,
               targetLabel);
@@ -703,6 +721,11 @@ public final class Profiler {
     } else {
       return NOP;
     }
+  }
+
+  public SilentCloseable profileAction(
+      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
+    return profileAction(type, null, description, primaryOutput, targetLabel);
   }
 
   private static final SilentCloseable NOP = () -> {};
@@ -944,6 +967,14 @@ public final class Profiler {
         writer.name("args");
         writer.beginObject();
         writer.name("target").value(((ActionTaskData) data).targetLabel);
+        if (data.mnemonic.hasBeenSet()) {
+          writer.name("mnemonic").value(data.mnemonic.getValueForJson());
+        }
+        writer.endObject();
+      } else if (data.mnemonic.hasBeenSet() && data instanceof ActionTaskData) {
+        writer.name("args");
+        writer.beginObject();
+        writer.name("mnemonic").value(data.mnemonic.getValueForJson());
         writer.endObject();
       }
       long threadId =
@@ -1100,7 +1131,9 @@ public final class Profiler {
 
             if (data.type == ProfilerTask.LOCAL_CPU_USAGE
                 || data.type == ProfilerTask.LOCAL_MEMORY_USAGE
-                || data.type == ProfilerTask.ACTION_COUNTS) {
+                || data.type == ProfilerTask.ACTION_COUNTS
+                || data.type == ProfilerTask.SYSTEM_CPU_USAGE
+                || data.type == ProfilerTask.SYSTEM_MEMORY_USAGE) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
               if ("0.0".equals(data.description)) {
                 continue;
@@ -1110,8 +1143,26 @@ public final class Profiler {
               writer.setIndent("");
               writer.name("name").value(data.type.description);
               if (data.type == ProfilerTask.LOCAL_MEMORY_USAGE) {
-                // Make this more distinct in comparison to other counter colors.
                 writer.name("cname").value("olive");
+              }
+
+              // Pick acceptable counter colors manually, unfortunately we have to pick from these
+              // weird reserved names.
+              switch (data.type) {
+                case LOCAL_CPU_USAGE:
+                  writer.name("cname").value("good");
+                  break;
+                case LOCAL_MEMORY_USAGE:
+                  writer.name("cname").value("olive");
+                  break;
+                case SYSTEM_CPU_USAGE:
+                  writer.name("cname").value("rail_load");
+                  break;
+                case SYSTEM_MEMORY_USAGE:
+                  writer.name("cname").value("bad");
+                  break;
+                default:
+                  // won't happen
               }
               writer.name("ph").value("C");
               writer
@@ -1132,6 +1183,12 @@ public final class Profiler {
                   break;
                 case ACTION_COUNTS:
                   writer.name("action").value(data.description);
+                  break;
+                case SYSTEM_CPU_USAGE:
+                  writer.name("system cpu").value(data.description);
+                  break;
+                case SYSTEM_MEMORY_USAGE:
+                  writer.name("system memory").value(data.description);
                   break;
                 default:
                   // won't happen

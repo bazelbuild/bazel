@@ -25,7 +25,7 @@ public interface TypeMappable<T> {
 
   /**
    * Accepts a type mapper and returns a new instance of remapped struct without changing the
-   * original source instance. Please apply {@param typeMapper} to any index-able state of the
+   * original source instance. Please apply {@code typeMapper} to any index-able state of the
    * implementation class.
    */
   T acceptTypeMapper(TypeMapper typeMapper);

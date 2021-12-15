@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.CompletionContext.FAILED_COMPLETION_CTX;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -65,7 +65,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
             ctAndData,
-            CompletionContext.FAILED_COMPLETION_CTX,
+            FAILED_COMPLETION_CTX,
             artifactsToBuild.getAllArtifactsByOutputGroup(),
             /*announceTargetSummary=*/ false);
 
@@ -73,7 +73,9 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     ReportedArtifacts reportedArtifacts = event.reportedArtifacts();
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
       for (Artifact a : artifactSet.toListInterruptibly()) {
-        fileProtos.add(newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT).build());
+        fileProtos.add(
+            newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT, FAILED_COMPLETION_CTX)
+                .build());
       }
     }
     // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.

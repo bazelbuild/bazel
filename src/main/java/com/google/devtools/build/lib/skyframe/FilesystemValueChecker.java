@@ -208,9 +208,9 @@ public class FilesystemValueChecker {
     modifiedOutputFilesCounter.set(0);
     modifiedOutputFilesIntraBuildCounter.set(0);
     final ImmutableSet<PathFragment> knownModifiedOutputFiles =
-            modifiedOutputFiles == ModifiedFileSet.EVERYTHING_MODIFIED
-                    ? null
-                    : modifiedOutputFiles.modifiedSourceFiles();
+        modifiedOutputFiles.treatEverythingAsModified()
+            ? null
+            : modifiedOutputFiles.modifiedSourceFiles();
 
     // Initialized lazily through a supplier because it is only used to check modified
     // TreeArtifacts, which are not frequently used in builds.

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule;
+import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;
@@ -44,6 +45,7 @@ public final class Bazel {
           com.google.devtools.build.lib.runtime.NoSpawnCacheModule.class,
           com.google.devtools.build.lib.runtime.CommandLogModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,
+          com.google.devtools.build.lib.platform.SystemSuspensionModule.class,
           com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
@@ -58,7 +60,6 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.repository.CacheHitReportingModule.class,
           com.google.devtools.build.lib.bazel.SpawnLogModule.class,
           com.google.devtools.build.lib.outputfilter.OutputFilteringModule.class,
-          com.google.devtools.build.lib.ssd.SsdModule.class,
           com.google.devtools.build.lib.worker.WorkerModule.class,
           com.google.devtools.build.lib.runtime.CacheFileDigestsModule.class,
           com.google.devtools.build.lib.standalone.StandaloneModule.class,
@@ -77,7 +78,8 @@ public final class Bazel {
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
-          BazelBuiltinCommandModule.class);
+          BazelBuiltinCommandModule.class,
+          IncludeScanningModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());

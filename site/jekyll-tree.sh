@@ -13,6 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Don't run this script directly, do this instead:
+#
+# bazel build //site
+# cd bazel-bin/site/site-build
+# python -m SimpleHTTPServer
+#
+# Also, install jekyll and some other dependencies:
+#
+# sudo apt-get install jekyll
+# sudo gem install jekyll-paginate jekyll-toc jekyll-sitemap
+#
 # This script constructs the final Jekyll tree by combining the static Jekyll
 # site files with generated documentation, such as the Build Encyclopedia and
 # Starlark Library. It then constructs the site directory structure for

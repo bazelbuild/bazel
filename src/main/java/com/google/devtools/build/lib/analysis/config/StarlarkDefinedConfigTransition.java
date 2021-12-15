@@ -24,7 +24,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -81,7 +81,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   private StarlarkDefinedConfigTransition(
       List<String> inputs,
       List<String> outputs,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      RepositoryMapping repoMapping,
       Label parentLabel,
       Location location)
       throws EvalException {
@@ -99,7 +99,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * //command_line_option:<option-name>).
    */
   private static String canonicalizeSetting(
-      String setting, ImmutableMap<RepositoryName, RepositoryName> repoMapping, Label parentLabel)
+      String setting, RepositoryMapping repoMapping, Label parentLabel)
       throws LabelSyntaxException {
     String canonicalizedString = setting;
     // native options
@@ -121,7 +121,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    *     "//command_line_option:<option-name>"
    */
   private static ImmutableMap<String, String> getCanonicalizedSettings(
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      RepositoryMapping repoMapping,
       Label parentLabel,
       List<String> settings,
       Settings inputsOrOutputs)
@@ -205,15 +205,15 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       StarlarkSemantics semantics,
       Label parentLabel,
       Location location,
-      BazelStarlarkContext starlarkContext)
+      RepositoryMapping repoMapping)
       throws EvalException {
     return new RegularTransition(
-        impl, inputs, outputs, semantics, parentLabel, location, starlarkContext.getRepoMapping());
+        impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
   }
 
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
       Map<String, Object> changedSettings,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      RepositoryMapping repoMapping,
       Label parentLabel,
       Location location)
       throws EvalException {
@@ -225,7 +225,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     public AnalysisTestTransition(
         Map<String, Object> changedSettings,
-        ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+        RepositoryMapping repoMapping,
         Label parentLabel,
         Location location)
         throws EvalException {
@@ -280,7 +280,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   public static class RegularTransition extends StarlarkDefinedConfigTransition {
     private final StarlarkCallable impl;
     private final StarlarkSemantics semantics;
-    private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
+    private final RepositoryMapping repoMapping;
     private final Label parentLabel;
 
     RegularTransition(
@@ -290,7 +290,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         StarlarkSemantics semantics,
         Label parentLabel,
         Location location,
-        ImmutableMap<RepositoryName, RepositoryName> repoMapping)
+        RepositoryMapping repoMapping)
         throws EvalException {
       super(inputs, outputs, repoMapping, parentLabel, location);
       this.impl = impl;
@@ -350,10 +350,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
                 Phase.ANALYSIS,
                 /*toolsRepository=*/ null,
                 /*fragmentNameToClass=*/ null,
-                repoMapping,
                 /*convertedLabelsInPackage=*/ new HashMap<>(),
                 dummySymbolGenerator,
-                parentLabel);
+                parentLabel,
+                /*networkAllowlistForTests=*/ null);
 
         starlarkContext.storeInThread(thread);
         result =
@@ -483,7 +483,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      */
     private static ImmutableMap<String, Object> canonicalizeTransitionOutputDict(
         Map<String, Object> dict,
-        ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+        RepositoryMapping repoMapping,
         Label parentLabel,
         List<String> outputs)
         throws EvalException, ValidationException {

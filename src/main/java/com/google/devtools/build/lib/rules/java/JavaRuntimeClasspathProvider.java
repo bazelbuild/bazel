@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeClasspathProviderApi;
 
 /**
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeClasspathP
  * <p>Used to exclude already-available artifacts from related binaries (e.g. plugins).
  */
 @Immutable
-@AutoCodec
 public final class JavaRuntimeClasspathProvider
     implements TransitiveInfoProvider, JavaRuntimeClasspathProviderApi {
 

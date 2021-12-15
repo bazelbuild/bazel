@@ -22,6 +22,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -255,11 +256,7 @@ public class FileSystemUtils {
   @ThreadSafe
   public static void touchFile(Path path) throws IOException {
     if (path.exists()) {
-      // -1L means "use the current time", and is ultimately implemented by
-      // utime(path, null), thereby using the kernel's clock, not the JVM's.
-      // (A previous implementation based on the JVM clock was found to be
-      // skewy.)
-      path.setLastModifiedTime(-1L);
+      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     } else {
       createEmptyFile(path);
     }
@@ -450,14 +447,14 @@ public class FileSystemUtils {
     try {
       from.renameTo(to);
       return MoveResult.FILE_MOVED;
-    } catch (IOException e) {
+    } catch (IOException unused) {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
           copyLargeBuffer(in, out);
-        } catch (FileAccessException e1) {
+        } catch (FileAccessException e) {
           // Rules can accidentally make output non-readable, let's fix that (b/150963503)
           if (!from.isReadable()) {
             from.setReadable(true);
@@ -466,7 +463,7 @@ public class FileSystemUtils {
               copyLargeBuffer(in, out);
             }
           } else {
-            throw e1;
+            throw e;
           }
         }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
@@ -622,6 +619,7 @@ public class FileSystemUtils {
    */
   @Deprecated
   @ThreadSafe
+  @InlineMe(replacement = "dir.createDirectoryAndParents()")
   public static void createDirectoryAndParents(Path dir) throws IOException {
     dir.createDirectoryAndParents();
   }

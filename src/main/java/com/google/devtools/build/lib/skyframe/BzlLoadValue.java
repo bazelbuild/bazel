@@ -62,7 +62,7 @@ public class BzlLoadValue implements SkyValue {
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
   /** SkyKey for a Starlark load. */
-  abstract static class Key implements SkyKey {
+  public abstract static class Key implements SkyKey {
 
     /**
      * Returns the absolute label of the .bzl file to be loaded.
@@ -366,7 +366,7 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
-  static Key keyForBuild(Label label) {
+  public static Key keyForBuild(Label label) {
     return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ false));
   }
 
@@ -393,7 +393,7 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /** Constructs a key for loading a .bzl for Bzlmod repos */
-  static Key keyForBzlmod(Label label) {
+  public static Key keyForBzlmod(Label label) {
     return keyInterner.intern(new KeyForBzlmod(label));
   }
 }

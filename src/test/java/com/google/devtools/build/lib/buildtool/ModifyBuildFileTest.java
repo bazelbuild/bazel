@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -25,12 +25,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * This test case tests that we handle things properly when a BUILD file is
- * modified.
- */
+/** This test case tests that we handle things properly when a BUILD file is modified. */
 @RunWith(JUnit4.class)
-public class ModifyBuildFileTest extends GoogleBuildIntegrationTestCase {
+public class ModifyBuildFileTest extends BuildIntegrationTestCase {
   private void writeBuildFileAndSetMtime(long mtime) throws IOException {
     Path buildFile = write("modify_build_file_test/BUILD",
                            "cc_binary(name = 'foo', srcs = ['foo.cc'])");

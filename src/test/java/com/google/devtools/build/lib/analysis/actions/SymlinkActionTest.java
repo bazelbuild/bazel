@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
@@ -102,7 +102,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 /*artifactExpander=*/ null,
                 /*actionFileSystem=*/ null,
                 /*skyframeDepsResult=*/ null,
-                NestedSetExpander.DEFAULT,
+                DiscoveredModulesPruner.DEFAULT,
                 UnixGlob.DEFAULT_SYSCALLS,
                 ThreadStateReceiver.NULL_INSTANCE));
     assertThat(actionResult.spawnResults()).isEmpty();

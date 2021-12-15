@@ -136,12 +136,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
     SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
-    OutputPathMapper mapper = new OutputPathMapper() {
-      @Override
-      public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        return PathFragment.create("conflict_path");
-      }
-    };
+    OutputPathMapper mapper = artifact -> PathFragment.create("conflict_path");
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
             .setExecutable(PathFragment.create("/bin/cp"))
@@ -206,7 +201,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableSet<Artifact> getOutputs() {
             return ImmutableSet.of(
                 outputTree,
-                new DerivedArtifact(
+                DerivedArtifact.create(
                     outputTree.getRoot(),
                     outputTree.getRoot().getExecPath().getRelative("not_tree"),
                     outputTree.getArtifactOwner()));
@@ -262,7 +257,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
               ActionLookupKey artifactOwner) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             Artifact notTreeFileArtifact =
-                new DerivedArtifact(
+                DerivedArtifact.create(
                     input.getRoot(),
                     input.getRoot().getExecPath().getRelative("a.txt"),
                     artifactOwner);
@@ -365,14 +360,16 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return actionList.build();
   }
 
-  private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate) {
+  private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
+      throws ActionConflictException, InterruptedException {
     return new BasicActionLookupValue(
-        Actions.GeneratingActions.fromSingleAction(actionTemplate, CTKEY));
+        Actions.assignOwnersAndFindAndThrowActionConflict(
+            new ActionKeyContext(), ImmutableList.of(actionTemplate), CTKEY));
   }
 
   private SpecialArtifact createTreeArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"),
         execPath,
         CTKEY,
@@ -407,11 +404,6 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
       return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

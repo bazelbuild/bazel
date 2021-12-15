@@ -379,7 +379,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   public abstract BigInteger toBigInteger();
 
   /**
-   * Returns the the value of this StarlarkInt as a Java signed 32-bit int.
+   * Returns the value of this StarlarkInt as a Java signed 32-bit int.
    *
    * @throws IllegalArgumentException if this int is not in that value range.
    */

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.genquery;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Strings;
 import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQueryResult;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.ByteString;
@@ -34,7 +33,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testSmallOutputMultibyteWriteWithCompressionEnabled() throws IOException {
     runMultibyteWriteTest(
-        Strings.repeat("xyz", 10_000),
+        "xyz".repeat(10_000),
         /*compressionEnabled=*/ true,
         GenQueryOutputStream.RegularResult.class);
   }
@@ -42,7 +41,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testSmallOutputMultibyteWriteWithCompressionDisabled() throws IOException {
     runMultibyteWriteTest(
-        Strings.repeat("xyz", 10_000),
+        "xyz".repeat(10_000),
         /*compressionEnabled=*/ false,
         GenQueryOutputStream.RegularResult.class);
   }
@@ -50,7 +49,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testBigOutputMultibyteWriteWithCompressionEnabled() throws IOException {
     runMultibyteWriteTest(
-        Strings.repeat("xyz", 1_000_000),
+        "xyz".repeat(1_000_000),
         /*compressionEnabled=*/ true,
         GenQueryOutputStream.CompressedResult.class);
   }
@@ -58,7 +57,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testBigOutputMultibyteWriteWithCompressionDisabled() throws IOException {
     runMultibyteWriteTest(
-        Strings.repeat("xyz", 1_000_000),
+        "xyz".repeat(1_000_000),
         /*compressionEnabled=*/ false,
         GenQueryOutputStream.RegularResult.class);
   }
@@ -66,7 +65,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testSmallOutputSingleByteWritesWithCompressionEnabled() throws IOException {
     runSingleByteWriteTest(
-        Strings.repeat("xyz", 10_000),
+        "xyz".repeat(10_000),
         /*compressionEnabled=*/ true,
         GenQueryOutputStream.RegularResult.class);
   }
@@ -74,7 +73,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testSmallOutputSingleByteWritesWithCompressionDisabled() throws IOException {
     runSingleByteWriteTest(
-        Strings.repeat("xyz", 10_000),
+        "xyz".repeat(10_000),
         /*compressionEnabled=*/ false,
         GenQueryOutputStream.RegularResult.class);
   }
@@ -82,7 +81,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testBigOutputSingleByteWritesWithCompressionEnabled() throws IOException {
     runSingleByteWriteTest(
-        Strings.repeat("xyz", 1_000_000),
+        "xyz".repeat(1_000_000),
         /*compressionEnabled=*/ true,
         GenQueryOutputStream.CompressedResult.class);
   }
@@ -90,7 +89,7 @@ public class GenQueryOutputStreamTest {
   @Test
   public void testBigOutputSingleByteWritesWithCompressionDisabled() throws IOException {
     runSingleByteWriteTest(
-        Strings.repeat("xyz", 1_000_000),
+        "xyz".repeat(1_000_000),
         /*compressionEnabled=*/ false,
         GenQueryOutputStream.RegularResult.class);
   }

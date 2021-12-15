@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -133,7 +134,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
       ImmutableList<PackageSpecificationProvider> jspecifyPackages =
           ImmutableList.copyOf(
               ruleContext.getPrerequisites(
-                  "jspecify_packages", PackageSpecificationProvider.class));
+                  "jspecify_packages", PackageGroupConfiguredTarget.class));
       jspecifyInfo =
           JspecifyInfo.create(
               jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts.build(), jspecifyPackages);

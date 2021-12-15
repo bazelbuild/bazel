@@ -6991,7 +6991,7 @@ def _impl(ctx):
                     actions = _ALL_LINK_ACTIONS,
                     flag_groups = [
                         flag_group(
-                            flags = ["-lc++", "-target", "armv7-apple-watchos"],
+                            flags = ["-lc++", "-target", "armv7k-apple-watchos"],
                         ),
                     ],
                 ),
@@ -7590,7 +7590,7 @@ def _impl(ctx):
                 ],
                 flag_groups = [
                     flag_group(
-                        flags = ["-gsplit-dwarf"],
+                        flags = ["-gsplit-dwarf", "-g"],
                         expand_if_available = "per_object_debug_info_file",
                     ),
                 ],

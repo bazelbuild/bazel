@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
-
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -45,25 +42,17 @@ public interface JavaInfoApi<
         FileT extends FileApi,
         JavaOutputT extends JavaOutputApi<FileT>,
         JavaPluginDataT extends JavaPluginDataApi>
-    extends StructApi, JavaPluginInfoApi<JavaPluginDataT> {
+    extends StructApi, JavaPluginInfoApi<FileT, JavaPluginDataT, JavaOutputT> {
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",
-      doc =
-          "Returns a transitive set of Jars required on the target's runtime classpath. Returns"
-              + " the same as <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_runtime_deps\">JavaInfo.transitive_runtime_deps"
-              + "</a></code> for legacy reasons.",
+      doc = "Returns a transitive set of Jars required on the target's runtime classpath.",
       structField = true)
   Depset getTransitiveRuntimeJars();
 
   @StarlarkMethod(
       name = "transitive_compile_time_jars",
-      doc =
-          "Returns the transitive set of Jars required to build the target. Returns the same as"
-              + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_deps\">JavaInfo.transitive_deps</a></code> for"
-              + " legacy reasons.",
+      doc = "Returns the transitive set of Jars required to build the target.",
       structField = true)
   Depset getTransitiveCompileTimeJars();
 
@@ -116,16 +105,13 @@ public interface JavaInfoApi<
   JavaRuleOutputJarsProviderApi<?> getOutputJars();
 
   @StarlarkMethod(
-      name = "java_outputs",
-      doc = "Returns information about outputs of this Java/Java-like target.",
-      structField = true)
-  ImmutableList<JavaOutputT> getJavaOutputs();
-
-  @StarlarkMethod(
       name = "annotation_processing",
       structField = true,
       allowReturnNones = true,
-      doc = "Returns information about annotation processing for this Java/Java-like target.")
+      doc =
+          "Returns information about annotation processors applied on this Java/Java-like target."
+              + "<p>Deprecated: Please use <code>plugins</code> instead (which returns information "
+              + "about annotation processors to be applied by consuming targets).")
   @Nullable
   JavaAnnotationProcessingApi<?> getGenJarsProvider();
 
@@ -146,20 +132,18 @@ public interface JavaInfoApi<
   @StarlarkMethod(
       name = "transitive_deps",
       doc =
-          "Returns the transitive set of Jars required to build the target. Returns the same as"
-              + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
-              + " for legacy reasons.",
+          "Deprecated: Please use <code><a class=\"anchor\" "
+              + "href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
+              + " instead. It returns the same value.",
       structField = true)
   Depset /*<FileT>*/ getTransitiveDeps();
 
   @StarlarkMethod(
       name = "transitive_runtime_deps",
       doc =
-          "Returns the transitive set of Jars required on the target's runtime classpath. Returns"
-              + " the same as <code><a class=\"anchor\""
+          "Deprecated: please use <code><a class=\"anchor\""
               + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
-              + "</a></code> for legacy reasons.",
+              + "</a></code> instead. It returns the same value",
       structField = true)
   Depset /*<FileT>*/ getTransitiveRuntimeDeps();
 
@@ -170,13 +154,6 @@ public interface JavaInfoApi<
               + " transitive dependencies.",
       structField = true)
   Depset /*<FileT>*/ getTransitiveSourceJars();
-
-  @StarlarkMethod(
-      name = "transitive_exports",
-      structField = true,
-      enableOnlyWithFlag = INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER,
-      doc = "Returns a set of labels that are being exported from this rule transitively.")
-  Depset /*<Label>*/ getTransitiveExports();
 
   @StarlarkMethod(
       name = "transitive_native_libraries",

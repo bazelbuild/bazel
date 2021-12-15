@@ -25,7 +25,7 @@ import com.google.devtools.common.options.OptionsBase;
 /**
  * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
  * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i> of a
- * BuildConfiguration.
+ * BuildConfigurationValue.
  */
 public class AnalysisOptions extends OptionsBase {
   @Option(
@@ -104,16 +104,6 @@ public class AnalysisOptions extends OptionsBase {
             + " or -1 indicating the maximum possible window."
   )
   public long versionWindowForDirtyNodeGc;
-
-  @Deprecated
-  @Option(
-    name = "experimental_interleave_loading_and_analysis",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "No-op."
-  )
-  public boolean interleaveLoadingAndAnalysis;
 
   @Option(
     name = "experimental_skyframe_prepare_analysis",

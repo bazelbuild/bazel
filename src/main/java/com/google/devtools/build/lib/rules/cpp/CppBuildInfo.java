@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -47,7 +47,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
   @Override
   public BuildInfoCollection create(
       BuildInfoContext buildInfoContext,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       Artifact buildInfo,
       Artifact buildChangelist) {
     List<Action> actions = new ArrayList<>();
@@ -86,7 +86,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
 
   private WriteBuildInfoHeaderAction getHeader(
       BuildInfoContext buildInfoContext,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       PathFragment headerName,
       NestedSet<Artifact> inputs,
       boolean writeVolatileInfo,
@@ -109,7 +109,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
   }
 
   @Override
-  public boolean isEnabled(BuildConfiguration config) {
+  public boolean isEnabled(BuildConfigurationValue config) {
     return config.hasFragment(CppConfiguration.class);
   }
 }

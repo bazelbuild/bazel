@@ -46,12 +46,16 @@ import javax.annotation.Nullable;
  */
 public final class GlobFunction implements SkyFunction {
 
-  private final ConcurrentHashMap<String, Pattern> regexPatternCache = new ConcurrentHashMap<>();
+  private ConcurrentHashMap<String, Pattern> regexPatternCache = new ConcurrentHashMap<>();
 
   private final boolean alwaysUseDirListing;
 
   public GlobFunction(boolean alwaysUseDirListing) {
     this.alwaysUseDirListing = alwaysUseDirListing;
+  }
+
+  void complete() {
+    this.regexPatternCache = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -422,12 +426,6 @@ public final class GlobFunction implements SkyFunction {
         return glob.getSubdir().getRelative(fileName);
       }
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import java.lang.ref.Reference;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
@@ -186,12 +187,22 @@ public class MoreAsserts {
     assertExitCode(0, exitCode, stdout, stderr);
   }
 
+  public static void assertZeroExitCode(int exitCode, RecordingOutErr recordingOutErr) {
+    assertExitCode(0, exitCode, recordingOutErr.outAsLatin1(), recordingOutErr.errAsLatin1());
+  }
+
   public static void assertExitCode(int expectedExitCode,
       int exitCode, String stdout, String stderr) {
     if (exitCode != expectedExitCode) {
       fail(String.format("expected exit code <%d> but exit code was <%d> and stdout was <%s> "
           + "and stderr was <%s>", expectedExitCode, exitCode, stdout, stderr));
     }
+  }
+
+  public static void assertExitCode(
+      int expectedExitCode, int exitCode, RecordingOutErr recordingOutErr) {
+    assertExitCode(
+        expectedExitCode, exitCode, recordingOutErr.outAsLatin1(), recordingOutErr.errAsLatin1());
   }
 
   public static void assertStdoutContainsString(String expected, String stdout, String stderr) {

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
@@ -102,6 +102,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
     for (SkyKey nextKey : keys) {
       Label nextLabel = getLabel(nextKey);
       Target nextTarget = getTargetForLabel(eventHandler, nextLabel);
+      // TODO(aranguyen): remove this code as a result of b/128716030
       // This is inefficient but it's no big deal since we only do this when there's a cycle.
       if (currentTarget.getVisibility().getDependencyLabels().contains(nextLabel)
           && !nextTarget.getTargetKind().equals(PackageGroup.targetKind())) {

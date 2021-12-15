@@ -166,6 +166,7 @@ public class NotifyingHelper {
     ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,
     GET_BATCH,
+    GET_VALUES,
     GET_TEMPORARY_DIRECT_DEPS,
     SIGNAL,
     SET_VALUE,
@@ -216,7 +217,7 @@ public class NotifyingHelper {
             e,
             "In NotifyingGraph: "
                 + Joiner.on(", ").join(key, type, order, context == null ? "null" : context));
-        throw e;
+        throw new IllegalStateException(e);
       }
     }
   }
@@ -278,9 +279,11 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+    public Set<SkyKey> setValue(
+        SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
+        throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version);
+      Set<SkyKey> result = super.setValue(value, graphVersion, maxTransitiveSourceVersion);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
       return result;
     }
@@ -369,7 +372,7 @@ public class NotifyingHelper {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this).add("delegate", getThinDelegate()).toString();
+      return MoreObjects.toStringHelper(this).add("delegate", delegate).toString();
     }
   }
 

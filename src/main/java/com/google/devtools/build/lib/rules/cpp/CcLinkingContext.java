@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -267,10 +268,19 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return linkstamps;
     }
 
+    @StarlarkMethod(name = "linkstamps", documented = false, structField = true)
+    public Sequence<Linkstamp> getLinkstampsForStarlark() {
+      return StarlarkList.immutableCopyOf(getLinkstamps());
+    }
+
     @Override
     public void debugPrint(Printer printer) {
       printer.append("<LinkerInput(owner=");
-      owner.debugPrint(printer);
+      if (owner == null) {
+        printer.append("[null owner, uses old create_linking_context API]");
+      } else {
+        owner.debugPrint(printer);
+      }
       printer.append(", libraries=[");
       for (LibraryToLink libraryToLink : libraries) {
         libraryToLink.debugPrint(printer);
@@ -536,6 +546,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public ExtraLinkTimeLibraries getExtraLinkTimeLibraries() {
     return extraLinkTimeLibraries;
+  }
+
+  @Override
+  public ExtraLinkTimeLibraries getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getExtraLinkTimeLibraries();
   }
 
   public static Builder builder() {

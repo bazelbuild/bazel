@@ -19,7 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -36,7 +36,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
   static final String LINKMAP_SUFFIX = ".linkmap";
 
   private final RuleContext ruleContext;
-  private final BuildConfiguration buildConfiguration;
+  private final BuildConfigurationValue buildConfiguration;
   private final String archiveFileNameSuffix;
   private final String outputPrefix;
   private final UmbrellaHeaderStrategy umbrellaHeaderStrategy;
@@ -76,7 +76,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
       RuleContext ruleContext,
       String archiveFileNameSuffix,
       String outputPrefix,
-      BuildConfiguration buildConfiguration) {
+      BuildConfigurationValue buildConfiguration) {
     this(
         ruleContext,
         archiveFileNameSuffix,
@@ -89,7 +89,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
       RuleContext ruleContext,
       String archiveFileNameSuffix,
       String outputPrefix,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       UmbrellaHeaderStrategy umbrellaHeaderStrategy) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
