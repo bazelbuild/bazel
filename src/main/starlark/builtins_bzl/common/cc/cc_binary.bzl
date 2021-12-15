@@ -1055,7 +1055,7 @@ cc_binary_attrs = {
     "_grep_includes": attr.label(
         allow_files = True,
         executable = True,
-        cfg = "host",
+        cfg = "exec",
         default = Label("@//tools/cpp:grep-includes"),
     ),
     "_stl": attr.label(default = "@//third_party/stl"),
