@@ -309,6 +309,17 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op")
     public boolean experimentalMultiThreadedDigest;
+
+    @Option(
+        name = "bes_best_effort",
+        defaultValue = "false",
+        deprecationWarning =
+            "BES best effort upload has been removed. The flag has no more "
+                + "functionality attached to it and will be removed in a future release.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op")
+    public boolean besBestEffort;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
