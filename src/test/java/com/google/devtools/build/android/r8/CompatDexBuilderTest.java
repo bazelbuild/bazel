@@ -40,7 +40,7 @@ public class CompatDexBuilderTest {
   @Rule public TemporaryFolder temp = new TemporaryFolder();
 
   @Test
-  public void compileManyClasses() throws IOException, InterruptedException, ExecutionException {
+  public void compileManyClasses() throws Exception {
     // Random set of classes from the R8 example test directory naming001.
     final String inputJar = System.getProperty("CompatDexBuilderTests.naming001");
     final List<String> classNames =
