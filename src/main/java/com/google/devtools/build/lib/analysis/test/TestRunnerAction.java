@@ -883,7 +883,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Map<String, String> getExecutionInfo() {
+  public ImmutableMap<String, String> getExecutionInfo() {
     return testProperties.getExecutionInfo();
   }
 

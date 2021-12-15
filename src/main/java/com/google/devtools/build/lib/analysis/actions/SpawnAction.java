@@ -550,11 +550,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return env.getFixedEnv().toMap();
   }
 
-  /**
-   * Returns the out-of-band execution data for this action.
-   */
+  /** Returns the out-of-band execution data for this action. */
   @Override
-  public Map<String, String> getExecutionInfo() {
+  public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }
 

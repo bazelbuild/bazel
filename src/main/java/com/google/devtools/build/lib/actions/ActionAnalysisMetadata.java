@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -227,11 +226,10 @@ public interface ActionAnalysisMetadata {
   PlatformInfo getExecutionPlatform();
 
   /**
-   * Returns the execution requirements for this action, or null if the action type does not have
-   * access to execution requirements.
+   * Returns the execution requirements for this action, or an empty map if the action type does not
+   * have access to execution requirements.
    */
-  @Nullable
-  default Map<String, String> getExecutionInfo() {
-    return null;
+  default ImmutableMap<String, String> getExecutionInfo() {
+    return ImmutableMap.of();
   }
 }
