@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -183,8 +182,6 @@ public class FileFunctionTest {
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(
-                        null,
-                        null,
                         null,
                         null,
                         null,
@@ -576,7 +573,7 @@ public class FileFunctionTest {
     assertThat(value.getDigest()).isNull();
 
     p.setLastModifiedTime(10L);
-    assertThat(valueForPath(p)).isEqualTo(value);
+    assertThat(valueForPath(p)).isNotEqualTo(value);
 
     p.setLastModifiedTime(0L);
     assertThat(valueForPath(p)).isEqualTo(value);
@@ -860,7 +857,7 @@ public class FileFunctionTest {
   public void testSize() throws Exception {
     Path file = file("file");
     int fileSize = 20;
-    FileSystemUtils.writeContentAsLatin1(file, Strings.repeat("a", fileSize));
+    FileSystemUtils.writeContentAsLatin1(file, "a".repeat(fileSize));
     assertThat(valueForPath(file).getSize()).isEqualTo(fileSize);
     Path dir = directory("directory");
     file(dir.getChild("child").getPathString());
@@ -894,7 +891,7 @@ public class FileFunctionTest {
         };
     pkgRoot = Root.fromPath(fs.getPath("/root"));
     Path file = file("file");
-    FileSystemUtils.writeContentAsLatin1(file, Strings.repeat("a", 20));
+    FileSystemUtils.writeContentAsLatin1(file, "a".repeat(20));
     byte[] digest = file.getDigest();
     expectedCalls++;
     assertThat(digestCalls.get()).isEqualTo(expectedCalls);

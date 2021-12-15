@@ -40,11 +40,13 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -71,9 +73,19 @@ public final class TestActionBuilder {
   private static final String COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE =
       "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
 
+  static class EmptyPackageProvider extends PackageGroupConfiguredTarget {
+    public EmptyPackageProvider() {
+      super(null, null, null);
+    }
+
+    @Override
+    public NestedSet<PackageGroupContents> getPackageSpecifications() {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+  }
+
   @VisibleForSerialization @SerializationConstant
-  static final PackageSpecificationProvider EMPTY_PACKAGES_PROVIDER =
-      () -> NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  static final PackageSpecificationProvider EMPTY_PACKAGES_PROVIDER = new EmptyPackageProvider();
 
   private final RuleContext ruleContext;
   private final ImmutableList.Builder<Artifact> additionalTools;
@@ -174,7 +186,7 @@ public final class TestActionBuilder {
   private TestParams createTestAction(int shards)
       throws InterruptedException { // due to TestTargetExecutionSettings
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
-    BuildConfiguration config = ruleContext.getConfiguration();
+    BuildConfigurationValue config = ruleContext.getConfiguration();
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
@@ -449,7 +461,7 @@ public final class TestActionBuilder {
                 // empty one as a fallback.
                 MoreObjects.firstNonNull(
                     Allowlist.fetchPackageSpecificationProviderOrNull(
-                        ruleContext, "$network_allowlist"),
+                        ruleContext, "external_network"),
                     EMPTY_PACKAGES_PROVIDER));
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());

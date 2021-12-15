@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static java.lang.Math.min;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.DualExecutorQueueVisitor;
+import com.google.devtools.build.lib.concurrent.MultiExecutorQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -44,6 +42,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
+import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
@@ -71,7 +70,6 @@ import javax.annotation.Nullable;
  * result. Derived classes should do this.
  */
 abstract class AbstractParallelEvaluator {
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
@@ -93,6 +91,8 @@ abstract class AbstractParallelEvaluator {
    */
   private final AtomicInteger globalEnqueuedIndex = new AtomicInteger(Integer.MIN_VALUE);
 
+  protected final SkyKeyComputeStateManager skyKeyComputeStateManager;
+
   AbstractParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
@@ -105,8 +105,7 @@ abstract class AbstractParallelEvaluator {
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
-      CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      CycleDetector cycleDetector) {
     this(
         graph,
         graphVersion,
@@ -120,8 +119,8 @@ abstract class AbstractParallelEvaluator {
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
-        /*cpuHeavySkyKeysThreadPoolSize=*/ 0);
+        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
+        /*executionJobsThreadPoolSize=*/ 0);
   }
 
   AbstractParallelEvaluator(
@@ -137,27 +136,13 @@ abstract class AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
-      int cpuHeavySkyKeysThreadPoolSize) {
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionJobsThreadPoolSize) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     Supplier<QuiescingExecutor> quiescingExecutorSupplier =
-        cpuHeavySkyKeysThreadPoolSize > 0
-            ? () ->
-                DualExecutorQueueVisitor.createWithExecutorServices(
-                    executorService.get(),
-                    AbstractQueueVisitor.createExecutorService(
-                        /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
-                        "skyframe-evaluator-cpu-heavy",
-                        // FJP performs much better on machines with many cores.
-                        /*useForkJoinPool=*/ true),
-                    /*failFastOnException=*/ true,
-                    NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER)
-            : () ->
-                AbstractQueueVisitor.createWithExecutorService(
-                    executorService.get(),
-                    /*failFastOnException=*/ true,
-                    NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+        getQuiescingExecutorSupplier(
+            executorService, cpuHeavySkyKeysThreadPoolSize, executionJobsThreadPoolSize);
     evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
@@ -173,7 +158,50 @@ abstract class AbstractParallelEvaluator {
             () ->
                 new NodeEntryVisitor(
                     quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
-            evaluationVersionBehavior);
+            /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0);
+    this.skyKeyComputeStateManager = new SkyKeyComputeStateManager(skyFunctions);
+  }
+
+  private Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(
+      Supplier<ExecutorService> executorService,
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionJobsThreadPoolSize) {
+    if (cpuHeavySkyKeysThreadPoolSize <= 0) {
+      return () ->
+          AbstractQueueVisitor.createWithExecutorService(
+              executorService.get(),
+              /*failFastOnException=*/ true,
+              NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+    }
+    if (executionJobsThreadPoolSize <= 0) {
+      return () ->
+          MultiExecutorQueueVisitor.createWithExecutorServices(
+              executorService.get(),
+              AbstractQueueVisitor.createExecutorService(
+                  /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
+                  "skyframe-evaluator-cpu-heavy",
+                  // FJP performs much better on machines with many cores.
+                  /*useForkJoinPool=*/ true),
+              /*failFastOnException=*/ true,
+              NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+    }
+    // We only consider the experimental case of merged Skyframe phases WITH a separate pool for
+    // CPU-heavy tasks, since that's the default behavior moving forward. Blocker: b/194319860.
+    return () ->
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            executorService.get(),
+            AbstractQueueVisitor.createExecutorService(
+                /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
+                "skyframe-evaluator-cpu-heavy",
+                // FJP performs much better on machines with many cores.
+                /*useForkJoinPool=*/ true),
+            AbstractQueueVisitor.createExecutorService(
+                /*parallelism=*/ executionJobsThreadPoolSize,
+                "skyframe-evaluator-execution",
+                // FJP performs much better on machines with many cores.
+                /*useForkJoinPool=*/ true),
+            /*failFastOnException=*/ true,
+            NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
   }
 
   /**
@@ -531,7 +559,7 @@ abstract class AbstractParallelEvaluator {
               .getProgressReceiver()
               .stateStarting(skyKey, NodeState.INITIALIZING_ENVIRONMENT);
           env =
-              new SkyFunctionEnvironment(
+              SkyFunctionEnvironment.create(
                   skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
@@ -553,11 +581,15 @@ abstract class AbstractParallelEvaluator {
                 state);
 
         SkyValue value = null;
+        SkyKeyComputeState skyKeyComputeStateToUse = skyKeyComputeStateManager.maybeGet(skyKey);
         long startTimeNanos = BlazeClock.instance().nanoTime();
         try {
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
-            value = factory.compute(skyKey, env);
+            value =
+                skyKeyComputeStateToUse == null
+                    ? factory.compute(skyKey, env)
+                    : factory.compute(skyKey, skyKeyComputeStateToUse, env);
           } finally {
             evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE);
             long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTimeNanos;
@@ -571,6 +603,10 @@ abstract class AbstractParallelEvaluator {
             }
           }
         } catch (final SkyFunctionException builderException) {
+          if (skyKeyComputeStateToUse != null) {
+            skyKeyComputeStateManager.remove(skyKey);
+          }
+
           ReifiedSkyFunctionException reifiedBuilderException =
               new ReifiedSkyFunctionException(builderException);
           // In keep-going mode, we do not let SkyFunctions complete with a thrown error if they
@@ -614,19 +650,6 @@ abstract class AbstractParallelEvaluator {
                 evaluatorContext
                     .getErrorInfoManager()
                     .fromException(skyKey, reifiedBuilderException, isTransitivelyTransient);
-            // TODO(b/166268889): Remove when resolved. ActionExecutionValues are ending up with
-            //  IOExceptions in them.
-            if (isTransitivelyTransient
-                && !shouldFailFast
-                && errorInfo.getException() instanceof IOException) {
-              // This is essentially unconditionally logged, and not often. Ok to evaluate eagerly.
-              String keyString = skyKey.toString();
-              String errorString = errorInfo.toString();
-              logger.atInfo().log(
-                  "Got IOException for %s (%s)",
-                  keyString.substring(0, min(1000, keyString.length())),
-                  errorString.substring(0, min(1000, errorString.length())));
-            }
             env.setError(state, errorInfo);
             Set<SkyKey> rdepsToBubbleUpTo = env.commitAndGetParents(state);
             if (shouldFailFast) {
@@ -649,6 +672,7 @@ abstract class AbstractParallelEvaluator {
         }
 
         if (maybeHandleRestart(skyKey, state, value)) {
+          skyKeyComputeStateManager.removeAll();
           cancelExternalDeps(env);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
@@ -659,6 +683,10 @@ abstract class AbstractParallelEvaluator {
         GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
 
         if (value != null) {
+          if (skyKeyComputeStateToUse != null) {
+            skyKeyComputeStateManager.remove(skyKey);
+          }
+
           Preconditions.checkState(
               !env.valuesMissing(),
               "Evaluation of %s returned non-null value but requested dependencies that weren't "

@@ -31,15 +31,18 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
-/**
- * Utility functions for proto_library and proto aspect implementations.
- */
+/** Utility functions for proto_library and proto aspect implementations. */
 public class ProtoCommon {
   private ProtoCommon() {
     throw new UnsupportedOperationException();
@@ -231,8 +234,7 @@ public class ProtoCommon {
   private static Library createLibraryWithVirtualSourceRootMaybe(
       RuleContext ruleContext,
       ImmutableList<Artifact> protoSources,
-      boolean generatedProtosInVirtualImports)
-      throws InterruptedException {
+      boolean generatedProtosInVirtualImports) {
     PathFragment importPrefixAttribute = getPathFragmentAttribute(ruleContext, "import_prefix");
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
@@ -346,8 +348,7 @@ public class ProtoCommon {
    * ruleContext}.
    */
   public static ProtoInfo createProtoInfo(
-      RuleContext ruleContext, boolean generatedProtosInVirtualImports)
-      throws InterruptedException {
+      RuleContext ruleContext, boolean generatedProtosInVirtualImports) {
     ImmutableList<Artifact> originalDirectProtoSources =
         ruleContext.getPrerequisiteArtifacts("srcs").list();
     ImmutableList<ProtoInfo> deps =
@@ -425,8 +426,8 @@ public class ProtoCommon {
    *
    * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
    *     ".pb.cc".
-   * @param pythonNames If true, replace hyphens in the file name with underscores, as required for
-   *     Python modules.
+   * @param pythonNames If true, replace hyphens in the file name with underscores, and dots in the
+   *     file name with forward slashes, as required for Python modules.
    */
   public static ImmutableList<Artifact> getGeneratedOutputs(
       RuleContext ruleContext,
@@ -440,13 +441,24 @@ public class ProtoCommon {
           src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
       if (pythonNames) {
         srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
+
+        // Protoc python plugin converts dots in filenames to slashes when generating python source
+        // paths. For example, "myproto.gen.proto" generates "myproto/gen_pb2.py".
+        String baseName = srcPath.getBaseName();
+        int lastDot = baseName.lastIndexOf('.');
+        if (lastDot > 0) {
+          String baseNameNoExtension = baseName.substring(0, lastDot);
+          srcPath =
+              srcPath.replaceName(
+                  baseNameNoExtension.replace('.', '/') + baseName.substring(lastDot));
+        }
       }
       // Note that two proto_library rules can have the same source file, so this is actually a
       // shared action. NB: This can probably result in action conflicts if the proto_library rules
       // are not the same.
       outputsBuilder.add(
-          ruleContext.getShareableArtifact(FileSystemUtils.replaceExtension(srcPath, extension),
-              genfiles));
+          ruleContext.getShareableArtifact(
+              FileSystemUtils.replaceExtension(srcPath, extension), genfiles));
     }
     return outputsBuilder.build();
   }
@@ -509,5 +521,15 @@ public class ProtoCommon {
   public static boolean areDepsStrict(RuleContext ruleContext) {
     StrictDepsMode getBool = ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
     return getBool != StrictDepsMode.OFF && getBool != StrictDepsMode.DEFAULT;
+  }
+
+  public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
+      throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
   }
 }

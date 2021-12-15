@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.rules.objc.BazelAppleBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelAppleStaticLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcImportRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcLibraryRule;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AvailableXcodesRule;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.rules.objc.AppleBinaryBaseRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryBaseRule;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
-import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcImportBaseRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryBaseRule;
@@ -53,9 +53,7 @@ public class ObjcRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    String toolsRepository = checkNotNull(builder.getToolsRepository());
-
-    builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
+    RepositoryName toolsRepository = checkNotNull(builder.getToolsRepository());
 
     builder.addConfigurationFragment(ObjcConfiguration.class);
     builder.addConfigurationFragment(AppleConfiguration.class);

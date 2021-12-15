@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -48,6 +46,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -334,24 +333,6 @@ public class JavaCommon {
     }
 
     return builder.build();
-  }
-
-  /** Collects labels of targets and artifacts reached transitively via the "exports" attribute. */
-  protected JavaExportsProvider collectTransitiveExports() {
-    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
-    List<TransitiveInfoCollection> currentRuleExports = getExports(ruleContext);
-
-    builder.addAll(Iterables.transform(currentRuleExports, TransitiveInfoCollection::getLabel));
-
-    for (TransitiveInfoCollection dep : currentRuleExports) {
-      JavaExportsProvider exportsProvider = JavaInfo.getProvider(JavaExportsProvider.class, dep);
-
-      if (exportsProvider != null) {
-        builder.addTransitive(exportsProvider.getTransitiveExports());
-      }
-    }
-
-    return new JavaExportsProvider(builder.build());
   }
 
   public final void initializeJavacOpts() {
@@ -666,7 +647,6 @@ public class JavaCommon {
 
     JavaCompilationInfoProvider compilationInfoProvider = createCompilationInfoProvider();
 
-
     builder
         .addNativeDeclaredProvider(
             getInstrumentationFilesProvider(
@@ -677,10 +657,6 @@ public class JavaCommon {
                 coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
-    if (ruleContext.getStarlarkSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
-      JavaExportsProvider exportsProvider = collectTransitiveExports();
-      javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
-    }
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
 
     addCcRelatedProviders(javaInfoBuilder);
@@ -783,7 +759,7 @@ public class JavaCommon {
     Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, ":java_plugins"));
     Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, "plugins"));
     Iterables.addAll(result, getExportedJavaPluginInfoForAttribute(ruleContext, "deps"));
-    return JavaPluginInfo.merge(result);
+    return JavaPluginInfo.mergeWithoutJavaOutputs(result);
   }
 
   private static Iterable<JavaPluginInfo> getDirectJavaPluginInfoForAttribute(
@@ -810,7 +786,8 @@ public class JavaCommon {
     return ImmutableList.of();
   }
 
-  JavaPluginInfo createJavaPluginInfo(RuleContext ruleContext) {
+  JavaPluginInfo createJavaPluginInfo(
+      RuleContext ruleContext, ImmutableList<JavaOutput> javaOutputs) {
     NestedSet<String> processorClasses =
         NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, getProcessorClasses(ruleContext));
     NestedSet<Artifact> processorClasspath = getRuntimeClasspath();
@@ -821,7 +798,8 @@ public class JavaCommon {
             : NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     return JavaPluginInfo.create(
         JavaPluginData.create(processorClasses, processorClasspath, data),
-        ruleContext.attributes().get("generates_api", Type.BOOLEAN));
+        ruleContext.attributes().get("generates_api", Type.BOOLEAN),
+        javaOutputs);
   }
 
   /**
@@ -835,7 +813,7 @@ public class JavaCommon {
   }
 
   public static JavaPluginInfo getTransitivePlugins(RuleContext ruleContext) {
-    return JavaPluginInfo.merge(
+    return JavaPluginInfo.mergeWithoutJavaOutputs(
         Iterables.concat(
             getDirectJavaPluginInfoForAttribute(ruleContext, "exported_plugins"),
             getExportedJavaPluginInfoForAttribute(ruleContext, "exports")));

@@ -17,6 +17,7 @@ java_library(
     name = "shell",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:execution_statistics_java_proto",
         "//third_party:auto_value",

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Spawn;
 import javax.annotation.Nullable;
 
@@ -33,6 +34,16 @@ public interface RemoteActionExecutionContext {
    */
   NetworkTime getNetworkTime();
 
+  @Nullable
+  default ActionExecutionMetadata getSpawnOwner() {
+    Spawn spawn = getSpawn();
+    if (spawn == null) {
+      return null;
+    }
+
+    return spawn.getResourceOwner();
+  }
+
   /** Creates a {@link SimpleRemoteActionExecutionContext} with given {@link RequestMetadata}. */
   static RemoteActionExecutionContext create(RequestMetadata metadata) {
     return new SimpleRemoteActionExecutionContext(/*spawn=*/ null, metadata, new NetworkTime());
@@ -42,7 +53,7 @@ public interface RemoteActionExecutionContext {
    * Creates a {@link SimpleRemoteActionExecutionContext} with given {@link Spawn} and {@link
    * RequestMetadata}.
    */
-  static RemoteActionExecutionContext createForSpawn(Spawn spawn, RequestMetadata metadata) {
+  static RemoteActionExecutionContext create(@Nullable Spawn spawn, RequestMetadata metadata) {
     return new SimpleRemoteActionExecutionContext(spawn, metadata, new NetworkTime());
   }
 }

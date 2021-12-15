@@ -16,6 +16,7 @@ java_test(
     name = "ProtoCompileActionBuilderTest",
     srcs = ["ProtoCompileActionBuilderTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
@@ -25,10 +26,13 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -64,7 +68,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -90,21 +93,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "ProtoToolchainInfoTest",
-    srcs = [
-        "ProtoToolchainInfoTest.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/rules/proto",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",
     ],

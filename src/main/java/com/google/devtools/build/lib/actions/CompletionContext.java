@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Container for the data one needs to resolve aggregate artifacts from events signaling the
@@ -104,16 +105,13 @@ public class CompletionContext {
     return pathResolver;
   }
 
+  @Nullable
+  public FileArtifactValue getFileArtifactValue(Artifact artifact) {
+    return importantInputMap.getMetadata(artifact);
+  }
+
   /** Returns true if the given artifact is guaranteed to be a file (and not a directory). */
-  public boolean isGuaranteedToBeOutputFile(Artifact artifact) {
-    FileArtifactValue metadata = importantInputMap.getMetadata(artifact);
-    // If we have no metadata for an output file that will be reported in BEP, return that the
-    // output is not guaranteed to be a file. (We expect this to happen for baseline_coverage.dat
-    // files when coverage is enabled.)
-    if (metadata == null) {
-      return false;
-    }
-    FileStateType type = metadata.getType();
+  public static boolean isGuaranteedToBeOutputFile(FileStateType type) {
     return type == FileStateType.REGULAR_FILE
         || type == FileStateType.SPECIAL_FILE
         || type == FileStateType.NONEXISTENT;

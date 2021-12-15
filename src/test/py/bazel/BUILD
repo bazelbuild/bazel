@@ -251,3 +251,18 @@ py_test(
     srcs = ["bazel_workspace_test.py"],
     deps = [":test_base"],
 )
+
+py_library(
+    name = "bzlmod_test_utils",
+    srcs = ["bzlmod/test_utils.py"],
+)
+
+py_test(
+    name = "bazel_module_test",
+    size = "large",
+    srcs = ["bzlmod/bazel_module_test.py"],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)

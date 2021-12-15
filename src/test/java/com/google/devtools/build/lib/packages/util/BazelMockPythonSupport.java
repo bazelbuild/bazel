@@ -80,8 +80,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "    toolchain = ':default_py_runtime_pair',",
         "    toolchain_type = ':toolchain_type',",
         ")",
-        "exports_files(['precompile.py'])",
-        "sh_binary(name='2to3', srcs=['2to3.sh'])");
+        "exports_files(['precompile.py'])");
   }
 
   @Override

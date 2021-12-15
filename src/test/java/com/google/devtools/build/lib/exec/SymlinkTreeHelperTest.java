@@ -45,13 +45,13 @@ public final class SymlinkTreeHelperTest {
     Command command =
         new SymlinkTreeHelper(inputManifestPath, execRoot.getRelative("output/MANIFEST"), false)
             .createCommand(execRoot, binTools, ImmutableMap.of());
-    assertThat(command.getEnvironmentVariables()).isEmpty();
+    assertThat(command.getEnvironment()).isEmpty();
     assertThat(command.getWorkingDirectory()).isEqualTo(execRoot.getPathFile());
-    String[] commandLine = command.getCommandLineElements();
-    assertThat(commandLine).hasLength(3);
-    assertThat(commandLine[0]).endsWith(SymlinkTreeHelper.BUILD_RUNFILES);
-    assertThat(commandLine[1]).isEqualTo("input_manifest");
-    assertThat(commandLine[2]).isEqualTo("output/MANIFEST");
+    ImmutableList<String> commandLine = command.getArguments();
+    assertThat(commandLine).hasSize(3);
+    assertThat(commandLine.get(0)).endsWith(SymlinkTreeHelper.BUILD_RUNFILES);
+    assertThat(commandLine.get(1)).isEqualTo("input_manifest");
+    assertThat(commandLine.get(2)).isEqualTo("output/MANIFEST");
   }
 
   @Test

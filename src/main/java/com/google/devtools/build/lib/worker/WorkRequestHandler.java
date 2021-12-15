@@ -21,13 +21,13 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -58,7 +58,7 @@ public class WorkRequestHandler implements AutoCloseable {
     /** The thread handling the request. */
     final Thread thread;
     /** If true, we have received a cancel request for this request. */
-    private boolean cancelled;
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
     /**
      * The builder for the response to this request. Since only one response must be sent per
      * request, this builder must be accessed through takeBuilder(), which zeroes this field and
@@ -72,12 +72,12 @@ public class WorkRequestHandler implements AutoCloseable {
 
     /** Sets whether this request has been cancelled. */
     void setCancelled() {
-      cancelled = true;
+      cancelled.set(true);
     }
 
     /** Returns true if this request has been cancelled. */
     boolean isCancelled() {
-      return cancelled;
+      return cancelled.get();
     }
 
     /**
@@ -220,8 +220,13 @@ public class WorkRequestHandler implements AutoCloseable {
       this.callback = callback;
     }
 
-    public Integer apply(WorkRequest workRequest, PrintWriter printWriter) {
-      return callback.apply(workRequest, printWriter);
+    public Integer apply(WorkRequest workRequest, PrintWriter printWriter)
+        throws InterruptedException {
+      Integer result = callback.apply(workRequest, printWriter);
+      if (Thread.interrupted()) {
+        throw new InterruptedException("Work request interrupted: " + workRequest.getRequestId());
+      }
+      return result;
     }
   }
 
@@ -359,50 +364,57 @@ public class WorkRequestHandler implements AutoCloseable {
               }
             },
             threadName);
-    activeRequests.put(request.getRequestId(), new RequestInfo(t));
+    RequestInfo previous = activeRequests.putIfAbsent(request.getRequestId(), new RequestInfo(t));
+    if (previous != null) {
+      // Kill worker since this shouldn't happen: server didn't follow the worker protocol
+      throw new IllegalStateException("Request still active: " + request.getRequestId());
+    }
     t.start();
   }
 
   /** Handles and responds to the given {@link WorkRequest}. */
   @VisibleForTesting
   void respondToRequest(WorkRequest request, RequestInfo requestInfo) throws IOException {
-    try (StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw)) {
-      int exitCode;
+    int exitCode;
+    StringWriter sw = new StringWriter();
+    try (PrintWriter pw = new PrintWriter(sw)) {
       try {
         exitCode = callback.apply(request, pw);
+      } catch (InterruptedException e) {
+        exitCode = 1;
       } catch (RuntimeException e) {
         e.printStackTrace(pw);
         exitCode = 1;
       }
-      pw.flush();
-      Optional<WorkResponse.Builder> optBuilder = requestInfo.takeBuilder();
-      if (optBuilder.isPresent()) {
-        WorkResponse.Builder builder = optBuilder.get();
-        builder.setRequestId(request.getRequestId());
-        if (requestInfo.isCancelled()) {
-          builder.setWasCancelled(true);
-        } else {
-          builder.setOutput(builder.getOutput() + sw).setExitCode(exitCode);
-        }
-        WorkResponse response = builder.build();
-        synchronized (this) {
-          messageProcessor.writeWorkResponse(response);
-        }
-      }
-      gcScheduler.maybePerformGc();
     }
+    Optional<WorkResponse.Builder> optBuilder = requestInfo.takeBuilder();
+    if (optBuilder.isPresent()) {
+      WorkResponse.Builder builder = optBuilder.get();
+      builder.setRequestId(request.getRequestId());
+      if (requestInfo.isCancelled()) {
+        builder.setWasCancelled(true);
+      } else {
+        builder.setOutput(builder.getOutput() + sw).setExitCode(exitCode);
+      }
+      WorkResponse response = builder.build();
+      synchronized (this) {
+        messageProcessor.writeWorkResponse(response);
+      }
+    }
+    gcScheduler.maybePerformGc();
   }
 
   /**
-   * Handles cancelling an existing request, including sending a response if that is not done by the
-   * time {@code cancelCallback.accept} returns.
+   * Marks the given request as cancelled and uses {@link #cancelCallback} to request cancellation.
+   *
+   * <p>For simplicity, and to avoid blocking in {@link #cancelCallback}, response to cancellation
+   * is still handled by {@link #respondToRequest} once the canceled request aborts (or finishes).
    */
   void respondToCancelRequest(WorkRequest request) throws IOException {
     // Theoretically, we could have gotten two singleplex requests, and we can't tell those apart.
     // However, that's a violation of the protocol, so we don't try to handle it (not least because
     // handling it would be quite error-prone).
-    RequestInfo ri = activeRequests.remove(request.getRequestId());
+    RequestInfo ri = activeRequests.get(request.getRequestId());
 
     if (ri == null) {
       return;
@@ -419,28 +431,12 @@ public class WorkRequestHandler implements AutoCloseable {
               request.getRequestId()));
     } else {
       if (ri.thread.isAlive() && !ri.isCancelled()) {
+        ri.setCancelled();
         Thread t =
             new Thread(
-                () -> {
-                  ri.setCancelled();
-                  try {
-                    cancelCallback.accept(request.getRequestId(), ri.thread);
-                    Optional<WorkResponse.Builder> builder = ri.takeBuilder();
-                    if (builder.isPresent()) {
-                      WorkResponse response =
-                          builder
-                              .get()
-                              .setWasCancelled(true)
-                              .setRequestId(request.getRequestId())
-                              .build();
-                      synchronized (this) {
-                        messageProcessor.writeWorkResponse(response);
-                      }
-                    }
-                  } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                  }
-                });
+                // Response will be sent from request thread once request handler returns.
+                // We can ignore any exceptions in cancel callback since it's best effort.
+                () -> cancelCallback.accept(request.getRequestId(), ri.thread));
         t.start();
       }
     }

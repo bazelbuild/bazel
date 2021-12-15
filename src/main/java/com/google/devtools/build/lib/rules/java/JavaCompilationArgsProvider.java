@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.Collection;
 import java.util.Iterator;
@@ -32,10 +32,9 @@ import java.util.Iterator;
 /** A collection of recursively collected Java build information. */
 @AutoValue
 @Immutable
-@AutoCodec
 public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvider {
 
-  @AutoCodec
+  @SerializationConstant
   public static final JavaCompilationArgsProvider EMPTY =
       create(
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
@@ -45,8 +44,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER));
 
-  @AutoCodec.Instantiator
-  public static JavaCompilationArgsProvider create(
+  private static JavaCompilationArgsProvider create(
       NestedSet<Artifact> runtimeJars,
       NestedSet<Artifact> directCompileTimeJars,
       NestedSet<Artifact> transitiveCompileTimeJars,

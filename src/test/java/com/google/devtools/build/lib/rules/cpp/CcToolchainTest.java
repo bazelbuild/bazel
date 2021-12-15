@@ -477,15 +477,27 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testXFdoOptimizeRejectAFdoInput() throws Exception {
+  public void testXFdoOptimizeAcceptAFdoInput() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
         "cc_toolchain_alias(name = 'b')",
         "fdo_profile(name='out.afdo', profile='profile.afdo')");
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:out.afdo");
+    assertThat(getConfiguredTarget("//a:b")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testXFdoOptimizeRejectFdoInput() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'b')",
+        "fdo_profile(name='out.fdo', profile='profile.profdata')");
+    useConfiguration("-c", "opt", "--xbinary_fdo=//a:out.fdo");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--xbinary_fdo cannot accept profile input other than *.xfdo");
+    assertContainsEvent("--xbinary_fdo only accepts");
   }
 
   @Test

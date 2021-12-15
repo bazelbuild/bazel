@@ -93,7 +93,8 @@ public final class GrpcServerTest {
             SERVER_PID,
             1000,
             false,
-            false);
+            false,
+            "slow interrupt message suffix");
     String uniqueName = InProcessServerBuilder.generateName();
     server =
         InProcessServerBuilder.forName(uniqueName)

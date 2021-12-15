@@ -32,9 +32,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -46,9 +48,14 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.worker.WorkerMetric;
+import com.google.devtools.build.lib.worker.WorkerMetricsEvent;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -85,6 +92,7 @@ class MetricsCollector {
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
+  private final List<WorkerMetrics> workerMetricsList = new ArrayList<>();
   private final SpawnStats spawnStats = new SpawnStats();
 
   private MetricsCollector(
@@ -194,6 +202,14 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
+  @SuppressWarnings("unused")
+  @Subscribe
+  private void onWorkerMetricsEvent(WorkerMetricsEvent workerMetricsEvent) {
+    for (WorkerMetric workerMetric : workerMetricsEvent.getWorkerMetrics()) {
+      workerMetricsList.add(workerMetric.toProto());
+    }
+  }
+
   private BuildMetrics createBuildMetrics() {
     return BuildMetrics.newBuilder()
         .setActionSummary(finishActionSummary())
@@ -204,6 +220,7 @@ class MetricsCollector {
         .setCumulativeMetrics(createCumulativeMetrics())
         .setArtifactMetrics(artifactMetrics.build())
         .setBuildGraphMetrics(buildGraphMetrics.build())
+        .addAllWorkerMetrics(workerMetricsList)
         .build();
   }
 
@@ -260,6 +277,14 @@ class MetricsCollector {
       // notification (which may arrive too late for this specific GC).
       memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
     }
+
+    Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
+    for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
+      GarbageMetrics.Builder garbageMetrics = GarbageMetrics.newBuilder();
+      garbageMetrics.setType(garbageEntry.getKey()).setGarbageCollected(garbageEntry.getValue());
+      memoryMetrics.addGarbageMetrics(garbageMetrics.build());
+    }
+
     return memoryMetrics.build();
   }
 

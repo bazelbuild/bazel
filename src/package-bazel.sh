@@ -78,14 +78,16 @@ fi
   cd platforms
   # Platform files may be located under external/platform or platform depending
   # on the external repository source layout. Take them out if it's the case.
-  if [ -d "external/platforms" ]; then
+  # Note that, when enabling Bzlmod, the canonical repo name for platforms is platforms.<version>,
+  # therefore, we use wildcard (platform*) to make sure it always work.
+  if ls external/platforms*/ >/dev/null 2>&1; then
     # --experimental_sibling_repository_layout=false
-    mv external/platforms/* .
-    rmdir -p external/platforms
+    mv external/platforms*/* .
+    rmdir -p external/platforms*
   else
     # --experimental_sibling_repository_layout=true
-    mv platforms/* .
-    rmdir -p platforms
+    mv platforms*/* .
+    rmdir -p platforms*
   fi
   >> WORKSPACE
 )

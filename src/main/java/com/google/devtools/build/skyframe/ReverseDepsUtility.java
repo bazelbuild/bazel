@@ -23,7 +23,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
-import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
+import com.google.devtools.build.skyframe.NodeEntry.KeepEdgesPolicy;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -48,15 +48,31 @@ import java.util.Set;
  *
  * <p>{@link InMemoryNodeEntry} manages pending reverse dep operations on a marked-dirty or
  * initially evaluating node itself, using similar logic tuned to those cases, and calls into {@link
- * #consolidateDataAndReturnNewElements(InMemoryNodeEntry, OpToStoreBare)} when transitioning to
- * done.
+ * #consolidateDataAndReturnNewElements} when transitioning to done.
  */
 abstract class ReverseDepsUtility {
+
   /**
-   * We can store one type of operation bare in order to save memory. For done nodes, most
-   * operations are CHECKS.
+   * Returns the {@link Op} to store bare instead of wrapping in {@link KeyToConsolidate}.
+   *
+   * <p>We can store one type of operation bare in order to save memory. For done nodes, most
+   * operations are {@link Op#CHECK}. For nodes on their initial build and nodes not keeping reverse
+   * deps, most are {@link Op#ADD}.
    */
-  private static final OpToStoreBare DEFAULT_OP_TO_STORE_BARE = OpToStoreBare.CHECK;
+  static Op getOpToStoreBare(InMemoryNodeEntry entry) {
+    DirtyBuildingState dirtyBuildingState = entry.dirtyBuildingState;
+    if (dirtyBuildingState == null) {
+      return Op.CHECK;
+    }
+    switch (entry.keepEdges()) {
+      case ALL:
+        return dirtyBuildingState.isDirty() ? Op.CHECK : Op.ADD;
+      case NONE:
+      case JUST_DEPS:
+        return Op.ADD;
+    }
+    throw new AssertionError(entry);
+  }
 
   private static void maybeDelayReverseDepOp(InMemoryNodeEntry entry, SkyKey reverseDep, Op op) {
     List<Object> consolidations = entry.getReverseDepsDataToConsolidateForReverseDepsUtil();
@@ -65,7 +81,7 @@ abstract class ReverseDepsUtility {
       consolidations = new ArrayList<>(currentReverseDepSize);
       entry.setReverseDepsDataToConsolidateForReverseDepsUtil(consolidations);
     }
-    consolidations.add(KeyToConsolidate.create(reverseDep, op, DEFAULT_OP_TO_STORE_BARE));
+    consolidations.add(KeyToConsolidate.create(reverseDep, op, entry));
     // TODO(janakr): Should we consolidate more aggressively? This threshold can be customized.
     if (consolidations.size() >= currentReverseDepSize) {
       consolidateData(entry);
@@ -148,7 +164,7 @@ abstract class ReverseDepsUtility {
         return ImmutableList.copyOf(reverseDeps);
       }
       ImmutableSet<SkyKey> set = ImmutableSet.copyOf(reverseDeps);
-      maybeAssertReverseDepsConsistency(
+      Preconditions.checkState(
           set.size() == reverseDeps.size(),
           "Duplicate reverse deps present in %s: %s",
           reverseDeps,
@@ -157,108 +173,125 @@ abstract class ReverseDepsUtility {
     }
   }
 
-  static Set<SkyKey> returnNewElements(InMemoryNodeEntry entry, OpToStoreBare opToStoreBare) {
-    return consolidateDataAndReturnNewElements(entry, false, opToStoreBare);
+  static Set<SkyKey> returnNewElements(InMemoryNodeEntry entry) {
+    return consolidateDataAndReturnNewElements(entry, /*mutateObject=*/ false);
   }
 
   @SuppressWarnings("unchecked") // List and bare SkyKey casts.
   private static Set<SkyKey> consolidateDataAndReturnNewElements(
-      InMemoryNodeEntry entry, boolean mutateObject, OpToStoreBare opToStoreBare) {
+      InMemoryNodeEntry entry, boolean mutateObject) {
     List<Object> dataToConsolidate = entry.getReverseDepsDataToConsolidateForReverseDepsUtil();
     if (dataToConsolidate == null) {
       return ImmutableSet.of();
     }
-    Set<SkyKey> reverseDepsAsSet;
+
+    // On a node's initial build (or if not keeping rdeps), we don't need to build up two different
+    // sets for "all reverse deps" and "new reverse deps" - they are all new.
+    Op opToStoreBare = getOpToStoreBare(entry);
+    boolean allRdepsAreNew = opToStoreBare == Op.ADD;
+    Set<SkyKey> allReverseDeps;
+    Set<SkyKey> newReverseDeps;
     Object reverseDeps = entry.getReverseDepsRawForReverseDepsUtil();
     if (isSingleReverseDep(entry)) {
-      reverseDepsAsSet = CompactHashSet.create((SkyKey) reverseDeps);
+      Preconditions.checkState(!allRdepsAreNew, entry);
+      allReverseDeps = CompactHashSet.create((SkyKey) reverseDeps);
+      newReverseDeps = CompactHashSet.create();
     } else {
       List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
-      reverseDepsAsSet = getReverseDepsSet(entry, reverseDepsAsList);
+      if (allRdepsAreNew) {
+        Preconditions.checkState(reverseDepsAsList.isEmpty(), entry);
+        allReverseDeps = null;
+        newReverseDeps = CompactHashSet.createWithExpectedSize(dataToConsolidate.size());
+      } else {
+        allReverseDeps = getReverseDepsSet(entry, reverseDepsAsList);
+        newReverseDeps = CompactHashSet.create();
+      }
     }
-    Set<SkyKey> newData = CompactHashSet.create();
+
     for (Object keyToConsolidate : dataToConsolidate) {
       SkyKey key = KeyToConsolidate.key(keyToConsolidate);
       switch (KeyToConsolidate.op(keyToConsolidate, opToStoreBare)) {
         case CHECK:
-          maybeAssertReverseDepsConsistency(
-              reverseDepsAsSet.contains(key),
+          Preconditions.checkState(!allRdepsAreNew, entry);
+          Preconditions.checkState(
+              allReverseDeps.contains(key),
               "Reverse dep not present: %s %s %s %s",
               keyToConsolidate,
-              reverseDepsAsSet,
+              allReverseDeps,
               dataToConsolidate,
               entry);
-          maybeAssertReverseDepsConsistency(
-              newData.add(key),
+          Preconditions.checkState(
+              newReverseDeps.add(key),
               "Duplicate new reverse dep: %s %s %s %s",
               keyToConsolidate,
-              reverseDepsAsSet,
+              allReverseDeps,
               dataToConsolidate,
               entry);
           break;
         case REMOVE:
-          maybeAssertReverseDepsConsistency(
-              reverseDepsAsSet.remove(key),
+          if (!allRdepsAreNew) {
+            Preconditions.checkState(
+                allReverseDeps.remove(key),
+                "Reverse dep to be removed not present: %s %s %s %s",
+                keyToConsolidate,
+                allReverseDeps,
+                dataToConsolidate,
+                entry);
+          }
+          Preconditions.checkState(
+              newReverseDeps.remove(key),
               "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
-              reverseDepsAsSet,
-              dataToConsolidate,
-              entry);
-          maybeAssertReverseDepsConsistency(
-              newData.remove(key),
-              "Reverse dep to be removed not present: %s %s %s %s",
-              keyToConsolidate,
-              reverseDepsAsSet,
+              newReverseDeps,
               dataToConsolidate,
               entry);
           break;
         case REMOVE_OLD:
-          maybeAssertReverseDepsConsistency(
-              reverseDepsAsSet.remove(key),
+          Preconditions.checkState(!allRdepsAreNew, entry);
+          Preconditions.checkState(
+              allReverseDeps.remove(key),
               "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
-              reverseDepsAsSet,
+              allReverseDeps,
               dataToConsolidate,
               entry);
-          maybeAssertReverseDepsConsistency(
-              !newData.contains(key),
+          Preconditions.checkState(
+              !newReverseDeps.contains(key),
               "Reverse dep shouldn't have been added to new: %s %s %s %s",
               keyToConsolidate,
-              reverseDepsAsSet,
+              allReverseDeps,
               dataToConsolidate,
               entry);
           break;
         case ADD:
-          maybeAssertReverseDepsConsistency(
-              reverseDepsAsSet.add(key),
-              "Duplicate reverse deps: %s %s %s %s",
-              keyToConsolidate,
-              reverseDeps,
-              dataToConsolidate,
-              entry);
-          maybeAssertReverseDepsConsistency(
-              newData.add(key),
+          if (!allRdepsAreNew) {
+            Preconditions.checkState(
+                allReverseDeps.add(key),
+                "Duplicate reverse deps: %s %s %s %s",
+                keyToConsolidate,
+                reverseDeps,
+                dataToConsolidate,
+                entry);
+          }
+          Preconditions.checkState(
+              newReverseDeps.add(key),
               "Duplicate new reverse deps: %s %s %s %s",
               keyToConsolidate,
               reverseDeps,
               dataToConsolidate,
               entry);
           break;
-        default:
-          throw new IllegalStateException(
-              keyToConsolidate + ", " + reverseDepsAsSet + ", " + dataToConsolidate + ", " + entry);
       }
     }
     if (mutateObject) {
       entry.setReverseDepsDataToConsolidateForReverseDepsUtil(null);
-      writeReverseDepsSet(entry, reverseDepsAsSet);
+      writeReverseDepsSet(entry, allRdepsAreNew ? newReverseDeps : allReverseDeps);
     }
-    return newData;
+    return newReverseDeps;
   }
 
-  static Set<SkyKey> consolidateDataAndReturnNewElements(
-      InMemoryNodeEntry entry, OpToStoreBare opToStoreBare) {
-    return consolidateDataAndReturnNewElements(entry, true, opToStoreBare);
+  static Set<SkyKey> consolidateDataAndReturnNewElements(InMemoryNodeEntry entry) {
+    return consolidateDataAndReturnNewElements(entry, /*mutateObject=*/ true);
   }
 
   @SuppressWarnings("unchecked") // Casts to SkyKey and List.
@@ -278,7 +311,8 @@ abstract class ReverseDepsUtility {
           entry);
       Object keyToConsolidate = Iterables.getOnlyElement(dataToConsolidate);
       SkyKey key = KeyToConsolidate.key(keyToConsolidate);
-      switch (KeyToConsolidate.op(keyToConsolidate, DEFAULT_OP_TO_STORE_BARE)) {
+      Preconditions.checkState(getOpToStoreBare(entry) == Op.CHECK, entry);
+      switch (KeyToConsolidate.op(keyToConsolidate, Op.CHECK)) {
         case REMOVE:
           entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
           // Fall through to check.
@@ -310,11 +344,12 @@ abstract class ReverseDepsUtility {
     List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
     Set<SkyKey> reverseDepsAsSet = getReverseDepsSet(entry, reverseDepsAsList);
 
+    Preconditions.checkState(getOpToStoreBare(entry) == Op.CHECK, entry);
     for (Object keyToConsolidate : dataToConsolidate) {
       SkyKey key = KeyToConsolidate.key(keyToConsolidate);
-      switch (KeyToConsolidate.op(keyToConsolidate, DEFAULT_OP_TO_STORE_BARE)) {
+      switch (KeyToConsolidate.op(keyToConsolidate, Op.CHECK)) {
         case CHECK:
-          maybeAssertReverseDepsConsistency(
+          Preconditions.checkState(
               reverseDepsAsSet.contains(key),
               "%s %s %s %s",
               keyToConsolidate,
@@ -323,7 +358,7 @@ abstract class ReverseDepsUtility {
               entry);
           break;
         case REMOVE:
-          maybeAssertReverseDepsConsistency(
+          Preconditions.checkState(
               reverseDepsAsSet.remove(key),
               "%s %s %s %s",
               keyToConsolidate,
@@ -332,7 +367,7 @@ abstract class ReverseDepsUtility {
               entry);
           break;
         case ADD:
-          maybeAssertReverseDepsConsistency(
+          Preconditions.checkState(
               reverseDepsAsSet.add(key),
               "%s %s %s %s",
               keyToConsolidate,
@@ -359,7 +394,7 @@ abstract class ReverseDepsUtility {
   }
 
   private static void writeReverseDepsSet(InMemoryNodeEntry entry, Set<SkyKey> reverseDepsAsSet) {
-    if (reverseDepsAsSet.isEmpty()) {
+    if (entry.keepEdges() != KeepEdgesPolicy.ALL || reverseDepsAsSet.isEmpty()) {
       entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
     } else if (reverseDepsAsSet.size() == 1) {
       entry.setSingleReverseDepForReverseDepsUtil(Iterables.getOnlyElement(reverseDepsAsSet));
@@ -398,21 +433,5 @@ abstract class ReverseDepsUtility {
         .add("dataToConsolidate", entry.getReverseDepsDataToConsolidateForReverseDepsUtil())
         .toString();
   }
-
-  private static void maybeAssertReverseDepsConsistency(
-      boolean consistent, String errorMessageTemplate, Object arg1, Object arg2) {
-    Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2);
-  }
-
-  private static void maybeAssertReverseDepsConsistency(
-      boolean consistent,
-      String errorMessageTemplate,
-      Object arg1,
-      Object arg2,
-      Object arg3,
-      Object arg4) {
-    Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2, arg3, arg4);
-  }
-
   private ReverseDepsUtility() {}
 }

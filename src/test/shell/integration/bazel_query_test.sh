@@ -1034,8 +1034,8 @@ custom_rule(
 )
 EOF
 
-  bazel query "somepath(//${package}:foo, //${package}:hint)" >& $TEST_log \
-     || fail "Expected success"
+  bazel query "somepath(//${package}:foo, //${package}:hint)"  >& $TEST_log \
+    || fail "Expected success"
 
   expect_log "//${package}:hint"
 }

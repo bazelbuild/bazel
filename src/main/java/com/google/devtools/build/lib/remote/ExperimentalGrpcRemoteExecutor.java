@@ -35,12 +35,13 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.longrunning.Operation;
 import com.google.longrunning.Operation.ResultCase;
 import com.google.rpc.Status;
+import io.grpc.Channel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
+import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -73,7 +74,7 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
     this.retrier = retrier;
   }
 
-  private ExecutionBlockingStub executionBlockingStub(RequestMetadata metadata) {
+  private ExecutionBlockingStub executionBlockingStub(RequestMetadata metadata, Channel channel) {
     return ExecutionGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
@@ -90,7 +91,8 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
     // Count retry times for WaitExecution() calls and is reset when we receive any response from
     // the server that is not an error.
     private final ProgressiveBackoff waitExecutionBackoff;
-    private final Supplier<ExecutionBlockingStub> executionBlockingStubSupplier;
+    private final Function<ExecuteRequest, Iterator<Operation>> executeFunction;
+    private final Function<WaitExecutionRequest, Iterator<Operation>> waitExecutionFunction;
 
     // Last response (without error) we received from server.
     private Operation lastOperation;
@@ -100,14 +102,16 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
         OperationObserver observer,
         RemoteRetrier retrier,
         CallCredentialsProvider callCredentialsProvider,
-        Supplier<ExecutionBlockingStub> executionBlockingStubSupplier) {
+        Function<ExecuteRequest, Iterator<Operation>> executeFunction,
+        Function<WaitExecutionRequest, Iterator<Operation>> waitExecutionFunction) {
       this.request = request;
       this.observer = observer;
       this.retrier = retrier;
       this.callCredentialsProvider = callCredentialsProvider;
       this.executeBackoff = this.retrier.newBackoff();
       this.waitExecutionBackoff = new ProgressiveBackoff(this.retrier::newBackoff);
-      this.executionBlockingStubSupplier = executionBlockingStubSupplier;
+      this.executeFunction = executeFunction;
+      this.waitExecutionFunction = waitExecutionFunction;
     }
 
     ExecuteResponse start() throws IOException, InterruptedException {
@@ -168,9 +172,9 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
       Preconditions.checkState(lastOperation == null);
 
       try {
-        Iterator<Operation> operationStream = executionBlockingStubSupplier.get().execute(request);
+        Iterator<Operation> operationStream = executeFunction.apply(request);
         return handleOperationStream(operationStream);
-      } catch (StatusRuntimeException e) {
+      } catch (Throwable e) {
         // If lastOperation is not null, we know the execution request is accepted by the server. In
         // this case, we will fallback to WaitExecution() loop when the stream is broken.
         if (lastOperation != null) {
@@ -188,17 +192,20 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
       WaitExecutionRequest request =
           WaitExecutionRequest.newBuilder().setName(lastOperation.getName()).build();
       try {
-        Iterator<Operation> operationStream =
-            executionBlockingStubSupplier.get().waitExecution(request);
+        Iterator<Operation> operationStream = waitExecutionFunction.apply(request);
         return handleOperationStream(operationStream);
-      } catch (StatusRuntimeException e) {
+      } catch (Throwable e) {
         // A NOT_FOUND error means Operation was lost on the server, retry Execute().
         //
         // However, we only retry Execute() if executeBackoff should retry. Also increase the retry
         // counter at the same time (done by nextDelayMillis()).
-        if (e.getStatus().getCode() == Code.NOT_FOUND && executeBackoff.nextDelayMillis(e) >= 0) {
-          lastOperation = null;
-          return null;
+        if (e instanceof StatusRuntimeException) {
+          StatusRuntimeException sre = (StatusRuntimeException) e;
+          if (sre.getStatus().getCode() == Code.NOT_FOUND
+              && executeBackoff.nextDelayMillis(sre) >= 0) {
+            lastOperation = null;
+            return null;
+          }
         }
         throw new IOException(e);
       }
@@ -321,7 +328,16 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
             observer,
             retrier,
             callCredentialsProvider,
-            () -> this.executionBlockingStub(context.getRequestMetadata()));
+            (req) ->
+                channel.withChannelBlocking(
+                    channel ->
+                        this.executionBlockingStub(context.getRequestMetadata(), channel)
+                            .execute(req)),
+            (req) ->
+                channel.withChannelBlocking(
+                    channel ->
+                        this.executionBlockingStub(context.getRequestMetadata(), channel)
+                            .waitExecution(req)));
     return execution.start();
   }
 

@@ -54,8 +54,6 @@ final class Lexer {
   private final char[] buffer;
   private int pos;
 
-  private final FileOptions options;
-
   // The stack of enclosing indentation levels in spaces.
   // The first (outermost) element is always zero.
   private final Stack<Integer> indentStack = new Stack<>();
@@ -93,9 +91,8 @@ final class Lexer {
 
   // Constructs a lexer which tokenizes the parser input.
   // Errors are appended to errors.
-  Lexer(ParserInput input, FileOptions options, List<SyntaxError> errors) {
+  Lexer(ParserInput input, List<SyntaxError> errors) {
     this.locs = FileLocations.create(input.getContent(), input.getFile());
-    this.options = options;
     this.buffer = input.getContent();
     this.pos = 0;
     this.errors = errors;
@@ -307,6 +304,15 @@ final class Lexer {
             case '\n':
               // ignore end of line character
               break;
+            case 'a':
+              literal.append('\u0007');
+              break;
+            case 'b':
+              literal.append('\b');
+              break;
+            case 'f':
+              literal.append('\f');
+              break;
             case 'n':
               literal.append('\n');
               break;
@@ -315,6 +321,9 @@ final class Lexer {
               break;
             case 't':
               literal.append('\t');
+              break;
+            case 'v':
+              literal.append('\u000b');
               break;
             case '\\':
               literal.append('\\');
@@ -355,27 +364,12 @@ final class Lexer {
                 literal.append((char) (octal & 0xff));
                 break;
               }
-            case 'a':
-            case 'b':
-            case 'f':
             case 'N':
             case 'u':
             case 'U':
-            case 'v':
-            case 'x':
-              // exists in Python but not implemented in Blaze => error
-              error("invalid escape sequence: \\" + c, pos - 1);
-              break;
             default:
               // unknown char escape => "\literal"
-              if (options.restrictStringEscapes()) {
-                error(
-                    "invalid escape sequence: \\"
-                        + c
-                        + ". You can enable unknown escape sequences by passing the flag"
-                        + " --incompatible_restrict_string_escapes=false",
-                    pos - 1);
-              }
+              error("invalid escape sequence: \\" + c + ". Use '\\\\' to insert '\\'.", pos - 1);
               literal.append('\\');
               literal.append(c);
               break;

@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -305,20 +306,35 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help =
-          "Comma-separated list of aspects to be applied to top-level targets. All aspects are"
-              + " applied independently to all top-level targets except if"
-              + " <code>incompatible_top_level_aspects_dependency</code> is used. In this case, if"
+          "Comma-separated list of aspects to be applied to top-level targets. In the list, if"
               + " aspect <code>some_aspect</code> specifies required aspect providers via"
               + " <code>required_aspect_providers</code>, <code>some_aspect</code> will run after"
               + " every aspect that was mentioned before it in the aspects list whose advertised"
               + " providers satisfy <code>some_aspect</code> required aspect providers. Moreover,"
               + " <code>some_aspect</code> will run after all its required aspects specified by"
-              + " <code>requires</code> attribute which otherwise will be ignored."
+              + " <code>requires</code> attribute."
               + " <code>some_aspect</code> will then have access to the values of those aspects'"
               + " providers."
               + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
               + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
   public List<String> aspects;
+
+  @Option(
+      name = "aspects_parameters",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      allowMultiple = true,
+      help =
+          "Specifies the values of the command-line aspects parameters. Each parameter value is"
+              + " specified via <param_name>=<param_value>, for example 'my_param=my_val' where"
+              + " 'my_param' is a parameter of some aspect in --aspects list or required by an"
+              + " aspect in the list. This option can be used multiple times. However, it is not"
+              + " allowed to assign values to the same parameter more than once. This option is"
+              + " only be effective under the experimental flag"
+              + " --experimental_allow_top_level_aspects_parameters.")
+  public List<Map.Entry<String, String>> aspectsParameters;
 
   public BuildRequestOptions() throws OptionsParsingException {}
 
@@ -433,10 +449,7 @@ public class BuildRequestOptions extends OptionsBase {
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If set to true, the genfiles symlink will not be created. For more information, see "
@@ -470,6 +483,15 @@ public class BuildRequestOptions extends OptionsBase {
           "If set, build will read patterns from the file named here, rather than on the command "
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
+
+  @Option(
+      name = "experimental_merged_skyframe_analysis_execution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
+  public boolean mergedSkyframeAnalysisExecution;
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter {

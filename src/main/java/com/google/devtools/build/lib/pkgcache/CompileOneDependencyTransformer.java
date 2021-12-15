@@ -146,7 +146,7 @@ public final class CompileOneDependencyTransformer {
       Collection<Label> srcLabels,
       Label source,
       Set<Label> visitedRuleLabels)
-      throws TargetParsingException, InterruptedException {
+      throws InterruptedException {
     if (srcLabels.contains(source)) {
       return true;
     }
@@ -154,6 +154,7 @@ public final class CompileOneDependencyTransformer {
       if (!visitedRuleLabels.add(label)) {
         continue;
       }
+
       Target target = null;
       try {
         target = targetProvider.getTarget(eventHandler, label);
@@ -162,10 +163,15 @@ public final class CompileOneDependencyTransformer {
         // early return, the presence of this error would then be determined by the order of items
         // in the srcs attribute. A proper error will be created by the subsequent loading.
       }
+
       if (target == null || target instanceof FileTarget) {
         continue;
       }
       Rule targetRule = target.getAssociatedRule();
+      if (targetRule == null) {
+        continue;
+      }
+
       if ("filegroup".equals(targetRule.getRuleClass())) {
         RawAttributeMapper attributeMapper = RawAttributeMapper.of(targetRule);
         Collection<Label> srcs = attributeMapper.getMergedValues("srcs", BuildType.LABEL_LIST);

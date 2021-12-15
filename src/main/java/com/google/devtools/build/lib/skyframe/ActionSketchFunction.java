@@ -81,12 +81,6 @@ public final class ActionSketchFunction implements SkyFunction {
 
   @Nullable
   @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  @Nullable
-  @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     ActionLookupValue actionLookupValue =

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -58,7 +59,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
     return packageFactory
         .newPackageBuilder(
-            id, "TESTING", StarlarkSemantics.DEFAULT, /* repositoryMapping= */ ImmutableMap.of())
+            id, "TESTING", StarlarkSemantics.DEFAULT, RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(RootedPath.toRootedPath(root, filename));
   }
 

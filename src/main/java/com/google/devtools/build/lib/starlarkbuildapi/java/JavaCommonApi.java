@@ -204,6 +204,12 @@ public interface JavaCommonApi<
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]"),
+        @Param(
+            name = "classpath_resources",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "[]"),
         @Param(name = "neverlink", positional = false, named = true, defaultValue = "False"),
         @Param(
             name = "enable_annotation_processing",
@@ -213,7 +219,17 @@ public interface JavaCommonApi<
             doc =
                 "Disables annotation processing in this compilation, causing any annotation"
                     + " processors provided in plugins or in exported_plugins of deps to be"
-                    + " ignored.")
+                    + " ignored."),
+        @Param(
+            name = "enable_compile_jar_action",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            doc =
+                "Enables header compilation or ijar creation. If set to False, it forces use of the"
+                    + " full class jar in the compilation classpaths of any dependants. Doing so is"
+                    + " intended for use by non-library targets such as binaries that do not have"
+                    + " dependants.")
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -236,8 +252,10 @@ public interface JavaCommonApi<
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
+      Sequence<?> classpathResources, // <FileT> expected.
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
+      Boolean enableCompileJarAction,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -435,6 +453,15 @@ public interface JavaCommonApi<
   JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
   @StarlarkMethod(
+      name = "JavaPluginInfo",
+      doc =
+          "The key used to retrieve the provider that contains information about the Java "
+              + "plugins. The same value is accessible as <code>JavaPluginInfo</code>. <br>"
+              + "Prefer using <code>JavaPluginInfo</code> in new code.",
+      structField = true)
+  ProviderApi getJavaPluginProvider();
+
+  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
@@ -449,15 +476,6 @@ public interface JavaCommonApi<
               + "runtime being used.",
       structField = true)
   ProviderApi getJavaRuntimeProvider();
-
-  @StarlarkMethod(
-      name = "is_java_toolchain_resolution_enabled_do_not_use",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
-      },
-      doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
-  boolean isJavaToolchainResolutionEnabled(StarlarkRuleContextT ruleContext) throws EvalException;
 
   @StarlarkMethod(
       name = "MessageBundleInfo",
@@ -577,4 +595,35 @@ public interface JavaCommonApi<
       doc = "The provider used to supply bootclasspath information",
       structField = true)
   ProviderApi getBootClassPathInfo();
+
+  /** Returns target kind. */
+  @StarlarkMethod(
+      name = "target_kind",
+      parameters = {
+        @Param(name = "target", positional = true, named = false, doc = "The target."),
+      },
+      documented = false,
+      useStarlarkThread = true)
+  String getTargetKind(Object target, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "to_java_binary_info",
+      doc = "Returns a copy of the given JavaInfo with minimal info returned by a java_binary",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            doc = "The JavaInfo to enhance."),
+      },
+      useStarlarkThread = true)
+  JavaInfoT toJavaBinaryInfo(JavaInfoT javaInfo, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_build_info",
+      documented = false,
+      parameters = {@Param(name = "ctx", doc = "The rule context")},
+      useStarlarkThread = true)
+  Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException;
 }

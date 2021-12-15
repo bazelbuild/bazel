@@ -22,6 +22,7 @@ import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.observers.TestObserver;
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -385,5 +386,94 @@ public class AsyncTaskCacheTest {
     if (error.get() != null) {
       throw error.get();
     }
+  }
+
+  @Test
+  public void execute_pendingShutdown_getCancellationError() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache
+        .executeIfNot(
+            "key1",
+            Single.create(
+                emitter -> {
+                  // never complete
+                }))
+        .test()
+        .assertNotComplete();
+    cache.shutdown();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
+
+    TestObserver<String> ob = cache.executeIfNot("key2", Single.just("value2")).test();
+
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void execute_afterShutdown_getCancellationError() throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache.shutdown();
+    cache.awaitTermination();
+
+    TestObserver<String> ob = cache.executeIfNot("key", Single.just("value")).test();
+
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void shutdownNow_cancelInProgressTasks() throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    TestObserver<String> ob =
+        cache
+            .executeIfNot(
+                "key",
+                Single.create(
+                    emitter -> {
+                      // never complete
+                    }))
+            .test();
+    cache.shutdown();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
+    ob.assertNotComplete();
+
+    cache.shutdownNow();
+    cache.awaitTermination();
+
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void awaitTermination_pendingShutdown_completeAfterTaskFinished()
+      throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
+    TestObserver<String> ob =
+        cache.executeIfNot("key", Single.create(emitterRef::set)).test().assertNotComplete();
+    assertThat(emitterRef.get()).isNotNull();
+    cache.shutdown();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
+
+    emitterRef.get().onSuccess("value");
+    cache.awaitTermination();
+
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
+    ob.assertValue("value");
+  }
+
+  @Test
+  public void awaitTermination_afterShutdown_complete() throws InterruptedException {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache.shutdownNow();
+    cache.awaitTermination();
+
+    cache.awaitTermination();
+
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
   }
 }

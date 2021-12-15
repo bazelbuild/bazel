@@ -139,8 +139,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAtLeast(i386Lib, x8664Lib);
 
     assertContainsSublist(
-        action.getArguments(),
-        ImmutableList.of(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
+        removeConfigFragment(action.getArguments()),
+        ImmutableList.of(removeConfigFragment(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH), LIPO, "-create"));
     String binFragment =
         removeConfigFragment(targetConfig.getBinFragment(RepositoryName.MAIN) + "/");
     assertThat(removeConfigFragment(action.getArguments()))
@@ -223,8 +223,9 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(action.getInputs()))
         .containsAtLeast(i386Bin, armv7kBin);
 
-    assertContainsSublist(action.getArguments(), ImmutableList.of(
-        MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
+    assertContainsSublist(
+        removeConfigFragment(action.getArguments()),
+        ImmutableList.of(removeConfigFragment(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH), LIPO, "-create"));
     String binFragment =
         removeConfigFragment(targetConfig.getBinFragment(RepositoryName.MAIN) + "/");
     assertThat(removeConfigFragment(action.getArguments()))

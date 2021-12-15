@@ -101,28 +101,6 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
   }
 
   @Test
-  public void testUseDefaultWithVoidExpansionFunction() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_void_expansion_function")
-        .getUseDefaultBuilder();
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    parser.parse("--expanded_d=value to override");
-
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo("value to override");
-
-    enforcer.enforce(parser, BUILD_COMMAND);
-
-    // After policy enforcement, all the flags that --test_void_expansion_function expanded into
-    // should be back to their default values.
-    testOptions = getTestOptions();
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
-  }
-
-  @Test
   public void testUseDefaultWithExpansionFlagAndLaterOverride() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder

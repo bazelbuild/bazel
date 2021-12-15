@@ -24,14 +24,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
-/**
- * Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}.
- */
-public final class AnalysisResult {
+/** Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}. */
+public class AnalysisResult {
   private final BuildConfigurationCollection configurations;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
   @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;

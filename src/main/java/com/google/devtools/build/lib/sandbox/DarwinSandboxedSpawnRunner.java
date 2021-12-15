@@ -179,9 +179,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // {@link #actuallyExec} and add it as a writable directory in
     // {@link AbstractSandboxSpawnRunner#getWritableDirs}.
 
-    // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
+    // ~/Library/Caches and ~/Library/Logs need to be writable (cf. issue #2231).
     Path homeDir = fs.getPath(System.getProperty("user.home"));
-    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Cache"));
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Caches"));
     addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Logs"));
 
     // Certain Xcode tools expect to be able to write to this path.

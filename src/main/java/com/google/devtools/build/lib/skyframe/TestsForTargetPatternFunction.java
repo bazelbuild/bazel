@@ -31,7 +31,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Returns all tests that need to be run when testing is requested for a given set of targets.
@@ -114,11 +113,5 @@ final class TestsForTargetPatternFunction implements SkyFunction {
       }
     }
     return builder.build();
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

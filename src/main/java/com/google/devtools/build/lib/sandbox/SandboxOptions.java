@@ -350,10 +350,7 @@ public class SandboxOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, enables the legacy implicit fallback from sandboxed to local strategy."
               + " This flag will eventually default to false and then become a no-op. Use"
@@ -370,6 +367,19 @@ public class SandboxOptions extends OptionsBase {
           "If set to true, directories used by sandboxed non-worker execution may be reused to"
               + " avoid unnecessary setup costs.")
   public boolean reuseSandboxDirectories;
+
+  @Option(
+      name = "experimental_use_hermetic_linux_sandbox",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set to true, do not mount root, only mount whats provided with "
+              + "sandbox_add_mount_pair. Input files will be hardlinked to the sandbox instead of "
+              + "symlinked to from the sandbox. "
+              + "If action input files are located on a filesystem different from the sandbox, "
+              + "then the input files will be copied instead.")
+  public boolean useHermetic;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {

@@ -529,8 +529,7 @@ dep_rule_with_prov_a(
 
 EOF
 
-  bazel build "${package}:main" \
-      --experimental_required_aspects &>"$TEST_log" \
+  bazel build "${package}:main" &>"$TEST_log" \
       || fail "Build failed but should have succeeded"
 
   # base_aspect will run on dep_target_without_providers,
@@ -610,8 +609,7 @@ rule_r(
 )
 EOF
 
-  bazel build "${package}:test" \
-      --experimental_required_aspects &>"$TEST_log" \
+  bazel build "${package}:test" &>"$TEST_log" \
       || fail "Build failed but should have succeeded"
 
   # Check that aspects: aspect_a, aspect_b, aspect_c were propagated to the
@@ -654,18 +652,49 @@ cc_library(
 count_hints(name = "cnt", deps = [":cc_foo"])
 EOF
 
-  bazel build "//${package}:cnt" --output_groups=out || fail "Build failed"
+  bazel build "//${package}:cnt" --experimental_enable_aspect_hints \
+    --output_groups=out \
+    || fail "Build failed"
   assert_contains "Used hints: 5" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
 }
 
 function test_aspect_has_access_to_aspect_hints_attribute_in_starlark_rules() {
   local package="aspect_hints"
   mkdir -p "${package}"
+  setup_aspect_hints "${package}"
+
+  bazel build "//${package}:cnt" --experimental_enable_aspect_hints \
+    --output_groups=out \
+    || fail "Build failed"
+  assert_contains "Used hints: 22" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
+}
+
+function test_aspect_hints_disabled() {
+  local package="aspect_hints_disabled"
+  mkdir -p "${package}"
+  setup_aspect_hints "${package}"
+
+  bazel build "//${package}:cnt" --noexperimental_enable_aspect_hints \
+    --output_groups=out &>"${TEST_log}" \
+    && fail "The aspect found 'aspect_hints' although it was disabled"
+
+  expect_log "Error: No attribute 'aspect_hints' in attr."
+}
+
+function setup_aspect_hints() {
+  local package="$1"
+  mkdir -p "${package}"
 
   create_aspect_hints_rule_and_aspect "${package}"
   create_aspect_hints_custom_rule "${package}"
+  create_aspect_hints_BUILD_file "${package}"
+}
 
-  cat > "${package}/BUILD" <<EOF
+function create_aspect_hints_BUILD_file() {
+  local package="$1"
+  mkdir -p "${package}"
+
+cat > "${package}/BUILD" <<EOF
 load("//${package}:hints_counter.bzl", "count_hints")
 load("//${package}:custom_rule.bzl", "custom_rule")
 load("//${package}:hints.bzl", "hint")
@@ -685,9 +714,6 @@ custom_rule(
 
 count_hints(name = "cnt", deps = [":custom_foo"])
 EOF
-
-  bazel build "//${package}:cnt" --output_groups=out || fail "Build failed"
-  assert_contains "Used hints: 22" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
 }
 
 function create_aspect_hints_rule_and_aspect() {
@@ -792,6 +818,368 @@ inline int fourtyTwo() {
   return 42;
 }
 EOF
+}
+
+function test_invalid_aspect_with_flag() {
+  # Create a simple cc library to test.
+  cat > BUILD <<EOF
+cc_library(
+  name = "number",
+  srcs = ["number.cc"],
+)
+EOF
+  cat > number.cc <<EOF
+int number() {
+  return 42;
+}
+EOF
+
+  cat > aspect.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+    print(ctx.name)
+    return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+    # Aspects that use attrs are not usable at the command line.
+    attrs = {
+        "type": attr.string(values = ["foo", "bar"]),
+    },
+)
+EOF
+
+  bazel build //:number --aspects //:aspect.bzl%print_aspect &> $TEST_log && fail "Error expected"
+  expect_log "Cannot instantiate parameterized aspect .* at the top level"
+}
+
+function test_aspect_requires_aspect_no_providers_duplicates() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_a = provider()
+prov_b = provider()
+
+def _aspect_b_impl(target, ctx):
+  res = "aspect_b run on target {}".format(target.label.name)
+  print(res)
+  return [prov_b(value = res)]
+
+aspect_b = aspect(
+  implementation = _aspect_b_impl,
+)
+
+def _aspect_a_impl(target, ctx):
+  res = "aspect_a run on target {}".format(target.label.name)
+  print(res)
+  return [prov_a(value = res)]
+
+aspect_a = aspect(
+  implementation = _aspect_a_impl,
+  requires = [aspect_b],
+  attr_aspects = ['dep'],
+)
+
+def _rule_1_impl(ctx):
+  pass
+
+rule_1 = rule(
+  implementation = _rule_1_impl,
+  attrs = {
+      'dep': attr.label(aspects = [aspect_a]),
+  }
+)
+
+def _rule_2_impl(ctx):
+  pass
+
+rule_2 = rule(
+  implementation = _rule_2_impl,
+  attrs = {
+    'dep': attr.label(aspects = [aspect_b]),
+  }
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//${package}:defs.bzl', 'rule_1', 'rule_2')
+exports_files(["write.sh"])
+rule_1(
+  name = 't1',
+  dep = ':t2',
+)
+rule_2(
+  name = 't2',
+  dep = ':t3',
+)
+rule_2(
+  name = 't3',
+)
+EOF
+
+  bazel build "//${package}:t1" &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_a run on target t3"
+  expect_log "aspect_b run on target t3"
+  expect_log "aspect_a run on target t2"
+  expect_log "aspect_b run on target t2"
+}
+
+# test that although a required aspect runs once on a target, it can still keep
+# propagating while inheriting its main aspect attr_aspects
+function test_aspect_requires_aspect_no_providers_duplicates_2() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_a = provider()
+prov_b = provider()
+
+def _aspect_b_impl(target, ctx):
+  res = "aspect_b run on target {}".format(target.label.name)
+  print(res)
+  return [prov_b(value = res)]
+
+aspect_b = aspect(
+  implementation = _aspect_b_impl,
+)
+
+def _aspect_a_impl(target, ctx):
+  res = "aspect_a run on target {}".format(target.label.name)
+  print(res)
+  return [prov_a(value = res)]
+
+aspect_a = aspect(
+  implementation = _aspect_a_impl,
+  requires = [aspect_b],
+  attr_aspects = ['dep_1', 'dep_2'],
+)
+
+def _empty_impl(ctx):
+  pass
+
+rule_1 = rule(
+  implementation = _empty_impl,
+  attrs = {
+      'dep_1': attr.label(aspects = [aspect_a]),
+  }
+)
+
+rule_2 = rule(
+  implementation = _empty_impl,
+  attrs = {
+    'dep_1': attr.label(aspects = [aspect_b]),
+  }
+)
+
+rule_3 = rule(
+  implementation = _empty_impl,
+  attrs = {
+    'dep_2': attr.label(),
+  }
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//${package}:defs.bzl', 'rule_1', 'rule_2', 'rule_3')
+exports_files(["write.sh"])
+rule_1(
+  name = 't1',
+  dep_1 = ':t2',
+)
+rule_2(
+  name = 't2',
+  dep_1 = ':t3',
+)
+rule_3(
+  name = 't3',
+  dep_2 = ':t4',
+)
+rule_3(
+  name = 't4',
+)
+EOF
+
+  bazel build "//${package}:t1" &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_a run on target t4"
+  expect_log "aspect_b run on target t4"
+  expect_log "aspect_a run on target t3"
+  expect_log "aspect_b run on target t3"
+  expect_log "aspect_a run on target t2"
+  expect_log "aspect_b run on target t2"
+}
+
+function test_top_level_aspects_parameters() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}, p1 = {} and p3 = {}'.
+                    format(target.label, ctx.attr.p1, ctx.attr.p3))
+  return []
+
+aspect_a = aspect(
+              implementation = _aspect_a_impl,
+              attr_aspects = ['dep'],
+              attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                        'p3' : attr.string(values = ['p3_v1', 'p3_v2', 'p3_v3'])},
+)
+
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}, p1 = {} and p2 = {}'.
+                      format(target.label, ctx.attr.p1, ctx.attr.p2))
+  return []
+
+aspect_b = aspect(
+            implementation = _aspect_b_impl,
+            attr_aspects = ['dep'],
+            attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                      'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},
+)
+
+def _my_rule_impl(ctx):
+  pass
+
+my_rule = rule(
+           implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'my_rule')
+my_rule(name = 'main_target',
+        dep = ':dep_target_1',
+)
+my_rule(name = 'dep_target_1',
+        dep = ':dep_target_2',
+)
+my_rule(name = 'dep_target_2')
+EOF
+
+  bazel build "//${package}:main_target" \
+      --aspects="//${package}:defs.bzl%aspect_a","//${package}:defs.bzl%aspect_b" \
+      --aspects_parameters="p1=p1_v1" \
+      --aspects_parameters="p2=p2_v2" \
+      --aspects_parameters="p3=p3_v3" \
+      --experimental_allow_top_level_aspects_parameters \
+      &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_a on target //test:main_target, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_a on target //test:dep_target_1, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_a on target //test:dep_target_2, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_b on target //test:main_target, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_b on target //test:dep_target_1, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_b on target //test:dep_target_2, p1 = p1_v1 and p2 = p2_v2"
+}
+
+# aspect_a is propagated from command line on top level target main_target with
+# value p_v1 for its parameter p. It is also propagated from main_target rule
+# with value p_v2 to its parameter p. So aspect_a should run twice on dependency
+# dep_target, once with each parameter value.
+function test_top_level_aspects_parameters_with_same_aspect_propagated_from_rule() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p))
+  return []
+
+aspect_a = aspect(
+              implementation = _aspect_a_impl,
+              attr_aspects = ['dep'],
+              attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },
+)
+
+def _my_rule_impl(ctx):
+  pass
+
+my_rule = rule(
+           implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label(aspects = [aspect_a]),
+                     'p': attr.string()},
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'my_rule')
+my_rule(name = 'main_target',
+        dep = ':dep_target',
+        p = 'p_v2',
+)
+my_rule(name = 'dep_target',
+        p = 'p_v1',
+)
+EOF
+
+  bazel build "//${package}:main_target" \
+      --aspects="//${package}:defs.bzl%aspect_a" \
+      --aspects_parameters="p=p_v1" \
+      --experimental_allow_top_level_aspects_parameters \
+      &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_a on target //test:main_target, p = p_v1"
+  expect_log "aspect_a on target //test:dep_target, p = p_v1"
+  expect_log "aspect_a on target //test:dep_target, p = p_v2"
+}
+
+function test_top_level_aspects_parameters_invalid_multiple_param_values() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p))
+  return []
+
+aspect_a = aspect(
+              implementation = _aspect_a_impl,
+              attr_aspects = ['dep'],
+              attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },
+)
+
+def _my_rule_impl(ctx):
+  pass
+
+my_rule = rule(
+           implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label(aspects = [aspect_a]),
+                     'p': attr.string()},
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'my_rule')
+my_rule(name = 'main_target',
+        dep = ':dep_target',
+        p = 'p_v2',
+)
+my_rule(name = 'dep_target',
+        p = 'p_v1',
+)
+EOF
+
+  bazel build "//${package}:main_target" \
+      --aspects="//${package}:defs.bzl%aspect_a" \
+      --aspects_parameters="p=p_v1" \
+      --aspects_parameters="p=p_v2" \
+      --experimental_allow_top_level_aspects_parameters \
+      &> $TEST_log && fail "Build succeeded, expected to fail"
+
+  expect_log "Error in top-level aspects parameters: Multiple entries with same key: p=p_v2 and p=p_v1"
+
+  bazel build "//${package}:main_target" \
+      --aspects="//${package}:defs.bzl%aspect_a" \
+      --aspects_parameters="p=p_v1" \
+      --aspects_parameters="p=p_v1" \
+      --experimental_allow_top_level_aspects_parameters \
+      &> $TEST_log && fail "Build succeeded, expected to fail"
+
+  expect_log "Error in top-level aspects parameters: Multiple entries with same key: p=p_v1 and p=p_v1"
 }
 
 run_suite "Tests for aspects"

@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
-import static org.junit.Assert.assertThrows;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 
-import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,37 +27,70 @@ import org.junit.runners.JUnit4;
 public class ModuleTest {
 
   @Test
-  public void canonicalizedTargetPatterns_good() throws Exception {
-    ModuleKey key = createModuleKey("self", "1.0");
-    Module module =
-        Module.builder()
-            .setExecutionPlatformsToRegister(ImmutableList.of("//:self_target"))
-            .setToolchainsToRegister(ImmutableList.of("@root//:root_target", "@hi//:hi_target"))
-            .addDep("hi", createModuleKey("hello", "2.0"))
-            .addDep("root", ModuleKey.ROOT)
-            .build();
-    assertThat(module.getCanonicalizedExecutionPlatformsToRegister(key))
-        .containsExactly("@self.1.0//:self_target")
-        .inOrder();
-    assertThat(module.getCanonicalizedToolchainsToRegister(key))
-        .containsExactly("@//:root_target", "@hello.2.0//:hi_target")
-        .inOrder();
+  public void withDepKeysTransformed() throws Exception {
+    assertThat(
+            Module.builder()
+                .addDep("dep_foo", createModuleKey("foo", "1.0"))
+                .addDep("dep_bar", createModuleKey("bar", "2.0"))
+                .build()
+                .withDepKeysTransformed(
+                    key ->
+                        createModuleKey(
+                            key.getName() + "_new", key.getVersion().getOriginal() + ".1")))
+        .isEqualTo(
+            Module.builder()
+                .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
+                .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
+                .build());
   }
 
   @Test
-  public void canonicalizedTargetPatterns_bad() throws Exception {
-    ModuleKey key = createModuleKey("self", "1.0");
+  public void getRepoMapping() throws Exception {
+    ModuleKey key = createModuleKey("test_module", "1.0");
     Module module =
         Module.builder()
-            .setExecutionPlatformsToRegister(ImmutableList.of("@what//:target"))
-            .setToolchainsToRegister(ImmutableList.of("@hi:target"))
-            .addDep("hi", createModuleKey("hello", "2.0"))
-            .addDep("root", ModuleKey.ROOT)
+            .setName(key.getName())
+            .setVersion(key.getVersion())
+            .setKey(key)
+            .addDep("my_foo", createModuleKey("foo", "1.0"))
+            .addDep("my_bar", createModuleKey("bar", "2.0"))
+            .addDep("my_root", ModuleKey.ROOT)
             .build();
-    assertThrows(
-        ExternalDepsException.class,
-        () -> module.getCanonicalizedExecutionPlatformsToRegister(key));
-    assertThrows(
-        ExternalDepsException.class, () -> module.getCanonicalizedToolchainsToRegister(key));
+    assertThat(module.getRepoMappingWithBazelDepsOnly())
+        .isEqualTo(
+            createRepositoryMapping(
+                key,
+                "test_module",
+                "test_module.1.0",
+                "my_foo",
+                "foo.1.0",
+                "my_bar",
+                "bar.2.0",
+                "my_root",
+                ""));
+  }
+
+  @Test
+  public void getRepoMapping_asMainModule() throws Exception {
+    Module module =
+        Module.builder()
+            .setName("test_module")
+            .setVersion(Version.parse("1.0"))
+            .setKey(ModuleKey.ROOT)
+            .addDep("my_foo", createModuleKey("foo", "1.0"))
+            .addDep("my_bar", createModuleKey("bar", "2.0"))
+            .build();
+    assertThat(module.getRepoMappingWithBazelDepsOnly())
+        .isEqualTo(
+            createRepositoryMapping(
+                ModuleKey.ROOT,
+                "",
+                "",
+                "test_module",
+                "",
+                "my_foo",
+                "foo.1.0",
+                "my_bar",
+                "bar.2.0"));
   }
 }

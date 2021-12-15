@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaConfigurationApi;
 import java.util.Map;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A java compiler configuration containing the flags required for compilation. */
@@ -94,8 +93,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final NamedLabel bytecodeOptimizer;
   private final boolean splitBytecodeOptimizationPass;
   private final boolean enforceProguardFileExtension;
-  private final Label toolchainLabel;
-  private final Label runtimeLabel;
   private final boolean runAndroidLint;
   private final boolean limitAndroidLintToAndroidCompatible;
   private final boolean explicitJavaTestDeps;
@@ -103,7 +100,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
   private final boolean disallowResourceJars;
-  private final boolean disallowLegacyJavaToolchainFlags;
   private final boolean experimentalTurbineAnnotationProcessing;
   private final boolean experimentalEnableJspecify;
   private final boolean requireJavaPluginInfo;
@@ -129,8 +125,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
-    this.toolchainLabel = javaOptions.javaToolchain;
-    this.runtimeLabel = javaOptions.javaBase;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
@@ -163,26 +157,41 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
 
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
-    this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.experimentalTurbineAnnotationProcessing;
     this.experimentalEnableJspecify = javaOptions.experimentalEnableJspecify;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
-      checkLegacyToolchainFlagIsUnset(
-          "javabase", javaOptions.javaBase, javaOptions.defaultJavaBase());
-      checkLegacyToolchainFlagIsUnset(
-          "host_javabase", javaOptions.getHostJavaBase(), javaOptions.defaultHostJavaBase());
-      checkLegacyToolchainFlagIsUnset(
-          "java_toolchain", javaOptions.javaToolchain, javaOptions.defaultJavaToolchain());
-      checkLegacyToolchainFlagIsUnset(
-          "host_java_toolchain", javaOptions.hostJavaToolchain, javaOptions.defaultJavaToolchain());
+      checkLegacyToolchainFlagIsUnset("javabase", javaOptions.javaBase);
+      checkLegacyToolchainFlagIsUnset("host_javabase", javaOptions.hostJavaBase);
+      checkLegacyToolchainFlagIsUnset("java_toolchain", javaOptions.javaToolchain);
+      checkLegacyToolchainFlagIsUnset("host_java_toolchain", javaOptions.hostJavaToolchain);
+    }
+
+    boolean oldToolchainFlagSet =
+        javaOptions.javaBase != null
+            || javaOptions.hostJavaBase != null
+            || javaOptions.javaToolchain != null
+            || javaOptions.hostJavaToolchain != null;
+    boolean newToolchainFlagSet =
+        javaOptions.javaLanguageVersion != null
+            || javaOptions.hostJavaLanguageVersion != null
+            || javaOptions.javaRuntimeVersion != null
+            || javaOptions.hostJavaRuntimeVersion != null;
+    if (oldToolchainFlagSet && !newToolchainFlagSet) {
+      throw new InvalidConfigurationException(
+          "At least one of the deprecated no-op toolchain configuration flags is set (--javabase,"
+              + " --host_javabase, --java_toolchain, --host_java_toolchain) and none of the new"
+              + " toolchain configuration flags is set (--java_language_version,"
+              + " --tool_java_language_version, --java_runtime_version,"
+              + " --tool_java_runtime_version). This may result in incorrect toolchain selection "
+              + "(see https://github.com/bazelbuild/bazel/issues/7849).");
     }
   }
 
-  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label, Label defaultValue)
+  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label)
       throws InvalidConfigurationException {
-    if (!Objects.equals(label, defaultValue)) {
+    if (label != null) {
       throw new InvalidConfigurationException(
           String.format(
               "--%s=%s is no longer supported, use --platforms instead (see #7849)", flag, label));
@@ -285,24 +294,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
   public boolean enforceProguardFileExtension() {
     return enforceProguardFileExtension;
-  }
-
-  /** Returns the label of the default java_toolchain rule */
-  @StarlarkConfigurationField(
-      name = "java_toolchain",
-      doc = "Returns the label of the default java_toolchain rule.",
-      defaultLabel = "//tools/jdk:toolchain",
-      defaultInToolRepository = true)
-  public Label getToolchainLabel() {
-    if (disallowLegacyJavaToolchainFlags) {
-      throw new IllegalStateException("--java_toolchain is no longer supported");
-    }
-    return toolchainLabel;
-  }
-
-  /** Returns the label of the {@code java_runtime} rule representing the JVM in use. */
-  public Label getRuntimeLabel() {
-    return runtimeLabel;
   }
 
   /** Stores a String name and an optional associated label. */

@@ -61,7 +61,7 @@ public class ShadowedApiAdapterHelper {
       return false;
     }
 
-    // invokespecial on a private method in the the same class.
+    // invokespecial on a private method in the same class.
     if (verbatimInvocationSite.owner().equals(enclosingMethod.owner())) {
       return false;
     }

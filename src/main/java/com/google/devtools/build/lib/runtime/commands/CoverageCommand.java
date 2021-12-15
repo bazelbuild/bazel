@@ -71,8 +71,8 @@ import com.google.devtools.common.options.OptionsParsingException;
  * set of inputs of test actions if coverage mode is enabled (otherwise the set of metadata files is
  * empty).
  *
- * <p>Whether or not coverage is being collected is stored in the {@code BuildConfiguration}. This
- * is handy because then we have an easy way to change the test action and the action graph
+ * <p>Whether or not coverage is being collected is stored in the {@code BuildConfigurationValue}.
+ * This is handy because then we have an easy way to change the test action and the action graph
  * depending on this bit, but it also means that if this bit is flipped, all targets need to be
  * re-analyzed (note that some languages, e.g. C++ require different compiler options to emit code
  * that can collect coverage, which dominates the time required for analysis).

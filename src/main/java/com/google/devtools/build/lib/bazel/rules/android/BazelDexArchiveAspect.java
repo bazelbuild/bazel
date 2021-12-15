@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 
 /** Fills {@link DexArchiveAspect} with appropriate Android tools and toolchain references. */
 public class BazelDexArchiveAspect extends DexArchiveAspect {
-  public BazelDexArchiveAspect(String toolsRepository) {
+  public BazelDexArchiveAspect(RepositoryName toolsRepository) {
     super(toolsRepository, BazelSdkToolchainRule.TOOLCHAIN_LABEL);
   }
 }

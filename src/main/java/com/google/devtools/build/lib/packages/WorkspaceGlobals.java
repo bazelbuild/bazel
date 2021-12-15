@@ -25,7 +25,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -231,15 +233,23 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     return label.getRepository();
   }
 
-  private static ImmutableList<String> renamePatterns(
-      List<String> patterns, Package.Builder builder, StarlarkThread thread) {
+  private static ImmutableList<TargetPattern> parsePatterns(
+      List<String> patterns, Package.Builder builder, StarlarkThread thread) throws EvalException {
     BazelModuleContext bzlModule =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     RepositoryName myName = getRepositoryName((bzlModule != null ? bzlModule.label() : null));
-    Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
-    return patterns.stream()
-        .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))
-        .collect(ImmutableList.toImmutableList());
+    RepositoryMapping renaming = builder.getRepositoryMappingFor(myName);
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT, myName, renaming);
+    ImmutableList.Builder<TargetPattern> parsedPatterns = ImmutableList.builder();
+    for (String pattern : patterns) {
+      try {
+        parsedPatterns.add(parser.parse(pattern));
+      } catch (TargetParsingException e) {
+        throw Starlark.errorf("error parsing target pattern \"%s\": %s", pattern, e.getMessage());
+      }
+    }
+    return parsedPatterns.build();
   }
 
   @Override
@@ -248,7 +258,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
-    builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, thread));
+    builder.addRegisteredExecutionPlatforms(parsePatterns(patterns, builder, thread));
   }
 
   @Override
@@ -257,7 +267,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
-    builder.addRegisteredToolchains(renamePatterns(patterns, builder, thread));
+    builder.addRegisteredToolchains(parsePatterns(patterns, builder, thread));
   }
 
   @Override

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.worker;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
@@ -102,6 +101,13 @@ public class WorkerMultiplexer {
    */
   private EventHandler reporter;
 
+  /**
+   * Shutdown hook to make sure we wait for the process to finish on JVM shutdown, to avoid creating
+   * zombie processes. Unfortunately, shutdown hooks are not guaranteed to be called, but this is
+   * the best we can do. This must be set when a process is created.
+   */
+  private Thread shutdownHook;
+
   WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
     this.logFile = logFile;
     this.workerKey = workerKey;
@@ -128,6 +134,13 @@ public class WorkerMultiplexer {
       if (this.wasDestroyed) {
         throw new IOException("Multiplexer destroyed before created process");
       }
+      this.shutdownHook =
+          new Thread(
+              () -> {
+                this.shutdownHook = null;
+                this.destroyMultiplexer();
+              });
+      Runtime.getRuntime().addShutdownHook(shutdownHook);
       ImmutableList<String> args = workerKey.getArgs();
       File executable = new File(args.get(0));
       if (!executable.isAbsolute() && executable.getParent() != null) {
@@ -214,6 +227,10 @@ public class WorkerMultiplexer {
         }
       }
     } finally {
+      if (shutdownHook != null) {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        shutdownHook = null;
+      }
       // Stop the subthreads only when the process is dead, or their loops will go on.
       if (this.requestSender != null) {
         this.requestSender.interrupt();
@@ -387,5 +404,12 @@ public class WorkerMultiplexer {
   @VisibleForTesting
   void setProcessFactory(SubprocessFactory factory) {
     subprocessFactory = factory;
+  }
+
+  public long getProcessId() {
+    if (process == null) {
+      return -1;
+    }
+    return process.getProcessId();
   }
 }

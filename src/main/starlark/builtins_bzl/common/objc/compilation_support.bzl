@@ -32,15 +32,11 @@ def _build_variable_extensions(
     if hasattr(ctx.attr, "pch") and ctx.attr.pch != None:
         extensions["pch_file"] = ctx.file.pch.path
 
-    extensions["modules_cache_path"] = ctx.genfiles_dir.path + "/" + "_objc_module_cache"
+    if "MODULE_MAP_VARIABLES" in variable_categories:
+        extensions["modules_cache_path"] = ctx.genfiles_dir.path + "/" + "_objc_module_cache"
 
-    if "ARCHIVE_VARIABLE" in variable_categories:
+    if "ARCHIVE_VARIABLES" in variable_categories:
         extensions["obj_list_path"] = intermediate_artifacts.archive_obj_list.path
-
-    if arc_enabled:
-        extensions["objc_arc"] = ""
-    else:
-        extensions["no_objc_arc"] = ""
 
     if "FULLY_LINK_VARIABLES" in variable_categories:
         extensions["fully_linked_archive_path"] = fully_link_archive.path
@@ -48,7 +44,7 @@ def _build_variable_extensions(
         for cc_lib in objc_provider.flattened_cc_libraries():
             cc_libs[cc_lib.path] = True
         exclusively_objc_libs = []
-        for objc_lib in objc_provider.jre_ordered_objc_libraries():
+        for objc_lib in objc_provider.flattened_objc_libraries():
             if objc_lib.path in cc_libs:
                 continue
             exclusively_objc_libs.append(objc_lib.path)
@@ -60,6 +56,11 @@ def _build_variable_extensions(
         extensions["objc_library_exec_paths"] = exclusively_objc_libs
         extensions["cc_library_exec_paths"] = cc_libs.keys()
         extensions["imported_library_exec_paths"] = import_paths
+
+    if arc_enabled:
+        extensions["objc_arc"] = ""
+    else:
+        extensions["no_objc_arc"] = ""
 
     return extensions
 
@@ -170,8 +171,7 @@ def _compile(
         pch_hdr,
         module_map,
         purpose,
-        generate_module_map,
-        should_process_headers):
+        generate_module_map):
     objc_compilation_context = common_variables.objc_compilation_context
     includes = []
     includes.extend(priority_headers)
@@ -181,7 +181,9 @@ def _compile(
     user_compile_flags.extend(_get_compile_rule_copts(common_variables))
     user_compile_flags.extend(common_variables.objc_config.copts_for_current_compilation_mode)
     user_compile_flags.extend(extra_compile_args)
-    user_compile_flags.extend(_paths_to_include_args(objc_compilation_context.strict_dependency_includes))
+    user_compile_flags.extend(
+        _paths_to_include_args(objc_compilation_context.strict_dependency_includes),
+    )
 
     textual_hdrs = []
     textual_hdrs.extend(objc_compilation_context.public_textual_hdrs)
@@ -203,21 +205,23 @@ def _compile(
         quote_includes = objc_compilation_context.quote_includes,
         compilation_contexts = objc_compilation_context.cc_compilation_contexts,
         user_compile_flags = user_compile_flags,
-        grep_includes = common_variables.ctx.executable._grep_includes,
+        grep_includes = _get_grep_includes(common_variables.ctx),
         module_map = module_map,
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,
         language = "objc",
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = common_variables.ctx),
         hdrs_checking_mode = "strict",
-        do_not_generate_module_map = module_map.file().is_source or not generate_module_map,
+        do_not_generate_module_map = not generate_module_map or module_map.file().is_source,
         purpose = purpose,
     )
 
 def _validate_attributes(common_variables):
     for include in common_variables.compilation_attributes.includes.to_list():
         if include.startswith("/"):
-            cc_helper.rule_error("The path '{}' is absolute, but only relative paths are allowed.".format(include))
+            cc_helper.rule_error(
+                "The path '{}' is absolute, but only relative paths are allowed.".format(include),
+            )
 
     ctx = common_variables.ctx
     if hasattr(ctx.attr, "srcs"):
@@ -231,8 +235,12 @@ def _validate_attributes(common_variables):
                     "File '{}' is present in both srcs and non_arc_srcs which is forbidden.".format(src.path),
                 )
 
-    if ctx.attr.module_name != "" and ctx.attr.module_map != None:
-        cc_helper.attribute_error("module_name", "Specifying both module_name and module_map is invalid, please remove one of them.")
+    if hasattr(ctx.attr, "module_name") and hasattr(ctx.attr, "module_map"):
+        if ctx.attr.module_name != "" and ctx.attr.module_map != None:
+            cc_helper.attribute_error(
+                "module_name",
+                "Specifying both module_name and module_map is invalid, please remove one of them.",
+            )
 
 def _get_compile_rule_copts(common_variables):
     attributes = common_variables.compilation_attributes
@@ -261,10 +269,45 @@ def _paths_to_include_args(paths):
         new_paths.append("-I" + path)
     return new_paths
 
+# TODO(bazel-team): This method can be deleted as soon as the native j2objc
+#  rules are deleted. The native rules are deprecated and will be replaced by
+#  better Starlark rules that are not a literal translation of the native
+#  implementation and use a better approach. This is not done by the Bazel team
+# but a separate team (tball@). This method is added so that common utility code
+# in CompilationSupport can be deleted from Java.
+def _register_compile_and_archive_actions_for_j2objc(
+        ctx,
+        toolchain,
+        intermediate_artifacts,
+        compilation_artifacts,
+        objc_compilation_context,
+        extra_compile_args):
+    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
+    common_variables = struct(
+        ctx = ctx,
+        intermediate_artifacts = intermediate_artifacts,
+        compilation_attributes = compilation_attributes,
+        compilation_artifacts = compilation_artifacts,
+        objc_compilation_context = objc_compilation_context,
+        toolchain = toolchain,
+        use_pch = False,
+        disable_layering_check = True,
+        disable_parse_headers = True,
+        objc_config = ctx.fragments.objc,
+        apple_config = ctx.fragments.apple,
+        objc_provider = None,
+    )
+    return _register_compile_and_archive_actions(
+        common_variables,
+        extra_compile_args,
+        generate_module_map_for_swift = True,
+    )
+
 def _register_compile_and_archive_actions(
         common_variables,
         extra_compile_args = [],
-        priority_headers = []):
+        priority_headers = [],
+        generate_module_map_for_swift = False):
     compilation_result = None
 
     if common_variables.compilation_artifacts.archive != None:
@@ -276,7 +319,8 @@ def _register_compile_and_archive_actions(
             priority_headers,
             "OBJC_ARCHIVE",
             obj_list,
-            ["ARCHIVE_VARIABLE"],
+            ["ARCHIVE_VARIABLES", "MODULE_MAP_VARIABLES"],
+            generate_module_map_for_swift,
         )
 
         _register_obj_file_list_action(
@@ -291,10 +335,21 @@ def _register_compile_and_archive_actions(
             priority_headers,
             link_type = None,
             link_action_input = None,
-            variable_categories = [],
+            variable_categories = ["MODULE_MAP_VARIABLES"],
+            generate_module_map_for_swift = generate_module_map_for_swift,
         )
 
     return compilation_result
+
+def _get_grep_includes(ctx):
+    if hasattr(ctx.executable, "_grep_includes"):
+        return ctx.executable._grep_includes
+    elif hasattr(ctx.file, "_grep_includes"):
+        return ctx.file._grep_includes
+    elif hasattr(ctx.files, "_grep_includes"):
+        return ctx.files._grep_includes[0]
+
+    return None
 
 def _cc_compile_and_link(
         common_variables,
@@ -302,7 +357,8 @@ def _cc_compile_and_link(
         priority_headers,
         link_type,
         link_action_input,
-        variable_categories):
+        variable_categories,
+        generate_module_map_for_swift):
     compilation_artifacts = common_variables.compilation_artifacts
     intermediate_artifacts = common_variables.intermediate_artifacts
     compilation_attributes = common_variables.compilation_attributes
@@ -312,47 +368,22 @@ def _cc_compile_and_link(
     public_hdrs.extend(compilation_attributes.hdrs.to_list())
     public_hdrs.extend(compilation_artifacts.additional_hdrs.to_list())
     pch_header = _get_pch_file(common_variables)
-    feature_configuration = _build_feature_configuration(common_variables, False, True)
-
-    # Generate up to two module maps, while minimizing the number of actions created.  If
-    # module_map feature is off, generate a swift module map.  If module_map feature is on,
-    # generate a layering check and a swift module map.  In the latter case, the layering check
-    # module map must be the primary one.
-    #
-    # TODO(waltl): Delete this logic when swift module map is migrated to swift_library.
-
-    primary_module_map = None
-    arc_primary_module_map_fc = None
-    non_arc_primary_module_map_fc = None
-    extra_module_map = None
-    extra_module_map_fc = None
-    fc_for_swift_module_map = _build_feature_configuration(
+    feature_configuration = _build_feature_configuration(
         common_variables,
-        for_swift_module_map = True,
+        for_swift_module_map = False,
         support_parse_headers = True,
     )
-    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "module_maps"):
-        primary_module_map = intermediate_artifacts.internal_module_map
-        arc_primary_module_map_fc = feature_configuration
-        non_arc_primary_module_map_fc = _build_feature_configuration(
-            common_variables,
-            for_swift_module_map = True,
-            support_parse_headers = False,
-        )
-        extra_module_map = intermediate_artifacts.swift_module_map
-        extra_module_map_fc = fc_for_swift_module_map
-    else:
-        primary_module_map = intermediate_artifacts.swift_module_map
-        arc_primary_module_map_fc = fc_for_swift_module_map
-        non_arc_primary_module_map_fc = _build_feature_configuration(
-            common_variables,
-            for_swift_module_map = True,
-            support_parse_headers = False,
-        )
-        extra_module_map = None
-        extra_module_map_fc = None
+
+    generate_module_map = cc_common.is_enabled(
+        feature_configuration = feature_configuration,
+        feature_name = "module_maps",
+    )
+    module_map = None
+    if generate_module_map:
+        module_map = intermediate_artifacts.internal_module_map
 
     purpose = "{}_objc_arc".format(_get_purpose(common_variables))
+    arc_primary_module_map_fc = feature_configuration
     arc_extensions = _build_variable_extensions(
         common_variables,
         ctx,
@@ -360,7 +391,6 @@ def _cc_compile_and_link(
         variable_categories,
         arc_enabled = True,
     )
-
     (arc_compilation_context, arc_compilation_outputs) = _compile(
         common_variables,
         arc_primary_module_map_fc,
@@ -371,12 +401,17 @@ def _cc_compile_and_link(
         compilation_artifacts.private_hdrs,
         public_hdrs,
         pch_header,
-        primary_module_map,
+        module_map,
         purpose,
-        generate_module_map = True,
-        should_process_headers = True,
+        generate_module_map,
     )
+
     purpose = "{}_non_objc_arc".format(_get_purpose(common_variables))
+    non_arc_primary_module_map_fc = _build_feature_configuration(
+        common_variables,
+        for_swift_module_map = False,
+        support_parse_headers = False,
+    )
     non_arc_extensions = _build_variable_extensions(
         common_variables,
         ctx,
@@ -394,24 +429,27 @@ def _cc_compile_and_link(
         compilation_artifacts.private_hdrs,
         public_hdrs,
         pch_header,
-        primary_module_map,
+        module_map,
         purpose,
         generate_module_map = False,
-        should_process_headers = False,
     )
 
     objc_compilation_context = common_variables.objc_compilation_context
 
-    if extra_module_map != None and not extra_module_map.file().is_source:
+    if generate_module_map_for_swift:
         _generate_extra_module_map(
             common_variables,
-            extra_module_map,
+            intermediate_artifacts.swift_module_map,
             public_hdrs,
             compilation_artifacts.private_hdrs,
             objc_compilation_context.public_textual_hdrs,
             pch_header,
             objc_compilation_context.cc_compilation_contexts,
-            extra_module_map_fc,
+            _build_feature_configuration(
+                common_variables,
+                for_swift_module_map = True,
+                support_parse_headers = False,
+            ),
         )
 
     if link_type == "OBJC_ARCHIVE":
@@ -440,17 +478,21 @@ def _cc_compile_and_link(
         ],
     )
 
+    linking_contexts = []
+    if hasattr(common_variables.ctx.attr, "deps"):
+        linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps)
+
     cc_common.create_linking_context_from_compilation_outputs(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = common_variables.toolchain,
         compilation_outputs = compilation_outputs,
-        linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps),
+        linking_contexts = linking_contexts,
         name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
         language = language,
         disallow_dynamic_library = True,
         additional_inputs = additional_inputs,
-        grep_includes = ctx.executable._grep_includes,
+        grep_includes = _get_grep_includes(ctx),
         variables_extension = non_arc_extensions,
     )
 
@@ -537,7 +579,7 @@ def _generate_extra_module_map(
         module_map = module_map,
         purpose = purpose,
         name = common_variables.ctx.label.name,
-        grep_includes = common_variables.ctx.executable._grep_includes,
+        grep_includes = _get_grep_includes(common_variables.ctx),
     )
 
 def _register_fully_link_action(common_variables, objc_provider, name):
@@ -556,7 +598,7 @@ def _register_fully_link_action(common_variables, objc_provider, name):
     )
 
     linker_inputs = []
-    linker_inputs.extend(objc_provider.jre_ordered_objc_libraries())
+    linker_inputs.extend(objc_provider.flattened_objc_libraries())
     linker_inputs.extend(objc_provider.flattened_cc_libraries())
     linker_inputs.extend(objc_provider.imported_library.to_list())
 
@@ -573,6 +615,7 @@ def _register_fully_link_action(common_variables, objc_provider, name):
 
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,
+    register_compile_and_archive_actions_for_j2objc = _register_compile_and_archive_actions_for_j2objc,
     build_common_variables = _build_common_variables,
     build_feature_configuration = _build_feature_configuration,
     validate_attributes = _validate_attributes,

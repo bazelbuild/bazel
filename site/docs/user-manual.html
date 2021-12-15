@@ -764,7 +764,9 @@ the compilation of binaries during the build.
   only for the specified set of compilation modes. This is useful for bazelrc
   settings. When set to <code class='flag'>yes</code>, Fission is enabled
   universally. When set to <code class='flag'>no</code>, Fission is disabled
-  universally. Default is <code class='flag'>dbg</code>.
+  universally.
+
+    Default is <code class='flag'>no</code>.
 </p>
 
 <h4 id='flag--force_ignore_dash_static'><code class='flag'>--force_ignore_dash_static</code></h4>
@@ -953,7 +955,7 @@ the compilation of binaries during the build.
   strategies and their effects.
 </p>
 <p>
-The first <code>regex_filter</code> that matches the description is used. This option overrides
+The last <code>regex_filter</code> that matches the description is used. This option overrides
 other flags for specifying strategy.
 </p>
 <ul>
@@ -964,8 +966,14 @@ other flags for specifying strategy.
   <li>
     Example:
     <code>--strategy_regexp='Compiling.*/bar=local' --strategy_regexp=Compiling=sandboxed</code>
-    will run 'Compiling //foo/bar/baz' with the <code>local</code> strategy, but reversing the order
-    would run it with <code>sandboxed</code>.
+    will run 'Compiling //foo/bar/baz' with the <code>sandboxed</code> strategy, but reversing
+    the order would run it with <code>local</code>.
+  </li>
+  <li>
+    Example:
+    <code>--strategy_regexp='Compiling.*/bar=local,sandboxed'</code>
+    will run 'Compiling //foo/bar/baz' with the <code>local</code> strategy and fall back to
+    <code>sandboxed</code> if fails.
   </li>
 </ul>
 
@@ -1009,13 +1017,13 @@ other flags for specifying strategy.
   <var>resources or resource expression</var></h4>
 <p>
   These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
-  that Bazel can take into consideration when scheduling build and test activities. They take
-  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
+  that Bazel can take into consideration when scheduling build and test activities to run locally.
+  They take an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
   (for example, <code class='flag'>--local_cpu_resources=2</code>,
   <code class='flag'>--local_ram_resources=HOST_RAM*.5</code>,
   <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
-  The flags are independent; one or both may be set. By default Bazel will estimate amount of RAM
-  and number of CPU cores directly from system configuration.
+  The flags are independent; one or both may be set. By default Bazel will estimate the amount of
+  RAM and number of CPU cores directly from the local system's configuration.
 </p>
 
 <h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>
@@ -1399,9 +1407,9 @@ either to the terminal, or to additional log files.
 <p>
   This option causes bazel to display only
   one progress message per <code>n</code> seconds, where <var>n</var> is a real number.
-  If <code>n</code> is -1, all progress messages will be displayed. The default value for
-  this option is 0.03, meaning bazel will limit the progress messages to one per every
-  0.03 seconds.
+  If <code>n</code> is -1, all progress messages will be displayed.
+  The default value for this option is 0.2, meaning bazel will limit the progress messages to one
+  per every 0.2 seconds.
 </p>
 
 <h4 id='flag--show_result'><code class='flag'>--show_result=<var>n</var></code></h4>
@@ -2267,6 +2275,19 @@ a user-friendly way.
   and cannot run under label.
 </p>
 
+<h4>Filtering logging outputs from Bazel</h4>
+
+<p>
+  When invoking a binary with <code>bazel run</code>, Bazel prints logging output from Bazel itself
+  and the binary under invocation. To make the logs less noisy, you can suppress the outputs from
+  Bazel itself with the <code>--ui_event_filters</code> and <code>--noshow_progress</code> flags.
+  For example:
+
+  <pre>
+  bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress //java/myapp:myapp
+  </pre>
+</p>
+
 <h3>Executing tests</h3>
 
 <p>
@@ -2692,18 +2713,6 @@ adb -s deadbeef install ...
     <a href=https://github.com/google/pprof>pprof</a> compatible .gz file to the specified path.
     You must enable memory tracking for this to work.
   </li>
-  <li><code class='flag'>--action_graph=/path/to/file</code> dumps the state of
-    the internal Bazel action graph in proto format to
-    <code>/path/to/file</code>. You have to run (at least) the analysis phase
-    for the targets you are interested in (for example, <code>bazel build --nobuild
-    //foo:bar</code>). Note that this feature is still experimental, subject to
-    change and will probably be integrated into <code>cquery</code> in the
-    future.
-  <li><code class='flag'>--action_graph:targets=target1,target2,...</code>
-    filters the actions to the comma-separated list of targets when dumping the
-    action graph.</li>
-  <li><code class='flag'>--action_graph:include_cmdline</code> Include the command lines of actions
-    in the action graph dump.</li>
 </ul>
 
   <h4 id='memory-tracking'>Memory tracking</h4>

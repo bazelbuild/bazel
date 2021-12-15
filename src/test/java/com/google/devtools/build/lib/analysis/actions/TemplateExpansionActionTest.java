@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
@@ -208,7 +208,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT,
+        DiscoveredModulesPruner.DEFAULT,
         UnixGlob.DEFAULT_SYSCALLS,
         ThreadStateReceiver.NULL_INSTANCE);
   }

@@ -15,7 +15,6 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
@@ -95,7 +94,7 @@ public final class MarkdownUtil {
   public String ruleSummary(String ruleName, RuleInfo ruleInfo) {
     List<String> attributeNames =
         ruleInfo.getAttributeList().stream()
-            .map(attr -> attr.getName())
+            .map(AttributeInfo::getName)
             .collect(Collectors.toList());
     return summary(ruleName, attributeNames);
   }
@@ -124,7 +123,7 @@ public final class MarkdownUtil {
   public String aspectSummary(String aspectName, AspectInfo aspectInfo) {
     List<String> attributeNames =
         aspectInfo.getAttributeList().stream()
-            .map(attr -> attr.getName())
+            .map(AttributeInfo::getName)
             .collect(Collectors.toList());
     return summary(aspectName, attributeNames);
   }
@@ -138,7 +137,7 @@ public final class MarkdownUtil {
   public String funcSummary(StarlarkFunctionInfo funcInfo) {
     List<String> paramNames =
         funcInfo.getParameterList().stream()
-            .map(param -> param.getName())
+            .map(FunctionParamInfo::getName)
             .collect(Collectors.toList());
     return summary(funcInfo.getFunctionName(), paramNames);
   }
@@ -154,8 +153,7 @@ public final class MarkdownUtil {
       paramLinksLines.add(paramLinksLine);
     }
     String paramList =
-        Joiner.on(String.format(",\n%s", Strings.repeat(" ", functionName.length() + 1)))
-            .join(paramLinksLines);
+        Joiner.on(",\n" + " ".repeat(functionName.length() + 1)).join(paramLinksLines);
     return String.format("%s(%s)", functionName, paramList);
   }
 
@@ -240,9 +238,9 @@ public final class MarkdownUtil {
     List<String> finalProviderNames = new ArrayList<>();
     for (ProviderNameGroup providerNameList : providerNames) {
       List<String> providers = providerNameList.getProviderNameList();
-      finalProviderNames.add(String.format(Joiner.on(", ").join(providers)));
+      finalProviderNames.add(Joiner.on(", ").join(providers));
     }
-    return String.format(Joiner.on("; or ").join(finalProviderNames));
+    return Joiner.on("; or ").join(finalProviderNames);
   }
 
   private static String attributeTypeDescription(AttributeType attributeType) {
@@ -251,16 +249,12 @@ public final class MarkdownUtil {
         return "Name";
       case INT:
         return "Integer";
-      case LABEL:
-        return "Label";
       case STRING:
         return "String";
       case STRING_LIST:
         return "List of strings";
       case INT_LIST:
         return "List of integers";
-      case LABEL_LIST:
-        return "List of labels";
       case BOOLEAN:
         return "Boolean";
       case LABEL_STRING_DICT:
@@ -269,8 +263,10 @@ public final class MarkdownUtil {
         return "Dictionary: String -> String";
       case STRING_LIST_DICT:
         return "Dictionary: String -> List of strings";
+      case LABEL:
       case OUTPUT:
         return "Label";
+      case LABEL_LIST:
       case OUTPUT_LIST:
         return "List of labels";
       case UNKNOWN:

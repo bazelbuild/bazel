@@ -28,6 +28,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class PackageGroupIntegrationTest extends BuildIntegrationTestCase {
+
   @Before
   public final void setUpToolsConfigMock() throws Exception  {
     AnalysisMock.get().pySupport().setup(mockToolsConfig);

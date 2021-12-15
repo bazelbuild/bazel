@@ -119,8 +119,6 @@ abstract class ArtifactFunctionTestCase {
                         null,
                         null,
                         null,
-                        null,
-                        null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,

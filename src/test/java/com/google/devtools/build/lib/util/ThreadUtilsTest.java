@@ -64,7 +64,11 @@ public class ThreadUtilsTest {
     noParkThread.start();
     noParkThread2.start();
     waitForThreads.await();
-    ThreadUtils.warnAboutSlowInterrupt(bugReporter);
+    ThreadUtils.warnAboutSlowInterrupt("interrupt message", bugReporter);
+    assertThat(reportedException.get())
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("(Wrapper exception for longest stack trace) interrupt message");
     assertThat(reportedException.get().getCause().getStackTrace()[0].getMethodName())
         .isEqualTo("sleep");
     assertThat(reportedException.get().getCause().getStackTrace()[1].getMethodName())

@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.Starlark;
@@ -199,7 +198,9 @@ public class LabelTest {
     PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
-    Label relative = base.getRelativeWithRemapping("//conditions:default", ImmutableMap.of());
+    Label relative =
+        base.getRelativeWithRemapping(
+            "//conditions:default", RepositoryMapping.create(ImmutableMap.of(), "repo"));
 
     PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
     assertThat(relative.getRepository()).isEqualTo(expected.getRepository());
@@ -217,20 +218,6 @@ public class LabelTest {
     assertThat(relative.getRepository()).isEqualTo(RepositoryName.create("@"));
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
     assertThat(relative.getName()).isEqualTo("y");
-  }
-
-  @Test
-  public void testGetRepositoryRelative() throws Exception {
-    Label defaultBase = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
-    Label repoBase = Label.parseAbsolute("@repo//foo/bar:baz", ImmutableMap.of());
-    Label mainBase = Label.parseAbsolute("@//foo/bar:baz", ImmutableMap.of());
-    Label externalTarget = Label.parseAbsolute("//external:target", ImmutableMap.of());
-    Label l = defaultBase.resolveRepositoryRelative(externalTarget);
-    assertThat(l.getRepository().isMain()).isTrue();
-    assertThat(l.getPackageName()).isEqualTo("external");
-    assertThat(l.getName()).isEqualTo("target");
-    assertThat(repoBase.resolveRepositoryRelative(externalTarget)).isEqualTo(l);
-    assertThat(mainBase.resolveRepositoryRelative(externalTarget)).isEqualTo(l);
   }
 
   @Test
@@ -404,30 +391,6 @@ public class LabelTest {
   }
 
   @Test
-  public void testSerializationSimple() throws Exception {
-    checkSerialization("//a", 93);
-  }
-
-  @Test
-  public void testSerializationNested() throws Exception {
-    checkSerialization("//foo/bar:baz", 101);
-  }
-
-  @Test
-  public void testSerializationWithoutTargetName() throws Exception {
-    checkSerialization("//foo/bar", 101);
-  }
-
-  private void checkSerialization(String labelString, int expectedSize) throws Exception {
-    Label a = Label.parseAbsolute(labelString, ImmutableMap.of());
-    byte[] sa = TestUtils.serializeObject(a);
-    assertThat(sa).hasLength(expectedSize);
-
-    Label a2 = (Label) TestUtils.deserializeObject(sa);
-    assertThat(a2).isEqualTo(a);
-  }
-
-  @Test
   public void testRepoLabel() throws Exception {
     Label label = Label.parseAbsolute("@foo//bar/baz:bat/boo", ImmutableMap.of());
     assertThat(label.toString()).isEqualTo("@foo//bar/baz:bat/boo");
@@ -447,7 +410,9 @@ public class LabelTest {
             () -> Label.parseAbsolute("foo//bar/baz:bat/boo", ImmutableMap.of()));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("invalid repository name 'foo': workspace names must start with '@'");
+        .isEqualTo(
+            "invalid package name 'foo//bar/baz': package names may not contain '//' path"
+                + " separators");
   }
 
   @Test

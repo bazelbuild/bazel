@@ -98,7 +98,7 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       context.serialize(obj.getChildren(), codedOut);
     } else {
       codedOut.writeEnumNoTag(NestedSetSize.NONLEAF.ordinal());
-      context.serialize(obj.getApproxDepth(), codedOut);
+      codedOut.writeInt32NoTag(obj.getApproxDepth());
       FingerprintComputationResult fingerprintComputationResult =
           nestedSetStore.computeFingerprintAndStore((Object[]) obj.getChildren(), context);
       context.addFutureToBlockWritingOn(
@@ -118,9 +118,9 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
         return NestedSetBuilder.emptySet(order);
       case LEAF:
         Object contents = context.deserialize(codedIn);
-        return intern(order, 1, contents);
+        return intern(order, /*depth=*/ 1, contents);
       case NONLEAF:
-        int depth = context.deserialize(codedIn);
+        int depth = codedIn.readInt32();
         ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
         return intern(order, depth, nestedSetStore.getContentsAndDeserialize(fingerprint, context));
     }

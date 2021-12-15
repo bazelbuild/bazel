@@ -18,8 +18,9 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -34,9 +35,11 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.sun.management.GarbageCollectionNotificationInfo;
+import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.concurrent.GuardedBy;
@@ -94,6 +97,9 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   @GuardedBy("this")
   private boolean memoryUsageReportedZero = false;
 
+  @GuardedBy("this")
+  private Map<String, Long> garbageStats = new HashMap<>();
+
   @VisibleForTesting
   PostGCMemoryUseRecorder(Iterable<GarbageCollectorMXBean> mxBeans) {
     for (GarbageCollectorMXBean mxBean : mxBeans) {
@@ -114,9 +120,17 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     return memoryUsageReportedZero;
   }
 
+  /**
+   * Returns the number of bytes garbage collected during this invocation. Broken down by GC space.
+   */
+  public synchronized ImmutableMap<String, Long> getGarbageStats() {
+    return ImmutableMap.copyOf(garbageStats);
+  }
+
   public synchronized void reset() {
     peakHeap = Optional.empty();
     memoryUsageReportedZero = false;
+    garbageStats = new HashMap<>();
   }
 
   private synchronized void updatePostGCHeapMemoryUsed(long used, long timestampMillis) {
@@ -139,6 +153,26 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
     GarbageCollectionNotificationInfo info =
         GarbageCollectionNotificationInfo.from((CompositeData) notification.getUserData());
+
+    Map<String, Long> gcBefore = new HashMap<>();
+    GcInfo gcInfo = info.getGcInfo();
+    for (Map.Entry<String, MemoryUsage> memoryUsage : gcInfo.getMemoryUsageBeforeGc().entrySet()) {
+      String kind = memoryUsage.getKey();
+      gcBefore.put(kind, memoryUsage.getValue().getUsed());
+    }
+    synchronized (this) {
+      for (Map.Entry<String, MemoryUsage> memoryUsage : gcInfo.getMemoryUsageAfterGc().entrySet()) {
+        String kind = memoryUsage.getKey();
+        long before = gcBefore.containsKey(kind) ? gcBefore.get(kind) : 0;
+        long diff = before - memoryUsage.getValue().getUsed();
+        // The difference is potentially negative when the JVM propagates objects from one GC space
+        // to another. Discard these cases.
+        if (diff > 0) {
+          garbageStats.compute(kind, (k, v) -> v == null ? diff : v + diff);
+        }
+      }
+    }
+
     if (wasStopTheWorldGc(info)) {
       long durationNs = info.getGcInfo().getDuration() * 1_000_000;
       long end = Profiler.nanoTimeMaybe();
@@ -193,7 +227,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
 
     @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+    public byte[] get(
+        Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
       return PostGCMemoryUseRecorder.get()
           .getPeakPostGcHeap()
           .map(peak -> print(StringUtilities.prettyPrintBytes(peak.bytes())))

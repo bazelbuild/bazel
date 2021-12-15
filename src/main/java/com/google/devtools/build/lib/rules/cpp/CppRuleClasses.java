@@ -35,7 +35,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
@@ -68,7 +68,7 @@ public class CppRuleClasses {
         CC_TOOLCHAIN_CONFIGURATION_RESOLVER);
   }
 
-  @AutoCodec
+  @SerializationConstant
   static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
 
@@ -459,14 +459,25 @@ public class CppRuleClasses {
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
+    private final boolean addGrepIncludes;
+
+    public CcIncludeScanningRule(boolean addGrepIncludes) {
+      this.addGrepIncludes = addGrepIncludes;
+    }
+
+    public CcIncludeScanningRule() {
+      this(true);
+    }
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$grep_includes", LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .value(env.getToolsLabel("//tools/cpp:grep-includes")))
-          .build();
+      if (addGrepIncludes) {
+        builder.add(
+            attr("$grep_includes", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(env.getToolsLabel("//tools/cpp:grep-includes")));
+      }
+      return builder.build();
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -64,19 +65,16 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   }
 
   /** Represents a successfully loaded package or a directory without a BUILD file. */
-  @AutoCodec
   public static class NoErrorCollectPackagesUnderDirectoryValue
       extends CollectPackagesUnderDirectoryValue {
-    @AutoCodec
+    @SerializationConstant
     public static final NoErrorCollectPackagesUnderDirectoryValue EMPTY =
         new NoErrorCollectPackagesUnderDirectoryValue(
             false, ImmutableMap.<RootedPath, Boolean>of());
 
     private final boolean isDirectoryPackage;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    NoErrorCollectPackagesUnderDirectoryValue(
+    private NoErrorCollectPackagesUnderDirectoryValue(
         boolean isDirectoryPackage,
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
       super(subdirectoryTransitivelyContainsPackagesOrErrors);
@@ -129,13 +127,10 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   }
 
   /** Represents a directory with a BUILD file that failed to load. */
-  @AutoCodec
-  public static class ErrorCollectPackagesUnderDirectoryValue
+  private static class ErrorCollectPackagesUnderDirectoryValue
       extends CollectPackagesUnderDirectoryValue {
     private final String errorMessage;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
     ErrorCollectPackagesUnderDirectoryValue(
         String errorMessage,
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {

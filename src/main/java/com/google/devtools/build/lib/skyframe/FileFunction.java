@@ -131,7 +131,6 @@ public class FileFunction implements SkyFunction {
         symlinkResolutionState.pathToUnboundedAncestorSymlinkExpansionChain,
         symlinkResolutionState.unboundedAncestorSymlinkExpansionChain,
         rootedPath,
-        // TODO(b/123922036): This is a bug. Should be 'fileStateValueFromAncestors'.
         fileStateValueFromAncestors,
         realRootedPath,
         realFileStateValue);
@@ -356,12 +355,6 @@ public class FileFunction implements SkyFunction {
 
   private static Predicate<RootedPath> isPathPredicate(Path path) {
     return rootedPath -> rootedPath.asPath().equals(path);
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

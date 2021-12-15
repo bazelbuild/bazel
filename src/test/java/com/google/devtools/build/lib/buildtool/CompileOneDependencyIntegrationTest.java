@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsE
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import org.junit.Test;
@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
  * be a source file path relative to the workspace) rebuild a single target that depends on it.
  */
 @RunWith(JUnit4.class)
-public class CompileOneDependencyIntegrationTest extends GoogleBuildIntegrationTestCase {
+public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testCcBinaryMember() throws Exception {

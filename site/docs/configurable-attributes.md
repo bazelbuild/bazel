@@ -974,7 +974,7 @@ values with `bazel config`:
 
 ```sh
 $ bazel config 12e23b9a2b534a
-BuildConfiguration 12e23b9a2b534a
+BuildConfigurationValue 12e23b9a2b534a
 Fragment com.google.devtools.build.lib.analysis.config.CoreOptions {
   cpu: darwin
   compilation_mode: fastbuild

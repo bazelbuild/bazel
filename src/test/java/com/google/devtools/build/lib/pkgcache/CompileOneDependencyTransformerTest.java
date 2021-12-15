@@ -364,4 +364,17 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h"));
   }
+
+  @Test
+  public void doesNotCrashWhenPackageHasRuleWithDubiousSrcs() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "environment(name = 'foo')",
+        "environment(name = 'baz')",
+        "environment_group(name = 'bar', environments = [':baz', ':foo'], defaults = [':baz'])",
+        "package_group(name = 'pg')",
+        "cc_library(name = 'h1', srcs = [':bar', ':pg'])",
+        "cc_library(name = 'h2', hdrs = ['a.h'])");
+    assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h2"));
+  }
 }

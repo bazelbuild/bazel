@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -211,11 +211,11 @@ public final class AndroidRuleClasses {
         (rule, attributes, configuration) -> configuration.getSdk());
   }
 
-  @AutoCodec
+  @SerializationConstant
   public static final AndroidSplitTransition ANDROID_SPLIT_TRANSITION =
       new AndroidSplitTransition();
 
-  @AutoCodec
+  @SerializationConstant
   static final LabelLateBoundDefault<AndroidConfiguration> LEGACY_MAIN_DEX_LIST_GENERATOR =
       LabelLateBoundDefault.fromTargetConfiguration(
           AndroidConfiguration.class,
@@ -548,6 +548,12 @@ public final class AndroidRuleClasses {
               attr("debug_signing_lineage_file", LABEL)
                   .cfg(ExecutionTransitionFactory.create())
                   .legacyAllowAnyFileType())
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(key_rotation_min_sdk) -->
+          Sets the minimum Android platform version (API Level) for which an APK's rotated signing
+          key should be used to produce the APK's signature. The original signing key for the APK
+          will be used for all previous platform versions.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("key_rotation_min_sdk", STRING))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(nocompress_extensions) -->
           A list of file extension to leave uncompressed in apk.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -935,15 +941,10 @@ public final class AndroidRuleClasses {
   /** Definition of the {@code android_tools_defaults_jar} rule. */
   public static final class AndroidToolsDefaultsJarRule implements RuleDefinition {
 
-    private final Label[] compatibleWithAndroidEnvironments;
-
     private final Class<? extends AndroidToolsDefaultsJar> factoryClass;
 
-    public AndroidToolsDefaultsJarRule(
-        Class<? extends AndroidToolsDefaultsJar> factoryClass,
-        Label... compatibleWithAndroidEnvironments) {
+    public AndroidToolsDefaultsJarRule(Class<? extends AndroidToolsDefaultsJar> factoryClass) {
       this.factoryClass = factoryClass;
-      this.compatibleWithAndroidEnvironments = compatibleWithAndroidEnvironments;
     }
 
     @Override
@@ -954,9 +955,6 @@ public final class AndroidRuleClasses {
               attr(":android_sdk", LABEL)
                   .allowedRuleClasses("android_sdk")
                   .value(getAndroidSdkLabel(environment.getToolsLabel(DEFAULT_SDK))));
-      if (compatibleWithAndroidEnvironments.length > 0) {
-        builder.compatibleWith(compatibleWithAndroidEnvironments);
-      }
       return builder.build();
     }
 

@@ -41,7 +41,7 @@ public class RequiredProvidersTest {
       new BuiltinProvider<StructImpl>("p_native", StructImpl.class) {};
 
   private static final StarlarkProvider P_STARLARK =
-      StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
+      StarlarkProvider.builder(Location.BUILTIN).build();
 
   static {
     try {

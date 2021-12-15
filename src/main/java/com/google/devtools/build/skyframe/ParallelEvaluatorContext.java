@@ -46,7 +46,7 @@ class ParallelEvaluatorContext {
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  private final EvaluationVersionBehavior evaluationVersionBehavior;
+  private final boolean mergingSkyframeAnalysisExecutionPhases;
 
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -80,13 +80,12 @@ class ParallelEvaluatorContext {
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      boolean mergingSkyframeAnalysisExecutionPhases) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
-    this.evaluationVersionBehavior = evaluationVersionBehavior;
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
     this.replayingNestedSetPostableVisitor =
@@ -97,6 +96,7 @@ class ParallelEvaluatorContext {
     this.storedEventFilter = storedEventFilter;
     this.errorInfoManager = errorInfoManager;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
+    this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
   }
 
   Map<SkyKey, ? extends NodeEntry> getBatchValues(
@@ -186,12 +186,12 @@ class ParallelEvaluatorContext {
     return errorInfoManager;
   }
 
-  EvaluationVersionBehavior getEvaluationVersionBehavior() {
-    return evaluationVersionBehavior;
-  }
-
   boolean restartPermitted() {
     return graphInconsistencyReceiver.restartPermitted();
+  }
+
+  boolean mergingSkyframeAnalysisExecutionPhases() {
+    return mergingSkyframeAnalysisExecutionPhases;
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */

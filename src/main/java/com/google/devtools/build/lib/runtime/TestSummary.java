@@ -22,7 +22,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -122,7 +122,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       checkMutation();
     }
 
-    public Builder setConfiguration(BuildConfiguration configuration) {
+    public Builder setConfiguration(BuildConfigurationValue configuration) {
       checkMutation(configuration);
       summary.configuration = checkNotNull(configuration, summary);
       return this;
@@ -365,7 +365,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   // Currently only populated if --runs_per_test_detects_flakes is enabled.
   private final ImmutableList<ArrayList<BlazeTestStatus>> shardRunStatuses;
 
-  private BuildConfiguration configuration;
+  private BuildConfigurationValue configuration;
   private BlazeTestStatus status;
   private boolean skipped;
   private final int[] shardAttempts;
@@ -416,7 +416,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return target;
   }
 
-  public BuildConfiguration getConfiguration() {
+  public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
 

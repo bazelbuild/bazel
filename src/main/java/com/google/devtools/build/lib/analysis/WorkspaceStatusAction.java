@@ -58,6 +58,9 @@ import javax.annotation.Nullable;
  * <p>There are two of these files: volatile and stable. Changes in the volatile file do not cause
  * rebuilds if no other file is changed. This is useful for frequently-changing information that
  * does not significantly affect the build, e.g. the current time.
+ *
+ * <p>For more information, see {@link
+ * com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory}.
  */
 public abstract class WorkspaceStatusAction extends AbstractAction {
 

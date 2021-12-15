@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * Configuration fragment for Android's config_feature_flag, flags which can be defined in BUILD
  * files.
  */
-@RequiresOptions(options = {ConfigFeatureFlagOptions.class})
+@RequiresOptions(options = ConfigFeatureFlagOptions.class, starlark = true)
 public final class ConfigFeatureFlagConfiguration extends Fragment {
   private final ImmutableSortedMap<Label, String> flagValues;
   @Nullable private final String flagHash;

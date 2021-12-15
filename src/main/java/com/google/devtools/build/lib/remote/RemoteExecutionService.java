@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDeta
 import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
+import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromCombinedCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromDiskCache;
@@ -52,6 +53,9 @@ import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -59,32 +63,44 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -104,6 +120,12 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
+import io.reactivex.rxjava3.annotations.NonNull;
+import io.reactivex.rxjava3.core.Scheduler;
+import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleObserver;
+import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -116,6 +138,9 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -123,6 +148,8 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private final Reporter reporter;
+  private final boolean verboseFailures;
   private final Path execRoot;
   private final RemotePathResolver remotePathResolver;
   private final String buildRequestId;
@@ -133,8 +160,17 @@ public class RemoteExecutionService {
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final ImmutableSet<PathFragment> filesToDownload;
   @Nullable private final Path captureCorruptedOutputsDir;
+  private final Cache<Object, MerkleTree> merkleTreeCache;
+
+  private final Scheduler scheduler;
+
+  private final AtomicBoolean shutdown = new AtomicBoolean(false);
+  private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
   public RemoteExecutionService(
+      Executor executor,
+      Reporter reporter,
+      boolean verboseFailures,
       Path execRoot,
       RemotePathResolver remotePathResolver,
       String buildRequestId,
@@ -145,6 +181,8 @@ public class RemoteExecutionService {
       @Nullable RemoteExecutionClient remoteExecutor,
       ImmutableSet<ActionInput> filesToDownload,
       @Nullable Path captureCorruptedOutputsDir) {
+    this.reporter = reporter;
+    this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
     this.remotePathResolver = remotePathResolver;
     this.buildRequestId = buildRequestId;
@@ -154,12 +192,21 @@ public class RemoteExecutionService {
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
 
+    Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
+    // remoteMerkleTreesCacheSize = 0 means limitless.
+    if (remoteOptions.remoteMerkleTreeCacheSize != 0) {
+      merkleTreeCacheBuilder.maximumSize(remoteOptions.remoteMerkleTreeCacheSize);
+    }
+    this.merkleTreeCache = merkleTreeCacheBuilder.build();
+
     ImmutableSet.Builder<PathFragment> filesToDownloadBuilder = ImmutableSet.builder();
     for (ActionInput actionInput : filesToDownload) {
       filesToDownloadBuilder.add(actionInput.getExecPath());
     }
     this.filesToDownload = filesToDownloadBuilder.build();
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
+
+    this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
   }
 
   static Command buildCommand(
@@ -206,7 +253,7 @@ public class RemoteExecutionService {
     private final Spawn spawn;
     private final SpawnExecutionContext spawnExecutionContext;
     private final RemoteActionExecutionContext remoteActionExecutionContext;
-    private final SortedMap<PathFragment, ActionInput> inputMap;
+    private final RemotePathResolver remotePathResolver;
     private final MerkleTree merkleTree;
     private final Digest commandHash;
     private final Command command;
@@ -217,7 +264,7 @@ public class RemoteExecutionService {
         Spawn spawn,
         SpawnExecutionContext spawnExecutionContext,
         RemoteActionExecutionContext remoteActionExecutionContext,
-        SortedMap<PathFragment, ActionInput> inputMap,
+        RemotePathResolver remotePathResolver,
         MerkleTree merkleTree,
         Digest commandHash,
         Command command,
@@ -226,7 +273,7 @@ public class RemoteExecutionService {
       this.spawn = spawn;
       this.spawnExecutionContext = spawnExecutionContext;
       this.remoteActionExecutionContext = remoteActionExecutionContext;
-      this.inputMap = inputMap;
+      this.remotePathResolver = remotePathResolver;
       this.merkleTree = merkleTree;
       this.commandHash = commandHash;
       this.command = command;
@@ -236,6 +283,11 @@ public class RemoteExecutionService {
 
     public RemoteActionExecutionContext getRemoteActionExecutionContext() {
       return remoteActionExecutionContext;
+    }
+
+    /** Returns the {@link ActionExecutionMetadata} that owns this action. */
+    public ActionExecutionMetadata getOwner() {
+      return spawn.getResourceOwner();
     }
 
     /**
@@ -256,12 +308,18 @@ public class RemoteExecutionService {
       return actionKey.getDigest().getHash();
     }
 
+    /** Returns underlying {@link Action} of this remote action. */
+    public Action getAction() {
+      return action;
+    }
+
     /**
      * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
      * ActionInput}.
      */
-    public SortedMap<PathFragment, ActionInput> getInputMap() {
-      return inputMap;
+    public SortedMap<PathFragment, ActionInput> getInputMap()
+        throws IOException, ForbiddenActionInputException {
+      return remotePathResolver.getInputMapping(spawnExecutionContext);
     }
 
     /**
@@ -298,6 +356,19 @@ public class RemoteExecutionService {
     }
   }
 
+  public static boolean shouldUploadLocalResults(
+      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
+    if (useRemoteCache(remoteOptions)) {
+      if (useDiskCache(remoteOptions)) {
+        return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
+      } else {
+        return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
+      }
+    } else {
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
+    }
+  }
+
   /**
    * Returns {@code true} if the local results of the {@code spawn} should be uploaded to remote
    * cache.
@@ -307,15 +378,7 @@ public class RemoteExecutionService {
       return false;
     }
 
-    if (useRemoteCache(remoteOptions)) {
-      if (useDiskCache(remoteOptions)) {
-        return shouldUploadLocalResultsToCombinedDisk(remoteOptions, spawn);
-      } else {
-        return shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn);
-      }
-    } else {
-      return shouldUploadLocalResultsToDiskCache(remoteOptions, spawn);
-    }
+    return shouldUploadLocalResults(remoteOptions, spawn.getExecutionInfo());
   }
 
   /** Returns {@code true} if the spawn may be executed remotely. */
@@ -325,12 +388,69 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  private MerkleTree buildInputMerkleTree(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ForbiddenActionInputException {
+    if (remoteOptions.remoteMerkleTreeCache) {
+      MetadataProvider metadataProvider = context.getMetadataProvider();
+      ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
+      remotePathResolver.walkInputs(
+          spawn,
+          context,
+          (Object nodeKey, InputWalker walker) -> {
+            subMerkleTrees.add(buildMerkleTreeVisitor(nodeKey, walker, metadataProvider));
+          });
+      return MerkleTree.merge(subMerkleTrees, digestUtil);
+    } else {
+      SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
+      return MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+    }
+  }
+
+  private MerkleTree buildMerkleTreeVisitor(
+      Object nodeKey, InputWalker walker, MetadataProvider metadataProvider)
+      throws IOException, ForbiddenActionInputException {
+    MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
+    if (result == null) {
+      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider);
+      merkleTreeCache.put(nodeKey, result);
+    }
+    return result;
+  }
+
+  @VisibleForTesting
+  public MerkleTree uncachedBuildMerkleTreeVisitor(
+      InputWalker walker, MetadataProvider metadataProvider)
+      throws IOException, ForbiddenActionInputException {
+    ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
+    subMerkleTrees.add(
+        MerkleTree.build(walker.getLeavesInputMapping(), metadataProvider, execRoot, digestUtil));
+    walker.visitNonLeaves(
+        (Object subNodeKey, InputWalker subWalker) -> {
+          subMerkleTrees.add(buildMerkleTreeVisitor(subNodeKey, subWalker, metadataProvider));
+        });
+    return MerkleTree.merge(subMerkleTrees, digestUtil);
+  }
+
+  @Nullable
+  private static ByteString buildSalt(Spawn spawn) {
+    String workspace =
+        spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
+    if (workspace != null) {
+      Platform platform =
+          Platform.newBuilder()
+              .addProperties(
+                  Platform.Property.newBuilder().setName("workspace").setValue(workspace).build())
+              .build();
+      return platform.toByteString();
+    }
+
+    return null;
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, UserExecException, ForbiddenActionInputException {
-    SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
-    final MerkleTree merkleTree =
-        MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+    final MerkleTree merkleTree = buildInputMerkleTree(spawn, context);
 
     // Get the remote platform properties.
     Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
@@ -349,7 +469,8 @@ public class RemoteExecutionService {
             merkleTree.getRootDigest(),
             platform,
             context.getTimeout(),
-            Spawns.mayBeCachedRemotely(spawn));
+            Spawns.mayBeCachedRemotely(spawn),
+            buildSalt(spawn));
 
     ActionKey actionKey = digestUtil.computeActionKey(action);
 
@@ -357,13 +478,13 @@ public class RemoteExecutionService {
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
     RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.createForSpawn(spawn, metadata);
+        RemoteActionExecutionContext.create(spawn, metadata);
 
     return new RemoteAction(
         spawn,
         context,
         remoteActionExecutionContext,
-        inputMap,
+        remotePathResolver,
         merkleTree,
         commandHash,
         command,
@@ -375,23 +496,28 @@ public class RemoteExecutionService {
   public static class RemoteActionResult {
     private final ActionResult actionResult;
     @Nullable private final ExecuteResponse executeResponse;
+    @Nullable private final String cacheName;
 
     /** Creates a new {@link RemoteActionResult} instance from a cached result. */
-    public static RemoteActionResult createFromCache(ActionResult cachedActionResult) {
+    public static RemoteActionResult createFromCache(CachedActionResult cachedActionResult) {
       checkArgument(cachedActionResult != null, "cachedActionResult is null");
-      return new RemoteActionResult(cachedActionResult, null);
+      return new RemoteActionResult(
+          cachedActionResult.actionResult(), null, cachedActionResult.cacheName());
     }
 
     /** Creates a new {@link RemoteActionResult} instance from a execute response. */
     public static RemoteActionResult createFromResponse(ExecuteResponse response) {
       checkArgument(response.hasResult(), "response doesn't have result");
-      return new RemoteActionResult(response.getResult(), response);
+      return new RemoteActionResult(response.getResult(), response, /* cacheName */ null);
     }
 
     public RemoteActionResult(
-        ActionResult actionResult, @Nullable ExecuteResponse executeResponse) {
+        ActionResult actionResult,
+        @Nullable ExecuteResponse executeResponse,
+        @Nullable String cacheName) {
       this.actionResult = actionResult;
       this.executeResponse = executeResponse;
+      this.cacheName = cacheName;
     }
 
     /** Returns the exit code of remote executed action. */
@@ -452,6 +578,12 @@ public class RemoteExecutionService {
       return executeResponse.getCachedResult();
     }
 
+    /** Returns cache name (disk/remote) when {@code cacheHit()} or {@code null} when not */
+    @Nullable
+    public String cacheName() {
+      return cacheName;
+    }
+
     /**
      * Returns the underlying {@link ExecuteResponse} or {@code null} if this result is from a
      * cache.
@@ -478,22 +610,21 @@ public class RemoteExecutionService {
     }
   }
 
-
   /** Lookup the remote cache for the given {@link RemoteAction}. {@code null} if not found. */
   @Nullable
   public RemoteActionResult lookupCache(RemoteAction action)
       throws IOException, InterruptedException {
     checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
 
-    ActionResult actionResult =
+    CachedActionResult cachedActionResult =
         remoteCache.downloadActionResult(
             action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
 
-    if (actionResult == null) {
+    if (cachedActionResult == null) {
       return null;
     }
 
-    return RemoteActionResult.createFromCache(actionResult);
+    return RemoteActionResult.createFromCache(cachedActionResult);
   }
 
   private static Path toTmpDownloadPath(Path actualPath) {
@@ -602,10 +733,11 @@ public class RemoteExecutionService {
      */
     Collections.sort(finishedDownloads, Comparator.comparing(f -> toTmpDownloadPath(f.path())));
 
-    // Move the output files from their temporary name to the actual output file name.
+    // Move the output files from their temporary name to the actual output file name. Executable
+    // bit
+    // is ignored since the file permission will be changed to 0555 after execution.
     for (FileMetadata outputFile : finishedDownloads) {
       FileSystemUtils.moveFile(toTmpDownloadPath(outputFile.path()), outputFile.path());
-      outputFile.path().setExecutable(outputFile.isExecutable());
     }
   }
 
@@ -869,6 +1001,7 @@ public class RemoteExecutionService {
   @Nullable
   public InMemoryOutput downloadOutputs(RemoteAction action, RemoteActionResult result)
       throws InterruptedException, IOException, ExecException {
+    checkState(!shutdown.get(), "shutdown");
     checkNotNull(remoteCache, "remoteCache can't be null");
 
     ActionResultMetadata metadata;
@@ -927,12 +1060,14 @@ public class RemoteExecutionService {
     }
 
     FileOutErr.dump(tmpOutErr, outErr);
-    tmpOutErr.clearOut();
-    tmpOutErr.clearErr();
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
     // strategy.
-    action.spawnExecutionContext.lockOutputFiles();
+    action.spawnExecutionContext.lockOutputFiles(
+        result.getExitCode(), result.getMessage(), tmpOutErr);
+    // Will these be properly garbage-collected if the above throws an exception?
+    tmpOutErr.clearOut();
+    tmpOutErr.clearErr();
 
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads);
@@ -987,23 +1122,79 @@ public class RemoteExecutionService {
     return null;
   }
 
-  /** Upload outputs of a remote action which was executed locally to remote cache. */
-  public void uploadOutputs(RemoteAction action)
-      throws InterruptedException, IOException, ExecException {
-    checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
-
+  @VisibleForTesting
+  UploadManifest buildUploadManifest(RemoteAction action, SpawnResult spawnResult)
+      throws ExecException, IOException {
     Collection<Path> outputFiles =
         action.spawn.getOutputFiles().stream()
             .map((inp) -> execRoot.getRelative(inp.getExecPath()))
             .collect(ImmutableList.toImmutableList());
-    remoteCache.upload(
-        action.remoteActionExecutionContext,
+
+    return UploadManifest.create(
+        remoteOptions,
+        digestUtil,
         remotePathResolver,
         action.actionKey,
         action.action,
         action.command,
         outputFiles,
-        action.spawnExecutionContext.getFileOutErr());
+        action.spawnExecutionContext.getFileOutErr(),
+        /* exitCode= */ 0);
+  }
+
+  /** Upload outputs of a remote action which was executed locally to remote cache. */
+  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult)
+      throws InterruptedException, ExecException {
+    checkState(!shutdown.get(), "shutdown");
+    checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
+    checkState(
+        SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
+        "shouldn't upload outputs of failed local action");
+
+    try {
+      UploadManifest manifest = buildUploadManifest(action, spawnResult);
+      if (remoteOptions.remoteCacheAsync) {
+        Single.using(
+                remoteCache::retain,
+                remoteCache ->
+                    manifest.uploadAsync(
+                        action.getRemoteActionExecutionContext(), remoteCache, reporter),
+                RemoteCache::release)
+            .subscribeOn(scheduler)
+            .subscribe(
+                new SingleObserver<ActionResult>() {
+                  @Override
+                  public void onSubscribe(@NonNull Disposable d) {}
+
+                  @Override
+                  public void onSuccess(@NonNull ActionResult actionResult) {}
+
+                  @Override
+                  public void onError(@NonNull Throwable e) {
+                    reportUploadError(e);
+                  }
+                });
+      } else {
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
+          manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
+        }
+      }
+    } catch (IOException e) {
+      reportUploadError(e);
+    }
+  }
+
+  private void reportUploadError(Throwable error) {
+    if (buildInterrupted.get()) {
+      // If build interrupted, ignores all the errors
+      return;
+    }
+
+    String errorMessage =
+        "Writing to Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
+
+    reporter.handle(Event.warn(errorMessage));
   }
 
   /**
@@ -1011,8 +1202,9 @@ public class RemoteExecutionService {
    *
    * <p>Must be called before calling {@link #executeRemotely}.
    */
-  public void uploadInputsIfNotPresent(RemoteAction action)
+  public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
       throws IOException, InterruptedException {
+    checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
 
     RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) remoteCache;
@@ -1021,7 +1213,7 @@ public class RemoteExecutionService {
     additionalInputs.put(action.actionKey.getDigest(), action.action);
     additionalInputs.put(action.commandHash, action.command);
     remoteExecutionCache.ensureInputsPresent(
-        action.remoteActionExecutionContext, action.merkleTree, additionalInputs);
+        action.remoteActionExecutionContext, action.merkleTree, additionalInputs, force);
   }
 
   /**
@@ -1033,6 +1225,7 @@ public class RemoteExecutionService {
   public RemoteActionResult executeRemotely(
       RemoteAction action, boolean acceptCachedResult, OperationObserver observer)
       throws IOException, InterruptedException {
+    checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
 
     ExecuteRequest.Builder requestBuilder =
@@ -1067,6 +1260,7 @@ public class RemoteExecutionService {
   /** Downloads server logs from a remotely executed action if any. */
   public ServerLogs maybeDownloadServerLogs(RemoteAction action, ExecuteResponse resp, Path logDir)
       throws InterruptedException, IOException {
+    checkState(!shutdown.get(), "shutdown");
     checkNotNull(remoteCache, "remoteCache can't be null");
     ServerLogs serverLogs = new ServerLogs();
     serverLogs.directory = logDir.getRelative(action.getActionId());
@@ -1088,5 +1282,39 @@ public class RemoteExecutionService {
     }
 
     return serverLogs;
+  }
+
+  @Subscribe
+  public void onBuildInterrupted(BuildInterruptedEvent event) {
+    buildInterrupted.set(true);
+  }
+
+  /**
+   * Shuts the service down. Wait for active network I/O to finish but new requests are rejected.
+   */
+  public void shutdown() {
+    if (!shutdown.compareAndSet(false, true)) {
+      return;
+    }
+
+    if (buildInterrupted.get()) {
+      Thread.currentThread().interrupt();
+    }
+
+    if (remoteCache != null) {
+      remoteCache.release();
+
+      try {
+        remoteCache.awaitTermination();
+      } catch (InterruptedException e) {
+        buildInterrupted.set(true);
+        remoteCache.shutdownNow();
+        Thread.currentThread().interrupt();
+      }
+    }
+
+    if (remoteExecutor != null) {
+      remoteExecutor.close();
+    }
   }
 }

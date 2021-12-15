@@ -1814,13 +1814,6 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testKindForConfiguredTarget() throws Exception {
-    setRuleContext(createRuleContext("//foo:bar"));
-    Object result = ev.eval("ruleContext.attr.srcs[0].kind");
-    assertThat((String) result).isEqualTo("java_library");
-  }
-
-  @Test
   public void testCtxStructFieldsCustomErrorMessages() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains("No attribute 'foo' in attr.", "ruleContext.attr.foo");
@@ -3093,7 +3086,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
           artifact.getRootRelativePath().equals(PathFragment.create(dirRelativePath)));
       for (String file : files) {
         output.add(
-            new DerivedArtifact(
+            DerivedArtifact.create(
                 artifact.getRoot(),
                 artifact.getExecPath().getRelative(file),
                 (ActionLookupKey) artifact.getArtifactOwner()));

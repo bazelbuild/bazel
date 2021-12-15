@@ -298,7 +298,7 @@ public abstract class DirtyBuildingState {
     dirtyDirectDepIndex = 0;
   }
 
-  protected void markRebuilding(boolean isEligibleForChangePruning) {
+  protected void markRebuilding() {
     Preconditions.checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
     dirtyState = DirtyState.REBUILDING;
   }

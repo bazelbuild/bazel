@@ -199,12 +199,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       String message =
           !Strings.isNullOrEmpty(resultMessage)
               ? resultMessage
-              : CommandFailureUtils.describeCommandFailure(
-                  verboseFailures,
-                  spawn.getArguments(),
-                  spawn.getEnvironment(),
-                  cwd,
-                  spawn.getExecutionPlatform());
+              : CommandFailureUtils.describeCommandFailure(verboseFailures, cwd, spawn);
       throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
     }
     return ImmutableList.of(spawnResult);
@@ -275,9 +270,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public void lockOutputFiles() throws InterruptedException {
+    public SpawnInputExpander getSpawnInputExpander() {
+      return spawnInputExpander;
+    }
+
+    @Override
+    public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
+        throws InterruptedException {
       if (stopConcurrentSpawns != null) {
-        stopConcurrentSpawns.stop();
+        stopConcurrentSpawns.stop(exitCode, errorMessage, outErr);
       }
     }
 

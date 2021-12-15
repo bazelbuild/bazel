@@ -46,6 +46,7 @@ public final class JavaLibraryHelper {
   private final List<Artifact> sourceJars = new ArrayList<>();
   private final List<Artifact> sourceFiles = new ArrayList<>();
   private final List<Artifact> resources = new ArrayList<>();
+  private final List<Artifact> classpathResources = new ArrayList<>();
 
   /**
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
@@ -109,6 +110,11 @@ public final class JavaLibraryHelper {
 
   public JavaLibraryHelper addResources(Iterable<Artifact> resources) {
     Iterables.addAll(this.resources, resources);
+    return this;
+  }
+
+  public JavaLibraryHelper addClasspathResources(Iterable<Artifact> resources) {
+    Iterables.addAll(this.classpathResources, resources);
     return this;
   }
 
@@ -208,6 +214,7 @@ public final class JavaLibraryHelper {
         outputJarsBuilder,
         createOutputSourceJar,
         outputSourceJar,
+        true,
         /* javaInfoBuilder= */ null,
         ImmutableList.of(), // ignored when javaInfoBuilder is null
         ImmutableList.of());
@@ -219,6 +226,7 @@ public final class JavaLibraryHelper {
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar,
+      boolean enableCompileJarAction,
       @Nullable JavaInfo.Builder javaInfoBuilder,
       List<JavaGenJarsProvider> transitiveJavaGenJars,
       ImmutableList<Artifact> additionalInputForDatabinding)
@@ -233,6 +241,7 @@ public final class JavaLibraryHelper {
     attributes.addSourceJars(sourceJars);
     attributes.addSourceFiles(sourceFiles);
     addDepsToAttributes(attributes);
+    attributes.addClassPathResources(classpathResources);
     attributes.setStrictJavaDeps(strictDepsMode);
     attributes.setTargetLabel(ruleContext.getLabel());
     attributes.setInjectingRuleKind(injectingRuleKind);
@@ -267,7 +276,11 @@ public final class JavaLibraryHelper {
     Artifact iJar = null;
     if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
       artifactsBuilder.addRuntimeJar(output);
-      iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+      if (enableCompileJarAction) {
+        iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+      } else {
+        artifactsBuilder.addCompileTimeJarAsFullJar(output);
+      }
     } else if (!resources.isEmpty()) {
       artifactsBuilder.addRuntimeJar(output);
     }

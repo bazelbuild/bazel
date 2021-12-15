@@ -23,10 +23,9 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.lang.ref.WeakReference;
 import org.junit.Test;
@@ -34,12 +33,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Miscellaneous tests of the analysis phase.  (Sometimes it's easier to
- * express these in terms of the BuildTool than of the BuildView because the
- * latter's class interface is quite complex.)
+ * Miscellaneous tests of the analysis phase. (Sometimes it's easier to express these in terms of
+ * the BuildTool than of the BuildView because the latter's class interface is quite complex.)
  */
 @RunWith(JUnit4.class)
-public class MiscAnalysisTest extends GoogleBuildIntegrationTestCase {
+public class MiscAnalysisTest extends BuildIntegrationTestCase {
 
   // Regression test for bug #1324794, "Replay of errors in --cache_analysis
   // mode is not working".
@@ -133,8 +131,6 @@ public class MiscAnalysisTest extends GoogleBuildIntegrationTestCase {
   // propagate transitively".
   @Test
   public void testExperimentalDepsOkInheritedByHostConfiguration() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-
     write("x/BUILD",
           "genrule(name='x', outs=['x.out'], tools=[':y'], cmd=':')",
           "genrule(name='y', srcs=['//experimental/x'], outs=['y.out'], cmd=':')");
@@ -154,8 +150,6 @@ public class MiscAnalysisTest extends GoogleBuildIntegrationTestCase {
    */
   @Test
   public void testHostDefine() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-
     write("x/BUILD",
         "vardef('CMD', 'false');",
         "genrule(name='foo', outs=['foo.out'], tools=[':bar'], cmd='touch $@ && ' + varref('CMD'))",

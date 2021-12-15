@@ -142,9 +142,9 @@ test's <a href="be/common-definitions.html#test.size"><code>size</code></a> as f
 900 seconds to run. A "medium" test with a timeout of "short" will be allotted
 60 seconds.</p>
 
-<p>Unlike <code>timeout</code>, the <code>size</code> also determines the
-limits for other resources like RAM, as described in
-<a href="be/common-definitions.html#common-attributes-tests">Common
+<p>Unlike <code>timeout</code>, the <code>size</code> additionally determines the
+the assumed peak usage of other resources (like RAM) when running the test locally,
+as described in <a href="be/common-definitions.html#common-attributes-tests">Common
 definitions</a>.</p>
 
 <p>All combinations of <code>size</code> and <code>timeout</code> labels are
@@ -273,7 +273,7 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
     <tr><td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test outputs)</td><td>optional</td></tr>
 
-    <tr><td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test output annotation .part files).
+    <tr><td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test output annotation .part and .pb files).
     </td><td>optional</td></tr>
 
     <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>

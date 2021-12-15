@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -38,8 +38,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -240,7 +242,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       String information = parameters.isEmpty()
           ? ""
@@ -285,7 +287,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
@@ -316,17 +318,15 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
   }
 
-  /**
-   * A simple aspect that propagates a BarProvider provider.
-   */
+  /** A simple aspect that propagates a BarProvider provider. */
   public static class BarProviderAspect extends NativeAspectClass
-      implements ConfiguredAspectFactory{
+      implements ConfiguredAspectFactory {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return BAR_PROVIDER_ASPECT_DEFINITION;
@@ -337,17 +337,14 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new BarProvider()).build();
     }
   }
 
-  public static final ExtraAttributeAspect EXTRA_ATTRIBUTE_ASPECT = new ExtraAttributeAspect();
-  private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_DEFINITION =
-      new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT)
-          .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
-          .build();
+  public static final ExtraAttributeAspect EXTRA_ATTRIBUTE_ASPECT =
+      new ExtraAttributeAspect(/*depLabel=*/ "//extra", /*applyToFiles=*/ false);
 
   private static final ExtraAttributeAspectRequiringProvider
     EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER = new ExtraAttributeAspectRequiringProvider();
@@ -357,13 +354,67 @@ public class TestAspects {
           .requireProviders(RequiredProvider.class)
           .build();
 
-  /**
-   * An aspect that defines its own implicit attribute.
-   */
+  /** An aspect that defines its own implicit attribute. */
   public static class ExtraAttributeAspect extends BaseAspect {
+
+    /** Test provider which includes the {@code dep} label. */
+    @AutoValue
+    public abstract static class Provider implements TransitiveInfoProvider {
+      public abstract String label();
+
+      static Provider create(String label) {
+        return new AutoValue_TestAspects_ExtraAttributeAspect_Provider(label);
+      }
+    }
+
+    private final Label depLabel;
+    private final boolean applyToFiles;
+    private final Class<? extends TransitiveInfoProvider>[] requiredAspectProviders;
+
+    public ExtraAttributeAspect(
+        String depLabel,
+        boolean applyToFiles,
+        Class<? extends TransitiveInfoProvider>... requiredAspectProviders) {
+      this.depLabel = Label.parseAbsoluteUnchecked(depLabel);
+      this.applyToFiles = applyToFiles;
+      this.requiredAspectProviders = requiredAspectProviders;
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTargetAndData ctadBase,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        RepositoryName toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      TransitiveInfoCollection dep = ruleContext.getPrerequisite("$dep");
+      if (dep == null) {
+        ruleContext.attributeError("$dep", "$dep attribute not resolved");
+        return ConfiguredAspect.builder(ruleContext).build();
+      }
+      return ConfiguredAspect.builder(ruleContext)
+          .addProvider(Provider.create(dep.getLabel().getCanonicalForm()))
+          .build();
+    }
+
+    @Override
+    public String getName() {
+      return String.format("%s_%s_%s", super.getName(), depLabel.getCanonicalForm(), applyToFiles);
+    }
+
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return EXTRA_ATTRIBUTE_ASPECT_DEFINITION;
+      AspectDefinition.Builder aspectDefinition =
+          new AspectDefinition.Builder(this)
+              .add(attr("$dep", LABEL).value(depLabel))
+              .applyToFiles(applyToFiles)
+              .advertiseProvider(Provider.class);
+
+      if (requiredAspectProviders.length > 0) {
+        aspectDefinition.requireAspectsWithBuiltinProviders(requiredAspectProviders);
+      }
+
+      return aspectDefinition.build();
     }
   }
 
@@ -382,7 +433,7 @@ public class TestAspects {
           .add(
               attr("$dep", LABEL)
                   .value(Label.parseAbsoluteUnchecked("//extra:extra"))
-                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
+                  .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
           .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
@@ -496,6 +547,7 @@ public class TestAspects {
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder(STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+      builder.requireProviders(RequiredProvider.class);
       return builder.build();
     }
 
@@ -504,9 +556,11 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
-      return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
+      return new ConfiguredAspect.Builder(ruleContext)
+          .addStarlarkTransitiveInfo("native_aspect_prov", "native_aspect_val")
+          .build();
     }
   }
 
@@ -536,7 +590,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
@@ -587,7 +641,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
       if (!parameters.isEmpty()) {
@@ -637,7 +691,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       ruleContext.ruleWarning("Aspect warning on " + ctadBase.getTarget().getLabel());
       return new ConfiguredAspect.Builder(ruleContext).build();
@@ -666,7 +720,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository) {
+        RepositoryName toolsRepository) {
       ruleContext.ruleError("Aspect error");
       return null;
     }
@@ -699,7 +753,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext context,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws InterruptedException, ActionConflictException {
       return new ConfiguredAspect.Builder(context).build();
     }
@@ -970,7 +1024,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext context,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws InterruptedException, ActionConflictException {
       return ConfiguredAspect.builder(context)
           .addProvider(Provider.class, new Provider(ctadBase.getConfiguredTarget().getLabel()))

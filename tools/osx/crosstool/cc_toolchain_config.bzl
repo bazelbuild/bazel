@@ -16,6 +16,7 @@
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
+    "artifact_name_pattern",
     "env_entry",
     "env_set",
     "feature",
@@ -66,13 +67,15 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_armv7"):
         target_system_name = "armv7-apple-ios"
     elif (ctx.attr.cpu == "watchos_armv7k"):
-        target_system_name = "armv7-apple-watchos"
+        target_system_name = "armv7k-apple-watchos"
     elif (ctx.attr.cpu == "ios_i386"):
         target_system_name = "i386-apple-ios"
     elif (ctx.attr.cpu == "watchos_i386"):
         target_system_name = "i386-apple-watchos"
     elif (ctx.attr.cpu == "ios_x86_64"):
         target_system_name = "x86_64-apple-ios"
+    elif (ctx.attr.cpu == "ios_sim_arm64"):
+        target_system_name = "arm64-apple-ios-simulator"
     elif (ctx.attr.cpu == "darwin_x86_64"):
         target_system_name = "x86_64-apple-macosx"
     elif (ctx.attr.cpu == "darwin_arm64"):
@@ -100,6 +103,8 @@ def _impl(ctx):
 
     host_system_name = "x86_64-apple-macosx"
     arch = ctx.attr.cpu.split("_", 1)[-1]
+    if ctx.attr.cpu == "ios_sim_arm64":
+        arch = "arm64"
 
     all_compile_actions = [
         ACTION_NAMES.c_compile,
@@ -735,6 +740,7 @@ def _impl(ctx):
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "ios_sim_arm64" or
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
@@ -919,6 +925,7 @@ def _impl(ctx):
 
     if (ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "ios_sim_arm64" or
         ctx.attr.cpu == "tvos_x86_64" or
         ctx.attr.cpu == "watchos_i386" or
         ctx.attr.cpu == "watchos_x86_64"):
@@ -987,6 +994,7 @@ def _impl(ctx):
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "ios_sim_arm64" or
         ctx.attr.cpu == "tvos_arm64" or
         ctx.attr.cpu == "tvos_x86_64" or
         ctx.attr.cpu == "watchos_arm64_32" or
@@ -1220,7 +1228,8 @@ def _impl(ctx):
     )
 
     if (ctx.attr.cpu == "ios_i386" or
-        ctx.attr.cpu == "ios_x86_64"):
+        ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "ios_sim_arm64"):
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [
@@ -1674,7 +1683,7 @@ def _impl(ctx):
                 ],
                 flag_groups = [
                     flag_group(
-                        flags = ["-gsplit-dwarf"],
+                        flags = ["-gsplit-dwarf", "-g"],
                         expand_if_available = "per_object_debug_info_file",
                     ),
                 ],
@@ -1747,6 +1756,7 @@ def _impl(ctx):
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "ios_sim_arm64" or
         ctx.attr.cpu == "tvos_arm64" or
         ctx.attr.cpu == "tvos_x86_64" or
         ctx.attr.cpu == "watchos_arm64_32" or
@@ -2353,7 +2363,8 @@ def _impl(ctx):
         name = "oso_prefix_is_pwd",
         flag_sets = [
             flag_set(
-                actions = ["objc-executable", "objc++-executable"],
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
                 flag_groups = [flag_group(flags = ["OSO_PREFIX_MAP_PWD"])],
             ),
         ],
@@ -2829,6 +2840,7 @@ def _impl(ctx):
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
+        ctx.attr.cpu == "ios_sim_arm64" or
         ctx.attr.cpu == "tvos_arm64" or
         ctx.attr.cpu == "tvos_x86_64" or
         ctx.attr.cpu == "watchos_arm64_32" or
@@ -2996,7 +3008,15 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-    artifact_name_patterns = []
+    # macOS artifact name patterns differ from the defaults only for dynamic
+    # libraries.
+    artifact_name_patterns = [
+        artifact_name_pattern(
+            category_name = "dynamic_library",
+            prefix = "lib",
+            extension = ".dylib",
+        ),
+    ]
 
     make_variables = [
         make_variable(

@@ -331,22 +331,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     UploadContext streamingContext = null;
     try {
       if (tracerEnabled) {
-        if (options.enableTracerCompression == TriState.YES
-            || (options.enableTracerCompression == TriState.AUTO
-                && (options.profilePath == null
-                    || options.profilePath.toString().endsWith(".gz")))) {
+        if (options.profilePath == null) {
+          profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
-        } else {
-          format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
-        }
-        if (options.profilePath != null) {
-          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
-        } else {
-          profileName = "command.profile";
-          if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
-            profileName = "command.profile.gz";
-          }
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
                 newUploader(env, bepOptions.buildEventUploadStrategy);
@@ -356,6 +343,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profilePath = workspace.getOutputBase().getRelative(profileName);
             out = profilePath.getOutputStream();
           }
+        } else {
+          format =
+              options.profilePath.toString().endsWith(".gz")
+                  ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
+                  : Format.JSON_TRACE_FILE_FORMAT;
+          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
         }
         if (profilePath != null && options.announceProfilePath) {
           eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
@@ -400,11 +394,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             recordFullProfilerData,
             clock,
             execStartTimeNanos,
-            options.enableCpuUsageProfiling,
             options.slimProfile,
             options.includePrimaryOutput,
             options.profileIncludeTargetLabel,
-            options.alwaysProfileSlowOperations);
+            options.alwaysProfileSlowOperations,
+            bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
@@ -749,9 +743,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
+  /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
-    return ruleClassProvider.createBuildOptions(optionsProvider);
+    return BuildOptions.of(
+        ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsProvider);
   }
 
   /**
@@ -859,7 +854,25 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         ImmutableList.copyOf(startupArgs), ImmutableList.copyOf(otherArgs));
   }
 
-  private static InterruptSignalHandler captureSigint() {
+  @Nullable
+  private static String getSlowInterruptMessageSuffix(Iterable<BlazeModule> modules) {
+    String slowInterruptMessageSuffix = null;
+    for (BlazeModule module : modules) {
+      String message = module.getSlowThreadInterruptMessageSuffix();
+      if (message != null) {
+        checkState(
+            slowInterruptMessageSuffix == null,
+            "Two messages: %s %s (%s)",
+            slowInterruptMessageSuffix,
+            message,
+            module);
+        slowInterruptMessageSuffix = message;
+      }
+    }
+    return slowInterruptMessageSuffix;
+  }
+
+  private static InterruptSignalHandler captureSigint(@Nullable String slowInterruptMessage) {
     Thread mainThread = Thread.currentThread();
     AtomicInteger numInterrupts = new AtomicInteger();
 
@@ -871,7 +884,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             count++;
             Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
             logger.atWarning().log("Slow interrupt number %d in batch mode", count);
-            ThreadUtils.warnAboutSlowInterrupt();
+            ThreadUtils.warnAboutSlowInterrupt(slowInterruptMessage);
           }
         };
 
@@ -900,7 +913,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * exit status of the program.
    */
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
-    InterruptSignalHandler signalHandler = captureSigint();
+    InterruptSignalHandler signalHandler = captureSigint(getSlowInterruptMessageSuffix(modules));
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
     logger.atInfo().log(
         "Running Bazel in batch mode with %s, startup args %s",
@@ -934,7 +947,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     try {
       logger.atInfo().log(
-          SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
+          "%s", SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
       BlazeCommandResult result =
           dispatcher.exec(
               policy,
@@ -1034,7 +1047,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverPid,
               startupOptions.maxIdleSeconds,
               startupOptions.shutdownOnLowSysMem,
-              startupOptions.idleServerTasks);
+              startupOptions.idleServerTasks,
+              getSlowInterruptMessageSuffix(modules));
       rpcServerRef.set(rpcServer);
 
       // Register the signal handler.
@@ -1220,7 +1234,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     SubscriberExceptionHandler subscriberExceptionHandler = currentHandlerValue;
     Thread.setDefaultUncaughtExceptionHandler(
         (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
-    Path.setFileSystemForSerialization(fs);
 
     // Set the hook used to display Starlark source lines in a stack trace.
     EvalException.setSourceReaderSupplier(

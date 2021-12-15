@@ -29,6 +29,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,7 +38,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -65,6 +66,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -76,6 +78,8 @@ import javax.annotation.Nullable;
  * simply call a check... method) across several rule types.
  */
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
+  private static final Correspondence<String, String> MATCHES_REGEX =
+      Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
   protected static final String MOCK_XCRUNWRAPPER_PATH =
       toolsRepoExecPath("tools/objc/xcrunwrapper.sh");
   protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
@@ -89,7 +93,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Returns the configuration obtained by applying the apple crosstool configuration transtion to
    * this {@code BuildViewTestCase}'s target configuration.
    */
-  protected BuildConfiguration getAppleCrosstoolConfiguration() throws InterruptedException {
+  protected BuildConfigurationValue getAppleCrosstoolConfiguration() throws InterruptedException {
     return getConfiguration(targetConfig, AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION);
   }
 
@@ -163,8 +167,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   private static String toolExecutable(String toolSrcPath) {
-    return String.format("%s-out/host/bin/%s", TestConstants.PRODUCT_NAME,
-        TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
+    return String.format(
+        "%s-out/[^/]*-exec-[^/]*/bin/%s",
+        TestConstants.PRODUCT_NAME, TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
   }
 
   private String configurationDir(
@@ -242,9 +247,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static ImmutableList<String> compilationModeCopts(CompilationMode mode) {
     switch (mode) {
       case DBG:
-        return ImmutableList.<String>builder()
-            .addAll(ObjcConfiguration.DBG_COPTS)
-            .build();
+        return ImmutableList.copyOf(ObjcConfiguration.DBG_COPTS);
       case OPT:
         return ObjcConfiguration.OPT_COPTS;
       case FASTBUILD:
@@ -305,17 +308,16 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Returns all child configurations resulting from a given split transition on a given
    * configuration.
    */
-  protected List<BuildConfiguration> getSplitConfigurations(
-      BuildConfiguration configuration, SplitTransition splitTransition)
+  protected List<BuildConfigurationValue> getSplitConfigurations(
+      BuildConfigurationValue configuration, SplitTransition splitTransition)
       throws InterruptedException, OptionsParsingException, InvalidConfigurationException {
-    ImmutableList.Builder<BuildConfiguration> splitConfigs = ImmutableList.builder();
+    ImmutableList.Builder<BuildConfigurationValue> splitConfigs = ImmutableList.builder();
 
     BuildOptionsView fragmentRestrictedOptions =
         new BuildOptionsView(configuration.getOptions(), splitTransition.requiresOptionFragments());
     for (BuildOptions splitOptions :
         splitTransition.split(fragmentRestrictedOptions, eventCollector).values()) {
-      splitConfigs.add(getSkyframeExecutor().getConfigurationForTesting(
-          reporter, configuration.fragmentClasses(), splitOptions));
+      splitConfigs.add(getSkyframeExecutor().getConfigurationForTesting(reporter, splitOptions));
     }
 
     return splitConfigs.build();
@@ -358,7 +360,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     for (String inputArchive : inputArchives) {
       // Verify each input archive is present in the action inputs.
-      getFirstArtifactEndingWith(binAction.getInputs(), inputArchive);
+      assertThat(getFirstArtifactEndingWith(binAction.getInputs(), inputArchive)).isNotNull();
     }
     ImmutableList.Builder<String> frameworkPathFragmentParents = ImmutableList.builder();
     ImmutableList.Builder<String> frameworkPathBaseNames = ImmutableList.builder();
@@ -378,7 +380,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add("-ObjC")
             .addAll(
                 Interspersing.beforeEach(
-                    "-framework", SdkFramework.names(CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS)))
+                    "-framework", CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS.toList()))
             .addAll(Interspersing.beforeEach("-framework", frameworkPathBaseNames.build()))
             .add("-filelist")
             .add(filelistArtifact.getExecPathString())
@@ -640,7 +642,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         binArtifact,
         objList,
         "x86_64",
-        ImmutableList.of("x/libx.a", "libobjc_lib.a"),
+        ImmutableList.of("libobjc_lib.a"),
         ImmutableList.of(PathFragment.create("libs/buzzbuzz")),
         extraLinkArgs);
   }
@@ -716,7 +718,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected List<String> rootedIncludePaths(
-      BuildConfiguration configuration, String... unrootedPaths) {
+      BuildConfigurationValue configuration, String... unrootedPaths) {
     ImmutableList.Builder<String> rootedPaths = new ImmutableList.Builder<>();
     for (String unrootedPath : unrootedPaths) {
       rootedPaths
@@ -1071,12 +1073,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         getFirstArtifactEndingWith(getGeneratingAction(x8664BinArtifact).getInputs(),
             x8664Filelist);
 
-    ImmutableList<String> archiveNames =
-        ImmutableList.of("x/libx.a", "lib1/liblib1.a", "lib2/liblib2.a");
-    verifyLinkAction(i386BinArtifact, i386FilelistArtifact, "i386", archiveNames,
-        ImmutableList.of(PathFragment.create("fx/MyFramework")), extraLinkArgs);
-    verifyLinkAction(x8664BinArtifact, x8664FilelistArtifact,
-        "x86_64", archiveNames,  ImmutableList.of(PathFragment.create("fx/MyFramework")),
+    verifyLinkAction(
+        i386BinArtifact,
+        i386FilelistArtifact,
+        "i386",
+        ImmutableList.of(),
+        ImmutableList.of(PathFragment.create("fx/MyFramework")),
+        extraLinkArgs);
+    verifyLinkAction(
+        x8664BinArtifact,
+        x8664FilelistArtifact,
+        "x86_64",
+        ImmutableList.of(),
+        ImmutableList.of(PathFragment.create("fx/MyFramework")),
         extraLinkArgs);
   }
 
@@ -1092,13 +1101,20 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
+        .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertThat(action.getArguments())
-        .containsExactly(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO,
-            "-create", i386Bin, x8664Bin,
-            "-o", execPathEndingWith(action.getOutputs(), "x_lipobin"))
+        .comparingElementsUsing(MATCHES_REGEX)
+        .containsExactly(
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH,
+            LIPO,
+            "-create",
+            i386Bin,
+            x8664Bin,
+            "-o",
+            execPathEndingWith(action.getOutputs(), "x_lipobin"))
         .inOrder();
 
     assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
@@ -1414,11 +1430,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + "x/x_bin";
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
+        .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
-    assertContainsSublist(action.getArguments(), ImmutableList.of(
-        MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
+    assertThat(action.getArguments())
+        .comparingElementsUsing(MATCHES_REGEX)
+        .containsAtLeast(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create")
+        .inOrder();
     assertThat(action.getArguments()).containsAtLeast(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipobin")));

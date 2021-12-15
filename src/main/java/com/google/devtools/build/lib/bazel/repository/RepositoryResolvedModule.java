@@ -133,12 +133,12 @@ public final class RepositoryResolvedModule extends BlazeModule {
         } else {
           this.append(sep);
         }
-        this.append("\n").append(Strings.repeat("     ", indent)).repr(o);
+        this.append("\n").append(" ".repeat(5 * indent)).repr(o);
       }
       indent--;
       // Final indent, if nonempty.
       if (sep != null) {
-        this.append("\n").append(Strings.repeat("     ", indent));
+        this.append("\n").append(" ".repeat(5 * indent));
       }
       return this.append(after);
     }

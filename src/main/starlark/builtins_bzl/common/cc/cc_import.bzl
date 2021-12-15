@@ -44,19 +44,21 @@ def _is_shared_library_extension_valid(shared_library_name):
         shared_library_name.endswith(".dylib")):
         return True
 
-    # validate against the regex "^.+\.so(\.\d\w*)+$" for versioned .so files
-    parts = shared_library_name.split(".")
-    extension = parts[1]
-    if extension != "so":
-        return False
-    version_parts = parts[2:]
-    for part in version_parts:
-        if not part[0].isdigit():
-            return False
-        for c in part[1:].elems():
-            if not (c.isalnum() or c == "_"):
-                return False
-    return True
+    # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+    # must match VERSIONED_SHARED_LIBRARY.
+    for ext in (".so.", ".dylib."):
+        name, _, version = shared_library_name.rpartition(ext)
+        if name and version:
+            version_parts = version.split(".")
+            for part in version_parts:
+                if not part[0].isdigit():
+                    return False
+                for c in part[1:].elems():
+                    if not (c.isalnum() or c == "_"):
+                        return False
+            return True
+
+    return False
 
 def _perform_error_checks(
         system_provided,
@@ -235,7 +237,7 @@ cc_import = rule(
         "_grep_includes": attr.label(
             allow_files = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
         ),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),

@@ -88,6 +88,36 @@ java_test(
     ],
 )
 
+# Tests windows specific filetype handling on Unix.
+java_library(
+    name = "FileTypeTests_lib",
+    srcs = ["FileTypeTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "FileTypeWindowsTests",
+    size = "small",
+    jvm_flags = [
+        "-Dblaze.os=Windows",
+        "-Dbazel.windows_unix_root=C:/fake/msys",
+    ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":FileTypeTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
+)
+
 # Tests windows specific path handling on Unix.
 java_library(
     name = "UtilWindowsTests_lib",

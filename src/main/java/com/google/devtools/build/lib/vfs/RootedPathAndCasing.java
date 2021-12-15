@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -29,7 +28,7 @@ import java.util.Objects;
  * that might use different casing.
  */
 @AutoCodec
-public final class RootedPathAndCasing implements Serializable {
+public final class RootedPathAndCasing {
   private final RootedPath path;
   private final String casing;
   private final int hash;

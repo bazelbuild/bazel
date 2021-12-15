@@ -44,22 +44,17 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
       return repoSpec;
     }
 
-    // SelectionValue is affected by repos found in Step 1, therefore it should NOT be asked
-    // in Step 1 to avoid cycle dependency.
-    SelectionValue selectionValue = (SelectionValue) env.getValue(SelectionValue.KEY);
+    // BazelModuleResolutionValue is affected by repos found in Step 1, therefore it should NOT be
+    // requested in Step 1 to avoid cycle dependency.
+    BazelModuleResolutionValue bazelModuleResolutionValue =
+        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
     if (env.valuesMissing()) {
       return null;
     }
 
     // Step 2: Look for repositories derived from Bazel Modules.
-    repoSpec =
-        checkRepoFromBazelModules(selectionValue, overrides, env.getListener(), repositoryName);
-    if (repoSpec.isPresent()) {
-      return repoSpec;
-    }
-
-    // Step 3: Look for repositories derived from module rules.
-    return checkRepoFromModuleRules();
+    return checkRepoFromBazelModules(
+        bazelModuleResolutionValue, overrides, env.getListener(), repositoryName);
   }
 
   private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
@@ -73,16 +68,17 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
   }
 
   private static Optional<RepoSpec> checkRepoFromBazelModules(
-      SelectionValue selectionValue,
+      BazelModuleResolutionValue bazelModuleResolutionValue,
       ImmutableMap<String, ModuleOverride> overrides,
       ExtendedEventHandler eventListener,
       String repositoryName)
       throws InterruptedException, IOException {
-    ModuleKey moduleKey = selectionValue.getCanonicalRepoNameLookup().get(repositoryName);
+    ModuleKey moduleKey =
+        bazelModuleResolutionValue.getCanonicalRepoNameLookup().get(repositoryName);
     if (moduleKey == null) {
       return Optional.empty();
     }
-    Module module = selectionValue.getDepGraph().get(moduleKey);
+    Module module = bazelModuleResolutionValue.getDepGraph().get(moduleKey);
     Registry registry = checkNotNull(module.getRegistry());
     RepoSpec repoSpec = registry.getRepoSpec(moduleKey, repositoryName, eventListener);
     repoSpec = maybeAppendAdditionalPatches(repoSpec, overrides.get(moduleKey.getName()));
@@ -106,10 +102,5 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
         .setRuleClassName(repoSpec.ruleClassName())
         .setAttributes(attrBuilder.build())
         .build();
-  }
-
-  private static Optional<RepoSpec> checkRepoFromModuleRules() {
-    // TODO(pcloudy): Implement calculating RepoSpec from module rules.
-    return Optional.empty();
   }
 }

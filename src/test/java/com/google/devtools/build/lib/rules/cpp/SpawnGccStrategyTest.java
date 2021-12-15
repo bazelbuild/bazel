@@ -71,8 +71,8 @@ public final class SpawnGccStrategyTest {
     when(action.getDotdFile()).thenReturn(dotdFile);
     when(action.useInMemoryDotdFiles()).thenReturn(true);
     when(action.shouldParseShowIncludes()).thenReturn(false);
+    when(action.enabledCppCompileResourcesEstimation()).thenReturn(false);
     when(action.createSpawn(any(), any())).thenCallRealMethod();
-
     // act
     Spawn spawn = action.createSpawn(execRoot, ImmutableMap.of());
 

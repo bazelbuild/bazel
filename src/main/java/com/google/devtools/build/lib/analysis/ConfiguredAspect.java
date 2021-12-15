@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -126,8 +124,6 @@ public final class ConfiguredAspect implements ProviderCollection {
         new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
-    private final LinkedHashSet<String> aspectImplSpecificRequiredConfigFragments =
-        new LinkedHashSet<>();
 
     public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
@@ -209,15 +205,6 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    /**
-     * Supplements {@link #maybeAddRequiredConfigFragmentsProvider} with aspect
-     * implementation-specific requirements.
-     */
-    public Builder addRequiredConfigFragments(Collection<String> fragments) {
-      aspectImplSpecificRequiredConfigFragments.addAll(fragments);
-      return this;
-    }
-
     public ConfiguredAspect build() throws ActionConflictException, InterruptedException {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
@@ -255,17 +242,11 @@ public final class ConfiguredAspect implements ProviderCollection {
      *
      * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
      * description of the meaning of this provider's content. That class contains methods that
-     * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
-     * #aspectImplSpecificRequiredConfigFragments}.
+     * populate the results of {@link RuleContext#getRequiredConfigFragments}.
      */
     private void maybeAddRequiredConfigFragmentsProvider() {
       if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
-        addProvider(
-            new RequiredConfigFragmentsProvider(
-                ImmutableSet.<String>builder()
-                    .addAll(ruleContext.getRequiredConfigFragments())
-                    .addAll(aspectImplSpecificRequiredConfigFragments)
-                    .build()));
+        addProvider(ruleContext.getRequiredConfigFragments());
       }
     }
   }

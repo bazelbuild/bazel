@@ -91,6 +91,17 @@ public final class CrashFailureDetailsTest {
   }
 
   @Test
+  public void testMessageLimit() {
+    TestException exception = new TestException("x".repeat(5000));
+
+    String crashMessage =
+        CrashFailureDetails.forThrowable(exception).getCrash().getCauses(0).getMessage();
+
+    assertThat(crashMessage).hasLength(2000);
+    assertThat(crashMessage).endsWith("[truncated]");
+  }
+
+  @Test
   public void causeCycle() {
     // This test confirms that throwables in a cause cycle are visited at most once.
     TestException inner2 = new TestException("inner2");

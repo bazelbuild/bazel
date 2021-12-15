@@ -33,6 +33,6 @@ import org.junit.runners.JUnit4;
 public class ConfiguredAttributeMapperCommonTest extends AbstractAttributeMapperTest {
   @Before
   public final void createMapper() throws Exception {
-    mapper = ConfiguredAttributeMapper.of(rule, ImmutableMap.of(), targetConfig.checksum());
+    mapper = ConfiguredAttributeMapper.of(rule, ImmutableMap.of(), targetConfig);
   }
 }

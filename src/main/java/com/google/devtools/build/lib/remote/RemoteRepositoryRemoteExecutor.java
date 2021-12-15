@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -131,13 +132,24 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     Digest commandHash = digestUtil.compute(command);
     MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
     Action action =
-        buildAction(commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
+        buildAction(
+            commandHash,
+            merkleTree.getRootDigest(),
+            platform,
+            timeout,
+            acceptCached,
+            /*salt=*/ null);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
-    ActionResult actionResult;
+    CachedActionResult cachedActionResult;
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-      actionResult = remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true);
+      cachedActionResult =
+          remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true);
+    }
+    ActionResult actionResult = null;
+    if (cachedActionResult != null) {
+      actionResult = cachedActionResult.actionResult();
     }
     if (actionResult == null || actionResult.getExitCode() != 0) {
       try (SilentCloseable c =
@@ -146,7 +158,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(actionDigest, action);
         additionalInputs.put(commandHash, command);
 
-        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs);
+        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, /*force=*/ true);
       }
 
       try (SilentCloseable c =

@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
 import com.google.devtools.build.v1.PublishBuildEventGrpc;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -34,6 +33,7 @@ import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -116,11 +116,11 @@ public class BuildEventServiceGrpcClientTest {
                     return next.startCall(call, headers);
                   }
                 }))) {
+      Metadata extraHeaders = new Metadata();
+      extraHeaders.put(Metadata.Key.of("metadata-foo", Metadata.ASCII_STRING_MARSHALLER), "bar");
+      ClientInterceptor interceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders);
       BuildEventServiceGrpcClient grpcClient =
-          new BuildEventServiceGrpcClient(
-              server.getChannel(),
-              null,
-              ImmutableList.of(Maps.immutableEntry("metadata-foo", "bar")));
+          new BuildEventServiceGrpcClient(server.getChannel(), null, interceptor);
       assertThat(grpcClient.openStream(ack -> {}).getStatus().get()).isEqualTo(Status.OK);
       assertThat(seenHeaders).hasSize(1);
       Metadata headers = seenHeaders.get(0);
@@ -133,7 +133,7 @@ public class BuildEventServiceGrpcClientTest {
   public void immediateSuccess() throws Exception {
     try (TestServer server = startTestServer(NOOP_SERVER.bindService())) {
       assertThat(
-              new BuildEventServiceGrpcClient(server.getChannel(), null, ImmutableList.of())
+              new BuildEventServiceGrpcClient(server.getChannel(), null, null)
                   .openStream(ack -> {})
                   .getStatus()
                   .get())
@@ -154,7 +154,7 @@ public class BuildEventServiceGrpcClientTest {
               }
             }.bindService())) {
       assertThat(
-              new BuildEventServiceGrpcClient(server.getChannel(), null, ImmutableList.of())
+              new BuildEventServiceGrpcClient(server.getChannel(), null, null)
                   .openStream(ack -> {})
                   .getStatus()
                   .get())

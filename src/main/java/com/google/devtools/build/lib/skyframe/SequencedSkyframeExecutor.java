@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -65,7 +64,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Workspaces;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
@@ -77,7 +76,6 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -116,6 +114,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -228,6 +227,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @VisibleForTesting
   public RecordingDifferencer getDifferencerForTesting() {
     return recordingDiffer;
+  }
+
+  @Override
+  protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
+    return new SkyframeProgressReceiver() {
+      @Override
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
+        super.invalidated(skyKey, state);
+        if (state == InvalidationState.DIRTY && skyKey instanceof FileValue.Key) {
+          incrementalBuildMonitor.reportInvalidatedFileValue();
+        }
+      }
+    };
   }
 
   @Nullable
@@ -463,38 +475,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       boolean managedDirectoriesChanged,
       int fsvcThreads)
       throws InterruptedException {
-    ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
-    if (pathEntriesWithoutDiffInformation.isEmpty()
-        && Iterables.isEmpty(customDirtinessCheckers)
-        && ((!externalFilesKnowledge.anyOutputFilesSeen || !checkOutputFiles)
-            && !externalFilesKnowledge.anyNonOutputExternalFilesSeen)) {
-      // Avoid a full graph scan if we have good diff information for all path entries, there are
-      // no custom checkers that need to look at the whole graph, and no external (not under any
-      // path) files need to be checked.
-      return;
-    }
-    // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
-    // have actually been invalidated (recall that invalidation happens at the beginning of the
-    // next evaluate() call), because checking those is a waste of time.
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setKeepGoing(false)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHandler(eventHandler)
-            .build();
-    getDriver().evaluate(ImmutableList.of(), evaluationContext);
-
-    FilesystemValueChecker fsvc =
-        new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
-    // We need to manually check for changes to known files. This entails finding all dirty file
-    // system values under package roots for which we don't have diff information. If at least
-    // one path entry doesn't have diff information, then we're going to have to iterate over
-    // the skyframe values at least once no matter what.
-    Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
-    for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
-        pathEntriesWithoutDiffInformation) {
-      diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
-    }
 
     // We freshly compute knowledge of the presence of external files in the skyframe graph. We use
     // a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after* we
@@ -502,37 +482,101 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // incorrectly think there are no longer any external files.
     ExternalFilesHelper tmpExternalFilesHelper =
         externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
-    // See the comment for FileType.OUTPUT for why we need to consider output files here.
-    EnumSet<FileType> fileTypesToCheck =
-        checkOutputFiles
-            ? EnumSet.of(
-                FileType.EXTERNAL,
-                FileType.EXTERNAL_REPO,
-                FileType.EXTERNAL_IN_MANAGED_DIRECTORY,
-                FileType.OUTPUT)
-            : EnumSet.of(
-                FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
-    logger.atInfo().log(
-        "About to scan skyframe graph checking for filesystem nodes of types %s",
-        Iterables.toString(fileTypesToCheck));
-    ImmutableBatchDirtyResult batchDirtyResult;
-    try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
-      batchDirtyResult =
-          fsvc.getDirtyKeys(
-              memoizingEvaluator.getValues(),
-              new UnionDirtinessChecker(
-                  Iterables.concat(
-                      customDirtinessCheckers,
-                      ImmutableList.<SkyValueDirtinessChecker>of(
-                          new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
-                          new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
-    }
-    handleChangedFiles(
-        diffPackageRootsUnderWhichToCheck,
-        batchDirtyResult,
-        /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked(),
-        managedDirectoriesChanged);
 
+    ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
+    if (!pathEntriesWithoutDiffInformation.isEmpty()
+        || (externalFilesKnowledge.anyOutputFilesSeen && checkOutputFiles)
+        || !Iterables.isEmpty(customDirtinessCheckers)
+        || externalFilesKnowledge.anyFilesInExternalReposSeen
+        || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+
+      // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
+      // have actually been invalidated (recall that invalidation happens at the beginning of the
+      // next evaluate() call), because checking those is a waste of time.
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setKeepGoing(false)
+              .setNumThreads(DEFAULT_THREAD_COUNT)
+              .setEventHandler(eventHandler)
+              .build();
+      getDriver().evaluate(ImmutableList.of(), evaluationContext);
+
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
+      // We need to manually check for changes to known files. This entails finding all dirty file
+      // system values under package roots for which we don't have diff information. If at least
+      // one path entry doesn't have diff information, then we're going to have to iterate over
+      // the skyframe values at least once no matter what.
+      Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
+      for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
+          pathEntriesWithoutDiffInformation) {
+        diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
+      }
+
+      EnumSet<FileType> fileTypesToCheck =
+          EnumSet.of(FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
+      // See the comment for FileType.OUTPUT for why we need to consider output files here.
+      if (checkOutputFiles) {
+        fileTypesToCheck.add(FileType.OUTPUT);
+      }
+      if (externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+        fileTypesToCheck.add(FileType.EXTERNAL);
+      }
+      logger.atInfo().log(
+          "About to scan skyframe graph checking for filesystem nodes of types %s",
+          Iterables.toString(fileTypesToCheck));
+      ImmutableBatchDirtyResult batchDirtyResult;
+      try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
+        batchDirtyResult =
+            fsvc.getDirtyKeys(
+                memoizingEvaluator.getValues(),
+                new UnionDirtinessChecker(
+                    Iterables.concat(
+                        customDirtinessCheckers,
+                        ImmutableList.<SkyValueDirtinessChecker>of(
+                            new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
+                            new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
+      }
+      handleChangedFiles(
+          diffPackageRootsUnderWhichToCheck,
+          batchDirtyResult,
+          /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked(),
+          managedDirectoriesChanged);
+    }
+    if (!externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()
+        && !externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+      logger.atInfo().log(
+          "About to scan %d external files",
+          externalFilesKnowledge.nonOutputExternalFilesSeen.size());
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
+      ImmutableBatchDirtyResult batchDirtyResult;
+      try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
+        Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
+        for (RootedPath path : externalFilesKnowledge.nonOutputExternalFilesSeen) {
+          SkyKey key = FileStateValue.key(path);
+          SkyValue value = memoizingEvaluator.getExistingValue(key);
+          if (value != null) {
+            externalDirtyNodes.put(key, value);
+          }
+          key = DirectoryListingStateValue.key(path);
+          memoizingEvaluator.getExistingValue(key);
+          if (value != null) {
+            externalDirtyNodes.put(key, value);
+          }
+        }
+        batchDirtyResult =
+            fsvc.getDirtyKeys(
+                externalDirtyNodes,
+                new ExternalDirtinessChecker(
+                    tmpExternalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
+      }
+      handleChangedFiles(
+          ImmutableList.<Root>of(),
+          batchDirtyResult,
+          batchDirtyResult.getNumKeysChecked(),
+          /*managedDirectoriesChanged=*/ false);
+    }
     for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
       pair.getSecond().markProcessed();
@@ -607,7 +651,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    logger.atInfo().log(result.toString());
+    logger.atInfo().log("%s", result);
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -779,44 +823,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return new ArrayList<>(ruleStats.values());
   }
 
-  @Override
-  public ActionGraphContainer getActionGraphContainer(
-      List<String> actionGraphTargets, boolean includeActionCmdLine, boolean includeArtifacts)
-      throws CommandLineExpansionException {
-    ActionGraphDump actionGraphDump =
-        new ActionGraphDump(actionGraphTargets, includeActionCmdLine, includeArtifacts);
-    return buildActionGraphContainerFromDump(actionGraphDump);
-  }
-
-  private ActionGraphContainer buildActionGraphContainerFromDump(ActionGraphDump actionGraphDump)
-      throws CommandLineExpansionException {
-    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
-        memoizingEvaluator.getDoneValues().entrySet()) {
-      SkyKey key = skyKeyAndValue.getKey();
-      SkyValue skyValue = skyKeyAndValue.getValue();
-      if (skyValue == null) {
-        // The skyValue may be null in case analysis of the previous build failed.
-        continue;
-      }
-      try {
-        if (skyValue instanceof RuleConfiguredTargetValue) {
-          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
-        } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
-          AspectValue aspectValue = (AspectValue) skyValue;
-          AspectKey aspectKey = (AspectKey) key;
-          ConfiguredTargetValue configuredTargetValue =
-              (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
-          actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new IllegalStateException("No interruption in sequenced evaluation", e);
-      }
-    }
-    return actionGraphDump.build();
-  }
-
   /** Support for aquery output. */
   public void dumpSkyframeState(
       com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump actionGraphDump)
@@ -927,8 +933,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE));
     out.println(Iterables.size(packageSkyKeys) + " packages");
     for (SkyKey packageSkyKey : packageSkyKeys) {
-      Package pkg = ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey)).getPackage();
-      pkg.dump(out);
+      PackageValue pkgVal = ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey));
+      if (pkgVal != null) {
+        Package pkg =
+            ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey)).getPackage();
+        pkg.dump(out);
+      } else {
+        out.println("  Package " + packageSkyKey + " is in error.");
+      }
     }
   }
 
@@ -989,7 +1001,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                           .setCode(
                               FailureDetails.Workspaces.Code
                                   .WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES))
-                  .build()));
+                  .build()),
+          e);
     }
     if (oldWorkspaceFileState != null && !oldWorkspaceFileState.equals(newWorkspaceFileState)) {
       recordingDiffer.invalidate(ImmutableSet.of(workspaceFileStateKey));

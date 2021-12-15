@@ -65,9 +65,4 @@ public class CoverageReportFunction implements SkyFunction {
     }
     return new CoverageReportValue(generatingActions);
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

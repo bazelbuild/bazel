@@ -21,13 +21,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.Collection;
 
 /**
@@ -38,7 +34,7 @@ import java.util.Collection;
 @ThreadSafe
 @VisibleForTesting
 public final class TestsForTargetPatternValue implements SkyValue {
-  private ResolvedTargets<Label> labels;
+  private final ResolvedTargets<Label> labels;
 
   TestsForTargetPatternValue(ResolvedTargets<Label> labels) {
     this.labels = Preconditions.checkNotNull(labels);
@@ -46,21 +42,6 @@ public final class TestsForTargetPatternValue implements SkyValue {
 
   public ResolvedTargets<Label> getLabels() {
     return labels;
-  }
-
-  @SuppressWarnings("unused")
-  private void writeObject(ObjectOutputStream out) {
-    throw new NotSerializableRuntimeException();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObject(ObjectInputStream in) {
-    throw new NotSerializableRuntimeException();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObjectNoData() {
-    throw new UnsupportedOperationException();
   }
 
   /**
@@ -74,12 +55,11 @@ public final class TestsForTargetPatternValue implements SkyValue {
   }
 
   /** A list of targets of which all test suites should be expanded. */
-  @AutoCodec
   @ThreadSafe
   static final class TestsForTargetPatternKey implements SkyKey {
     private final ImmutableSortedSet<Label> targets;
 
-    public TestsForTargetPatternKey(ImmutableSortedSet<Label> targets) {
+    TestsForTargetPatternKey(ImmutableSortedSet<Label> targets) {
       this.targets = targets;
     }
 

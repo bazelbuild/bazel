@@ -18,7 +18,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -33,11 +35,37 @@ import javax.annotation.Nullable;
 @AutoValue
 public abstract class Module {
 
-  /** The name of the module. Can be empty if this is the root module. */
+  /**
+   * The name of the module, as specified in this module's MODULE.bazel file. Can be empty if this
+   * is the root module.
+   */
   public abstract String getName();
 
-  /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
+  /**
+   * The version of the module, as specified in this module's MODULE.bazel file. Can be empty if
+   * this is the root module, or if this module comes from a {@link NonRegistryOverride}.
+   */
   public abstract Version getVersion();
+
+  /**
+   * The key of this module in the dependency graph. Note that, although a {@link ModuleKey} is also
+   * just a (name, version) pair, its semantics differ from {@link #getName} and {@link
+   * #getVersion}, which are always as specified in the MODULE.bazel file. The {@link ModuleKey}
+   * returned by this method, however, will have the following special semantics:
+   *
+   * <ul>
+   *   <li>The name of the {@link ModuleKey} is the same as {@link #getName}, unless this is the
+   *       root module, in which case the name of the {@link ModuleKey} must be empty.
+   *   <li>The version of the {@link ModuleKey} is the same as {@link #getVersion}, unless this is
+   *       the root module OR this module has a {@link NonRegistryOverride}, in which case the
+   *       version of the {@link ModuleKey} must be empty.
+   * </ul>
+   */
+  public abstract ModuleKey getKey();
+
+  public final String getCanonicalRepoName() {
+    return getKey().getCanonicalRepoName();
+  }
 
   /**
    * The compatibility level of the module, which essentially signifies the "major version" of the
@@ -59,62 +87,37 @@ public abstract class Module {
   public abstract ImmutableList<String> getToolchainsToRegister();
 
   /**
-   * Target patterns (with canonical repo names) identifying execution platforms to register when
-   * this module is selected. We need the key of this module in the dep graph to know its canonical
-   * repo name.
-   */
-  public final ImmutableList<String> getCanonicalizedExecutionPlatformsToRegister(ModuleKey key)
-      throws ExternalDepsException {
-    return canonicalizeTargetPatterns(getExecutionPlatformsToRegister(), key);
-  }
-
-  /**
-   * Target patterns (with canonical repo names) identifying toolchains to register when this module
-   * is selected. We need the key of this module in the dep graph to know its canonical repo name.
-   */
-  public final ImmutableList<String> getCanonicalizedToolchainsToRegister(ModuleKey key)
-      throws ExternalDepsException {
-    return canonicalizeTargetPatterns(getToolchainsToRegister(), key);
-  }
-
-  /**
-   * Rewrites the given target patterns to have canonical repo names, assuming that they're
-   * originally written in the context of the module identified by {@code key} and {@code module}.
-   */
-  private ImmutableList<String> canonicalizeTargetPatterns(
-      ImmutableList<String> targetPatterns, ModuleKey key) throws ExternalDepsException {
-    ImmutableList.Builder<String> renamedPatterns = ImmutableList.builder();
-    for (String pattern : targetPatterns) {
-      if (!pattern.startsWith("@")) {
-        renamedPatterns.add("@" + key.getCanonicalRepoName() + pattern);
-        continue;
-      }
-      int doubleSlashIndex = pattern.indexOf("//");
-      if (doubleSlashIndex == -1) {
-        throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE, "%s refers to malformed target pattern: %s", key, pattern);
-      }
-      String repoName = pattern.substring(1, doubleSlashIndex);
-      ModuleKey depKey = getDeps().get(repoName);
-      if (depKey == null) {
-        throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE,
-            "%s refers to target pattern %s with unknown repo %s",
-            key,
-            pattern,
-            repoName);
-      }
-      renamedPatterns.add(
-          "@" + depKey.getCanonicalRepoName() + pattern.substring(doubleSlashIndex));
-    }
-    return renamedPatterns.build();
-  }
-
-  /**
    * The direct dependencies of this module. The key type is the repo name of the dep, and the value
    * type is the ModuleKey (name+version) of the dep.
    */
   public abstract ImmutableMap<String, ModuleKey> getDeps();
+
+  /**
+   * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
+   * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMapping}.
+   */
+  public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
+    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    // If this is the root module, then the main repository should be visible as `@`.
+    if (getKey().equals(ModuleKey.ROOT)) {
+      mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
+    }
+    // Every module should be able to reference itself as @<module name>.
+    // If this is the root module, this perfectly falls into @<module name> => @
+    if (!getName().isEmpty()) {
+      mapping.put(
+          RepositoryName.createFromValidStrippedName(getName()),
+          RepositoryName.createFromValidStrippedName(getCanonicalRepoName()));
+    }
+    for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
+      // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
+      // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
+      mapping.put(
+          RepositoryName.createFromValidStrippedName(dep.getKey()),
+          RepositoryName.createFromValidStrippedName(dep.getValue().getCanonicalRepoName()));
+    }
+    return RepositoryMapping.create(mapping.build(), getCanonicalRepoName());
+  }
 
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
@@ -123,14 +126,18 @@ public abstract class Module {
   @Nullable
   public abstract Registry getRegistry();
 
+  /** The module extensions used in this module. */
+  public abstract ImmutableList<ModuleExtensionUsage> getExtensionUsages();
+
   /** Returns a {@link Builder} that starts out with the same fields as this object. */
-  public abstract Builder toBuilder();
+  abstract Builder toBuilder();
 
   /** Returns a new, empty {@link Builder}. */
   public static Builder builder() {
     return new AutoValue_Module.Builder()
         .setName("")
         .setVersion(Version.EMPTY)
+        .setKey(ModuleKey.ROOT)
         .setCompatibilityLevel(0)
         .setExecutionPlatformsToRegister(ImmutableList.of())
         .setToolchainsToRegister(ImmutableList.of());
@@ -141,11 +148,9 @@ public abstract class Module {
    * function.
    */
   public Module withDepKeysTransformed(UnaryOperator<ModuleKey> transform) {
-    ImmutableMap.Builder<String, ModuleKey> newDeps = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, ModuleKey> entry : getDeps().entrySet()) {
-      newDeps.put(entry.getKey(), transform.apply(entry.getValue()));
-    }
-    return toBuilder().setDeps(newDeps.build()).build();
+    return toBuilder()
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .build();
   }
 
   /** Builder type for {@link Module}. */
@@ -156,6 +161,9 @@ public abstract class Module {
 
     /** Optional; defaults to {@link Version#EMPTY}. */
     public abstract Builder setVersion(Version value);
+
+    /** Optional; defaults to {@link ModuleKey#ROOT}. */
+    public abstract Builder setKey(ModuleKey value);
 
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);
@@ -168,12 +176,21 @@ public abstract class Module {
 
     public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 
-    public abstract Builder setRegistry(Registry value);
-
     abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
 
     public Builder addDep(String depRepoName, ModuleKey depKey) {
       depsBuilder().put(depRepoName, depKey);
+      return this;
+    }
+
+    public abstract Builder setRegistry(Registry value);
+
+    public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
+
+    abstract ImmutableList.Builder<ModuleExtensionUsage> extensionUsagesBuilder();
+
+    public Builder addExtensionUsage(ModuleExtensionUsage value) {
+      extensionUsagesBuilder().add(value);
       return this;
     }
 

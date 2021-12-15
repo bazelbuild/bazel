@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -123,7 +123,7 @@ public final class AndroidSdkProvider extends NativeInfo
    * --incompatible_enable_android_toolchain_resolution=true, else, uses the legacy attribute..
    */
   public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
-    BuildConfiguration configuration = ruleContext.getConfiguration();
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
     if (configuration != null
         && configuration.hasFragment(AndroidConfiguration.class)
         && configuration

@@ -24,12 +24,15 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * A mutable action graph. Implementations of this interface must be thread-safe.
@@ -186,6 +189,10 @@ public interface MutableActionGraph extends ActionGraph {
 
       addStringDetail(sb, "Label", aNull ? null : Label.print(aOwner.getLabel()),
           bNull ? null : Label.print(bOwner.getLabel()));
+      if ((!aNull && !aOwner.getAspectDescriptors().isEmpty())
+          || (!bNull && !bOwner.getAspectDescriptors().isEmpty())) {
+        addStringDetail(sb, "Aspects", aspectDescriptor(aOwner), aspectDescriptor(bOwner));
+      }
       addStringDetail(sb, "RuleClass", aNull ? null : aOwner.getTargetKind(),
           bNull ? null : bOwner.getTargetKind());
       addStringDetail(sb, "Configuration", aNull ? null : aOwner.getConfigurationChecksum(),
@@ -249,6 +256,15 @@ public interface MutableActionGraph extends ActionGraph {
       }
 
       return sb.toString();
+    }
+
+    @Nullable
+    private static String aspectDescriptor(ActionOwner owner) {
+      return owner == null
+          ? null
+          : owner.getAspectDescriptors().stream()
+              .map(AspectDescriptor::getDescription)
+              .collect(Collectors.joining(",", "[", "]"));
     }
   }
 }

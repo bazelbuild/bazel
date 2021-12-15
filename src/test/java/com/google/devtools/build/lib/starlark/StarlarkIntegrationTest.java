@@ -371,7 +371,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test/starlark/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  g = depset(ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "'])",
+        "  g = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "']",
         "  return [MyInfo(result = g),",
         "      OutputGroupInfo(my_group = g)]",
         "my_rule = rule(implementation = _impl,",
@@ -926,6 +926,44 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             "label_dep.cc",
             "label_list_dep.cc",
             "dict_dep.cc");
+  }
+
+  @Test
+  public void testInstrumentedFilesInfo_coverageSupportAndEnvVarsArePrivateAPI() throws Exception {
+    // Arrange
+    scratch.file(
+        "test/starlark/extension.bzl",
+        "",
+        "def custom_rule_impl(ctx):",
+        "  return [",
+        "    coverage_common.instrumented_files_info(",
+        "      ctx,",
+        "      coverage_support_files = ctx.files.srcs,",
+        "      coverage_environment = {'k1' : 'v1'},",
+        "    ),",
+        "  ]",
+        "",
+        "custom_rule = rule(",
+        "  implementation = custom_rule_impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(",
+        "  name = 'foo',",
+        "  srcs = ['src1.txt'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    // Act
+    getConfiguredTarget("//test/starlark:foo");
+
+    // Assert
+    assertContainsEvent("private API only for use in builtins");
   }
 
   @Test
@@ -2650,7 +2688,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent(
-        "analysis test rule excedeed maximum dependency edge count. " + "Count: 14. Limit is 10.");
+        "analysis test rule exceeded maximum dependency edge count. " + "Count: 14. Limit is 10.");
   }
 
   @Test
@@ -3387,8 +3425,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testUnknownStringEscapesForbidden() throws Exception {
-    setBuildLanguageOptions("--incompatible_restrict_string_escapes=true");
-
     scratch.file("test/extension.bzl", "y = \"\\z\"");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3396,17 +3432,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent("invalid escape sequence: \\z");
-  }
-
-  @Test
-  public void testUnknownStringEscapes() throws Exception {
-    setBuildLanguageOptions("--incompatible_restrict_string_escapes=false");
-
-    scratch.file("test/extension.bzl", "y = \"\\z\"");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
   }
 
   @Test

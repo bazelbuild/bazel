@@ -17,11 +17,11 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import java.io.Serializable;
 import java.util.Set;
 
 /** An identifier for a {@code SkyFunction}. */
-public final class SkyFunctionName implements Serializable {
+public final class SkyFunctionName {
+
   private static final Cache<NameOnlyWrapper, SkyFunctionName> interner =
       Caffeine.newBuilder().build();
 

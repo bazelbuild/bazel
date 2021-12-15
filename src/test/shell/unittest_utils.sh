@@ -16,8 +16,7 @@
 
 #### Set up the test environment.
 
-# Enable errexit with pretty stack traces.
-enable_errexit
+set -euo pipefail
 
 cat_jvm_log () {
   if [[ "$log_content" =~ \

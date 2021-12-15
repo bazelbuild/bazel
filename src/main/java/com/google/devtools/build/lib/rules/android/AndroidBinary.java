@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -55,11 +56,13 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -75,7 +78,6 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
@@ -104,7 +106,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   protected abstract CppSemantics createCppSemantics();
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext)
+  public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppSemantics cppSemantics = createCppSemantics();
     JavaSemantics javaSemantics = createJavaSemantics();
@@ -117,6 +119,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder =
         init(ruleContext, filesBuilder, cppSemantics, javaSemantics, androidSemantics);
     return builder.build();
+  }
+
+  @Override
+  public final void addRuleImplSpecificRequiredConfigFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      AttributeMap attributes,
+      BuildConfigurationValue configuration) {
+    requiredFragments.addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(attributes));
   }
 
   /** Checks expected rule invariants, throws rule errors if anything is set wrong. */
@@ -513,6 +523,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             : null;
     ImmutableList<Artifact> signingKeys = AndroidCommon.getApkDebugSigningKeys(ruleContext);
     Artifact signingLineage = ruleContext.getPrerequisiteArtifact("debug_signing_lineage_file");
+    String keyRotationMinSdk = ruleContext.attributes().get("key_rotation_min_sdk", Type.STRING);
     FilesToRunProvider resourceExtractor =
         ruleContext.getExecutablePrerequisite("$resource_extractor");
 
@@ -580,6 +591,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setSignedApk(zipAlignedApk)
         .setSigningKeys(signingKeys)
         .setSigningLineageFile(signingLineage)
+        .setSigningKeyRotationMinSdk(keyRotationMinSdk)
         .setV4Signature(v4Signature)
         .setZipalignApk(true)
         .setDeterministicSigning(androidSemantics.deterministicSigning())
@@ -684,6 +696,42 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           additionalMergedManifests);
     }
 
+    // First propagate validations from most rule attributes as usual; then handle "deps" separately
+    // to propagate validations from each config split but avoid known-redundant Android Lint
+    // validations (b/168038145, b/180746622).
+    // TODO(b/180746622): remove custom filtering once semantically identical actions with
+    //   different configurations are deduped (while still propagating actions from all splits)
+    RuleConfiguredTargetBuilder.collectTransitiveValidationOutputGroups(
+        ruleContext,
+        attr -> !"deps".equals(attr),
+        validations -> builder.addOutputGroup(OutputGroupInfo.VALIDATION_TRANSITIVE, validations));
+    boolean filterSplitValidations = false; // propagate validations from first split unfiltered
+    for (List<? extends TransitiveInfoCollection> deps :
+        ruleContext.getSplitPrerequisites("deps").values()) {
+      for (OutputGroupInfo provider :
+          AnalysisUtils.getProviders(deps, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+        NestedSet<Artifact> validations = provider.getOutputGroup(OutputGroupInfo.VALIDATION);
+        if (filterSplitValidations) {
+          // Filter out Android Lint validations by name: we know these validations are expensive
+          // and duplicative between splits, so arbitrarily only propagate them from the first split
+          // (b/180746622). While it's cheesy to rely on naming patterns, more semantic filtering
+          // requires a lot of work (e.g., using an aspect that observes actions by mnemonic).
+          NestedSetBuilder<Artifact> filtered = NestedSetBuilder.stableOrder();
+          validations.toList().stream()
+              .filter(Artifact::hasKnownGeneratingAction)
+              .filter(a -> !a.getFilename().endsWith("android_lint_output.xml"))
+              .forEach(filtered::add);
+          validations = filtered.build();
+        }
+        if (!validations.isEmpty()) {
+          builder.addOutputGroup(OutputGroupInfo.VALIDATION_TRANSITIVE, validations);
+        }
+      }
+      // Filter out Android Lint Validations from any subsequent split,
+      // because they're redundant with those in the first split.
+      filterSplitValidations = true;
+    }
+
     return builder
         .setFilesToBuild(filesToBuild)
         .addProvider(
@@ -708,11 +756,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
-        // Report set feature flags as required "config fragments".
-        // While these aren't technically fragments, in practice they're user-defined settings with
-        // the same meaning: pieces of configuration the rule requires to work properly. So it makes
-        // sense to treat them equivalently for "requirements" reporting purposes.
-        .addRequiredConfigFragments(AndroidFeatureFlagSetProvider.getFlagNames(ruleContext))
         .addOutputGroup("android_deploy_info", deployInfo);
   }
 
@@ -1761,21 +1804,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
 
-  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
     Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     SpawnAction.Builder builder =
         createSpawnActionBuilder(ruleContext).useDefaultShellEnvironment();
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
-              singleJar,
-              JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs());
-    } else {
-      builder.setExecutable(singleJar);
-    }
+    builder.setExecutable(singleJar);
     return builder;
   }
 

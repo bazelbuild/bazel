@@ -22,7 +22,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.nio.file.Path;
 
-/** The options for a {@IdlClass} action. */
+/** The options for a {@link IdlClass} action. */
 public final class IdlClassOptions extends OptionsBase {
   @Option(
     name = "manifest_proto",

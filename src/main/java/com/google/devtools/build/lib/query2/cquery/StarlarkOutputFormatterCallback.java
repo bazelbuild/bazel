@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfi
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
@@ -65,7 +65,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
           @Param(name = "target"),
         })
     public Object buildOptions(ConfiguredTarget target) {
-      BuildConfiguration config = getConfiguration(target.getConfigurationKey());
+      BuildConfigurationValue config = getConfiguration(target.getConfigurationKey());
 
       if (config == null) {
         // config is null for input file configured targets.

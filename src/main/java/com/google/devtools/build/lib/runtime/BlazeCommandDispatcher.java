@@ -351,6 +351,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     storedEventHandler.post(profilerStartedEvent);
 
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
+    boolean success = false;
     if (!commonOptions.starlarkCpuProfile.isEmpty()) {
       FileOutputStream out;
       try {
@@ -362,7 +363,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
       }
       try {
-        Starlark.startCpuProfile(out, Duration.ofMillis(10));
+        success = Starlark.startCpuProfile(out, Duration.ofMillis(10));
       } catch (IllegalStateException ex) { // e.g. SIGPROF in use
         String message = Strings.nullToEmpty(ex.getMessage());
         outErr.printErrLn(message);
@@ -591,7 +592,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Finalize the Starlark CPU profile.
-      if (!commonOptions.starlarkCpuProfile.isEmpty()) {
+      if (!commonOptions.starlarkCpuProfile.isEmpty() && success) {
         try {
           Starlark.stopCpuProfile();
         } catch (IOException ex) {

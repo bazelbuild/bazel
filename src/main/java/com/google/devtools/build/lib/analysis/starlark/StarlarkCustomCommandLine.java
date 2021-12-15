@@ -59,18 +59,9 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Supports ctx.actions.args() from Starlark. */
-@AutoCodec
 public class StarlarkCustomCommandLine extends CommandLine {
 
-  private final StarlarkSemantics starlarkSemantics;
-  private final ImmutableList<Object> arguments;
-  /**
-   * If non-empty, an extra level of grouping on top of the 'arguments' list. Each element is the
-   * beginning of a group of args. For example, if this contains 0 and 3, then arguments 0, 1 and 2
-   * constitute the first group, and arguments 3 to the end constitute the next. The expanded
-   * version of these arguments will be concatenated together to support flag_per_line format.
-   */
-  private final ImmutableList<Integer> argStartIndexes;
+  protected final ImmutableList<Object> arguments;
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
@@ -124,7 +115,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return interner.intern(new VectorArg(features));
     }
 
-    private static void push(List<Object> arguments, Builder arg) {
+    private static void push(
+        List<Object> arguments, Builder arg, StarlarkSemantics starlarkSemantics) {
       int features = 0;
       features |= arg.mapEach != null ? HAS_MAP_EACH : 0;
       features |= arg.nestedSet != null ? IS_NESTED_SET : 0;
@@ -148,6 +140,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       if (arg.mapEach != null) {
         arguments.add(arg.mapEach);
+        arguments.add(starlarkSemantics);
       }
       if (arg.nestedSet != null) {
         arguments.add(arg.nestedSet);
@@ -183,14 +176,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         List<String> builder,
-        @Nullable ArtifactExpander artifactExpander,
-        StarlarkSemantics starlarkSemantics)
+        @Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
       final List<Object> originalValues;
       StarlarkCallable mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
+      StarlarkSemantics starlarkSemantics =
+          ((features & HAS_MAP_EACH) != 0) ? (StarlarkSemantics) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
         @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
@@ -366,13 +360,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
-        StarlarkSemantics starlarkSemantics,
         @Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
       StarlarkCallable mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
+      StarlarkSemantics starlarkSemantics =
+          ((features & HAS_MAP_EACH) != 0) ? (StarlarkSemantics) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
@@ -665,7 +660,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     Builder add(VectorArg.Builder vectorArg) {
-      VectorArg.push(arguments, vectorArg);
+      VectorArg.push(arguments, vectorArg, starlarkSemantics);
       return this;
     }
 
@@ -675,22 +670,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     StarlarkCustomCommandLine build(boolean flagPerLine) {
-      return new StarlarkCustomCommandLine(
-          starlarkSemantics,
-          ImmutableList.copyOf(arguments),
-          flagPerLine ? ImmutableList.copyOf(argStartIndexes) : ImmutableList.of());
+      if (flagPerLine) {
+        return new StarlarkCustomCommandLineWithIndexes(
+            ImmutableList.copyOf(arguments), ImmutableList.copyOf(argStartIndexes));
+      } else {
+        return new StarlarkCustomCommandLine(ImmutableList.copyOf(arguments));
+      }
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  StarlarkCustomCommandLine(
-      StarlarkSemantics starlarkSemantics,
-      ImmutableList<Object> arguments,
-      ImmutableList<Integer> argStartIndexes) {
+  private StarlarkCustomCommandLine(ImmutableList<Object> arguments) {
     this.arguments = arguments;
-    this.starlarkSemantics = starlarkSemantics;
-    this.argStartIndexes = argStartIndexes;
   }
 
   @Override
@@ -703,53 +693,87 @@ public class StarlarkCustomCommandLine extends CommandLine {
       throws CommandLineExpansionException, InterruptedException {
     List<String> result = new ArrayList<>();
 
-    // If we're grouping arguments, keep track of the result indexes corresponding to the
-    // argStartIndexes, reflecting VectorArg and ScalarArg expansion.
-    List<Integer> resultGroupStarts =
-        argStartIndexes.isEmpty() ? ImmutableList.of() : new ArrayList<>();
-    Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
-    int nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
-
     for (int argi = 0; argi < arguments.size(); ) {
-
-      // If we're grouping arguments, record the actual beginning of each group
-      if (argi == nextStartIndex) {
-        resultGroupStarts.add(result.size());
-        nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
-      }
-
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
-        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, starlarkSemantics);
+        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).eval(arguments, argi, result);
       } else {
         result.add(CommandLineItem.expandToCommandLine(arg));
       }
     }
+    return ImmutableList.copyOf(result);
+  }
 
-    if (argStartIndexes.isEmpty()) {
-      // Normal case, no further grouping
-      return ImmutableList.copyOf(result);
+  private static class StarlarkCustomCommandLineWithIndexes extends StarlarkCustomCommandLine {
+    /**
+     * If non-empty, an extra level of grouping on top of the 'arguments' list. Each element is the
+     * beginning of a group of args. For example, if this contains 0 and 3, then arguments 0, 1 and
+     * 2 constitute the first group, and arguments 3 to the end constitute the next. The expanded
+     * version of these arguments will be concatenated together to support flag_per_line format.
+     */
+    private final ImmutableList<Integer> argStartIndexes;
+
+    StarlarkCustomCommandLineWithIndexes(
+        ImmutableList<Object> arguments, ImmutableList<Integer> argStartIndexes) {
+      super(arguments);
+      this.argStartIndexes = argStartIndexes;
     }
 
-    // Grouped case -- concatenate results.
-    ImmutableList.Builder<String> groupedBuilder = ImmutableList.builder();
-    int numStarts = resultGroupStarts.size();
-    resultGroupStarts.add(result.size());
-    for (int i = 0; i < numStarts; i++) {
-      // Arguments that constitute a single group
-      List<String> group = result.subList(resultGroupStarts.get(i), resultGroupStarts.get(i + 1));
-      if (group.size() < 2) {
-        groupedBuilder.addAll(group);
-      } else {
-        // "--x=y z", or just "y z"
-        String first = group.get(0);
-        String rest = String.join(" ", group.subList(1, group.size()));
-        groupedBuilder.add(first.isEmpty() ? rest : (first + '=' + rest));
+    @Override
+    public Iterable<String> arguments(@Nullable ArtifactExpander artifactExpander)
+        throws CommandLineExpansionException, InterruptedException {
+      List<String> result = new ArrayList<>();
+
+      // If we're grouping arguments, keep track of the result indexes corresponding to the
+      // argStartIndexes, reflecting VectorArg and ScalarArg expansion.
+      List<Integer> resultGroupStarts =
+          argStartIndexes.isEmpty() ? ImmutableList.of() : new ArrayList<>();
+      Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
+      int nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
+
+      for (int argi = 0; argi < arguments.size(); ) {
+
+        // If we're grouping arguments, record the actual beginning of each group
+        if (argi == nextStartIndex) {
+          resultGroupStarts.add(result.size());
+          nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : -1;
+        }
+
+        Object arg = arguments.get(argi++);
+        if (arg instanceof VectorArg) {
+          argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander);
+        } else if (arg instanceof ScalarArg) {
+          argi = ((ScalarArg) arg).eval(arguments, argi, result);
+        } else {
+          result.add(CommandLineItem.expandToCommandLine(arg));
+        }
       }
+
+      if (argStartIndexes.isEmpty()) {
+        // Normal case, no further grouping
+        return ImmutableList.copyOf(result);
+      }
+
+      // Grouped case -- concatenate results.
+      ImmutableList.Builder<String> groupedBuilder = ImmutableList.builder();
+      int numStarts = resultGroupStarts.size();
+      resultGroupStarts.add(result.size());
+      for (int i = 0; i < numStarts; i++) {
+        // Arguments that constitute a single group
+        List<String> group = result.subList(resultGroupStarts.get(i), resultGroupStarts.get(i + 1));
+        if (group.size() < 2) {
+          groupedBuilder.addAll(group);
+        } else {
+          // "--x=y z", or just "y z"
+          String first = group.get(0);
+          String rest = String.join(" ", group.subList(1, group.size()));
+          groupedBuilder.add(first.isEmpty() ? rest : (first + '=' + rest));
+        }
+      }
+      return groupedBuilder.build();
     }
-    return groupedBuilder.build();
   }
 
   @Override
@@ -768,7 +792,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     argi,
                     actionKeyContext,
                     fingerprint,
-                    starlarkSemantics,
                     artifactExpander);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).addToFingerprint(arguments, argi, fingerprint);

@@ -171,22 +171,17 @@ public final class BugReport {
         }
 
         String crashMsg;
+        String heapDumpPath;
         // Might be a wrapped OOM - the detailed exit code reflects the root cause.
         if (crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR)) {
           crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
-          String heapDumpPath = ctx.getHeapDumpPath();
+          heapDumpPath = ctx.getHeapDumpPath();
           if (heapDumpPath != null) {
-            logger.atInfo().log("Attempting to dump heap to %s", heapDumpPath);
-            try {
-              dumpHeap(heapDumpPath);
-              logger.atInfo().log("Heap dump complete");
-              crashMsg += " A heap dump was written to " + heapDumpPath + ".";
-            } catch (Throwable t) { // Catch anything so we don't forgo the OOM.
-              logger.atWarning().withCause(t).log("Heap dump failed");
-            }
+            crashMsg += " An attempt will be made to write a heap dump to " + heapDumpPath + ".";
           }
         } else {
           crashMsg = getProductName() + " crashed due to an internal error.";
+          heapDumpPath = null;
         }
         crashMsg += " Printing stack trace:\n" + Throwables.getStackTraceAsString(throwable);
         ctx.getEventHandler().handle(Event.fatal(crashMsg));
@@ -207,6 +202,16 @@ public final class BugReport {
             logger.atInfo().log("Wrote failure detail file.");
           } else {
             logger.atWarning().log("Did not write failure detail file; check stderr for errors.");
+          }
+
+          if (heapDumpPath != null) {
+            logger.atInfo().log("Attempting to dump heap to %s", heapDumpPath);
+            try {
+              dumpHeap(heapDumpPath);
+              logger.atInfo().log("Heap dump complete");
+            } catch (Throwable t) { // Catch anything so we don't forgo the OOM.
+              logger.atWarning().withCause(t).log("Heap dump failed");
+            }
           }
 
           if (runtime != null) {

@@ -36,14 +36,15 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
   @StarlarkMethod(
       name = "enabled",
       structField = true,
-      doc = "Returns true if the Java rule uses annotation processing.")
+      doc = "Deprecated. Returns true if annotation processing was applied on this target.")
   boolean usesAnnotationProcessing();
 
   @StarlarkMethod(
       name = "class_jar",
       structField = true,
       allowReturnNones = true,
-      doc = "Returns a jar File that is a result of annotation processing for this rule.")
+      doc =
+          "Deprecated: Please use <code>JavaInfo.java_outputs.generated_class_jar</code> instead.")
   @Nullable
   FileTypeT getGenClassJar();
 
@@ -51,7 +52,8 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       name = "source_jar",
       structField = true,
       allowReturnNones = true,
-      doc = "Returns a source archive resulting from annotation processing of this rule.")
+      doc =
+          "Deprecated: Please use <code>JavaInfo.java_outputs.generated_source_jar</code> instead.")
   @Nullable
   FileTypeT getGenSourceJar();
 
@@ -59,7 +61,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       name = "transitive_class_jars",
       structField = true,
       doc =
-          "Returns a transitive set of class file jars resulting from annotation "
+          "Deprecated. Returns a transitive set of class file jars resulting from annotation "
               + "processing of this rule and its dependencies.")
   Depset /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark();
 
@@ -67,19 +69,23 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       name = "transitive_source_jars",
       structField = true,
       doc =
-          "Returns a transitive set of source archives resulting from annotation processing "
-              + "of this rule and its dependencies.")
+          "Deprecated. Returns a transitive set of source archives resulting from annotation "
+              + "processing of this rule and its dependencies.")
   Depset /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark();
 
   @StarlarkMethod(
       name = "processor_classpath",
       structField = true,
-      doc = "Returns a classpath of annotation processors applied to this rule.")
+      doc =
+          "Deprecated: Please use <code>JavaInfo.plugins</code> instead. Returns a classpath of"
+              + " annotation processors applied to this rule.")
   Depset /*<FileTypeT>*/ getProcessorClasspathForStarlark();
 
   @StarlarkMethod(
       name = "processor_classnames",
       structField = true,
-      doc = "Returns class names of annotation processors applied to this rule.")
+      doc =
+          "Deprecated: Please use <code>JavaInfo.plugins</code> instead. Returns class names of"
+              + " annotation processors applied to this rule.")
   ImmutableList<String> getProcessorClassNames();
 }

@@ -217,7 +217,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = root.getRelative(execPath);
     SpecialArtifact output =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath,
             ALL_OWNER,
@@ -295,12 +295,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableMap.of(output, tree.build()),
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,
-          /*actionDependsOnBuildId=*/ false);
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
+          /*shareable=*/ true);
     }
   }
 }

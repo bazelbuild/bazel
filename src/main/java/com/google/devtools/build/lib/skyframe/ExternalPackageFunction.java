@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -30,7 +31,7 @@ import javax.annotation.Nullable;
  * that will contain all the bind statements from the WORKSPACE file.
  */
 public class ExternalPackageFunction implements SkyFunction {
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final SkyKey KEY = () -> SkyFunctions.EXTERNAL_PACKAGE;
 
   private final ExternalPackageHelper externalPackageHelper;
@@ -63,11 +64,6 @@ public class ExternalPackageFunction implements SkyFunction {
       }
     }
     return new PackageValue(value.getPackage());
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /** Returns the singleton {@link SkyKey} for the external package. */

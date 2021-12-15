@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -144,8 +145,7 @@ public class EagerInvalidatorTest {
             new DirtyTrackingProgressReceiver(null),
             GraphInconsistencyReceiver.THROWING,
             () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
-            new SimpleCycleDetector(),
-            EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
+            new SimpleCycleDetector());
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
@@ -452,6 +452,67 @@ public class EagerInvalidatorTest {
       }
     }
     return result;
+  }
+
+  @Test
+  public void allNodesProcessed() throws Exception {
+    graph = new InMemoryGraphImpl();
+    ImmutableList.Builder<SkyKey> keysToDelete =
+        ImmutableList.builderWithExpectedSize(InvalidatingNodeVisitor.DEFAULT_THREAD_COUNT - 1);
+    for (int i = 0; i < InvalidatingNodeVisitor.DEFAULT_THREAD_COUNT - 1; i++) {
+      keysToDelete.add(GraphTester.nonHermeticKey("key" + i));
+    }
+    invalidate(graph, progressReceiver, keysToDelete.build().toArray(new SkyKey[0]));
+    assertThat(state.isEmpty()).isTrue();
+  }
+
+  @Test
+  public void deletingInsideForkJoinPoolWorks() throws Exception {
+    graph = new InMemoryGraphImpl();
+    ForkJoinPool outerPool = new ForkJoinPool(1);
+    outerPool
+        .submit(
+            () -> {
+              try {
+                invalidate(graph, progressReceiver, GraphTester.nonHermeticKey("a"));
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+              }
+            })
+        .get();
+  }
+
+  @Test
+  public void interruptRecoversNextTime() throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    SkyKey dep = GraphTester.nonHermeticKey("dep");
+    SkyKey toDelete = GraphTester.nonHermeticKey("top");
+    tester.getOrCreate(toDelete).addDependency(dep).setConstantValue(new StringValue("top"));
+    tester.set(dep, new StringValue("dep"));
+    eval(/*keepGoing=*/ false, toDelete);
+    Thread mainThread = Thread.currentThread();
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            invalidateWithoutError(
+                new DirtyTrackingProgressReceiver(null) {
+                  @Override
+                  public void invalidated(SkyKey skyKey, InvalidationState state) {
+                    mainThread.interrupt();
+                    // Wait for the main thread to be interrupted uninterruptibly, because the
+                    // main thread is going to interrupt us, and we don't want to get into an
+                    // interrupt fight. Only if we get interrupted without the main thread also
+                    // being interrupted will this throw an InterruptedException.
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                        visitor.get().getInterruptionLatchForTestingOnly(),
+                        "Main thread was not interrupted");
+                  }
+                },
+                toDelete));
+    invalidateWithoutError(new DirtyTrackingProgressReceiver(null));
+    eval(/*keepGoing=*/ false, toDelete);
+    invalidateWithoutError(new DirtyTrackingProgressReceiver(null), toDelete);
+    eval(/*keepGoing=*/ false, toDelete);
   }
 
   @Test

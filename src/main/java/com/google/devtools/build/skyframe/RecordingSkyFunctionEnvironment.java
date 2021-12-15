@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** An environment that can observe the deps requested through getValue(s) calls. */
-public class RecordingSkyFunctionEnvironment implements Environment {
+public final class RecordingSkyFunctionEnvironment implements Environment {
 
   private final Environment delegate;
   private final Consumer<SkyKey> skyKeyReceiver;
@@ -380,8 +380,8 @@ public class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
-    return delegate.inErrorBubblingForTesting();
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
   }
 
   @Nullable
@@ -393,6 +393,11 @@ public class RecordingSkyFunctionEnvironment implements Environment {
   @Override
   public void injectVersionForNonHermeticFunction(Version version) {
     delegate.injectVersionForNonHermeticFunction(version);
+  }
+
+  @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    delegate.registerDependencies(keys);
   }
 
   @Override

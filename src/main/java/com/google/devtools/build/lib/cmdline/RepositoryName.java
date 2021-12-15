@@ -16,72 +16,32 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.ObjectStreamException;
-import java.io.Serializable;
+import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
-/** A human-readable name for the repository. */
-@AutoCodec
-public final class RepositoryName implements Serializable {
-
-  static final String DEFAULT_REPOSITORY = "";
+/** The name of an external repository. */
+public final class RepositoryName {
 
   @SerializationConstant
-  public static final RepositoryName DEFAULT = new RepositoryName(DEFAULT_REPOSITORY);
+  public static final RepositoryName BAZEL_TOOLS = new RepositoryName("@bazel_tools");
+
+  @SerializationConstant
+  public static final RepositoryName LOCAL_CONFIG_PLATFORM =
+      new RepositoryName("@local_config_platform");
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("@");
 
   private static final Pattern VALID_REPO_NAME = Pattern.compile("@[\\w\\-.]*");
-
-  /** Helper for serializing {@link RepositoryName}. */
-  private static final class SerializationProxy implements Serializable {
-    private RepositoryName repositoryName;
-
-    private SerializationProxy(RepositoryName repositoryName) {
-      this.repositoryName = repositoryName;
-    }
-
-    private void writeObject(ObjectOutputStream out) throws IOException {
-      out.writeObject(repositoryName.toString());
-    }
-
-    private void readObject(ObjectInputStream in)
-        throws IOException, ClassNotFoundException {
-      try {
-        repositoryName = RepositoryName.create((String) in.readObject());
-      } catch (LabelSyntaxException e) {
-        throw new IOException("Error serializing repository name: " + e.getMessage());
-      }
-    }
-
-    @SuppressWarnings("unused")
-    private void readObjectNoData() throws ObjectStreamException {
-    }
-
-    private Object readResolve() {
-      return repositoryName;
-    }
-  }
-
-  private void readObject(@SuppressWarnings("unused") ObjectInputStream in) throws IOException {
-    throw new IOException("Serialization is allowed only by proxy");
-  }
-
-  private Object writeReplace() {
-    return new SerializationProxy(this);
-  }
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()
@@ -105,12 +65,9 @@ public final class RepositoryName implements Serializable {
    *
    * @throws LabelSyntaxException if the name is invalid
    */
-  @AutoCodec.Instantiator
   public static RepositoryName create(String name) throws LabelSyntaxException {
-    if (name.isEmpty()) {
-      return DEFAULT;
-    }
-    if (name.equals("@")) {
+    // TODO(b/200024947): Get rid of the '@'.
+    if (name.isEmpty() || name.equals("@")) {
       return MAIN;
     }
     try {
@@ -126,6 +83,12 @@ public final class RepositoryName implements Serializable {
    * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
    */
   public static RepositoryName createFromValidStrippedName(String name) {
+    if (name.isEmpty()) {
+      // NOTE(wyv): Without this `if` clause, a lot of Google-internal integration tests would start
+      //   failing. This suggests to me that something is comparing RepositoryName objects using
+      //   reference equality instead of #equals().
+      return MAIN;
+    }
     return repositoryNameCache.get("@" + name);
   }
 
@@ -162,8 +125,21 @@ public final class RepositoryName implements Serializable {
 
   private final String name;
 
-  private RepositoryName(String name) {
+  /**
+   * Store the name if the owner repository where this repository name is requested. If this field
+   * is not null, it means this instance represents the requested repository name that is actually
+   * not visible from the owner repository and should fail in {@link RepositoryDelegatorFunction}
+   * when fetching the repository.
+   */
+  private final String ownerRepoIfNotVisible;
+
+  private RepositoryName(String name, String ownerRepoIfNotVisible) {
     this.name = name;
+    this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
+  }
+
+  private RepositoryName(String name) {
+    this(name, null);
   }
 
   /** Performs validity checking. Returns null on success, an error message otherwise. */
@@ -202,6 +178,25 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
+   * Create a {@link RepositoryName} instance that indicates the requested repository name is
+   * actually not visible from the owner repository and should fail in {@link
+   * RepositoryDelegatorFunction} when fetching with this {@link RepositoryName} instance.
+   */
+  public RepositoryName toNonVisible(String ownerRepo) {
+    Preconditions.checkNotNull(ownerRepo);
+    return new RepositoryName(name, ownerRepo);
+  }
+
+  public boolean isVisible() {
+    return ownerRepoIfNotVisible == null;
+  }
+
+  @Nullable
+  public String getOwnerRepoIfNotVisible() {
+    return ownerRepoIfNotVisible;
+  }
+
+  /**
    * Returns the repository name without the leading "{@literal @}". For the default repository,
    * returns "".
    */
@@ -235,6 +230,7 @@ public final class RepositoryName implements Serializable {
    * Returns the repository name, except that the main repo is conflated with the default repo
    * ({@code "@"} becomes the empty string).
    */
+  // TODO(bazel-team): Consider renaming to "getDefaultForm".
   public String getCanonicalForm() {
     return isMain() ? "" : name;
   }
@@ -247,7 +243,7 @@ public final class RepositoryName implements Serializable {
    * __main__), instead of "$execroot/external/repo".
    */
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
-    if (isDefault() || isMain()) {
+    if (isMain()) {
       return PathFragment.EMPTY_FRAGMENT;
     }
     PathFragment prefix =
@@ -262,8 +258,9 @@ public final class RepositoryName implements Serializable {
    */
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create("..").getRelative(strippedName());
+    return isMain()
+        ? PathFragment.EMPTY_FRAGMENT
+        : PathFragment.create("..").getRelative(strippedName());
   }
 
   /**
@@ -282,11 +279,15 @@ public final class RepositoryName implements Serializable {
     if (!(object instanceof RepositoryName)) {
       return false;
     }
-    return OsPathPolicy.getFilePathOs().equals(name, ((RepositoryName) object).name);
+    RepositoryName other = (RepositoryName) object;
+    return OsPathPolicy.getFilePathOs().equals(name, other.name)
+        && OsPathPolicy.getFilePathOs().equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible);
   }
 
   @Override
   public int hashCode() {
-    return OsPathPolicy.getFilePathOs().hash(name);
+    return Objects.hash(
+        OsPathPolicy.getFilePathOs().hash(name),
+        OsPathPolicy.getFilePathOs().hash(ownerRepoIfNotVisible));
   }
 }

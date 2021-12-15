@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Before;
@@ -76,14 +77,16 @@ public class WorkspaceFactoryTest {
   public void testRegisterExecutionPlatforms() throws Exception {
     helper.parse("register_execution_platforms('//platform:ep1')");
     assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
-        .containsExactly("//platform:ep1");
+        .containsExactly(TargetPattern.defaultParser().parse("//platform:ep1"));
   }
 
   @Test
   public void testRegisterExecutionPlatforms_multipleLabels() throws Exception {
-    helper.parse("register_execution_platforms(", "  '//platform:ep1',", "  '//platform:ep2')");
+    helper.parse("register_execution_platforms('//platform:ep1', '//platform:ep2')");
     assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
-        .containsExactly("//platform:ep1", "//platform:ep2");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//platform:ep1"),
+            TargetPattern.defaultParser().parse("//platform:ep2"));
   }
 
   @Test
@@ -93,20 +96,26 @@ public class WorkspaceFactoryTest {
         "register_execution_platforms('//platform:ep2')",
         "register_execution_platforms('//platform/...')");
     assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
-        .containsExactly("//platform:ep1", "//platform:ep2", "//platform/...");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//platform:ep1"),
+            TargetPattern.defaultParser().parse("//platform:ep2"),
+            TargetPattern.defaultParser().parse("//platform/..."));
   }
 
   @Test
   public void testRegisterToolchains() throws Exception {
     helper.parse("register_toolchains('//toolchain:tc1')");
-    assertThat(helper.getPackage().getRegisteredToolchains()).containsExactly("//toolchain:tc1");
+    assertThat(helper.getPackage().getRegisteredToolchains())
+        .containsExactly(TargetPattern.defaultParser().parse("//toolchain:tc1"));
   }
 
   @Test
   public void testRegisterToolchains_multipleLabels() throws Exception {
-    helper.parse("register_toolchains(", "  '//toolchain:tc1',", "  '//toolchain:tc2')");
+    helper.parse("register_toolchains('//toolchain:tc1', '//toolchain:tc2')");
     assertThat(helper.getPackage().getRegisteredToolchains())
-        .containsExactly("//toolchain:tc1", "//toolchain:tc2");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//toolchain:tc1"),
+            TargetPattern.defaultParser().parse("//toolchain:tc2"));
   }
 
   @Test
@@ -116,7 +125,10 @@ public class WorkspaceFactoryTest {
         "register_toolchains('//toolchain:tc2')",
         "register_toolchains('//toolchain/...')");
     assertThat(helper.getPackage().getRegisteredToolchains())
-        .containsExactly("//toolchain:tc1", "//toolchain:tc2", "//toolchain/...");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//toolchain:tc1"),
+            TargetPattern.defaultParser().parse("//toolchain:tc2"),
+            TargetPattern.defaultParser().parse("//toolchain/..."));
   }
 
   @Test

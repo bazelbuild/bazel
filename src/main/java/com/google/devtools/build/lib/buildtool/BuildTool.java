@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import static com.google.devtools.build.lib.platform.SuspendCounter.suspendCount;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -23,6 +21,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -52,9 +51,12 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatt
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -73,6 +75,8 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -90,8 +94,22 @@ public class BuildTool {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  protected final CommandEnvironment env;
-  protected final BlazeRuntime runtime;
+  private static final AnalysisPostProcessor NOOP_POST_PROCESSOR =
+      (req, env, runtime, analysisResult) -> {};
+
+  /** Hook for inserting extra post-analysis-phase processing. Used for implementing {a,c}query. */
+  public interface AnalysisPostProcessor {
+    void process(
+        BuildRequest request,
+        CommandEnvironment env,
+        BlazeRuntime runtime,
+        AnalysisResult analysisResult)
+        throws InterruptedException, ViewCreationFailedException, ExitException;
+  }
+
+  private final CommandEnvironment env;
+  private final BlazeRuntime runtime;
+  private final AnalysisPostProcessor analysisPostProcessor;
 
   /**
    * Constructs a BuildTool.
@@ -99,8 +117,13 @@ public class BuildTool {
    * @param env a reference to the command environment of the currently executing command
    */
   public BuildTool(CommandEnvironment env) {
+    this(env, NOOP_POST_PROCESSOR);
+  }
+
+  public BuildTool(CommandEnvironment env, AnalysisPostProcessor postProcessor) {
     this.env = env;
     this.runtime = env.getRuntime();
+    this.analysisPostProcessor = postProcessor;
   }
 
   /**
@@ -157,7 +180,7 @@ public class BuildTool {
           throw new InvalidConfigurationException(
               "The experimental setting to select multiple CPUs is only supported for 'build' and "
                   + "'test' right now!",
-              BuildConfiguration.Code.MULTI_CPU_PREREQ_UNMET);
+              Code.MULTI_CPU_PREREQ_UNMET);
         }
       }
 
@@ -166,6 +189,57 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
+      if (request.getBuildOptions().mergedSkyframeAnalysisExecution) {
+        // Target pattern evaluation.
+        TargetPatternPhaseValue loadingResult;
+        Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
+        try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
+          loadingResult =
+              AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
+        }
+        env.setWorkspaceName(loadingResult.getWorkspaceName());
+
+        if (request.getBuildOptions().performAnalysisPhase) {
+          executionTool = new ExecutionTool(env, request);
+          Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
+          Set<AspectKey> builtAspects = new HashSet<>();
+
+          try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
+            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
+          }
+
+          // TODO(b/199053098): implement support for --nobuild.
+          AnalysisAndExecutionResult analysisAndExecutionResult =
+              AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
+
+          result.setBuildConfigurationCollection(
+              analysisAndExecutionResult.getConfigurationCollection());
+          result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
+          result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
+          try (SilentCloseable c = Profiler.instance().profile("Show results")) {
+            result.setSuccessfulTargets(
+                ExecutionTool.determineSuccessfulTargets(
+                    analysisAndExecutionResult.getTargetsToBuild(), builtTargets));
+            result.setSuccessfulAspects(
+                ExecutionTool.determineSuccessfulAspects(
+                    analysisAndExecutionResult.getAspectsMap().keySet(), builtAspects));
+            result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
+            BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
+            buildResultPrinter.showBuildResult(
+                request,
+                result,
+                analysisAndExecutionResult.getTargetsToBuild(),
+                analysisAndExecutionResult.getTargetsToSkip(),
+                analysisAndExecutionResult.getAspectsMap());
+          }
+          FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
+          if (delayedFailureDetail != null) {
+            throw new BuildFailedException(
+                delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
+          }
+        }
+        return;
+      }
       AnalysisResult analysisResult =
           AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 
@@ -195,8 +269,8 @@ public class BuildTool {
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
-        try (SilentCloseable c = Profiler.instance().profile("postProcessAnalysisResult")) {
-          postProcessAnalysisResult(request, analysisResult);
+        try (SilentCloseable c = Profiler.instance().profile("analysisPostProcessor.process")) {
+          analysisPostProcessor.process(request, env, runtime, analysisResult);
         }
 
         // Execution phase.
@@ -284,13 +358,6 @@ public class BuildTool {
       }
     }
   }
-
-  /**
-   * This class is meant to be overridden by classes that want to perform the Analysis phase and
-   * then process the results in some interesting way. See {@link CqueryBuildTool} as an example.
-   */
-  protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
-      throws InterruptedException, ViewCreationFailedException, ExitException {}
 
   /**
    * Produces an aquery dump of the state of Skyframe.
@@ -408,7 +475,6 @@ public class BuildTool {
       BuildRequest request, TargetValidator validator, PostBuildCallback postBuildCallback) {
     BuildResult result = new BuildResult(request.getStartTime());
     maybeSetStopOnFirstFailure(request, result);
-    int startSuspendCount = suspendCount();
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
     try {
@@ -506,7 +572,7 @@ public class BuildTool {
                 new IllegalStateException("Unspecified DetailedExitCode"));
       }
       try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
-        stopRequest(result, crash, detailedExitCode, startSuspendCount);
+        stopRequest(result, crash, detailedExitCode);
       }
     }
 
@@ -546,16 +612,10 @@ public class BuildTool {
    * @param crash any unexpected {@link RuntimeException} or {@link Error}, may be null
    * @param detailedExitCode describes the exit code and an optional detailed failure value to add
    *     to {@code result}
-   * @param startSuspendCount number of suspensions before the build started
    */
   public void stopRequest(
-      BuildResult result,
-      @Nullable Throwable crash,
-      DetailedExitCode detailedExitCode,
-      int startSuspendCount) {
+      BuildResult result, @Nullable Throwable crash, DetailedExitCode detailedExitCode) {
     Preconditions.checkState((crash == null) || !detailedExitCode.isSuccess());
-    int stopSuspendCount = suspendCount();
-    Preconditions.checkState(startSuspendCount <= stopSuspendCount);
     result.setUnhandledThrowable(crash);
     result.setDetailedExitCode(detailedExitCode);
 
@@ -568,7 +628,6 @@ public class BuildTool {
     }
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
-    result.setWasSuspended(stopSuspendCount > startSuspendCount);
 
     // Skip the build complete events so that modules can run blazeShutdownOnCrash without thinking
     // that the build completed normally. BlazeCommandDispatcher will call handleCrash.
@@ -579,6 +638,7 @@ public class BuildTool {
         env.getReporter().handle(Event.error("Build interrupted during command completion"));
         ie = e;
       }
+      env.getEventBus().post(new CollectMetricsEvent());
       env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(
@@ -623,7 +683,7 @@ public class BuildTool {
 
   /** Describes a failure that isn't severe enough to halt the command in keep_going mode. */
   // TODO(mschaller): consider promoting this to be a sibling of AbruptExitException.
-  static class ExitException extends Exception {
+  public static class ExitException extends Exception {
 
     private final DetailedExitCode detailedExitCode;
 

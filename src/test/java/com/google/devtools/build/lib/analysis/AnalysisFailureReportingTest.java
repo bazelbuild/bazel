@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -58,7 +58,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     eventBus.register(collector);
   }
 
-  private static ConfigurationId toId(BuildConfiguration config) {
+  private static ConfigurationId toId(BuildConfigurationValue config) {
     return config == null ? null : config.getEventId().getConfiguration();
   }
 
@@ -212,7 +212,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     }
 
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");
-    BuildConfiguration expectedConfig =
+    BuildConfigurationValue expectedConfig =
         Iterables.getOnlyElement(
             skyframeExecutor
                 .getSkyframeBuildView()

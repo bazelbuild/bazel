@@ -68,6 +68,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   public ImmutableMap<String, String> rewriteLocalEnv(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir)
       throws IOException, InterruptedException {
+    boolean containsDeveloperDir = env.containsKey(AppleConfiguration.DEVELOPER_DIR_ENV_NAME);
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
     boolean containsAppleSdkVersion =
         env.containsKey(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
@@ -92,7 +93,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     // TODO(bazel-team): Bazel's view of the xcode version and developer dir should be explicitly
     // set for build hermeticity.
     String developerDir = "";
-    if (containsXcodeVersion) {
+    if (containsXcodeVersion && !containsDeveloperDir) {
       String version = env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME);
       developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
       newEnvBuilder.put("DEVELOPER_DIR", developerDir);

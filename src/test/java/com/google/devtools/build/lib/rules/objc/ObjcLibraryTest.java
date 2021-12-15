@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -64,8 +64,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -783,41 +781,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testModuleNameAttributeChangesName() throws Exception {
-    RULE_TYPE.scratchTarget(scratch, "module_name", "'foo'");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:x");
-    Artifact moduleMap = getGenfilesArtifact("x.modulemaps/module.modulemap", configuredTarget);
-
-    CppModuleMapAction genMap = (CppModuleMapAction) getGeneratingAction(moduleMap);
-
-    CppModuleMap cppModuleMap = genMap.getCppModuleMap();
-    assertThat(cppModuleMap.getName()).isEqualTo("foo");
-  }
-
-  @Test
-  public void testModuleMapActionFiltersHeaders() throws Exception {
-    RULE_TYPE.scratchTarget(
-        scratch,
-        "srcs",
-        "['a.m', 'b.m', 'private.h', 'private.inc']",
-        "hdrs",
-        "['a.h', 'x.inc', 'foo.m', 'bar.mm']");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:x");
-    Artifact moduleMap = getGenfilesArtifact("x.modulemaps/module.modulemap", configuredTarget);
-
-    CppModuleMapAction genMap = (CppModuleMapAction) getGeneratingAction(moduleMap);
-
-    assertThat(Artifact.toRootRelativePaths(genMap.getPrivateHeaders())).isEmpty();
-    assertThat(Artifact.toRootRelativePaths(genMap.getPublicHeaders())).containsExactly("x/a.h");
-
-    // now check the generated name
-    CppModuleMap cppModuleMap = genMap.getCppModuleMap();
-    assertThat(cppModuleMap.getName()).isEqualTo("x_x");
-  }
-
-  @Test
   public void testCompilationActionsWithCoptFmodules() throws Exception {
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1056,10 +1019,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
     ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
 
-    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList())
-        .containsExactly(new SdkFramework("foo"));
-    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList())
-        .containsExactly(new SdkFramework("foo"), new SdkFramework("bar"));
+    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo");
+    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
   }
 
   @Test
@@ -1411,9 +1372,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
     ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
 
-    Set<SdkFramework> baseFrameworks = ImmutableSet.of(new SdkFramework("foo"));
-    Set<SdkFramework> dependerFrameworks =
-        ImmutableSet.of(new SdkFramework("foo"), new SdkFramework("bar"));
+    Set<String> baseFrameworks = ImmutableSet.of("foo");
+    Set<String> dependerFrameworks = ImmutableSet.of("foo", "bar");
     assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactlyElementsIn(baseFrameworks);
     assertThat(dependerProvider.get(SDK_FRAMEWORK).toList())
         .containsExactlyElementsIn(dependerFrameworks);
@@ -1553,7 +1513,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .write();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
-    BuildConfiguration config = getAppleCrosstoolConfiguration();
+    BuildConfigurationValue config = getAppleCrosstoolConfiguration();
     assertContainsSublist(
         removeConfigFragment(compileAction.getArguments()),
         ImmutableList.of(
@@ -1846,11 +1806,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(RULE_TYPE);
-  }
-
-  @Test
   public void testHeaderPassedToCcLib() throws Exception {
     createLibraryTargetWriter("//objc:lib").setList("hdrs", "objc_hdr.h").write();
     ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc:lib")
@@ -1918,8 +1873,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsExactly("bar.h", "bar.inc");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
-    assertThat(Artifact.toRootRelativePaths(dependerProvider.getDirect(ObjcProvider.MODULE_MAP)))
-        .containsExactly("x/bar.modulemaps/module.modulemap");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bar");
     CcCompilationContext ccCompilationContext =
@@ -2399,5 +2352,53 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .collect(onlyElement());
     assertThat(preprocessedAsmAction.getInputs().toList())
         .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
+  }
+
+  /** b/197608223 */
+  @Test
+  public void testCompilationPrerequisitesHasHeaders() throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        "objc_library(",
+        "    name = 'objc',",
+        "    srcs = ['objc.m'],",
+        "    deps = [':cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'cc',",
+        "    hdrs = ['cc.h'],",
+        "    srcs = ['cc.cc'],",
+        ")");
+
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+
+    ConfiguredTarget cc = getConfiguredTarget("//bin:objc");
+
+    assertThat(
+            artifactsToStrings(
+                cc.get(OutputGroupInfo.STARLARK_CONSTRUCTOR)
+                    .getOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES)))
+        .contains("src bin/cc.h");
+  }
+
+  @Test
+  public void testCoptsLocationIsExpanded() throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    copts = ['$(rootpath lib1.m) $(location lib2.m) $(location data.data) $(execpath"
+            + " header.h)'],",
+        "    srcs = ['lib1.m'],",
+        "    non_arc_srcs = ['lib2.m'],",
+        "    data = ['data.data', 'lib2.m'],",
+        "    hdrs = ['header.h'],",
+        ")");
+
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//bin:lib", "lib1.o");
+    assertThat(compileA.compileCommandLine.getCopts())
+        .containsAtLeast("bin/lib1.m", "bin/lib2.m", "bin/data.data", "bin/header.h");
   }
 }

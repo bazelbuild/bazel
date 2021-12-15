@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -23,8 +24,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import java.util.List;
 
@@ -50,6 +49,7 @@ public class ApkActionsBuilder {
   private String artifactLocation;
   private Artifact v4SignatureFile;
   private boolean deterministicSigning;
+  private String signingKeyRotationMinSdk;
 
   private final String apkName;
 
@@ -145,6 +145,11 @@ public class ApkActionsBuilder {
   /** Sets the signing lineage file used to sign the APK. */
   public ApkActionsBuilder setSigningLineageFile(Artifact signingLineage) {
     this.signingLineage = signingLineage;
+    return this;
+  }
+
+  public ApkActionsBuilder setSigningKeyRotationMinSdk(String minSdk) {
+    this.signingKeyRotationMinSdk = minSdk;
     return this;
   }
 
@@ -372,6 +377,9 @@ public class ApkActionsBuilder {
     if (signingMethod.signV4() != null) {
       commandLine.add("--v4-signing-enabled", Boolean.toString(signingMethod.signV4()));
     }
+    if (!Strings.isNullOrEmpty(signingKeyRotationMinSdk)) {
+      commandLine.add("--rotation-min-sdk-version", signingKeyRotationMinSdk);
+    }
     commandLine.add("--out").addExecPath(signedAndZipalignedApk).addExecPath(unsignedApk);
 
     if (v4SignatureFile != null) {
@@ -381,20 +389,10 @@ public class ApkActionsBuilder {
         actionBuilder.addCommandLine(commandLine.build()).build(ruleContext));
   }
 
-  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static void setSingleJarAsExecutable(
       RuleContext ruleContext, SpawnAction.Builder builder) {
     Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
-              singleJar,
-              JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs());
-    } else {
-      builder.setExecutable(singleJar);
-    }
+    builder.setExecutable(singleJar);
   }
 
   private Artifact getApkArtifact(RuleContext ruleContext, String baseName) {

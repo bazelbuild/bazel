@@ -294,16 +294,6 @@ public class OptionProcessorTest {
   }
 
   @Test
-  public void functionalExpansionOptionThatAllowsMultipleIsRejected() {
-    assertAbout(javaSource())
-        .that(getFile("FunctionalExpansionOptionWithAllowMultiple.java"))
-        .processedWith(new OptionProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Can't set an option to accumulate multiple values and let it expand to other flags.");
-  }
-
-  @Test
   public void expansionOptionWithImplicitRequirementIsRejected() {
     assertAbout(javaSource())
         .that(getFile("ExpansionOptionWithImplicitRequirement.java"))
@@ -311,15 +301,5 @@ public class OptionProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "Can't set an option to be both an expansion option and have implicit requirements.");
-  }
-
-  @Test
-  public void expansionOptionThatExpandsInTwoWaysIsRejected() {
-    assertAbout(javaSource())
-        .that(getFile("DoubleExpansionOption.java"))
-        .processedWith(new OptionProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Options cannot expand using both a static expansion list and an expansion function.");
   }
 }

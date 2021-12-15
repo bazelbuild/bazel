@@ -26,7 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@GcovParser}. */
+/** Unit tests for {@link GcovParser}. */
 @RunWith(JUnit4.class)
 public class GcovParserTest {
 

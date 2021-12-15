@@ -54,11 +54,10 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class TreeArtifactValueTest {
 
-  private static final PathFragment BIN_PATH = PathFragment.create("bin");
-
   private final Scratch scratch = new Scratch();
   private final ArtifactRoot root =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), RootType.Output, BIN_PATH);
+      ArtifactRoot.asDerivedRoot(
+          scratch.resolve("root"), RootType.Output, PathFragment.create("bin"));
 
   @Test
   public void createsCorrectValue() {
@@ -153,7 +152,7 @@ public final class TreeArtifactValueTest {
   @Test
   public void cannotCreateBuilderForNonTreeArtifact() {
     SpecialArtifact notTreeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             PathFragment.create("bin/not_tree"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -653,7 +652,7 @@ public final class TreeArtifactValueTest {
   public void multiBuilder_removeNotATreeArtifact_fails() {
     TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
     SpecialArtifact notATreeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             root.getExecPath().getRelative("bin/artifact"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -687,7 +686,7 @@ public final class TreeArtifactValueTest {
   }
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(SpecialArtifact specialArtifact) {
-    return ArchivedTreeArtifact.create(specialArtifact, BIN_PATH);
+    return ArchivedTreeArtifact.createForTree(specialArtifact);
   }
 
   private SpecialArtifact createTreeArtifact(String execPath) {

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -26,16 +25,10 @@ import net.starlark.java.syntax.Location;
  * since {@link Location} can be quite heavy on its own and each of these wrapper objects costs 24
  * bytes over an existing {@link Target}.
  */
-@AutoCodec
 @AutoValue
 public abstract class LabelAndLocation {
-  @AutoCodec.Instantiator
-  static LabelAndLocation create(Label label, Location location) {
-    return new AutoValue_LabelAndLocation(label, location);
-  }
-
   public static LabelAndLocation of(Target target) {
-    return create(target.getLabel(), target.getLocation());
+    return new AutoValue_LabelAndLocation(target.getLabel(), target.getLocation());
   }
 
   public abstract Label getLabel();

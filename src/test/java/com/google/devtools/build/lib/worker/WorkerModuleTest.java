@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat.JSON;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -74,16 +75,20 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     module.buildStarting(new BuildStartingEvent(env, request));
+
     assertThat(storedEventHandler.getEvents()).isEmpty();
-    assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isTrue();
+    assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isFalse();
     assertThat(module.workerPool).isNotNull();
+
     WorkerKey workerKey = TestUtils.createWorkerKey(JSON, fs);
     Worker worker = module.workerPool.borrowObject(workerKey);
+
     assertThat(worker.workerKey).isEqualTo(workerKey);
+    assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isTrue();
   }
 
   @Test
-  public void buildStarting_restartsOnSandboxChanges() throws IOException, AbruptExitException {
+  public void buildStarting_noRestartOnSandboxChanges() throws IOException, AbruptExitException {
     WorkerModule module = new WorkerModule();
     WorkerOptions options = WorkerOptions.DEFAULTS;
     when(request.getOptions(WorkerOptions.class)).thenReturn(options);
@@ -95,16 +100,15 @@ public class WorkerModuleTest {
 
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
     Path aLog = workerDir.getRelative("f.log");
+    workerDir.createDirectoryAndParents();
     aLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
     WorkerPool oldPool = module.workerPool;
     options.workerSandboxing = !options.workerSandboxing;
     module.beforeCommand(env);
     module.buildStarting(new BuildStartingEvent(env, request));
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    assertThat(storedEventHandler.getEvents().get(0).getMessage())
-        .contains("Worker factory configuration has changed");
-    assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
-    assertThat(aLog.exists()).isFalse();
+    assertThat(storedEventHandler.getEvents()).isEmpty();
+    assertThat(module.workerPool).isSameInstanceAs(oldPool);
+    assertThat(aLog.exists()).isTrue();
   }
 
   @Test
@@ -118,7 +122,7 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     module.buildStarting(new BuildStartingEvent(env, request));
-    WorkerKey workerKey = TestUtils.createWorkerKey(JSON, fs);
+    WorkerKey workerKey = TestUtils.createWorkerKey(JSON, fs, true);
     Worker worker = module.workerPool.borrowObject(workerKey);
     assertThat(worker.workerKey).isEqualTo(workerKey);
     assertThat(storedEventHandler.getEvents()).hasSize(1);
@@ -128,16 +132,17 @@ public class WorkerModuleTest {
 
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
     Path aLog = workerDir.getRelative("f.log");
+    workerDir.createDirectoryAndParents();
     aLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
     WorkerPool oldPool = module.workerPool;
-    options.workerSandboxing = !options.workerSandboxing;
+    options.highPriorityWorkers = ImmutableList.of("Foobar");
     module.beforeCommand(env);
     module.buildStarting(new BuildStartingEvent(env, request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
-        .contains("Worker factory configuration has changed");
+        .contains("Worker pool configuration has changed");
     assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
-    assertThat(aLog.exists()).isFalse();
+    assertThat(aLog.exists()).isTrue();
   }
 
   @Test
@@ -154,6 +159,7 @@ public class WorkerModuleTest {
     // Log file from old root, doesn't get cleaned
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
     Path oldLog = workerDir.getRelative("f.log");
+    workerDir.createDirectoryAndParents();
     oldLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
 
     WorkerPool oldPool = module.workerPool;
@@ -164,8 +170,30 @@ public class WorkerModuleTest {
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker factory configuration has changed");
     assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
+    WorkerKey workerKey = TestUtils.createWorkerKey(fs, "mnemonic", false);
+    module.workerPool.getWorkerPoolConfig().getWorkerFactory().create(workerKey);
     assertThat(fs.getPath("/otherRootDir/outputBase/bazel-workers").exists()).isTrue();
     assertThat(oldLog.exists()).isTrue();
+  }
+
+  @Test
+  public void buildStarting_clearsLogsOnFactoryCreation() throws IOException, AbruptExitException {
+    WorkerModule module = new WorkerModule();
+    WorkerOptions options = WorkerOptions.DEFAULTS;
+    when(request.getOptions(WorkerOptions.class)).thenReturn(options);
+    setupEnvironment("/outputRoot");
+
+    Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
+    workerDir.createDirectoryAndParents();
+    Path oldLog = workerDir.getRelative("f.log");
+    oldLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
+
+    module.beforeCommand(env);
+    module.buildStarting(new BuildStartingEvent(env, request));
+
+    assertThat(storedEventHandler.getEvents()).isEmpty();
+    assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isTrue();
+    assertThat(oldLog.exists()).isFalse();
   }
 
   @Test
@@ -183,6 +211,7 @@ public class WorkerModuleTest {
     // Logs are only cleared on factory reset, not on pool reset, so this file should survive
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
     Path oldLog = workerDir.getRelative("f.log");
+    workerDir.createDirectoryAndParents();
     oldLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
 
     WorkerPool oldPool = module.workerPool;
@@ -240,6 +269,33 @@ public class WorkerModuleTest {
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker pool configuration has changed");
     assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
+  }
+
+  @Test
+  public void buildStarting_survivesNoWorkerDir()
+      throws IOException, AbruptExitException, InterruptedException {
+    WorkerModule module = new WorkerModule();
+    WorkerOptions options = WorkerOptions.DEFAULTS;
+
+    when(request.getOptions(WorkerOptions.class)).thenReturn(options);
+    setupEnvironment("/outputRoot");
+
+    module.beforeCommand(env);
+    Path workerDir =
+        env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
+
+    // Check that new pools/factories can be created without a worker dir.
+    module.buildStarting(new BuildStartingEvent(env, request));
+
+    // But once we try to get a worker, it should fail. This forces a situation where we can't
+    // have a workerDir.
+    assertThat(workerDir.exists()).isFalse();
+    workerDir.getParentDirectory().createDirectoryAndParents();
+    workerDir.getParentDirectory().setWritable(false);
+
+    // But an actual worker cannot be created.
+    WorkerKey key = TestUtils.createWorkerKey(fs, "Work", /* proxied=*/ false);
+    assertThrows(IOException.class, () -> module.workerPool.borrowObject(key));
   }
 
   private void setupEnvironment(String rootDir) throws IOException, AbruptExitException {

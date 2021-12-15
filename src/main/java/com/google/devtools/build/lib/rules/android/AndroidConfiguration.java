@@ -201,7 +201,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         converter = ConfigurationDistinguisherConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        metadataTags = {OptionMetadataTag.INTERNAL})
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH})
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
@@ -783,10 +783,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.EAGERNESS_TO_EXIT,
         },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If enabled, direct usage of the native Android rules is disabled. Please use the"
                 + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
@@ -797,10 +794,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
                 + " native)")

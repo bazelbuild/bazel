@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,8 +39,8 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file("dummy/BUILD", "cc_library(name='library')");
   }
 
-  void testCCFlagsContainsSysroot(BuildConfiguration config, String sysroot, boolean shouldContain)
-      throws Exception {
+  void testCCFlagsContainsSysroot(
+      BuildConfigurationValue config, String sysroot, boolean shouldContain) throws Exception {
 
     RuleContext ruleContext =
         getRuleContext(
@@ -58,7 +58,8 @@ public final class CppSysrootTest extends BuildViewTestCase {
     }
   }
 
-  CcToolchainProvider getCcToolchainProvider(BuildConfiguration configuration) throws Exception {
+  CcToolchainProvider getCcToolchainProvider(BuildConfigurationValue configuration)
+      throws Exception {
     CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
     return Preconditions.checkNotNull(
         getConfiguredTarget(cppConfiguration.getRuleProvidingCcToolchainProvider(), configuration)
@@ -69,9 +70,9 @@ public final class CppSysrootTest extends BuildViewTestCase {
   public void testHostGrteTop() throws Exception {
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')", "cc_library(name='library')");
     useConfiguration("--host_grte_top=//a/grte/top");
-    BuildConfiguration target = getTargetConfiguration();
+    BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
-    BuildConfiguration host = getHostConfiguration();
+    BuildConfigurationValue host = getHostConfiguration();
     CcToolchainProvider hostCcProvider = getCcToolchainProvider(host);
 
     testCCFlagsContainsSysroot(host, "a/grte/top", true);
@@ -83,9 +84,9 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
     scratch.file("b/grte/top/BUILD", "filegroup(name='everything')");
     useConfiguration("--grte_top=//a/grte/top", "--host_grte_top=//b/grte/top");
-    BuildConfiguration target = getTargetConfiguration();
+    BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
-    BuildConfiguration host = getHostConfiguration();
+    BuildConfigurationValue host = getHostConfiguration();
     CcToolchainProvider hostCcProvider = getCcToolchainProvider(host);
 
     assertThat(targetCcProvider.getSysroot()).isEqualTo("a/grte/top");
@@ -102,7 +103,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
     scratch.file("b/grte/top/BUILD", "alias(name='everything', actual='//a/grte/top:everything')");
     useConfiguration("--grte_top=//b/grte/top");
-    BuildConfiguration target = getTargetConfiguration();
+    BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
 
     assertThat(targetCcProvider.getSysroot()).isEqualTo("a/grte/top");
@@ -113,13 +114,13 @@ public final class CppSysrootTest extends BuildViewTestCase {
 
   @Test
   public void testSysroot() throws Exception {
-    // BuildConfiguration shouldn't provide a sysroot option by default.
+    // BuildConfigurationValue shouldn't provide a sysroot option by default.
     useConfiguration("--cpu=k8");
-    BuildConfiguration config = getTargetConfiguration();
+    BuildConfigurationValue config = getTargetConfiguration();
     testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
 
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
-    // BuildConfiguration should work with label grte_top options.
+    // BuildConfigurationValue should work with label grte_top options.
     useConfiguration("--cpu=k8", "--grte_top=//a/grte/top:everything");
     config = getTargetConfiguration();
     testCCFlagsContainsSysroot(config, "a/grte/top", true);
@@ -151,17 +152,17 @@ public final class CppSysrootTest extends BuildViewTestCase {
 
   @Test
   public void testSysrootWithHostConfig() throws Exception {
-    // The host BuildConfiguration shouldn't provide a sysroot option by default.
+    // The host BuildConfigurationValue shouldn't provide a sysroot option by default.
     for (String cpu : new String[] {"piii", "k8"}) {
       useConfiguration("--cpu=" + cpu);
-      BuildConfiguration config = getHostConfiguration();
+      BuildConfigurationValue config = getHostConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
-    // The host BuildConfiguration should work with label grte_top options.
+    // The host BuildConfigurationValue should work with label grte_top options.
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
     for (String cpu : new String[] {"piii", "k8"}) {
       useConfiguration("--cpu=" + cpu, "--host_grte_top=//a/grte/top");
-      BuildConfiguration config = getHostConfiguration();
+      BuildConfigurationValue config = getHostConfiguration();
       testCCFlagsContainsSysroot(config, "a/grte/top", true);
 
       // "--grte_top" does *not* set the host grte_top,

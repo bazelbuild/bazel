@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -29,9 +28,9 @@ import java.io.IOException;
 /**
  * An instance of a given {@code AspectClass} with loaded definition and parameters.
  *
- * This is an aspect equivalent of {@link Rule} class for build rules.
+ * <p>This is an aspect equivalent of {@link Rule} class for build rules.
  *
- * Note: this class does not have {@code equals()} and {@code hashCode()} redefined, so should
+ * <p>Note: this class does not have {@code equals()} and {@code hashCode()} redefined, so should
  * not be used in SkyKeys.
  */
 @Immutable
@@ -57,46 +56,14 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   private final AspectDefinition aspectDefinition;
 
   private Aspect(
-      AspectClass aspectClass,
-      AspectDefinition aspectDefinition,
-      AspectParameters parameters) {
-    this.aspectDescriptor = new AspectDescriptor(
-        Preconditions.checkNotNull(aspectClass),
-        Preconditions.checkNotNull(parameters));
-    this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
-  }
-
-  private Aspect(
-      AspectClass aspectClass,
-      AspectDefinition aspectDefinition,
-      AspectParameters parameters,
-      RequiredProviders inheritedRequiredProviders,
-      ImmutableSet<String> inheritedAttributeAspects) {
+      AspectClass aspectClass, AspectDefinition aspectDefinition, AspectParameters parameters) {
     this.aspectDescriptor =
         new AspectDescriptor(
-            Preconditions.checkNotNull(aspectClass),
-            Preconditions.checkNotNull(parameters),
-            inheritedRequiredProviders,
-            inheritedAttributeAspects);
+            Preconditions.checkNotNull(aspectClass), Preconditions.checkNotNull(parameters));
     this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
   }
 
-  public static Aspect forNative(
-      NativeAspectClass nativeAspectClass,
-      AspectParameters parameters,
-      RequiredProviders inheritedRequiredProviders,
-      ImmutableSet<String> inheritedAttributeAspects) {
-    AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
-    return new Aspect(
-        nativeAspectClass,
-        definition,
-        parameters,
-        inheritedRequiredProviders,
-        inheritedAttributeAspects);
-  }
-
-  public static Aspect forNative(
-      NativeAspectClass nativeAspectClass, AspectParameters parameters) {
+  public static Aspect forNative(NativeAspectClass nativeAspectClass, AspectParameters parameters) {
     AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
     return new Aspect(nativeAspectClass, definition, parameters);
   }
@@ -108,27 +75,16 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   public static Aspect forStarlark(
       StarlarkAspectClass starlarkAspectClass,
       AspectDefinition aspectDefinition,
-      AspectParameters parameters,
-      RequiredProviders inheritedRequiredProviders,
-      ImmutableSet<String> inheritedAttributeAspects) {
-    return new Aspect(
-        starlarkAspectClass,
-        aspectDefinition,
-        parameters,
-        inheritedRequiredProviders,
-        inheritedAttributeAspects);
+      AspectParameters parameters) {
+    return new Aspect(starlarkAspectClass, aspectDefinition, parameters);
   }
 
-  /**
-   * Returns the aspectClass required for building the aspect.
-   */
+  /** Returns the aspectClass required for building the aspect. */
   public AspectClass getAspectClass() {
     return aspectDescriptor.getAspectClass();
   }
 
-  /**
-   * Returns parameters for evaluation of the aspect.
-   */
+  /** Returns parameters for evaluation of the aspect. */
   public AspectParameters getParameters() {
     return aspectDescriptor.getParameters();
   }
@@ -184,9 +140,7 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
         return forStarlark(
             (StarlarkAspectClass) aspectDescriptor.getAspectClass(),
             aspectDefinition,
-            aspectDescriptor.getParameters(),
-            aspectDescriptor.getInheritedRequiredProviders(),
-            aspectDescriptor.getInheritedAttributeAspects());
+            aspectDescriptor.getParameters());
       }
     }
   }

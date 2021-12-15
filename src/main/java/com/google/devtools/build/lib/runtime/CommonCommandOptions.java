@@ -47,12 +47,9 @@ public class CommonCommandOptions extends OptionsBase {
       name = "all_incompatible_changes",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      expansionFunction = AllIncompatibleChangesExpansion.class,
-      help =
-          "Enables all options of the form --incompatible_*. Use this option to find places where "
-              + "your build may break in the future due to deprecations or other changes.")
+      help = "No-op, being removed. See https://github.com/bazelbuild/bazel/issues/13892")
   public Void allIncompatibleChanges;
 
   @Option(
@@ -226,26 +223,6 @@ public class CommonCommandOptions extends OptionsBase {
               + " the output base. View profile by loading into chrome://tracing. By default Bazel"
               + " writes the profile for all build-like commands and query.")
   public TriState enableTracer;
-
-  @Option(
-      name = "json_trace_compression",
-      oldName = "experimental_json_trace_compression",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help =
-          "If enabled, Bazel compresses the JSON-format profile with gzip. "
-              + "By default, this is decided based on the extension of the file specified in "
-              + "--profile.")
-  public TriState enableTracerCompression;
-
-  @Option(
-      name = "experimental_profile_cpu_usage",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
-  public boolean enableCpuUsageProfiling;
 
   @Option(
       name = "experimental_profile_additional_tasks",

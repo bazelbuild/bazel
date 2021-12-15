@@ -36,6 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:single_build_file_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -57,5 +58,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
     ],
 )

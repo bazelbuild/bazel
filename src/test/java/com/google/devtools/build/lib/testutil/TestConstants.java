@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CROSSTOOL_LABEL;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /**
  * Various constants required by the tests.
@@ -98,7 +99,7 @@ public class TestConstants {
   public static final String MOCK_CC_CROSSTOOL_PATH = "tools/cpp";
 
   /** The workspace repository label under which built-in tools reside. */
-  public static final String TOOLS_REPOSITORY = "@bazel_tools";
+  public static final RepositoryName TOOLS_REPOSITORY = RepositoryName.BAZEL_TOOLS;
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
   public static final String TOOLS_REPOSITORY_SCRATCH = "embedded_tools/";
 
@@ -149,6 +150,9 @@ public class TestConstants {
   /** What toolchain type do Android rules use for platform-based toolchain resolution? */
   public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =
       TOOLS_REPOSITORY + "//tools/android:sdk_toolchain_type";
+
+  /** The launcher used by Bazel. */
+  public static final String LAUNCHER_PATH = "@bazel_tools//tools/launcher:launcher";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {

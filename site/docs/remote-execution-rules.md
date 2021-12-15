@@ -39,7 +39,7 @@ build and test rules for remote execution and how to avoid them. It covers the
 following topics:
 
 *  [Invoking build tools through toolchain rules](#invoking-build-tools-through-toolchain-rules)
-*  [Managing dependencies](#managing-dependencies)
+*  [Managing implicit dependencies](#managing-implicit-dependencies)
 *  [Managing platform-dependent binaries](#managing-platform-dependent-binaries)
 *  [Managing configure-style WORKSPACE rules](#managing-configure-style-workspace-rules)
 

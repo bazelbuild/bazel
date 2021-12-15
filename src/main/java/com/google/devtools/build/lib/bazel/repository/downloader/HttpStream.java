@@ -87,6 +87,16 @@ final class HttpStream extends FilterInputStream {
           stream = retrier;
         }
 
+        try {
+          String contentLength = connection.getHeaderField("Content-Length");
+          if (contentLength != null) {
+            long expectedSize = Long.parseLong(contentLength);
+            stream = new CheckContentLengthInputStream(stream, expectedSize);
+          }
+        } catch (NumberFormatException ignored) {
+          // ignored
+        }
+
         stream = progressInputStreamFactory.create(stream, connection.getURL(), originalUrl);
 
         // Determine if we need to transparently gunzip. See RFC2616 § 3.5 and § 14.11. Please note

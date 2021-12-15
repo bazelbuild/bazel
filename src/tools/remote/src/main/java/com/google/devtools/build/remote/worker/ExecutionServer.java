@@ -35,7 +35,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
+import com.google.devtools.build.lib.remote.UploadManifest;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -329,7 +331,7 @@ final class ExecutionServer extends ExecutionImplBase {
             String.format(
                 "Command:\n%s\nexceeded deadline of %f seconds.",
                 Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
-        logger.atWarning().log(errMessage);
+        logger.atWarning().log("%s", errMessage);
         errStatus =
             Status.newBuilder()
                 .setCode(Code.DEADLINE_EXCEEDED.getNumber())
@@ -344,9 +346,10 @@ final class ExecutionServer extends ExecutionImplBase {
 
       ActionResult result = null;
       try {
-        result =
-            cache.upload(
-                context,
+        UploadManifest manifest =
+            UploadManifest.create(
+                cache.getRemoteOptions(),
+                digestUtil,
                 RemotePathResolver.createDefault(workingDirectory),
                 actionKey,
                 action,
@@ -354,6 +357,7 @@ final class ExecutionServer extends ExecutionImplBase {
                 outputs,
                 outErr,
                 exitCode);
+        result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {
           errStatus =

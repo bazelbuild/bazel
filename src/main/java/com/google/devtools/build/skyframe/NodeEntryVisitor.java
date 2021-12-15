@@ -100,8 +100,15 @@ class NodeEntryVisitor {
     }
     progressReceiver.enqueueing(key);
     if (quiescingExecutor instanceof MultiThreadPoolsQuiescingExecutor) {
-      ThreadPoolType threadPoolType =
-          key instanceof CPUHeavySkyKey ? ThreadPoolType.CPU_HEAVY : ThreadPoolType.REGULAR;
+      ThreadPoolType threadPoolType;
+      if (key instanceof CPUHeavySkyKey) {
+        threadPoolType = ThreadPoolType.CPU_HEAVY;
+      } else if (key instanceof ExecutionPhaseSkyKey) {
+        // Only possible with --experimental_merged_skyframe_analysis_execution.
+        threadPoolType = ThreadPoolType.EXECUTION_PHASE;
+      } else {
+        threadPoolType = ThreadPoolType.REGULAR;
+      }
       ((MultiThreadPoolsQuiescingExecutor) quiescingExecutor)
           .execute(runnableMaker.make(key, evaluationPriority), threadPoolType);
     } else {

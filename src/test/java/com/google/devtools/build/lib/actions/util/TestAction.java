@@ -94,6 +94,11 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
+    return NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, optionalInputs);
+  }
+
+  @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     Preconditions.checkState(discoversInputs(), this);
     NestedSet<Artifact> discoveredInputs =

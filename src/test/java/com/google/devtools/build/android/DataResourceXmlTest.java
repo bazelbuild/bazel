@@ -1047,6 +1047,24 @@ public class DataResourceXmlTest {
   }
 
   @Test
+  public void writeOverlayableXmlResource() throws Exception {
+    // TODO(b/193025750): The current version of the layoutlib prebuilt used by Bazel does not
+    // contain the overlayable type.
+    assumeTrue(ResourceType.getEnum("overlayable") != null);
+
+    String xml =
+        "<overlayable name='foo'>"
+            + "  <policy type='public'>"
+            + "    <item name='my_color' type='color'/>"
+            + "  </policy>"
+            + "</overlayable>";
+    Path source = writeResourceXml(xml);
+    assertAbout(resourcePaths)
+        .that(parsedAndWritten(source, fqn("overlayable/foo")))
+        .xmlContentsIsEqualTo(resourcesXmlFrom(source, xml));
+  }
+
+  @Test
   public void serializeMultipleSimpleXmlResources() throws Exception {
     Path serialized = fs.getPath("out/out.bin");
     Path source = fs.getPath("res/values/values.xml");

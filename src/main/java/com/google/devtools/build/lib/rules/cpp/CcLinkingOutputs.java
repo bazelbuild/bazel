@@ -22,6 +22,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A structured representation of the link outputs of a C++ rule. */
 public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBackendArtifacts> {
@@ -59,6 +63,13 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
 
   public ImmutableList<LtoBackendArtifacts> getAllLtoArtifacts() {
     return allLtoArtifacts;
+  }
+
+  @Override
+  public Sequence<LtoBackendArtifacts> getAllLtoArtifactsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getAllLtoArtifacts());
   }
 
   public ImmutableList<Artifact> getLinkActionInputs() {

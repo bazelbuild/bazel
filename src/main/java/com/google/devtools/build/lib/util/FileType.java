@@ -19,8 +19,9 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.concurrent.Immutable;
@@ -28,8 +29,10 @@ import javax.annotation.concurrent.Immutable;
 /** A base class for FileType matchers. */
 @Immutable
 public abstract class FileType implements Predicate<String> {
+  private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
+
   // A special file type
-  @AutoCodec @VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   public static final FileType NO_EXTENSION =
       new FileType() {
         @Override
@@ -51,19 +54,16 @@ public abstract class FileType implements Predicate<String> {
     return of(ImmutableList.copyOf(extensions));
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class SingletonFileType extends FileType {
+  private static final class SingletonFileType extends FileType {
     private final String ext;
 
-    @AutoCodec.VisibleForSerialization
     SingletonFileType(String ext) {
       this.ext = ext;
     }
 
     @Override
     public boolean apply(String path) {
-      return path.endsWith(ext);
+      return OS.endsWith(path, ext);
     }
 
     @Override
@@ -72,12 +72,9 @@ public abstract class FileType implements Predicate<String> {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class ListFileType extends FileType {
+  private static final class ListFileType extends FileType {
     private final ImmutableList<String> extensions;
 
-    @AutoCodec.VisibleForSerialization
     ListFileType(ImmutableList<String> extensions) {
       this.extensions = Preconditions.checkNotNull(extensions);
     }
@@ -86,7 +83,7 @@ public abstract class FileType implements Predicate<String> {
     public boolean apply(String path) {
       // Do not use an iterator based for loop here as that creates excessive garbage.
       for (int i = 0; i < extensions.size(); i++) {
-        if (path.endsWith(extensions.get(i))) {
+        if (OS.endsWith(path, extensions.get(i))) {
           return true;
         }
       }

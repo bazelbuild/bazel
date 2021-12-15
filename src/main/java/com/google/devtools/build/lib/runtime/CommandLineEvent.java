@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -489,6 +490,11 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         return "A command line, either as a simple string, or as a base64-encoded binary form of a"
             + " CommandLine proto";
       }
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("commandLine", commandLine).toString();
     }
   }
 }

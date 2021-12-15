@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -135,8 +135,8 @@ public final class ProcessWrapper {
     }
 
     /** Build the command line to invoke a specific command using the process wrapper tool. */
-    public List<String> build() {
-      List<String> fullCommandLine = new ArrayList<>();
+    public ImmutableList<String> build() {
+      ImmutableList.Builder<String> fullCommandLine = new ImmutableList.Builder<>();
       fullCommandLine.add(processWrapperPath);
 
       if (timeout != null) {
@@ -160,7 +160,7 @@ public final class ProcessWrapper {
 
       fullCommandLine.addAll(commandArguments);
 
-      return fullCommandLine;
+      return fullCommandLine.build();
     }
   }
 }

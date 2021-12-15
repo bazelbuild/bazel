@@ -213,10 +213,10 @@ run_suite "failure tests"
         "message=\"I'm a failure with &lt;&gt;&amp;&quot; escaped symbols\"")
     result.assertXmlMessage("I'm a failure with <>&\" escaped symbols")
 
-  def test_errexit_prints_stack_trace(self):
+  def test_set_bash_errexit_prints_stack_trace(self):
     self.write_file(
         "thing.sh", """
-enable_errexit
+set -euo pipefail
 
 function helper() {
   echo before
@@ -224,18 +224,100 @@ function helper() {
   echo after
 }
 
-function test_errexit() {
+function test_failure_in_helper() {
   helper
 }
 
-run_suite "errexit tests"
+run_suite "bash errexit tests"
 """)
 
     result = self.execute_test("thing.sh")
-    result.assertNotSuccess("errexit tests")
-    result.assertTestFailed("test_errexit")
-    result.assertLogMessage(r"./thing.sh:[0-9]*: in call to helper")
-    result.assertLogMessage(r"./thing.sh:[0-9]*: in call to test_errexit")
+    result.assertNotSuccess("bash errexit tests")
+    result.assertTestFailed("test_failure_in_helper")
+    result.assertLogMessage(r"./thing.sh:\d*: in call to helper")
+    result.assertLogMessage(
+        r"./thing.sh:\d*: in call to test_failure_in_helper")
+
+  def test_set_bash_errexit_runs_tear_down(self):
+    self.write_file(
+        "thing.sh", """
+set -euo pipefail
+
+function tear_down() {
+  echo "Running tear_down"
+}
+
+function testenv_tear_down() {
+  echo "Running testenv_tear_down"
+}
+
+function test_failure_in_helper() {
+  wrong_command
+}
+
+run_suite "bash errexit tests"
+""")
+
+    result = self.execute_test("thing.sh")
+    result.assertNotSuccess("bash errexit tests")
+    result.assertTestFailed("test_failure_in_helper")
+    result.assertLogMessage("Running tear_down")
+    result.assertLogMessage("Running testenv_tear_down")
+
+  def test_set_bash_errexit_pipefail_propagates_failure_through_pipe(self):
+    self.write_file(
+        "thing.sh", """
+set -euo pipefail
+
+function test_pipefail() {
+  wrong_command | cat
+  echo after
+}
+
+run_suite "bash errexit tests"
+""")
+
+    result = self.execute_test("thing.sh")
+    result.assertNotSuccess("bash errexit tests")
+    result.assertTestFailed("test_pipefail")
+    result.assertLogMessage("wrong_command: command not found")
+    result.assertNotLogMessage("after")
+
+  def test_set_bash_errexit_no_pipefail_ignores_failure_before_pipe(self):
+    self.write_file(
+        "thing.sh", """
+set -eu
+set +o pipefail
+
+function test_nopipefail() {
+  wrong_command | cat
+  echo after
+}
+
+run_suite "bash errexit tests"
+""")
+
+    result = self.execute_test("thing.sh")
+    result.assertSuccess("bash errexit tests")
+    result.assertTestPassed("test_nopipefail")
+    result.assertLogMessage("wrong_command: command not found")
+    result.assertLogMessage("after")
+
+  def test_set_bash_errexit_pipefail_long_testname_succeeds(self):
+    test_name = "x" * 1000
+    self.write_file(
+        "thing.sh", """
+set -euo pipefail
+
+function test_%s() {
+  :
+}
+
+run_suite "bash errexit tests"
+""" % test_name)
+
+    result = self.execute_test("thing.sh")
+    result.assertSuccess("bash errexit tests")
 
   def test_empty_test_fails(self):
     self.write_file("thing.sh", """

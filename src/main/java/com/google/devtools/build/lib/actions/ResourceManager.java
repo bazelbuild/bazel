@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -62,8 +62,8 @@ import java.util.concurrent.CountDownLatch;
 public class ResourceManager {
 
   /**
-   * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet)} that must
-   * be closed in order to free the resources again.
+   * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet,
+   * ResourcePriority)} that must be closed in order to free the resources again.
    */
   public static class ResourceHandle implements AutoCloseable {
     final ResourceManager rm;
@@ -94,9 +94,16 @@ public class ResourceManager {
   };
 
   /**
-   * Singleton reference defined in a separate class to ensure thread-safe lazy
-   * initialization.
+   * Defines the possible priorities of resources. The earlier elements in this enum will get first
+   * chance at grabbing resources.
    */
+  public enum ResourcePriority {
+    LOCAL(), // Local execution not under dynamic execution
+    DYNAMIC_WORKER(),
+    DYNAMIC_STANDALONE();
+  }
+
+  /** Singleton reference defined in a separate class to ensure thread-safe lazy initialization. */
   private static class Singleton {
     static ResourceManager instance = new ResourceManager();
   }
@@ -117,9 +124,19 @@ public class ResourceManager {
   private static final double MIN_NECESSARY_CPU_RATIO = 0.6;
   private static final double MIN_NECESSARY_RAM_RATIO = 1.0;
 
-  // List of blocked threads. Associated CountDownLatch object will always
+  // Lists of blocked threads. Associated CountDownLatch object will always
   // be initialized to 1 during creation in the acquire() method.
-  private final List<Pair<ResourceSet, CountDownLatch>> requestList;
+  // We use LinkedList because we will need to remove elements from the middle frequently in the
+  // middle of iterating through the list.
+  @SuppressWarnings("JdkObsolete")
+  private final Deque<Pair<ResourceSet, CountDownLatch>> localRequests = new LinkedList<>();
+
+  @SuppressWarnings("JdkObsolete")
+  private final Deque<Pair<ResourceSet, CountDownLatch>> dynamicWorkerRequests = new LinkedList<>();
+
+  @SuppressWarnings("JdkObsolete")
+  private final Deque<Pair<ResourceSet, CountDownLatch>> dynamicStandaloneRequests =
+      new LinkedList<>();
 
   // The total amount of resources on the local host. Must be set by
   // an explicit call to setAvailableResources(), often using
@@ -143,8 +160,10 @@ public class ResourceManager {
   // Determines if local memory estimates are used.
   private boolean localMemoryEstimate = false;
 
+  /** If set, local-only actions are given priority over dynamically run actions. */
+  private boolean prioritizeLocalActions;
+
   private ResourceManager() {
-    requestList = new LinkedList<>();
   }
 
   @VisibleForTesting public static ResourceManager instanceForTestingOnly() {
@@ -159,11 +178,18 @@ public class ResourceManager {
     usedCpu = 0;
     usedRam = 0;
     usedLocalTestCount = 0;
-    for (Pair<ResourceSet, CountDownLatch> request : requestList) {
-      // CountDownLatch can be set only to 0 or 1.
+    for (Pair<ResourceSet, CountDownLatch> request : localRequests) {
       request.second.countDown();
     }
-    requestList.clear();
+    for (Pair<ResourceSet, CountDownLatch> request : dynamicWorkerRequests) {
+      request.second.countDown();
+    }
+    for (Pair<ResourceSet, CountDownLatch> request : dynamicStandaloneRequests) {
+      request.second.countDown();
+    }
+    localRequests.clear();
+    dynamicWorkerRequests.clear();
+    dynamicStandaloneRequests.clear();
   }
 
   /**
@@ -178,7 +204,9 @@ public class ResourceManager {
             staticResources.getMemoryMb(),
             staticResources.getCpuUsage(),
             staticResources.getLocalTestCount());
-    processWaitingThreads();
+    processWaitingThreads(localRequests);
+    processWaitingThreads(dynamicWorkerRequests);
+    processWaitingThreads(dynamicStandaloneRequests);
   }
 
   /**
@@ -189,11 +217,17 @@ public class ResourceManager {
     localMemoryEstimate = value;
   }
 
+  /** Sets whether to prioritize local-only actions in resource allocation. */
+  public void setPrioritizeLocalActions(boolean prioritizeLocalActions) {
+    this.prioritizeLocalActions = prioritizeLocalActions;
+  }
+
   /**
-   * Acquires requested resource set. Will block if resource is not available.
-   * NB! This method must be thread-safe!
+   * Acquires requested resource set. Will block if resource is not available. NB! This method must
+   * be thread-safe!
    */
-  public ResourceHandle acquireResources(ActionExecutionMetadata owner, ResourceSet resources)
+  public ResourceHandle acquireResources(
+      ActionExecutionMetadata owner, ResourceSet resources, ResourcePriority priority)
       throws InterruptedException {
     Preconditions.checkNotNull(
         resources, "acquireResources called with resources == NULL during %s", owner);
@@ -201,10 +235,10 @@ public class ResourceManager {
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
 
     AutoProfiler p =
-        profiled("Aquiring resources for: " + owner.describe(), ProfilerTask.ACTION_LOCK);
+        profiled("Acquiring resources for: " + owner.describe(), ProfilerTask.ACTION_LOCK);
     CountDownLatch latch = null;
     try {
-      latch = acquire(resources);
+      latch = acquire(resources, priority);
       if (latch != null) {
         latch.await();
       }
@@ -272,7 +306,12 @@ public class ResourceManager {
    * Return true if any resources have been claimed through this manager.
    */
   public synchronized boolean inUse() {
-    return usedCpu != 0.0 || usedRam != 0.0 || usedLocalTestCount != 0 || !requestList.isEmpty();
+    return usedCpu != 0.0
+        || usedRam != 0.0
+        || usedLocalTestCount != 0
+        || !localRequests.isEmpty()
+        || !dynamicWorkerRequests.isEmpty()
+        || !dynamicStandaloneRequests.isEmpty();
   }
 
 
@@ -309,14 +348,32 @@ public class ResourceManager {
     }
   }
 
-  private synchronized CountDownLatch acquire(ResourceSet resources) {
+  private synchronized CountDownLatch acquire(ResourceSet resources, ResourcePriority priority) {
     if (areResourcesAvailable(resources)) {
       incrementResources(resources);
       return null;
     }
     Pair<ResourceSet, CountDownLatch> request =
       new Pair<>(resources, new CountDownLatch(1));
-    requestList.add(request);
+    if (this.prioritizeLocalActions) {
+      switch (priority) {
+        case LOCAL:
+          localRequests.addLast(request);
+          break;
+        case DYNAMIC_WORKER:
+          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+          // actions.
+          dynamicWorkerRequests.addFirst(request);
+          break;
+        case DYNAMIC_STANDALONE:
+          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+          // actions.
+          dynamicStandaloneRequests.addFirst(request);
+          break;
+      }
+    } else {
+      localRequests.addLast(request);
+    }
     return request.second;
   }
 
@@ -334,18 +391,24 @@ public class ResourceManager {
     if (usedRam < epsilon) {
       usedRam = 0;
     }
-    if (!requestList.isEmpty()) {
-      processWaitingThreads();
-      return true;
+    boolean anyProcessed = false;
+    if (!localRequests.isEmpty()) {
+      processWaitingThreads(localRequests);
+      anyProcessed = true;
     }
-    return false;
+    if (!dynamicWorkerRequests.isEmpty()) {
+      processWaitingThreads(dynamicWorkerRequests);
+      anyProcessed = true;
+    }
+    if (!dynamicStandaloneRequests.isEmpty()) {
+      processWaitingThreads(dynamicStandaloneRequests);
+      anyProcessed = true;
+    }
+    return anyProcessed;
   }
 
-  /**
-   * Tries to unblock one or more waiting threads if there are sufficient resources available.
-   */
-  private synchronized void processWaitingThreads() {
-    Iterator<Pair<ResourceSet, CountDownLatch>> iterator = requestList.iterator();
+  private void processWaitingThreads(Deque<Pair<ResourceSet, CountDownLatch>> requests) {
+    Iterator<Pair<ResourceSet, CountDownLatch>> iterator = requests.iterator();
     while (iterator.hasNext()) {
       Pair<ResourceSet, CountDownLatch> request = iterator.next();
       if (request.second.getCount() != 0) {
@@ -417,7 +480,7 @@ public class ResourceManager {
 
   @VisibleForTesting
   synchronized int getWaitCount() {
-    return requestList.size();
+    return localRequests.size() + dynamicStandaloneRequests.size() + dynamicWorkerRequests.size();
   }
 
   @VisibleForTesting

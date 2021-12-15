@@ -18,3 +18,8 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_library(
+    name = "thread_safety",
+    srcs = ["ThreadSafety.java"],
+)

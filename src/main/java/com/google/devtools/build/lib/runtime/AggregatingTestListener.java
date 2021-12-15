@@ -228,25 +228,20 @@ public final class AggregatingTestListener {
 
     DetailedExitCode systemFailure = null;
     for (ConfiguredTarget testTarget : testTargets) {
+      ConfiguredTargetKey key = asKey(testTarget);
+      TestResultAggregator aggregator = aggregators.get(key);
       TestSummary summary;
       if (AliasProvider.isAlias(testTarget)) {
-        ConfiguredTargetKey actualKey =
-            ConfiguredTargetKey.builder()
-                .setLabel(testTarget.getLabel())
-                .setConfigurationKey(testTarget.getConfigurationKey())
-                .build();
-        TestResultAggregator aggregator = aggregators.get(actualKey);
         TestSummary.Builder summaryBuilder = TestSummary.newBuilder(testTarget);
         summaryBuilder.mergeFrom(aggregator.aggregateAndReportSummary(skipTargetsOnFailure));
         summary = summaryBuilder.build();
       } else {
-        TestResultAggregator aggregator = aggregators.get(asKey(testTarget));
         summary = aggregator.aggregateAndReportSummary(skipTargetsOnFailure);
       }
 
       if (validatedTargets != null
           && summary.getStatus() != BlazeTestStatus.NO_STATUS
-          && !validatedTargets.contains(asKey(testTarget))) {
+          && !validatedTargets.contains(key)) {
         // Approximate what targetFailure() would do for test targets that failed validation for
         // the purposes of printing test results to console only. Note that absent -k,
         // targetFailure() ends up marking one test as FAILED_TO_BUILD before buildComplete() marks
@@ -306,9 +301,8 @@ public final class AggregatingTestListener {
   }
 
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
-    Preconditions.checkArgument(!AliasProvider.isAlias(target), "Target %s is alias", target);
     return ConfiguredTargetKey.builder()
-        .setLabel(AliasProvider.getDependencyLabel(target))
+        .setLabel(target.getLabel())
         .setConfigurationKey(target.getConfigurationKey())
         .build();
   }

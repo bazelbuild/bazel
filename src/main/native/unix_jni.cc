@@ -29,6 +29,9 @@
 #include <unistd.h>
 #include <utime.h>
 
+// Linting disabled for this line because for google code we could use
+// absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
+#include <mutex>  // NOLINT
 #include <string>
 #include <vector>
 
@@ -43,6 +46,20 @@
 #endif
 
 namespace blaze_jni {
+
+static void PostException(JNIEnv *env, const char *exception_classname,
+                          const std::string &message) {
+  jclass exception_class = env->FindClass(exception_classname);
+  bool success = false;
+  if (exception_class != nullptr) {
+    success = env->ThrowNew(exception_class, message.c_str()) == 0;
+  }
+  if (!success) {
+    fprintf(stderr, "error: Failure to throw java error: %s\n",
+            message.c_str());
+    abort();  // panic!
+  }
+}
 
 // See unix_jni.h.
 void PostException(JNIEnv *env, int error_number, const std::string& message) {
@@ -114,13 +131,12 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
     default:
       exception_classname = "java/io/IOException";
   }
-  jclass exception_class = env->FindClass(exception_classname);
-  if (exception_class != nullptr) {
-    env->ThrowNew(exception_class,
-                  (message + " (" + ErrorMessage(error_number) + ")").c_str());
-  } else {
-    abort();  // panic!
-  }
+  PostException(env, exception_classname,
+                message + " (" + ErrorMessage(error_number) + ")");
+}
+
+static void PostAssertionError(JNIEnv *env, const std::string& message) {
+  PostException(env, "java/lang/AssertionError", message);
 }
 
 // Throws RuntimeExceptions for IO operations which fail unexpectedly.
@@ -160,6 +176,50 @@ static bool PostRuntimeException(JNIEnv *env, int error_number,
   } else {
     abort();  // panic!
     return false;  // Not reachable.
+  }
+}
+
+static JavaVM *GetJavaVM(JNIEnv *env) {
+  static JavaVM *java_vm = nullptr;
+  static std::mutex java_vm_mtx;
+  std::lock_guard<std::mutex> lock(java_vm_mtx);
+  if (env != nullptr) {
+    JavaVM *env_java_vm;
+    jint value = env->GetJavaVM(&env_java_vm);
+    if (value != 0) {
+      return nullptr;
+    }
+    if (java_vm == nullptr) {
+      java_vm = env_java_vm;
+    } else if (java_vm != env_java_vm) {
+      return nullptr;
+    }
+  }
+  return java_vm;
+}
+
+static void PerformIntegerValueCallback(jobject object, const char *callback,
+                                        int value) {
+  JavaVM *java_vm = GetJavaVM(nullptr);
+  JNIEnv *java_env;
+  int status = java_vm->GetEnv((void **)&java_env, JNI_VERSION_1_8);
+  bool attach_current_thread = false;
+  if (status == JNI_EDETACHED) {
+    attach_current_thread = true;
+  } else {
+    CHECK_EQ(status, JNI_OK);
+  }
+  if (attach_current_thread) {
+    CHECK_EQ(java_vm->AttachCurrentThread((void **)&java_env, nullptr), 0);
+  }
+  jclass clazz = java_env->GetObjectClass(object);
+  CHECK_NEQ(clazz, nullptr);
+  jmethodID method_id = java_env->GetMethodID(clazz, callback, "(I)V");
+  CHECK_NEQ(method_id, nullptr);
+  java_env->CallVoidMethod(object, method_id, value);
+
+  if (attach_current_thread) {
+    CHECK_EQ(java_vm->DetachCurrentThread(), JNI_OK);
   }
 }
 
@@ -1175,7 +1235,7 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
     JNIEnv *env, jclass clazz, jstring name) {
   const char *name_chars = GetStringLatin1Chars(env, name);
-  long r;
+  int64_t r;
   size_t len = sizeof(r);
   if (portable_sysctlbyname(name_chars, &r, &len) == -1) {
     PostException(env, errno, std::string("sysctlbyname(") + name_chars + ")");
@@ -1206,37 +1266,224 @@ Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrev
   return portable_pop_disable_sleep();
 }
 
+jobject g_suspend_module;
+
 /*
- * Class:     com_google_devtools_build_lib_platform_SuspendCounter
- * Method:    suspendCountJNI
- * Signature: ()I
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemSuspensionModule
+ * Method:    registerJNI
+ * Signature: ()V
  */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SuspendCounter_suspendCountJNI(
-    JNIEnv *, jclass) {
-  return portable_suspend_count();
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemSuspensionModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_suspend_module != nullptr) {
+    PostAssertionError(env,
+                       "Singleton SystemSuspensionModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemSuspensionModule");
+    return;
+  }
+
+  g_suspend_module = env->NewGlobalRef(local_object);
+  if (g_suspend_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemSuspensionModule");
+    return;
+  }
+  portable_start_suspend_monitoring();
+}
+
+void suspend_callback(SuspensionReason value) {
+  if (g_suspend_module != nullptr) {
+    PerformIntegerValueCallback(g_suspend_module, "suspendCallback", value);
+  }
+}
+
+jobject g_thermal_module;
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
+ * Method:    registerJNI
+ * Signature: ()V
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_thermal_module != nullptr) {
+    PostAssertionError(env,
+                       "Singleton SystemThermalModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemThermalModule");
+    return;
+  }
+
+  g_thermal_module = env->NewGlobalRef(local_object);
+  if (g_thermal_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemThermalModule");
+    return;
+  }
+  portable_start_thermal_monitoring();
+}
+
+void thermal_callback(int value) {
+  if (g_thermal_module != nullptr) {
+    PerformIntegerValueCallback(g_thermal_module, "thermalCallback", value);
+  }
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressureCounter
- * Method:    warningCountJNI
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
+ * Method:    thermalLoad
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_warningCountJNI(
-    JNIEnv *, jclass) {
-  return portable_memory_pressure_warning_count();
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_thermalLoad(
+    JNIEnv *env, jclass) {
+  return portable_thermal_load();
+}
+
+jobject g_system_load_advisory_module;
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
+ * Method:    registerJNI
+ * Signature: ()V
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_system_load_advisory_module != nullptr) {
+    PostAssertionError(env,
+                       "Singleton SystemLoadAdvisoryModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemLoadAdvisoryModule");
+    return;
+  }
+
+  g_system_load_advisory_module = env->NewGlobalRef(local_object);
+  if (g_system_load_advisory_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemLoadAdvisoryModule");
+    return;
+  }
+  portable_start_system_load_advisory_monitoring();
+}
+
+void system_load_advisory_callback(int value) {
+  if (g_system_load_advisory_module != nullptr) {
+    PerformIntegerValueCallback(g_system_load_advisory_module,
+                                "systemLoadAdvisoryCallback", value);
+  }
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressure
- * Method:    criticalCountJNI
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
+ * Method:    systemLoadAdvisory
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_criticalCountJNI(
-    JNIEnv *, jclass) {
-  return portable_memory_pressure_critical_count();
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_systemLoadAdvisory(
+    JNIEnv *env, jclass) {
+  return portable_system_load_advisory();
+}
+
+jobject g_memory_pressure_module;
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
+ * Method:    registerJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_memory_pressure_module != nullptr) {
+    PostAssertionError(
+        env, "Singleton SystemMemoryPressureModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemMemoryPressureModule");
+    return;
+  }
+
+  g_memory_pressure_module = env->NewGlobalRef(local_object);
+  if (g_memory_pressure_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemMemoryPressureModule");
+    return;
+  }
+  portable_start_memory_pressure_monitoring();
+}
+
+void memory_pressure_callback(MemoryPressureLevel level) {
+  if (g_memory_pressure_module != nullptr) {
+    PerformIntegerValueCallback(g_memory_pressure_module,
+                                "memoryPressureCallback", level);
+  }
+}
+
+jobject g_disk_space_module;
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemDiskSpaceModule
+ * Method:    registerJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemDiskSpaceModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_disk_space_module != nullptr) {
+    PostAssertionError(
+        env, "Singleton SystemDiskSpaceModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemDiskSpaceModule");
+    return;
+  }
+
+  g_disk_space_module = env->NewGlobalRef(local_object);
+  if (g_disk_space_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemDiskSpaceModule");
+    return;
+  }
+  portable_start_disk_space_monitoring();
+}
+
+void disk_space_callback(DiskSpaceLevel level) {
+  if (g_disk_space_module != nullptr) {
+    PerformIntegerValueCallback(g_disk_space_module, "diskSpaceCallback",
+                                level);
+  }
 }
 
 }  // namespace blaze_jni

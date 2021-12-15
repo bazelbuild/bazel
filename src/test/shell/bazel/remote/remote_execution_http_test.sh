@@ -389,7 +389,7 @@ EOF
   bazel clean
   bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
-  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 
@@ -427,7 +427,7 @@ EOF
   bazel clean
   bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
-  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 
@@ -445,7 +445,7 @@ EOF
   bazel clean
   bazel build $disk_flags //a:test &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
-  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 
@@ -472,7 +472,7 @@ EOF
   bazel clean
   bazel build $disk_flags //a:test &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
-  expect_log "1 remote cache hit" "Fetch from disk cache after copy from http cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache after copy from http cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 

@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -231,7 +231,7 @@ public final class CcCompilationHelper {
   }
 
   private final CppSemantics semantics;
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue configuration;
   private final ImmutableMap<String, String> executionInfo;
   private final CppConfiguration cppConfiguration;
   private final boolean shouldProcessHeaders;
@@ -299,7 +299,7 @@ public final class CcCompilationHelper {
       SourceCategory sourceCategory,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       ImmutableMap<String, String> executionInfo,
       boolean shouldProcessHeaders) {
     this.semantics = Preconditions.checkNotNull(semantics);
@@ -584,7 +584,7 @@ public final class CcCompilationHelper {
   }
 
   /** Sets a pattern that is used to filter copts; set to {@code null} for no filtering. */
-  private void setCoptsFilter(CoptsFilter coptsFilter) {
+  public void setCoptsFilter(CoptsFilter coptsFilter) {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
   }
 
@@ -637,8 +637,8 @@ public final class CcCompilationHelper {
    * Sets the given directories to by loose include directories that are only allowed to be
    * referenced when headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
-  private void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
-    this.looseIncludeDirs = looseIncludeDirs;
+  public void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
+    this.looseIncludeDirs = Preconditions.checkNotNull(looseIncludeDirs);
   }
 
   /**
@@ -1033,8 +1033,7 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkIncludeDirs);
 
     boolean external =
-        !repositoryName.isDefault()
-            && !repositoryName.isMain()
+        !repositoryName.isMain()
             && featureConfiguration.isEnabled(CppRuleClasses.EXTERNAL_INCLUDE_PATHS);
 
     if (external) {
@@ -2038,7 +2037,7 @@ public final class CcCompilationHelper {
 
   /** Returns true iff code coverage is enabled for the given target. */
   public static boolean isCodeCoverageEnabled(RuleContext ruleContext) {
-    BuildConfiguration configuration = ruleContext.getConfiguration();
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
     if (configuration.isCodeCoverageEnabled()) {
       // If rule is matched by the instrumentation filter, enable instrumentation
       if (InstrumentedFilesCollector.shouldIncludeLocalSources(

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -61,7 +61,7 @@ import javax.annotation.Nullable;
  */
 class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
-  protected final BuildConfiguration hostConfiguration;
+  protected final BuildConfigurationValue hostConfiguration;
 
   private final HashMap<Label, Target> partialResultMap;
   @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
@@ -81,7 +81,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue hostConfiguration,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.hostConfiguration = hostConfiguration;
@@ -103,7 +103,8 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     partialResult.forEach(kct -> partialResultMap.put(kct.getLabel(), accessor.getTarget(kct)));
     for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
       Target target = partialResultMap.get(keyedConfiguredTarget.getLabel());
-      BuildConfiguration config = getConfiguration(keyedConfiguredTarget.getConfigurationKey());
+      BuildConfigurationValue config =
+          getConfiguration(keyedConfiguredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(keyedConfiguredTarget.getConfiguredTarget(), target)
               + String.format(

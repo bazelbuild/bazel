@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -70,7 +72,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksCatchesBadObscurer() throws Exception {
+  public void testFilterListForObscuringSymlinksCatchesBadObscurer() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -83,7 +85,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksCatchesBadGrandParentObscurer() throws Exception {
+  public void testFilterListForObscuringSymlinksCatchesBadGrandParentObscurer() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -96,7 +98,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksCatchesBadObscurerNoListener() throws Exception {
+  public void testFilterListForObscuringSymlinksCatchesBadObscurerNoListener() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -108,7 +110,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksIgnoresOkObscurer() throws Exception {
+  public void testFilterListForObscuringSymlinksIgnoresOkObscurer() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -122,7 +124,7 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testFilterListForObscuringSymlinksNoObscurers() throws Exception {
+  public void testFilterListForObscuringSymlinksNoObscurers() {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
@@ -170,6 +172,12 @@ public class RunfilesTest extends FoundationTestCase {
     public Label getLabel() {
       return null;
     }
+
+    @Nullable
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
+    }
   }
 
   @Test
@@ -180,10 +188,8 @@ public class RunfilesTest extends FoundationTestCase {
 
     SimpleActionLookupKey owner1 = new SimpleActionLookupKey("//owner1");
     SimpleActionLookupKey owner2 = new SimpleActionLookupKey("//owner2");
-    Artifact artifact1 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path), owner1);
-    Artifact artifact2 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path), owner2);
+    Artifact artifact1 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner1);
+    Artifact artifact2 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner2);
 
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
@@ -205,10 +211,9 @@ public class RunfilesTest extends FoundationTestCase {
 
     SimpleActionLookupKey owner1 = new SimpleActionLookupKey("//owner1");
     SimpleActionLookupKey owner2 = new SimpleActionLookupKey("//owner2");
-    Artifact artifact1 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path), owner1);
+    Artifact artifact1 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner1);
     Artifact artifact2 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path2), owner2);
+        DerivedArtifact.create(root, root.getExecPath().getRelative(path2), owner2);
 
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 

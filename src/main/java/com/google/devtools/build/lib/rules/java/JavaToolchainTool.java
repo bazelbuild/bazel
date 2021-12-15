@@ -31,12 +31,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /** An executable tool that is part of {@code java_toolchain}. */
 @AutoValue
-@AutoCodec
 public abstract class JavaToolchainTool {
 
   /** The executable, possibly a {@code _deploy.jar}. */
@@ -86,8 +84,7 @@ public abstract class JavaToolchainTool {
         NestedSetBuilder.emptySet(STABLE_ORDER));
   }
 
-  @AutoCodec.Instantiator
-  static JavaToolchainTool create(
+  private static JavaToolchainTool create(
       FilesToRunProvider tool, NestedSet<Artifact> data, NestedSet<String> jvmOpts) {
     return new AutoValue_JavaToolchainTool(tool, data, jvmOpts);
   }

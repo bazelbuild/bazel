@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
@@ -103,9 +104,9 @@ public class DiffAwarenessManagerTest {
   @Test
   public void testHandlesUnprocessedDiffs() throws Exception {
     Root pathEntry = Root.fromPath(fs.getPath("/pathEntry"));
-    ModifiedFileSet diff1 = ModifiedFileSet.builder().modify(PathFragment.create("file1")).build();
-    ModifiedFileSet diff2 = ModifiedFileSet.builder().modify(PathFragment.create("file2")).build();
-    ModifiedFileSet diff3 = ModifiedFileSet.builder().modify(PathFragment.create("file3")).build();
+    ModifiedFileSet diff1 = modifiedFileSet("file1");
+    ModifiedFileSet diff2 = modifiedFileSet("file2");
+    ModifiedFileSet diff3 = modifiedFileSet("file3");
     DiffAwarenessStub diffAwareness =
         new DiffAwarenessStub(ImmutableList.of(diff1, diff2, diff3, DiffAwarenessStub.BROKEN_DIFF));
     DiffAwarenessFactoryStub factory = new DiffAwarenessFactoryStub();
@@ -122,8 +123,7 @@ public class DiffAwarenessManagerTest {
     assertThat(processableDiff1.getModifiedFileSet()).isEqualTo(diff1);
     ProcessableModifiedFileSet processableDiff2 =
         manager.getDiff(events.reporter(), pathEntry, OptionsProvider.EMPTY);
-    assertThat(processableDiff2.getModifiedFileSet())
-        .isEqualTo(ModifiedFileSet.union(diff1, diff2));
+    assertThat(processableDiff2.getModifiedFileSet()).isEqualTo(modifiedFileSet("file1", "file2"));
     processableDiff2.markProcessed();
     ProcessableModifiedFileSet processableDiff3 =
         manager.getDiff(events.reporter(), pathEntry, OptionsProvider.EMPTY);
@@ -140,8 +140,7 @@ public class DiffAwarenessManagerTest {
   public void testHandlesBrokenDiffs() throws Exception {
     Root pathEntry = Root.fromPath(fs.getPath("/pathEntry"));
     DiffAwarenessFactoryStub factory1 = new DiffAwarenessFactoryStub();
-    DiffAwarenessStub diffAwareness1 =
-        new DiffAwarenessStub(ImmutableList.<ModifiedFileSet>of(), 1);
+    DiffAwarenessStub diffAwareness1 = new DiffAwarenessStub(ImmutableList.of(), 1);
     factory1.inject(pathEntry, diffAwareness1);
     DiffAwarenessFactoryStub factory2 = new DiffAwarenessFactoryStub();
     ModifiedFileSet diff2 = ModifiedFileSet.builder().modify(PathFragment.create("file2")).build();
@@ -363,6 +362,10 @@ public class DiffAwarenessManagerTest {
     }
 
     public DiffAwarenessStub(List<ModifiedFileSet> sequentialDiffs, int brokenViewNum) {
+      checkArgument(
+          sequentialDiffs.stream().noneMatch(ModifiedFileSet::treatEverythingAsModified),
+          "Merging of diffs treating everything as modified is not implemented: %s",
+          sequentialDiffs);
       this.sequentialDiffs = sequentialDiffs;
       this.brokenViewNum = brokenViewNum;
     }
@@ -390,15 +393,15 @@ public class DiffAwarenessManagerTest {
       ViewStub oldViewStub = (ViewStub) oldView;
       ViewStub newViewStub = (ViewStub) newView;
       Preconditions.checkState(newViewStub.sequenceNum >= oldViewStub.sequenceNum);
-      ModifiedFileSet diff = ModifiedFileSet.NOTHING_MODIFIED;
+      ModifiedFileSet.Builder diff = ModifiedFileSet.builder();
       for (int num = oldViewStub.sequenceNum; num < newViewStub.sequenceNum; num++) {
         ModifiedFileSet incrementalDiff = sequentialDiffs.get(num);
         if (incrementalDiff == BROKEN_DIFF) {
           throw new BrokenDiffAwarenessException("error in getDiff");
         }
-        diff = ModifiedFileSet.union(diff, incrementalDiff);
+        diff.modifyAll(incrementalDiff.modifiedSourceFiles());
       }
-      return diff;
+      return diff.build();
     }
 
     @Override
@@ -414,5 +417,13 @@ public class DiffAwarenessManagerTest {
     public boolean closed() {
       return closed;
     }
+  }
+
+  private static ModifiedFileSet modifiedFileSet(String... paths) {
+    ModifiedFileSet.Builder modifiedFileSet = ModifiedFileSet.builder();
+    for (String path : paths) {
+      modifiedFileSet.modify(PathFragment.create(path));
+    }
+    return modifiedFileSet.build();
   }
 }

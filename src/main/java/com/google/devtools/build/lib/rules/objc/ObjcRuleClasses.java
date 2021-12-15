@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -67,12 +67,12 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context
-   * for fetching current-rule attributes, and using the given build configuration to determine
-   * the appropriate output directory in which to root artifacts.
+   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context for
+   * fetching current-rule attributes, and using the given build configuration to determine the
+   * appropriate output directory in which to root artifacts.
    */
-  public static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext,
-      BuildConfiguration buildConfiguration) {
+  public static IntermediateArtifacts intermediateArtifacts(
+      RuleContext ruleContext, BuildConfigurationValue buildConfiguration) {
     return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix*/ "",
         /*outputPrefix*/ "", buildConfiguration);
   }
@@ -660,7 +660,7 @@ public class ObjcRuleClasses {
           .add(
               attr("$j2objc_dead_code_pruner", LABEL)
                   .allowedFileTypes(FileType.of(".py"))
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .exec()
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
@@ -731,7 +731,7 @@ public class ObjcRuleClasses {
       return builder
           .add(
               attr("$xcrunwrapper", LABEL)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:xcrunwrapper")))
           .build();

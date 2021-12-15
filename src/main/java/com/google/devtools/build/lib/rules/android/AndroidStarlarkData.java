@@ -109,20 +109,12 @@ public abstract class AndroidStarlarkData
   @Override
   public AndroidManifestInfo stampAndroidManifest(
       AndroidDataContext ctx, Object manifest, Object customPackage, boolean exported)
-      throws InterruptedException, EvalException {
+      throws InterruptedException {
     String pkg = fromNoneable(customPackage, String.class);
-    try (StarlarkErrorReporter errorReporter =
-        StarlarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
-      return AndroidManifest.from(
-              ctx,
-              errorReporter,
-              fromNoneable(manifest, Artifact.class),
-              getAndroidSemantics(),
-              pkg,
-              exported)
-          .stamp(ctx)
-          .toProvider();
-    }
+    return AndroidManifest.from(
+            ctx, fromNoneable(manifest, Artifact.class), getAndroidSemantics(), pkg, exported)
+        .stamp(ctx)
+        .toProvider();
   }
 
   @Override
@@ -304,7 +296,6 @@ public abstract class AndroidStarlarkData
       AndroidManifest rawManifest =
           AndroidManifest.from(
               ctx,
-              errorReporter,
               fromNoneable(manifest, Artifact.class),
               fromNoneable(customPackage, String.class),
               /* exportsManifest = */ false);
@@ -441,7 +432,6 @@ public abstract class AndroidStarlarkData
       AndroidManifest rawManifest =
           AndroidManifest.from(
               ctx,
-              errorReporter,
               fromNoneable(manifest, Artifact.class),
               getAndroidSemantics(),
               fromNoneable(customPackage, String.class),

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -47,8 +47,6 @@ import javax.annotation.Nullable;
 public final class BuildResult {
   private long startTimeMillis = 0; // milliseconds since UNIX epoch.
   private long stopTimeMillis = 0;
-
-  private boolean wasSuspended = false;
 
   private Throwable crash = null;
   private boolean catastrophe = false;
@@ -95,16 +93,6 @@ public final class BuildResult {
       throw new IllegalStateException("BuildRequest has not been serviced");
     }
     return (stopTimeMillis - startTimeMillis) / 1000.0;
-  }
-
-  /** Record if the build was suspended (SIGSTOP or hardware put to sleep). */
-  public void setWasSuspended(boolean wasSuspended) {
-    this.wasSuspended = wasSuspended;
-  }
-
-  /** Whether the build was suspended (SIGSTOP or hardware put to sleep). */
-  public boolean getWasSuspended() {
-    return wasSuspended;
   }
 
   public void setDetailedExitCode(DetailedExitCode detailedExitCode) {

@@ -274,7 +274,7 @@ public final class BlazeOptionHandler {
       StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
-      logger.atInfo().withCause(e).log(logMessage);
+      logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           eventHandler, e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
     }
@@ -343,7 +343,7 @@ public final class BlazeOptionHandler {
       }
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing options";
-      logger.atInfo().withCause(e).log(logMessage);
+      logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           eventHandler, e, logMessage, Code.OPTIONS_PARSE_FAILURE);
     } catch (InterruptedException e) {

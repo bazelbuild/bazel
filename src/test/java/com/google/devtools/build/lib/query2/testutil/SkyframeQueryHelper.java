@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
@@ -87,7 +88,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   protected Path rootDirectory;
   protected BlazeDirectories directories;
-  private String toolsRepository;
+  private RepositoryName toolsRepository;
 
   protected AnalysisMock analysisMock;
   private QueryEnvironmentFactory queryEnvironmentFactory;
@@ -268,7 +269,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   @Override
-  public String getToolsRepository() {
+  public RepositoryName getToolsRepository() {
     return toolsRepository;
   }
 

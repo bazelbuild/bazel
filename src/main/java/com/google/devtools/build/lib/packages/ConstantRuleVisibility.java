@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.io.Serializable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.Collections;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
@@ -31,20 +32,22 @@ import net.starlark.java.eval.Starlark;
  */
 @Immutable
 @ThreadSafe
-public class ConstantRuleVisibility implements RuleVisibility, Serializable {
-  @AutoCodec @AutoCodec.VisibleForSerialization static final Label PUBLIC_LABEL;
-  @AutoCodec @AutoCodec.VisibleForSerialization static final Label PRIVATE_LABEL;
+public class ConstantRuleVisibility implements RuleVisibility {
+  @SerializationConstant @VisibleForSerialization static final Label PUBLIC_LABEL;
+  @SerializationConstant @VisibleForSerialization static final Label PRIVATE_LABEL;
 
-  @AutoCodec public static final ConstantRuleVisibility PUBLIC = new ConstantRuleVisibility(true);
+  @SerializationConstant
+  public static final ConstantRuleVisibility PUBLIC = new ConstantRuleVisibility(true);
 
-  @AutoCodec public static final ConstantRuleVisibility PRIVATE = new ConstantRuleVisibility(false);
+  @SerializationConstant
+  public static final ConstantRuleVisibility PRIVATE = new ConstantRuleVisibility(false);
 
   static {
     try {
       PUBLIC_LABEL = Label.parseAbsolute("//visibility:public", ImmutableMap.of());
       PRIVATE_LABEL = Label.parseAbsolute("//visibility:private", ImmutableMap.of());
     } catch (LabelSyntaxException e) {
-      throw new IllegalStateException();
+      throw new IllegalStateException(e);
     }
   }
 
@@ -72,8 +75,7 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
    * Tries to parse a list of labels into a {@link ConstantRuleVisibility}.
    *
    * @param labels the list of labels to parse
-   * @return The resulting visibility object, or null if the list of labels
-   * could not be parsed.
+   * @return The resulting visibility object, or null if the list of labels could not be parsed.
    */
   public static ConstantRuleVisibility tryParse(List<Label> labels) throws EvalException {
     if (labels.size() == 1) {
@@ -99,5 +101,10 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
     } else {
       return null;
     }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this).add("result", result).toString();
   }
 }

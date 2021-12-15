@@ -17,17 +17,19 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.util.Collection;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * An object representing a subprocess to be invoked, including its command and
- * arguments, its working directory, its environment, a boolean indicating
- * whether remote execution is appropriate for this command, and if so, the set
- * of files it is expected to read and write.
+ * An object representing a subprocess to be invoked, including its command and arguments, its
+ * working directory, its environment, a boolean indicating whether remote execution is appropriate
+ * for this command, and if so, the set of files it is expected to read and write.
  */
-public interface Spawn {
+public interface Spawn extends DescribableExecutionUnit {
   /**
    * Out-of-band data for this spawn. This can be used to signal hints (hardware requirements, local
    * vs. remote) to the execution subsystem. This data can come from multiple places e.g. tags, hard
@@ -113,10 +115,8 @@ public interface Spawn {
    */
   ActionExecutionMetadata getResourceOwner();
 
-  /**
-   * Returns the amount of resources needed for local fallback.
-   */
-  ResourceSet getLocalResources();
+  /** Returns the amount of resources needed for local fallback. */
+  ResourceSet getLocalResources() throws ExecException;
 
   /**
    * Returns a mnemonic (string constant) for this kind of spawn.
@@ -137,4 +137,24 @@ public interface Spawn {
 
   @Nullable
   PlatformInfo getExecutionPlatform();
+
+  @Override
+  @Nullable
+  default String getExecutionPlatformLabelString() {
+    PlatformInfo executionPlatform = getExecutionPlatform();
+    return executionPlatform == null ? null : Objects.toString(executionPlatform.label());
+  }
+
+  @Override
+  @Nullable
+  default String getConfigurationChecksum() {
+    return getResourceOwner().getOwner().getConfigurationChecksum();
+  }
+
+  @Override
+  @Nullable
+  default String getTargetLabel() {
+    Label label = getResourceOwner().getOwner().getLabel();
+    return label == null ? null : label.toString();
+  }
 }

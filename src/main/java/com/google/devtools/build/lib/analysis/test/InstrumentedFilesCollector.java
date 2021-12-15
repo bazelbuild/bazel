@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -246,8 +246,8 @@ public final class InstrumentedFilesCollector {
    * representing a rule) should be instrumented according the --instrumentation_filter and
    * --instrument_test_targets settings in {@code config}.
    */
-  public static boolean shouldIncludeLocalSources(BuildConfiguration config,
-      TransitiveInfoCollection target) {
+  public static boolean shouldIncludeLocalSources(
+      BuildConfigurationValue config, TransitiveInfoCollection target) {
     return shouldIncludeLocalSources(config, target.getLabel(),
         target.getProvider(TestProvider.class) != null);
   }
@@ -257,7 +257,7 @@ public final class InstrumentedFilesCollector {
    * the --instrumentation_filter and --instrument_test_targets config settings.
    */
   public static boolean shouldIncludeLocalSources(
-      BuildConfiguration config, Label label, boolean isTest) {
+      BuildConfigurationValue config, Label label, boolean isTest) {
     return ((config.shouldInstrumentTestTargets() || !isTest)
         && config.getInstrumentationFilter().isIncluded(label.toString()));
   }

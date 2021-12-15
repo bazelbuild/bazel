@@ -89,6 +89,7 @@ public final class MockJ2ObjcSupport {
         "    name = 'j2objc_proto_toolchain',",
         "    blacklisted_protos = [':j2objc_proto_blacklist'],",
         "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
+        "    plugin_format_flag = '--plugin=protoc-gen-PLUGIN_j2objc=%s', ",
         "    visibility = ['//visibility:public'],",
         "    plugin = '//third_party/java/j2objc:proto_plugin',",
         "    runtime = '//third_party/java/j2objc:proto_runtime',",

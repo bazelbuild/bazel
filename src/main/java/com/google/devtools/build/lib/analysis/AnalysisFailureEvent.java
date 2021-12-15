@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Collection;
 import javax.annotation.Nullable;

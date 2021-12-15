@@ -49,8 +49,7 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
-      CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      CycleDetector cycleDetector) {
     this(
         graph,
         graphVersion,
@@ -64,8 +63,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
-        /*cpuHeavySkyKeysThreadPoolSize=*/ 0);
+        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
+        /*executionJobsThreadPoolSize=*/ 0);
   }
 
   public ParallelEvaluator(
@@ -81,8 +80,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior,
-      int cpuHeavySkyKeysThreadPoolSize) {
+      int cpuHeavySkyKeysThreadPoolSize,
+      int executionJobsThreadPoolSize) {
     super(
         graph,
         graphVersion,
@@ -96,8 +95,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior,
-        cpuHeavySkyKeysThreadPoolSize);
+        cpuHeavySkyKeysThreadPoolSize,
+        executionJobsThreadPoolSize);
   }
 
   /**

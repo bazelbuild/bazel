@@ -188,6 +188,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             defaultValue = "''",
             doc = DEFAULT_DOC,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NativeComputedDefaultApi.class)
+            },
             named = true,
             positional = false),
         @Param(
@@ -214,13 +218,13 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringAttribute(
-      String defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
+      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
       name = "label",
       doc =
-          "Creates a schema for a label attribute. This is a dependency attribute."
+          "<p>Creates a schema for a label attribute. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT
               + "<p>In addition to ordinary source files, this kind of attribute is often used to "
               + "refer to a tool -- for example, a compiler. Such tools are considered to be "
@@ -360,7 +364,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NativeComputedDefaultApi.class)
+            },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,
@@ -369,11 +376,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringListAttribute(
-      Boolean mandatory,
-      Boolean allowEmpty,
-      Sequence<?> defaultValue,
-      String doc,
-      StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -405,7 +408,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_list",
       doc =
-          "Creates a schema for a list-of-labels attribute. This is a dependency attribute."
+          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -501,8 +504,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_keyed_string_dict",
       doc =
-          "Creates a schema for an attribute holding a dictionary, where the keys are labels and "
-              + "the values are strings. This is a dependency attribute."
+          "<p>Creates a schema for an attribute holding a dictionary, where the keys are labels "
+              + "and the values are strings. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -626,7 +629,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "output",
-      doc = "Creates a schema for an output (label) attribute." + OUTPUT_ATTR_TEXT,
+      doc = "<p>Creates a schema for an output (label) attribute.</p>" + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = DOC_ARG,

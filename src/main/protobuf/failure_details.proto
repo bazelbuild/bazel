@@ -665,6 +665,10 @@ message Query {
     INVALID_LABEL_IN_TEST_SUITE = 39 [(metadata) = { exit_code: 7 }];
     // Indicates any usage of flags that must not be combined.
     ILLEGAL_FLAG_COMBINATION = 40 [(metadata) = { exit_code: 2 }];
+    // Indicates a non-detailed exception that halted a query. This is a
+    // deficiency in Blaze/Bazel and code should be changed to attach a detailed
+    // exit code to this failure mode.
+    NON_DETAILED_ERROR = 41 [(metadata) = { exit_code: 1 }];
 
     reserved 7 to 12; // For internal use
   }

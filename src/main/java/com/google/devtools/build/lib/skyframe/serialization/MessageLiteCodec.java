@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.util.function.Supplier;
 
 /** Codec for protos. */
-public class MessageLiteCodec implements ObjectCodec<MessageLite> {
+public final class MessageLiteCodec implements ObjectCodec<MessageLite> {
 
   private final Supplier<MessageLite.Builder> builderSupplier;
   private final Class<? extends MessageLite> type;
@@ -68,9 +68,10 @@ public class MessageLiteCodec implements ObjectCodec<MessageLite> {
     }
   }
 
-  private static class MessageLiteCodecRegisterer implements CodecRegisterer<MessageLiteCodec> {
+  @SuppressWarnings("unused") // Used reflectively.
+  private static class MessageLiteCodecRegisterer implements CodecRegisterer {
     @Override
-    public ImmutableList<MessageLiteCodec> getCodecsToRegister() {
+    public ImmutableList<ObjectCodec<?>> getCodecsToRegister() {
       return ImmutableList.of(new MessageLiteCodec(UnknownFieldSet::newBuilder));
     }
   }

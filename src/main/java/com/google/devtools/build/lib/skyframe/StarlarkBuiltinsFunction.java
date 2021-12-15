@@ -205,11 +205,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     return ImmutableMap.copyOf(Dict.cast(value, String.class, Object.class, dictName + " dict"));
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * An exception that occurs while trying to determine the injected builtins.
    *

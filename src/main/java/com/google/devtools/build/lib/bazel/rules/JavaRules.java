@@ -31,17 +31,14 @@ import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
-import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -60,7 +57,6 @@ public class JavaRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addConfigurationOptions(JavaOptions.class);
     builder.addConfigurationFragment(JavaConfiguration.class);
 
     builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
@@ -81,8 +77,6 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(JavaToolchainRule.create(BazelJavaToolchain.class));
     builder.addRuleDefinition(new JavaPackageConfigurationRule());
     builder.addRuleDefinition(new JavaRuntimeRule());
-    builder.addRuleDefinition(new JavaRuntimeAliasRule());
-    builder.addRuleDefinition(new JavaToolchainAliasRule());
     builder.addRuleDefinition(new JavaPluginsFlagAliasRule());
 
     builder.addRuleDefinition(new ExtraActionRule());

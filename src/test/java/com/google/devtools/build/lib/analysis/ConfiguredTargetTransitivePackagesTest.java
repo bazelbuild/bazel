@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -43,7 +43,7 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
   }
 
   private void assertTransitiveClosureOfTargetContainsPackages(
-      String target, BuildConfiguration config, String... packages) throws Exception {
+      String target, BuildConfigurationValue config, String... packages) throws Exception {
     ConfiguredTargetValue ctValue =
         SkyframeExecutorTestUtils.getExistingConfiguredTargetValue(
             skyframeExecutor, Label.parseAbsolute(target, ImmutableMap.of()), config);
@@ -68,7 +68,7 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
     scratch.file("d/BUILD", "sh_library(name = 'd')");
 
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a:a").getTargetsToBuild());
-    BuildConfiguration config = getConfiguration(target);
+    BuildConfigurationValue config = getConfiguration(target);
 
     assertTransitiveClosureOfTargetContainsPackages("//a:a", config, "a", "a/b", "c", "d");
     assertTransitiveClosureOfTargetContainsPackages("//a/b:b", config, "a/b", "c", "d");
@@ -86,7 +86,7 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
         "rule_with_extra_deps_aspect(name = 'foo', foo = [ ':bar' ])",
         "base(name = 'bar')");
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a/c:foo").getTargetsToBuild());
-    BuildConfiguration config = getConfiguration(target);
+    BuildConfigurationValue config = getConfiguration(target);
     // We expect 'extra' package because rule_with_extra_deps adds an aspect
     // on attribute 'foo' with '//extra:extra' dependency.
     assertTransitiveClosureOfTargetContainsPackages("//a/c:foo", config, "a/c", "extra");

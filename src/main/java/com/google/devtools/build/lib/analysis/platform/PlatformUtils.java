@@ -19,7 +19,6 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -78,7 +78,19 @@ public final class PlatformUtils {
     Platform.Builder platformBuilder = Platform.newBuilder();
 
     if (!spawn.getCombinedExecProperties().isEmpty()) {
-      for (Map.Entry<String, String> entry : spawn.getCombinedExecProperties().entrySet()) {
+      Map<String, String> combinedExecProperties;
+      // Apply default exec properties if the execution platform does not already set
+      // exec_properties
+      if (spawn.getExecutionPlatform() == null
+          || spawn.getExecutionPlatform().execProperties().isEmpty()) {
+        combinedExecProperties = new HashMap<>();
+        combinedExecProperties.putAll(defaultExecProperties);
+        combinedExecProperties.putAll(spawn.getCombinedExecProperties());
+      } else {
+        combinedExecProperties = spawn.getCombinedExecProperties();
+      }
+
+      for (Map.Entry<String, String> entry : combinedExecProperties.entrySet()) {
         platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
       }
     } else if (spawn.getExecutionPlatform() != null
@@ -100,16 +112,6 @@ public final class PlatformUtils {
         platformBuilder.addProperties(
             Property.newBuilder().setName(property.getKey()).setValue(property.getValue()).build());
       }
-    }
-
-    String workspace =
-        spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
-    if (workspace != null) {
-      platformBuilder.addProperties(
-          Property.newBuilder()
-              .setName("bazel-differentiate-workspace-cache")
-              .setValue(workspace)
-              .build());
     }
 
     sortPlatformProperties(platformBuilder);

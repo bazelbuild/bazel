@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -52,9 +53,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
+import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
@@ -95,7 +100,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
-import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
@@ -128,7 +132,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   try {
                     return Label.parseAbsolute(
                         from,
-                        /* defaultToMain=*/ false,
                         /* repositoryMapping= */ ImmutableMap.of());
                   } catch (LabelSyntaxException e) {
                     throw new Exception(from);
@@ -176,7 +179,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
-    String toolsRepository = env.getToolsRepository();
+    RepositoryName toolsRepository = env.getToolsRepository();
     RuleClass.Builder builder =
         new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
             .requiresConfigurationFragments(TestConfiguration.class)
@@ -261,20 +264,20 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         .ifPresent(
             label ->
                 builder.add(
-                    Allowlist.getAttributeFromAllowlistName("$network_allowlist").value(label)));
+                    Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
 
     return builder.build();
   }
 
   @Override
   public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {
-    Collection<String> fieldNames =
-        fields instanceof Sequence
-            ? Sequence.cast(fields, String.class, "fields")
-            : fields instanceof Dict
-                ? Dict.cast(fields, String.class, String.class, "fields").keySet()
-                : null;
-    return StarlarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
+    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    if (fields instanceof Sequence) {
+      builder.setSchema(Sequence.cast(fields, String.class, "fields"));
+    } else if (fields instanceof Dict) {
+      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
+    }
+    return builder.build();
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -299,6 +302,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Object cfg,
       Object execGroups,
       Object compileOneFiletype,
+      Object name,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
@@ -399,6 +403,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       builder.addExecGroups(execGroupDict);
     }
+    if (test && !builder.hasExecGroup(TEST_RUNNER_EXEC_GROUP)) {
+      builder.addExecGroup(TEST_RUNNER_EXEC_GROUP);
+    }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw Starlark.errorf(
@@ -457,11 +464,47 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
-    if (compileOneFiletype instanceof String) {
-      builder.setPreferredDependencyPredicate(FileType.of((String) compileOneFiletype));
+    if (compileOneFiletype instanceof Sequence) {
+      if (!bzlModule.label().getRepository().getName().equals("@_builtins")) {
+        throw Starlark.errorf(
+            "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
+      }
+      ImmutableList<String> filesTypes =
+          Sequence.cast(compileOneFiletype, String.class, "compile_one_filetype")
+              .getImmutableList();
+      builder.setPreferredDependencyPredicate(FileType.of(filesTypes));
     }
 
-    return new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+    StarlarkRuleFunction starlarkRuleFunction =
+        new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+    // If a name= parameter is supplied (and we're currently initializing a .bzl module), export the
+    // rule immediately under that name; otherwise the rule will be exported by the postAssignHook
+    // set up in BzlLoadFunction.
+    //
+    // Because exporting can raise multiple errors, we need to accumulate them here into a single
+    // EvalException. This is a code smell because any non-ERROR events will be lost, and any
+    // location
+    // information in the events will be overwritten by the location of this rule's definition.
+    // However, this is currently fine because StarlarkRuleFunction#export only creates events that
+    // are ERRORs and that have the rule definition as their location.
+    // TODO(brandjon): Instead of accumulating events here, consider registering the rule in the
+    // BazelStarlarkContext, and exporting such rules after module evaluation in
+    // BzlLoadFunction#execAndExport.
+    if (name != Starlark.NONE && bzlModule != null) {
+      StoredEventHandler handler = new StoredEventHandler();
+      starlarkRuleFunction.export(handler, bzlModule.label(), (String) name);
+      if (handler.hasErrors()) {
+        StringBuilder errors =
+            handler.getEvents().stream()
+                .filter(e -> e.getKind() == EventKind.ERROR)
+                .reduce(
+                    new StringBuilder(),
+                    (sb, ev) -> sb.append("\n").append(ev.getMessage()),
+                    StringBuilder::append);
+        throw Starlark.errorf("Errors in exporting %s: %s", name, errors.toString());
+      }
+    }
+    return starlarkRuleFunction;
   }
 
   /**
@@ -514,10 +557,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
     BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     LabelConversionContext context =
         new LabelConversionContext(
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-            bazelStarlarkContext.getRepoMapping(),
+            moduleContext.label(),
+            moduleContext.repoMapping(),
             bazelStarlarkContext.getConvertedLabelsInPackage());
     for (String input : inputs) {
       try {
@@ -590,15 +635,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         hasDefault = false; // isValueSet() is always true for attr.string.
       }
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
-        if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
+        if (attribute.getType() != Type.STRING) {
           throw Starlark.errorf(
-              "Aspect parameter attribute '%s' must have type 'string' and use the 'values'"
-                  + " restriction.",
-              nativeName);
+              "Aspect parameter attribute '%s' must have type 'string'.", nativeName);
         }
         if (!hasDefault) {
           requiredParams.add(nativeName);
-        } else {
+        } else if (attribute.checkAllowedValues()) {
           PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
           Object defaultVal = attribute.getDefaultValue(null);
           if (!allowed.apply(defaultVal)) {
@@ -718,20 +761,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
 
-      for (Attribute attribute : ruleClass.getAttributes()) {
-        // TODO(dslomov): If a Starlark parameter extractor is specified for this aspect, its
-        // attributes may not be required.
-        for (Map.Entry<String, ImmutableSet<String>> attrRequirements :
-            attribute.getRequiredAspectParameters().entrySet()) {
-          for (String required : attrRequirements.getValue()) {
-            if (!ruleClass.hasAttr(required, Type.STRING)) {
-              throw Starlark.errorf(
-                  "Aspect %s requires rule %s to specify attribute '%s' with type string.",
-                  attrRequirements.getKey(), ruleClass.getName(), required);
-            }
-          }
-        }
-      }
+      validateRulePropagatedAspects(ruleClass);
 
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
@@ -755,7 +785,44 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       return Starlark.NONE;
     }
 
+    private static void validateRulePropagatedAspects(RuleClass ruleClass) throws EvalException {
+      for (Attribute attribute : ruleClass.getAttributes()) {
+        for (AspectDetails<?> aspect : attribute.getAspectsDetails()) {
+          ImmutableSet<String> requiredAspectParameters = aspect.getRequiredParameters();
+          for (Attribute aspectAttribute : aspect.getAspectAttributes()) {
+            String aspectAttrName = aspectAttribute.getPublicName();
+            Type<?> aspectAttrType = aspectAttribute.getType();
+
+            // When propagated from a rule, explicit aspect attributes must be of type string and
+            // they must have `values` restriction.
+            if (!aspectAttribute.isImplicit() && !aspectAttribute.isLateBound()) {
+              if ((aspectAttrType != Type.STRING && aspectAttrType != Type.INTEGER)
+                  || !aspectAttribute.checkAllowedValues()) {
+                throw Starlark.errorf(
+                    "Aspect %s: Aspect parameter attribute '%s' must have type 'string'"
+                        + " and use the 'values' restriction.",
+                    aspect.getName(), aspectAttrName);
+              }
+            }
+
+            // Required aspect parameters must be specified by the rule propagating the aspect with
+            // the same parameter type.
+            if (requiredAspectParameters.contains(aspectAttrName)) {
+              if (!ruleClass.hasAttr(aspectAttrName, aspectAttrType)) {
+                throw Starlark.errorf(
+                    "Aspect %s requires rule %s to specify attribute '%s' with type %s.",
+                    aspect.getName(), ruleClass.getName(), aspectAttrName, aspectAttrType);
+              }
+            }
+          }
+        }
+      }
+    }
+
     /** Export a RuleFunction from a Starlark file with a given name. */
+    // To avoid losing event information in the case where the rule was defined with an explicit
+    // name= arg, all events should be created using errorf(). See the comment in rule() above for
+    // details.
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
       Preconditions.checkState(ruleClass == null && builder != null);
@@ -911,35 +978,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException {
-    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
-
+  public Label label(String labelString, StarlarkThread thread) throws EvalException {
     // This function is surprisingly complex.
     //
-    // Doc:
-    // "When relative_to_caller_repository is True and the calling thread is a
-    // rule's implementation function, then a repo-relative label //foo:bar is
-    // resolved relative to the rule's repository. For calls to Label from any
-    // other thread, or calls in which the relative_to_caller_repository flag is
-    // False, a repo-relative label is resolved relative to the file in which the
-    // Label() call appears.)"
-    //
-    // - The "and" conjunction in first line of the doc above doesn't match the code.
-    //   There are three cases to consider, not two, as parentLabel can be null or
-    //   in the relativeToCallerRepository branch.
-    //   Thus in a loading phase thread with relativeToCallerRepository=True,
-    //   the repo mapping is (I suspect) erroneously skipped.
-    //   TODO(adonovan): verify, and file a doc bug if so.
-    //
-    // - The deprecated relative_to_caller_repository semantics can be explained
-    //   as thread-local state, something we've embraced elsewhere in the build language.
-    //   (For example, in the loading phase, calling cc_binary creates a rule in the
-    //   package associated with the calling thread.)
-    //
-    //   By contrast, the default relative_to_caller_repository=False semantics
-    //   are more magical, using dynamic scope: introspection on the call stack.
-    //   This is an obstacle to removing GlobalFrame.
+    // - The logic to find the "current repo" is rather magical, using dynamic scope:
+    //   introspection on the call stack. This is an obstacle to removing GlobalFrame.
     //
     //   An alternative way to implement that would be to say that each BUILD/.bzl file
     //   has its own function value called Label that is a closure over the current
@@ -960,26 +1003,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     //   and cache without needing four allocations (parseAbsoluteLabel,
     //   getRelativeWithRemapping, getUnambiguousCanonicalForm, parseAbsoluteLabel
     //   in labelCache)
-
-    Label parentLabel;
-    if (relativeToCallerRepository) {
-      // This is the label of the rule, if this is an analysis-phase
-      // rule or aspect implementation thread, or null otherwise.
-      parentLabel = context.getAnalysisRuleLabel();
-    } else {
-      // This is the label of the innermost BUILD/.bzl file on the current call stack.
-      parentLabel =
-          BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
-    }
-
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      if (parentLabel != null) {
-        LabelValidator.parseAbsoluteLabel(labelString);
-        labelString =
-            parentLabel
-                .getRelativeWithRemapping(labelString, context.getRepoMapping())
-                .getUnambiguousCanonicalForm();
-      }
+      LabelValidator.parseAbsoluteLabel(labelString);
+      labelString =
+          moduleContext
+              .label()
+              .getRelativeWithRemapping(labelString, moduleContext.repoMapping())
+              .getUnambiguousCanonicalForm();
       return labelCache.get(labelString);
     } catch (LabelValidator.BadLabelException | LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);

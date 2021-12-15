@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -44,11 +45,11 @@ import javax.annotation.Nullable;
  */
 public abstract class PackageLookupValue implements SkyValue {
 
-  @AutoCodec
+  @SerializationConstant
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
       new NoBuildFilePackageLookupValue();
 
-  @AutoCodec
+  @SerializationConstant
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
 
@@ -125,7 +126,6 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   public static Key key(PackageIdentifier pkgIdentifier) {
-    Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
     return Key.create(pkgIdentifier);
   }
 
@@ -378,9 +378,11 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
     private final String repositoryName;
+    private final String reason;
 
-    NoRepositoryPackageLookupValue(String repositoryName) {
+    NoRepositoryPackageLookupValue(String repositoryName, String reason) {
       this.repositoryName = repositoryName;
+      this.reason = reason;
     }
 
     @Override
@@ -390,7 +392,7 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public String getErrorMsg() {
-      return String.format("The repository '%s' could not be resolved", repositoryName);
+      return String.format("The repository '%s' could not be resolved: %s", repositoryName, reason);
     }
   }
 }

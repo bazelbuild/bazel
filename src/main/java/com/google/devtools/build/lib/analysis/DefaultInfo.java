@@ -172,7 +172,7 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
 
     @Override
     public Runfiles getStatelessRunfiles() {
-      return Runfiles.EMPTY;
+      return null;
     }
 
     @Override

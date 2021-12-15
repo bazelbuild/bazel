@@ -56,9 +56,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -91,8 +89,6 @@ public final class RuleConfiguredTargetBuilder {
   private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
   private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
-  private final LinkedHashSet<String> ruleImplSpecificRequiredConfigFragments =
-      new LinkedHashSet<>();
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -217,7 +213,7 @@ public final class RuleConfiguredTargetBuilder {
       if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
         ruleContext.ruleError(
             String.format(
-                "analysis test rule excedeed maximum dependency edge count. "
+                "analysis test rule exceeded maximum dependency edge count. "
                     + "Count: %s. Limit is %s. This limit is imposed on analysis test rules which "
                     + "use analysis_test_transition attribute transitions. Exceeding this limit "
                     + "indicates either the analysis_test has too many dependencies, or the "
@@ -314,17 +310,11 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
    * description of the meaning of this provider's content. That class contains methods that
-   * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
-   * #ruleImplSpecificRequiredConfigFragments}.
+   * populate the results of {@link RuleContext#getRequiredConfigFragments}.
    */
   private void maybeAddRequiredConfigFragmentsProvider() {
     if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
-      addProvider(
-          new RequiredConfigFragmentsProvider(
-              ImmutableSet.<String>builder()
-                  .addAll(ruleContext.getRequiredConfigFragments())
-                  .addAll(ruleImplSpecificRequiredConfigFragments)
-                  .build()));
+      addProvider(ruleContext.getRequiredConfigFragments());
     }
   }
 
@@ -438,7 +428,8 @@ public final class RuleConfiguredTargetBuilder {
     if (!ruleContext.getRule().getRuleClassObject().supportsConstraintChecking()) {
       return;
     }
-    ConstraintSemantics<RuleContext> constraintSemantics = ruleContext.getConstraintSemantics();
+    ConstraintSemantics<RuleContext> constraintSemantics =
+        ruleContext.getRuleClassProvider().getConstraintSemantics();
     EnvironmentCollection supportedEnvironments =
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
@@ -663,15 +654,6 @@ public final class RuleConfiguredTargetBuilder {
       getOutputGroupBuilder(group.getKey()).addTransitive(group.getValue());
     }
 
-    return this;
-  }
-
-  /**
-   * Supplements {@link #maybeAddRequiredConfigFragmentsProvider} with rule implementation-specific
-   * requirements.
-   */
-  public RuleConfiguredTargetBuilder addRequiredConfigFragments(Collection<String> fragments) {
-    ruleImplSpecificRequiredConfigFragments.addAll(fragments);
     return this;
   }
 

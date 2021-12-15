@@ -173,7 +173,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         isJavaPluginRule
             // For java_plugin we create the provider with content retrieved from the rule
             // attributes.
-            ? common.createJavaPluginInfo(ruleContext)
+            ? common.createJavaPluginInfo(ruleContext, ruleOutputJarsProvider.getJavaOutputs())
             // For java_library we add the transitive plugins from plugins and exported_plugins
             // attrs.
             : JavaCommon.getTransitivePlugins(ruleContext);

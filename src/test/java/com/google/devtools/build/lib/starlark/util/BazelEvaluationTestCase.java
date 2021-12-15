@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -127,10 +128,10 @@ public final class BazelEvaluationTestCase {
             BazelStarlarkContext.Phase.LOADING,
             TestConstants.TOOLS_REPOSITORY,
             /*fragmentNameToClass=*/ null,
-            /*repoMapping=*/ ImmutableMap.of(),
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(new Object()),
-            /*analysisRuleLabel=*/ null) // dummy value for tests
+            /*analysisRuleLabel=*/ null,
+            /*networkAllowlistForTests=*/ null) // dummy value for tests
         .storeInThread(thread);
   }
 
@@ -141,6 +142,7 @@ public final class BazelEvaluationTestCase {
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
         Label.parseAbsoluteUnchecked("//test:label"),
+        RepositoryMapping.ALWAYS_FALLBACK,
         "test/label.bzl",
         /*loads=*/ ImmutableMap.of(),
         /*bzlTransitiveDigest=*/ new byte[0]);

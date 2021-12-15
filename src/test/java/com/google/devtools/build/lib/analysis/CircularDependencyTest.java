@@ -24,7 +24,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -46,9 +46,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests that check that dependency cycles are reported correctly.
- */
+/** Tests that check that dependency cycles are reported correctly. */
 @RunWith(JUnit4.class)
 public class CircularDependencyTest extends BuildViewTestCase {
 
@@ -57,7 +55,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     checkError(
         "cycle",
         "foo.g",
-        //error message
+        // error message
         selfEdgeMsg("//cycle:foo.g"),
         // Rule
         "genrule(name = 'foo.g',",
@@ -101,28 +99,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:14");
   }
 
-  @Test
-  public void cycleThroughVisibility() throws Exception {
-    checkError(
-        "cycle",
-        "v",
-        Pattern.compile(
-            "in filegroup rule //cycle:v: cycle in dependency graph:\n"
-                + "    //cycle:v \\([a-f0-9]+\\)\n"
-                + "    //cycle:t \\([a-f0-9]+\\)\n"
-                + ".-> //cycle:v \\([a-f0-9]+\\)\n"
-                + "|   //cycle:t \\([a-f0-9]+\\)\n"
-                + "`-- //cycle:v \\([a-f0-9]+\\)\n"
-                + "The cycle is caused by a visibility edge from //cycle:t to the non-package_group"
-                + " target //cycle:v. Note that visibility labels are supposed to be package_group"
-                + " targets, which prevents cycles of this form."),
-        "filegroup(name='t', visibility=[':v'])",
-        "filegroup(name='v', srcs=[':t'])");
-  }
-
-  /**
-   * Test to detect implicit input/output file overlap in rules.
-   */
+  /** Test to detect implicit input/output file overlap in rules. */
   @Test
   public void testOneRuleImplicitCycleJava() throws Exception {
     Package pkg =
@@ -134,8 +111,8 @@ public class CircularDependencyTest extends BuildViewTestCase {
   }
 
   /**
-   * Test not to detect implicit input/output file overlap in rules,
-   * when coming from a different package.
+   * Test not to detect implicit input/output file overlap in rules, when coming from a different
+   * package.
    */
   @Test
   public void testInputOutputConflictDifferentPackage() throws Exception {
@@ -186,7 +163,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     checkError(
         "main",
         "mygenrule",
-        //error message
+        // error message
         selfEdgeMsg("//cycle:foo.h"),
         // Rule
         "genrule(name='mygenrule',",
@@ -217,7 +194,8 @@ public class CircularDependencyTest extends BuildViewTestCase {
   @Test
   public void testAspectCycle() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("x/BUILD",
+    scratch.file(
+        "x/BUILD",
         "load('//x:x.bzl', 'aspected', 'plain')",
         // Using data= makes the dependency graph clearer because then the aspect does not propagate
         // from aspectdep through a to b (and c)
@@ -251,9 +229,9 @@ public class CircularDependencyTest extends BuildViewTestCase {
 
   /** A late bound dependency which depends on the 'dep' label if the 'define' is in --defines. */
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
-  private static final LabelLateBoundDefault<BuildConfiguration> LATE_BOUND_DEP =
+  private static final LabelLateBoundDefault<BuildConfigurationValue> LATE_BOUND_DEP =
       LabelLateBoundDefault.fromTargetConfiguration(
-          BuildConfiguration.class,
+          BuildConfigurationValue.class,
           null,
           (rule, attributes, config) ->
               config.getCommandLineBuildVariables().containsKey(attributes.get("define", STRING))
@@ -344,7 +322,8 @@ public class CircularDependencyTest extends BuildViewTestCase {
     // Target graph: //a -> //b -?> //c -> //a (loop)
     // Configured target graph: //a -> //b -> //c -> //a (2) -> //b (2) -> //b:stop (2)
     scratch.file("a/BUILD", "normal_dep(name = 'a', dep = '//b')");
-    scratch.file("b/BUILD",
+    scratch.file(
+        "b/BUILD",
         "config_setting(name = 'cycle', define_values = {'CYCLE_ON': 'yes'})",
         "normal_dep(name = 'stop')",
         "normal_dep(name = 'b', dep = select({':cycle': '//c', '//conditions:default': ':stop'}))");
@@ -353,5 +332,48 @@ public class CircularDependencyTest extends BuildViewTestCase {
     useConfiguration("--define=CYCLE_ON=yes");
     getConfiguredTarget("//a");
     assertNoEvents();
+  }
+
+  @Test
+  public void testInvalidVisibility() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_library(name='rule1',",
+        "           deps=['//b:rule2'],",
+        "           visibility=['//b:rule2'])");
+    scratch.file("b/BUILD", "cc_library(name='rule2')");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:rule1"));
+
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Label '//b:rule2' does not refer to a package group.");
+  }
+
+  @Test
+  public void testInvalidVisibilityWithSelect() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_library(name='rule1',",
+        "           deps=['//b:rule2'],",
+        "           visibility=['//b:rule2'])");
+    scratch.file(
+        "b/BUILD",
+        "config_setting(name = 'fastbuild', values = {'compilation_mode': 'fastbuild'})",
+        "cc_library(name='rule2',",
+        "           hdrs = select({",
+        "              ':fastbuild': glob([",
+        "                   '*.h',",
+        "               ]),",
+        "           }),",
+        ")");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:rule1"));
+
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Label '//b:rule2' does not refer to a package group.");
   }
 }

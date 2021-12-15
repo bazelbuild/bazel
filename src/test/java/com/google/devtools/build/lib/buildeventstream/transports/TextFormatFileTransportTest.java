@@ -92,7 +92,9 @@ public class TextFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
-        BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
+        BuildEventStreamProtos.BuildEvent.newBuilder()
+            .setProgress(Progress.getDefaultInstance())
+            .build();
     when(buildEvent.asStreamProto(ArgumentMatchers.<BuildEventContext>any())).thenReturn(progress);
     transport.sendBuildEvent(buildEvent);
 

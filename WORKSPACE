@@ -57,17 +57,6 @@ bind(
     actual = "//third_party:guava",
 )
 
-http_archive(
-    name = "bazel_j2objc",
-    # Computed using "shasum -a 256 j2objc-2.5.zip"
-    sha256 = "8d3403b5b7db57e347c943d214577f6879e5b175c2b59b7e075c0b6453330e9b",
-    strip_prefix = "j2objc-2.5",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/j2objc/releases/download/2.5/j2objc-2.5.zip",
-        "https://github.com/google/j2objc/releases/download/2.5/j2objc-2.5.zip",
-    ],
-)
-
 # For src/test/shell/bazel:test_srcs
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 
@@ -273,34 +262,17 @@ http_file(
 )
 
 dist_http_archive(
-    name = "bazel_toolchains",
+    name = "bazelci_rules",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+load("@bazelci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
-rbe_autoconfig(
+rbe_preconfig(
     name = "rbe_ubuntu1804_java11",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1804-bazel-java11",
-    tag = "latest",
+    toolchain = "ubuntu1804-bazel-java11",
 )
-
-rbe_autoconfig(
-    name = "rbe_ubuntu1604_java8",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1604-bazel-java8",
-    tag = "latest",
-)
-
-# Creates toolchain configuration for remote execution with BuildKite CI
-# for rbe_ubuntu1604.
-# To run the tests with RBE on BuildKite CI uncomment the two lines below
-# load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
-# rbe_autoconfig(name = "buildkite_config")
 
 http_archive(
     name = "com_google_googletest",
@@ -316,6 +288,14 @@ dist_http_archive(
     name = "bazel_skylib",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+dist_http_archive(
+    name = "zstd-jni",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    build_file = "//third_party:zstd-jni/zstd-jni.BUILD",
+    strip_prefix = "zstd-jni-1.5.0-4"
 )
 
 http_archive(
@@ -383,29 +363,29 @@ dist_http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz",
-        "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz",
-        "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz",
-        "zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz",
-        "zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
+        "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz",
+        "zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz",
+        "zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz",
+        "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
+        "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz",
         "android_tools_pkg-0.23.0.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
-        "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz": "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
-        "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
-        "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz": "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
-        "zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz": "3dcc636e64ae58b922269c2dc9f20f6f967bee90e3f6847d643c4a566f1e8d8a",
-        "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
+        "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz": "b8e8a63b79bc312aa90f3558edbea59e71495ef1a9c340e38900dd28a1c579f3",
+        "zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz": "61254688067454d3ccf0ef25993b5dcab7b56c8129e53b73566c28a8dd4d48fb",
+        "zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz": "0b8c8b7cf89c7c55b7e2239b47201d704e8d2170884875b00f3103cf0662d6d7",
+        "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz": "e908a0b4c0da08d41c3e19230f819b364ff2e5f1dafd62d2cf991a85a34d3a17",
+        "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz": "42ae65e75d615a3f06a674978e1fa85fdf078cad94e553fee3e779b2b42bb015",
         "android_tools_pkg-0.23.0.tar.gz": "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",
     },
     urls = {
-        "zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz"],
-        "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
-        "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz"],
-        "zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz": ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz"],
-        "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip"],
+        "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz"],
+        "zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz"],
+        "zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz"],
+        "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz"],
+        "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
         "android_tools_pkg-0.23.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
         ],
@@ -487,9 +467,9 @@ http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-    sha256 = "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
-    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-linux_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz"],
+    sha256 = "b8e8a63b79bc312aa90f3558edbea59e71495ef1a9c340e38900dd28a1c579f3",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-linux_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz"],
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -498,9 +478,9 @@ http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-    sha256 = "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
-    strip_prefix = "zulu11.37.48-ca-jdk11.0.6-linux_aarch64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
+    sha256 = "61254688067454d3ccf0ef25993b5dcab7b56c8129e53b73566c28a8dd4d48fb",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-linux_aarch64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz"],
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -537,9 +517,9 @@ http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-    sha256 = "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
-    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-macosx_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz"],
+    sha256 = "0b8c8b7cf89c7c55b7e2239b47201d704e8d2170884875b00f3103cf0662d6d7",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-macosx_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz"],
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -548,11 +528,11 @@ http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-    sha256 = "3dcc636e64ae58b922269c2dc9f20f6f967bee90e3f6847d643c4a566f1e8d8a",
-    strip_prefix = "zulu11.45.27-ca-jdk11.0.10-macosx_aarch64",
+    sha256 = "e908a0b4c0da08d41c3e19230f819b364ff2e5f1dafd62d2cf991a85a34d3a17",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64",
     urls = [
-        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz",
-        "https://cdn.azul.com/zulu/bin/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
     ],
 )
 
@@ -562,9 +542,9 @@ http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-    sha256 = "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
-    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-win_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip"],
+    sha256 = "42ae65e75d615a3f06a674978e1fa85fdf078cad94e553fee3e779b2b42bb015",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-win_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -679,6 +659,62 @@ http_archive(
     ],
 )
 
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+http_archive(
+    name = "remotejdk17_linux_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    sha256 = "37c4f8e48536cceae8c6c20250d6c385e176972532fd35759fa7d6015c965f56",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-linux_x64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+http_archive(
+    name = "remotejdk17_macos_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    sha256 = "6029b1fe6853cecad22ab99ac0b3bb4fb8c903dd2edefa91c3abc89755bbd47d",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_x64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+http_archive(
+    name = "remotejdk17_macos_aarch64_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    sha256 = "6b17f01f767ee7abf4704149ca4d86423aab9b16b68697b7d36e9b616846a8b0",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-macosx_aarch64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_aarch64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_aarch64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+http_archive(
+    name = "remotejdk17_win_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    sha256 = "f4437011239f3f0031c794bb91c02a6350bc941d4196bdd19c9f157b491815a3",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-win_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
+    ],
+)
+
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
     name = "remote_java_tools_for_testing",
@@ -742,9 +778,9 @@ http_archive(
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
-    sha256 = "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
-    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-linux_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz"],
+    sha256 = "b8e8a63b79bc312aa90f3558edbea59e71495ef1a9c340e38900dd28a1c579f3",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-linux_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz"],
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
@@ -754,9 +790,9 @@ http_archive(
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
-    sha256 = "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
-    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-macosx_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz"],
+    sha256 = "0b8c8b7cf89c7c55b7e2239b47201d704e8d2170884875b00f3103cf0662d6d7",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-macosx_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz"],
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
@@ -766,11 +802,11 @@ http_archive(
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
-    sha256 = "3dcc636e64ae58b922269c2dc9f20f6f967bee90e3f6847d643c4a566f1e8d8a",
-    strip_prefix = "zulu11.45.27-ca-jdk11.0.10-macosx_aarch64",
+    sha256 = "e908a0b4c0da08d41c3e19230f819b364ff2e5f1dafd62d2cf991a85a34d3a17",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64",
     urls = [
-        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz",
-        "https://cdn.azul.com/zulu/bin/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
     ],
 )
 
@@ -781,9 +817,9 @@ http_archive(
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
-    sha256 = "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
-    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-win_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip"],
+    sha256 = "42ae65e75d615a3f06a674978e1fa85fdf078cad94e553fee3e779b2b42bb015",
+    strip_prefix = "zulu11.50.19-ca-jdk11.0.12-win_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
@@ -903,6 +939,66 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu16.28.11-ca-jdk16.0.0-win_x64.zip",
         "https://cdn.azul.com/zulu/bin/zulu16.28.11-ca-jdk16.0.0-win_x64.zip",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "openjdk17_linux_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    sha256 = "37c4f8e48536cceae8c6c20250d6c385e176972532fd35759fa7d6015c965f56",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-linux_x64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "openjdk17_darwin_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    sha256 = "6029b1fe6853cecad22ab99ac0b3bb4fb8c903dd2edefa91c3abc89755bbd47d",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-macosx_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_x64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "openjdk17_darwin_aarch64_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    sha256 = "6b17f01f767ee7abf4704149ca4d86423aab9b16b68697b7d36e9b616846a8b0",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-macosx_aarch64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_aarch64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-macosx_aarch64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "openjdk17_windows_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    sha256 = "f4437011239f3f0031c794bb91c02a6350bc941d4196bdd19c9f157b491815a3",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-win_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
     ],
 )
 

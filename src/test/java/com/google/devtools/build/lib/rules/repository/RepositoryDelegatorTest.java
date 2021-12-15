@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
@@ -31,12 +32,13 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.bzlmod.DiscoveryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.SelectionFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
@@ -48,7 +50,6 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
@@ -191,8 +192,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         null,
                         null,
                         null,
-                        null,
-                        null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
@@ -233,8 +232,17 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .put(SkyFunctions.MODULE_FILE, new ModuleFileFunction(registryFactory, rootPath))
-                .put(SkyFunctions.DISCOVERY, new DiscoveryFunction())
-                .put(SkyFunctions.SELECTION, new SelectionFunction())
+                .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+                .put(
+                    SkyFunctions.MODULE_EXTENSION_RESOLUTION,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        // Dummy SkyFunction that returns nothing.
+                        return ModuleExtensionResolutionValue.create(
+                            ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
+                      }
+                    })
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
@@ -256,6 +264,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
+        differencer, CheckDirectDepsMode.WARNING);
   }
 
   @Test
@@ -440,6 +451,28 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   }
 
   @Test
+  public void loadRepositoryNotDefined() throws Exception {
+    // WORKSPACE is empty
+    scratch.overwriteFile(rootPath.getRelative("WORKSPACE").getPathString(), "");
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("foo"));
+    // Make it be evaluated every time, as we are testing evaluation.
+    differencer.invalidate(ImmutableSet.of(key));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
+    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
+    assertThat(repositoryDirectoryValue.getErrorMsg()).contains("Repository '@foo' is not defined");
+  }
+
+  @Test
   public void loadRepositoryFromBzlmod() throws Exception {
     scratch.overwriteFile(
         rootPath.getRelative("MODULE.bazel").getPathString(),
@@ -456,11 +489,16 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         "def _impl(rctx):",
         " rctx.file('BUILD', '')",
         "fictive_repo_rule = repository_rule(implementation = _impl)");
+    // WORKSPACE.bzlmod is preferred when Bzlmod is enabled.
     scratch.file(
-        rootPath.getRelative("WORKSPACE").getPathString(),
+        rootPath.getRelative("WORKSPACE.bzlmod").getPathString(),
         "load(':repo_rule.bzl', 'fictive_repo_rule')",
         "fictive_repo_rule(name = 'B.1.0')",
         "fictive_repo_rule(name = 'C')");
+    scratch.file(
+        rootPath.getRelative("WORKSPACE").getPathString(),
+        "load(':repo_rule.bzl', 'fictive_repo_rule')",
+        "fictive_repo_rule(name = 'B.1.0')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("B.1.0"));
@@ -480,8 +518,30 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         .hasMessageThat()
         .contains("but it does not exist or is not a directory");
 
-    // C should still be fetched from WORKSPACE successfully.
+    // C should still be fetched from WORKSPACE.bzlmod successfully.
     loadRepo("C");
+  }
+
+  @Test
+  public void loadInvisibleRepository() throws Exception {
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key =
+        RepositoryDirectoryValue.key(
+            RepositoryName.createFromValidStrippedName("foo").toNonVisible("fake_owner_repo"));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
+    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
+    assertThat(repositoryDirectoryValue.getErrorMsg())
+        .contains("Repository '@foo' is not visible from repository '@fake_owner_repo'");
   }
 
   private void loadRepo(String strippedRepoName) throws InterruptedException {

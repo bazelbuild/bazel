@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 
@@ -93,7 +93,7 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
 
   @Override
   public PatchTransition create(RuleTransitionData ruleData) {
-    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(ruleData.rule());
+    NonconfiguredAttributeMapper attrs = NonconfiguredAttributeMapper.of(ruleData.rule());
     RuleClass ruleClass = ruleData.rule().getRuleClassObject();
     if (ruleClass.getName().equals(ConfigRuleClasses.ConfigFeatureFlagRule.RULE_NAME)) {
       return new ConfigFeatureFlagTaggedTrimmingTransition(

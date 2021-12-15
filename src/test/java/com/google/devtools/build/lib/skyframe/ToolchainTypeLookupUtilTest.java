@@ -221,12 +221,6 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
         throw new GetToolchainTypeInfoFunctionException(e);
       }
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private static final class GetToolchainTypeInfoFunctionException extends SkyFunctionException {

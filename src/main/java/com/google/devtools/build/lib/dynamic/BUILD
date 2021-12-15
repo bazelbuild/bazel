@@ -14,11 +14,13 @@ java_library(
     name = "dynamic",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_policy",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

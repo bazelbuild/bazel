@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -64,11 +65,11 @@ import javax.annotation.Nullable;
 public abstract class FileStateValue implements HasDigest, SkyValue {
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.createNonHermetic("FILE_STATE");
 
-  @AutoCodec
+  @SerializationConstant
   public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =
       new DirectoryFileStateValue();
 
-  @AutoCodec
+  @SerializationConstant
   public static final NonexistentFileStateValue NONEXISTENT_FILE_STATE_NODE =
       new NonexistentFileStateValue();
 
@@ -204,12 +205,12 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
    * fast digest lookups are not available.
    */
   @ThreadSafe
-  @AutoCodec
   public static final class RegularFileStateValue extends FileStateValue {
     private final long size;
     @Nullable private final byte[] digest;
     @Nullable private final FileContentsProxy contentsProxy;
 
+    @VisibleForTesting
     public RegularFileStateValue(long size, byte[] digest, FileContentsProxy contentsProxy) {
       Preconditions.checkState((digest == null) != (contentsProxy == null));
       this.size = size;
@@ -340,16 +341,18 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for special files that exist. */
-  @AutoCodec
+  @VisibleForTesting
   public static final class SpecialFileStateValue extends FileStateValue {
     private final FileContentsProxy contentsProxy;
 
+    @VisibleForTesting
     public SpecialFileStateValue(FileContentsProxy contentsProxy) {
       this.contentsProxy = Preconditions.checkNotNull(contentsProxy);
     }
 
-    static SpecialFileStateValue fromStat(PathFragment path, FileStatus stat,
-        @Nullable TimestampGranularityMonitor tsgm) throws IOException {
+    private static SpecialFileStateValue fromStat(
+        PathFragment path, FileStatus stat, @Nullable TimestampGranularityMonitor tsgm)
+        throws IOException {
       // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
       if (tsgm != null) {
         tsgm.notifyDependenceOnFileTime(path, stat.getLastChangeTime());
@@ -447,11 +450,12 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for symlinks. */
-  @AutoCodec
+  @VisibleForTesting
   public static final class SymlinkFileStateValue extends FileStateValue {
 
     private final PathFragment symlinkTarget;
 
+    @VisibleForTesting
     public SymlinkFileStateValue(PathFragment symlinkTarget) {
       this.symlinkTarget = symlinkTarget;
     }
@@ -497,8 +501,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for nonexistent files. */
-  @AutoCodec.VisibleForSerialization
-  static final class NonexistentFileStateValue extends FileStateValue {
+  private static final class NonexistentFileStateValue extends FileStateValue {
     private static final byte[] FINGERPRINT = "NonexistentFileStateValue".getBytes(UTF_8);
 
     private NonexistentFileStateValue() {}

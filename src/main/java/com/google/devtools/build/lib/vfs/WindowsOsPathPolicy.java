@@ -182,12 +182,15 @@ class WindowsOsPathPolicy implements OsPathPolicy {
 
   @Override
   public boolean equals(String s1, String s2) {
-    return s1.equalsIgnoreCase(s2);
+    return (s1 == null && s2 == null) || (s1 != null && s1.equalsIgnoreCase(s2));
   }
 
   @Override
   public int hash(String s) {
     // Windows is case-insensitive
+    if (s == null) {
+      return 0;
+    }
     return s.toLowerCase().hashCode();
   }
 

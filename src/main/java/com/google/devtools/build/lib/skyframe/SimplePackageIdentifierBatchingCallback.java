@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -25,7 +23,7 @@ import javax.annotation.concurrent.GuardedBy;
  * smaller than the others.
  */
 public class SimplePackageIdentifierBatchingCallback implements PackageIdentifierBatchingCallback {
-  private final BatchCallback<PackageIdentifier, UnusedException> batchResults;
+  private final SafeBatchCallback<PackageIdentifier> batchResults;
   private final int batchSize;
 
   @GuardedBy("this")
@@ -35,7 +33,7 @@ public class SimplePackageIdentifierBatchingCallback implements PackageIdentifie
   private int bufferedPackageIds;
 
   public SimplePackageIdentifierBatchingCallback(
-      BatchCallback<PackageIdentifier, UnusedException> batchResults, int batchSize) {
+      SafeBatchCallback<PackageIdentifier> batchResults, int batchSize) {
     this.batchResults = batchResults;
     this.batchSize = batchSize;
     reset();

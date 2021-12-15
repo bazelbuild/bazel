@@ -56,7 +56,7 @@ py_library(
     ],
     srcs_version = "PY3ONLY",
     deps = [
-        "//third_party/py/dataclasses",  # Backport for Python < 3.7.
+        # Backport for Python < 3.7.
         "//third_party/py/frozendict",
     ],
 )

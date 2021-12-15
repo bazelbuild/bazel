@@ -22,8 +22,8 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Class describing a {@link Cause} that can uniquely be described by a {@link Label} and
- * {@link com.google.devtools.build.lib.analysis.config.BuildConfiguration}. Note that the
+ * Class describing a {@link Cause} that can uniquely be described by a {@link Label} and {@link
+ * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}. Note that the
  * configuration may be null, in which case this generates an UnconfiguredLabel event.
  */
 public class AnalysisFailedCause implements Cause {
