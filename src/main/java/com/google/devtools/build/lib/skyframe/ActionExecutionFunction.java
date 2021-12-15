@@ -167,7 +167,7 @@ public class ActionExecutionFunction implements SkyFunction {
       throws ActionExecutionFunctionException, InterruptedException {
     try {
       return computeInternal(skyKey, env);
-    } catch (ActionExecutionFunctionException | InterruptedException e) {
+    } catch (ActionExecutionFunctionException e) {
       skyframeActionExecutor.recordExecutionError();
       throw e;
     }

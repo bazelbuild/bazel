@@ -677,7 +677,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       ActionResult actionResult = super.execute(actionExecutionContext);
       try {
         getPrimaryOutput().getPath().deleteTree();
@@ -1432,6 +1432,98 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     TrackingAwaiter.INSTANCE.assertNoErrors();
   }
 
+  @Test
+  public void interruptDoesntSuppressErrorOutput() throws Exception {
+    Path root = getExecRoot();
+    PathFragment execPath = PathFragment.create("out").getRelative("dir");
+    PathFragment cyclesourceFragment = PathFragment.create("cyclesource");
+    Artifact.SourceArtifact cycleArtifact =
+        new Artifact.SourceArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)),
+            cyclesourceFragment,
+            ArtifactOwner.NULL_OWNER);
+    rootDirectory.getRelative(cyclesourceFragment).createSymbolicLink(cyclesourceFragment);
+    ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
+    Artifact output =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            execPath.getRelative("cycleOutput"),
+            lc1);
+    Action action1 = new DummyAction(cycleArtifact, output);
+    SkyValue ctValue1 =
+        ValueWithMetadata.normal(
+            createActionLookupValue(action1, lc1),
+            null,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
+    Artifact output2 =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            execPath.getRelative("bar"),
+            lc2);
+    CountDownLatch startedSleep = new CountDownLatch(1);
+    @SuppressWarnings("ThreadSleepMillis")
+    Action slowAction =
+        new TestAction(
+            (Callable<Void> & Serializable)
+                () -> {
+                  startedSleep.countDown();
+                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                  throw new IllegalStateException("Should have been interrupted");
+                },
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(output2));
+    SkyValue ctValue2 =
+        ValueWithMetadata.normal(
+            createActionLookupValue(slowAction, lc2),
+            null,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    skyframeExecutor
+        .getEvaluatorForTesting()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (EventType.IS_READY.equals(type)
+                      && key instanceof ActionLookupData
+                      && lc1.equals(((ActionLookupData) key).getActionLookupKey())) {
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(startedSleep, "No sleep");
+                  }
+                }));
+    skyframeExecutor
+        .getDifferencerForTesting()
+        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+    // Do a null build, so that the skyframe executor initializes the action executor properly.
+    skyframeExecutor.setActionOutputRoot(getOutputPath());
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        EMPTY_PROGRESS_SUPPLIER,
+        EMPTY_COMPLETION_RECEIVER,
+        ActionExecutionStatusReporter.create(reporter));
+    skyframeExecutor.buildArtifacts(
+        reporter,
+        ResourceManager.instanceForTestingOnly(),
+        new DummyExecutor(fileSystem, rootDirectory),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        options,
+        NULL_CHECKER,
+        null,
+        null,
+        null);
+
+    skyframeExecutor.prepareBuildingForTestingOnly(
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    evaluate(Artifact.keys(ImmutableList.of(output, output2)));
+    assertContainsEvent(
+        "Test dir/cycleOutput failed: error reading file 'cyclesource': Symlink cycle");
+    assertContainsEvent("Test dir/cycleOutput failed: 1 input file(s) are in error");
+  }
+
   /**
    * Tests that events from action lookup keys (i.e., analysis events) are not stored in execution.
    * This test is actually more extreme than Blaze is, since it skips the analysis phase and so
@@ -1601,7 +1693,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       ActionResult actionResult = super.execute(actionExecutionContext);
       assertThat(executed.getAndSet(true)).isFalse();
       return actionResult;

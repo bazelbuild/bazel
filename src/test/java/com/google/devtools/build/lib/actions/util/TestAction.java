@@ -114,7 +114,7 @@ public class TestAction extends AbstractAction {
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     for (Artifact artifact : getInputs().toList()) {
       // Do not check *.optional artifacts - artifacts with such extension are
       // used by tests to specify artifacts that may or may not be missing.
@@ -128,7 +128,7 @@ public class TestAction extends AbstractAction {
 
     try {
       effect.call();
-    } catch (RuntimeException | Error | ActionExecutionException e) {
+    } catch (RuntimeException | Error | ActionExecutionException | InterruptedException e) {
       throw e;
     } catch (Exception e) {
       DetailedExitCode code = CrashFailureDetails.detailedExitCodeForThrowable(e);
