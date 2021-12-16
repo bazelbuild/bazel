@@ -692,10 +692,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Dict<String, String> getExecutionInfoDict() {
-    Map<String, String> executionInfo = getExecutionInfo();
-    if (executionInfo == null) {
-      return null;
-    }
+    ImmutableMap<String, String> executionInfo = getExecutionInfo();
     return Dict.immutableCopyOf(executionInfo);
   }
 

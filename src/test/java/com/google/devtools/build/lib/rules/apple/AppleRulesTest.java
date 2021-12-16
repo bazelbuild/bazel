@@ -127,11 +127,9 @@ public class AppleRulesTest extends AnalysisTestCase {
 
     for (ActionAnalysisMetadata action : actions) {
       assertThat(action).isInstanceOf(AbstractAction.class);
-      if (action.getExecutionInfo() != null
-          && action.getExecutionInfo().containsKey("requires-darwin")) {
-        assertThat(((AbstractAction) action).getExecutionInfo())
-            .containsKey("supports-xcode-requirements-set");
-        assertThat(((AbstractAction) action).getExecutionInfo()).containsKey("no-remote");
+      if (action.getExecutionInfo().containsKey("requires-darwin")) {
+        assertThat(action.getExecutionInfo()).containsKey("supports-xcode-requirements-set");
+        assertThat(action.getExecutionInfo()).containsKey("no-remote");
       }
     }
   }

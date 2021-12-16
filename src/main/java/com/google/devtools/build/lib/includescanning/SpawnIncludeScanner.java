@@ -362,9 +362,7 @@ public class SpawnIncludeScanner {
             fileType.getFileType());
 
     ImmutableMap.Builder<String, String> execInfoBuilder = ImmutableMap.builder();
-    if (resourceOwner.getExecutionInfo() != null && !resourceOwner.getExecutionInfo().isEmpty()) {
-      execInfoBuilder.putAll(resourceOwner.getExecutionInfo());
-    }
+    execInfoBuilder.putAll(resourceOwner.getExecutionInfo());
     if (inMemoryOutput) {
       execInfoBuilder.put(
           ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,

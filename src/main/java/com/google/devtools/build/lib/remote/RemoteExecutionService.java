@@ -357,7 +357,7 @@ public class RemoteExecutionService {
   }
 
   public static boolean shouldUploadLocalResults(
-      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
     if (useRemoteCache(remoteOptions)) {
       if (useDiskCache(remoteOptions)) {
         return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);

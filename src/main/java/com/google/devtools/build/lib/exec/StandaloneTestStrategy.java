@@ -586,7 +586,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         action,
         args,
         ImmutableMap.copyOf(testEnvironment),
-        ImmutableMap.copyOf(action.getExecutionInfo()),
+        action.getExecutionInfo(),
         action.getLcovMergerRunfilesSupplier(),
         /* filesetMappings= */ ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
