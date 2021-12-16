@@ -223,8 +223,9 @@ def _generate_def_file(ctx, def_parser, object_files, dll_name):
     return def_file
 
 def _is_stamping_enabled(ctx):
-    # TODO(b/198254254): Maybe add istoolchainconfigured.
     # TODO(b/198254254): Not the exact same behaviour as in cc_binary.
+    if ctx.configuration.is_tool_configuration():
+        return 0
     stamp = 0
     if hasattr(ctx.attr, "stamp"):
         stamp = ctx.attr.stamp
@@ -789,7 +790,8 @@ def cc_binary_impl(ctx):
     win_def_file = None
     if _is_link_shared(ctx):
         if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
-            object_files = cc_compilation_outputs.objects
+            # Make copy of a list, to avoid mutating frozen values.
+            object_files = list(cc_compilation_outputs.objects)
             for linker_input in deps_cc_linking_context.linker_inputs.to_list():
                 for library in linker_input.libraries:
                     if is_static_mode or (library.dynamic_library == None and library.interface_library == None):
@@ -804,8 +806,8 @@ def cc_binary_impl(ctx):
             # TODO(b/198254254): def_parser
             if def_parser != None:
                 generated_def_file = _generate_def_file(ctx, def_parser, object_files, binary.basename)
-
-            win_def_file = _get_windows_def_file_for_linking(ctx, ctx.attr.win_def_file, generated_def_file, feature_configuration)
+            custom_win_def_file = ctx.file.win_def_file
+            win_def_file = _get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
 
     use_pic = _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration)
 
@@ -813,7 +815,10 @@ def cc_binary_impl(ctx):
     # then a pdb file will be built along with the executable.
     pdb_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
-        pdb_file = ctx.actions.declare_file(target_name + ".pdb")
+        pdb_file_name = target_name
+        if "." in pdb_file_name:
+            pdb_file_name = pdb_file_name[:pdb_file_name.rfind(".")]
+        pdb_file = ctx.actions.declare_file(pdb_file_name + ".pdb")
 
     extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
     linker_inputs_extra = depset()
@@ -955,7 +960,6 @@ def cc_binary_impl(ctx):
     if copied_runtime_dynamic_libraries != None:
         output_groups["runtime_dynamic_libraries"] = copied_runtime_dynamic_libraries
 
-    # TODO(b/198254254): CcStarlarkApiProvider.maybeAdd(ruleContext, ruleBuilder), might not be necessary.
     # TODO(b/198254254): SetRunfilesSupport.
     debug_package_info = DebugPackageInfo(
         target_label = ctx.label,
@@ -974,7 +978,14 @@ def cc_binary_impl(ctx):
         result.append(cc_internal.statically_linked_marker_provider(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
-    return result
+    if ctx.fragments.cpp.enable_legacy_cc_provider():
+        # buildifier: disable=rule-impl-return
+        return struct(
+            cc = cc_internal.create_cc_provider(cc_info = cc_info),
+            providers = result,
+        )
+    else:
+        return result
 
 ALLOWED_SRC_FILES = []
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_SOURCE)
@@ -997,7 +1008,7 @@ cc_binary_attrs = {
         allow_files = True,
     ),
     "win_def_file": attr.label(
-        allow_files = [".def"],
+        allow_single_file = [".def"],
     ),
     "reexport_deps": attr.label_list(
         allow_files = True,
@@ -1048,6 +1059,7 @@ cc_binary_attrs = {
     ),
     "data": attr.label_list(
         allow_files = True,
+        flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
     ),
     "env": attr.string_dict(),
     "distribs": attr.string_list(),
