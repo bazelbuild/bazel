@@ -87,23 +87,23 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     delegateActionExecutionFunction = new SimpleActionExecutionFunction(omittedOutputs);
   }
 
-  private void assertFileArtifactValueMatches(boolean expectDigest) throws Throwable {
+  private void assertFileArtifactValueMatches() throws Exception {
     Artifact output = createDerivedArtifact("output");
     Path path = output.getPath();
     file(path, "contents");
-    assertValueMatches(path.stat(), expectDigest ? path.getDigest() : null, evaluateFAN(output));
+    assertValueMatches(path.stat(), path.getDigest(), evaluateFAN(output));
   }
 
   @Test
-  public void testBasicArtifact() throws Throwable {
+  public void testBasicArtifact() throws Exception {
     fastDigest = false;
-    assertFileArtifactValueMatches(/*expectDigest=*/ true);
+    assertFileArtifactValueMatches();
   }
 
   @Test
-  public void testBasicArtifactWithXattr() throws Throwable {
+  public void testBasicArtifactWithXattr() throws Exception {
     fastDigest = true;
-    assertFileArtifactValueMatches(/*expectDigest=*/ true);
+    assertFileArtifactValueMatches();
   }
 
   @Test
@@ -335,12 +335,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         FilesetOutputSymlink.createForTesting(
             PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
     ActionExecutionValue actionExecutionValue =
-        ActionExecutionValue.create(
+        ActionExecutionValue.createForTesting(
             ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
             ImmutableMap.of(treeArtifact, tree),
-            ImmutableList.of(filesetOutputSymlink),
-            /*discoveredModules=*/ null,
-            /*shareable=*/ false);
+            ImmutableList.of(filesetOutputSymlink));
     new SerializationTester(actionExecutionValue)
         .addDependency(FileSystem.class, root.getFileSystem())
         .addDependency(
@@ -430,11 +428,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     }
   }
 
-  private FileArtifactValue evaluateFAN(Artifact artifact) throws Throwable {
+  private FileArtifactValue evaluateFAN(Artifact artifact) throws Exception {
     return ((FileArtifactValue) evaluateArtifactValue(artifact));
   }
 
-  private SkyValue evaluateArtifactValue(Artifact artifact) throws Throwable {
+  private SkyValue evaluateArtifactValue(Artifact artifact) throws Exception {
     SkyKey key = Artifact.key(artifact);
     EvaluationResult<SkyValue> result = evaluate(ImmutableList.of(key).toArray(new SkyKey[0]));
     if (result.hasError()) {
@@ -520,8 +518,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                   FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   null);
           FileArtifactValue withDigest =
-              FileArtifactValue.createFromInjectedDigest(
-                  noDigest, path.getDigest(), !output.isConstantMetadata());
+              FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
           artifactData.put(output, withDigest);
        } else {
           artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
@@ -529,12 +526,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
-      return ActionExecutionValue.create(
+      return ActionExecutionValue.createForTesting(
           ImmutableMap.copyOf(artifactData),
           ImmutableMap.copyOf(treeArtifactData),
-          /*outputSymlinks=*/ null,
-          /*discoveredModules=*/ null,
-          /*shareable=*/ true);
+          /*outputSymlinks=*/ null);
     }
   }
 }

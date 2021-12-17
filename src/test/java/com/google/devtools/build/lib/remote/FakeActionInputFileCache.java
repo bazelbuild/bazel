@@ -47,10 +47,7 @@ final class FakeActionInputFileCache implements MetadataProvider {
     Path path = execRoot.getRelative(input.getExecPath());
     FileStatus stat = path.stat(Symlinks.FOLLOW);
     return FileArtifactValue.createForNormalFile(
-        HashCode.fromString(hexDigest).asBytes(),
-        FileContentsProxy.create(stat),
-        stat.getSize(),
-        /*isShareable=*/ true);
+        HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
   }
 
   @Override
@@ -58,13 +55,13 @@ final class FakeActionInputFileCache implements MetadataProvider {
     throw new UnsupportedOperationException();
   }
 
-  void setDigest(ActionInput input, String digest) {
+  private void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
   }
 
   public Digest createScratchInput(ActionInput input, String content) throws IOException {
     Path inputFile = execRoot.getRelative(input.getExecPath());
-    FileSystemUtils.createDirectoryAndParents(inputFile.getParentDirectory());
+    inputFile.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(inputFile, content);
     Digest digest = digestUtil.compute(inputFile);
     setDigest(input, digest.getHash());
@@ -73,7 +70,7 @@ final class FakeActionInputFileCache implements MetadataProvider {
 
   public Digest createScratchInputDirectory(ActionInput input, Tree content) throws IOException {
     Path inputFile = execRoot.getRelative(input.getExecPath());
-    FileSystemUtils.createDirectoryAndParents(inputFile);
+    inputFile.createDirectoryAndParents();
     Digest digest = digestUtil.compute(content);
     setDigest(input, digest.getHash());
     return digest;

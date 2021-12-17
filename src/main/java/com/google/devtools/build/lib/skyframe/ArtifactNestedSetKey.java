@@ -17,7 +17,6 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
-import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
@@ -47,10 +46,10 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   }
 
   @Override
-  public ShareabilityOfValue getShareabilityOfValue() {
+  public boolean valueIsShareable() {
     // ArtifactNestedSetValue is just a promise that data is available in memory. Not meant for
     // cross-server sharing.
-    return ShareabilityOfValue.NEVER;
+    return false;
   }
 
   @Override

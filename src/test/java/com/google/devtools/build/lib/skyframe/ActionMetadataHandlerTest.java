@@ -106,8 +106,7 @@ public final class ActionMetadataHandlerTest {
   public void withNonArtifactInput() throws Exception {
     ActionInput input = ActionInputHelper.fromPath("foo/bar");
     FileArtifactValue metadata =
-        FileArtifactValue.createForNormalFile(
-            new byte[] {1, 2, 3}, /*proxy=*/ null, 10L, /*isShareable=*/ true);
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /*proxy=*/ null, /*size=*/ 10L);
     ActionInputMap map = new ActionInputMap(1);
     map.putWithNoDepOwner(input, metadata);
     assertThat(map.getMetadata(input)).isEqualTo(metadata);
@@ -122,8 +121,7 @@ public final class ActionMetadataHandlerTest {
     PathFragment path = PathFragment.create("src/a");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     FileArtifactValue metadata =
-        FileArtifactValue.createForNormalFile(
-            new byte[] {1, 2, 3}, /*proxy=*/ null, 10L, /*isShareable=*/ true);
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /*proxy=*/ null, /*size=*/ 10L);
     ActionInputMap map = new ActionInputMap(1);
     map.putWithNoDepOwner(artifact, metadata);
     ActionMetadataHandler handler =
@@ -411,10 +409,7 @@ public final class ActionMetadataHandlerTest {
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputStore(
-            handler.getOutputStore(),
-            /*outputSymlinks=*/ null,
-            new NullAction(),
-            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+            handler.getOutputStore(), /*outputSymlinks=*/ null, new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 

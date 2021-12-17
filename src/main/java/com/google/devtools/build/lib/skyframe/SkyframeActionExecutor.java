@@ -1264,8 +1264,7 @@ public final class SkyframeActionExecutor {
       return ActionExecutionValue.createFromOutputStore(
           this.metadataHandler.getOutputStore(),
           actionExecutionContext.getOutputSymlinks(),
-          action,
-          actionLookupData);
+          action);
     }
 
     /** A closure to continue an asynchronously running action. */

@@ -382,7 +382,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
-    if (sketch != null && result.dataIsShareable()) {
+    if (sketch != null && actionLookupData.valueIsShareable()) {
       topDownActionCache.put(sketch, result);
     }
     return result;
@@ -819,7 +819,7 @@ public class ActionExecutionFunction implements SkyFunction {
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
       return ActionExecutionValue.createFromOutputStore(
-          metadataHandler.getOutputStore(), /*outputSymlinks=*/ null, action, actionLookupData);
+          metadataHandler.getOutputStore(), /*outputSymlinks=*/ null, action);
     }
 
     metadataHandler.prepareForActionExecution();

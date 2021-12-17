@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
-import com.google.devtools.build.skyframe.FunctionHermeticity;
-import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -42,10 +39,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
-  // Never shareable - we don't guarantee that all constructs implement equality, meaning we can't
-  // correctly compare deserialized instances. This is currently the case for attribute descriptors.
-  public static final SkyFunctionName BZL_LOAD =
-      SkyFunctionName.create("BZL_LOAD", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
+  public static final SkyFunctionName BZL_LOAD = SkyFunctionName.createHermetic("BZL_LOAD");
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
@@ -89,35 +83,26 @@ public final class SkyFunctions {
   static final SkyFunctionName TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING =
       SkyFunctionName.createHermetic("TOP_LEVEL_ACTION_LOOKUP_CONFLICT_DETECTION");
   public static final SkyFunctionName ASPECT = SkyFunctionName.createHermetic("ASPECT");
-  static final SkyFunctionName LOAD_STARLARK_ASPECT =
-      SkyFunctionName.createHermetic("LOAD_STARLARK_ASPECT");
   static final SkyFunctionName TOP_LEVEL_ASPECTS =
       SkyFunctionName.createHermetic("TOP_LEVEL_ASPECTS");
   static final SkyFunctionName BUILD_TOP_LEVEL_ASPECTS_DETAILS =
       SkyFunctionName.createHermetic("BUILD_TOP_LEVEL_ASPECTS_DETAILS");
   public static final SkyFunctionName TARGET_COMPLETION =
-      SkyFunctionName.create(
-          "TARGET_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
+      SkyFunctionName.createHermetic("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =
-      SkyFunctionName.create(
-          "ASPECT_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
-  static final SkyFunctionName TEST_COMPLETION =
-      SkyFunctionName.create(
-          "TEST_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
+      SkyFunctionName.createHermetic("ASPECT_COMPLETION");
+  static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.createHermetic("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
-  // Test actions are not shareable. Action execution can be nondeterministic, so is semi-hermetic.
+  // Action execution can be nondeterministic, so semi-hermetic.
   public static final SkyFunctionName ACTION_EXECUTION =
       SkyFunctionName.createSemiHermetic("ACTION_EXECUTION");
   public static final SkyFunctionName ARTIFACT_NESTED_SET =
       SkyFunctionName.createHermetic("ARTIFACT_NESTED_SET");
   public static final SkyFunctionName PATH_CASING_LOOKUP =
       SkyFunctionName.createHermetic("PATH_CASING_LOOKUP");
-
-  @VisibleForTesting
-  public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
+  static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.createHermetic("RECURSIVE_DIRECTORY_TRAVERSAL");
-
   public static final SkyFunctionName FILESET_ENTRY =
       SkyFunctionName.createHermetic("FILESET_ENTRY");
   static final SkyFunctionName BUILD_INFO_COLLECTION =
@@ -148,14 +133,10 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName REPOSITORY_MAPPING =
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
-  public static final SkyFunctionName REPO_MAPPING_FOR_BZLMOD_BZL_LOAD =
-      SkyFunctionName.createHermetic("REPO_MAPPING_FOR_BZLMOD_BZL_LOAD");
   public static final SkyFunctionName RESOLVED_FILE =
       SkyFunctionName.createHermetic("RESOLVED_FILE");
   public static final SkyFunctionName RESOLVED_HASH_VALUES =
       SkyFunctionName.createHermetic("RESOLVED_HASH_VALUES");
-  public static final SkyFunctionName LOCAL_CONFIG_PLATFORM =
-      SkyFunctionName.createHermetic("LOCAL_CONFIG_PLATFORM");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
   public static final SkyFunctionName BUILD_DRIVER =
@@ -169,12 +150,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName SINGLE_EXTENSION_EVAL =
       SkyFunctionName.createNonHermetic("SINGLE_EXTENSION_EVAL");
 
-  public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
-    return new Predicate<SkyKey>() {
-      @Override
-      public boolean apply(SkyKey key) {
-        return key.functionName().equals(functionName);
-      }
-    };
+  public static Predicate<SkyKey> isSkyFunction(SkyFunctionName functionName) {
+    return key -> key.functionName().equals(functionName);
   }
 }

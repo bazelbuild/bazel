@@ -29,26 +29,22 @@ import java.util.Collection;
  * A test completion value represents the completion of a test target. This includes the execution
  * of all test shards and repeated runs, if applicable.
  */
-public class TestCompletionValue implements SkyValue {
+public final class TestCompletionValue implements SkyValue {
   static final TestCompletionValue TEST_COMPLETION_MARKER = new TestCompletionValue();
 
   private TestCompletionValue() { }
 
-  @Override
-  public boolean dataIsShareable() {
-    return false;
-  }
-
   public static SkyKey key(
       ConfiguredTargetKey lac,
-      final TopLevelArtifactContext topLevelArtifactContext,
-      final boolean exclusiveTesting) {
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean exclusiveTesting) {
     return TestCompletionKey.create(lac, topLevelArtifactContext, exclusiveTesting);
   }
 
-  public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets,
-                                      final TopLevelArtifactContext topLevelArtifactContext,
-                                      final boolean exclusiveTesting) {
+  public static Iterable<SkyKey> keys(
+      Collection<ConfiguredTarget> targets,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean exclusiveTesting) {
     return Iterables.transform(
         targets,
         ct ->
@@ -84,8 +80,13 @@ public class TestCompletionValue implements SkyValue {
     public abstract boolean exclusiveTesting();
 
     @Override
-    public SkyFunctionName functionName() {
+    public final SkyFunctionName functionName() {
       return SkyFunctions.TEST_COMPLETION;
+    }
+
+    @Override
+    public final boolean valueIsShareable() {
+      return false;
     }
   }
 }

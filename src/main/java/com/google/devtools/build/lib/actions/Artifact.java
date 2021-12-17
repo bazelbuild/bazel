@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.CodedInputStream;
@@ -1117,8 +1116,8 @@ public abstract class Artifact
     }
 
     @Override
-    public ShareabilityOfValue getShareabilityOfValue() {
-      return isConstantMetadata() ? ShareabilityOfValue.NEVER : super.getShareabilityOfValue();
+    public boolean valueIsShareable() {
+      return !isConstantMetadata();
     }
   }
 

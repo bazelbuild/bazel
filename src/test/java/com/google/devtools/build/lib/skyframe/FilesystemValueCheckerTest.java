@@ -181,7 +181,7 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
 
     differencer = new SequencedRecordingDifferencer();
-    evaluator = new InMemoryMemoizingEvaluator(skyFunctions.build(), differencer);
+    evaluator = new InMemoryMemoizingEvaluator(skyFunctions.buildOrThrow(), differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
@@ -930,39 +930,28 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
                 null);
         FileArtifactValue withDigest =
-            FileArtifactValue.createFromInjectedDigest(
-                noDigest, path.getDigest(), !output.isConstantMetadata());
+            FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
         artifactData.put(output, withDigest);
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
     }
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createForTesting(
         ImmutableMap.copyOf(artifactData),
         /*treeArtifactData=*/ ImmutableMap.of(),
-        /*outputSymlinks=*/ null,
-        /*discoveredModules=*/ null,
-        /*shareable=*/ true);
+        /*outputSymlinks=*/ null);
   }
 
   private static ActionExecutionValue actionValueWithTreeArtifact(
       SpecialArtifact output, TreeArtifactValue tree) {
-    return ActionExecutionValue.create(
-        ImmutableMap.of(),
-        ImmutableMap.of(output, tree),
-        /*outputSymlinks=*/ null,
-        /*discoveredModules=*/ null,
-        /*shareable=*/ true);
+    return ActionExecutionValue.createForTesting(
+        ImmutableMap.of(), ImmutableMap.of(output, tree), /*outputSymlinks=*/ null);
   }
 
   private static ActionExecutionValue actionValueWithRemoteArtifact(
       Artifact output, RemoteFileArtifactValue value) {
-    return ActionExecutionValue.create(
-        ImmutableMap.of(output, value),
-        ImmutableMap.of(),
-        /*outputSymlinks=*/ null,
-        /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
+    return ActionExecutionValue.createForTesting(
+        ImmutableMap.of(output, value), ImmutableMap.of(), /*outputSymlinks=*/ null);
   }
 
   private RemoteFileArtifactValue createRemoteFileArtifactValue(String contents) {

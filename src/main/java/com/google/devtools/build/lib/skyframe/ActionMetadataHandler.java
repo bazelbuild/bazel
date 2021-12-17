@@ -556,8 +556,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       injectedDigest =
           DigestUtils.manuallyComputeDigest(artifactPathResolver.toPath(artifact), value.getSize());
     }
-    return FileArtifactValue.createFromInjectedDigest(
-        value, injectedDigest, /*isShareable=*/ !artifact.isConstantMetadata());
+    return FileArtifactValue.createFromInjectedDigest(value, injectedDigest);
   }
 
   /**
@@ -608,7 +607,6 @@ final class ActionMetadataHandler implements MetadataHandler {
           rootedPathNoFollow,
           statNoFollow,
           digestWillBeInjected,
-          artifact.isConstantMetadata(),
           tsgm);
     }
 
@@ -637,7 +635,6 @@ final class ActionMetadataHandler implements MetadataHandler {
         realRootedPath,
         realStatWithDigest,
         digestWillBeInjected,
-        artifact.isConstantMetadata(),
         tsgm);
   }
 
@@ -645,7 +642,6 @@ final class ActionMetadataHandler implements MetadataHandler {
       RootedPath rootedPath,
       FileStatusWithDigest stat,
       boolean digestWillBeInjected,
-      boolean isConstantMetadata,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     if (stat == null) {
@@ -658,10 +654,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     return stat.isDirectory()
         ? FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime())
         : FileArtifactValue.createForNormalFile(
-            fileStateValue.getDigest(),
-            fileStateValue.getContentsProxy(),
-            stat.getSize(),
-            /*isShareable=*/ !isConstantMetadata);
+            fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
   }
 
   private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {

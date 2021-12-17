@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -197,7 +196,7 @@ public class GraphTester {
     }
 
     public TestFunction addDependency(SkyKey key) {
-      deps.add(Pair.<SkyKey, SkyValue>of(key, null));
+      deps.add(Pair.of(key, null));
       return this;
     }
 
@@ -324,9 +323,7 @@ public class GraphTester {
     functionMap.put(functionName, function);
   }
 
-  /**
-   * Simple value class that stores strings.
-   */
+  /** Simple value class that stores strings. */
   public static class StringValue implements SkyValue {
     protected final String value;
 
@@ -340,6 +337,9 @@ public class GraphTester {
 
     @Override
     public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
       if (!(o instanceof StringValue)) {
         return false;
       }
@@ -353,7 +353,7 @@ public class GraphTester {
 
     @Override
     public String toString() {
-      return "StringValue: " + getValue();
+      return "StringValue: " + value;
     }
 
     public static StringValue of(String string) {
@@ -384,18 +384,6 @@ public class GraphTester {
     }
   }
 
-  /** An unshareable version of {@link StringValue}. */
-  public static final class UnshareableStringValue extends StringValue {
-    public UnshareableStringValue(String value) {
-      super(value);
-    }
-
-    @Override
-    public boolean dataIsShareable() {
-      return false;
-    }
-  }
-
   /**
    * A callback interface to provide the value computation.
    */
@@ -405,32 +393,20 @@ public class GraphTester {
         throws InterruptedException;
   }
 
-  public static final ValueComputer COPY = new ValueComputer() {
-    @Override
-    public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
-      return Iterables.getOnlyElement(deps.values());
-    }
-  };
+  public static final ValueComputer COPY = (deps, env) -> Iterables.getOnlyElement(deps.values());
 
-  public static final ValueComputer CONCATENATE = new ValueComputer() {
-    @Override
-    public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
-      StringBuilder result = new StringBuilder();
-      for (SkyValue value : deps.values()) {
-        result.append(((StringValue) value).value);
-      }
-      return new StringValue(result.toString());
-    }
-  };
+  public static final ValueComputer CONCATENATE =
+      (deps, env) -> {
+        StringBuilder result = new StringBuilder();
+        for (SkyValue value : deps.values()) {
+          result.append(((StringValue) value).value);
+        }
+        return new StringValue(result.toString());
+      };
 
-  public static ValueComputer formatter(final SkyKey key, final String format) {
-    return new ValueComputer() {
-      @Override
-      public SkyValue compute(Map<SkyKey, SkyValue> deps, Environment env)
-          throws InterruptedException {
-        return StringValue.of(String.format(format, StringValue.from(deps.get(key)).getValue()));
-      }
-    };
+  public static ValueComputer formatter(SkyKey key, String format) {
+    return (deps, env) ->
+        StringValue.of(String.format(format, StringValue.from(deps.get(key)).getValue()));
   }
 
   @AutoCodec.VisibleForSerialization

@@ -108,12 +108,10 @@ public class FilesystemValueCheckerTestBase {
     Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
     treeArtifacts.injectTo(treeArtifactData::put);
 
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createForTesting(
         /*artifactData=*/ ImmutableMap.of(),
         ImmutableMap.copyOf(treeArtifactData),
-        /*outputSymlinks=*/ null,
-        /*discoveredModules=*/ null,
-        /*shareable=*/ true);
+        /*outputSymlinks=*/ null);
   }
 
   private static FileArtifactValue createMetadataFromFileSystem(Artifact artifact)
@@ -122,8 +120,7 @@ public class FilesystemValueCheckerTestBase {
     FileArtifactValue noDigest =
         ActionMetadataHandler.fileArtifactValueFromArtifact(
             artifact, FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)), null);
-    return FileArtifactValue.createFromInjectedDigest(
-        noDigest, path.getDigest(), !artifact.isConstantMetadata());
+    return FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
   }
 
   void writeFile(Path path, String... lines) throws IOException {
