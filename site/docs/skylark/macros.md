@@ -143,6 +143,38 @@ macro), use the function [native.package_name()](lib/native.html#package_name).
 Note that `native` can only be used in `.bzl` files, and not in `WORKSPACE` or
 `BUILD` files.
 
+## Label resolution in macros
+
+Since macros are evaluated in the [loading phase](concepts.md#evaluation-model),
+label strings such as `"//foo:bar"` that occur in a macro are interpreted
+relative to the `BUILD` file in which the macro is used rather than relative to
+the `.bzl` file in which it is defined. This behavior is generally undesirable
+for macros that are meant to be used in other repositories, e.g. because they
+are part of a published Starlark ruleset.
+
+To get the same behavior as for Starlark rules, wrap the label strings with the
+[`Label`](lib/Label.html#Label) constructor:
+
+```python
+# @my_ruleset//rules:defs.bzl
+def my_cc_wrapper(name, deps = [], **kwargs):
+  native.cc_library(
+    name = name,
+    deps = deps + select({
+      # Due to the use of Label, this label is resolved within @my_ruleset,
+      # regardless of its site of use.
+      Label("//config:needs_foo"): [
+        # Due to the use of Label, this label will resolve to the correct target
+        # even if the canonical name of @dep_of_my_ruleset should be different
+        # in the main workspace, e.g. due to repo mappings.
+        Label("@dep_of_my_ruleset//tools:foo"),
+      ],
+      "//conditions:default": [],
+    }),
+    **kwargs,
+  )
+```
+
 ## Debugging
 
 *   `bazel query --output=build //my/path:all` will show you how the `BUILD` file
