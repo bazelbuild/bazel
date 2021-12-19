@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -45,6 +46,10 @@ public class FileStateFunction implements SkyFunction {
     this.externalFilesHelper = externalFilesHelper;
   }
 
+  // InconsistentFilesystemException catch block needs to be separate from IOException catch block
+  // below because Java does "single dispatch": the runtime type of e is all that is considered when
+  // deciding which overload of FileStateFunctionException() to call.
+  @SuppressWarnings("UseMultiCatch")
   @Override
   public FileStateValue compute(SkyKey skyKey, Environment env)
       throws FileStateFunctionException, InterruptedException {
@@ -63,6 +68,8 @@ public class FileStateFunction implements SkyFunction {
       return FileStateValue.create(rootedPath, syscallCache.get(), tsgm.get());
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
       return FileStateValue.NONEXISTENT_FILE_STATE_NODE;
+    } catch (InconsistentFilesystemException e) {
+      throw new FileStateFunctionException(e);
     } catch (IOException e) {
       throw new FileStateFunctionException(e);
     }
@@ -73,8 +80,21 @@ public class FileStateFunction implements SkyFunction {
    * FileStateFunction#compute}.
    */
   public static final class FileStateFunctionException extends SkyFunctionException {
+    private final boolean isCatastrophic;
+
+    private FileStateFunctionException(InconsistentFilesystemException e) {
+      super(e, Transience.TRANSIENT);
+      this.isCatastrophic = true;
+    }
+
     private FileStateFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
+      this.isCatastrophic = false;
+    }
+
+    @Override
+    public boolean isCatastrophic() {
+      return isCatastrophic;
     }
   }
 }

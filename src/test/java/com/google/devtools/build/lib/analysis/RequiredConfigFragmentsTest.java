@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -160,7 +161,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters params,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).build();
     }

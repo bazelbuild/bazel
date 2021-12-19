@@ -364,7 +364,7 @@ public class SymlinkForest {
         continue;
       }
       RepositoryName repository = pkgId.getRepository();
-      if (repository.isMain() || repository.isDefault()) {
+      if (repository.isMain()) {
         // Record main repo packages.
         packageRootsForMainRepo.put(entry.getKey(), entry.getValue());
 

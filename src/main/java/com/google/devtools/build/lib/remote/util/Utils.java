@@ -598,11 +598,10 @@ public final class Utils {
   }
 
   public static boolean shouldUploadLocalResultsToRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
-        && (executionInfo == null
-            || (Spawns.mayBeCachedRemotely(executionInfo)
-                && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD)));
+        && Spawns.mayBeCachedRemotely(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }
 
   public static boolean shouldUploadLocalResultsToRemoteCache(
@@ -615,12 +614,11 @@ public final class Utils {
   }
 
   public static boolean shouldUploadLocalResultsToDiskCache(
-      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
     if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      return executionInfo == null || Spawns.mayBeCached(executionInfo);
+      return Spawns.mayBeCached(executionInfo);
     } else {
-      return remoteOptions.remoteUploadLocalResults
-          && (executionInfo == null || Spawns.mayBeCached(executionInfo));
+      return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(executionInfo);
     }
   }
 
@@ -634,7 +632,7 @@ public final class Utils {
   }
 
   public static boolean shouldUploadLocalResultsToCombinedDisk(
-      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
     if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
       // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
       // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.

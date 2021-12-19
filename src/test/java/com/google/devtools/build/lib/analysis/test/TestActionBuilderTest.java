@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -216,12 +215,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute(
-                "//:aspect.bzl",
-                /* defaultToMain= */ true,
-                /* repositoryMapping= */ ImmutableMap.of()),
-            "StructImpl");
+        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("//:suite", "//:test_a", "//:test_b");
@@ -254,12 +248,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute(
-                "//:aspect.bzl",
-                /* defaultToMain= */ true,
-                /* repositoryMapping= */ ImmutableMap.of()),
-            "StructImpl");
+        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("//:suite", "//:test_b");
@@ -288,12 +277,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
             /* doAnalysis= */ true,
             new EventBus());
     final StarlarkProvider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute(
-                "//:aspect.bzl",
-                /* defaultToMain= */ true,
-                /* repositoryMapping= */ ImmutableMap.of()),
-            "StructImpl");
+        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
 
     List<String> labels = new ArrayList<>();
     for (ConfiguredAspect a : analysisResult.getAspectsMap().values()) {

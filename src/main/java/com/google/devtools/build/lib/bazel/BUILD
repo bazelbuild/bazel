@@ -139,6 +139,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/actions",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/includescanning",
         "//src/main/java/com/google/devtools/build/lib/metrics:memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",

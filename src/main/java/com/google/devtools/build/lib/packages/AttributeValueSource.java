@@ -21,6 +21,7 @@ import net.starlark.java.eval.Starlark;
  * from.
  */
 public enum AttributeValueSource {
+  NATIVE_COMPUTED_DEFAULT("$", false),
   COMPUTED_DEFAULT("$", true),
   LATE_BOUND(":", true),
   DIRECT("$", false);

@@ -182,18 +182,21 @@ public class PackageFunctionTest extends BuildViewTestCase {
     return value.getPackage();
   }
 
+  private Exception evaluatePackageToException(String pkg) throws Exception {
+    return evaluatePackageToException(pkg, /*keepGoing=*/ false);
+  }
+
   /**
    * Helper that evaluates the given package and returns the expected exception.
    *
    * <p>Disables the failFastHandler as a side-effect.
    */
-  private Exception evaluatePackageToException(String pkg) throws Exception {
+  private Exception evaluatePackageToException(String pkg, boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse(pkg));
     EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+        SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(), skyKey, keepGoing, reporter);
     assertThat(result.hasError()).isTrue();
     return result.getError(skyKey).getException();
   }
@@ -401,7 +404,18 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("foo/bar/baz.sh");
     fs.scheduleMakeUnreadableAfterReaddir(barDir);
 
-    Exception ex = evaluatePackageToException("@//foo");
+    Exception ex =
+        evaluatePackageToException(
+            "@//foo",
+            // Use --keep_going, not --nokeep_going, semantics so as to exercise the situation we
+            // want to exercise.
+            //
+            // In --nokeep_going semantics, the GlobValue node's error would halt normal evaluation
+            // and trigger error bubbling. Then, during error bubbling we would freshly compute the
+            // PackageValue node again, meaning we would do non-Skyframe globbing except this time
+            // non-Skyframe globbing would encounter the io error, meaning there actually wouldn't
+            // be a discrepancy.
+            /*keepGoing=*/ true);
     String msg = ex.getMessage();
     assertThat(msg).contains("Inconsistent filesystem operations");
     assertThat(msg).contains("Encountered error '/workspace/foo/bar (Permission denied)'");

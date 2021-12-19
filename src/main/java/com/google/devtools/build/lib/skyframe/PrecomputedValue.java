@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -23,10 +24,12 @@ import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPol
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.UUID;
@@ -38,7 +41,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  * "precomputed" from skyframe's perspective and so the graph needs to be prepopulated with them
  * (e.g. via injection).
  */
-public class PrecomputedValue implements SkyValue {
+public final class PrecomputedValue implements SkyValue {
   /**
    * An externally-injected precomputed value. Exists so that modules can inject precomputed values
    * into Skyframe's graph.
@@ -47,9 +50,9 @@ public class PrecomputedValue implements SkyValue {
    */
   public static final class Injected {
     private final Precomputed<?> precomputed;
-    private final Supplier<? extends Object> supplier;
+    private final Supplier<?> supplier;
 
-    private Injected(Precomputed<?> precomputed, Supplier<? extends Object> supplier) {
+    private Injected(Precomputed<?> precomputed, Supplier<?> supplier) {
       this.precomputed = precomputed;
       this.supplier = supplier;
     }
@@ -81,7 +84,7 @@ public class PrecomputedValue implements SkyValue {
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>("starlark_semantics");
 
-  static final Precomputed<UUID> BUILD_ID = new UnsharablePrecomputed<>("build_id");
+  static final Precomputed<UUID> BUILD_ID = new Precomputed<>("build_id", /*shareable=*/ false);
 
   public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
@@ -131,15 +134,19 @@ public class PrecomputedValue implements SkyValue {
    *
    * <p>Instances do not have internal state.
    */
-  public static class Precomputed<T> {
-    protected final Key key;
+  public static final class Precomputed<T> {
+    private final SkyKey key;
 
     public Precomputed(String key) {
-      this.key = Key.create(key);
+      this(key, /*shareable=*/ true);
+    }
+
+    private Precomputed(String key, boolean shareable) {
+      this.key = shareable ? Key.create(key) : UnshareableKey.create(key);
     }
 
     @VisibleForTesting
-    public Key getKeyForTesting() {
+    public SkyKey getKeyForTesting() {
       return key;
     }
 
@@ -162,35 +169,19 @@ public class PrecomputedValue implements SkyValue {
     public void set(Injectable injectable, T value) {
       injectable.inject(key, new PrecomputedValue(value));
     }
-  }
-
-  private static class UnsharablePrecomputed<T> extends Precomputed<T> {
-    private UnsharablePrecomputed(String key) {
-      super(key);
-    }
-
-    /** Injects a new variable value. */
-    @Override
-    public void set(Injectable injectable, T value) {
-      injectable.inject(key, new UnshareablePrecomputedValue(value));
-    }
-  }
-
-  /** An unshareable version of {@link PrecomputedValue}. */
-  private static final class UnshareablePrecomputedValue extends PrecomputedValue {
-    private UnshareablePrecomputedValue(Object value) {
-      super(value);
-    }
 
     @Override
-    public boolean dataIsShareable() {
-      return false;
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("key", key)
+          .add("shareable", key.valueIsShareable())
+          .toString();
     }
   }
 
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@code PrecomputedValue}. */
   @AutoCodec
-  public static class Key extends AbstractSkyKey<String> {
+  public static final class Key extends AbstractSkyKey<String> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(String arg) {
@@ -205,6 +196,33 @@ public class PrecomputedValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PRECOMPUTED;
+    }
+  }
+
+  /** Unshareable version of {@link Key}. */
+  @AutoCodec
+  @VisibleForSerialization
+  static final class UnshareableKey extends AbstractSkyKey<String> {
+    private static final Interner<UnshareableKey> interner = BlazeInterners.newWeakInterner();
+
+    private UnshareableKey(String arg) {
+      super(arg);
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static UnshareableKey create(String arg) {
+      return interner.intern(new UnshareableKey(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.PRECOMPUTED;
+    }
+
+    @Override
+    public boolean valueIsShareable() {
+      return false;
     }
   }
 }

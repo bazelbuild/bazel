@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -38,6 +40,8 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -68,7 +72,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws PrepareDepsOfPatternFunctionException, InterruptedException {
     TargetPatternValue.TargetPatternKey patternKey =
         ((TargetPatternValue.TargetPatternKey) key.argument());
 
@@ -78,8 +82,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     // with SkyframeTargetPatternEvaluator, which can create TargetPatternKeys with other
     // filtering policies like FILTER_TESTS or FILTER_MANUAL.) This check makes sure that the
     // key's filtering policy is NO_FILTER as expected.
-    Preconditions.checkState(patternKey.getPolicy().equals(FilteringPolicies.NO_FILTER),
-        patternKey.getPolicy());
+    Preconditions.checkState(
+        patternKey.getPolicy().equals(FilteringPolicies.NO_FILTER), patternKey.getPolicy());
 
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
@@ -124,6 +128,10 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       // The DepsOfPatternPreparer constructed above might throw MissingDepException to signal
       // when it has a dependency on a missing Environment value.
       return null;
+    } catch (ProcessPackageDirectoryException e) {
+      throw new PrepareDepsOfPatternFunctionException(parsedPattern, e);
+    } catch (InconsistentFilesystemException e) {
+      throw new PrepareDepsOfPatternFunctionException(parsedPattern, e);
     }
     return PrepareDepsOfPatternValue.INSTANCE;
   }
@@ -133,9 +141,57 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
    * PrepareDepsOfPatternFunction#compute}.
    */
   private static final class PrepareDepsOfPatternFunctionException extends SkyFunctionException {
-
     PrepareDepsOfPatternFunctionException(TargetParsingException e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    PrepareDepsOfPatternFunctionException(
+        TargetPattern pattern, ProcessPackageDirectoryException e) {
+      super(new PrepareDepsOfPatternException(pattern, e), Transience.PERSISTENT);
+    }
+
+    PrepareDepsOfPatternFunctionException(
+        TargetPattern pattern, InconsistentFilesystemException e) {
+      super(new PrepareDepsOfPatternException(pattern, e), Transience.PERSISTENT);
+    }
+  }
+
+  private static final class PrepareDepsOfPatternException extends Exception
+      implements DetailedException {
+    private final DetailedExitCode detailedExitCode;
+
+    PrepareDepsOfPatternException(TargetPattern pattern, ProcessPackageDirectoryException e) {
+      super(
+          "Preparing deps of pattern '"
+              + pattern.getOriginalPattern()
+              + "' failed: "
+              + e.getMessage(),
+          e);
+      detailedExitCode = e.getDetailedExitCode();
+    }
+
+    public PrepareDepsOfPatternException(TargetPattern pattern, InconsistentFilesystemException e) {
+      super(
+          "Preparing deps of pattern '"
+              + pattern.getOriginalPattern()
+              + "' failed: "
+              + e.getMessage(),
+          e);
+      detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setMessage(getMessage())
+                  .setPackageLoading(
+                      FailureDetails.PackageLoading.newBuilder()
+                          .setCode(
+                              FailureDetails.PackageLoading.Code
+                                  .TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR))
+                  .build());
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 
@@ -169,7 +225,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public Void getTargetOrNull(Label label) throws InterruptedException {
+    public Void getTargetOrNull(Label label) {
       // Note:
       // This method is used in just one place, TargetPattern.TargetsInPackage#getWildcardConflict.
       // Returning null tells #getWildcardConflict that there is not a target with a name like
@@ -223,14 +279,16 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         }
         return ImmutableSet.of();
       } catch (NoSuchThingException e) {
-        String message = TargetPatternResolverUtil.getParsingErrorMessage(
-            "package contains errors", originalPattern);
+        String message =
+            TargetPatternResolverUtil.getParsingErrorMessage(
+                "package contains errors", originalPattern);
         throw new TargetParsingException(message, e, e.getDetailedExitCode());
       }
     }
 
     @Override
-    public boolean isPackage(PackageIdentifier packageIdentifier) throws InterruptedException {
+    public boolean isPackage(PackageIdentifier packageIdentifier)
+        throws InterruptedException, InconsistentFilesystemException {
       return packageProvider.isPackage(env.getListener(), packageIdentifier);
     }
 

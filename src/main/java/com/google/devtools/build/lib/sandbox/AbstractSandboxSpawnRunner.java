@@ -139,7 +139,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         verifyPostCondition(originalSpawn, sandbox, context);
       }
 
-      context.lockOutputFiles();
+      context.lockOutputFiles(
+          result.exitCode(),
+          result.failureDetail() != null ? result.failureDetail().getMessage() : "",
+          outErr);
       try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);

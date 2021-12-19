@@ -885,8 +885,6 @@ public class BzlLoadFunction implements SkyFunction {
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       RepositoryMapping repoMapping) {
-    Preconditions.checkArgument(!base.getRepository().isDefault());
-
     // It's redundant that getRelativeWithRemapping needs a Label;
     // a PackageIdentifier should suffice. Make one here.
     Label buildLabel = getBUILDLabel(base);

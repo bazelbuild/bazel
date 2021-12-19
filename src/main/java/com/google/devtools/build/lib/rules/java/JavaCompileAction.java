@@ -539,7 +539,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   /** Returns the out-of-band execution data for this action. */
   @Override
-  public Map<String, String> getExecutionInfo() {
+  public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }
 

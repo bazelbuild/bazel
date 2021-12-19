@@ -171,7 +171,6 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
     try {
       return Label.parseAbsolute(
           labelString,
-          /* defaultToMain= */ false,
           /* repositoryMapping= */ ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);

@@ -148,7 +148,21 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
             getName(),
             attr.getName(),
             aspectParams.getAttribute(attr.getName()).size());
-        attr = attr.cloneBuilder(Type.STRING).value(value).build(attr.getName());
+
+        if (!attr.checkAllowedValues()) {
+          // The aspect attribute can have no allowed values constraint if the aspect is used from
+          // command-line. However, AspectDefinition.Builder$add requires the existance of allowed
+          // values in all aspects string attributes for both native and starlark aspects.
+          // Therefore, allowedValues list is added here with only the current value of the
+          // attribute.
+          attr =
+              attr.cloneBuilder(Type.STRING)
+                  .value(value)
+                  .allowedValues(new Attribute.AllowedValueSet(value))
+                  .build(attr.getName());
+        } else {
+          attr = attr.cloneBuilder(Type.STRING).value(value).build(attr.getName());
+        }
       }
       builder.add(attr);
     }
@@ -240,14 +254,15 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
           parametersValues.getOrDefault(
               parameterName, (String) aspectParameter.getDefaultValue(null));
 
-      PredicateWithMessage<Object> allowedValues = aspectParameter.getAllowedValues();
-      if (allowedValues.apply(parameterValue)) {
-        builder.addAttribute(parameterName, parameterValue);
-      } else {
-        throw Starlark.errorf(
-            "%s: invalid value in '%s' attribute: %s",
-            getName(), parameterName, allowedValues.getErrorReason(parameterValue));
+      if (aspectParameter.checkAllowedValues()) {
+        PredicateWithMessage<Object> allowedValues = aspectParameter.getAllowedValues();
+        if (!allowedValues.apply(parameterValue)) {
+          throw Starlark.errorf(
+              "%s: invalid value in '%s' attribute: %s",
+              getName(), parameterName, allowedValues.getErrorReason(parameterValue));
+        }
       }
+      builder.addAttribute(parameterName, parameterValue);
     }
     return builder.build();
   }

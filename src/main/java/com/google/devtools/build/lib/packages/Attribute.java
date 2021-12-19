@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -224,14 +225,6 @@ public final class Attribute implements Comparable<Attribute> {
     public Collection<Object> getAllowedValues() {
       return allowedValues;
     }
-  }
-
-  public ImmutableMap<String, ImmutableSet<String>> getRequiredAspectParameters() {
-    ImmutableMap.Builder<String, ImmutableSet<String>> paramBuilder = ImmutableMap.builder();
-    for (AspectDetails<?> aspect : aspects) {
-      paramBuilder.put(aspect.getName(), aspect.getRequiredParameters());
-    }
-    return paramBuilder.build();
   }
 
   /**
@@ -554,34 +547,6 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * See value(TYPE) above. This method is only meant for Starlark usage.
-     *
-     * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
-     * case, {@code context} must point to the parent Label in order to be able to convert the
-     * default value string to a proper Label.
-     *
-     * @param parameterName The name of the attribute to use in error messages
-     */
-    public Builder<TYPE> defaultValue(
-        Object defaultValue, Object context, @Nullable String parameterName)
-        throws ConversionException {
-      Preconditions.checkState(!valueSet, "the default value is already set");
-      value =
-          type.convert(
-              defaultValue,
-              ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
-                  + String.format("attribute '%s'", name),
-              context);
-      valueSet = true;
-      return this;
-    }
-
-    /** See value(TYPE) above. This method is only meant for Starlark usage. */
-    public Builder<TYPE> defaultValue(Object defaultValue) throws ConversionException {
-      return defaultValue(defaultValue, null, null);
-    }
-
-    /**
      * Sets the attribute default value to a computed default value - use this when the default
      * value is a function of other attributes of the Rule. The type of the computed default value
      * for a mandatory attribute must match the type parameter: (e.g. list=[], integer=0, string="",
@@ -595,6 +560,15 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
       valueSource = AttributeValueSource.COMPUTED_DEFAULT;
+      valueSet = true;
+      return this;
+    }
+
+    /** Used for b/200065655#comment3. */
+    public Builder<TYPE> value(NativeComputedDefaultApi defaultValue) {
+      Preconditions.checkState(!valueSet, "the default value is already set");
+      value = defaultValue;
+      valueSource = AttributeValueSource.NATIVE_COMPUTED_DEFAULT;
       valueSet = true;
       return this;
     }
@@ -631,6 +605,34 @@ public final class Attribute implements Comparable<Attribute> {
       valueSource = AttributeValueSource.LATE_BOUND;
       valueSet = true;
       return this;
+    }
+
+    /**
+     * See value(TYPE) above. This method is only meant for Starlark usage.
+     *
+     * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
+     * case, {@code context} must point to the parent Label in order to be able to convert the
+     * default value string to a proper Label.
+     *
+     * @param parameterName The name of the attribute to use in error messages
+     */
+    public Builder<TYPE> defaultValue(
+        Object defaultValue, Object context, @Nullable String parameterName)
+        throws ConversionException {
+      Preconditions.checkState(!valueSet, "the default value is already set");
+      value =
+          type.convert(
+              defaultValue,
+              ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
+                  + String.format("attribute '%s'", name),
+              context);
+      valueSet = true;
+      return this;
+    }
+
+    /** See value(TYPE) above. This method is only meant for Starlark usage. */
+    public Builder<TYPE> defaultValue(Object defaultValue) throws ConversionException {
+      return defaultValue(defaultValue, null, null);
     }
 
     /** Returns where the value of this attribute comes from. Useful only for Starlark. */
@@ -1589,7 +1591,7 @@ public final class Attribute implements Comparable<Attribute> {
       super(useHostConfiguration, fragmentClass, defaultValue);
     }
   }
-  
+
   @AutoCodec.VisibleForSerialization
   static class AlwaysNullLateBoundDefault extends SimpleLateBoundDefault<Void, Void> {
     @SerializationConstant @AutoCodec.VisibleForSerialization
@@ -2086,6 +2088,10 @@ public final class Attribute implements Comparable<Attribute> {
       result.add(aspect.getAspectClass());
     }
     return result.build();
+  }
+
+  public ImmutableList<AspectDetails<?>> getAspectsDetails() {
+    return aspects;
   }
 
   /**

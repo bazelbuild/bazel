@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.HashMap;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -61,7 +62,7 @@ public final class BazelStarlarkContext
 
   private final Phase phase;
   // Only necessary for loading phase threads.
-  @Nullable private final String toolsRepository;
+  @Nullable private final RepositoryName toolsRepository;
   // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   private final HashMap<String, Label> convertedLabelsInPackage;
@@ -93,7 +94,7 @@ public final class BazelStarlarkContext
   // analysis threads?
   public BazelStarlarkContext(
       Phase phase,
-      @Nullable String toolsRepository,
+      @Nullable RepositoryName toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
       HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
@@ -111,7 +112,7 @@ public final class BazelStarlarkContext
   /** Returns the name of the tools repository, such as "@bazel_tools". */
   @Nullable
   @Override
-  public String getToolsRepository() {
+  public RepositoryName getToolsRepository() {
     return toolsRepository;
   }
 

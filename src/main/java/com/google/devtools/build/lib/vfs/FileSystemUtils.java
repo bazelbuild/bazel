@@ -256,11 +256,7 @@ public class FileSystemUtils {
   @ThreadSafe
   public static void touchFile(Path path) throws IOException {
     if (path.exists()) {
-      // -1L means "use the current time", and is ultimately implemented by
-      // utime(path, null), thereby using the kernel's clock, not the JVM's.
-      // (A previous implementation based on the JVM clock was found to be
-      // skewy.)
-      path.setLastModifiedTime(-1L);
+      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     } else {
       createEmptyFile(path);
     }

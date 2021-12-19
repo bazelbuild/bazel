@@ -679,10 +679,8 @@ public abstract class DependencyResolver {
       return;
     }
 
-    Label ruleLabel = rule.getLabel();
     type.visitLabels(
-        (depLabel, ctx) ->
-            outgoingLabels.put(dependencyKind, ruleLabel.resolveRepositoryRelative(depLabel)),
+        (depLabel, ctx) -> outgoingLabels.put(dependencyKind, depLabel),
         attributeValue,
         /*context=*/ null);
   }

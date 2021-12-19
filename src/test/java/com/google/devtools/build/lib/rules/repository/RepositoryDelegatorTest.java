@@ -192,8 +192,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         null,
                         null,
                         null,
-                        null,
-                        null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,

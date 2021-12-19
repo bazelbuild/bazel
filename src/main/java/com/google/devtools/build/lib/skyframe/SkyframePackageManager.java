@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -77,7 +78,8 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   }
 
   @Override
-  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+      throws InconsistentFilesystemException, InterruptedException {
     return getBuildFileForPackage(packageName) != null;
   }
 

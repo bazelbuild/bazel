@@ -53,11 +53,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
+import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
@@ -98,7 +100,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
-import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
@@ -131,7 +132,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   try {
                     return Label.parseAbsolute(
                         from,
-                        /* defaultToMain=*/ false,
                         /* repositoryMapping= */ ImmutableMap.of());
                   } catch (LabelSyntaxException e) {
                     throw new Exception(from);
@@ -179,7 +179,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
-    String toolsRepository = env.getToolsRepository();
+    RepositoryName toolsRepository = env.getToolsRepository();
     RuleClass.Builder builder =
         new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
             .requiresConfigurationFragments(TestConfiguration.class)
@@ -271,13 +271,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   @Override
   public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {
-    Collection<String> fieldNames =
-        fields instanceof Sequence
-            ? Sequence.cast(fields, String.class, "fields")
-            : fields instanceof Dict
-                ? Dict.cast(fields, String.class, String.class, "fields").keySet()
-                : null;
-    return StarlarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
+    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    if (fields instanceof Sequence) {
+      builder.setSchema(Sequence.cast(fields, String.class, "fields"));
+    } else if (fields instanceof Dict) {
+      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
+    }
+    return builder.build();
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -635,15 +635,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         hasDefault = false; // isValueSet() is always true for attr.string.
       }
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
-        if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
+        if (attribute.getType() != Type.STRING) {
           throw Starlark.errorf(
-              "Aspect parameter attribute '%s' must have type 'string' and use the 'values'"
-                  + " restriction.",
-              nativeName);
+              "Aspect parameter attribute '%s' must have type 'string'.", nativeName);
         }
-        if (!hasDefault) {
-          requiredParams.add(nativeName);
-        } else {
+        if (hasDefault && attribute.checkAllowedValues()) {
           PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
           Object defaultVal = attribute.getDefaultValue(null);
           if (!allowed.apply(defaultVal)) {
@@ -651,6 +647,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                 "Aspect parameter attribute '%s' has a bad default value: %s",
                 nativeName, allowed.getErrorReason(defaultVal));
           }
+        }
+        if (!hasDefault || attribute.isMandatory()) {
+          requiredParams.add(nativeName);
         }
       } else if (!hasDefault) { // Implicit or late bound attribute
         String starlarkName = "_" + nativeName.substring(1);
@@ -763,20 +762,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
 
-      for (Attribute attribute : ruleClass.getAttributes()) {
-        // TODO(dslomov): If a Starlark parameter extractor is specified for this aspect, its
-        // attributes may not be required.
-        for (Map.Entry<String, ImmutableSet<String>> attrRequirements :
-            attribute.getRequiredAspectParameters().entrySet()) {
-          for (String required : attrRequirements.getValue()) {
-            if (!ruleClass.hasAttr(required, Type.STRING)) {
-              throw Starlark.errorf(
-                  "Aspect %s requires rule %s to specify attribute '%s' with type string.",
-                  attrRequirements.getKey(), ruleClass.getName(), required);
-            }
-          }
-        }
-      }
+      validateRulePropagatedAspects(ruleClass);
 
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
@@ -798,6 +784,40 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         throw new EvalException(e);
       }
       return Starlark.NONE;
+    }
+
+    private static void validateRulePropagatedAspects(RuleClass ruleClass) throws EvalException {
+      for (Attribute attribute : ruleClass.getAttributes()) {
+        for (AspectDetails<?> aspect : attribute.getAspectsDetails()) {
+          ImmutableSet<String> requiredAspectParameters = aspect.getRequiredParameters();
+          for (Attribute aspectAttribute : aspect.getAspectAttributes()) {
+            String aspectAttrName = aspectAttribute.getPublicName();
+            Type<?> aspectAttrType = aspectAttribute.getType();
+
+            // When propagated from a rule, explicit aspect attributes must be of type string and
+            // they must have `values` restriction.
+            if (!aspectAttribute.isImplicit() && !aspectAttribute.isLateBound()) {
+              if ((aspectAttrType != Type.STRING && aspectAttrType != Type.INTEGER)
+                  || !aspectAttribute.checkAllowedValues()) {
+                throw Starlark.errorf(
+                    "Aspect %s: Aspect parameter attribute '%s' must have type 'string'"
+                        + " and use the 'values' restriction.",
+                    aspect.getName(), aspectAttrName);
+              }
+            }
+
+            // Required aspect parameters must be specified by the rule propagating the aspect with
+            // the same parameter type.
+            if (requiredAspectParameters.contains(aspectAttrName)) {
+              if (!ruleClass.hasAttr(aspectAttrName, aspectAttrType)) {
+                throw Starlark.errorf(
+                    "Aspect %s requires rule %s to specify attribute '%s' with type %s.",
+                    aspect.getName(), ruleClass.getName(), aspectAttrName, aspectAttrType);
+              }
+            }
+          }
+        }
+      }
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */

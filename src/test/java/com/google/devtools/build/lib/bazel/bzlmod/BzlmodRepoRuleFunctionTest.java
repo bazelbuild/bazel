@@ -148,8 +148,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         /*packageFactory=*/ null,
                         /*pkgLocator=*/ null,
                         /*showLoadingProgress=*/ null,
-                        /*packageFunctionCache=*/ null,
-                        /*compiledBuildFileCache=*/ null,
                         /*numPackagesLoaded=*/ null,
                         /*bzlLoadFunctionForInlining=*/ null,
                         /*packageProgress=*/ null,

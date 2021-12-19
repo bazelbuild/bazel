@@ -351,9 +351,7 @@ public final class ConfiguredTargetFactory {
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
           ConfiguredTarget target =
               StarlarkRuleConfiguredTargetUtil.buildRule(
-                  ruleContext,
-                  ruleClass.getAdvertisedProviders(),
-                  ruleClassProvider.getToolsRepository());
+                  ruleContext, ruleClass.getAdvertisedProviders());
 
           return target != null ? target : erroredConfiguredTarget(ruleContext);
         }

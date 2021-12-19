@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -48,7 +49,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Output callback for aquery, prints human readable output. */
@@ -234,24 +234,22 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                     .collect(Collectors.joining(", ")))
             .append("]\n");
       }
-      if (abstractAction.getExecutionInfo() != null) {
-        Set<Entry<String, String>> executionInfoSpecifiers =
-            abstractAction.getExecutionInfo().entrySet();
-        if (!executionInfoSpecifiers.isEmpty()) {
-          stringBuilder
-              .append("  ExecutionInfo: {")
-              .append(
-                  executionInfoSpecifiers.stream()
-                      .sorted(Map.Entry.comparingByKey())
-                      .map(
-                          e ->
-                              String.format(
-                                  "%s: %s",
-                                  ShellEscaper.escapeString(e.getKey()),
-                                  ShellEscaper.escapeString(e.getValue())))
-                      .collect(Collectors.joining(", ")))
-              .append("}\n");
-        }
+      ImmutableSet<Entry<String, String>> executionInfoSpecifiers =
+          abstractAction.getExecutionInfo().entrySet();
+      if (!executionInfoSpecifiers.isEmpty()) {
+        stringBuilder
+            .append("  ExecutionInfo: {")
+            .append(
+                executionInfoSpecifiers.stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(
+                        e ->
+                            String.format(
+                                "%s: %s",
+                                ShellEscaper.escapeString(e.getKey()),
+                                ShellEscaper.escapeString(e.getValue())))
+                    .collect(Collectors.joining(", ")))
+            .append("}\n");
       }
     }
     if (options.includeCommandline && action instanceof CommandAction) {
@@ -287,7 +285,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       }
     }
     Map<String, String> executionInfo = action.getExecutionInfo();
-    if (executionInfo != null && !executionInfo.isEmpty()) {
+    if (!executionInfo.isEmpty()) {
       stringBuilder
           .append("  ExecutionInfo: {")
           .append(

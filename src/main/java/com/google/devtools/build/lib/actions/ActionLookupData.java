@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
-import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /** Data that uniquely identifies an action. */
@@ -44,7 +43,10 @@ public class ActionLookupData implements ExecutionPhaseSkyKey {
         : new ActionLookupData(actionLookupKey, actionIndex);
   }
 
-  /** Similar to {@link #create}, but the key will have {@link ShareabilityOfValue#NEVER}. */
+  /**
+   * Similar to {@link #create}, but the key will return {@code false} for {@link
+   * #valueIsShareable}.
+   */
   public static ActionLookupData createUnshareable(
       ActionLookupKey actionLookupKey, int actionIndex) {
     return new UnshareableActionLookupData(actionLookupKey, actionIndex);
@@ -58,21 +60,25 @@ public class ActionLookupData implements ExecutionPhaseSkyKey {
    * Index of the action in question in the node keyed by {@link #getActionLookupKey}. Should be
    * passed to {@link ActionLookupValue#getAction}.
    */
-  public int getActionIndex() {
+  public final int getActionIndex() {
     return actionIndex;
   }
 
-  public Label getLabel() {
+  public final Label getLabel() {
     return actionLookupKey.getLabel();
   }
 
   @Override
-  public int hashCode() {
-    return 37 * actionLookupKey.hashCode() + actionIndex;
+  public final int hashCode() {
+    int hash = 1;
+    hash = 37 * hash + actionLookupKey.hashCode();
+    hash = 37 * hash + Integer.hashCode(actionIndex);
+    hash = 37 * hash + Boolean.hashCode(valueIsShareable());
+    return hash;
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public final boolean equals(Object obj) {
     if (this == obj) {
       return true;
     }
@@ -81,7 +87,8 @@ public class ActionLookupData implements ExecutionPhaseSkyKey {
     }
     ActionLookupData that = (ActionLookupData) obj;
     return this.actionIndex == that.actionIndex
-        && this.actionLookupKey.equals(that.actionLookupKey);
+        && this.actionLookupKey.equals(that.actionLookupKey)
+        && valueIsShareable() == that.valueIsShareable();
   }
 
   @Override
@@ -103,8 +110,8 @@ public class ActionLookupData implements ExecutionPhaseSkyKey {
     }
 
     @Override
-    public ShareabilityOfValue getShareabilityOfValue() {
-      return ShareabilityOfValue.NEVER;
+    public boolean valueIsShareable() {
+      return false;
     }
   }
 }

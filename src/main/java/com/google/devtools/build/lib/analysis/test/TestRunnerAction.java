@@ -608,7 +608,7 @@ public class TestRunnerAction extends AbstractAction
                   .getContext(TestActionContext.class)
                   .newCachedTestResult(executor.getExecRoot(), this, cachedTestResultData.get()));
     } catch (IOException e) {
-      logger.atInfo().log(getErrorMessageOnNewCachedTestResultError(e.getMessage()));
+      logger.atInfo().log("%s", getErrorMessageOnNewCachedTestResultError(e.getMessage()));
       executor
           .getEventHandler()
           .handle(Event.warn(getErrorMessageOnNewCachedTestResultError(e.getMessage())));
@@ -646,7 +646,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   void createEmptyOutputs(ActionExecutionContext context) throws IOException {
-    for (Artifact output : TestRunnerAction.this.getMandatoryOutputs()) {
+    for (Artifact output : TestRunnerAction.this.getOutputs()) {
       FileSystemUtils.touchFile(context.getInputPath(output));
     }
   }
@@ -883,7 +883,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Map<String, String> getExecutionInfo() {
+  public ImmutableMap<String, String> getExecutionInfo() {
     return testProperties.getExecutionInfo();
   }
 
@@ -998,12 +998,12 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult execute(
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
-      ActionContinuationOrResult continuation =
-          beginExecution(actionExecutionContext, testActionContext);
-      while (!continuation.isDone()) {
-        continuation = continuation.execute();
-      }
-      return continuation.get();
+    ActionContinuationOrResult continuation =
+        beginExecution(actionExecutionContext, testActionContext);
+    while (!continuation.isDone()) {
+      continuation = continuation.execute();
+    }
+    return continuation.get();
   }
 
   @Override

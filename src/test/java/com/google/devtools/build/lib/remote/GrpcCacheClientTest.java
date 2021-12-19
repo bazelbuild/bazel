@@ -251,7 +251,8 @@ public class GrpcCacheClientTest {
             channel.retain(),
             callCredentialsProvider,
             remoteOptions.remoteTimeout.getSeconds(),
-            retrier);
+            retrier,
+            remoteOptions.maximumOpenFiles);
     return new GrpcCacheClient(
         channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL, uploader);
   }
@@ -338,7 +339,7 @@ public class GrpcCacheClientTest {
 
   @Test
   public void testDownloadBlobSingleChunk() throws Exception {
-    final GrpcCacheClient client = newClient();
+    GrpcCacheClient client = newClient();
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -355,7 +356,7 @@ public class GrpcCacheClientTest {
 
   @Test
   public void testDownloadBlobMultipleChunks() throws Exception {
-    final GrpcCacheClient client = newClient();
+    GrpcCacheClient client = newClient();
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -949,7 +950,7 @@ public class GrpcCacheClientTest {
 
   @Test
   public void testGetCachedActionResultWithRetries() throws Exception {
-    final GrpcCacheClient client = newClient();
+    GrpcCacheClient client = newClient();
     ActionKey actionKey = DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key"));
     serviceRegistry.addService(
         new ActionCacheImplBase() {
@@ -971,8 +972,7 @@ public class GrpcCacheClientTest {
   @Test
   public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
-    final GrpcCacheClient client =
-        newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -1002,8 +1002,7 @@ public class GrpcCacheClientTest {
   public void downloadBlobDoesNotRetryZeroLengthRequests()
       throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
-    final GrpcCacheClient client =
-        newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -1024,8 +1023,7 @@ public class GrpcCacheClientTest {
   public void downloadBlobPassesThroughDeadlineExceededWithoutProgress() throws IOException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
     Mockito.when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
-    final GrpcCacheClient client =
-        newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {

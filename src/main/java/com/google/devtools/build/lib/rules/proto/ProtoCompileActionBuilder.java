@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
 import java.util.List;
@@ -148,9 +149,9 @@ public class ProtoCompileActionBuilder {
   /** Builds a ResourceSet based on the number of inputs. */
   public static class ProtoCompileResourceSetBuilder implements ResourceSetOrBuilder {
     @Override
-    public ResourceSet buildResourceSet(NestedSet<Artifact> inputs) {
+    public ResourceSet buildResourceSet(OS os, int inputsSize) {
       return ResourceSet.createWithRamCpu(
-          /* memoryMb= */ 25 + 0.15 * inputs.memoizedFlattenAndGetSize(), /* cpuUsage= */ 1);
+          /* memoryMb= */ 25 + 0.15 * inputsSize, /* cpuUsage= */ 1);
     }
   }
 

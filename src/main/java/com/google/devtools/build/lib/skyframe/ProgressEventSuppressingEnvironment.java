@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
@@ -283,9 +282,8 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  @VisibleForTesting
-  public boolean inErrorBubblingForTesting() {
-    return delegate.inErrorBubblingForTesting();
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
   }
 
   @Override

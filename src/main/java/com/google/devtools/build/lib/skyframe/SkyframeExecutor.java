@@ -170,7 +170,6 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
-import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCacheEntry;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -284,16 +283,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // target parsing exception.
   private static final int EXCEPTION_TRAVERSAL_LIMIT = 10;
 
-  // Cache of partially constructed Package instances, stored between reruns of the PackageFunction
-  // (because of missing dependencies, within the same evaluate() run) to avoid loading the same
-  // package twice (first time loading to find load()ed bzl files and declare Skyframe
-  // dependencies).
-  private final Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
-      Caffeine.newBuilder().build();
-  // Cache of parsed BUILD files, for PackageFunction. Same motivation as above.
-  private final Cache<PackageIdentifier, PackageFunction.CompiledBuildFile> compiledBuildFileCache =
-      Caffeine.newBuilder().build();
-
   // Cache of parsed bzl files, for use when we're inlining BzlCompileFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
   private final Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache =
@@ -334,6 +323,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       new AtomicReference<>();
   protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
+  private GlobFunction globFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
 
@@ -513,7 +503,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new BzlCompileFunction(pkgFactory, getHashFunction()));
     map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
-    map.put(SkyFunctions.GLOB, newGlobFunction());
+    GlobFunction globFunction = newGlobFunction();
+    map.put(SkyFunctions.GLOB, globFunction);
+    this.globFunction = globFunction;
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
     map.put(
@@ -544,8 +536,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             pkgFactory,
             packageManager,
             showLoadingProgress,
-            packageFunctionCache,
-            compiledBuildFileCache,
             numPackagesLoaded,
             bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
@@ -665,7 +655,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return new DirectoryListingStateFunction(externalFilesHelper, syscalls);
   }
 
-  protected SkyFunction newGlobFunction() {
+  protected GlobFunction newGlobFunction() {
     return new GlobFunction(/*alwaysUseDirListing=*/ false);
   }
 
@@ -858,6 +848,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+    globFunction.complete();
   }
 
   /**
@@ -1444,8 +1435,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // Clear internal caches used by SkyFunctions used for package loading. If the SkyFunctions
     // never had a chance to restart (e.g. due to user interrupt, or an error in a --nokeep_going
     // build), these may have stale entries.
-    packageFunctionCache.invalidateAll();
-    compiledBuildFileCache.invalidateAll();
     bzlCompileCache.invalidateAll();
 
     numPackagesLoaded.set(0);
@@ -2662,8 +2651,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     /** Returns whether the given package should be consider deleted and thus should be ignored. */
     public boolean isPackageDeleted(PackageIdentifier packageName) {
-      Preconditions.checkState(
-          !packageName.getRepository().isDefault(), "package must be absolute: %s", packageName);
       return deletedPackages.get().contains(packageName);
     }
 

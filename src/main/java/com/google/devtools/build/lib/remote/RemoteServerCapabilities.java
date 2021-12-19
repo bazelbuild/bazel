@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
+import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.List;
@@ -59,7 +60,8 @@ class RemoteServerCapabilities {
     this.retrier = retrier;
   }
 
-  private CapabilitiesBlockingStub capabilitiesBlockingStub(RemoteActionExecutionContext context) {
+  private CapabilitiesBlockingStub capabilitiesBlockingStub(
+      RemoteActionExecutionContext context, Channel channel) {
     return CapabilitiesGrpc.newBlockingStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
@@ -77,7 +79,10 @@ class RemoteServerCapabilities {
           instanceName == null
               ? GetCapabilitiesRequest.getDefaultInstance()
               : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
-      return retrier.execute(() -> capabilitiesBlockingStub(context).getCapabilities(request));
+      return retrier.execute(
+          () ->
+              channel.withChannelBlocking(
+                  channel -> capabilitiesBlockingStub(context, channel).getCapabilities(request)));
     } catch (StatusRuntimeException e) {
       if (e.getCause() instanceof IOException) {
         throw (IOException) e.getCause();

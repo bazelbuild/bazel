@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
 /**
  * Helper class used to support {@link SkyKeyComputeState}.
  *
- * <p>TODO(b/204331343): Make this fancier as needed to reimplement some of the Blaze-on-Skyframe
+ * <p>TODO(b/209704702): Make this fancier as needed to reimplement some of the Blaze-on-Skyframe
  * SkyFunctions.
  */
 class SkyKeyComputeStateManager {

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -87,7 +88,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository,
       Iterable<String> additionalProtocOpts)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(ruleContext);
@@ -110,10 +110,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
-    return createWithProtocOpts(
-        ctadBase, ruleContext, parameters, toolsRepository, ImmutableList.of());
+    return createWithProtocOpts(ctadBase, ruleContext, parameters, ImmutableList.of());
   }
 
   @Override

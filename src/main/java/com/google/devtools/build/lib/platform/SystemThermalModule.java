@@ -102,13 +102,13 @@ public final class SystemThermalModule extends BlazeModule {
 
     if (value < 0 || value > 100) {
       // values outside this range are not expected.
-      logger.atSevere().log(logString);
+      logger.atSevere().log("%s", logString);
     } else if (value > 50) {
       // 50 arbitrarily chosen as point where user is likely to be more concerned.
-      logger.atWarning().log(logString);
+      logger.atWarning().log("%s", logString);
     } else if (!isInitialValue || value != 0) {
       // Don't spam the logs if we have a nominal value at startup.
-      logger.atInfo().log(logString);
+      logger.atInfo().log("%s", logString);
     }
     if (reporter != null) {
       reporter.post(event);

@@ -222,11 +222,6 @@ public final class AspectDefinition {
     return requiredAspectClasses.contains(maybeRequiredAspect.getAspectClass());
   }
 
-  @Nullable
-  private static Label maybeGetRepositoryRelativeLabel(Rule from, @Nullable Label label) {
-    return label == null ? null : from.getLabel().resolveRepositoryRelative(label);
-  }
-
   /** Collects all attribute labels from the specified aspectDefinition. */
   public static void addAllAttributesOfAspect(
       final Rule from,
@@ -243,11 +238,10 @@ public final class AspectDefinition {
       BiConsumer<Attribute, Label> consumer) {
     LabelVisitor labelVisitor =
         (label, aspectAttribute) -> {
-          Label repositoryRelativeLabel = maybeGetRepositoryRelativeLabel(from, label);
-          if (repositoryRelativeLabel == null) {
+          if (label == null) {
             return;
           }
-          consumer.accept(aspectAttribute, repositoryRelativeLabel);
+          consumer.accept(aspectAttribute, label);
         };
     for (Attribute aspectAttribute : aspect.getDefinition().attributes.values()) {
       if (!dependencyFilter.test(aspect, aspectAttribute)) {

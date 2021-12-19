@@ -380,7 +380,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public boolean inErrorBubblingForTesting() {
+    public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
       return false;
     }
 
@@ -452,9 +452,7 @@ public final class ActionsTestUtil {
     }
   }
 
-  /**
-   * A dummy Action class for use in tests.
-   */
+  /** A dummy Action class for use in tests. */
   public static class NullAction extends AbstractAction {
 
     public NullAction() {
@@ -571,8 +569,8 @@ public final class ActionsTestUtil {
   }
 
   /**
-   * For a bunch of actions, gets the basenames of the paths and accumulates
-   * them in a space separated string, like <code>foo.o bar.o baz.a</code>.
+   * For a bunch of actions, gets the basenames of the paths and accumulates them in a space
+   * separated string, like <code>foo.o bar.o baz.a</code>.
    */
   public static String baseNamesOf(Iterable<Artifact> artifacts) {
     List<String> baseNames = baseArtifactNames(artifacts);
@@ -588,9 +586,8 @@ public final class ActionsTestUtil {
   }
 
   /**
-   * For a bunch of actions, gets the basenames of the paths, sorts them in alphabetical
-   * order and accumulates them in a space separated string, for example
-   * <code>bar.o baz.a foo.o</code>.
+   * For a bunch of actions, gets the basenames of the paths, sorts them in alphabetical order and
+   * accumulates them in a space separated string, for example <code>bar.o baz.a foo.o</code>.
    */
   public static String sortedBaseNamesOf(Iterable<Artifact> artifacts) {
     List<String> baseNames = baseArtifactNames(artifacts);
@@ -681,9 +678,7 @@ public final class ActionsTestUtil {
     return baseArtifactNames(FileType.filter(artifactClosureOf(artifacts), types));
   }
 
-  /**
-   * Returns the closure over the input files of an action.
-   */
+  /** Returns the closure over the input files of an action. */
   public Set<Artifact> inputClosureOf(ActionAnalysisMetadata action) {
     return artifactClosureOf(action.getInputs().toList());
   }
@@ -781,9 +776,7 @@ public final class ActionsTestUtil {
     ActionAnalysisMetadata action = actionGraph.getGeneratingAction(a);
     if (action != null) {
       Preconditions.checkState(
-          action instanceof Action,
-          "%s is not a proper Action object",
-          action.prettyPrint());
+          action instanceof Action, "%s is not a proper Action object", action.prettyPrint());
       return (Action) action;
     } else {
       return null;
@@ -841,8 +834,8 @@ public final class ActionsTestUtil {
   }
 
   /**
-   * Returns the first artifact which is an input to "action" and has the
-   * specified basename. An assertion error is raised if none is found.
+   * Returns the first artifact which is an input to "action" and has the specified basename. An
+   * assertion error is raised if none is found.
    */
   public static Artifact getInput(ActionAnalysisMetadata action, String basename) {
     for (Artifact artifact : action.getInputs().toList()) {
@@ -853,10 +846,7 @@ public final class ActionsTestUtil {
     throw new AssertionError("No input with basename '" + basename + "' in action " + action);
   }
 
-  /**
-   * Returns true if an artifact that is an input to "action" with the specific
-   * basename exists.
-   */
+  /** Returns true if an artifact that is an input to "action" with the specific basename exists. */
   public static boolean hasInput(ActionAnalysisMetadata action, String basename) {
     try {
       getInput(action, basename);
@@ -867,8 +857,8 @@ public final class ActionsTestUtil {
   }
 
   /**
-   * Returns the first artifact which is an output of "action" and has the
-   * specified basename. An assertion error is raised if none is found.
+   * Returns the first artifact which is an output of "action" and has the specified basename. An
+   * assertion error is raised if none is found.
    */
   public static Artifact getOutput(ActionAnalysisMetadata action, String basename) {
     for (Artifact artifact : action.getOutputs()) {
@@ -915,10 +905,8 @@ public final class ActionsTestUtil {
     public Iterable<MissDetail> build() {
       List<MissDetail> result = new ArrayList<>(details.size());
       for (Map.Entry<MissReason, Integer> entry : details.entrySet()) {
-        MissDetail detail = MissDetail.newBuilder()
-            .setReason(entry.getKey())
-            .setCount(entry.getValue())
-            .build();
+        MissDetail detail =
+            MissDetail.newBuilder().setReason(entry.getKey()).setCount(entry.getValue()).build();
         result.add(detail);
       }
       return result;
@@ -928,8 +916,8 @@ public final class ActionsTestUtil {
   /**
    * An {@link ArtifactResolver} all of whose operations throw an exception.
    *
-   * <p>This is to be used as a base class by other test programs that need to implement only a
-   * few of the hooks required by the scenario under test.
+   * <p>This is to be used as a base class by other test programs that need to implement only a few
+   * of the hooks required by the scenario under test.
    */
   public static class FakeArtifactResolverBase implements ArtifactResolver {
     @Override

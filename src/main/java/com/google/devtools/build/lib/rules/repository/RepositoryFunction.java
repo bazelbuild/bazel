@@ -264,14 +264,6 @@ public abstract class RepositoryFunction {
 
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
       throws InterruptedException, EvalException {
-    // Look for package.
-    if (label.getRepository().isDefault()) {
-      try {
-        label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
-      } catch (LabelSyntaxException e) {
-        throw new AssertionError(e); // Can't happen because the input label is valid
-      }
-    }
     SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
     if (pkgLookupValue == null) {

@@ -29,6 +29,8 @@ import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
@@ -55,6 +57,14 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
    */
   public Collection<ExtraLinkTimeLibrary> getExtraLibraries() {
     return extraLibraries;
+  }
+
+  /** Get the set of extra libraries for Starlark. */
+  @StarlarkMethod(name = "extra_libraries", documented = false, useStarlarkThread = true)
+  public Sequence<ExtraLinkTimeLibrary> getExtraLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getExtraLibraries());
   }
 
   public static final Builder builder() {

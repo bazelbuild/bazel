@@ -286,8 +286,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         null,
                         null,
                         null,
-                        null,
-                        null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
@@ -420,7 +418,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           } else {
             SkyframeBuilder.rethrow(
                 Preconditions.checkNotNull(result.getError().getException()),
-                BugReporter.defaultInstance());
+                BugReporter.defaultInstance(),
+                result);
           }
         }
       }
@@ -566,7 +565,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       ActionResult actionResult = super.execute(actionExecutionContext);
       try {
         FileSystemUtils.copyFile(

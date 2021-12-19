@@ -397,7 +397,7 @@ public final class InMemoryNodeEntryTest {
             "Cannot add same dep twice",
             IllegalStateException.class,
             () -> setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L));
-    assertThat(e).hasMessageThat().contains("Duplicate reverse deps");
+    assertThat(e).hasMessageThat().contains("Duplicate new reverse deps");
   }
 
   @Test

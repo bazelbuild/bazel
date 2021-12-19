@@ -357,6 +357,39 @@ EOF
   # TODO(ulfjack): Check that the test failure gets reported correctly.
 }
 
+function test_cc_include_scanning_and_minimal_downloads() {
+  cat > BUILD <<'EOF'
+cc_binary(
+name = 'bin',
+srcs = ['bin.cc', ':header.h'],
+)
+
+genrule(
+name = 'gen',
+outs = ['header.h'],
+cmd = 'touch $@',
+)
+EOF
+  cat > bin.cc <<EOF
+#include "header.h"
+int main() { return 0; }
+EOF
+  bazel build //:bin --remote_cache=grpc://localhost:${worker_port} >& $TEST_log \
+    || fail "Failed to populate remote cache"
+  bazel clean >& $TEST_log || fail "Failed to clean"
+  cat > bin.cc <<EOF
+#include "header.h"
+int main() { return 1; }
+EOF
+  bazel build \
+        --experimental_unsupported_and_brittle_include_scanning \
+        --features=cc_include_scanning \
+        --remote_cache=grpc://localhost:${worker_port} \
+        --remote_download_minimal \
+      //:bin >& $TEST_log \
+      || fail "Failed to build with --remote_download_minimal"
+}
+
 function test_local_fallback_works_with_local_strategy() {
   mkdir -p gen1
   cat > gen1/BUILD <<'EOF'
@@ -2096,6 +2129,7 @@ EOF
 
 
 function test_combined_disk_remote_exec_with_flag_combinations() {
+  rm -f ${TEST_TMPDIR}/test_expected
   declare -a testcases=(
      # ensure CAS entries get uploaded even when action entries don't.
      "--noremote_upload_local_results"

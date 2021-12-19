@@ -565,6 +565,14 @@ public final class RemoteOptions extends OptionsBase {
               + "that loads objects from the CAS on demand.")
   public String remoteDownloadSymlinkTemplate;
 
+  @Option(
+      name = "bep_maximum_open_remote_upload_files",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Maximum number of open files allowed during BEP artifact upload.")
+  public int maximumOpenFiles;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 

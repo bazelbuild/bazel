@@ -681,7 +681,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
               ImmutableSet.of(out)) {
             @Override
             public ActionResult execute(ActionExecutionContext actionExecutionContext)
-                throws ActionExecutionException {
+                throws ActionExecutionException, InterruptedException {
               if (catastrophe && iCopy == 0) {
                 try {
                   Thread.sleep(300); // 300ms

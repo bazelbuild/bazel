@@ -226,7 +226,7 @@ public class AbstractSpawnStrategyTest {
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner)
-            .exec(SIMPLE_SPAWN, actionExecutionContext, () -> {});
+            .exec(SIMPLE_SPAWN, actionExecutionContext, (exitCode, errorMessage, outErr) -> {});
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -251,7 +251,7 @@ public class AbstractSpawnStrategyTest {
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner)
-            .exec(SIMPLE_SPAWN, actionExecutionContext, () -> {});
+            .exec(SIMPLE_SPAWN, actionExecutionContext, (exitCode, errorMessage, outErr) -> {});
 
     assertThat(spawnResults).containsExactly(spawnResult);
 

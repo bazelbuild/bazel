@@ -53,6 +53,12 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "experimental_platform_cc_test",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "copts",
       structField = true,
       doc =

@@ -29,6 +29,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -54,6 +56,7 @@ import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -650,6 +653,232 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(action.getUnusedInputsList().get().getFilename()).isEqualTo("a.txt");
     assertThat(action.discoversInputs()).isTrue();
     assertThat(action.isShareable()).isFalse();
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_success() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  if os == \"osx\":",
+        "    return {\"cpu\": 2., \"memory\": 350. + inputs_size * 20, \"local_test\": 2.}",
+        "  return {\"cpu\": 1., \"memory\": 350. + inputs_size * 10, \"local_test\": 0.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(370, 1, 0));
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 2))
+        .isEqualTo(ResourceSet.create(390, 2, 2));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_flagDisabled() throws Exception {
+    setBuildLanguageOptions("--noexperimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  if os == \"osx\":",
+        "    return {\"cpu\": 2., \"memory\": 350. + inputs_size * 20, \"local_test\": 2.}",
+        "  return {\"cpu\": 1., \"memory\": 350. + inputs_size * 10, \"local_test\": 0.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(250, 1, 0));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_lambdaForbidden() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    Exception thrown =
+        assertThrows(
+            EvalException.class,
+            () ->
+                ev.exec(
+                    "ruleContext.actions.run(",
+                    "  inputs = ruleContext.files.srcs,",
+                    "  outputs = ruleContext.files.srcs,",
+                    "  resource_set = lambda os, inputs_size : {\"cpu\": 1., \"memory\": 1.,"
+                        + " \"local_test\": 1.} ,",
+                    "  executable = 'executable')"));
+
+    assertThat(thrown).hasMessageThat().contains("must be declared by a top-level def statement");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_illegalResource() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 2., \"memory\": 350., \"local_test\": 2., \"gpu\": 1.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown).hasMessageThat().contains("Illegal resource keys: (gpu)");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_defaultValue() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 2., \"local_test\": 2.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(250, 2, 2));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_intDict() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 1, \"memory\": 2, \"local_test\": 3}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(2, 1, 3));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_notDict() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return \"keks\"",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown).hasMessageThat().contains("got string for 'resource_set', want dict");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_wrongDict() throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"cpu\": 1, \"memory\": 2, \"local_test\": \"hi\"}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown).hasMessageThat().contains("Illegal resource value type for key local_test");
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_incorrectSignature()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_action_resource_set");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os):",
+        "  return {\"cpu\": 1, \"memory\": 2, \"local_test\": \"hi\"}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    Exception thrown =
+        assertThrows(
+            ExecException.class,
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("get_resources() accepts no more than 1 positional argument but got 2");
   }
 
   @Test

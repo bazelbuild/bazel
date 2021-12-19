@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
-import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -120,7 +119,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcAspectTarget =
         getJ2ObjCAspectConfiguredTarget("//java/com/google/dummy/test:test");
     CcCompilationContext ccCompilationContext =
-        j2objcAspectTarget.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        j2objcAspectTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     assertThat(baseArtifactNames(ccCompilationContext.getHeaderTokens().toList()))
         .doesNotContain("test.h.processed");
@@ -311,7 +310,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
-        target.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
     Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test, getJ2ObjcAspect());
     Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test, getJ2ObjcAspect());
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList()).contains(headerFile);
@@ -361,7 +360,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
-        target.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     Artifact headerFile =
         getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test, getJ2ObjcAspect());
@@ -461,7 +460,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
-        target.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
     Artifact srcJarSources = getFirstArtifactEndingWith(
         provider.get(ObjcProvider.SOURCE), "source_files");
     Artifact srcJarHeaders =
