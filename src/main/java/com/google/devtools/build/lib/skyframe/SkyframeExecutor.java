@@ -329,8 +329,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   @VisibleForTesting boolean lastAnalysisDiscarded = false;
 
-  private boolean analysisCacheDiscarded = false;
+  /**
+   * True if analysis was not incremental because {@link #handleAnalysisInvalidatingChange} was
+   * called, typically because a configuration-related option changed.
+   */
+  private boolean analysisCacheInvalidated = false;
+
   private boolean keepBuildConfigurationNodesWhenDiscardingAnalysis = false;
+
+  /** True if loading and analysis nodes were cleared (discarded) after analysis to save memory. */
+  private boolean analysisCacheCleared;
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
@@ -739,17 +747,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return buildDriver;
   }
 
-  public boolean wasAnalysisCacheDiscardedAndResetBit() {
-    boolean tmp = analysisCacheDiscarded;
-    analysisCacheDiscarded = false;
+  /**
+   * Was there an analysis-invalidating change, like a configuration option changing, causing a
+   * non-incremental analysis phase to be performed. Calling this resets the state to false.
+   */
+  public final boolean wasAnalysisCacheInvalidatedAndResetBit() {
+    boolean tmp = analysisCacheInvalidated;
+    analysisCacheInvalidated = false;
     return tmp;
+  }
+
+  /** Was the analysis (and loading) cache cleared to save memory before execution. */
+  public final boolean wasAnalysisCacheCleared() {
+    return analysisCacheCleared;
   }
 
   /**
    * This method exists only to allow a module to make a top-level Skyframe call during the
    * transition to making it fully Skyframe-compatible. Do not add additional callers!
    */
-  public SkyValue evaluateSkyKeyForExecutionSetup(
+  public final SkyValue evaluateSkyKeyForExecutionSetup(
       final ExtendedEventHandler eventHandler, final SkyKey key)
       throws EnvironmentalExecException, InterruptedException {
     synchronized (valueLookupLock) {
@@ -771,7 +788,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  class BuildViewProvider {
+  final class BuildViewProvider {
     /** Returns the current {@link SkyframeBuildView} instance. */
     SkyframeBuildView getSkyframeBuildView() {
       return skyframeBuildView;
@@ -782,7 +799,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Must be called before the {@link SkyframeExecutor} can be used (should only be called in
    * factory methods and as an implementation detail of {@link #resetEvaluator}).
    */
-  protected void init() {
+  protected final void init() {
     progressReceiver = newSkyframeProgressReceiver();
     memoizingEvaluator =
         evaluatorSupplier.create(
@@ -867,7 +884,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /** Clear any configured target data stored outside Skyframe. */
   public void handleAnalysisInvalidatingChange() {
     logger.atInfo().log("Dropping configured target data");
-    analysisCacheDiscarded = true;
+    analysisCacheInvalidated = true;
     skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
     ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
@@ -1104,7 +1121,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * them (they will be deleted on the next build). May also delete loading-phase objects from the
    * graph.
    */
-  public abstract void clearAnalysisCache(
+  // VisibleForTesting but open-source annotation doesn't have productionVisibility option.
+  public final void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
+    this.analysisCacheCleared = true;
+    clearAnalysisCacheImpl(topLevelTargets, topLevelAspects);
+  }
+
+  protected abstract void clearAnalysisCacheImpl(
       Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects);
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
@@ -1444,6 +1468,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter = createCyclesReporter();
+    analysisCacheCleared = false;
   }
 
   private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
@@ -2599,6 +2624,52 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // TODO(janakr): Is there a better place for this?
   public HashFunction getHashFunction() {
     return fileSystem.getDigestFunction().getHashFunction();
+  }
+
+  /** Exception thrown when {@link #getDoneSkyValueForIntrospection} fails. */
+  public static final class FailureToRetrieveIntrospectedValueException extends Exception {
+    private FailureToRetrieveIntrospectedValueException(String message) {
+      super(message);
+    }
+
+    private FailureToRetrieveIntrospectedValueException(
+        String message, InterruptedException cause) {
+      super(message, cause);
+    }
+  }
+
+  /**
+   * Returns the value of a node that the caller knows to be done. May be called intra-evaluation.
+   * Null values and interrupts are unexpected, and will cause a {@link
+   * FailureToRetrieveIntrospectedValueException}. Callers should handle gracefully, probably via
+   * {@link BugReport}.
+   */
+  @ThreadSafety.ThreadSafe
+  public SkyValue getDoneSkyValueForIntrospection(SkyKey key)
+      throws FailureToRetrieveIntrospectedValueException {
+    NodeEntry entry;
+    try {
+      entry = memoizingEvaluator.getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    } catch (InterruptedException e) {
+      throw new FailureToRetrieveIntrospectedValueException(
+          "Unexpected interrupt when fetching " + key, e);
+    }
+    if (entry == null || !entry.isDone()) {
+      throw new FailureToRetrieveIntrospectedValueException(
+          "Entry for " + key + " not found or null: " + entry);
+    }
+    SkyValue value;
+    try {
+      value = entry.getValue();
+    } catch (InterruptedException e) {
+      throw new FailureToRetrieveIntrospectedValueException(
+          "Entry for " + key + " did not have locally present value: " + entry, e);
+    }
+    if (value == null) {
+      throw new FailureToRetrieveIntrospectedValueException(
+          "Entry for " + key + " had null value: " + entry);
+    }
+    return value;
   }
 
   class SkyframePackageLoader {
