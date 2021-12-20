@@ -101,6 +101,7 @@ def _create_proto_compile_action(
         inputs = depset(transitive = [proto_info.transitive_sources, additional_inputs]),
         outputs = outputs,
         tools = plugins,
+        use_default_shell_env = True,
     )
 
 def _proto_path_flag(path):
