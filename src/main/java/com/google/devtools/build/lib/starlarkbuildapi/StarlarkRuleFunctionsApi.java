@@ -579,10 +579,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "Label",
       doc =
-          "Creates a Label referring to a BUILD target. Use this function only when you want to"
-              + " give a default value for the label attributes. The argument must refer to an"
-              + " absolute label. The repo part of the label (or its absence) is interpreted in the"
-              + " context of the repo where this Label() call appears. Example: <br><pre"
+          "Creates a Label referring to a BUILD target. Use this function when you want to give a"
+              + " default value for the label attributes of a rule or when referring to a target"
+              + " via an absolute label from a macro. The argument must refer to an absolute label."
+              + " The repo part of the label (or its absence) is interpreted in the context of the"
+              + " repo where this Label() call appears. Example: <br><pre"
               + " class=language-python>Label(\"//tools:default\")</pre>",
       parameters = {
         @Param(name = "label_string", doc = "the label string."),
