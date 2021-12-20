@@ -36,11 +36,9 @@ public class ActionLookupData implements ExecutionPhaseSkyKey {
    * only be called once per {@code (actionLookupKey, actionIndex)} pair.
    */
   public static ActionLookupData create(ActionLookupKey actionLookupKey, int actionIndex) {
-    // If the label is null, this is not a typical action (it may be the build info action or a
-    // coverage action, for example). Don't try to share it.
-    return actionLookupKey.getLabel() == null
-        ? createUnshareable(actionLookupKey, actionIndex)
-        : new ActionLookupData(actionLookupKey, actionIndex);
+    return actionLookupKey.mayOwnShareableActions()
+        ? new ActionLookupData(actionLookupKey, actionIndex)
+        : createUnshareable(actionLookupKey, actionIndex);
   }
 
   /**
