@@ -20,6 +20,13 @@ import javax.annotation.Nullable;
 
 /** A context that provide remote execution related information for executing an action remotely. */
 public interface RemoteActionExecutionContext {
+  enum Type {
+    RemoteExecution,
+    BuildEventService,
+  }
+
+  /** Returns the {@link Type} of the context. */
+  Type getType();
 
   /** Returns the {@link Spawn} of the action being executed or {@code null}. */
   @Nullable
@@ -46,7 +53,8 @@ public interface RemoteActionExecutionContext {
 
   /** Creates a {@link SimpleRemoteActionExecutionContext} with given {@link RequestMetadata}. */
   static RemoteActionExecutionContext create(RequestMetadata metadata) {
-    return new SimpleRemoteActionExecutionContext(/*spawn=*/ null, metadata, new NetworkTime());
+    return new SimpleRemoteActionExecutionContext(
+        /*type=*/ Type.RemoteExecution, /*spawn=*/ null, metadata, new NetworkTime());
   }
 
   /**
@@ -54,6 +62,12 @@ public interface RemoteActionExecutionContext {
    * RequestMetadata}.
    */
   static RemoteActionExecutionContext create(@Nullable Spawn spawn, RequestMetadata metadata) {
-    return new SimpleRemoteActionExecutionContext(spawn, metadata, new NetworkTime());
+    return new SimpleRemoteActionExecutionContext(
+        /*type=*/ Type.RemoteExecution, spawn, metadata, new NetworkTime());
+  }
+
+  static RemoteActionExecutionContext createForBES(RequestMetadata metadata) {
+    return new SimpleRemoteActionExecutionContext(
+        /*type=*/ Type.BuildEventService, /*spawn=*/ null, metadata, new NetworkTime());
   }
 }
