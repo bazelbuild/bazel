@@ -397,9 +397,7 @@ public class ProtoCompileActionBuilder {
 
       if (toolchain.pluginExecutable() != null) {
         additionalArgs.add(
-            Tuple.of(
-                toolchain.pluginExecutable().getExecutable(),
-                String.format("--plugin=protoc-gen-PLUGIN_%s=%%s", invocation.name)));
+            Tuple.of(toolchain.pluginExecutable().getExecutable(), toolchain.pluginFormatFlag()));
         plugins.add(toolchain.pluginExecutable());
       }
 
