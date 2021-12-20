@@ -672,7 +672,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ruleContext,
         invocations.build(),
         protoInfo,
-        ruleContext.getLabel(),
         outputs,
         "j2objc",
         Exports.DO_NOT_USE,

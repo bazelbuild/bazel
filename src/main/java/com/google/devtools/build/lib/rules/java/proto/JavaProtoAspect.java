@@ -297,7 +297,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           ruleContext,
           invocations.build(),
           protoInfo,
-          ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "Java (Immutable)",
           Exports.USE,

@@ -253,7 +253,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   aspectCommon.getProtoToolchainProvider(),
                   sourceJar.getExecPathString())),
           protoInfo,
-          ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "JavaLite",
           Exports.USE,

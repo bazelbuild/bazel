@@ -362,7 +362,6 @@ public class ProtoCompileActionBuilder {
       RuleContext ruleContext,
       List<ToolchainInvocation> toolchainInvocations,
       ProtoInfo protoInfo,
-      Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,

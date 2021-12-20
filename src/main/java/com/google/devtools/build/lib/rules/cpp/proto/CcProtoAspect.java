@@ -459,7 +459,6 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           ruleContext,
           invocations.build(),
           protoInfo,
-          ruleContext.getLabel(),
           outputs,
           "C++",
           Exports.DO_NOT_USE,

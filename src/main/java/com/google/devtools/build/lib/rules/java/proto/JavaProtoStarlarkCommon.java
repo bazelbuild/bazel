@@ -55,7 +55,6 @@ public class JavaProtoStarlarkCommon
                   getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
                   sourceJar.getExecPathString())),
           protoInfo,
-          starlarkRuleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "JavaLite",
           Exports.DO_NOT_USE,
