@@ -151,7 +151,8 @@ final class StringModule implements StarlarkValue {
     for (Object item : items) {
       if (!(item instanceof String)) {
         throw Starlark.errorf(
-            "expected string for sequence element %d, got '%s'", i, Starlark.type(item));
+            "expected string for sequence element %d, got '%s' of type %s",
+            i, Starlark.str(item), Starlark.type(item));
       }
       i++;
     }
