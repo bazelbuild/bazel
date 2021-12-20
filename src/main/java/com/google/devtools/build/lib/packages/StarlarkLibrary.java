@@ -330,8 +330,10 @@ public final class StarlarkLibrary {
               name = "x",
               positional = true,
               doc =
-                  "A dict that maps configuration conditions to values. Each key is a label string"
-                      + " that identifies a config_setting instance."),
+                  "A dict that maps configuration conditions to values. Each key is a "
+                      + "<a href=\"$BE_ROOT/../skylark/lib/Label.html\">Label</a> or a label string"
+                      + " that identifies a config_setting, constraint_setting, or constraint_value"
+                      + " instance."),
           @Param(
               name = "no_match_error",
               defaultValue = "''",
