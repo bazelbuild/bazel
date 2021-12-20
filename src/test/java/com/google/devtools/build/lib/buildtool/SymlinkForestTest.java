@@ -167,7 +167,7 @@ public class SymlinkForestTest {
       repoRoot.getRelative(pkg).createDirectoryAndParents();
       FileSystemUtils.createEmptyFile(repoRoot.getRelative(pkg).getChild("file"));
     }
-    return PackageIdentifier.create(RepositoryName.create("@" + repo), PathFragment.create(pkg));
+    return PackageIdentifier.create(RepositoryName.create(repo), PathFragment.create(pkg));
   }
 
   // Create package for main repo
@@ -177,7 +177,7 @@ public class SymlinkForestTest {
       repoRoot.getRelative(pkg).createDirectoryAndParents();
       FileSystemUtils.createEmptyFile(repoRoot.getRelative(pkg).getChild("file"));
     }
-    return PackageIdentifier.create(RepositoryName.create("@"), PathFragment.create(pkg));
+    return PackageIdentifier.createInMainRepo(PathFragment.create(pkg));
   }
 
   private static void assertLinksTo(Path fromRoot, Root toRoot, String relpart) throws IOException {

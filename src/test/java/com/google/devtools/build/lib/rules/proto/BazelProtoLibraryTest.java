@@ -381,7 +381,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     String genfiles =
         getTargetConfiguration()
             .getGenfilesFragment(
-                siblingRepoLayout ? RepositoryName.create("@foo") : RepositoryName.MAIN)
+                siblingRepoLayout ? RepositoryName.create("foo") : RepositoryName.MAIN)
             .toString();
     String fooProtoRoot;
     if (useVirtualImports) {

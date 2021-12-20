@@ -273,11 +273,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   public void testOverride() throws Exception {
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
         differencer,
-        ImmutableMap.of(
-            RepositoryName.createFromValidStrippedName("foo"), overrideDirectory.asFragment()));
+        ImmutableMap.of(RepositoryName.createUnvalidated("foo"), overrideDirectory.asFragment()));
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("foo"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("foo"));
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
@@ -301,7 +300,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     RepositoryDirectoryDirtinessChecker checker =
         new RepositoryDirectoryDirtinessChecker(rootPath, knowledge);
-    RepositoryName repositoryName = RepositoryName.create("@repo");
+    RepositoryName repositoryName = RepositoryName.create("repo");
     RepositoryDirectoryValue.Key key = RepositoryDirectoryValue.key(repositoryName);
 
     SuccessfulRepositoryDirectoryValue usual =
@@ -333,7 +332,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(managedDirectoryM.createDirectory()).isTrue();
 
     knowledge.setManagedDirectories(
-        ImmutableMap.of(PathFragment.create("m"), RepositoryName.create("@other")));
+        ImmutableMap.of(PathFragment.create("m"), RepositoryName.create("other")));
     assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
 
     knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), repositoryName));
@@ -362,7 +361,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     // That's why we will directly fill managed directories value (the corresponding structure
     // is passed to RepositoryDelegatorFunction during construction).
     managedDirectoriesKnowledge.setManagedDirectories(
-        ImmutableMap.of(PathFragment.create("dir1"), RepositoryName.create("@repo1")));
+        ImmutableMap.of(PathFragment.create("dir1"), RepositoryName.create("repo1")));
 
     loadRepo("repo1");
 
@@ -390,9 +389,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     managedDirectoriesKnowledge.setManagedDirectories(
         ImmutableMap.of(
             PathFragment.create("dir1"),
-            RepositoryName.create("@repo1"),
+            RepositoryName.create("repo1"),
             PathFragment.create("dir2"),
-            RepositoryName.create("@repo1")));
+            RepositoryName.create("repo1")));
     loadRepo("repo1");
 
     assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
@@ -432,7 +431,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         "broken_repo(name = 'broken')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("broken"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("broken"));
     // Make it be evaluated every time, as we are testing evaluation.
     differencer.invalidate(ImmutableSet.of(key));
     EvaluationContext evaluationContext =
@@ -456,7 +455,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     scratch.overwriteFile(rootPath.getRelative("WORKSPACE").getPathString(), "");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("foo"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("foo"));
     // Make it be evaluated every time, as we are testing evaluation.
     differencer.invalidate(ImmutableSet.of(key));
     EvaluationContext evaluationContext =
@@ -501,7 +500,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         "fictive_repo_rule(name = 'B.1.0')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("B.1.0"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("B.1.0"));
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
@@ -528,7 +527,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key =
         RepositoryDirectoryValue.key(
-            RepositoryName.createFromValidStrippedName("foo").toNonVisible("fake_owner_repo"));
+            RepositoryName.createUnvalidated("foo").toNonVisible("fake_owner_repo"));
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
@@ -546,8 +545,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
   private void loadRepo(String strippedRepoName) throws InterruptedException {
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key =
-        RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName(strippedRepoName));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(strippedRepoName));
     // Make it be evaluated every time, as we are testing evaluation.
     differencer.invalidate(ImmutableSet.of(key));
     EvaluationContext evaluationContext =

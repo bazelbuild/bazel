@@ -56,7 +56,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     embeddedBinaries.createDirectoryAndParents();
 
     mockEmbeddedTools(embeddedBinaries);
-    fetchExternalRepo(RepositoryName.create("@bazel_tools"));
+    fetchExternalRepo(RepositoryName.create("bazel_tools"));
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
@@ -132,7 +132,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     file("WORKSPACE", "local_repository(name = 'r', path='r')");
     file("r/WORKSPACE", "workspace(name = 'r')");
     file("r/good/BUILD", "sh_library(name = 'good')");
-    RepositoryName rRepoName = RepositoryName.create("@r");
+    RepositoryName rRepoName = RepositoryName.create("r");
     fetchExternalRepo(rRepoName);
 
     PackageIdentifier pkgId = PackageIdentifier.create(rRepoName, PathFragment.create("good"));
@@ -153,7 +153,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "new_local_repository(name = 'r', path = '/r', "
             + "build_file_content = 'sh_library(name = \"good\")')");
     fs.getPath("/r").createDirectoryAndParents();
-    RepositoryName rRepoName = RepositoryName.create("@r");
+    RepositoryName rRepoName = RepositoryName.create("r");
     fetchExternalRepo(rRepoName);
 
     PackageIdentifier pkgId =

@@ -427,7 +427,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use by builtins");
     }
     return isMandatoryMinimumVersion();

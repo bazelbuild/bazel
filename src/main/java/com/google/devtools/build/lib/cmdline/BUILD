@@ -71,7 +71,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
-        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

@@ -308,7 +308,7 @@ public class JavaStarlarkCommon
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
     if (!PRIVATE_STARLARKIFACTION_ALLOWLIST.contains(label.getPackageName())
-        && !label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }

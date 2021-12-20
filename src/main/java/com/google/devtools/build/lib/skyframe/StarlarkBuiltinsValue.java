@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -34,7 +33,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public final class StarlarkBuiltinsValue implements SkyValue {
 
-  static final String BUILTINS_NAME = "@_builtins";
+  static final String BUILTINS_NAME = "_builtins";
 
   /**
    * The builtins pseudo-repository.
@@ -47,20 +46,13 @@ public final class StarlarkBuiltinsValue implements SkyValue {
    * and must match {@link #BUILTINS_NAME} exactly.
    */
   // TODO(#11437): Add actual enforcement that users cannot define a repo named "@_builtins".
-  @SerializationConstant static final RepositoryName BUILTINS_REPO;
+  @SerializationConstant
+  static final RepositoryName BUILTINS_REPO = RepositoryName.createUnvalidated("_builtins");
 
   /** Reports whether the given repository is the special builtins pseudo-repository. */
   static boolean isBuiltinsRepo(RepositoryName repo) {
     // Use String.equals(), not RepositoryName.equals(), to force case sensitivity.
     return repo.getName().equals(BUILTINS_NAME);
-  }
-
-  static {
-    try {
-      BUILTINS_REPO = RepositoryName.create(BUILTINS_NAME);
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   // These are all (except transitiveDigest) deeply immutable since the Starlark values are already

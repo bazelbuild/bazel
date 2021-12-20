@@ -58,7 +58,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
     try {
       return BuildConfigurationValue.create(
           key.getOptions(),
-          RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
+          RepositoryName.createUnvalidated(workspaceNameValue.getName()),
           starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
           // Arguments below this are server-global.
           directories,

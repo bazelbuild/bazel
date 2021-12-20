@@ -127,7 +127,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
           Label repositoryLabel;
           try {
             repositoryLabel =
-                Label.create(EXTERNAL_PACKAGE_IDENTIFIER, label.getRepository().strippedName());
+                Label.create(EXTERNAL_PACKAGE_IDENTIFIER, label.getRepository().getName());
           } catch (LabelSyntaxException lse) {
             // We're taking the repository name from something that was already
             // part of a label, so it should be valid. If we really get into this

@@ -129,7 +129,7 @@ public final class PathPackageLocator {
         Path buildFile =
             outputBase
                 .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
-                .getRelative(packageIdentifier.getRepository().strippedName())
+                .getRelative(packageIdentifier.getRepository().getName())
                 .getRelative(packageIdentifier.getSourceRoot())
                 .getRelative(buildFileName.getFilenameFragment());
         try {

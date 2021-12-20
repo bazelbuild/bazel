@@ -216,7 +216,7 @@ public class ModuleFileFunction implements SkyFunction {
           (RepositoryDirectoryValue)
               env.getValue(
                   RepositoryDirectoryValue.key(
-                      RepositoryName.createFromValidStrippedName(canonicalRepoName)));
+                      RepositoryName.createUnvalidated(canonicalRepoName)));
       if (repoDir == null) {
         return null;
       }

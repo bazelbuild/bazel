@@ -151,7 +151,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
         BazelModuleContext.of(ofInnermostEnclosingStarlarkFunction(starlarkThread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use by builtins");
     }
     return Allowlist.isAvailableFor(getPackageSpecifications(), label);

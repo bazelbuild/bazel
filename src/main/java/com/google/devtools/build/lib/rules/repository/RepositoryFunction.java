@@ -523,8 +523,7 @@ public abstract class RepositoryFunction {
       return;
     }
     String repositoryName = repositoryPath.getSegment(0);
-    env.getValue(
-        RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName(repositoryName)));
+    env.getValue(RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(repositoryName)));
   }
 
   /**

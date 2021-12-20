@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -249,20 +248,20 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
     boolean needsConfiguring = false;
 
-    Path repoRoot = RepositoryFunction.getExternalRepositoryDirectory(directories)
-        .getRelative(repositoryName.strippedName());
+    Path repoRoot =
+        RepositoryFunction.getExternalRepositoryDirectory(directories)
+            .getRelative(repositoryName.getName());
 
     if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
       DigestWriter.clearMarkerFile(directories, repositoryName);
-      return setupOverride(
-          overrides.get(repositoryName), env, repoRoot, repositoryName.strippedName());
+      return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName.getName());
     }
 
     Rule rule = null;
 
     if (Preconditions.checkNotNull(ENABLE_BZLMOD.get(env))) {
       // Trys to get a repository rule instance from Bzlmod generated repos.
-      SkyKey key = BzlmodRepoRuleValue.key(repositoryName.strippedName());
+      SkyKey key = BzlmodRepoRuleValue.key(repositoryName.getName());
       BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
 
       if (env.valuesMissing()) {
@@ -362,8 +361,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (!repoRoot.exists()) {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
-          new IOException("to fix, run\n\tbazel fetch //...\nExternal repository " + repositoryName
-              + " not found and fetching repositories is disabled."),
+          new IOException(
+              "to fix, run\n\tbazel fetch //...\nExternal repository "
+                  + repositoryName.getNameWithAt()
+                  + " not found and fetching repositories is disabled."),
           Transience.TRANSIENT);
     }
 
@@ -445,7 +446,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private Rule getRepoRuleFromWorkspace(RepositoryName repositoryName, Environment env)
       throws InterruptedException, RepositoryFunctionException, NoSuchRepositoryException {
     try {
-      return externalPackageHelper.getRuleByName(repositoryName.strippedName(), env);
+      return externalPackageHelper.getRuleByName(repositoryName.getName(), env);
     } catch (ExternalRuleNotFoundException e) {
       // This is caught and handled immediately in compute().
       throw new NoSuchRepositoryException();
@@ -523,7 +524,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         Rule rule,
         ImmutableSet<PathFragment> managedDirectories) {
       ruleKey = computeRuleKey(rule);
-      markerPath = getMarkerPath(directories, repositoryName.strippedName());
+      markerPath = getMarkerPath(directories, repositoryName.getName());
       this.rule = rule;
       markerData = Maps.newHashMap();
 
@@ -643,7 +644,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     static void clearMarkerFile(BlazeDirectories directories, RepositoryName repoName)
         throws RepositoryFunctionException {
       try {
-        getMarkerPath(directories, repoName.strippedName()).delete();
+        getMarkerPath(directories, repoName.getName()).delete();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -656,13 +657,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     final String message;
 
     RepositoryFetching(String name, boolean finished) {
-      this.id = name;
-      this.finished = finished;
-      this.message = finished ? "finished." : "fetching";
+      this(name, finished, finished ? "finished." : "fetching");
     }
 
     RepositoryFetching(String name, boolean finished, String message) {
-      this.id = name;
+      this.id = '@' + name;
       this.finished = finished;
       this.message = message;
     }

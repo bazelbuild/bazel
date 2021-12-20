@@ -457,7 +457,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Label label =
           ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
               .label();
-      if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      if (!label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
         throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
       }
     }

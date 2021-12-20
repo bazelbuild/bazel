@@ -837,7 +837,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod
-        && enclosingFileLabel.getRepository().strippedName().equals("bazel_tools")) {
+        && enclosingFileLabel.getRepository().getName().equals("bazel_tools")) {
       // Special case: we're only here to get the @bazel_tools repo (for example, for http_archive).
       // This repo shouldn't have visibility into anything else (during repo generation), so we just
       // return an empty repo mapping.

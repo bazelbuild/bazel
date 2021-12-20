@@ -34,13 +34,13 @@ public class GlobDescriptorTest {
     SerializationTester serializationTester =
         new SerializationTester(
                 GlobDescriptor.create(
-                    PackageIdentifier.create("@foo", PathFragment.create("//bar")),
+                    PackageIdentifier.create("foo", PathFragment.create("//bar")),
                     Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/packageRoot")),
                     PathFragment.create("subdir"),
                     "pattern",
                     /*excludeDirs=*/ false),
                 GlobDescriptor.create(
-                    PackageIdentifier.create("@bar", PathFragment.create("//foo")),
+                    PackageIdentifier.create("bar", PathFragment.create("//foo")),
                     Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/anotherPackageRoot")),
                     PathFragment.create("anotherSubdir"),
                     "pattern",
@@ -58,7 +58,7 @@ public class GlobDescriptorTest {
   public void testCreateReturnsInternedInstances() throws LabelSyntaxException {
     GlobDescriptor original =
         GlobDescriptor.create(
-            PackageIdentifier.create("@foo", PathFragment.create("//bar")),
+            PackageIdentifier.create("foo", PathFragment.create("//bar")),
             Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/packageRoot")),
             PathFragment.create("subdir"),
             "pattern",
