@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.OS;
@@ -45,6 +47,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Tuple;
 
 /** Constructs actions to run the protocol compiler to generate sources from .proto files. */
 public class ProtoCompileActionBuilder {
@@ -349,8 +354,6 @@ public class ProtoCompileActionBuilder {
    * <p>This method uses information from proto_lang_toolchain() rules. New rules should use this
    * method instead of the soup of methods above.
    *
-   * @param toolchainInvocations See {@link #createCommandLineFromToolchains}.
-   * @param ruleLabel See {@link #createCommandLineFromToolchains}.
    * @param outputs The artifacts that the resulting action must create.
    * @param flavorName e.g., "Java (Immutable)"
    * @param allowServices If false, the compilation will break if any .proto file has service
@@ -363,25 +366,67 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,
-      Services allowServices) {
+      Services allowServices)
+      throws RuleErrorException, InterruptedException {
+    if (isEmpty(outputs)) {
+      return;
+    }
+
     ProtoToolchainInfo protoToolchain = ProtoToolchainInfo.fromRuleContext(ruleContext);
     if (protoToolchain == null) {
       return;
     }
-    SpawnAction.Builder actions =
-        createActions(
-            ruleContext,
-            protoToolchain,
-            toolchainInvocations,
-            protoInfo,
-            ruleLabel,
-            outputs,
-            flavorName,
-            useExports,
-            allowServices);
-    if (actions != null) {
-      ruleContext.registerAction(actions.build(ruleContext));
+
+    // A set to check if there are multiple invocations with the same name.
+    HashSet<String> invocationNames = new HashSet<>();
+    ImmutableList.Builder<Object> additionalArgs = ImmutableList.builder();
+    ImmutableList.Builder<Object> plugins = ImmutableList.builder();
+
+    for (ToolchainInvocation invocation : toolchainInvocations) {
+      if (!invocationNames.add(invocation.name)) {
+        throw new IllegalStateException(
+            "Invocation name "
+                + invocation.name
+                + " appears more than once. "
+                + "This could lead to incorrect proto-compiler behavior");
+      }
+
+      ProtoLangToolchainProvider toolchain = invocation.toolchain;
+
+      String format = toolchain.outReplacementFormatFlag();
+      additionalArgs.add(Tuple.of(invocation.outReplacement, format));
+
+      if (toolchain.pluginExecutable() != null) {
+        additionalArgs.add(
+            Tuple.of(
+                toolchain.pluginExecutable().getExecutable(),
+                String.format("--plugin=protoc-gen-PLUGIN_%s=%%s", invocation.name)));
+        plugins.add(toolchain.pluginExecutable());
+      }
+
+      additionalArgs.addAll(invocation.protocOpts);
     }
+
+    if (allowServices == Services.DISALLOW) {
+      additionalArgs.add("--disallow_services");
+    }
+
+    StarlarkFunction createProtoCompileAction =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("create_proto_compile_action");
+    ruleContext.initStarlarkRuleContext();
+    ruleContext.callStarlarkOrThrowRuleError(
+        createProtoCompileAction,
+        ImmutableList.of(
+            /* ctx */ ruleContext.getStarlarkRuleContext(),
+            /* proto_info */ protoInfo,
+            /* proto_compiler */ protoToolchain.getCompiler(),
+            /* progress_message */ "Generating " + flavorName + " proto_library %{label}",
+            /* outputs */ StarlarkList.immutableCopyOf(outputs),
+            /* additional_args */ StarlarkList.immutableCopyOf(additionalArgs.build()),
+            /* plugins */ StarlarkList.immutableCopyOf(plugins.build())),
+        ImmutableMap.of(
+            "strict_imports",
+            arePublicImportsStrict(ruleContext) ? (useExports == Exports.USE) : false));
   }
 
   @Nullable

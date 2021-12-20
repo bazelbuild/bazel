@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -98,11 +99,17 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
+
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
+    try {
     Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport, additionalProtocOpts);
     impl.addProviders(aspect);
     return aspect.build();
+    } catch (RuleErrorException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
   }
 
   @Override
@@ -197,7 +204,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               ruleContext.getPrerequisites("exports", JavaCompilationArgsProvider.class));
     }
 
-    void addProviders(ConfiguredAspect.Builder aspect) throws InterruptedException {
+    void addProviders(ConfiguredAspect.Builder aspect)
+        throws InterruptedException, RuleErrorException {
       // Represents the result of compiling the code generated for this proto, including all of its
       // dependencies.
       JavaInfo.Builder javaInfo = JavaInfo.Builder.create();
@@ -275,7 +283,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                       aspectCommon.getProtoRuntimeDeps())));
     }
 
-    private void createProtoCompileAction(Artifact sourceJar) {
+    private void createProtoCompileAction(Artifact sourceJar)
+        throws RuleErrorException, InterruptedException {
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
       invocations.add(
           new ToolchainInvocation(

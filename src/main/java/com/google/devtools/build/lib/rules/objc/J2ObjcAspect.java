@@ -403,9 +403,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     if (j2ObjcSource.getObjcSrcs().isEmpty()) {
       directJ2ObjcMappingFileProvider = new J2ObjcMappingFileProvider.Builder().build();
     } else {
-      directJ2ObjcMappingFileProvider =
-          createJ2ObjcProtoCompileActions(
-              base, protoToolchain, ruleContext, filteredProtoSources, j2ObjcSource);
+      try {
+        directJ2ObjcMappingFileProvider =
+            createJ2ObjcProtoCompileActions(
+                base, protoToolchain, ruleContext, filteredProtoSources, j2ObjcSource);
+      } catch (RuleErrorException e) {
+        ruleContext.ruleError(e.getMessage());
+        return null;
+      }
     }
 
     return buildAspect(
@@ -640,7 +645,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
-      J2ObjcSource j2ObjcSource) {
+      J2ObjcSource j2ObjcSource)
+      throws RuleErrorException, InterruptedException {
     ImmutableList<Artifact> outputHeaderMappingFiles =
         ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
