@@ -30,7 +30,6 @@ public final class ActionSketchTest {
     roundTrip(
         ActionSketch.builder()
             .setTransitiveSourceHash(HashAndVersion.create(BigInteger.ONE, /*version=*/ 0L))
-            .setTransitiveActionLookupHash(new BigInteger("123456789"))
             .build());
   }
 
@@ -43,12 +42,10 @@ public final class ActionSketchTest {
     ActionSketch sketch1 =
         ActionSketch.builder()
             .setTransitiveSourceHash(HashAndVersion.create(null, /*version=*/ Long.MAX_VALUE))
-            .setTransitiveActionLookupHash(null)
             .build();
     ActionSketch sketch2 =
         ActionSketch.builder()
             .setTransitiveSourceHash(HashAndVersion.create(null, /*version=*/ Long.MAX_VALUE))
-            .setTransitiveActionLookupHash(null)
             .build();
 
     assertThat(sketch1).isNotNull();

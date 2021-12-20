@@ -46,10 +46,6 @@ public final class BigIntegerFingerprintUtils {
     return compose(v1, v2);
   }
 
-  public static BigInteger composeOrdered(BigInteger accumulator, BigInteger v) {
-    return compose(accumulator.multiply(RELATIVE_PRIME).mod(UINT128_LIMIT), v);
-  }
-
   @Nullable
   public static BigInteger composeOrderedNullable(
       @Nullable BigInteger accumulator, @Nullable BigInteger v) {
