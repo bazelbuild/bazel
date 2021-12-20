@@ -101,6 +101,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -630,15 +631,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       String nativeName = nameDescriptorPair.first;
       boolean hasDefault = nameDescriptorPair.second.hasDefault();
       Attribute attribute = nameDescriptorPair.second.build(nameDescriptorPair.first);
-      if (attribute.getType() == Type.STRING
-          && ((String) attribute.getDefaultValue(null)).isEmpty()) {
-        hasDefault = false; // isValueSet() is always true for attr.string.
-      }
+
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
-        if (attribute.getType() != Type.STRING) {
+        if (attribute.getType() == Type.STRING) {
+          // isValueSet() is always true for attr.string as default value is "" by default.
+          hasDefault = !Objects.equals(attribute.getDefaultValue(null), "");
+        } else if (attribute.getType() == Type.INTEGER) {
+          // isValueSet() is always true for attr.int as default value is 0 by default.
+          hasDefault = !Objects.equals(attribute.getDefaultValue(null), StarlarkInt.of(0));
+        } else {
           throw Starlark.errorf(
-              "Aspect parameter attribute '%s' must have type 'string'.", nativeName);
+              "Aspect parameter attribute '%s' must have type 'int' or 'string'.", nativeName);
         }
+
         if (hasDefault && attribute.checkAllowedValues()) {
           PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
           Object defaultVal = attribute.getDefaultValue(null);
@@ -794,13 +799,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             String aspectAttrName = aspectAttribute.getPublicName();
             Type<?> aspectAttrType = aspectAttribute.getType();
 
-            // When propagated from a rule, explicit aspect attributes must be of type string and
-            // they must have `values` restriction.
+            // When propagated from a rule, explicit aspect attributes must be of type int or string
+            // and they must have `values` restriction.
             if (!aspectAttribute.isImplicit() && !aspectAttribute.isLateBound()) {
               if ((aspectAttrType != Type.STRING && aspectAttrType != Type.INTEGER)
                   || !aspectAttribute.checkAllowedValues()) {
                 throw Starlark.errorf(
-                    "Aspect %s: Aspect parameter attribute '%s' must have type 'string'"
+                    "Aspect %s: Aspect parameter attribute '%s' must have type 'int' or 'string'"
                         + " and use the 'values' restriction.",
                     aspect.getName(), aspectAttrName);
               }

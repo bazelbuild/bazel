@@ -27,6 +27,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
 public final class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
@@ -36,7 +37,10 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders;
   private final ImmutableSet<StarlarkProviderIdentifier> provides;
+
+  /** Aspect attributes that are required to be specified by rules propagating this aspect. */
   private final ImmutableSet<String> paramAttributes;
+
   private final ImmutableSet<StarlarkAspect> requiredAspects;
   private final ImmutableSet<String> fragments;
   private final ConfigurationTransition hostTransition;
@@ -139,30 +143,19 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     for (Attribute attribute : attributes) {
       Attribute attr = attribute;  // Might be reassigned.
       if (!aspectParams.getAttribute(attr.getName()).isEmpty()) {
-        String value = aspectParams.getOnlyValueOfAttribute(attr.getName());
-        Preconditions.checkState(!Attribute.isImplicit(attr.getName()));
-        Preconditions.checkState(attr.getType() == Type.STRING);
+        Type<?> attrType = attr.getType();
+        String attrName = attr.getName();
+        String attrValue = aspectParams.getOnlyValueOfAttribute(attrName);
+        Preconditions.checkState(!Attribute.isImplicit(attrName));
+        Preconditions.checkState(attrType == Type.STRING || attrType == Type.INTEGER);
         Preconditions.checkArgument(
-            aspectParams.getAttribute(attr.getName()).size() == 1,
+            aspectParams.getAttribute(attrName).size() == 1,
             "Aspect %s parameter %s has %s values (must have exactly 1).",
             getName(),
-            attr.getName(),
-            aspectParams.getAttribute(attr.getName()).size());
+            attrName,
+            aspectParams.getAttribute(attrName).size());
 
-        if (!attr.checkAllowedValues()) {
-          // The aspect attribute can have no allowed values constraint if the aspect is used from
-          // command-line. However, AspectDefinition.Builder$add requires the existance of allowed
-          // values in all aspects string attributes for both native and starlark aspects.
-          // Therefore, allowedValues list is added here with only the current value of the
-          // attribute.
-          attr =
-              attr.cloneBuilder(Type.STRING)
-                  .value(value)
-                  .allowedValues(new Attribute.AllowedValueSet(value))
-                  .build(attr.getName());
-        } else {
-          attr = attr.cloneBuilder(Type.STRING).value(value).build(attr.getName());
-        }
+        attr = addAttrValue(attr, attrValue);
       }
       builder.add(attr);
     }
@@ -185,6 +178,30 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     }
     builder.requiredAspectClasses(requiredAspectsClasses.build());
     return builder.build();
+  }
+
+  private static Attribute addAttrValue(Attribute attr, String attrValue) {
+    Attribute.Builder<?> attrBuilder;
+    Object castedValue = attrValue;
+
+    if (attr.getType() == Type.INTEGER) {
+      castedValue = StarlarkInt.parse(attrValue, /*base=*/ 0);
+      attrBuilder = attr.cloneBuilder(Type.INTEGER).value((StarlarkInt) castedValue);
+    } else {
+      attrBuilder = attr.cloneBuilder(Type.STRING).value((String) castedValue);
+    }
+
+    if (!attr.checkAllowedValues()) {
+      // The aspect attribute can have no allowed values constraint if the aspect is used from
+      // command-line. However, AspectDefinition.Builder$add requires the existence of allowed
+      // values in all aspects string attributes for both native and starlark aspects.
+      // Therefore, allowedValues list is added here with only the current value of the attribute.
+      return attrBuilder
+          .allowedValues(new Attribute.AllowedValueSet(attr.getType().cast(castedValue)))
+          .build(attr.getName());
+    } else {
+      return attrBuilder.build(attr.getName());
+    }
   }
 
   @Override
@@ -215,8 +232,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
               rule.getTargetKind(),
               param);
           Preconditions.checkArgument(
-              ruleAttr.getType() == Type.STRING,
-              "Cannot apply aspect %s to %s with non-string attribute '%s'.",
+              ruleAttr.getType() == Type.STRING || ruleAttr.getType() == Type.INTEGER,
+              "Cannot apply aspect %s to %s since attribute '%s' is not string and not integer.",
               getName(),
               rule.getTargetKind(),
               param);
@@ -226,7 +243,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
           // If the attribute has a select() (which aspect attributes don't yet support), the
           // error gets reported in RuleClass.checkAspectAllowedValues.
           if (!ruleAttrs.isConfigurable(param)) {
-            builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
+            builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
           }
         }
       }
@@ -239,24 +256,45 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     AspectParameters.Builder builder = new AspectParameters.Builder();
     for (Attribute aspectParameter : attributes) {
       String parameterName = aspectParameter.getName();
+      Type<?> parameterType = aspectParameter.getType();
+
       if (Attribute.isImplicit(parameterName) || Attribute.isLateBound(parameterName)) {
         // These attributes are the private matters of the aspect
         continue;
       }
 
       Preconditions.checkArgument(
-          aspectParameter.getType() == Type.STRING,
-          "Cannot pass value of non-string attribute '%s' in aspect %s.",
+          parameterType == Type.STRING || parameterType == Type.INTEGER,
+          "Aspect %s: Cannot pass value of attribute '%s' of type %s, only 'int' and 'string'"
+              + " attributes are allowed.",
           getName(),
-          parameterName);
+          parameterName,
+          parameterType);
 
       String parameterValue =
           parametersValues.getOrDefault(
-              parameterName, (String) aspectParameter.getDefaultValue(null));
+              parameterName, parameterType.cast(aspectParameter.getDefaultValue(null)).toString());
+
+      // Validate integer values for integer attributes
+      Object castedParameterValue = parameterValue;
+      if (parameterType == Type.INTEGER) {
+        try {
+          castedParameterValue = StarlarkInt.parse(parameterValue, /*base=*/ 0);
+        } catch (NumberFormatException e) {
+          throw new EvalException(
+              String.format(
+                  "%s: expected value of type 'int' for attribute '%s' but got '%s'",
+                  getName(), parameterName, parameterValue),
+              e);
+        }
+      }
 
       if (aspectParameter.checkAllowedValues()) {
         PredicateWithMessage<Object> allowedValues = aspectParameter.getAllowedValues();
-        if (!allowedValues.apply(parameterValue)) {
+        if (parameterType == Type.INTEGER) {
+          castedParameterValue = StarlarkInt.parse(parameterValue, /*base=*/ 0);
+        }
+        if (!allowedValues.apply(castedParameterValue)) {
           throw Starlark.errorf(
               "%s: invalid value in '%s' attribute: %s",
               getName(), parameterName, allowedValues.getErrorReason(parameterValue));

@@ -615,7 +615,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAspectParameterBadType() throws Exception {
     ev.checkEvalErrorContains(
-        "Aspect parameter attribute 'param' must have type 'string'.",
+        "Aspect parameter attribute 'param' must have type 'int' or 'string'.",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(_impl,",

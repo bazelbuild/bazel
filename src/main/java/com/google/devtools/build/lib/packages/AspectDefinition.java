@@ -459,7 +459,8 @@ public final class AspectDefinition {
       Preconditions.checkArgument(
           attribute.isImplicit()
               || attribute.isLateBound()
-              || (attribute.getType() == Type.STRING && attribute.checkAllowedValues()),
+              || (attribute.getType() == Type.STRING && attribute.checkAllowedValues())
+              || (attribute.getType() == Type.INTEGER && attribute.checkAllowedValues()),
           "%s: Invalid attribute '%s' (%s)",
           aspectClass.getName(),
           attribute.getName(),
