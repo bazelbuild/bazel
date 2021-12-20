@@ -673,7 +673,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         invocations.build(),
         protoInfo,
         outputs,
-        "j2objc",
+        "Generating j2objc proto_library %{label}",
         Exports.DO_NOT_USE,
         shouldAllowProtoServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
 

@@ -355,7 +355,7 @@ public class ProtoCompileActionBuilder {
    * method instead of the soup of methods above.
    *
    * @param outputs The artifacts that the resulting action must create.
-   * @param flavorName e.g., "Java (Immutable)"
+   * @param progressMessage Please use "Generating {flavorName} proto_library %{label}".
    * @param allowServices If false, the compilation will break if any .proto file has service
    */
   public static void registerActions(
@@ -363,7 +363,7 @@ public class ProtoCompileActionBuilder {
       List<ToolchainInvocation> toolchainInvocations,
       ProtoInfo protoInfo,
       Iterable<Artifact> outputs,
-      String flavorName,
+      String progressMessage,
       Exports useExports,
       Services allowServices)
       throws RuleErrorException, InterruptedException {
@@ -419,7 +419,7 @@ public class ProtoCompileActionBuilder {
             /* ctx */ ruleContext.getStarlarkRuleContext(),
             /* proto_info */ protoInfo,
             /* proto_compiler */ protoToolchain.getCompiler(),
-            /* progress_message */ "Generating " + flavorName + " proto_library %{label}",
+            /* progress_message */ progressMessage,
             /* outputs */ StarlarkList.immutableCopyOf(outputs),
             /* additional_args */ StarlarkList.immutableCopyOf(additionalArgs.build()),
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build())),

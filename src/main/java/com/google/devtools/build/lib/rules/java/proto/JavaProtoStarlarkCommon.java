@@ -56,7 +56,7 @@ public class JavaProtoStarlarkCommon
                   sourceJar.getExecPathString())),
           protoInfo,
           ImmutableList.of(sourceJar),
-          "JavaLite",
+          "Generating JavaLite proto_library %{label}",
           Exports.DO_NOT_USE,
           Services.ALLOW);
     } catch (RuleErrorException e) {

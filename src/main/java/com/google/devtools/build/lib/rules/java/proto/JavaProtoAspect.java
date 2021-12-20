@@ -99,13 +99,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
-
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
     try {
-    Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport, additionalProtocOpts);
-    impl.addProviders(aspect);
-    return aspect.build();
+      Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport, additionalProtocOpts);
+      impl.addProviders(aspect);
+      return aspect.build();
     } catch (RuleErrorException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
@@ -298,7 +297,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           invocations.build(),
           protoInfo,
           ImmutableList.of(sourceJar),
-          "Java (Immutable)",
+          "Generating Java (Immutable) proto_library %{label}",
           Exports.USE,
           rpcSupport.allowServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
     }

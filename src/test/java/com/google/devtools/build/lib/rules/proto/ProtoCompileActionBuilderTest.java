@@ -299,7 +299,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* publicImportProtoSources */ ImmutableList.of(),
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
-        "flavour",
+        "dontcare",
         Exports.DO_NOT_USE,
         Services.DISALLOW);
 
@@ -392,7 +392,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         /* publicImportProtoSources */ ImmutableList.of(),
                         /* strictImportableSources */ ImmutableList.of()),
                     ImmutableList.of(out),
-                    "flavour",
+                    "dontcare",
                     Exports.DO_NOT_USE,
                     Services.ALLOW));
 

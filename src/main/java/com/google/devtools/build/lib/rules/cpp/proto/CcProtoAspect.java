@@ -460,7 +460,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           invocations.build(),
           protoInfo,
           outputs,
-          "C++",
+          "Generating C++ proto_library %{label}",
           Exports.DO_NOT_USE,
           Services.ALLOW);
     }
@@ -472,8 +472,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     public void addProviders(ConfiguredAspect.Builder builder) {
       OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups);
       builder.addProvider(
-          new CcProtoLibraryProviders(
-              filesBuilder.build(), ccLibraryProviders, outputGroupInfo));
+          new CcProtoLibraryProviders(filesBuilder.build(), ccLibraryProviders, outputGroupInfo));
       builder.addProviders(ccLibraryProviders);
       builder.addNativeDeclaredProvider(outputGroupInfo);
       if (headerProvider != null) {

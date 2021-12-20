@@ -254,7 +254,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   sourceJar.getExecPathString())),
           protoInfo,
           ImmutableList.of(sourceJar),
-          "JavaLite",
+          "Generating JavaLite proto_library %{label}",
           Exports.USE,
           Services.ALLOW);
     }
