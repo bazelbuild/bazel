@@ -3431,9 +3431,11 @@ genrule(
 )
 EOF
 
+  cache_dir=$(mktemp -d)
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --disk_cache="${TEST_TMPDIR}/disk_cache" \
+      --disk_cache=$cache_dir \
       --remote_upload_local_results=false \
       --incompatible_remote_build_event_upload_respect_no_cache \
       --build_event_json_file=bep.json \
@@ -3457,7 +3459,7 @@ genrule(
 )
 EOF
 
-  cache_dir="${TEST_TMPDIR}/disk_cache"
+  cache_dir=$(mktemp -d)
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
