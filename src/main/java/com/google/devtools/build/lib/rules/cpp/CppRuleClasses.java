@@ -72,14 +72,6 @@ public class CppRuleClasses {
   static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
 
-  public static LabelLateBoundDefault<CppConfiguration> ccHostToolchainAttribute(
-      RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromHostConfiguration(
-        CppConfiguration.class,
-        env.getToolsLabel(CROSSTOOL_LABEL),
-        (rules, attributes, cppConfig) -> cppConfig.getRuleProvidingCcToolchainProvider());
-  }
-
   public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
     return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
   }
