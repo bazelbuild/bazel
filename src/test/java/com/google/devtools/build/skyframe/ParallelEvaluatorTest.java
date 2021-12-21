@@ -22,6 +22,9 @@ import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -76,7 +79,6 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
 
 /** Tests for {@link ParallelEvaluator}. */
 @RunWith(TestParameterInjector.class)
@@ -205,7 +207,7 @@ public class ParallelEvaluatorTest {
               private ListenableFuture<SkyValue> future;
 
               @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+              public SkyValue compute(SkyKey skyKey, Environment env) {
                 if (future == null) {
                   future =
                       executor.submit(
@@ -364,9 +366,9 @@ public class ParallelEvaluatorTest {
     // thread, aka the main Skyframe evaluation thread),
     CountDownLatch keyAStartedComputingLatch = new CountDownLatch(1);
     CountDownLatch keyBAddReverseDepAndCheckIfDoneLatch = new CountDownLatch(1);
-    NodeEntry nodeEntryB = Mockito.mock(NodeEntry.class);
+    InMemoryNodeEntry nodeEntryB = mock(InMemoryNodeEntry.class);
     AtomicBoolean keyBAddReverseDepAndCheckIfDoneInterrupted = new AtomicBoolean(false);
-    Mockito.doAnswer(
+    doAnswer(
             invocation -> {
               keyAStartedComputingLatch.await();
               keyBAddReverseDepAndCheckIfDoneLatch.countDown();
@@ -379,11 +381,11 @@ public class ParallelEvaluatorTest {
               }
             })
         .when(nodeEntryB)
-        .addReverseDepAndCheckIfDone(Mockito.eq(null));
+        .addReverseDepAndCheckIfDone(eq(null));
     graph =
         new InMemoryGraphImpl() {
           @Override
-          protected NodeEntry newNodeEntry(SkyKey key) {
+          protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
             return key.equals(keyB) ? nodeEntryB : super.newNodeEntry(key);
           }
         };
@@ -579,17 +581,16 @@ public class ParallelEvaluatorTest {
     class CustomRuntimeException extends RuntimeException {}
     final CustomRuntimeException expected = new CustomRuntimeException();
 
-    final SkyFunction builder =
+    SkyFunction builder =
         new SkyFunction() {
           @Override
           @Nullable
-          public SkyValue compute(SkyKey skyKey, Environment env)
-              throws SkyFunctionException, InterruptedException {
+          public SkyValue compute(SkyKey skyKey, Environment env) {
             throw expected;
           }
         };
 
-    final ParallelEvaluator evaluator =
+    ParallelEvaluator evaluator =
         makeEvaluator(
             new InMemoryGraphImpl(), ImmutableMap.of(GraphTester.NODE_TYPE, builder), false);
 
@@ -895,10 +896,6 @@ public class ParallelEvaluatorTest {
                 } catch (SomeErrorException e) {
                   throw new SkyFunctionException(
                       new SomeErrorException("We got: " + e.getMessage()), Transience.PERSISTENT) {
-                    @Override
-                    public boolean isCatastrophic() {
-                      return false;
-                    }
                   };
                 }
                 return null;
@@ -1084,12 +1081,7 @@ public class ParallelEvaluatorTest {
         .getOrCreate(errorKey)
         .setBuilder(
             new ChainedFunction(
-                null,
-                /*waitToFinish=*/ latch,
-                null,
-                false,
-                /*value=*/ null,
-                ImmutableList.<SkyKey>of()));
+                null, /*waitToFinish=*/ latch, null, false, /*value=*/ null, ImmutableList.of()));
     tester.getOrCreate(parentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result =
         eval(/*keepGoing=*/ false, ImmutableList.of(parentKey, errorKey));
@@ -1129,7 +1121,7 @@ public class ParallelEvaluatorTest {
                 /*notifyFinish=*/ null,
                 /*waitForException=*/ false,
                 /*value=*/ null,
-                ImmutableList.<SkyKey>of()));
+                ImmutableList.of()));
     tester
         .getOrCreate(secondError)
         .setBuilder(
@@ -1139,7 +1131,7 @@ public class ParallelEvaluatorTest {
                 /*notifyFinish=*/ null,
                 /*waitForException=*/ false,
                 /*value=*/ null,
-                ImmutableList.<SkyKey>of()));
+                ImmutableList.of()));
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/ false, firstError, secondError);
     assertWithMessage(result.toString()).that(result.hasError()).isTrue();
     // With keepGoing=false, the eval call will terminate with exactly one error (the first one
@@ -1599,7 +1591,7 @@ public class ParallelEvaluatorTest {
         .addDependency("after")
         .setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(topKey));
-    assertThat(ImmutableList.<String>copyOf(result.<String>keyNames())).containsExactly("top");
+    assertThat(ImmutableList.<String>copyOf(result.keyNames())).containsExactly("top");
     assertThat(result.get(topKey).getValue()).isEqualTo("parent valueafter");
     assertThat(result.errorMap()).isEmpty();
   }
@@ -1726,22 +1718,12 @@ public class ParallelEvaluatorTest {
         .getOrCreate(cycleKey)
         .setBuilder(
             new ChainedFunction(
-                null,
-                null,
-                cycleFinish,
-                false,
-                new StringValue(""),
-                ImmutableSet.<SkyKey>of(midKey)));
+                null, null, cycleFinish, false, new StringValue(""), ImmutableSet.of(midKey)));
     tester
         .getOrCreate(errorKey)
         .setBuilder(
             new ChainedFunction(
-                null,
-                cycleFinish,
-                null,
-                /*waitForException=*/ false,
-                null,
-                ImmutableSet.<SkyKey>of()));
+                null, cycleFinish, null, /*waitForException=*/ false, null, ImmutableSet.of()));
 
     EvaluationResult<StringValue> result = eval(keepGoing, ImmutableSet.of(topKey));
     assertThatEvaluationResult(result)
@@ -1796,7 +1778,7 @@ public class ParallelEvaluatorTest {
                 null,
                 /*waitForException=*/ true,
                 new StringValue("never returned"),
-                ImmutableSet.<SkyKey>of(GraphTester.toSkyKey("dep that never builds"))));
+                ImmutableSet.of(GraphTester.toSkyKey("dep that never builds"))));
 
     tester
         .getOrCreate(cycleKey)
@@ -1807,7 +1789,7 @@ public class ParallelEvaluatorTest {
                 topStartAndCycleFinish,
                 /*waitForException=*/ false,
                 new StringValue(""),
-                ImmutableSet.<SkyKey>of(midKey)));
+                ImmutableSet.of(midKey)));
     // error waits until otherTop starts and cycle finishes, to make sure otherTop will request
     // its dep before the threadpool shuts down.
     tester
@@ -1819,7 +1801,7 @@ public class ParallelEvaluatorTest {
                 null,
                 /*waitForException=*/ false,
                 null,
-                ImmutableSet.<SkyKey>of()));
+                ImmutableSet.of()));
     EvaluationResult<StringValue> result =
         eval(/*keepGoing=*/ false, ImmutableSet.of(topKey, otherTop));
     assertThat(result.errorMap().keySet()).containsExactly(topKey);
@@ -1862,7 +1844,7 @@ public class ParallelEvaluatorTest {
                 null,
                 /*waitForException=*/ !keepGoing,
                 null,
-                ImmutableSet.<SkyKey>of()));
+                ImmutableSet.of()));
     // error waits until otherTop starts and cycle finishes, to make sure otherTop will request
     // its dep before the threadpool shuts down.
     tester
@@ -1874,7 +1856,7 @@ public class ParallelEvaluatorTest {
                 null,
                 /*waitForException=*/ false,
                 null,
-                ImmutableSet.<SkyKey>of()));
+                ImmutableSet.of()));
     tester
         .getOrCreate(cycleKey)
         .setBuilder(
@@ -1884,7 +1866,7 @@ public class ParallelEvaluatorTest {
                 topStartAndCycleFinish,
                 /*waitForException=*/ false,
                 new StringValue(""),
-                ImmutableSet.<SkyKey>of(midKey)));
+                ImmutableSet.of(midKey)));
     EvaluationResult<StringValue> result = eval(keepGoing, ImmutableSet.of(topKey, otherTop));
     if (keepGoing) {
       assertThatEvaluationResult(result).hasErrorMapThat().hasSize(2);
@@ -1945,8 +1927,8 @@ public class ParallelEvaluatorTest {
                 + "(requested by nodes 'parent:octodad')");
   }
 
-  private static class SomeOtherErrorException extends Exception {
-    public SomeOtherErrorException(String msg) {
+  private static final class SomeOtherErrorException extends Exception {
+    SomeOtherErrorException(String msg) {
       super(msg);
     }
   }
@@ -2205,7 +2187,7 @@ public class ParallelEvaluatorTest {
     // Skyframe doesn't automatically dedupe cycles that are the same except for entry point.
     assertThat(cycles).hasSize(2);
     int numUniqueCycles = 0;
-    CycleDeduper<SkyKey> cycleDeduper = new CycleDeduper<SkyKey>();
+    CycleDeduper<SkyKey> cycleDeduper = new CycleDeduper<>();
     for (ImmutableList<SkyKey> cycle : cycles) {
       if (!cycleDeduper.alreadySeen(cycle)) {
         numUniqueCycles++;
@@ -2216,8 +2198,8 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void signalValueEnqueuedAndEvaluated() throws Exception {
-    final Set<SkyKey> enqueuedValues = Sets.newConcurrentHashSet();
-    final Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
+    Set<SkyKey> enqueuedValues = Sets.newConcurrentHashSet();
+    Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
     EvaluationProgressReceiver progressReceiver =
         new EvaluationProgressReceiver() {
           @Override

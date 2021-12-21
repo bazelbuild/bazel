@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  * <p>This class is public only for use in alternative graph implementations.
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
-  protected final ConcurrentHashMap<SkyKey, NodeEntry> nodeMap;
+  protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
   private final boolean keepEdges;
 
   @VisibleForTesting
@@ -74,7 +74,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return result;
   }
 
-  protected NodeEntry newNodeEntry(SkyKey key) {
+  protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
     return keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
   }
 
@@ -83,7 +83,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
    * lambda instantiation overhead.
    */
   @SuppressWarnings("UnnecessaryLambda")
-  private final Function<SkyKey, NodeEntry> newNodeEntryFunction = k -> newNodeEntry(k);
+  private final Function<SkyKey, InMemoryNodeEntry> newNodeEntryFunction = this::newNodeEntry;
 
   @Override
   public Map<SkyKey, NodeEntry> createIfAbsentBatch(
@@ -102,25 +102,16 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, SkyValue> getValues() {
-    return Collections.unmodifiableMap(
-        Maps.transformValues(
-            nodeMap,
-            entry -> {
-              try {
-                return entry.toValue();
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-              }
-            }));
+    return Collections.unmodifiableMap(Maps.transformValues(nodeMap, InMemoryNodeEntry::toValue));
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getAllValues() {
+  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
     return Collections.unmodifiableMap(nodeMap);
   }
 
   @Override
-  public ConcurrentHashMap<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+  public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
     return nodeMap;
   }
 }

@@ -129,7 +129,6 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.GraphTransformerForTesting;
-import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.ProcessableGraph;
@@ -364,11 +363,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     return new GraphTransformerForTesting() {
       @Override
       public InMemoryGraph transform(InMemoryGraph graph) {
-        return new InMemoryGraphImpl() {
-          {
-            nodeMap.putAll(Maps.transformValues(values, v -> createNodeEntry(v)));
-          }
-        };
+        InMemoryGraph transformed = new InMemoryGraphImpl();
+        transformed
+            .getAllValuesMutable()
+            .putAll(Maps.transformValues(values, this::createNodeEntry));
+        return transformed;
       }
 
       @Override
@@ -381,7 +380,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         throw new UnsupportedOperationException();
       }
 
-      private NodeEntry createNodeEntry(SkyValue value) {
+      private InMemoryNodeEntry createNodeEntry(SkyValue value) {
         InMemoryNodeEntry nodeEntry = new InMemoryNodeEntry();
         nodeEntry.addReverseDepAndCheckIfDone(null);
         nodeEntry.markRebuilding();

@@ -362,14 +362,10 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     if (summarize) {
       long nodes = 0;
       long edges = 0;
-      for (NodeEntry entry : graph.getAllValues().values()) {
+      for (InMemoryNodeEntry entry : graph.getAllValues().values()) {
         nodes++;
         if (entry.isDone()) {
-          try {
-            edges += Iterables.size(entry.getDirectDeps());
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("InMemoryGraph doesn't throw: " + entry, e);
-          }
+          edges += Iterables.size(entry.getDirectDeps());
         }
       }
       out.println("Node count: " + nodes);
@@ -380,21 +376,17 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               String.format(
                   "%s:%s", key.functionName(), key.argument().toString().replace('\n', '_'));
 
-      for (Map.Entry<SkyKey, ? extends NodeEntry> mapPair : graph.getAllValues().entrySet()) {
+      for (Map.Entry<SkyKey, InMemoryNodeEntry> mapPair : graph.getAllValues().entrySet()) {
         SkyKey key = mapPair.getKey();
-        NodeEntry entry = mapPair.getValue();
+        InMemoryNodeEntry entry = mapPair.getValue();
         if (entry.isDone()) {
           out.print(keyFormatter.apply(key));
           out.print("|");
-          if (((InMemoryNodeEntry) entry).keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
+          if (entry.keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
             out.println(" (direct deps not stored)");
           } else {
-            try {
-              out.println(
-                  Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
-            } catch (InterruptedException e) {
-              throw new IllegalStateException("InMemoryGraph doesn't throw: " + entry, e);
-            }
+            out.println(
+                Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
           }
         }
       }
