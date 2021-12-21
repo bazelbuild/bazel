@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -553,7 +554,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return executionInfo;
+    return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */

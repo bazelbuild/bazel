@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -231,5 +232,16 @@ public interface ActionAnalysisMetadata {
    */
   default ImmutableMap<String, String> getExecutionInfo() {
     return ImmutableMap.of();
+  }
+
+  static ImmutableMap<String, String> mergeMaps(
+      ImmutableMap<String, String> first, ImmutableMap<String, String> second) {
+    // Use a different type to allow overriding keys.
+    // TODO(jcater): When ImmutableMap.Builder.buildKeepingLast is in released guava, upgrade and
+    // use that.
+    LinkedHashMap<String, String> result = new LinkedHashMap<>();
+    result.putAll(first);
+    result.putAll(second);
+    return ImmutableMap.copyOf(result);
   }
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
@@ -540,7 +541,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return executionInfo;
+    return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
   @Override
