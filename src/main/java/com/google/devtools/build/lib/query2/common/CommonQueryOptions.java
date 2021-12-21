@@ -167,7 +167,7 @@ public class CommonQueryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "False by default, displays the target of the source file. "
+          "True by default, displays the target of the source file. "
               + "If true, displays the location of line 1 of source files in location outputs. "
               + "This flag only exists for migration purposes.")
   public boolean displaySourceFileLocation;
