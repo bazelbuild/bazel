@@ -103,7 +103,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSimpleMapping() throws Exception {
-    rewriteWorkspace(
+    scratch.overwriteFile(
+        "WORKSPACE",
         "workspace(name = 'good')",
         "local_repository(",
         "    name = 'a_remote_repo',",
@@ -315,7 +316,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMultipleRepositoriesWithMapping() throws Exception {
-    rewriteWorkspace(
+    scratch.overwriteFile(
+        "WORKSPACE",
         "workspace(name = 'good')",
         "local_repository(",
         "    name = 'a_remote_repo',",
@@ -354,7 +356,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testRepositoryWithMultipleMappings() throws Exception {
-    rewriteWorkspace(
+    scratch.overwriteFile(
+        "WORKSPACE",
         "workspace(name = 'good')",
         "local_repository(",
         "    name = 'a_remote_repo',",
@@ -378,8 +381,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMixtureOfBothSystems_workspaceRepo() throws Exception {
-    rewriteWorkspace(
+  public void testMixtureOfBothSystems() throws Exception {
+    scratch.overwriteFile(
+        "WORKSPACE",
         "workspace(name = 'root')",
         "local_repository(",
         "    name = 'ws_repo',",
@@ -427,72 +431,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     // mapping to @E is untouched because E is not a module
                     .put(RepositoryName.create("E_alias"), RepositoryName.create("E"))
                     .build()));
-  }
-
-  @Test
-  public void testMixtureOfBothSystems_mainRepo() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
-    scratch.overwriteFile(
-        "MODULE.bazel", "module(name='A',version='0.1')", "bazel_dep(name='B',version='1.0')");
-    registry
-        .addModule(
-            createModuleKey("B", "1.0"),
-            "module(name='B', version='1.0');bazel_dep(name='C', version='2.0')")
-        .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
-
-    SkyKey skyKey = RepositoryMappingValue.key(RepositoryName.MAIN);
-    assertThatEvaluationResult(eval(skyKey))
-        .hasEntryThat(skyKey)
-        .isEqualTo(
-            withMappingForRootModule(
-                ImmutableMap.of(
-                    RepositoryName.MAIN,
-                    RepositoryName.MAIN,
-                    RepositoryName.create("A"),
-                    RepositoryName.MAIN,
-                    RepositoryName.create("B"),
-                    RepositoryName.create("B.1.0"),
-                    RepositoryName.create("root"),
-                    RepositoryName.create("root"),
-                    RepositoryName.create("ws_repo"),
-                    RepositoryName.create("ws_repo")),
-                RepositoryName.MAIN));
-  }
-
-  @Test
-  public void testMixtureOfBothSystems_mainRepo_shouldNotSeeWorkspaceRepos() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
-    scratch.overwriteFile(
-        "MODULE.bazel", "module(name='A',version='0.1')", "bazel_dep(name='B',version='1.0')");
-    registry
-        .addModule(
-            createModuleKey("B", "1.0"),
-            "module(name='B', version='1.0');bazel_dep(name='C', version='2.0')")
-        .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
-
-    SkyKey skyKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
-    assertThatEvaluationResult(eval(skyKey))
-        .hasEntryThat(skyKey)
-        .isEqualTo(
-            withMapping(
-                ImmutableMap.of(
-                    RepositoryName.MAIN,
-                    RepositoryName.MAIN,
-                    RepositoryName.create("A"),
-                    RepositoryName.MAIN,
-                    RepositoryName.create("B"),
-                    RepositoryName.create("B.1.0")),
-                RepositoryName.MAIN));
   }
 
   @Test
