@@ -128,7 +128,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
             new FormatterDependencyResolver()
                 .dependentNodeMap(
                     new TargetAndConfiguration(target, config),
-                    hostConfiguration,
                     /*aspect=*/ null,
                     configConditions,
                     toolchainContexts,

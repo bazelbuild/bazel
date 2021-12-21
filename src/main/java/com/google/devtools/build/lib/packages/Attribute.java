@@ -1459,9 +1459,7 @@ public final class Attribute implements Comparable<Attribute> {
     private final Resolver<FragmentT, ValueT> resolver;
 
     private SimpleLateBoundDefault(
-        Class<FragmentT> fragmentClass,
-        ValueT defaultValue,
-        Resolver<FragmentT, ValueT> resolver) {
+        Class<FragmentT> fragmentClass, ValueT defaultValue, Resolver<FragmentT, ValueT> resolver) {
       super(fragmentClass, defaultValue);
 
       this.resolver = resolver;
@@ -1535,14 +1533,6 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Whether to look up the label in the host configuration. This is only here for host
-     * compilation tools - we usually need to look up labels in the target configuration.
-     */
-    public final boolean useHostConfiguration() {
-      return false;
-    }
-
-    /**
      * Returns the input type that the attribute expects. This is almost always a configuration
      * fragment to be retrieved from the target's configuration (or the host configuration).
      *
@@ -1601,9 +1591,7 @@ public final class Attribute implements Comparable<Attribute> {
       extends SimpleLateBoundDefault<FragmentT, Label> {
     @VisibleForTesting
     protected LabelLateBoundDefault(
-        Class<FragmentT> fragmentClass,
-        Label defaultValue,
-        Resolver<FragmentT, Label> resolver) {
+        Class<FragmentT> fragmentClass, Label defaultValue, Resolver<FragmentT, Label> resolver) {
       super(fragmentClass, defaultValue, resolver);
     }
 
@@ -1650,8 +1638,7 @@ public final class Attribute implements Comparable<Attribute> {
   public static class LabelListLateBoundDefault<FragmentT>
       extends SimpleLateBoundDefault<FragmentT, List<Label>> {
     private LabelListLateBoundDefault(
-        Class<FragmentT> fragmentClass,
-        Resolver<FragmentT, List<Label>> resolver) {
+        Class<FragmentT> fragmentClass, Resolver<FragmentT, List<Label>> resolver) {
       super(fragmentClass, ImmutableList.of(), resolver);
     }
 
@@ -1774,13 +1761,6 @@ public final class Attribute implements Comparable<Attribute> {
         isLateBound(name) == (defaultValue instanceof LateBoundDefault),
         "late bound attributes require a default value that is late bound (and vice versa): %s",
         name);
-    if (isLateBound(name)) {
-      LateBoundDefault<?, ?> lateBoundDefault = (LateBoundDefault<?, ?>) defaultValue;
-      Preconditions.checkArgument(
-          !lateBoundDefault.useHostConfiguration() || transitionFactory.isHost(),
-          "a late bound default value using the host configuration must use the host transition");
-    }
-
     this.name = name;
     this.doc = doc;
     this.type = type;

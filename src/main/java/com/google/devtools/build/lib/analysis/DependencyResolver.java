@@ -172,8 +172,6 @@ public abstract class DependencyResolver {
    * dependency.
    *
    * @param node the target/configuration being evaluated
-   * @param hostConfig the configuration this target would use if it was evaluated as a host tool.
-   *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspect the aspect applied to this target (if any)
    * @param configConditions resolver for config_setting labels
    * @param toolchainContexts the toolchain contexts for this target
@@ -183,7 +181,6 @@ public abstract class DependencyResolver {
    */
   public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
       TargetAndConfiguration node,
-      BuildConfigurationValue hostConfig,
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -194,7 +191,6 @@ public abstract class DependencyResolver {
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         dependentNodeMap(
             node,
-            hostConfig,
             aspect != null ? ImmutableList.of(aspect) : ImmutableList.of(),
             configConditions,
             toolchainContexts,
@@ -228,8 +224,6 @@ public abstract class DependencyResolver {
    * dependency.
    *
    * @param node the target/configuration being evaluated
-   * @param hostConfig the configuration this target would use if it was evaluated as a host tool.
-   *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspects the aspects applied to this target (if any)
    * @param configConditions resolver for config_setting labels
    * @param toolchainContexts the toolchain contexts for this target
@@ -240,7 +234,6 @@ public abstract class DependencyResolver {
    */
   public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
       TargetAndConfiguration node,
-      BuildConfigurationValue hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -269,8 +262,7 @@ public abstract class DependencyResolver {
             outgoingLabels,
             rule,
             attributeMap,
-            node.getConfiguration(),
-            hostConfig);
+            node.getConfiguration());
       }
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingLabels);
@@ -280,7 +272,7 @@ public abstract class DependencyResolver {
       fromRule = (Rule) target;
       attributeMap =
           ConfiguredAttributeMapper.of(fromRule, configConditions, node.getConfiguration());
-      visitRule(node, hostConfig, aspects, attributeMap, toolchainContexts, outgoingLabels);
+      visitRule(node, aspects, attributeMap, toolchainContexts, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
     } else {
@@ -526,7 +518,6 @@ public abstract class DependencyResolver {
 
   private void visitRule(
       TargetAndConfiguration node,
-      BuildConfigurationValue hostConfig,
       Iterable<Aspect> aspects,
       ConfiguredAttributeMapper attributeMap,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -543,8 +534,7 @@ public abstract class DependencyResolver {
     }
 
     visitTargetVisibility(node, outgoingLabels);
-    resolveAttributes(
-        getAttributes(rule, aspects), outgoingLabels, rule, attributeMap, ruleConfig, hostConfig);
+    resolveAttributes(getAttributes(rule, aspects), outgoingLabels, rule, attributeMap, ruleConfig);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
     addExplicitDeps(outgoingLabels, rule, "visibility", rule.getVisibility().getDependencyLabels());
@@ -602,8 +592,7 @@ public abstract class DependencyResolver {
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
-      BuildConfigurationValue ruleConfig,
-      BuildConfigurationValue hostConfig) {
+      BuildConfigurationValue ruleConfig) {
     for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
       Attribute attribute = dependencyKind.getAttribute();
       if (!attribute.getCondition().apply(attributeMap)
@@ -629,14 +618,7 @@ public abstract class DependencyResolver {
       }
 
       resolveAttribute(
-          attribute,
-          type,
-          dependencyKind,
-          outgoingLabels,
-          rule,
-          attributeMap,
-          ruleConfig,
-          hostConfig);
+          attribute, type, dependencyKind, outgoingLabels, rule, attributeMap, ruleConfig);
     }
   }
 
@@ -647,8 +629,7 @@ public abstract class DependencyResolver {
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
-      BuildConfigurationValue ruleConfig,
-      BuildConfigurationValue hostConfig) {
+      BuildConfigurationValue ruleConfig) {
     T attributeValue = null;
     if (attribute.isImplicit()) {
       // Since the attributes that come from aspects do not appear in attributeMap, we have to get
@@ -667,7 +648,7 @@ public abstract class DependencyResolver {
       }
     } else if (attribute.isLateBound()) {
       attributeValue =
-          type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig, hostConfig));
+          type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig));
     } else if (attributeMap.has(attribute.getName())) {
       // This condition is false for aspect attributes that do not give rise to dependencies because
       // attributes that come from aspects do not appear in attributeMap (see the comment in the
@@ -690,26 +671,23 @@ public abstract class DependencyResolver {
       Rule rule,
       AttributeMap attributeMap,
       Attribute attribute,
-      BuildConfigurationValue ruleConfig,
-      BuildConfigurationValue hostConfig) {
+      BuildConfigurationValue ruleConfig) {
     Preconditions.checkState(!attribute.getTransitionFactory().isSplit());
     @SuppressWarnings("unchecked")
     LateBoundDefault<FragmentT, ?> lateBoundDefault =
         (LateBoundDefault<FragmentT, ?>) attribute.getLateBoundDefault();
-    BuildConfigurationValue attributeConfig =
-        lateBoundDefault.useHostConfiguration() ? hostConfig : ruleConfig;
 
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
     // TODO(b/65746853): remove this when nothing uses it anymore
     if (BuildConfigurationValue.class.equals(fragmentClass)) {
-      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(attributeConfig));
+      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
     }
     if (Void.class.equals(fragmentClass)) {
       return lateBoundDefault.resolve(rule, attributeMap, null);
     }
     @SuppressWarnings("unchecked")
     FragmentT fragment =
-        fragmentClass.cast(attributeConfig.getFragment((Class<? extends Fragment>) fragmentClass));
+        fragmentClass.cast(ruleConfig.getFragment((Class<? extends Fragment>) fragmentClass));
     if (fragment == null) {
       return null;
     }
