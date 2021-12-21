@@ -252,7 +252,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
-    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.createForBES(metadata);
 
     return Single.using(
         remoteCache::retain,

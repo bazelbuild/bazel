@@ -74,13 +74,14 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
+    // For BES upload, we only upload to the remote cache.
+    if (context.getType() == RemoteActionExecutionContext.Type.BUILD_EVENT_SERVICE) {
+      return remoteCache.uploadFile(context, digest, file);
+    }
+
     ListenableFuture<Void> future = diskCache.uploadFile(context, digest, file);
 
-    boolean uploadForSpawn = context.getSpawn() != null;
-    // If not upload for spawn e.g. for build event artifacts, we always upload files to remote
-    // cache.
-    if (!uploadForSpawn
-        || options.isRemoteExecutionEnabled()
+    if (options.isRemoteExecutionEnabled()
         || shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
@@ -113,6 +114,12 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     if (options.isRemoteExecutionEnabled()) {
       return remoteCache.findMissingDigests(context, digests);
     }
+
+    // For BES upload, we only check the remote cache.
+    if (context.getType() == RemoteActionExecutionContext.Type.BUILD_EVENT_SERVICE) {
+      return remoteCache.findMissingDigests(context, digests);
+    }
+
     ListenableFuture<ImmutableSet<Digest>> diskQuery =
         diskCache.findMissingDigests(context, digests);
     if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {

@@ -3332,7 +3332,7 @@ EOF
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
-function test_uploader_respsect_no_cache() {
+function test_uploader_respect_no_cache() {
   mkdir -p a
   cat > a/BUILD <<EOF
 genrule(
@@ -3354,7 +3354,7 @@ EOF
   expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
 }
 
-function test_uploader_respsect_no_cache_trees() {
+function test_uploader_respect_no_cache_trees() {
   mkdir -p a
   cat > a/output_dir.bzl <<'EOF'
 def _gen_output_dir_impl(ctx):
@@ -3401,7 +3401,7 @@ EOF
   expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
 }
 
-function test_uploader_respsect_no_upload_results() {
+function test_uploader_respect_no_upload_results() {
   mkdir -p a
   cat > a/BUILD <<EOF
 genrule(
@@ -3423,7 +3423,7 @@ EOF
   expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
 }
 
-function test_uploader_respsect_no_upload_results_combined_cache() {
+function test_uploader_respect_no_upload_results_combined_cache() {
   mkdir -p a
   cat > a/BUILD <<EOF
 genrule(
@@ -3433,9 +3433,11 @@ genrule(
 )
 EOF
 
+  cache_dir=$(mktemp -d)
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --disk_cache="${TEST_TMPDIR}/disk_cache" \
+      --disk_cache=$cache_dir \
       --remote_upload_local_results=false \
       --incompatible_remote_build_event_upload_respect_no_cache \
       --build_event_json_file=bep.json \
@@ -3445,7 +3447,35 @@ EOF
   expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
   expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
   remote_cas_files="$(count_remote_cas_files)"
-  [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_cas_files"
+  [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote cas entries, not $remote_cas_files"
+}
+
+function test_uploader_ignore_disk_cache_of_combined_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+  tags = ["no-cache"],
+)
+EOF
+
+  cache_dir=$(mktemp -d)
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --disk_cache=$cache_dir \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+
+  disk_cas_files="$(count_disk_cas_files $cache_dir)"
+  [[ "$disk_cas_files" == 0 ]] || fail "Expected 0 disk cas entries, not $disk_cas_files"
 }
 
 run_suite "Remote execution and remote cache tests"
