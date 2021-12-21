@@ -14,7 +14,7 @@ cc_toolchain(
     objcopy_files = ":%toolchainName%-all_files",
     static_runtime_lib = ":%staticRuntimeLibs%",
     strip_files = ":%toolchainName%-all_files",
-    supports_param_files = 0,
+    supports_param_files = 1,
     toolchain_identifier = "%toolchainName%",
     toolchain_config = ":%toolchainName%-config",
 )
