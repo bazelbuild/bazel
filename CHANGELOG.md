@@ -1,3 +1,21 @@
+## Release 6.0.0-pre.20211215.3 (2021-12-21)
+
+```
+Baseline: 8dcf27e590ce77241a15fd2f2f8b9889a3d7731b
+
+Cherry picks:
+
+   + 7074bcff7d1fcba7230fec11ce1d155b6e3d51b1:
+     Automated rollback of commit
+     ed825a49ef18a87e75fcbc381bb9b656e83b04fb.
+```
+
+Important changes:
+
+  - Allow \a \b \f \v escape sequences in Starlark.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Bradley Burns, Dan Fleming, Fabian Meumertzheim, Greg, Xavier Bonaventura, Xdng Yng.
+
 ## Release 6.0.0-pre.20211202.4 (2021-12-20)
 
 ```
