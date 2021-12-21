@@ -127,7 +127,8 @@ EOF
   rmdir "${socket_dir}"
 }
 
-function test_remote_grpc_via_unix_socket_direct() {
+# TODO(b/211478955): Deflake and re-enable.
+function DISABLED_test_remote_grpc_via_unix_socket_direct() {
   case "$PLATFORM" in
   darwin|freebsd|linux|openbsd)
     ;;
