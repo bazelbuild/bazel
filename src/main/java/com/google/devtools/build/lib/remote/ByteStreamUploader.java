@@ -253,7 +253,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       checkState(!isShutdown, "Must not call uploadBlobs after shutdown.");
 
       if (!forceUpload && uploadedBlobs.contains(HashCode.fromString(digest.getHash()))) {
-        return Futures.immediateFuture(null);
+        return immediateVoidFuture();
       }
 
       ListenableFuture<Void> inProgress = uploadsInProgress.get(digest);
@@ -424,7 +424,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               () ->
                   retrier.executeAsync(
                       () -> {
-                        if (chunker.getSize() == 0) {
+                        if (chunker.getSize() == committedOffset.get()) {
                           return immediateVoidFuture();
                         }
                         try {
@@ -452,7 +452,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
                         if (chunker.hasNext()) {
                           return callAndQueryOnFailure(committedOffset, progressiveBackoff);
                         }
-                        return Futures.immediateFuture(null);
+                        return immediateVoidFuture();
                       },
                       progressiveBackoff),
               callCredentialsProvider);
@@ -476,7 +476,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
                 return Futures.immediateFailedFuture(new IOException(message));
               }
             }
-            return Futures.immediateFuture(null);
+            return immediateVoidFuture();
           },
           MoreExecutors.directExecutor());
     }
@@ -564,7 +564,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               progressiveBackoff.reset();
             }
             committedOffset.set(committedSize);
-            return Futures.immediateFuture(null);
+            return immediateVoidFuture();
           },
           MoreExecutors.directExecutor());
     }

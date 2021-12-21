@@ -1606,6 +1606,69 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
+  public void failureAfterUploadCompletes() throws Exception {
+    AtomicInteger numUploads = new AtomicInteger();
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, e -> e instanceof StatusRuntimeException, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channelConnectionFactory),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier,
+            -1);
+
+    byte[] blob = new byte[CHUNK_SIZE - 1];
+    new Random().nextBytes(blob);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            numUploads.incrementAndGet();
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                streamObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(blob.length).build());
+                streamObserver.onError(Status.UNAVAILABLE.asException());
+              }
+            };
+          }
+
+          @Override
+          public void queryWriteStatus(
+              QueryWriteStatusRequest request, StreamObserver<QueryWriteStatusResponse> response) {
+            response.onNext(
+                QueryWriteStatusResponse.newBuilder()
+                    .setCommittedSize(blob.length)
+                    .setComplete(true)
+                    .build());
+            response.onCompleted();
+          }
+        });
+
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    uploader.uploadBlob(context, hash, chunker, true);
+
+    blockUntilInternalStateConsistent(uploader);
+
+    assertThat(numUploads.get()).isEqualTo(1);
+  }
+
+  @Test
   public void testCompressedUploads() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
