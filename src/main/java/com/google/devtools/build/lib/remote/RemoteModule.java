@@ -756,6 +756,9 @@ public final class RemoteModule extends BlazeModule {
     }
 
     for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
+      // This will either dereference an alias chain, or return the final ConfiguredTarget.
+      configuredTarget = configuredTarget.getActual();
+
       if (configuredTarget instanceof RuleConfiguredTarget) {
         RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
         for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {

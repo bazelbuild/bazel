@@ -3354,6 +3354,33 @@ EOF
   expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
 }
 
+function test_uploader_alias_action_respect_no_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+  tags = ["no-cache"],
+)
+
+alias(
+  name = 'foo-alias',
+  actual = '//a:foo',
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --build_event_json_file=bep.json \
+      //a:foo-alias >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://"
+  expect_log "command.profile.gz.*bytestream://"
+}
+
 function test_uploader_respect_no_cache_trees() {
   mkdir -p a
   cat > a/output_dir.bzl <<'EOF'
