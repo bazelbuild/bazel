@@ -2855,6 +2855,6 @@ public class ParallelEvaluatorTest {
         .hasMessageThat()
         // And the error message for key1 is from error bubbling,
         .isEqualTo("error bubbling for key1");
-    // Confirming that all our other expections about the compute states were correct.
+    // Confirming that all our other expectations about the compute states were correct.
   }
 }
