@@ -51,10 +51,8 @@ def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
 def _get_intermediate_dwp_file(ctx, dwp_output, order_number):
     output_path = dwp_output.short_path
     intermediate_path = output_path + "-" + str(order_number)
-    if dwp_output.extension != "":
-        intermediate_path = output_path.split(".")[0] + "-" + str(order_number) + "." + dwp_output.extension
 
-    return ctx.actions.declare_file("_dwp/" + intermediate_path)
+    return ctx.actions.declare_file("_dwps/" + intermediate_path)
 
 def _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, dwp_files, dwo_files, intermediate_dwp_count):
     intermediate_outputs = dwo_files
@@ -577,7 +575,7 @@ def _create_transitive_linking_actions(
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
         name = ctx.label.name,
-        use_test_only_flags = cc_helper.is_test_target(ctx),
+        use_test_only_flags = ctx.label.name.endswith("_test"),
         # Note: Current Starlark API supports either dynamic or static linking modes,
         # even though there are more(LEGACY_FULL_STATIC, LEGACY_MOSTLY_STATIC_LIBRARIES) cc_binary
         # only uses dynamic or static modes. So instead of adding more native footprint
@@ -585,6 +583,7 @@ def _create_transitive_linking_actions(
         # It is highly unlikely that cc_binary will start using legacy modes,
         # but if in case it does, code needs to be modified to support it.
         link_deps_statically = link_deps_statically,
+        test_only_target = cc_helper.is_test_target(ctx) or ctx.label.name.endswith("_test"),
         output_type = link_target_type,
         main_output = binary,
         never_link = True,
