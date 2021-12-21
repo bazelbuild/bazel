@@ -125,9 +125,9 @@ void RunSubProcess(const std::vector<std::string> &args) {
                 << strerror(errno) << "\n";
       abort();
     }
-    if (WEXITSTATUS(status) != 0) {
+    if (WEXITSTATUS(wait_status) != 0) {
       std::cerr << "Error in child process '" << args[0] << "'. "
-                << WEXITSTATUS(status) << "\n";
+                << WEXITSTATUS(wait_status) << "\n";
       abort();
     }
   } else {
