@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
-import com.google.devtools.build.lib.actionsketch.ActionSketch;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -206,19 +205,6 @@ public class ActionExecutionFunction implements SkyFunction {
       clientEnv = builder.build();
     } else {
       clientEnv = ImmutableMap.of();
-    }
-
-    ActionSketch sketch = null;
-    TopDownActionCache topDownActionCache = skyframeActionExecutor.getTopDownActionCache();
-    if (topDownActionCache != null) {
-      sketch = (ActionSketch) env.getValue(ActionSketchFunction.key(actionLookupData));
-      if (sketch == null) {
-        return null;
-      }
-      ActionExecutionValue actionExecutionValue = topDownActionCache.get(sketch, actionLookupData);
-      if (actionExecutionValue != null) {
-        return actionExecutionValue.transformForSharedAction(action);
-      }
     }
 
     // For restarts of this ActionExecutionFunction we use a ContinuationState variable, below, to
@@ -382,9 +368,6 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
-    if (sketch != null && actionLookupData.valueIsShareable()) {
-      topDownActionCache.put(sketch, result);
-    }
     return result;
   }
 

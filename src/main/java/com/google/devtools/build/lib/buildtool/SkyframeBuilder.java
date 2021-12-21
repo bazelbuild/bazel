@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
@@ -87,7 +86,6 @@ public class SkyframeBuilder implements Builder {
   private final MetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
-  private final TopDownActionCache topDownActionCache;
   private final BugReporter bugReporter;
 
   @VisibleForTesting
@@ -95,7 +93,6 @@ public class SkyframeBuilder implements Builder {
       SkyframeExecutor skyframeExecutor,
       ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
-      TopDownActionCache topDownActionCache,
       ModifiedFileSet modifiedOutputFiles,
       MetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
@@ -103,7 +100,6 @@ public class SkyframeBuilder implements Builder {
     this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
-    this.topDownActionCache = topDownActionCache;
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
@@ -182,7 +178,6 @@ public class SkyframeBuilder implements Builder {
               exclusiveTests,
               options,
               actionCacheChecker,
-              topDownActionCache,
               executionProgressReceiver,
               topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
@@ -212,7 +207,6 @@ public class SkyframeBuilder implements Builder {
                 exclusiveTest,
                 options,
                 actionCacheChecker,
-                topDownActionCache,
                 topLevelArtifactContext);
         detailedExitCode =
             processResult(
@@ -397,10 +391,6 @@ public class SkyframeBuilder implements Builder {
 
   ActionCacheChecker getActionCacheChecker() {
     return actionCacheChecker;
-  }
-
-  TopDownActionCache getTopDownActionCache() {
-    return topDownActionCache;
   }
 
   MetadataProvider getFileCache() {

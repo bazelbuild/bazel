@@ -300,11 +300,7 @@ public class ExecutionTool {
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
-          env.getReporter(),
-          executor,
-          request,
-          skyframeBuilder.getActionCacheChecker(),
-          skyframeBuilder.getTopDownActionCache());
+          env.getReporter(), executor, request, skyframeBuilder.getActionCacheChecker());
     }
 
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
@@ -886,7 +882,6 @@ public class ExecutionTool {
                 .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
                 .build()),
-        env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
                 // Do not skip invalidation in case the output tree is empty -- this can happen
                 // after it's cleaned or corrupted.

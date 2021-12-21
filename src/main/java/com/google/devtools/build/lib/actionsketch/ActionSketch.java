@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actionsketch;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -24,24 +23,20 @@ import javax.annotation.Nullable;
 /**
  * An {@link ActionSketch} encodes a transitive hash of an action sufficient to associate with it
  * the result of executing the action. Therefore, this must include a hash on some upper bound of
- * all transitively consumed input files, as well as a transitive hash of all action keys.
+ * all transitively consumed input files.
  */
 @AutoValue
-public abstract class ActionSketch implements SkyValue {
+public abstract class ActionSketch {
   public static final int BIGINTEGER_ENCODED_LENGTH = /*length=*/ 1 + /*payload=*/ 39;
   public static final int MAX_BYTES = /*hashes=*/ 2 * BIGINTEGER_ENCODED_LENGTH;
 
   private static final ActionSketch NULL_SKETCH =
       ActionSketch.builder()
           .setTransitiveSourceHash(null)
-          .setTransitiveActionLookupHash(null)
           .autoBuild();
 
   @Nullable
   public abstract HashAndVersion transitiveSourceHash();
-
-  @Nullable
-  public abstract BigInteger transitiveActionLookupHash();
 
   public static Builder builder() {
     return new AutoValue_ActionSketch.Builder();
@@ -54,20 +49,13 @@ public abstract class ActionSketch implements SkyValue {
   public abstract static class Builder {
     public abstract Builder setTransitiveSourceHash(HashAndVersion transitiveSourceHash);
 
-    public abstract Builder setTransitiveActionLookupHash(BigInteger transitiveActionLookupHash);
-
     @Nullable
     abstract HashAndVersion transitiveSourceHash();
-
-    @Nullable
-    abstract BigInteger transitiveActionLookupHash();
 
     abstract ActionSketch autoBuild();
 
     public final ActionSketch build() {
-      return transitiveSourceHash() == null && transitiveActionLookupHash() == null
-          ? NULL_SKETCH
-          : autoBuild();
+      return transitiveSourceHash() == null ? NULL_SKETCH : autoBuild();
     }
   }
 
@@ -79,7 +67,6 @@ public abstract class ActionSketch implements SkyValue {
 
   public final void writeTo(ByteBuffer buffer) {
     writeNextValue(transitiveSourceHash(), buffer);
-    writeNextValue(transitiveActionLookupHash(), buffer);
   }
 
   private static void writeNextValue(HashAndVersion value, ByteBuffer buffer) {
@@ -91,36 +78,12 @@ public abstract class ActionSketch implements SkyValue {
     }
   }
 
-  private static void writeNextValue(BigInteger value, ByteBuffer buffer) {
-    if (value == null) {
-      buffer.put((byte) -1);
-    } else {
-      byte[] bytes = value.toByteArray();
-      buffer.put((byte) bytes.length).put(bytes);
-    }
-  }
-
   public static ActionSketch fromBytes(ByteString inputBytes) {
     return fromByteBuffer(inputBytes.asReadOnlyByteBuffer());
   }
 
   public static ActionSketch fromByteBuffer(ByteBuffer buffer) {
-    Builder builder =
-        builder()
-            .setTransitiveSourceHash(readNextHashAndVersion(buffer))
-            .setTransitiveActionLookupHash(readNextBigInteger(buffer));
-    return builder.build();
-  }
-
-  @Nullable
-  private static BigInteger readNextBigInteger(ByteBuffer buffer) {
-    byte length = buffer.get();
-    if (length < 0) {
-      return null;
-    }
-    byte[] val = new byte[length];
-    buffer.get(val);
-    return new BigInteger(1, val);
+    return builder().setTransitiveSourceHash(readNextHashAndVersion(buffer)).build();
   }
 
   @Nullable

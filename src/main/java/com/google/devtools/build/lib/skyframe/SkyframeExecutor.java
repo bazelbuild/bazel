@@ -618,7 +618,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm, bugReporter);
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
     this.actionExecutionFunction = actionExecutionFunction;
-    map.put(SkyFunctions.ACTION_SKETCH, new ActionSketchFunction(actionKeyContext));
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
     map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(directories::getExecRoot));
@@ -1599,7 +1598,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<ConfiguredTarget> exclusiveTests,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
-      TopDownActionCache topDownActionCache,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException, AbruptExitException {
@@ -1609,8 +1607,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     deleteActionsIfRemoteOptionsChanged(options);
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
-      prepareSkyframeActionExecutorForExecution(
-          reporter, executor, options, actionCacheChecker, topDownActionCache);
+      prepareSkyframeActionExecutorForExecution(reporter, executor, options, actionCacheChecker);
     }
 
     resourceManager.resetResourceUsage();
@@ -1652,14 +1649,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Reporter reporter,
       Executor executor,
       OptionsProvider options,
-      ActionCacheChecker actionCacheChecker,
-      TopDownActionCache topDownActionCache) {
+      ActionCacheChecker actionCacheChecker) {
     skyframeActionExecutor.prepareForExecution(
         reporter,
         executor,
         options,
         actionCacheChecker,
-        topDownActionCache,
         outputService,
         isAnalysisIncremental());
   }
@@ -1672,7 +1667,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ConfiguredTarget exclusiveTest,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
-      TopDownActionCache topDownActionCache,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     checkActive();
@@ -1680,8 +1674,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
-      prepareSkyframeActionExecutorForExecution(
-          reporter, executor, options, actionCacheChecker, topDownActionCache);
+      prepareSkyframeActionExecutorForExecution(reporter, executor, options, actionCacheChecker);
     }
 
     resourceManager.resetResourceUsage();
@@ -1705,13 +1698,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   @VisibleForTesting
   public void prepareBuildingForTestingOnly(
-      Reporter reporter,
-      Executor executor,
-      OptionsProvider options,
-      ActionCacheChecker checker,
-      TopDownActionCache topDownActionCache) {
-    prepareSkyframeActionExecutorForExecution(
-        reporter, executor, options, checker, topDownActionCache);
+      Reporter reporter, Executor executor, OptionsProvider options, ActionCacheChecker checker) {
+    prepareSkyframeActionExecutorForExecution(reporter, executor, options, checker);
   }
 
   private void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)

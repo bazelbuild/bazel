@@ -151,7 +151,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected OptionsParser options;
 
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
-  private TopDownActionCache topDownActionCache;
 
   @Before
   public final void initialize() throws Exception  {
@@ -164,11 +163,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     tsgm = new TimestampGranularityMonitor(clock);
     actions = new LinkedHashSet<>();
     actionTemplateExpansionFunction = new ActionTemplateExpansionFunction(actionKeyContext);
-    topDownActionCache = initTopDownActionCache();
-  }
-
-  protected TopDownActionCache initTopDownActionCache() {
-    return null;
   }
 
   protected void clearActions() {
@@ -314,7 +308,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new DelegatingActionTemplateExpansionFunction())
-                .put(SkyFunctions.ACTION_SKETCH, new ActionSketchFunction(actionKeyContext))
                 .put(
                     SkyFunctions.ARTIFACT_NESTED_SET,
                     ArtifactNestedSetFunction.createInstance(
@@ -377,7 +370,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             options,
             new ActionCacheChecker(
                 actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
-            topDownActionCache,
             /*outputService=*/ null,
             /*incrementalAnalysis=*/ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(

@@ -769,12 +769,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     reporter.removeHandler(failFastHandler); // Expect errors.
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result = evaluate(ImmutableList.of(output1, output2));
     assertWithMessage(result.toString()).that(result.keyNames()).isEmpty();
     assertThat(result.hasError()).isTrue();
@@ -867,11 +866,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result =
         evaluate(Artifact.keys(ImmutableList.of(output1, output2)));
     assertThat(result.hasError()).isFalse();
@@ -1011,11 +1009,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     reporter.removeHandler(failFastHandler);
     try {
       evaluate(Artifact.keys(ImmutableList.of(outputA, outputB, outputC)));
@@ -1096,11 +1093,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
 
     EvaluationResult<TreeArtifactValue> result = evaluate(ImmutableList.of(output1, output2));
 
@@ -1204,11 +1200,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     evaluate(ImmutableList.of(sharedOutput1, sharedOutput2));
   }
 
@@ -1416,16 +1411,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     // NULL_CHECKER here means action cache, which would be our savior, is not in play.
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result = evaluate(Artifact.keys(ImmutableList.of(output1)));
     assertThat(result.hasError()).isFalse();
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result2 =
         evaluate(Artifact.keys(ImmutableList.of(top, output2)));
     assertThat(result2.hasError()).isFalse();
@@ -1512,11 +1506,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     reporter.removeHandler(failFastHandler); // Expect errors.
     evaluate(Artifact.keys(ImmutableList.of(output, output2)));
     assertContainsEvent(
@@ -1588,11 +1581,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     evaluate(ImmutableList.of(Artifact.key(output2)));
     assertContainsEvent("action 1");
     assertContainsEvent("action 2");
@@ -1747,7 +1739,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -1884,7 +1875,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,
@@ -2009,7 +1999,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,
@@ -2128,7 +2117,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2236,7 +2224,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2334,7 +2321,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2418,7 +2404,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,

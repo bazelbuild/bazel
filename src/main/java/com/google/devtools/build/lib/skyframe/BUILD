@@ -94,7 +94,6 @@ java_library(
         ":action_lookup_conflict_finding_value",
         ":action_metadata_handler",
         ":action_rewind_strategy",
-        ":action_sketch_function",
         ":action_template_expansion_function",
         ":action_utils",
         ":actiongraph/v2/aquery_output_handler",
@@ -200,7 +199,6 @@ java_library(
         ":tests_for_target_pattern_value",
         ":toolchain_context_key",
         ":toolchain_exception",
-        ":top_down_action_cache",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
         ":transitive_target_value",
@@ -227,7 +225,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/substitution",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
@@ -512,28 +509,6 @@ java_library(
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "action_sketch_function",
-    srcs = ["ActionSketchFunction.java"],
-    deps = [
-        ":artifact_function",
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
-        "//src/main/java/com/google/devtools/build/lib/actionsketch:hash_and_version",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:caffeine",
         "//third_party:jsr305",
     ],
 )
@@ -2547,17 +2522,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "top_down_action_cache",
-    srcs = ["TopDownActionCache.java"],
-    deps = [
-        ":action_execution_value",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
-        "//third_party:jsr305",
     ],
 )
 
