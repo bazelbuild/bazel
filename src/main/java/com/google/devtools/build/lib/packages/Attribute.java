@@ -1459,11 +1459,10 @@ public final class Attribute implements Comparable<Attribute> {
     private final Resolver<FragmentT, ValueT> resolver;
 
     private SimpleLateBoundDefault(
-        boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
         ValueT defaultValue,
         Resolver<FragmentT, ValueT> resolver) {
-      super(useHostConfiguration, fragmentClass, defaultValue);
+      super(fragmentClass, defaultValue);
 
       this.resolver = resolver;
     }
@@ -1502,7 +1501,6 @@ public final class Attribute implements Comparable<Attribute> {
       ValueT resolve(Rule rule, AttributeMap attributeMap, FragmentT input);
     }
 
-    private final boolean useHostConfiguration;
     private final ValueT defaultValue;
     private final Class<FragmentT> fragmentClass;
 
@@ -1515,7 +1513,6 @@ public final class Attribute implements Comparable<Attribute> {
     @VisibleForTesting
     public static LabelLateBoundDefault<Void> fromConstantForTesting(Label defaultValue) {
       return new LabelLateBoundDefault<Void>(
-          false,
           Void.class,
           Preconditions.checkNotNull(defaultValue),
           (rule, attributes, unused) -> defaultValue) {};
@@ -1532,9 +1529,7 @@ public final class Attribute implements Comparable<Attribute> {
       return (LateBoundDefault<Void, ValueT>) AlwaysNullLateBoundDefault.INSTANCE;
     }
 
-    LateBoundDefault(
-        boolean useHostConfiguration, Class<FragmentT> fragmentClass, ValueT defaultValue) {
-      this.useHostConfiguration = useHostConfiguration;
+    LateBoundDefault(Class<FragmentT> fragmentClass, ValueT defaultValue) {
       this.defaultValue = defaultValue;
       this.fragmentClass = fragmentClass;
     }
@@ -1544,7 +1539,7 @@ public final class Attribute implements Comparable<Attribute> {
      * compilation tools - we usually need to look up labels in the target configuration.
      */
     public final boolean useHostConfiguration() {
-      return useHostConfiguration;
+      return false;
     }
 
     /**
@@ -1586,9 +1581,8 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public abstract static class AbstractLabelLateBoundDefault<FragmentT>
       extends LateBoundDefault<FragmentT, Label> {
-    protected AbstractLabelLateBoundDefault(
-        boolean useHostConfiguration, Class<FragmentT> fragmentClass, Label defaultValue) {
-      super(useHostConfiguration, fragmentClass, defaultValue);
+    protected AbstractLabelLateBoundDefault(Class<FragmentT> fragmentClass, Label defaultValue) {
+      super(fragmentClass, defaultValue);
     }
   }
 
@@ -1598,7 +1592,7 @@ public final class Attribute implements Comparable<Attribute> {
     static final AlwaysNullLateBoundDefault INSTANCE = new AlwaysNullLateBoundDefault();
 
     private AlwaysNullLateBoundDefault() {
-      super(false, Void.class, null, (rule, attributes, unused) -> null);
+      super(Void.class, null, (rule, attributes, unused) -> null);
     }
   }
 
@@ -1607,11 +1601,10 @@ public final class Attribute implements Comparable<Attribute> {
       extends SimpleLateBoundDefault<FragmentT, Label> {
     @VisibleForTesting
     protected LabelLateBoundDefault(
-        boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
         Label defaultValue,
         Resolver<FragmentT, Label> resolver) {
-      super(useHostConfiguration, fragmentClass, defaultValue, resolver);
+      super(fragmentClass, defaultValue, resolver);
     }
 
     /**
@@ -1625,12 +1618,6 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>Nearly all LateBoundDefaults should use this constructor or {@link
      * LabelListLateBoundDefault#fromTargetConfiguration}. There are few situations where it isn't
      * the appropriate option.
-     *
-     * <p>If you want a late-bound dependency which is configured in the host configuration, just
-     * use this method with {@link com.google.devtools.build.lib.analysis.config.HostTransition}. If
-     * you also need to decide the label of the dependency with information gained from the host
-     * configuration - and it's very unlikely that you do - you can use {@link
-     * LabelLateBoundDefault#fromHostConfiguration} as well.
      *
      * <p>If you want to decide an attribute's value based on the value of its other attributes, use
      * a subclass of {@link ComputedDefault}. The only time you should need {@link
@@ -1655,37 +1642,7 @@ public final class Attribute implements Comparable<Attribute> {
           !fragmentClass.equals(Void.class),
           "Use fromRuleAndAttributesOnly to specify a LateBoundDefault which does not use "
               + "configuration.");
-      return new LabelLateBoundDefault<>(false, fragmentClass, defaultValue, resolver);
-    }
-
-    /**
-     * Creates a new LateBoundDefault which uses the rule, its configured attributes, and a fragment
-     * of the host configuration.
-     *
-     * <p>This should only be necessary in very specialized cases. In almost all cases, you don't
-     * need this method, just {@link #fromTargetConfiguration} and {@link
-     * com.google.devtools.build.lib.analysis.config.HostTransition}.
-     *
-     * <p>This method only affects the configuration fragment passed to {@link #resolve}. You must
-     * also use {@link com.google.devtools.build.lib.analysis.config.HostTransition}, so that the
-     * dependency will be analyzed in the host configuration.
-     *
-     * @param fragmentClass The fragment to receive from the host configuration. May also be
-     *     BuildConfigurationValue.class to receive the entire configuration (deprecated) - in this
-     *     case, you must only use methods of BuildConfigurationValue itself, and not use any
-     *     fragments. It is very rare that a LateBoundDefault should need a host configuration
-     *     fragment; use {@link #fromTargetConfiguration} in most cases.
-     * @param defaultValue The default {@link Label} to return at loading time, when the
-     *     configuration is not available.
-     * @param resolver A function which will compute the actual value with the configuration.
-     */
-    public static <FragmentT> LabelLateBoundDefault<FragmentT> fromHostConfiguration(
-        Class<FragmentT> fragmentClass, Label defaultValue, Resolver<FragmentT, Label> resolver) {
-      Preconditions.checkArgument(
-          !fragmentClass.equals(Void.class),
-          "Use fromRuleAndAttributesOnly to specify a LateBoundDefault which does not use "
-              + "configuration.");
-      return new LabelLateBoundDefault<>(true, fragmentClass, defaultValue, resolver);
+      return new LabelLateBoundDefault<>(fragmentClass, defaultValue, resolver);
     }
   }
 
@@ -1695,7 +1652,7 @@ public final class Attribute implements Comparable<Attribute> {
     private LabelListLateBoundDefault(
         Class<FragmentT> fragmentClass,
         Resolver<FragmentT, List<Label>> resolver) {
-      super(/*useHostConfiguration=*/ false, fragmentClass, ImmutableList.of(), resolver);
+      super(fragmentClass, ImmutableList.of(), resolver);
     }
 
     public static <FragmentT> LabelListLateBoundDefault<FragmentT> fromTargetConfiguration(

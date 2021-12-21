@@ -96,7 +96,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
       Method method,
       String fragmentName,
       String fragmentFieldName) {
-    super(/*useHostConfiguration=*/ false, fragmentClass, defaultVal);
+    super(fragmentClass, defaultVal);
     this.method = method;
     this.fragmentName = fragmentName;
     this.fragmentFieldName = fragmentFieldName;
