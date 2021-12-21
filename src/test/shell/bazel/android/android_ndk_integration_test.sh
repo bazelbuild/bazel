@@ -286,6 +286,14 @@ EOF
     --crosstool_top=//external:android/crosstool \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed"
+
+  bazel build //:foo \
+    --features=compiler_param_file \
+    --compiler=clang5.0.300080 \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed with --features=compiler_param_file"
 }
 
 function test_android_ndk_repository_path_from_environment() {
@@ -352,6 +360,13 @@ EOF
     --crosstool_top=//external:android/crosstool \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     || fail "build failed"
+
+  bazel build //:foo.stripped \
+    --features=compiler_param_file \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed with --features=compiler_param_file"
 }
 
 function test_crosstool_stlport() {
@@ -381,6 +396,12 @@ int main(){
 }
 EOF
   assert_build //:foo \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-stlport \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+
+  assert_build //:foo \
+    --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-stlport \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
@@ -416,6 +437,12 @@ EOF
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-libcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+
+  assert_build //:foo \
+    --features=compiler_param_file \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-libcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 }
 
 function test_crosstool_gnu_libstdcpp() {
@@ -444,6 +471,12 @@ int main(){
 }
 EOF
   assert_build //:foo \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+
+  assert_build //:foo \
+    --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
@@ -487,6 +520,14 @@ EOF
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
     --platforms=//:android_arm \
     --extra_toolchains=@androidndk//:all
+
+  assert_build //:foo \
+    --features=compiler_param_file \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-libcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    --platforms=//:android_arm \
+    --extra_toolchains=@androidndk//:all
 }
 
 function test_crosstool_libcpp_with_multiarch() {
@@ -508,6 +549,13 @@ function test_crosstool_libcpp_with_multiarch() {
     --fat_apk_cpu="$cpus" \
     --android_crosstool_top=@androidndk//:toolchain-libcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+
+  assert_build //java/bazel:bin \
+    --features=compiler_param_file \
+    --fat_apk_cpu="$cpus" \
+    --android_crosstool_top=@androidndk//:toolchain-libcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+
   check_num_sos
   check_soname
 }
