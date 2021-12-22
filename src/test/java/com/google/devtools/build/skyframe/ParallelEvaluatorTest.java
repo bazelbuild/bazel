@@ -795,12 +795,12 @@ public class ParallelEvaluatorTest {
       throws Exception {
     Assume.assumeTrue(keepGoing || keepEdges);
 
-    graph = new InMemoryGraphImpl(keepEdges);
+    graph = keepEdges ? InMemoryGraph.create() : InMemoryGraph.createEdgeless();
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");
 
-    final Exception catastrophe = new SomeErrorException("bad");
+    Exception catastrophe = new SomeErrorException("bad");
     tester
         .getOrCreate(catastropheKey)
         .setBuilder(

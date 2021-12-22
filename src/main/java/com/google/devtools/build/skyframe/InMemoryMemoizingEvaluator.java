@@ -112,7 +112,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     this.progressReceiver = new DirtyTrackingProgressReceiver(progressReceiver);
     this.graphInconsistencyReceiver = Preconditions.checkNotNull(graphInconsistencyReceiver);
     this.eventFilter = eventFilter;
-    this.graph = new InMemoryGraphImpl(keepEdges);
+    this.graph = keepEdges ? InMemoryGraph.create() : InMemoryGraph.createEdgeless();
     this.emittedEventState = emittedEventState;
     this.keepEdges = keepEdges;
   }

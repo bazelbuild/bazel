@@ -126,7 +126,6 @@ import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryGraph;
-import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.GraphTransformerForTesting;
 import com.google.devtools.build.skyframe.NotifyingHelper;
@@ -363,7 +362,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     return new GraphTransformerForTesting() {
       @Override
       public InMemoryGraph transform(InMemoryGraph graph) {
-        InMemoryGraph transformed = new InMemoryGraphImpl();
+        InMemoryGraph transformed = InMemoryGraph.create();
         transformed
             .getAllValuesMutable()
             .putAll(Maps.transformValues(values, this::createNodeEntry));

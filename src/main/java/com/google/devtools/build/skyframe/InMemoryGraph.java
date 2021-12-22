@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -22,6 +23,20 @@ import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
 public interface InMemoryGraph extends ProcessableGraph {
+
+  /** Creates a new in-memory graph suitable for incremental builds. */
+  static InMemoryGraph create() {
+    return new InMemoryGraphImpl();
+  }
+
+  /**
+   * Creates a new in-memory graph that discards graph edges to save memory and cannot be used for
+   * incremental builds.
+   */
+  static InMemoryGraph createEdgeless() {
+    return new EdgelessInMemoryGraphImpl();
+  }
+
   @Override
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);

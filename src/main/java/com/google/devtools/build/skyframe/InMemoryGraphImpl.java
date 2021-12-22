@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,20 +32,14 @@ import javax.annotation.Nullable;
  * <p>This class is public only for use in alternative graph implementations.
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
+
   protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
-  private final boolean keepEdges;
 
-  @VisibleForTesting
-  public InMemoryGraphImpl() {
-    this(/*keepEdges=*/ true);
+  InMemoryGraphImpl() {
+    this(/*initialCapacity=*/ 1 << 10);
   }
 
-  public InMemoryGraphImpl(boolean keepEdges) {
-    this(keepEdges, /*initialCapacity=*/ 1 << 10);
-  }
-
-  protected InMemoryGraphImpl(boolean keepEdges, int initialCapacity) {
-    this.keepEdges = keepEdges;
+  protected InMemoryGraphImpl(int initialCapacity) {
     this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
   }
 
@@ -74,8 +68,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return result;
   }
 
+  @ForOverride
   protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
-    return keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
+    return new InMemoryNodeEntry();
   }
 
   /**
@@ -113,5 +108,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
     return nodeMap;
+  }
+
+  static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
+    @Override
+    protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
+      return new EdgelessInMemoryNodeEntry();
+    }
   }
 }
