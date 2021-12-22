@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.bazel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule;
-import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;
@@ -37,6 +35,7 @@ public final class Bazel {
    * <p>Example: To make the "standalone" execution strategy the default for spawns, put it after
    * all the other modules that provider spawn strategies (e.g. WorkerModule and SandboxModule).
    */
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
   public static final ImmutableList<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.of(
           BazelStartupOptionsModule.class,
@@ -52,7 +51,8 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
           com.google.devtools.build.lib.remote.RemoteModule.class,
           com.google.devtools.build.lib.bazel.BazelRepositoryModule.class,
-          StarlarkRepositoryDebugModule.class,
+          com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule
+              .class,
           com.google.devtools.build.lib.bazel.debug.WorkspaceRuleModule.class,
           com.google.devtools.build.lib.bazel.coverage.BazelCoverageReportModule.class,
           com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule.class,
@@ -79,7 +79,7 @@ public final class Bazel {
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
           BazelBuiltinCommandModule.class,
-          IncludeScanningModule.class);
+          com.google.devtools.build.lib.includescanning.IncludeScanningModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
