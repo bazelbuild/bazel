@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +51,12 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final boolean applyToGeneratingRules;
 
   private StarlarkAspectClass aspectClass;
+
+  private static final ImmutableSet<String> TRUE_REPS =
+      ImmutableSet.of("true", "1", "yes", "t", "y");
+
+  private static final ImmutableSet<String> FALSE_REPS =
+      ImmutableSet.of("false", "0", "no", "f", "n");
 
   public StarlarkDefinedAspect(
       StarlarkCallable implementation,
@@ -147,7 +154,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         String attrName = attr.getName();
         String attrValue = aspectParams.getOnlyValueOfAttribute(attrName);
         Preconditions.checkState(!Attribute.isImplicit(attrName));
-        Preconditions.checkState(attrType == Type.STRING || attrType == Type.INTEGER);
+        Preconditions.checkState(
+            attrType == Type.STRING || attrType == Type.INTEGER || attrType == Type.BOOLEAN);
         Preconditions.checkArgument(
             aspectParams.getAttribute(attrName).size() == 1,
             "Aspect %s parameter %s has %s values (must have exactly 1).",
@@ -182,11 +190,15 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   private static Attribute addAttrValue(Attribute attr, String attrValue) {
     Attribute.Builder<?> attrBuilder;
+    Type<?> attrType = attr.getType();
     Object castedValue = attrValue;
 
-    if (attr.getType() == Type.INTEGER) {
+    if (attrType == Type.INTEGER) {
       castedValue = StarlarkInt.parse(attrValue, /*base=*/ 0);
       attrBuilder = attr.cloneBuilder(Type.INTEGER).value((StarlarkInt) castedValue);
+    } else if (attrType == Type.BOOLEAN) {
+      castedValue = Boolean.parseBoolean(attrValue);
+      attrBuilder = attr.cloneBuilder(Type.BOOLEAN).value((Boolean) castedValue);
     } else {
       attrBuilder = attr.cloneBuilder(Type.STRING).value((String) castedValue);
     }
@@ -197,7 +209,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       // values in all aspects string attributes for both native and starlark aspects.
       // Therefore, allowedValues list is added here with only the current value of the attribute.
       return attrBuilder
-          .allowedValues(new Attribute.AllowedValueSet(attr.getType().cast(castedValue)))
+          .allowedValues(new Attribute.AllowedValueSet(attrType.cast(castedValue)))
           .build(attr.getName());
     } else {
       return attrBuilder.build(attr.getName());
@@ -232,8 +244,11 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
               rule.getTargetKind(),
               param);
           Preconditions.checkArgument(
-              ruleAttr.getType() == Type.STRING || ruleAttr.getType() == Type.INTEGER,
-              "Cannot apply aspect %s to %s since attribute '%s' is not string and not integer.",
+              ruleAttr.getType() == Type.STRING
+                  || ruleAttr.getType() == Type.INTEGER
+                  || ruleAttr.getType() == Type.BOOLEAN,
+              "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
+                  + " string.",
               getName(),
               rule.getTargetKind(),
               param);
@@ -264,9 +279,11 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       }
 
       Preconditions.checkArgument(
-          parameterType == Type.STRING || parameterType == Type.INTEGER,
-          "Aspect %s: Cannot pass value of attribute '%s' of type %s, only 'int' and 'string'"
-              + " attributes are allowed.",
+          parameterType == Type.STRING
+              || parameterType == Type.INTEGER
+              || parameterType == Type.BOOLEAN,
+          "Aspect %s: Cannot pass value of attribute '%s' of type %s, only 'boolean', 'int' and"
+              + " 'string' attributes are allowed.",
           getName(),
           parameterName,
           parameterType);
@@ -275,34 +292,50 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
           parametersValues.getOrDefault(
               parameterName, parameterType.cast(aspectParameter.getDefaultValue(null)).toString());
 
-      // Validate integer values for integer attributes
       Object castedParameterValue = parameterValue;
+      // Validate integer and boolean parameters values
       if (parameterType == Type.INTEGER) {
-        try {
-          castedParameterValue = StarlarkInt.parse(parameterValue, /*base=*/ 0);
-        } catch (NumberFormatException e) {
-          throw new EvalException(
-              String.format(
-                  "%s: expected value of type 'int' for attribute '%s' but got '%s'",
-                  getName(), parameterName, parameterValue),
-              e);
-        }
+        castedParameterValue = parseIntParameter(parameterName, parameterValue);
+      } else if (parameterType == Type.BOOLEAN) {
+        castedParameterValue = parseBooleanParameter(parameterName, parameterValue);
       }
 
       if (aspectParameter.checkAllowedValues()) {
         PredicateWithMessage<Object> allowedValues = aspectParameter.getAllowedValues();
-        if (parameterType == Type.INTEGER) {
-          castedParameterValue = StarlarkInt.parse(parameterValue, /*base=*/ 0);
-        }
         if (!allowedValues.apply(castedParameterValue)) {
           throw Starlark.errorf(
               "%s: invalid value in '%s' attribute: %s",
-              getName(), parameterName, allowedValues.getErrorReason(parameterValue));
+              getName(), parameterName, allowedValues.getErrorReason(castedParameterValue));
         }
       }
-      builder.addAttribute(parameterName, parameterValue);
+      builder.addAttribute(parameterName, castedParameterValue.toString());
     }
     return builder.build();
+  }
+
+  private StarlarkInt parseIntParameter(String name, String value) throws EvalException {
+    try {
+      return StarlarkInt.parse(value, /*base=*/ 0);
+    } catch (NumberFormatException e) {
+      throw new EvalException(
+          String.format(
+              "%s: expected value of type 'int' for attribute '%s' but got '%s'",
+              getName(), name, value),
+          e);
+    }
+  }
+
+  private Boolean parseBooleanParameter(String name, String value) throws EvalException {
+    value = Ascii.toLowerCase(value);
+    if (TRUE_REPS.contains(value)) {
+      return true;
+    }
+    if (FALSE_REPS.contains(value)) {
+      return false;
+    }
+    throw Starlark.errorf(
+        "%s: expected value of type 'bool' for attribute '%s' but got '%s'",
+        getName(), name, value);
   }
 
   public ImmutableList<Label> getRequiredToolchains() {

@@ -460,7 +460,8 @@ public final class AspectDefinition {
           attribute.isImplicit()
               || attribute.isLateBound()
               || (attribute.getType() == Type.STRING && attribute.checkAllowedValues())
-              || (attribute.getType() == Type.INTEGER && attribute.checkAllowedValues()),
+              || (attribute.getType() == Type.INTEGER && attribute.checkAllowedValues())
+              || attribute.getType() == Type.BOOLEAN,
           "%s: Invalid attribute '%s' (%s)",
           aspectClass.getName(),
           attribute.getName(),

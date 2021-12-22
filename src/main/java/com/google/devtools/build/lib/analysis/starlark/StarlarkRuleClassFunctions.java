@@ -639,9 +639,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         } else if (attribute.getType() == Type.INTEGER) {
           // isValueSet() is always true for attr.int as default value is 0 by default.
           hasDefault = !Objects.equals(attribute.getDefaultValue(null), StarlarkInt.of(0));
+        } else if (attribute.getType() == Type.BOOLEAN) {
+          hasDefault = !Objects.equals(attribute.getDefaultValue(null), false);
         } else {
           throw Starlark.errorf(
-              "Aspect parameter attribute '%s' must have type 'int' or 'string'.", nativeName);
+              "Aspect parameter attribute '%s' must have type 'bool', 'int' or 'string'.",
+              nativeName);
         }
 
         if (hasDefault && attribute.checkAllowedValues()) {
@@ -799,14 +802,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             String aspectAttrName = aspectAttribute.getPublicName();
             Type<?> aspectAttrType = aspectAttribute.getType();
 
-            // When propagated from a rule, explicit aspect attributes must be of type int or string
-            // and they must have `values` restriction.
+            // When propagated from a rule, explicit aspect attributes must be of type boolean, int
+            // or string. Integer and string attributes must have the `values` restriction.
             if (!aspectAttribute.isImplicit() && !aspectAttribute.isLateBound()) {
-              if ((aspectAttrType != Type.STRING && aspectAttrType != Type.INTEGER)
-                  || !aspectAttribute.checkAllowedValues()) {
+              if (aspectAttrType != Type.BOOLEAN && !aspectAttribute.checkAllowedValues()) {
                 throw Starlark.errorf(
-                    "Aspect %s: Aspect parameter attribute '%s' must have type 'int' or 'string'"
-                        + " and use the 'values' restriction.",
+                    "Aspect %s: Aspect parameter attribute '%s' must use the 'values' restriction.",
                     aspect.getName(), aspectAttrName);
               }
             }
