@@ -763,8 +763,7 @@ public final class RemoteModule extends BlazeModule {
         RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
         for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
           boolean uploadLocalResults =
-              RemoteExecutionService.shouldUploadLocalResults(
-                  remoteOptions, action.getExecutionInfo());
+              Utils.shouldUploadLocalResultsToRemoteCache(remoteOptions, action.getExecutionInfo());
           if (!uploadLocalResults) {
             for (Artifact output : action.getOutputs()) {
               if (output.isTreeArtifact()) {
