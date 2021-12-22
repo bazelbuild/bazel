@@ -145,7 +145,7 @@ public class BazelRepositoryModule extends BlazeModule {
           Set<String> conflicting =
               overrides.keySet().stream()
                   .filter(repositoryNamesWithManagedDirs::contains)
-                  .map(RepositoryName::getNameWithAt)
+                  .map(RepositoryName::getName)
                   .collect(Collectors.toSet());
           if (!conflicting.isEmpty()) {
             String message =

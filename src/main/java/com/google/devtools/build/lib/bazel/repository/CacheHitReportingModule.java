@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
@@ -56,7 +57,7 @@ public final class CacheHitReportingModule extends BlazeModule {
 
   @Subscribe
   public void failed(RepositoryFailedEvent event) {
-    String repo = event.getRepo();
+    String repo = RepositoryName.stripName(event.getRepo());
     Set<Pair<String, URL>> cacheHits = cacheHitsByRepo.get(repo);
     if (cacheHits != null && !cacheHits.isEmpty()) {
       StringBuilder info = new StringBuilder();

@@ -106,15 +106,15 @@ public abstract class Module {
     // If this is the root module, this perfectly falls into @<module name> => @
     if (!getName().isEmpty()) {
       mapping.put(
-          RepositoryName.createUnvalidated(getName()),
-          RepositoryName.createUnvalidated(getCanonicalRepoName()));
+          RepositoryName.createFromValidStrippedName(getName()),
+          RepositoryName.createFromValidStrippedName(getCanonicalRepoName()));
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
       mapping.put(
-          RepositoryName.createUnvalidated(dep.getKey()),
-          RepositoryName.createUnvalidated(dep.getValue().getCanonicalRepoName()));
+          RepositoryName.createFromValidStrippedName(dep.getKey()),
+          RepositoryName.createFromValidStrippedName(dep.getValue().getCanonicalRepoName()));
     }
     return RepositoryMapping.create(mapping.build(), getCanonicalRepoName());
   }

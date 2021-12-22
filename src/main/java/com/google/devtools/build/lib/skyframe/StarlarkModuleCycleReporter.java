@@ -57,7 +57,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       if (repo instanceof RepositoryDirectoryValue.Key) {
         eventHandler.post(
             new RequestRepositoryInformationEvent(
-                ((RepositoryDirectoryValue.Key) repo).argument().getName()));
+                ((RepositoryDirectoryValue.Key) repo).argument().strippedName()));
       }
     }
   }
@@ -126,7 +126,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       Function<SkyKey, String> printer =
           input -> {
             if (input instanceof RepositoryDirectoryValue.Key) {
-              return ((RepositoryDirectoryValue.Key) input).argument().getNameWithAt();
+              return ((RepositoryDirectoryValue.Key) input).argument().getName();
             } else {
               throw new UnsupportedOperationException();
             }
@@ -159,7 +159,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
         if (repo instanceof RepositoryDirectoryValue.Key) {
           message
               .append(" - ")
-              .append(((RepositoryDirectoryValue.Key) repo).argument().getNameWithAt())
+              .append(((RepositoryDirectoryValue.Key) repo).argument().getName())
               .append("\n");
         }
       }
@@ -167,7 +167,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       if (missingRepo instanceof RepositoryDirectoryValue.Key) {
         message
             .append("This could either mean you have to add the '")
-            .append(((RepositoryDirectoryValue.Key) missingRepo).argument().getNameWithAt())
+            .append(((RepositoryDirectoryValue.Key) missingRepo).argument().getName())
             .append("' repository with a statement like `http_archive` in your WORKSPACE file")
             .append(" (note that transitive dependencies are not added automatically), or move")
             .append(" an existing definition earlier in your WORKSPACE file.");

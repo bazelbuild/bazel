@@ -247,7 +247,7 @@ public class RepositoryOptions extends OptionsBase {
             "Repository override directory must be an absolute path", input);
       }
       try {
-        return RepositoryOverride.create(RepositoryName.create(pieces[0]), path);
+        return RepositoryOverride.create(RepositoryName.create("@" + pieces[0]), path);
       } catch (LabelSyntaxException e) {
         throw new OptionsParsingException("Invalid repository name given to override", input);
       }

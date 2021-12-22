@@ -87,7 +87,7 @@ public class ArtifactFactoryTest {
     barRelative = barPath.getRelative("barsource.txt");
 
     alienPath = PathFragment.create("external/alien");
-    alienPackage = PackageIdentifier.create("alien", alienPath);
+    alienPackage = PackageIdentifier.create("@alien", alienPath);
     alienRelative = alienPath.getRelative("alien.txt");
 
     artifactFactory = new ArtifactFactory(execRoot.getParentDirectory(), "bazel-out");

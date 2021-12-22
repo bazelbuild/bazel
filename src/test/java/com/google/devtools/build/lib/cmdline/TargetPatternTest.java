@@ -170,24 +170,28 @@ public class TargetPatternTest {
     RepositoryMapping renaming =
         RepositoryMapping.createAllowingFallback(
             ImmutableMap.of(
-                RepositoryName.create("foo"), RepositoryName.create("bar"),
-                RepositoryName.create("myworkspace"), RepositoryName.create("")));
+                RepositoryName.create("@foo"), RepositoryName.create("@bar"),
+                RepositoryName.create("@myworkspace"), RepositoryName.create("@")));
     TargetPattern.Parser parser =
         new TargetPattern.Parser(
-            PathFragment.EMPTY_FRAGMENT, RepositoryName.createUnvalidated("myrepo"), renaming);
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.createFromValidStrippedName("myrepo"),
+            renaming);
 
     // Expecting renaming
-    assertThat(parser.parse("@foo//package:target").getRepository().getName()).isEqualTo("bar");
+    assertThat(parser.parse("@foo//package:target").getRepository().strippedName())
+        .isEqualTo("bar");
     assertThat(parser.parse("@myworkspace//package:target").getRepository().isMain()).isTrue();
-    assertThat(parser.parse("@foo//foo/...").getRepository().getName()).isEqualTo("bar");
+    assertThat(parser.parse("@foo//foo/...").getRepository().strippedName()).isEqualTo("bar");
     assertThat(parser.parse("@myworkspace//foo/...").getRepository().isMain()).isTrue();
 
     // No renaming should occur
     assertThat(parser.parse("@//package:target").getRepository().isMain()).isTrue();
-    assertThat(parser.parse("@unrelated//package:target").getRepository().getName())
+    assertThat(parser.parse("@unrelated//package:target").getRepository().strippedName())
         .isEqualTo("unrelated");
-    assertThat(parser.parse("foo/package:target").getRepository().getName()).isEqualTo("myrepo");
-    assertThat(parser.parse("foo/...").getRepository().getName()).isEqualTo("myrepo");
+    assertThat(parser.parse("foo/package:target").getRepository().strippedName())
+        .isEqualTo("myrepo");
+    assertThat(parser.parse("foo/...").getRepository().strippedName()).isEqualTo("myrepo");
   }
 
   private static TargetPattern parse(String pattern) throws TargetParsingException {

@@ -29,44 +29,45 @@ public final class RepositoryMappingTest {
   public void maybeFallback() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.createAllowingFallback(
-            ImmutableMap.of(RepositoryName.create("A"), RepositoryName.create("com_foo_bar_a")));
-    assertThat(mapping.get(RepositoryName.create("A")))
-        .isEqualTo(RepositoryName.create("com_foo_bar_a"));
-    assertThat(mapping.get(RepositoryName.create("B"))).isEqualTo(RepositoryName.create("B"));
+            ImmutableMap.of(RepositoryName.create("@A"), RepositoryName.create("@com_foo_bar_a")));
+    assertThat(mapping.get(RepositoryName.create("@A")))
+        .isEqualTo(RepositoryName.create("@com_foo_bar_a"));
+    assertThat(mapping.get(RepositoryName.create("@B"))).isEqualTo(RepositoryName.create("@B"));
   }
 
   @Test
   public void neverFallback() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.create(
-            ImmutableMap.of(RepositoryName.create("A"), RepositoryName.create("com_foo_bar_a")),
+            ImmutableMap.of(RepositoryName.create("@A"), RepositoryName.create("@com_foo_bar_a")),
             "fake_owner_repo");
-    assertThat(mapping.get(RepositoryName.create("A")))
-        .isEqualTo(RepositoryName.create("com_foo_bar_a"));
-    assertThat(mapping.get(RepositoryName.create("B")))
-        .isEqualTo(RepositoryName.create("B").toNonVisible("fake_owner_repo"));
+    assertThat(mapping.get(RepositoryName.create("@A")))
+        .isEqualTo(RepositoryName.create("@com_foo_bar_a"));
+    assertThat(mapping.get(RepositoryName.create("@B")))
+        .isEqualTo(RepositoryName.create("@B").toNonVisible("fake_owner_repo"));
 
     // Special repos should still be visible
-    assertThat(mapping.get(RepositoryName.create("bazel_tools")))
-        .isEqualTo(RepositoryName.create("bazel_tools"));
-    assertThat(mapping.get(RepositoryName.create("local_config_platform")))
-        .isEqualTo(RepositoryName.create("local_config_platform"));
+    assertThat(mapping.get(RepositoryName.create("@bazel_tools")))
+        .isEqualTo(RepositoryName.create("@bazel_tools"));
+    assertThat(mapping.get(RepositoryName.create("@local_config_platform")))
+        .isEqualTo(RepositoryName.create("@local_config_platform"));
   }
 
   @Test
   public void additionalMappings() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.create(
-                ImmutableMap.of(RepositoryName.create("A"), RepositoryName.create("com_foo_bar_a")),
+                ImmutableMap.of(
+                    RepositoryName.create("@A"), RepositoryName.create("@com_foo_bar_a")),
                 "fake_owner_repo")
             .withAdditionalMappings(
                 ImmutableMap.of(
-                    RepositoryName.create("B"), RepositoryName.create("com_foo_bar_b")));
-    assertThat(mapping.get(RepositoryName.create("A")))
-        .isEqualTo(RepositoryName.create("com_foo_bar_a"));
-    assertThat(mapping.get(RepositoryName.create("B")))
-        .isEqualTo(RepositoryName.create("com_foo_bar_b"));
-    assertThat(mapping.get(RepositoryName.create("C")))
-        .isEqualTo(RepositoryName.create("C").toNonVisible("fake_owner_repo"));
+                    RepositoryName.create("@B"), RepositoryName.create("@com_foo_bar_b")));
+    assertThat(mapping.get(RepositoryName.create("@A")))
+        .isEqualTo(RepositoryName.create("@com_foo_bar_a"));
+    assertThat(mapping.get(RepositoryName.create("@B")))
+        .isEqualTo(RepositoryName.create("@com_foo_bar_b"));
+    assertThat(mapping.get(RepositoryName.create("@C")))
+        .isEqualTo(RepositoryName.create("@C").toNonVisible("fake_owner_repo"));
   }
 }

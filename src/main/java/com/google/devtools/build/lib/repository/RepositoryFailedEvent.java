@@ -46,13 +46,18 @@ public class RepositoryFailedEvent implements ProgressLike, BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
+    String strippedRepoName = repo;
+    if (strippedRepoName.startsWith("@")) {
+      strippedRepoName = strippedRepoName.substring(1);
+    }
     try {
-      Label label = Label.create(EXTERNAL_PACKAGE_IDENTIFIER, repo);
+      Label label = Label.create(EXTERNAL_PACKAGE_IDENTIFIER, strippedRepoName);
       return BuildEventIdUtil.unconfiguredLabelId(label);
     } catch (LabelSyntaxException e) {
       // As the repository name was accepted earlier, the label construction really shouldn't fail.
       // In any case, return something still referring to the repository.
-      return BuildEventIdUtil.unknownBuildEventId(EXTERNAL_PACKAGE_IDENTIFIER + ":" + repo);
+      return BuildEventIdUtil.unknownBuildEventId(
+          EXTERNAL_PACKAGE_IDENTIFIER + ":" + strippedRepoName);
     }
   }
 

@@ -101,7 +101,7 @@ public class OutputDirectories {
     public ArtifactRoot getRoot(
         String outputDirName, BlazeDirectories directories, RepositoryName mainRepositoryName) {
       // e.g., execroot/repo1
-      Path execRoot = directories.getExecRoot(mainRepositoryName.getName());
+      Path execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
           execRoot,
@@ -160,7 +160,7 @@ public class OutputDirectories {
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
-    this.execRoot = directories.getExecRoot(mainRepositoryName.getName());
+    this.execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
   }
 
   private static void addMnemonicPart(
@@ -265,7 +265,7 @@ public class OutputDirectories {
         execRoot,
         rootType,
         directories.getRelativeOutputPath(),
-        repository.getName(),
+        repository.strippedName(),
         outputDirName,
         nameFragment);
   }

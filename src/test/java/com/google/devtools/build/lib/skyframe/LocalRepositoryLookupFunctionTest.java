@@ -193,7 +193,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             RootedPath.toRootedPath(
                 Root.fromPath(rootDirectory), PathFragment.create("local/repo")));
     assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
     assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("local/repo"));
   }
 
@@ -209,7 +209,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
                 Root.fromPath(rootDirectory.getRelative("/abs")),
                 PathFragment.create("local/repo")));
     assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
     assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("/abs/local/repo"));
   }
 
@@ -224,7 +224,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             RootedPath.toRootedPath(
                 Root.fromPath(rootDirectory), PathFragment.create("local/repo")));
     assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
     assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("local/repo"));
   }
 
@@ -240,7 +240,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
                 Root.fromPath(rootDirectory.getRelative("/abs")),
                 PathFragment.create("local/repo")));
     assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
     assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("/abs/local/repo"));
   }
 
@@ -256,7 +256,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             RootedPath.toRootedPath(
                 Root.fromPath(rootDirectory), PathFragment.create("local/repo/sub/package")));
     assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
     assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("local/repo"));
   }
 

@@ -117,9 +117,14 @@ final class LabelParser {
       return validateAndCreate(repo, pkgIsAbsolute, pkg, target, rawLabel);
     }
 
+    @Nullable
     private static void validateRepoName(@Nullable String repo) throws LabelSyntaxException {
-      if (repo != null) {
-        RepositoryName.validate(repo);
+      if (repo == null) {
+        return;
+      }
+      String error = RepositoryName.validate('@' + repo);
+      if (error != null) {
+        throw syntaxErrorf("invalid repository name '@%s': %s", repo, error);
       }
     }
 

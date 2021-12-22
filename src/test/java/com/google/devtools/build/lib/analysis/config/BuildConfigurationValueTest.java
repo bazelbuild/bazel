@@ -389,16 +389,16 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false),
-            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false))
+            createRaw(parseBuildOptions("--test_arg=1a"), "@testrepo", false),
+            createRaw(parseBuildOptions("--test_arg=1a"), "@testrepo", false))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "@testrepo", false))
         // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", true))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "@testrepo", true))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "@testrepo", false))
         // Different repositoryName means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo1", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo2", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "@testrepo1", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "@testrepo2", false))
         .testEquals();
   }
 

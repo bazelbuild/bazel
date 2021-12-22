@@ -899,7 +899,7 @@ public class CppHelper {
         && (!ruleContext.isAttrDefined("win_def_file", LABEL)
             || ruleContext.getPrerequisiteArtifact("win_def_file") == null)) {
       Fingerprint digest = new Fingerprint();
-      digest.addString(ruleContext.getRepository().getNameWithAt());
+      digest.addString(ruleContext.getRepository().getName());
       digest.addPath(ruleContext.getPackageDirectory());
       return "_" + digest.hexDigestAndReset().substring(0, 10);
     }

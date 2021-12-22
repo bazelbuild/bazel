@@ -216,7 +216,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   private static RepositoryName getToolsRepository(RuleContext ruleContext) {
-    return RepositoryName.createUnvalidated(
+    return RepositoryName.createFromValidStrippedName(
         ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
   }
 

@@ -148,7 +148,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   /** Checks the behavior of {@link ConfigSetting#isUnderToolsPackage}. */
   @Test
   public void isUnderToolsPackage() throws Exception {
-    RepositoryName toolsRepo = RepositoryName.create("tools");
+    RepositoryName toolsRepo = RepositoryName.create("@tools");
     // Subpackage of the tools package.
     assertThat(
             ConfigSetting.isUnderToolsPackage(

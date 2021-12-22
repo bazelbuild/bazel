@@ -90,7 +90,7 @@ public class ManagedDirectoriesKnowledgeImpl implements ManagedDirectoriesKnowle
     }
 
     ImmutableSortedMap.Builder<RepositoryName, ImmutableSet<PathFragment>> reposMapBuilder =
-        new ImmutableSortedMap.Builder<>(Comparator.comparing(RepositoryName::getNameWithAt));
+        new ImmutableSortedMap.Builder<>(Comparator.comparing(RepositoryName::getName));
     for (Map.Entry<RepositoryName, Set<PathFragment>> entry : reposMap.entrySet()) {
       reposMapBuilder.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
     }

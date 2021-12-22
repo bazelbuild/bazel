@@ -912,7 +912,7 @@ public abstract class TargetPattern {
               "Couldn't find package in target " + pattern, TargetPatterns.Code.PACKAGE_NOT_FOUND);
         }
         try {
-          repository = repoMapping.get(RepositoryName.create(pattern.substring(1, pkgStart)));
+          repository = repoMapping.get(RepositoryName.create(pattern.substring(0, pkgStart)));
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }
@@ -920,7 +920,7 @@ public abstract class TargetPattern {
           throw new TargetParsingException(
               String.format(
                   "%s is not visible from repository `@%s`",
-                  repository.getNameWithAt(), repository.getOwnerRepoIfNotVisible()),
+                  repository.getName(), repository.getOwnerRepoIfNotVisible()),
               Code.PACKAGE_NOT_FOUND);
         }
 
@@ -965,7 +965,7 @@ public abstract class TargetPattern {
         PackageIdentifier packageIdentifier;
         try {
           packageIdentifier =
-              PackageIdentifier.parse(repository.getNameWithAt() + "//" + realPackagePart);
+              PackageIdentifier.parse(repository.getName() + "//" + realPackagePart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(
               "Invalid package name '" + realPackagePart + "': " + e.getMessage(),
@@ -981,8 +981,7 @@ public abstract class TargetPattern {
       if (ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
         PackageIdentifier packageIdentifier;
         try {
-          packageIdentifier =
-              PackageIdentifier.parse(repository.getNameWithAt() + "//" + packagePart);
+          packageIdentifier = PackageIdentifier.parse(repository.getName() + "//" + packagePart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(
               "Invalid package name '" + packagePart + "': " + e.getMessage(),
@@ -995,8 +994,7 @@ public abstract class TargetPattern {
       if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
         PackageIdentifier packageIdentifier;
         try {
-          packageIdentifier =
-              PackageIdentifier.parse(repository.getNameWithAt() + "//" + packagePart);
+          packageIdentifier = PackageIdentifier.parse(repository.getName() + "//" + packagePart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(
               "Invalid package name '" + packagePart + "': " + e.getMessage(),
@@ -1008,7 +1006,7 @@ public abstract class TargetPattern {
 
       if (includesRepo || wasOriginallyAbsolute || pattern.contains(":")) {
         PackageIdentifier packageIdentifier;
-        String fullLabel = repository.getNameWithAt() + "//" + pattern;
+        String fullLabel = repository.getName() + "//" + pattern;
         try {
           PackageAndTarget packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
           packageIdentifier =

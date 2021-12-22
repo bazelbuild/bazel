@@ -444,7 +444,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public String getMainRepositoryName() {
-    return mainRepositoryName.getName();
+    return mainRepositoryName.strippedName();
   }
 
   /**

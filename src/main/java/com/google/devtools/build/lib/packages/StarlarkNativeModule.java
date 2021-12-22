@@ -563,7 +563,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     BazelStarlarkContext.from(thread).checkLoadingPhase("native.repository_name");
     PackageIdentifier packageId =
         PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
-    return packageId.getRepository().getNameWithAt();
+    return packageId.getRepository().toString();
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {

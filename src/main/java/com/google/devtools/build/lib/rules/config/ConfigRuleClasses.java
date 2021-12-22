@@ -151,7 +151,7 @@ public class ConfigRuleClasses {
                       new ComputedDefault() {
                         @Override
                         public Object getDefault(AttributeMap rule) {
-                          return env.getToolsRepository().getName();
+                          return env.getToolsRepository().strippedName();
                         }
                       }))
 
