@@ -206,6 +206,17 @@ java_library(
 )
 
 java_library(
+    name = "runtime/memory_pressure_handler",
+    srcs = [
+        "runtime/MemoryPressureHandler.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//third_party/java/auto:auto_value",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [

@@ -43,6 +43,7 @@ public final class Bazel {
           // implementation.
           com.google.devtools.build.lib.runtime.NoSpawnCacheModule.class,
           com.google.devtools.build.lib.runtime.CommandLogModule.class,
+          com.google.devtools.build.lib.runtime.MemoryPressureModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,
           com.google.devtools.build.lib.platform.SystemSuspensionModule.class,
           com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
