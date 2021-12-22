@@ -494,7 +494,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       // have actually been invalidated (recall that invalidation happens at the beginning of the
       // next evaluate() call), because checking those is a waste of time.
       EvaluationContext evaluationContext =
-          EvaluationContext.newBuilder()
+          newEvaluationContextBuilder()
               .setKeepGoing(false)
               .setNumThreads(DEFAULT_THREAD_COUNT)
               .setEventHandler(eventHandler)
@@ -886,7 +886,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Uninterruptibles.callUninterruptibly(
           () -> {
             EvaluationContext evaluationContext =
-                EvaluationContext.newBuilder()
+                newEvaluationContextBuilder()
                     .setKeepGoing(false)
                     .setNumThreads(ResourceUsage.getAvailableProcessors())
                     .setEventHandler(eventHandler)
@@ -1013,7 +1013,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private SkyValue evaluateSingleValue(SkyKey key, ExtendedEventHandler eventHandler)
       throws InterruptedException {
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(false)
             .setNumThreads(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)

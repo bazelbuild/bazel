@@ -437,7 +437,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.packageManager =
         new SkyframePackageManager(
             new SkyframePackageLoader(),
-            new QueryTransitivePackagePreloader(this::getDriver),
+            new QueryTransitivePackagePreloader(this::getDriver, this::newEvaluationContextBuilder),
             syscalls,
             pkgLocator,
             numPackagesLoaded);
@@ -1258,7 +1258,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     EvaluationResult<ContainingPackageLookupValue> result;
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(true)
             .setNumThreads(1)
             .setEventHandler(eventHandler)
@@ -1621,7 +1621,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           TestCompletionValue.keys(
               parallelTests, topLevelArtifactContext, /*exclusiveTesting=*/ false);
       EvaluationContext evaluationContext =
-          EvaluationContext.newBuilder()
+          newEvaluationContextBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
               .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
@@ -1761,7 +1761,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throws InterruptedException {
     checkActive();
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
             .setEventHandler(eventHandler)
@@ -2359,7 +2359,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
             .setExecutorServiceSupplier(
@@ -2392,7 +2392,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
             .setExecutorServiceSupplier(
@@ -3366,12 +3366,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExtendedEventHandler eventHandler)
       throws InterruptedException {
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
             .setEventHandler(eventHandler)
             .build();
     return buildDriver.evaluate(roots, evaluationContext);
+  }
+
+  protected final EvaluationContext.Builder newEvaluationContextBuilder() {
+    return EvaluationContext.newBuilder();
   }
 
   /** Receiver for successfully evaluated/doing computation {@link SkyKey}s. */
