@@ -30,7 +30,7 @@ public final class Program {
   private Program(
       Resolver.Function body, ImmutableList<String> loads, ImmutableList<Location> loadLocations) {
     Preconditions.checkArgument(loads.size() == loadLocations.size(),
-      "loads size must be equal to load locations size");
+      "each load must have a corresponding location");
 
     // TODO(adonovan): compile here.
     this.body = body;
