@@ -40,8 +40,8 @@ public class SequentialBuildDriver implements BuildDriver {
           curVersion,
           evaluationContext.getExecutorServiceSupplier().isPresent()
               ? evaluationContext
-              : EvaluationContext.newBuilder()
-                  .copyFrom(evaluationContext)
+              : evaluationContext
+                  .builder()
                   .setNumThreads(evaluationContext.getParallelism())
                   .setExecutorServiceSupplier(
                       () ->

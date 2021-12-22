@@ -248,6 +248,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return ImmutableSet.of(universeKey);
   }
 
+  protected EvaluationContext newEvaluationContext() {
+    return EvaluationContext.newBuilder()
+        .setNumThreads(loadingPhaseThreads)
+        .setEventHandler(universeEvalEventHandler)
+        .build();
+  }
+
   protected void beforeEvaluateQuery(QueryExpression expr)
       throws QueryException, InterruptedException {
     UniverseSkyKey universeKey = universeScope.getUniverseKey(expr, parserPrefix);
@@ -257,12 +264,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
     EvaluationResult<SkyValue> result;
     try (AutoProfiler p = GoogleAutoProfilerUtils.logged("evaluation and walkable graph")) {
-      EvaluationContext evaluationContext =
-          EvaluationContext.newBuilder()
-              .setNumThreads(loadingPhaseThreads)
-              .setEventHandler(universeEvalEventHandler)
-              .build();
-      result = graphFactory.prepareAndGet(roots, configureEvaluationContext(evaluationContext));
+      result = graphFactory.prepareAndGet(roots, newEvaluationContext());
     }
 
     if (graph == null || graph != result.getWalkableGraph()) {
@@ -309,14 +311,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             PrepareDepsOfPatternsFunction.getTargetPatternKeys(
                 PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler)),
             TargetPatternKey::getParsedPattern));
-  }
-
-  /**
-   * Configures the default {@link EvaluationContext} to change the behavior of how evaluations in
-   * {@link WalkableGraphFactory#prepareAndGet} work.
-   */
-  protected EvaluationContext configureEvaluationContext(EvaluationContext evaluationContext) {
-    return evaluationContext;
   }
 
   protected MultisetSemaphore<PackageIdentifier> makeFreshPackageMultisetSemaphore() {

@@ -2526,9 +2526,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * a complete graph to work on.
    */
   @Override
-  public EvaluationResult<SkyValue> prepareAndGet(
+  public final EvaluationResult<SkyValue> prepareAndGet(
       Set<SkyKey> roots, EvaluationContext evaluationContext) throws InterruptedException {
-    return buildDriver.evaluate(roots, evaluationContext.getCopyWithKeepGoing(/*keepGoing=*/ true));
+    EvaluationContext evaluationContextToUse =
+        evaluationContext.builder().setKeepGoing(/*keepGoing=*/ true).build();
+    return buildDriver.evaluate(roots, evaluationContextToUse);
   }
 
   /**
