@@ -45,7 +45,7 @@ exported_rules = {
     "+apple_static_library": apple_static_library,
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
-    "-cc_binary": cc_binary,
+    "+cc_binary": cc_binary,
     "-cc_test": cc_test,
 }
 exported_to_java = {
