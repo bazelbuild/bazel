@@ -46,7 +46,7 @@ public class RepositoryMappingFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
+    RepositoryName repositoryName = ((RepositoryMappingValue.Key) skyKey).repoName();
 
     BazelModuleResolutionValue bazelModuleResolutionValue = null;
     if (Preconditions.checkNotNull(RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env))) {
@@ -56,9 +56,10 @@ public class RepositoryMappingFunction implements SkyFunction {
         return null;
       }
 
-      // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
-      // workspace repos and add them as extra visible repos in root module's repo mappings.
-      if (repositoryName.isMain()) {
+      if (repositoryName.isMain()
+          && ((RepositoryMappingValue.Key) skyKey).rootModuleShouldSeeWorkspaceRepos()) {
+        // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
+        // workspace repos and add them as extra visible repos in root module's repo mappings.
         SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
         PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
         if (env.valuesMissing()) {
