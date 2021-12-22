@@ -291,7 +291,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           FileStateValue.FILE_STATE,
           FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
-          SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.TARGET_PATTERN_PHASE);
