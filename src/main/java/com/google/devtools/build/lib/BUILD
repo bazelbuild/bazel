@@ -212,7 +212,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//third_party/java/auto:auto_value",
+        "//third_party:auto_value",
     ],
 )
 
