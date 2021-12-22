@@ -124,7 +124,9 @@ public class ParallelEvaluatorTest {
         revalidationReceiver,
         GraphInconsistencyReceiver.THROWING,
         () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
-        new SimpleCycleDetector());
+        new SimpleCycleDetector(),
+        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
+        /*executionJobsThreadPoolSize=*/ 0);
   }
 
   private ParallelEvaluator makeEvaluator(

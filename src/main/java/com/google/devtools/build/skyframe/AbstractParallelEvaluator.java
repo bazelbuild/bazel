@@ -105,36 +105,6 @@ abstract class AbstractParallelEvaluator {
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
-      CycleDetector cycleDetector) {
-    this(
-        graph,
-        graphVersion,
-        skyFunctions,
-        reporter,
-        emittedEventState,
-        storedEventFilter,
-        errorInfoManager,
-        keepGoing,
-        progressReceiver,
-        graphInconsistencyReceiver,
-        executorService,
-        cycleDetector,
-        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-        /*executionJobsThreadPoolSize=*/ 0);
-  }
-
-  AbstractParallelEvaluator(
-      ProcessableGraph graph,
-      Version graphVersion,
-      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
-      ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
-      EventFilter storedEventFilter,
-      ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
-      GraphInconsistencyReceiver graphInconsistencyReceiver,
-      Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionJobsThreadPoolSize) {
