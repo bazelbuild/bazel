@@ -59,7 +59,6 @@ public class ProtoCompileActionBuilder {
   public static final String STRICT_DEPS_FLAG_TEMPLATE =
       "--direct_dependencies_violation_msg=" + ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE;
 
-  private final RuleContext ruleContext;
   private final ProtoInfo protoInfo;
   private final FilesToRunProvider protoCompiler;
   private final String language;
@@ -117,13 +116,11 @@ public class ProtoCompileActionBuilder {
   }
 
   public ProtoCompileActionBuilder(
-      RuleContext ruleContext,
       ProtoInfo protoInfo,
       FilesToRunProvider protoCompiler,
       String language,
       String langPrefix,
       Iterable<Artifact> outputs) {
-    this.ruleContext = ruleContext;
     this.protoInfo = protoInfo;
     this.protoCompiler = protoCompiler;
     this.language = language;
@@ -160,20 +157,23 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  @Nullable
-  public SpawnAction maybeBuild() {
+  public void maybeRegister(RuleContext ruleContext) {
     if (isEmpty(outputs)) {
-      return null;
+      return;
     }
 
     try {
-      return createAction().build(ruleContext);
+      SpawnAction action = createAction(ruleContext).build(ruleContext);
+      if (action != null) {
+        ruleContext.registerAction(action);
+      }
     } catch (MissingPrerequisiteException e) {
-      return null;
+      // Ignore missing proto compiler.
     }
   }
 
-  private SpawnAction.Builder createAction() throws MissingPrerequisiteException {
+  private SpawnAction.Builder createAction(RuleContext ruleContext)
+      throws MissingPrerequisiteException {
     SpawnAction.Builder result =
         new SpawnAction.Builder().addTransitiveInputs(protoInfo.getTransitiveProtoSources());
 
@@ -201,7 +201,7 @@ public class ProtoCompileActionBuilder {
         .useDefaultShellEnvironment()
         .setExecutable(protoCompiler)
         .addCommandLine(
-            createProtoCompilerCommandLine().build(),
+            createProtoCompilerCommandLine(ruleContext).build(),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", language, ruleContext.getLabel())
         .setMnemonic(mnemonic);
@@ -210,8 +210,7 @@ public class ProtoCompileActionBuilder {
   }
 
   /** Commandline generator for protoc invocations. */
-  @VisibleForTesting
-  CustomCommandLine.Builder createProtoCompilerCommandLine() {
+  private CustomCommandLine.Builder createProtoCompilerCommandLine(RuleContext ruleContext) {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPlugin != null && langPlugin.getExecutable() != null) {
