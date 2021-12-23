@@ -163,6 +163,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/skyframe:loading_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_progress_receiver",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

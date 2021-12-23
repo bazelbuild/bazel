@@ -21,6 +21,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -40,6 +41,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.time.Duration;
 
 /**
  * Blaze module for the build summary message that reports various stats to the user.
@@ -60,6 +63,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionEndMillis;
   private SpawnStats spawnStats;
   private Path profilePath;
+  private static final long UNKNOWN = -1;
+  private long cpuUserTimeForActions = 0;
+  private long cpuSystemTimeForActions = 0;
+  private long cpuTimeForBazelJvm = UNKNOWN;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -109,7 +116,20 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
-  }
+    Optional<Duration> cpuUserTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionUserTime();
+
+    if(cpuUserTimeForActionsDuration.isPresent() &&  (cpuUserTimeForActions != UNKNOWN)) {
+      cpuUserTimeForActions = cpuUserTimeForActions + cpuUserTimeForActionsDuration.get().toMillis();
+    } else {
+      cpuUserTimeForActions  =  UNKNOWN;
+    }
+    Optional<Duration> cpuSystemTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionSystemTime();
+    if(cpuSystemTimeForActionsDuration.isPresent() &&  (cpuSystemTimeForActions != UNKNOWN)){
+      cpuSystemTimeForActions = cpuSystemTimeForActions + cpuSystemTimeForActionsDuration.get().toMillis();
+    } else {
+      cpuSystemTimeForActions = UNKNOWN;
+    }
+ }
 
   @Subscribe
   @AllowConcurrentEvents
@@ -160,6 +180,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
         // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
         // the BuildToolLogs to afterCommand of this module.
         try {
+          if(Profiler.getProcessCpuTimeMaybe() != null) {
+            cpuTimeForBazelJvm = Profiler.getProcessCpuTimeMaybe().toMillis();
+          }
           Profiler.instance().stop();
           event
               .getResult()
@@ -191,6 +214,14 @@ public class BuildSummaryStatsModule extends BlazeModule {
                     (now - commandStartMillis) / 1000.0,
                     overheadTime / 1000.0,
                     executionTime / 1000.0)));
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "CPU time %s (user %s, system %s, bazel %s)",
+                    formatCpuTime(sumCpuTimes(cpuUserTimeForActions, cpuSystemTimeForActions, cpuTimeForBazelJvm)),
+                    formatCpuTime(cpuUserTimeForActions),
+                    formatCpuTime(cpuSystemTimeForActions),
+                    formatCpuTime(cpuTimeForBazelJvm))));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
         reporter.handle(Event.info(spawnSummaryString));
@@ -206,6 +237,25 @@ public class BuildSummaryStatsModule extends BlazeModule {
         criticalPathComputer = null;
       }
       profilePath = null;
+      cpuUserTimeForActions = 0;
+      cpuSystemTimeForActions = 0;
+      cpuTimeForBazelJvm = UNKNOWN;
+    }
+  }
+
+  private static String formatCpuTime(long milliseconds) {
+    if (milliseconds == UNKNOWN) {
+      return "???s";
+    } else {
+      return String.format("%.2fs", milliseconds / 1000.0);
+    }
+  }
+
+  private static long sumCpuTimes(long a, long b, long c) {
+    if ((a == UNKNOWN) || (b == UNKNOWN) || (c == UNKNOWN)) {
+      return UNKNOWN;
+    } else {
+      return a + b + c;
     }
   }
 }
