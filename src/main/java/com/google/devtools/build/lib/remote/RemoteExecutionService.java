@@ -356,19 +356,6 @@ public class RemoteExecutionService {
     }
   }
 
-  public static boolean shouldUploadLocalResults(
-      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
-    if (useRemoteCache(remoteOptions)) {
-      if (useDiskCache(remoteOptions)) {
-        return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
-      } else {
-        return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
-      }
-    } else {
-      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
-    }
-  }
-
   /**
    * Returns {@code true} if the local results of the {@code spawn} should be uploaded to remote
    * cache.
@@ -378,7 +365,15 @@ public class RemoteExecutionService {
       return false;
     }
 
-    return shouldUploadLocalResults(remoteOptions, spawn.getExecutionInfo());
+    if (useRemoteCache(remoteOptions)) {
+      if (useDiskCache(remoteOptions)) {
+        return shouldUploadLocalResultsToCombinedDisk(remoteOptions, spawn);
+      } else {
+        return shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn);
+      }
+    } else {
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, spawn);
+    }
   }
 
   /** Returns {@code true} if the spawn may be executed remotely. */

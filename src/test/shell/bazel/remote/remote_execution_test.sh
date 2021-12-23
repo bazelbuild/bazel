@@ -3505,4 +3505,34 @@ EOF
   [[ "$disk_cas_files" == 0 ]] || fail "Expected 0 disk cas entries, not $disk_cas_files"
 }
 
+function test_uploader_incompatible_remote_results_ignore_disk() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+  tags = ["no-remote"],
+)
+EOF
+
+  cache_dir=$(mktemp -d)
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --disk_cache=$cache_dir \
+      --incompatible_remote_build_event_upload_respect_no_cache \
+      --incompatible_remote_results_ignore_disk \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  cat bep.json > $TEST_log
+  expect_not_log "a:foo.*bytestream://" || fail "local files are converted"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+
+  disk_cas_files="$(count_disk_cas_files $cache_dir)"
+  # foo.txt, stdout and stderr for action 'foo'
+  [[ "$disk_cas_files" == 3 ]] || fail "Expected 3 disk cas entries, not $disk_cas_files"
+}
+
 run_suite "Remote execution and remote cache tests"
