@@ -63,7 +63,7 @@ public abstract class ModuleKey {
       return WELL_KNOWN_MODULES.get(getName());
     }
     if (getVersion().isEmpty()) {
-      return getName();
+      return getName() + ".override";
     }
     return getName() + "." + getVersion();
   }
