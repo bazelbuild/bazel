@@ -136,12 +136,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         createAndPopulateTreeArtifact("inputTreeArtifact", "child0", "child1", "child2");
     SpecialArtifact outputTreeArtifact = createTreeArtifact("outputTreeArtifact");
 
-    OutputPathMapper mapper = new OutputPathMapper() {
-      @Override
-      public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        return PathFragment.create("conflict_path");
-      }
-    };
+    OutputPathMapper mapper = artifact -> PathFragment.create("conflict_path");
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
             .setExecutable(PathFragment.create("/bin/cp"))
@@ -365,9 +360,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return actionList.build();
   }
 
-  private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate) {
+  private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
+      throws ActionConflictException, InterruptedException {
     return new BasicActionLookupValue(
-        Actions.GeneratingActions.fromSingleAction(actionTemplate, CTKEY));
+        Actions.assignOwnersAndFindAndThrowActionConflict(
+            new ActionKeyContext(), ImmutableList.of(actionTemplate), CTKEY));
   }
 
   private SpecialArtifact createTreeArtifact(String path) {
@@ -407,11 +404,6 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
       return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

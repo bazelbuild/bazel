@@ -157,4 +157,8 @@ void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
 }
 
+void portable_start_disk_space_monitoring() {
+  // Currently not implemented.
+}
+
 }  // namespace blaze_jni

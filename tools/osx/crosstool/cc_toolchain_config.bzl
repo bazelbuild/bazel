@@ -67,7 +67,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_armv7"):
         target_system_name = "armv7-apple-ios"
     elif (ctx.attr.cpu == "watchos_armv7k"):
-        target_system_name = "armv7-apple-watchos"
+        target_system_name = "armv7k-apple-watchos"
     elif (ctx.attr.cpu == "ios_i386"):
         target_system_name = "i386-apple-ios"
     elif (ctx.attr.cpu == "watchos_i386"):

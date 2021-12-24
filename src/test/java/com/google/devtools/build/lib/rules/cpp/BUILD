@@ -124,6 +124,7 @@ java_test(
 
 java_test(
     name = "CcCommonTest",
+    timeout = "long",
     srcs = ["CcCommonTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",

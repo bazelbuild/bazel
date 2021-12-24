@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.dynamic.DynamicExecutionModule.IgnoreFailureCheck;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -105,7 +106,13 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   /** If true, this is the first build since the server started. */
   private final boolean firstBuild;
 
+  /** A callback that allows checking if a given failure can be ignored on one branch. */
+  private final IgnoreFailureCheck ignoreFailureCheck;
+
   private boolean skipBuildWarningShown;
+
+  /** Limit on how many threads we should use for dynamic execution. */
+  private final Semaphore threadLimiter;
 
   /**
    * Constructs a {@code DynamicSpawnStrategy}.
@@ -118,12 +125,16 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       DynamicExecutionOptions options,
       Function<Spawn, ExecutionPolicy> getExecutionPolicy,
       Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution,
-      boolean firstBuild) {
+      boolean firstBuild,
+      int numCpus,
+      IgnoreFailureCheck ignoreFailureCheck) {
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.options = options;
     this.getExecutionPolicy = getExecutionPolicy;
     this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
     this.firstBuild = firstBuild;
+    this.threadLimiter = new Semaphore(numCpus);
+    this.ignoreFailureCheck = ignoreFailureCheck;
   }
 
   /**
@@ -597,44 +608,64 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       }
       return runRemotely(spawn, actionExecutionContext, null);
     }
-    // Extra logging to debug b/194373457
-    logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
-        "Spawn %s dynamically executed both ways", spawn.getResourceOwner().describe());
-    debugLog("Dynamic execution of %s beginning%n", spawn.getResourceOwner().prettyPrint());
-    // else both can exec. Fallthrough to below.
 
-    // Semaphores to track termination of each branch. These are necessary to wait for the branch to
-    // finish its own cleanup (e.g. terminating subprocesses) once it has been cancelled.
-    Semaphore localDone = new Semaphore(0);
-    Semaphore remoteDone = new Semaphore(0);
+    // True if we got the threads we need for actual dynamic execution.
+    boolean gotThreads = false;
+    try {
+      if (threadLimiter.tryAcquire()) {
+        gotThreads = true;
+      } else {
+        // If there are no threads available for dynamic execution because we're limited
+        // to the number of CPUs, we can just execute remotely.
+        ImmutableList<SpawnResult> spawnResults = runRemotely(spawn, actionExecutionContext, null);
+        for (SpawnResult r : spawnResults) {
+          if (r.isCacheHit()) {
+            delayLocalExecution.set(true);
+            break;
+          }
+        }
+        return spawnResults;
+      }
 
-    AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>(null);
-    SettableFuture<ImmutableList<SpawnResult>> localBranch = SettableFuture.create();
-    SettableFuture<ImmutableList<SpawnResult>> remoteBranch = SettableFuture.create();
+      // Extra logging to debug b/194373457
+      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+          "Spawn %s dynamically executed both ways", spawn.getResourceOwner().describe());
+      debugLog("Dynamic execution of %s beginning%n", spawn.getResourceOwner().prettyPrint());
+      // else both can exec. Fallthrough to below.
 
-    AtomicBoolean localStarting = new AtomicBoolean(true);
-    AtomicBoolean remoteStarting = new AtomicBoolean(true);
+      // Semaphores to track termination of each branch. These are necessary to wait for the branch
+      // to finish its own cleanup (e.g. terminating subprocesses) once it has been cancelled.
+      Semaphore localDone = new Semaphore(0);
+      Semaphore remoteDone = new Semaphore(0);
 
-    localBranch.setFuture(
-        executorService.submit(
-            new Branch(LOCAL, actionExecutionContext) {
-              @Override
-              ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
-                  throws InterruptedException, ExecException {
-                try {
-                  if (!localStarting.compareAndSet(true, false)) {
-                    // If we ever get here, it's because we were cancelled early and the listener
-                    // ran first. Just make sure that's the case.
-                    checkState(Thread.interrupted());
-                    throw new InterruptedException();
-                  }
-                  if (delayLocalExecution.get()) {
-                    Thread.sleep(options.localExecutionDelay);
-                  }
-                  return runLocally(
-                      spawn,
-                      context,
-                      () ->
+      AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>(null);
+      SettableFuture<ImmutableList<SpawnResult>> localBranch = SettableFuture.create();
+      SettableFuture<ImmutableList<SpawnResult>> remoteBranch = SettableFuture.create();
+
+      AtomicBoolean localStarting = new AtomicBoolean(true);
+      AtomicBoolean remoteStarting = new AtomicBoolean(true);
+
+      localBranch.setFuture(
+          executorService.submit(
+              new Branch(LOCAL, actionExecutionContext) {
+                @Override
+                ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
+                    throws InterruptedException, ExecException {
+                  try {
+                    if (!localStarting.compareAndSet(true, false)) {
+                      // If we ever get here, it's because we were cancelled early and the listener
+                      // ran first. Just make sure that's the case.
+                      checkState(Thread.interrupted());
+                      throw new InterruptedException();
+                    }
+                    if (delayLocalExecution.get()) {
+                      Thread.sleep(options.localExecutionDelay);
+                    }
+                    return runLocally(
+                        spawn,
+                        context,
+                        (exitCode, errorMessage, outErr) -> {
+                          maybeIgnoreLocalFailure(spawn, exitCode, errorMessage, outErr);
                           stopBranch(
                               remoteBranch,
                               remoteDone,
@@ -643,60 +674,69 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                               strategyThatCancelled,
                               DynamicSpawnStrategy.this.options,
                               actionExecutionContext,
-                              spawn));
-                } catch (DynamicInterruptedException e) {
-                  // This exception can be thrown due to races in stopBranch(), in which case
-                  // the branch that lost the race may not have been cancelled yet. Cancel it here
-                  // to prevent the listener from cross-cancelling.
-                  localBranch.cancel(true);
-                  throw e;
-                } catch (
-                    @SuppressWarnings("InterruptedExceptionSwallowed")
-                    Throwable e) {
-                  if (options.debugSpawnScheduler) {
-                    logger.atInfo().log(
-                        "Local branch of %s failed with %s: '%s'",
-                        spawn.getResourceOwner().prettyPrint(),
-                        e.getClass().getSimpleName(),
-                        e.getMessage());
+                              spawn);
+                        });
+                  } catch (DynamicInterruptedException e) {
+                    if (options.debugSpawnScheduler) {
+                      logger.atInfo().log(
+                          "Local branch of %s self-cancelling with %s: '%s'",
+                          spawn.getResourceOwner().prettyPrint(),
+                          e.getClass().getSimpleName(),
+                          e.getMessage());
+                    }
+                    // This exception can be thrown due to races in stopBranch(), in which case
+                    // the branch that lost the race may not have been cancelled yet. Cancel it here
+                    // to prevent the listener from cross-cancelling.
+                    localBranch.cancel(true);
+                    throw e;
+                  } catch (
+                      @SuppressWarnings("InterruptedExceptionSwallowed")
+                      Throwable e) {
+                    if (options.debugSpawnScheduler) {
+                      logger.atInfo().log(
+                          "Local branch of %s failed with %s: '%s'",
+                          spawn.getResourceOwner().prettyPrint(),
+                          e.getClass().getSimpleName(),
+                          e.getMessage());
+                    }
+                    throw e;
+                  } finally {
+                    localDone.release();
                   }
-                  throw e;
-                } finally {
-                  localDone.release();
                 }
-              }
-            }));
-    localBranch.addListener(
-        () -> {
-          if (localStarting.compareAndSet(true, false)) {
-            // If the local branch got cancelled before even starting, we release its semaphore for
-            // it.
-            localDone.release();
-          }
-          if (!localBranch.isCancelled()) {
-            remoteBranch.cancel(true);
-          }
-        },
-        MoreExecutors.directExecutor());
+              }));
+      localBranch.addListener(
+          () -> {
+            if (localStarting.compareAndSet(true, false)) {
+              // If the local branch got cancelled before even starting, we release its semaphore
+              // for it.
+              localDone.release();
+            }
+            if (!localBranch.isCancelled()) {
+              remoteBranch.cancel(true);
+            }
+          },
+          MoreExecutors.directExecutor());
 
-    remoteBranch.setFuture(
-        executorService.submit(
-            new Branch(DynamicMode.REMOTE, actionExecutionContext) {
-              @Override
-              public ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
-                  throws InterruptedException, ExecException {
-                try {
-                  if (!remoteStarting.compareAndSet(true, false)) {
-                    // If we ever get here, it's because we were cancelled early and the listener
-                    // ran first. Just make sure that's the case.
-                    checkState(Thread.interrupted());
-                    throw new InterruptedException();
-                  }
-                  ImmutableList<SpawnResult> spawnResults =
-                      runRemotely(
-                          spawn,
-                          context,
-                          () ->
+      remoteBranch.setFuture(
+          executorService.submit(
+              new Branch(DynamicMode.REMOTE, actionExecutionContext) {
+                @Override
+                public ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
+                    throws InterruptedException, ExecException {
+                  try {
+                    if (!remoteStarting.compareAndSet(true, false)) {
+                      // If we ever get here, it's because we were cancelled early and the listener
+                      // ran first. Just make sure that's the case.
+                      checkState(Thread.interrupted());
+                      throw new InterruptedException();
+                    }
+                    ImmutableList<SpawnResult> spawnResults =
+                        runRemotely(
+                            spawn,
+                            context,
+                            (exitCode, errorMessage, outErr) -> {
+                              maybeIgnoreRemoteFailure(spawn, exitCode, errorMessage, outErr);
                               stopBranch(
                                   localBranch,
                                   localDone,
@@ -705,64 +745,103 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                                   strategyThatCancelled,
                                   DynamicSpawnStrategy.this.options,
                                   actionExecutionContext,
-                                  spawn));
-                  for (SpawnResult r : spawnResults) {
-                    if (r.isCacheHit()) {
-                      delayLocalExecution.set(true);
-                      break;
+                                  spawn);
+                            });
+                    for (SpawnResult r : spawnResults) {
+                      if (r.isCacheHit()) {
+                        delayLocalExecution.set(true);
+                        break;
+                      }
                     }
+                    return spawnResults;
+                  } catch (DynamicInterruptedException e) {
+                    if (options.debugSpawnScheduler) {
+                      logger.atInfo().log(
+                          "Remote branch of %s self-cancelling with %s: '%s'",
+                          spawn.getResourceOwner().prettyPrint(),
+                          e.getClass().getSimpleName(),
+                          e.getMessage());
+                    }
+                    // This exception can be thrown due to races in stopBranch(), in which case
+                    // the branch that lost the race may not have been cancelled yet. Cancel it here
+                    // to prevent the listener from cross-cancelling.
+                    remoteBranch.cancel(true);
+                    throw e;
+                  } catch (
+                      @SuppressWarnings("InterruptedExceptionSwallowed")
+                      Throwable e) {
+                    if (options.debugSpawnScheduler) {
+                      logger.atInfo().log(
+                          "Remote branch of %s failed with %s: '%s'",
+                          spawn.getResourceOwner().prettyPrint(),
+                          e.getClass().getSimpleName(),
+                          e.getMessage());
+                    }
+                    throw e;
+                  } finally {
+                    remoteDone.release();
                   }
-                  return spawnResults;
-                } catch (DynamicInterruptedException e) {
-                  // This exception can be thrown due to races in stopBranch(), in which case
-                  // the branch that lost the race may not have been cancelled yet. Cancel it here
-                  // to prevent the listener from cross-cancelling.
-                  remoteBranch.cancel(true);
-                  throw e;
-                } catch (
-                    @SuppressWarnings("InterruptedExceptionSwallowed")
-                    Throwable e) {
-                  if (options.debugSpawnScheduler) {
-                    logger.atInfo().log(
-                        "Remote branch of %s failed with %s: '%s'",
-                        spawn.getResourceOwner().prettyPrint(),
-                        e.getClass().getSimpleName(),
-                        e.getMessage());
-                  }
-                  throw e;
-                } finally {
-                  remoteDone.release();
                 }
-              }
-            }));
-    remoteBranch.addListener(
-        () -> {
-          if (remoteStarting.compareAndSet(true, false)) {
-            // If the remote branch got cancelled before even starting, we release its semaphore for
-            // it.
-            remoteDone.release();
-          }
-          if (!remoteBranch.isCancelled()) {
-            localBranch.cancel(true);
-          }
-        },
-        MoreExecutors.directExecutor());
+              }));
+      remoteBranch.addListener(
+          () -> {
+            if (remoteStarting.compareAndSet(true, false)) {
+              // If the remote branch got cancelled before even starting, we release its semaphore
+              // for it.
+              remoteDone.release();
+            }
+            if (!remoteBranch.isCancelled()) {
+              localBranch.cancel(true);
+            }
+          },
+          MoreExecutors.directExecutor());
 
-    try {
-      return waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
+      try {
+        return waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
+      } finally {
+        checkState(localBranch.isDone());
+        checkState(remoteBranch.isDone());
+        logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+            "Dynamic execution of %s ended with local %s, remote %s%n",
+            spawn.getResourceOwner().prettyPrint(),
+            localBranch.isCancelled() ? "cancelled" : "done",
+            remoteBranch.isCancelled() ? "cancelled" : "done");
+        debugLog(
+            "Dynamic execution of %s ended with local %s, remote %s%n",
+            spawn.getResourceOwner().prettyPrint(),
+            localBranch.isCancelled() ? "cancelled" : "done",
+            remoteBranch.isCancelled() ? "cancelled" : "done");
+      }
     } finally {
-      checkState(localBranch.isDone());
-      checkState(remoteBranch.isDone());
-      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
-          "Dynamic execution of %s ended with local %s, remote %s%n",
-          spawn.getResourceOwner().prettyPrint(),
-          localBranch.isCancelled() ? "cancelled" : "done",
-          remoteBranch.isCancelled() ? "cancelled" : "done");
-      debugLog(
-          "Dynamic execution of %s ended with local %s, remote %s%n",
-          spawn.getResourceOwner().prettyPrint(),
-          localBranch.isCancelled() ? "cancelled" : "done",
-          remoteBranch.isCancelled() ? "cancelled" : "done");
+      if (gotThreads) {
+        threadLimiter.release();
+      }
+    }
+  }
+
+  protected synchronized void maybeIgnoreLocalFailure(
+      Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr)
+      throws DynamicInterruptedException {
+    if (exitCode != 0
+        && ignoreFailureCheck != null
+        && ignoreFailureCheck.canIgnoreFailure(spawn, exitCode, errorMessage, outErr, true)) {
+      throw new DynamicInterruptedException(
+          String.format(
+              "Local branch of %s cancelling self in favor of remote.",
+              spawn.getResourceOwner().prettyPrint()));
+    }
+  }
+
+  protected synchronized void maybeIgnoreRemoteFailure(
+      Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr)
+      throws DynamicInterruptedException {
+    if (exitCode != 0
+        && ignoreFailureCheck != null
+        && ignoreFailureCheck.canIgnoreFailure(spawn, exitCode, errorMessage, outErr, false)) {
+      throw new DynamicInterruptedException(
+          String.format(
+              "Remote branch of %s cancelling self in favor of local.",
+              spawn.getResourceOwner().prettyPrint()));
     }
   }
 

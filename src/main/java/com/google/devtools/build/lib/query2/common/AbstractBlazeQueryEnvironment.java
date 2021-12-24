@@ -220,8 +220,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     }
 
     @Override
-    public void processOutput(Iterable<T> partialResult)
-        throws IOException, InterruptedException {
+    public void processOutput(Iterable<T> partialResult) throws IOException, InterruptedException {
       empty.compareAndSet(true, Iterables.isEmpty(partialResult));
       callback.processOutput(partialResult);
     }
@@ -242,15 +241,10 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
 
   @Override
   public void handleError(
-      QueryExpression expression, String message, @Nullable DetailedExitCode detailedExitCode)
+      QueryExpression expression, String message, DetailedExitCode detailedExitCode)
       throws QueryException {
     if (!keepGoing) {
-      if (detailedExitCode != null) {
-        throw new QueryException(expression, message, detailedExitCode.getFailureDetail());
-      }
-      logger.atWarning().atMostEvery(1, MINUTES).log(
-          "Null detailed exit code for %s %s", message, expression);
-      throw new QueryException(expression, message, Query.Code.BUILD_FILE_ERROR);
+      throw new QueryException(expression, message, detailedExitCode.getFailureDetail());
     }
     eventHandler.handle(createErrorEvent(expression, message, detailedExitCode));
   }
@@ -327,8 +321,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   protected static class TargetKeyExtractor implements KeyExtractor<Target, Label> {
     public static final TargetKeyExtractor INSTANCE = new TargetKeyExtractor();
 
-    private TargetKeyExtractor() {
-    }
+    private TargetKeyExtractor() {}
 
     @Override
     public Label extractKey(Target element) {

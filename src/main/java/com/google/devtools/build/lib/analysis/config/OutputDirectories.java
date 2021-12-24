@@ -256,7 +256,7 @@ public class OutputDirectories {
     // instead. However, it requires individually symlinking the top-level elements of external
     // repositories, which is blocked by a Windows symlink issue #8704.
     RootType rootType;
-    if (repository.isMain() || repository.isDefault()) {
+    if (repository.isMain()) {
       rootType = isMiddleman ? RootType.SiblingMainMiddleman : RootType.SiblingMainOutput;
     } else {
       rootType = isMiddleman ? RootType.SiblingExternalMiddleman : RootType.SiblingExternalOutput;

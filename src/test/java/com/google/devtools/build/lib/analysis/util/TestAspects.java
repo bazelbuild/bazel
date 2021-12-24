@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -241,7 +242,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       String information = parameters.isEmpty()
           ? ""
@@ -286,7 +287,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
@@ -317,7 +318,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
@@ -336,7 +337,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new BarProvider()).build();
     }
@@ -384,7 +385,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       TransitiveInfoCollection dep = ruleContext.getPrerequisite("$dep");
       if (dep == null) {
@@ -555,7 +556,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext)
           .addStarlarkTransitiveInfo("native_aspect_prov", "native_aspect_val")
@@ -589,7 +590,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
@@ -640,7 +641,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
       if (!parameters.isEmpty()) {
@@ -690,7 +691,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       ruleContext.ruleWarning("Aspect warning on " + ctadBase.getTarget().getLabel());
       return new ConfiguredAspect.Builder(ruleContext).build();
@@ -719,7 +720,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters parameters,
-        String toolsRepository) {
+        RepositoryName toolsRepository) {
       ruleContext.ruleError("Aspect error");
       return null;
     }
@@ -752,7 +753,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext context,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws InterruptedException, ActionConflictException {
       return new ConfiguredAspect.Builder(context).build();
     }
@@ -1023,7 +1024,7 @@ public class TestAspects {
         ConfiguredTargetAndData ctadBase,
         RuleContext context,
         AspectParameters parameters,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws InterruptedException, ActionConflictException {
       return ConfiguredAspect.builder(context)
           .addProvider(Provider.class, new Provider(ctadBase.getConfiguredTarget().getLabel()))

@@ -276,11 +276,6 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
             message, RecursiveFilesystemTraversalException.Type.GENERATED_PATH_CONFLICT));
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static final class FileInfo {
     final FileType type;
     final HasDigest metadata;

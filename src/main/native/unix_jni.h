@@ -150,6 +150,21 @@ typedef enum  {
 // monitoring when memory pressure is detected.
 extern void memory_pressure_callback(MemoryPressureLevel level);
 
+// Starts up any infrastructure needed to do disk space monitoring.
+// May be called more than once.
+void portable_start_disk_space_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemDiskSpaceEvent.java
+typedef enum  {
+  DiskSpaceLevelLow = 0,
+  DiskSpaceLevelVeryLow = 1,
+} DiskSpaceLevel;
+
+// Declaration for callback function that is called by disk space
+// monitoring when a disk space alert happens.
+extern void disk_space_callback(DiskSpaceLevel level);
+
 }  // namespace blaze_jni
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

@@ -163,7 +163,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     // Don't hide unchecked exceptions as part of the error reporting.
     Throwables.throwIfUnchecked(exception);
 
-    logger.atSevere().withCause(exception).log(msg);
+    logger.atSevere().withCause(exception).log("%s", msg);
     reportCommandLineError(commandLineReporter, exception);
     moduleEnvironment.exit(createAbruptExitException(exception, msg, besCode));
   }
@@ -254,7 +254,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                   + "Cancelling and starting a new invocation...",
               waitedMillis / 1000, waitedMillis % 1000);
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(exception).log(msg);
+      logger.atWarning().withCause(exception).log("%s", msg);
       cancelCloseFutures = true;
     } catch (ExecutionException e) {
       String msg;
@@ -274,7 +274,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 e.getMessage());
       }
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(e).log(msg);
+      logger.atWarning().withCause(e).log("%s", msg);
       cancelCloseFutures = true;
     } finally {
       if (cancelCloseFutures) {
@@ -671,7 +671,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
           String.format(
               "Build Event Service uploads disabled due to a connectivity problem: %s", status);
       reporter.handle(Event.warn(message));
-      logger.atWarning().log(message);
+      logger.atWarning().log("%s", message);
       return null;
     }
 

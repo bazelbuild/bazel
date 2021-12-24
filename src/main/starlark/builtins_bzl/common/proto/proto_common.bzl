@@ -89,7 +89,7 @@ def _create_proto_compile_action(
             # This line is necessary to trigger the check.
             args.add("--allowed_public_imports=")
         else:
-            args.add_all("--allowed_public_imports", map_each = _get_import_path, join_with = ":")
+            args.add_joined("--allowed_public_imports", proto_info.public_import_sources(), map_each = _get_import_path, join_with = ":")
 
     args.add_all(proto_info.direct_sources)
 
@@ -101,6 +101,7 @@ def _create_proto_compile_action(
         inputs = depset(transitive = [proto_info.transitive_sources, additional_inputs]),
         outputs = outputs,
         tools = plugins,
+        use_default_shell_env = True,
     )
 
 def _proto_path_flag(path):

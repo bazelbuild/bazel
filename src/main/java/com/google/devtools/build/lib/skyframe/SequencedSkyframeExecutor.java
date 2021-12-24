@@ -291,7 +291,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           FileStateValue.FILE_STATE,
           FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
-          SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.TARGET_PATTERN_PHASE);
@@ -494,7 +493,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       // have actually been invalidated (recall that invalidation happens at the beginning of the
       // next evaluate() call), because checking those is a waste of time.
       EvaluationContext evaluationContext =
-          EvaluationContext.newBuilder()
+          newEvaluationContextBuilder()
               .setKeepGoing(false)
               .setNumThreads(DEFAULT_THREAD_COUNT)
               .setEventHandler(eventHandler)
@@ -651,7 +650,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    logger.atInfo().log(result.toString());
+    logger.atInfo().log("%s", result);
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -722,7 +721,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void clearAnalysisCache(
+  public void clearAnalysisCacheImpl(
       Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     discardPreExecutionCache(
         topLevelTargets,
@@ -886,7 +885,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Uninterruptibles.callUninterruptibly(
           () -> {
             EvaluationContext evaluationContext =
-                EvaluationContext.newBuilder()
+                newEvaluationContextBuilder()
                     .setKeepGoing(false)
                     .setNumThreads(ResourceUsage.getAvailableProcessors())
                     .setEventHandler(eventHandler)
@@ -1013,7 +1012,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private SkyValue evaluateSingleValue(SkyKey key, ExtendedEventHandler eventHandler)
       throws InterruptedException {
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        newEvaluationContextBuilder()
             .setKeepGoing(false)
             .setNumThreads(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)

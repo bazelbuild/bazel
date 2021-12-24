@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
@@ -220,7 +221,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return executionRequirements;
+    return mergeMaps(super.getExecutionInfo(), executionRequirements);
   }
 
   @Override

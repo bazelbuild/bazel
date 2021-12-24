@@ -65,34 +65,16 @@ public final class FileArtifactValueTest {
     new EqualsTester()
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"),
-                /*proxy=*/ null,
-                1L,
-                /*isShareable=*/ true),
+                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 1L),
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"),
-                /*proxy=*/ null,
-                1L,
-                /*isShareable=*/ true))
+                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 1L))
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"),
-                /*proxy=*/ null,
-                2L,
-                /*isShareable=*/ true))
+                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 2L))
         .addEqualityGroup(FileArtifactValue.createForDirectoryWithMtime(1))
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("FFFFFF00000000000000000000000000"),
-                /*proxy=*/ null,
-                1L,
-                /*isShareable=*/ true))
-        .addEqualityGroup(
-            FileArtifactValue.createForNormalFile(
-                toBytes("FFFFFF00000000000000000000000000"),
-                /*proxy=*/ null,
-                1L,
-                /*isShareable=*/ false))
+                toBytes("FFFFFF00000000000000000000000000"), /*proxy=*/ null, 1L))
         .addEqualityGroup(
             FileArtifactValue.createForDirectoryWithMtime(2),
             FileArtifactValue.createForDirectoryWithMtime(2))
@@ -152,7 +134,7 @@ public final class FileArtifactValueTest {
     assertThrows(
         "mtime for non-empty file should not be stored.",
         UnsupportedOperationException.class,
-        () -> value.getModifiedTime());
+        value::getModifiedTime);
   }
 
   @Test
@@ -174,12 +156,12 @@ public final class FileArtifactValueTest {
     assertThrows(
         "mtime for non-empty file should not be stored.",
         UnsupportedOperationException.class,
-        () -> value.getModifiedTime());
+        value::getModifiedTime);
   }
 
   @Test
   public void testIOException() throws Exception {
-    final IOException exception = new IOException("beep");
+    IOException exception = new IOException("beep");
     FileSystem fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
@@ -188,6 +170,7 @@ public final class FileArtifactValueTest {
           }
 
           @Override
+          @SuppressWarnings("UnsynchronizedOverridesSynchronized")
           protected byte[] getFastDigest(PathFragment path) throws IOException {
             throw exception;
           }

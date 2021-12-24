@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
@@ -119,6 +118,7 @@ import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -126,6 +126,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
@@ -174,6 +175,8 @@ public abstract class BuildIntegrationTestCase {
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
 
+  @Nullable private UncaughtExceptionHandler oldExceptionHandler;
+
   private static final ImmutableList<Injected> BAZEL_REPOSITORY_PRECOMPUTED_VALUES =
       ImmutableList.of(
           PrecomputedValue.injected(
@@ -216,6 +219,29 @@ public abstract class BuildIntegrationTestCase {
     createRuntimeWrapper();
 
     AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
+  }
+
+  @Before
+  public final void setUncaughtExceptionHandler() {
+    oldExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
+    Thread.setDefaultUncaughtExceptionHandler(createUncaughtExceptionHandler());
+  }
+
+  @After
+  public final void restoreUncaughtExceptionHandler() {
+    Thread.setDefaultUncaughtExceptionHandler(oldExceptionHandler);
+  }
+
+  /**
+   * Creates an uncaught exception handler to be used in {@link
+   * Thread#setDefaultUncaughtExceptionHandler}.
+   *
+   * <p>Returns {@code null} if ne exception handler should be used.
+   */
+  @Nullable
+  protected UncaughtExceptionHandler createUncaughtExceptionHandler() {
+    return (ignored, exception) ->
+        BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive());
   }
 
   protected ServerDirectories createServerDirectories() {
@@ -489,11 +515,7 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(getRulesModule())
             .addBlazeModule(getStrategyModule());
 
-    if ("blaze".equals(TestConstants.PRODUCT_NAME)) {
-      // include scanning isn't supported in bazel
-      builder.addBlazeModule(new IncludeScanningModule());
-
-    } else {
+    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
       // Add in modules implicitly added in internal integration test case.
       builder
           .addBlazeModule(new NoSpawnCacheModule())

@@ -512,13 +512,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
         .containsAll(requiredToolchainTypes);
   }
 
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static final class ValueMissingException extends Exception {
     private ValueMissingException() {
       super();

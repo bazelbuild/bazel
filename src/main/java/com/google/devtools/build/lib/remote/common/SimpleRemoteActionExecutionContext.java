@@ -20,15 +20,22 @@ import javax.annotation.Nullable;
 /** A {@link RemoteActionExecutionContext} implementation */
 public class SimpleRemoteActionExecutionContext implements RemoteActionExecutionContext {
 
+  private final Type type;
   private final Spawn spawn;
   private final RequestMetadata requestMetadata;
   private final NetworkTime networkTime;
 
   public SimpleRemoteActionExecutionContext(
-      Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
+      Type type, Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
+    this.type = type;
     this.spawn = spawn;
     this.requestMetadata = requestMetadata;
     this.networkTime = networkTime;
+  }
+
+  @Override
+  public Type getType() {
+    return type;
   }
 
   @Nullable

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -895,7 +896,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return executionInfo;
+    return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
   private boolean validateInclude(

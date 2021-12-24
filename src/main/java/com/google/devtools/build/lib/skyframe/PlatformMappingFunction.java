@@ -130,12 +130,6 @@ final class PlatformMappingFunction implements SkyFunction {
         .build();
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   @VisibleForTesting
   static final class PlatformMappingException extends SkyFunctionException {
 

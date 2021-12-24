@@ -294,11 +294,6 @@ public class ModuleFileFunction implements SkyFunction {
     return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.build());
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   @FormatMethod
   private static ModuleFileFunctionException errorf(Code code, String format, Object... args) {
     return new ModuleFileFunctionException(ExternalDepsException.withMessage(code, format, args));

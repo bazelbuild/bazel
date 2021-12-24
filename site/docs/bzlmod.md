@@ -278,6 +278,13 @@ dependencies from a third-party or internal registry. Earlier registries take
 precedence. For convenience, you can put a list of `--registry` flags in the
 .bazelrc file of your project.
 
+Note that if your registry is hosted on GitHub (as a fork of
+bazelbuild/bazel-central-registry for example) then you'll need your
+`--registry` value to have a raw GitHub address under
+`raw.githubusercontent.com`. For example on the `main` branch of the `my-org`
+fork, you would set
+`--registry=https://raw.githubusercontent.com/my-org/bazel-central-registry/main/`.
+
 ## Module Extensions
 
 Module extensions allow you to extend the module system by reading input data

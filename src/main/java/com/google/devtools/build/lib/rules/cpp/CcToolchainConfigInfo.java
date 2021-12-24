@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -65,8 +64,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String builtinSysroot;
   private final String ccTargetOs;
 
-  @AutoCodec.Instantiator
-  public CcToolchainConfigInfo(
+  CcToolchainConfigInfo(
       ImmutableList<ActionConfig> actionConfigs,
       ImmutableList<Feature> features,
       ImmutableList<ArtifactNamePattern> artifactNamePatterns,

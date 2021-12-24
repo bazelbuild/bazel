@@ -31,10 +31,13 @@ import java.util.function.Supplier;
  */
 public class QueryTransitivePackagePreloader {
   private final Supplier<BuildDriver> buildDriverSupplier;
+  private final Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier;
 
-  // Needs a Supplier because the SkyframeExecutor creates the BuildDriver on demand.
-  public QueryTransitivePackagePreloader(Supplier<BuildDriver> buildDriverSupplier) {
+  public QueryTransitivePackagePreloader(
+      Supplier<BuildDriver> buildDriverSupplier,
+      Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier) {
     this.buildDriverSupplier = buildDriverSupplier;
+    this.evaluationContextBuilderSupplier = evaluationContextBuilderSupplier;
   }
 
   /** Loads the specified {@link TransitiveTargetValue}s. */
@@ -49,7 +52,8 @@ public class QueryTransitivePackagePreloader {
       valueNames.add(TransitiveTargetKey.of(label));
     }
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        evaluationContextBuilderSupplier
+            .get()
             .setKeepGoing(keepGoing)
             .setNumThreads(parallelThreads)
             .setEventHandler(eventHandler)

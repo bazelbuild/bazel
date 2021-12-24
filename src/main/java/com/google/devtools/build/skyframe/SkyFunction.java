@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
@@ -66,6 +65,104 @@ public interface SkyFunction {
       throws SkyFunctionException, InterruptedException;
 
   /**
+   * Same as {@link #compute(SkyKey, Environment)}, except with a {@link SkyKeyComputeState}.
+   *
+   * <p>The {@link SkyKeyComputeState} instance will either be freshly created via {@link
+   * #createNewSkyKeyComputeState()}, or will be the same exact instance used on the previous call
+   * to this method for the same {@link SkyKey}. This allows {@link SkyFunction} implementations to
+   * avoid redoing the same intermediate work over-and-over again on each {@link #compute} call for
+   * the same {@link SkyKey}, due to missing Skyframe dependencies. For example,
+   *
+   * <pre>
+   *   class MyFunction implements SkyFunction {
+   *     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+   *       int x = (Integer) skyKey.argument();
+   *       SkyKey myDependencyKey = getSkyKeyForValue(someExpensiveComputation(x));
+   *       SkyValue myDependencyValue = env.getValue(myDependencyKey);
+   *       if (env.valuesMissing()) {
+   *         return null;
+   *       }
+   *       return createMyValue(myDependencyValue);
+   *     }
+   *   }
+   * </pre>
+   *
+   * <p>If the dependency was missing, then we'll end up evaluating {@code
+   * someExpensiveComputation(x)} twice, once on the initial call to {@link #compute} and then again
+   * on the subsequent call after the dependency was computed.
+   *
+   * <p>To fix this, we can use a mutable {@link SkyKeyComputeState} implementation and store the
+   * result of {@code someExpensiveComputation(x)} in there:
+   *
+   * <pre>
+   *   class MyFunction implements SkyFunction {
+   *     public boolean supportsSkyKeyComputeState() {
+   *       return true;
+   *     }
+   *
+   *     private static class State implements SkyKeyComputeState {
+   *       private Integer result;
+   *     }
+   *
+   *     public State createNewSkyKeyComputeState() {
+   *       return new State();
+   *     }
+   *
+   *     public SkyValue compute(
+   *         SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
+   *         throws InterruptedException {
+   *       int x = (Integer) skyKey.argument();
+   *       State state = (State) skyKeyComputeState;
+   *       if (state.result == null) {
+   *         state.result = someExpensiveComputation(x);
+   *       }
+   *       SkyKey myDependencyKey = getSkyKeyForValue(state.result);
+   *       SkyValue myDependencyValue = env.getValue(myDependencyKey);
+   *       if (env.valuesMissing()) {
+   *         return null;
+   *       }
+   *       return createMyValue(myDependencyValue);
+   *     }
+   *   }
+   * </pre>
+   *
+   * Now {@code someExpensiveComputation(x)} gets called exactly once for each {@code x}!
+   *
+   * <p>TODO(b/209701268): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
+   * sort of optimization.
+   */
+  @ThreadSafe
+  @Nullable
+  default SkyValue compute(SkyKey skyKey, SkyKeyComputeState state, Environment env)
+      throws SkyFunctionException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * If this returns {@code true}, then the Skyframe engine will invoke {@link #compute(SkyKey,
+   * SkyKeyComputeState, Environment)} instead of {@link #compute(SkyKey, Environment)}.
+   */
+  default boolean supportsSkyKeyComputeState() {
+    return false;
+  }
+
+  /**
+   * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
+   *
+   * <p>See the javadoc of {@link #compute(SkyKey, SkyKeyComputeState, Environment)} for motivation
+   * and an example.
+   */
+  interface SkyKeyComputeState {}
+
+  /**
+   * Returns a new {@link SkyKeyComputeState} instance to use for {@link #compute(SkyKey,
+   * SkyKeyComputeState, Environment)}.
+   */
+  default SkyKeyComputeState createNewSkyKeyComputeState() {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
    * Extracts a tag (target label) from a SkyKey if it has one. Otherwise return {@code null}.
    *
    * <p>The tag is used for filtering out non-error event messages that do not match --output_filter
@@ -73,7 +170,9 @@ public interface SkyFunction {
    * messages associated with this value will be shown, no matter what --output_filter says.
    */
   @Nullable
-  String extractTag(SkyKey skyKey);
+  default String extractTag(SkyKey skyKey) {
+    return null;
+  }
 
   /**
    * Sentinel {@link SkyValue} type for {@link #compute} to return, indicating that something went
@@ -416,9 +515,19 @@ public interface SkyFunction {
      */
     void registerDependencies(Iterable<SkyKey> keys);
 
-    /** Returns whether we are currently in error bubbling. */
-    @VisibleForTesting
-    boolean inErrorBubblingForTesting();
+    /**
+     * Returns whether we are currently in error bubbling. Should only be used by SkyFunctions that
+     * can fully recover from a dependency's throwing an exception in --keep_going mode, returning a
+     * value instead of transforming the exception. {@link
+     * com.google.devtools.build.lib.skyframe.TargetPatternFunction} is the classic example of such
+     * a SkyFunction, since it can encounter errors while processing target patterns like
+     * '//foo/...' but still return the list of all found targets.
+     *
+     * <p>Such a SkyFunction cannot unconditionally return a value, since in --nokeep_going mode it
+     * may be called upon to transform a lower-level exception. This method can tell it whether to
+     * transform a dependency's exception or ignore it and return a value as usual.
+     */
+    boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
 
     /**
      * Adds a dependency on a Skyframe-external event. If the given future is already complete, this

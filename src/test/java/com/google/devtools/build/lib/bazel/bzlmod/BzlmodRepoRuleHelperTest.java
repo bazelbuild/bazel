@@ -333,12 +333,6 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
       }
       return GetRepoSpecByNameValue.create(result);
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private static final class Key extends AbstractSkyKey<String> {

@@ -192,8 +192,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         null,
                         null,
                         null,
-                        null,
-                        null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
@@ -243,11 +241,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         // Dummy SkyFunction that returns nothing.
                         return ModuleExtensionResolutionValue.create(
                             ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
-                      }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
                       }
                     })
                 .put(

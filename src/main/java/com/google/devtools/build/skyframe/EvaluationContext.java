@@ -72,22 +72,6 @@ public class EvaluationContext {
     return eventHandler;
   }
 
-  public EvaluationContext getCopyWithKeepGoing(boolean keepGoing) {
-    if (this.keepGoing == keepGoing) {
-      return this;
-    } else {
-      return new EvaluationContext(
-          this.numThreads,
-          this.executorServiceSupplier,
-          keepGoing,
-          this.eventHandler,
-          this.useForkJoinPool,
-          this.isExecutionPhase,
-          this.cpuHeavySkyKeysThreadPoolSize,
-          this.executionPhaseThreadPoolSize);
-    }
-  }
-
   public boolean getUseForkJoinPool() {
     return useForkJoinPool;
   }
@@ -118,24 +102,28 @@ public class EvaluationContext {
     return isExecutionPhase;
   }
 
+  public Builder builder() {
+    return newBuilder().copyFrom(this);
+  }
+
   public static Builder newBuilder() {
     return new Builder();
   }
 
   /** Builder for {@link EvaluationContext}. */
   public static class Builder {
-    private int numThreads;
-    private Supplier<ExecutorService> executorServiceSupplier;
-    private boolean keepGoing;
-    private ExtendedEventHandler eventHandler;
-    private boolean useForkJoinPool;
-    private int cpuHeavySkyKeysThreadPoolSize;
-    private int executionJobsThreadPoolSize = 0;
-    private boolean isExecutionPhase = false;
+    protected int numThreads;
+    protected Supplier<ExecutorService> executorServiceSupplier;
+    protected boolean keepGoing;
+    protected ExtendedEventHandler eventHandler;
+    protected boolean useForkJoinPool;
+    protected int cpuHeavySkyKeysThreadPoolSize;
+    protected int executionJobsThreadPoolSize = 0;
+    protected boolean isExecutionPhase = false;
 
-    private Builder() {}
+    protected Builder() {}
 
-    public Builder copyFrom(EvaluationContext evaluationContext) {
+    protected Builder copyFrom(EvaluationContext evaluationContext) {
       this.numThreads = evaluationContext.numThreads;
       this.executorServiceSupplier = evaluationContext.executorServiceSupplier;
       this.keepGoing = evaluationContext.keepGoing;
@@ -183,7 +171,7 @@ public class EvaluationContext {
     }
 
     public Builder setExecutionPhase() {
-      isExecutionPhase = true;
+      this.isExecutionPhase = true;
       return this;
     }
 

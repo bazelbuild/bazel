@@ -79,11 +79,9 @@ public abstract class RepositoryMapping {
   }
 
   public RepositoryName get(RepositoryName repositoryName) {
-    // 1. Default repo ("") should always map to default repo
-    // 2. @bazel_tools is a special repo that should be visible to all repositories.
-    // 3. @local_config_platform is a special repo that should be visible to all repositories.
-    if (repositoryName.equals(RepositoryName.DEFAULT)
-        || repositoryName.equals(RepositoryName.BAZEL_TOOLS)
+    // 1. @bazel_tools is a special repo that should be visible to all repositories.
+    // 2. @local_config_platform is a special repo that should be visible to all repositories.
+    if (repositoryName.equals(RepositoryName.BAZEL_TOOLS)
         || repositoryName.equals(RepositoryName.LOCAL_CONFIG_PLATFORM)) {
       return repositoryName;
     }

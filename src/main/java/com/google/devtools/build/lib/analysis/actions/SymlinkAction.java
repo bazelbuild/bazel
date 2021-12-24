@@ -246,8 +246,7 @@ public final class SymlinkAction extends AbstractAction {
       // Note that utime() on a symlink actually changes the mtime of its target.
       Path linkPath = getOutputPath(actionExecutionContext);
       if (linkPath.exists()) {
-        // -1L means "use the current time".
-        linkPath.setLastModifiedTime(-1L);
+        linkPath.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
       } else {
         // Should only happen if the Fileset included no links.
         actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();

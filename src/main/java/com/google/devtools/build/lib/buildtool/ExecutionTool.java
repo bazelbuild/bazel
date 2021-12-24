@@ -300,11 +300,7 @@ public class ExecutionTool {
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
-          env.getReporter(),
-          executor,
-          request,
-          skyframeBuilder.getActionCacheChecker(),
-          skyframeBuilder.getTopDownActionCache());
+          env.getReporter(), executor, request, skyframeBuilder.getActionCacheChecker());
     }
 
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
@@ -598,7 +594,7 @@ public class ExecutionTool {
         for (Path entry : entries) {
           directoryDetails.append(" '").append(entry.getBaseName()).append("'");
         }
-        logger.atWarning().log(directoryDetails.toString());
+        logger.atWarning().log("%s", directoryDetails);
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
       }
@@ -886,7 +882,6 @@ public class ExecutionTool {
                 .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
                 .build()),
-        env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
                 // Do not skip invalidation in case the output tree is empty -- this can happen
                 // after it's cleaned or corrupted.

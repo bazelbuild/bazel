@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.Arrays;
 import java.util.List;
@@ -84,9 +85,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
               + " to match");
     }
     for (Object key : dict.keySet()) {
-      if (!(key instanceof String)) {
+      if (!(key instanceof String || key instanceof Label)) {
         throw Starlark.errorf(
-            "select: got %s for dict key, want a label string", Starlark.type(key));
+            "select: got %s for dict key, want a Label or label string", Starlark.type(key));
       }
     }
     return SelectorList.of(new SelectorValue(dict, noMatchError));

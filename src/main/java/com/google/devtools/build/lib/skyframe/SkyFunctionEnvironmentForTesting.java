@@ -74,7 +74,7 @@ public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionE
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
     return false;
   }
 

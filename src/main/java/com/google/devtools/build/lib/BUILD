@@ -206,6 +206,17 @@ java_library(
 )
 
 java_library(
+    name = "runtime/memory_pressure_handler",
+    srcs = [
+        "runtime/MemoryPressureHandler.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -325,7 +336,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:top_down_action_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",

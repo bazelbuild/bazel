@@ -149,7 +149,7 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
       throws InterruptedException {
     preFetch.inform();
     try {
-    return delegate.getValues(depKeys);
+      return delegate.getValues(depKeys);
     } finally {
       postFetch.inform();
     }
@@ -352,8 +352,8 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
-    return delegate.inErrorBubblingForTesting();
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
   }
 
   @Nullable

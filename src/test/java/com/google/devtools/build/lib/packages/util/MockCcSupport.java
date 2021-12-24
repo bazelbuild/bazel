@@ -18,13 +18,10 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
@@ -331,14 +328,8 @@ public abstract class MockCcSupport {
   public abstract String getMockCrosstoolPath();
 
   public static PackageIdentifier getMockCrosstoolsTop() {
-    try {
-      return PackageIdentifier.create(
-          RepositoryName.create(TestConstants.TOOLS_REPOSITORY),
-          PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
-    } catch (LabelSyntaxException e) {
-      Verify.verify(false);
-      throw new AssertionError(e);
-    }
+    return PackageIdentifier.create(
+        TestConstants.TOOLS_REPOSITORY, PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
   }
 
   protected String readCcToolchainConfigFile() throws IOException {

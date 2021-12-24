@@ -46,12 +46,22 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   }
 
   @Override
+  public boolean valueIsShareable() {
+    // ArtifactNestedSetValue is just a promise that data is available in memory. Not meant for
+    // cross-server sharing.
+    return false;
+  }
+
+  @Override
   public int hashCode() {
     return node.hashCode();
   }
 
   @Override
   public boolean equals(Object that) {
+    if (this == that) {
+      return true;
+    }
     return that instanceof ArtifactNestedSetKey
         && this.node.equals(((ArtifactNestedSetKey) that).node);
   }

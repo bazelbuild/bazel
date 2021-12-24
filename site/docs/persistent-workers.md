@@ -28,9 +28,11 @@ strategy achieves these improvements by sending multiple requests to a
 long-running process.
 
 Persistent workers are implemented for multiple languages, including Java,
-[TypeScript](https://bazelbuild.github.io/rules_nodejs/TypeScript.html),
 [Scala](https://github.com/bazelbuild/rules_scala),
 [Kotlin](https://github.com/bazelbuild/rules_kotlin), and more.
+
+Programs using a NodeJS runtime can use the [@bazel/worker](https://www.npmjs.com/package/@bazel/worker)
+helper library to implement the worker protocol.
 
 ## Using persistent workers <a name="usage"></a>
 

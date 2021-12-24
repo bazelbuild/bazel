@@ -127,8 +127,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             null,
             null,
             null,
-            null,
-            null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             PackageFunction.IncrementalityIntent.INCREMENTAL,

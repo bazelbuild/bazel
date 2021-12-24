@@ -1006,6 +1006,25 @@ public class CppOptions extends FragmentOptions {
   public boolean useArgsParamsFile;
 
   @Option(
+      name = "experimental_unsupported_and_brittle_include_scanning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      help =
+          "Whether to narrow inputs to C/C++ compilation by parsing #include lines from input"
+              + " files. This can improve performance and incrementality by decreasing the size of"
+              + " compilation input trees. However, it can also break builds because the include"
+              + " scanner does not fully implement C preprocessor semantics. In particular, it does"
+              + " not understand dynamic #include directives and ignores preprocessor conditional"
+              + " logic. Use at your own risk. Any issues relating to this flag that are filed will"
+              + " be closed.")
+  public boolean experimentalIncludeScanning;
+
+  @Option(
       name = "experimental_objc_include_scanning",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -1091,6 +1110,19 @@ public class CppOptions extends FragmentOptions {
               + " CppCompileAction.")
   public boolean experimentalCppCompileResourcesEstimation;
 
+  @Option(
+      name = "experimental_platform_cc_test",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, a Starlark version of cc_test can be used which will use platform-based"
+              + " toolchain() resolution to choose a test runner.")
+  public boolean experimentalPlatformCcTest;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
@@ -1175,6 +1207,7 @@ public class CppOptions extends FragmentOptions {
     host.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
     host.strictSystemIncludes = strictSystemIncludes;
     host.useArgsParamsFile = useArgsParamsFile;
+    host.experimentalIncludeScanning = experimentalIncludeScanning;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;

@@ -1446,4 +1446,44 @@ void memory_pressure_callback(MemoryPressureLevel level) {
   }
 }
 
+jobject g_disk_space_module;
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemDiskSpaceModule
+ * Method:    registerJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemDiskSpaceModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_disk_space_module != nullptr) {
+    PostAssertionError(
+        env, "Singleton SystemDiskSpaceModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemDiskSpaceModule");
+    return;
+  }
+
+  g_disk_space_module = env->NewGlobalRef(local_object);
+  if (g_disk_space_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemDiskSpaceModule");
+    return;
+  }
+  portable_start_disk_space_monitoring();
+}
+
+void disk_space_callback(DiskSpaceLevel level) {
+  if (g_disk_space_module != nullptr) {
+    PerformIntegerValueCallback(g_disk_space_module, "diskSpaceCallback",
+                                level);
+  }
+}
+
 }  // namespace blaze_jni

@@ -357,9 +357,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(
-                  unloadedContext.getValue(),
-                  targetDescription,
-                  toolchainDependencies));
+                  unloadedContext.getValue(), targetDescription, toolchainDependencies));
         }
         toolchainContexts = contextsBuilder.build();
       }
@@ -651,7 +649,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       initialDependencies =
           resolver.dependentNodeMap(
               ctgValue,
-              hostConfiguration,
               aspects,
               configConditions,
               toolchainContexts,
@@ -739,9 +736,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Collect the labels of the configured targets we need to resolve.
     List<Label> configLabels =
-        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).stream()
-            .map(configLabel -> target.getLabel().resolveRepositoryRelative(configLabel))
-            .collect(Collectors.toList());
+        attrs.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST);
     if (configLabels.isEmpty()) {
       return ConfigConditions.EMPTY;
     }
@@ -1010,8 +1005,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredValueCreationException(
           ctgValue, "Analysis of target '" + target.getLabel() + "' failed", rootCauses, null);
     }
-    Preconditions.checkState(!analysisEnvironment.hasErrors(),
-        "Analysis environment hasError() but no errors reported");
+    Preconditions.checkState(
+        !analysisEnvironment.hasErrors(), "Analysis environment hasError() but no errors reported");
     if (env.valuesMissing()) {
       return null;
     }

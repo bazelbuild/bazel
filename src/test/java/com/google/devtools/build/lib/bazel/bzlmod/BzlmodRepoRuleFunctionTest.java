@@ -148,8 +148,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         /*packageFactory=*/ null,
                         /*pkgLocator=*/ null,
                         /*showLoadingProgress=*/ null,
-                        /*packageFunctionCache=*/ null,
-                        /*compiledBuildFileCache=*/ null,
                         /*numPackagesLoaded=*/ null,
                         /*bzlLoadFunctionForInlining=*/ null,
                         /*packageProgress=*/ null,
@@ -181,11 +179,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                             ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
                             ImmutableMap.of());
                       }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
-                      }
                     })
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,
@@ -196,11 +189,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         return RepositoryMappingValue.withMapping(
                             RepositoryMapping.ALWAYS_FALLBACK);
                       }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
-                      }
                     })
                 .put(
                     SkyFunctions.MODULE_EXTENSION_RESOLUTION,
@@ -210,11 +198,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         // Dummy function that returns nothing.
                         return ModuleExtensionResolutionValue.create(
                             ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
-                      }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
                       }
                     })
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())

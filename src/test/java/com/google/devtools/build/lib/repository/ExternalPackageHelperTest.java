@@ -162,8 +162,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             null,
             null,
             null,
-            null,
-            null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             PackageFunction.IncrementalityIntent.INCREMENTAL,
@@ -384,12 +382,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
       }
       return GetRuleByNameValue.create(rule);
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   // GetRegisteredToolchains.
@@ -426,12 +418,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
               .map(TargetPattern::getOriginalPattern)
               .collect(toImmutableList()));
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private static final SkyFunctionName GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION =
@@ -463,12 +449,6 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
           registeredExecutionPlatforms.stream()
               .map(TargetPattern::getOriginalPattern)
               .collect(toImmutableList()));
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

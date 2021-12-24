@@ -62,7 +62,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Takes a list of target patterns corresponding to a command line and turns it into a set of
@@ -93,7 +92,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     // Determine targets to build:
-    List<String> failedPatterns = new ArrayList<String>();
+    List<String> failedPatterns = new ArrayList<>();
     List<ExpandedPattern> expandedPatterns =
         getTargetsToBuild(
             env, options, repositoryMappingValue.getRepositoryMapping(), failedPatterns);
@@ -156,10 +155,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         testFilteredTargets = ImmutableSet.copyOf(allFilteredTargets);
         filteredTargets = ImmutableSet.of();
 
-        targets = ResolvedTargets.<Target>builder()
-            .merge(testTargets)
-            .mergeError(targets.hasError())
-            .build();
+        targets =
+            ResolvedTargets.<Target>builder()
+                .merge(testTargets)
+                .mergeError(targets.hasError())
+                .build();
         if (options.getDetermineTests()) {
           testsToRun = testTargets.getTargets();
         }
@@ -180,10 +180,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       if (testsToRun != null) {
         // Note that testsToRun can still be null here, if buildTestsOnly && !shouldRunTests.
         if (!targets.getTargets().containsAll(testsToRun)) {
-          throw new IllegalStateException(String.format(
-              "Internal consistency check failed; some targets are scheduled for test execution "
-                  + "but not for building (%s)",
-              Sets.difference(testsToRun, targets.getTargets())));
+          throw new IllegalStateException(
+              String.format(
+                  "Internal consistency check failed; some targets are scheduled for test execution"
+                      + " but not for building (%s)",
+                  Sets.difference(testsToRun, targets.getTargets())));
         }
       }
     }
@@ -259,9 +260,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       ExtendedEventHandler eventHandler, Collection<Target> targets) {
     for (Rule rule : Iterables.filter(targets, Rule.class)) {
       if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
-        eventHandler.handle(Event.warn(rule.getLocation(), String.format(
-            "target '%s' is deprecated: %s", rule.getLabel(),
-            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))));
+        eventHandler.handle(
+            Event.warn(
+                rule.getLocation(),
+                String.format(
+                    "target '%s' is deprecated: %s",
+                    rule.getLabel(),
+                    NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))));
       }
     }
   }
@@ -302,8 +307,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // pattern could be parsed successfully).
         env.getListener().post(new ParsingFailedEvent(pattern, e.getMessage()));
         try {
-          env.getValueOrThrow(
-              TargetPatternErrorFunction.key(e.getMessage()), TargetParsingException.class);
+          env.getValueOrThrow(TargetPatternErrorFunction.key(e), TargetParsingException.class);
         } catch (TargetParsingException ignore) {
           // We ignore this. Keep going is active.
         }
@@ -361,9 +365,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
-    ResolvedTargets<Target> result = builder
-        .filter(TargetUtils.tagFilter(options.getBuildTargetFilter()))
-        .build();
+    ResolvedTargets<Target> result =
+        builder.filter(TargetUtils.tagFilter(options.getBuildTargetFilter())).build();
     if (options.getCompileOneDependency()) {
       EnvironmentBackedRecursivePackageProvider environmentBackedRecursivePackageProvider =
           new EnvironmentBackedRecursivePackageProvider(env);
@@ -375,8 +378,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         return null;
       } catch (TargetParsingException e) {
         try {
-          env.getValueOrThrow(
-              TargetPatternErrorFunction.key(e.getMessage()), TargetParsingException.class);
+          env.getValueOrThrow(TargetPatternErrorFunction.key(e), TargetParsingException.class);
         } catch (TargetParsingException ignore) {
           // We ignore this. Keep going is active.
         }
@@ -477,25 +479,15 @@ final class TargetPatternPhaseFunction implements SkyFunction {
 
   private static ImmutableSetMultimap<String, Label> mapOriginalPatternsToLabels(
       List<ExpandedPattern> expandedPatterns, Set<Target> includedTargets) {
-    return expandedPatterns
-        .stream()
+    return expandedPatterns.stream()
         .filter(expansion -> !expansion.pattern().isNegative())
         .collect(
             flatteningToImmutableSetMultimap(
                 expansion -> expansion.pattern().getPattern(),
                 expansion ->
-                    expansion
-                        .resolvedTargets()
-                        .getTargets()
-                        .stream()
+                    expansion.resolvedTargets().getTargets().stream()
                         .filter(includedTargets::contains)
                         .map(Target::getLabel)));
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /** Represents the expansion of a single target pattern. */
@@ -507,6 +499,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     abstract TargetPatternKey pattern();
+
     abstract ResolvedTargets<Target> resolvedTargets();
   }
 }
