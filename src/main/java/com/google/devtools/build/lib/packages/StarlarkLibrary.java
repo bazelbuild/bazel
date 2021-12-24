@@ -333,7 +333,7 @@ public final class StarlarkLibrary {
                   "A dict that maps configuration conditions to values. Each key is a "
                       + "<a href=\"$BE_ROOT/../skylark/lib/Label.html\">Label</a> or a label string"
                       + " that identifies a config_setting or constraint_value instance. See the"
-                      + " <a href=\"$BE_ROOT/../skylark/macros.html#label-resolution-in-macros>"
+                      + " <a href=\"$BE_ROOT/../skylark/macros.html#label-resolution-in-macros\">"
                       + "documentation on macros</a> for when to use a Label instead of a string."),
           @Param(
               name = "no_match_error",
