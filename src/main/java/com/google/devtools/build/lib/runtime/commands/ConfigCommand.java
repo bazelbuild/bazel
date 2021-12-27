@@ -560,7 +560,7 @@ public class ConfigCommand implements BlazeCommand {
         config.getOptions().get(CoreOptions.class).commandLineBuildVariables) {
       ans.put("--define:" + entry.getKey(), Verify.verifyNotNull(entry.getValue()));
     }
-    return ans.build();
+    return ans.buildOrThrow();
   }
 
   /**
