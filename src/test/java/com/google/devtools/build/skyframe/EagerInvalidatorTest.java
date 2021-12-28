@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
@@ -147,7 +148,8 @@ public class EagerInvalidatorTest {
             () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
             new SimpleCycleDetector(),
             /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-            /*executionJobsThreadPoolSize=*/ 0);
+            /*executionJobsThreadPoolSize=*/ 0,
+            UnnecessaryTemporaryStateDropperReceiver.NULL);
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }

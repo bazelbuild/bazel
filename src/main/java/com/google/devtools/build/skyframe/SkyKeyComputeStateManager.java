@@ -19,12 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import javax.annotation.Nullable;
 
-/**
- * Helper class used to support {@link SkyKeyComputeState}.
- *
- * <p>TODO(b/209704702): Make this fancier as needed to reimplement some of the Blaze-on-Skyframe
- * SkyFunctions.
- */
+/** Helper class used to support {@link SkyKeyComputeState}. */
 class SkyKeyComputeStateManager {
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   private final LoadingCache<SkyKey, SkyKeyComputeState> cache;

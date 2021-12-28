@@ -126,7 +126,12 @@ public interface SkyFunction {
    *   }
    * </pre>
    *
-   * Now {@code someExpensiveComputation(x)} gets called exactly once for each {@code x}!
+   * <p>Now {@code someExpensiveComputation(x)} gets called exactly once for each {@code x}!
+   *
+   * <p>Important: There's no guarantee the {@link SkyKeyComputeState} instance will be the same
+   * exact instance used on the previous call to this method for the same {@link SkyKey}. Therefore,
+   * {@link SkyFunction} implementations should make use of this feature only as a performance
+   * optimization.
    *
    * <p>TODO(b/209701268): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
    * sort of optimization.

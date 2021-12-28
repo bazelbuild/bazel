@@ -15,6 +15,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import java.util.Optional;
@@ -35,6 +36,7 @@ public class EvaluationContext {
   private final boolean isExecutionPhase;
   private final int cpuHeavySkyKeysThreadPoolSize;
   private final int executionPhaseThreadPoolSize;
+  private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
   protected EvaluationContext(
       int numThreads,
@@ -44,7 +46,8 @@ public class EvaluationContext {
       boolean useForkJoinPool,
       boolean isExecutionPhase,
       int cpuHeavySkyKeysThreadPoolSize,
-      int executionPhaseThreadPoolSize) {
+      int executionPhaseThreadPoolSize,
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     Preconditions.checkArgument(0 < numThreads, "numThreads must be positive");
     this.numThreads = numThreads;
     this.executorServiceSupplier = executorServiceSupplier;
@@ -54,6 +57,7 @@ public class EvaluationContext {
     this.isExecutionPhase = isExecutionPhase;
     this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
     this.executionPhaseThreadPoolSize = executionPhaseThreadPoolSize;
+    this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
   public int getParallelism() {
@@ -102,6 +106,42 @@ public class EvaluationContext {
     return isExecutionPhase;
   }
 
+  /**
+   * Drops unnecessary temporary state used internally by the current evaluation.
+   *
+   * <p>If the current evaluation is slow because of GC thrashing, and the GC thrashing is partially
+   * caused by this temporary state, dropping it may reduce the wall time of the current evaluation.
+   * On the other hand, if the current evaluation is not GC thrashing, then dropping this temporary
+   * state will probably increase the wall time.
+   */
+  public interface UnnecessaryTemporaryStateDropper {
+    @ThreadSafe
+    void drop();
+  }
+
+  /**
+   * A receiver of a {@link UnnecessaryTemporaryStateDropper} instance tied to the current
+   * evaluation.
+   */
+  public interface UnnecessaryTemporaryStateDropperReceiver {
+    UnnecessaryTemporaryStateDropperReceiver NULL =
+        new UnnecessaryTemporaryStateDropperReceiver() {
+          @Override
+          public void onEvaluationStarted(UnnecessaryTemporaryStateDropper dropper) {}
+
+          @Override
+          public void onEvaluationFinished() {}
+        };
+
+    void onEvaluationStarted(UnnecessaryTemporaryStateDropper dropper);
+
+    void onEvaluationFinished();
+  }
+
+  public UnnecessaryTemporaryStateDropperReceiver getUnnecessaryTemporaryStateDropperReceiver() {
+    return unnecessaryTemporaryStateDropperReceiver;
+  }
+
   public Builder builder() {
     return newBuilder().copyFrom(this);
   }
@@ -120,6 +160,8 @@ public class EvaluationContext {
     protected int cpuHeavySkyKeysThreadPoolSize;
     protected int executionJobsThreadPoolSize = 0;
     protected boolean isExecutionPhase = false;
+    protected UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver =
+        UnnecessaryTemporaryStateDropperReceiver.NULL;
 
     protected Builder() {}
 
@@ -132,6 +174,8 @@ public class EvaluationContext {
       this.useForkJoinPool = evaluationContext.useForkJoinPool;
       this.executionJobsThreadPoolSize = evaluationContext.executionPhaseThreadPoolSize;
       this.cpuHeavySkyKeysThreadPoolSize = evaluationContext.cpuHeavySkyKeysThreadPoolSize;
+      this.unnecessaryTemporaryStateDropperReceiver =
+          evaluationContext.unnecessaryTemporaryStateDropperReceiver;
       return this;
     }
 
@@ -175,6 +219,12 @@ public class EvaluationContext {
       return this;
     }
 
+    public Builder setUnnecessaryTemporaryStateDropperReceiver(
+        UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+      this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
+      return this;
+    }
+
     public EvaluationContext build() {
       return new EvaluationContext(
           numThreads,
@@ -184,7 +234,8 @@ public class EvaluationContext {
           useForkJoinPool,
           isExecutionPhase,
           cpuHeavySkyKeysThreadPoolSize,
-          executionJobsThreadPoolSize);
+          executionJobsThreadPoolSize,
+          unnecessaryTemporaryStateDropperReceiver);
     }
   }
 }

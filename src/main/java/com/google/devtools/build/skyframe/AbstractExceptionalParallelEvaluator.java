@@ -156,8 +156,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             evaluationState);
   }
 
-  <T extends SkyValue> EvaluationResult<T> evalExceptionally(Iterable<? extends SkyKey> skyKeys)
-      throws InterruptedException, E {
+  protected <T extends SkyValue> EvaluationResult<T> evalExceptionally(
+      Iterable<? extends SkyKey> skyKeys) throws InterruptedException, E {
     ImmutableSet<SkyKey> skyKeySet = ImmutableSet.copyOf(skyKeys);
 
     // Optimization: if all required node values are already present in the cache, return them

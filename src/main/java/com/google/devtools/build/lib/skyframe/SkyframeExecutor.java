@@ -194,6 +194,8 @@ import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropper;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
@@ -3374,8 +3376,32 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return buildDriver.evaluate(roots, evaluationContext);
   }
 
+  private static final UnnecessaryTemporaryStateDropper NULL_UNNECESSARY_TEMPORARY_STATE_DROPPER =
+      () -> {};
+
+  private volatile UnnecessaryTemporaryStateDropper dropper =
+      NULL_UNNECESSARY_TEMPORARY_STATE_DROPPER;
+
+  private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver =
+      new UnnecessaryTemporaryStateDropperReceiver() {
+        @Override
+        public void onEvaluationStarted(UnnecessaryTemporaryStateDropper dropper) {
+          SkyframeExecutor.this.dropper = dropper;
+        }
+
+        @Override
+        public void onEvaluationFinished() {
+          SkyframeExecutor.this.dropper = NULL_UNNECESSARY_TEMPORARY_STATE_DROPPER;
+        }
+      };
+
   protected final EvaluationContext.Builder newEvaluationContextBuilder() {
-    return EvaluationContext.newBuilder();
+    return EvaluationContext.newBuilder()
+        .setUnnecessaryTemporaryStateDropperReceiver(unnecessaryTemporaryStateDropperReceiver);
+  }
+
+  void dropUnnecessaryTemporarySkyframeState() {
+    dropper.drop();
   }
 
   /** Receiver for successfully evaluated/doing computation {@link SkyKey}s. */

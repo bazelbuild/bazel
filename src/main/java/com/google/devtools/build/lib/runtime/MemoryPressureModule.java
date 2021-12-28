@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.skyframe.SkyframeHighWaterMarkLimiter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import javax.annotation.Nullable;
 
@@ -24,19 +25,31 @@ import javax.annotation.Nullable;
  * pressure events.
  */
 public class MemoryPressureModule extends BlazeModule {
+  private SkyframeHighWaterMarkLimiter skyframeHighWaterMarkLimiter;
   private RetainedHeapLimiter retainedHeapLimiter;
   @Nullable private MemoryPressureListener memoryPressureListener;
 
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    skyframeHighWaterMarkLimiter = new SkyframeHighWaterMarkLimiter();
     retainedHeapLimiter = RetainedHeapLimiter.create(runtime.getBugReporter());
-    memoryPressureListener = MemoryPressureListener.create(ImmutableList.of(retainedHeapLimiter));
+    memoryPressureListener =
+        MemoryPressureListener.create(
+            ImmutableList.of(
+                // Put SkyframeHighWaterMarkLimiter first so it has a chance to make things
+                // eligible for GC before RetainedHeapLimiter would trigger a full GC.
+                skyframeHighWaterMarkLimiter, retainedHeapLimiter));
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    // In practice, the SkyframeExecutor instance is fixed for the lifetime of the Blaze server. But
+    // BlazeModule doesn't give us access to it in any of the once-per-server methods.
+    skyframeHighWaterMarkLimiter.setSkyframeExecutor(env.getSkyframeExecutor());
+
     CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+    skyframeHighWaterMarkLimiter.setThreshold(commonOptions.skyframeHighWaterMarkMemoryThreshold);
     retainedHeapLimiter.setThreshold(
         /*listening=*/ memoryPressureListener != null, commonOptions.oomMoreEagerlyThreshold);
   }

@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropper;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
@@ -126,7 +128,8 @@ public class ParallelEvaluatorTest {
         () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
         new SimpleCycleDetector(),
         /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-        /*executionJobsThreadPoolSize=*/ 0);
+        /*executionJobsThreadPoolSize=*/ 0,
+        UnnecessaryTemporaryStateDropperReceiver.NULL);
   }
 
   private ParallelEvaluator makeEvaluator(
@@ -2840,5 +2843,133 @@ public class ParallelEvaluatorTest {
         // And the error message for key1 is from error bubbling,
         .isEqualTo("error bubbling for key1");
     // Confirming that all our other expectations about the compute states were correct.
+  }
+
+  // Demonstrates we're able to drop SkyKeyCompute state intra-evaluation.
+  @Test
+  public void skyKeyComputeState_unnecessaryTemporaryStateDropperReceiver()
+      throws InterruptedException {
+    // When we have 2 nodes: key1, key2
+    // (with dependency graph key1 -> key2, to be declared later in this test)
+    // (and we'll be evaluating key1 later in this test)
+    SkyKey key1 = new SkyKeyForSkyKeyComputeStateTests("key1");
+    SkyKey key2 = new SkyKeyForSkyKeyComputeStateTests("key2");
+
+    // And an SkyKeyComputeState implementation that tracks global instance counts,
+    AtomicInteger globalStateInstanceCounter = new AtomicInteger();
+    class State implements SkyKeyComputeState {
+      final int instanceCount = globalStateInstanceCounter.incrementAndGet();
+    }
+
+    // And a UnnecessaryTemporaryStateDropperReceiver that,
+    AtomicReference<UnnecessaryTemporaryStateDropper> dropperRef = new AtomicReference<>();
+    UnnecessaryTemporaryStateDropperReceiver dropperReceiver =
+        new UnnecessaryTemporaryStateDropperReceiver() {
+          @Override
+          public void onEvaluationStarted(UnnecessaryTemporaryStateDropper dropper) {
+            // Captures the UnnecessaryTemporaryStateDropper (for our use intra-evaluation)
+            dropperRef.set(dropper);
+          }
+
+          @Override
+          public void onEvaluationFinished() {
+            // And then throws it away when the evaluation is done.
+            dropperRef.set(null);
+          }
+        };
+
+    AtomicReference<WeakReference<State>> stateForKey1Ref = new AtomicReference<>();
+
+    // And a SkyFunction for these nodes,
+    SkyFunction skyFunctionForTest =
+        new SkyFunction() {
+          // That supports compute staten
+          @Override
+          public boolean supportsSkyKeyComputeState() {
+            return true;
+          }
+
+          @Override
+          public State createNewSkyKeyComputeState() {
+            return new State();
+          }
+
+          // And crashes if the normal #compute method is called,
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            fail();
+            throw new IllegalStateException();
+          }
+
+          // And whose #compute is such that
+          @Override
+          public SkyValue compute(
+              SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
+              throws InterruptedException {
+            State state = (State) skyKeyComputeState;
+            if (skyKey.equals(key1)) {
+              // The semantics for key1 are:
+
+              // We declare a dep on key2.
+              if (env.getValue(key2) == null) {
+                // If key2 is missing, that means we're on the initial #compute call for key1,
+                // And so we expect the compute state to be the first instance ever.
+                assertThat(state.instanceCount).isEqualTo(1);
+                stateForKey1Ref.set(new WeakReference<>(state));
+
+                return null;
+              } else {
+                // But if key2 is not missing, that means we're on the subsequent #compute call for
+                // key1. That means we expect the compute state to be the third instance ever,
+                // because...
+                assertThat(state.instanceCount).isEqualTo(3);
+
+                return new StringValue("value1");
+              }
+            } else if (skyKey.equals(key2)) {
+              // ... The semantics for key2 are:
+
+              // Drop all compute states.
+              dropperRef.get().drop();
+              // Confirm the old compute state for key1 was GC'd.
+              GcFinalization.awaitClear(stateForKey1Ref.get());
+              // Also confirm key2's compute state is the second instance ever.
+              assertThat(state.instanceCount).isEqualTo(2);
+
+              return new StringValue("value2");
+            }
+            throw new IllegalStateException();
+          }
+        };
+
+    tester.putSkyFunction(SkyKeyForSkyKeyComputeStateTests.FUNCTION_NAME, skyFunctionForTest);
+    graph = new InMemoryGraphImpl();
+
+    ParallelEvaluator parallelEvaluator =
+        new ParallelEvaluator(
+            graph,
+            graphVersion,
+            tester.getSkyFunctionMap(),
+            storedEventHandler,
+            new MemoizingEvaluator.EmittedEventState(),
+            InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
+            ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+            // Doesn't matter for this test case.
+            /*keepGoing=*/ false,
+            revalidationReceiver,
+            GraphInconsistencyReceiver.THROWING,
+            // We ought not need more than 1 thread for this test case.
+            () -> AbstractQueueVisitor.createExecutorService(1, "test-pool"),
+            new SimpleCycleDetector(),
+            /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
+            /*executionJobsThreadPoolSize=*/ 0,
+            dropperReceiver);
+    // Then, when we evaluate key1,
+    SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);
+    // It successfully produces the value we expect, confirming all our other expectations about
+    // the compute states were correct.
+    assertThat(resultValue).isEqualTo(new StringValue("value1"));
+    // And we threw away the dropper, confirming the #onEvaluationFinished method was called.
+    assertThat(dropperRef.get()).isNull();
   }
 }

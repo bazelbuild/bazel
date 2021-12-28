@@ -337,6 +337,20 @@ public class CommonCommandOptions extends OptionsBase {
   public int oomMoreEagerlyThreshold;
 
   @Option(
+      name = "skyframe_high_water_mark_threshold",
+      defaultValue = "85",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Flag for advanced configuration of Bazel's internal Skyframe engine. If Bazel detects"
+              + " its retained heap percentage usage is at least this threshold, it will drop"
+              + " unnecessary temporary Skyframe state. Tweaking this may let you mitigate wall"
+              + " time impact of GC thrashing, when the GC thrashing is (i) caused by the memory"
+              + " usage of this temporary state and (ii) more costly than reconstituting the state"
+              + " when it is needed.")
+  public int skyframeHighWaterMarkMemoryThreshold;
+
+  @Option(
       name = "heap_dump_on_oom",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,

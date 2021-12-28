@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +37,8 @@ import javax.annotation.Nullable;
  * is not worth the effort.
  */
 public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<RuntimeException> {
+  private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
+
   public ParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
@@ -50,7 +53,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
       int cpuHeavySkyKeysThreadPoolSize,
-      int executionJobsThreadPoolSize) {
+      int executionJobsThreadPoolSize,
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     super(
         graph,
         graphVersion,
@@ -66,6 +70,7 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         cycleDetector,
         cpuHeavySkyKeysThreadPoolSize,
         executionJobsThreadPoolSize);
+    this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
   /**
@@ -75,7 +80,13 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
   @ThreadCompatible
   public <T extends SkyValue> EvaluationResult<T> eval(Iterable<? extends SkyKey> skyKeys)
       throws InterruptedException {
-    return this.evalExceptionally(skyKeys);
+    unnecessaryTemporaryStateDropperReceiver.onEvaluationStarted(
+        skyKeyComputeStateManager::removeAll);
+    try {
+      return this.evalExceptionally(skyKeys);
+    } finally {
+      unnecessaryTemporaryStateDropperReceiver.onEvaluationFinished();
+    }
   }
 
   @Override
