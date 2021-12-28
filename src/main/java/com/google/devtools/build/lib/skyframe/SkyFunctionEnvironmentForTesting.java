@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * A {@link SkyFunction.Environment} backed by a {@link SkyframeExecutor} that can be used to
@@ -86,5 +87,10 @@ public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionE
   @Override
   public boolean restartPermitted() {
     return false;
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return stateSupplier.get();
   }
 }

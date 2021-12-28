@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -47,6 +49,7 @@ class ParallelEvaluatorContext {
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
   private final boolean mergingSkyframeAnalysisExecutionPhases;
+  private final Cache<SkyKey, SkyKeyComputeState> stateCache;
 
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -80,7 +83,8 @@ class ParallelEvaluatorContext {
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      boolean mergingSkyframeAnalysisExecutionPhases) {
+      boolean mergingSkyframeAnalysisExecutionPhases,
+      Cache<SkyKey, SkyKeyComputeState> stateCache) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.skyFunctions = skyFunctions;
@@ -97,6 +101,7 @@ class ParallelEvaluatorContext {
     this.errorInfoManager = errorInfoManager;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
     this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
+    this.stateCache = stateCache;
   }
 
   Map<SkyKey, ? extends NodeEntry> getBatchValues(
@@ -192,6 +197,10 @@ class ParallelEvaluatorContext {
 
   boolean mergingSkyframeAnalysisExecutionPhases() {
     return mergingSkyframeAnalysisExecutionPhases;
+  }
+
+  Cache<SkyKey, SkyKeyComputeState> stateCache() {
+    return stateCache;
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */

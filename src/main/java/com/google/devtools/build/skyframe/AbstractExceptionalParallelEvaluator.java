@@ -32,7 +32,6 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -372,7 +371,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       throws InterruptedException {
     // Remove all the compute states so as to give the SkyFunctions a chance to do fresh
     // computations during error bubbling.
-    skyKeyComputeStateManager.removeAll();
+    stateCache.invalidateAll();
 
     Set<SkyKey> rootValues = ImmutableSet.copyOf(roots);
     ErrorInfo error = leafFailure;
@@ -499,17 +498,12 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               bubbleErrorInfo,
               ImmutableSet.of(),
               evaluatorContext);
-      SkyKeyComputeState skyKeyComputeStateToUse = skyKeyComputeStateManager.maybeGet(parent);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
       boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
         // care about a return value.
-        if (skyKeyComputeStateToUse == null) {
-          factory.compute(parent, env);
-        } else {
-          factory.compute(parent, skyKeyComputeStateToUse, env);
-        }
+        factory.compute(parent, env);
         completedRun = true;
       } catch (InterruptedException interruptedException) {
         logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);

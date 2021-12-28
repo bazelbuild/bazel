@@ -81,7 +81,7 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
   public <T extends SkyValue> EvaluationResult<T> eval(Iterable<? extends SkyKey> skyKeys)
       throws InterruptedException {
     unnecessaryTemporaryStateDropperReceiver.onEvaluationStarted(
-        skyKeyComputeStateManager::removeAll);
+        () -> evaluatorContext.stateCache().invalidateAll());
     try {
       return this.evalExceptionally(skyKeys);
     } finally {

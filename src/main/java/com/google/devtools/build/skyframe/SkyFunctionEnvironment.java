@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
@@ -961,6 +963,12 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Override
   public boolean restartPermitted() {
     return evaluatorContext.restartPermitted();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return (T) evaluatorContext.stateCache().get(skyKey, k -> stateSupplier.get());
   }
 
   /** Thrown during environment construction if previously requested deps are no longer done. */

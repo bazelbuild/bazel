@@ -119,6 +119,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -387,6 +388,11 @@ public final class ActionsTestUtil {
     @Override
     public boolean restartPermitted() {
       return false;
+    }
+
+    @Override
+    public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+      return stateSupplier.get();
     }
   }
 
