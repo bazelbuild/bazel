@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
@@ -45,6 +48,8 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,6 +61,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 
 /**
  * The environment of a Blaze query. Not thread-safe.
@@ -416,36 +422,55 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       throws QueryException {
     ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
     Set<PackageIdentifier> seenPackages = new HashSet<>();
+    Set<String> seenRepos = new HashSet<>();
 
     // Adds all the package definition files (BUILD files and build extensions) for package "pkg",
     // to dependentFiles.
     for (Target x : nodes) {
+      List<Label> extensions = new ArrayList<>();
       Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
+      if (x instanceof Rule && pkg.getPackageIdentifier().getCanonicalForm().equals("//external")) {
+        // External repository rules
+        if (seenRepos.add(x.getName())) {
+          ImmutableList<CallStackEntry> callStackEntries = x.getAssociatedRule().getCallStack()
+              .toList();
+          for (CallStackEntry entry : callStackEntries) {
+            PathFragment extFile = PathFragment.create(entry.location.file());
+            PathFragment workspaceRoot = pkg.getPackageDirectory().asFragment();
+            if (extFile.startsWith(workspaceRoot)) {
+              try {
+                Label extension = Label.create(
+                    extFile.relativeTo(workspaceRoot).getParentDirectory().getPathString(),
+                    extFile.getBaseName());
+                extensions.add(extension);
+              } catch (LabelSyntaxException e) {
+                throw new QueryException("cannot build a label for " + extFile,
+                    Code.BUILD_FILE_ERROR);
+              }
+            }
+          }
+        }
+      } else if (seenPackages.add(pkg.getPackageIdentifier())) {
         if (buildFiles) {
           dependentFiles.add(pkg.getBuildFile());
         }
 
-        List<Label> extensions = new ArrayList<>();
         if (loads) {
           extensions.addAll(pkg.getStarlarkFileDependencies());
         }
+      }
 
-        for (Label extension : extensions) {
-          Target loadTarget = new FakeLoadTarget(extension, pkg);
-          dependentFiles.add(loadTarget);
+      for (Label extension : extensions) {
+        Target loadTarget = new FakeLoadTarget(extension, pkg);
+        dependentFiles.add(loadTarget);
 
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            // Can be null in genquery: see http://b/123795023#comment6.
-            String baseName =
-                cachingPackageLocator.getBaseNameForLoadedPackage(
-                    loadTarget.getLabel().getPackageIdentifier());
-            if (baseName != null) {
-              Label buildFileLabel =
-                  Label.createUnvalidated(loadTarget.getLabel().getPackageIdentifier(), baseName);
-              dependentFiles.add(new FakeLoadTarget(buildFileLabel, pkg));
-            }
+        // Also add the BUILD file of the extension.
+        if (buildFiles) {
+          // Can be null in genquery: see http://b/123795023#comment6.
+          Path buildFile = cachingPackageLocator.getBuildFileForPackage(extension.getPackageIdentifier());
+          if (buildFile != null) {
+            Label buildFileLabel = Label.createUnvalidated(extension.getPackageIdentifier(), buildFile.getBaseName());
+            dependentFiles.add(new FakeLoadTarget(buildFileLabel, pkg));
           }
         }
       }

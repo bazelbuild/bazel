@@ -38,6 +38,27 @@ class QueryTest(test_base.TestBase):
     self._AssertQueryOutput('deps(//foo:top-rule, 1)', '//foo:top-rule',
                             '//foo:dep-rule')
 
+  def testBuildFilesForExternalRepos(self):
+    self.ScratchFile('WORKSPACE', [
+      'load("//:http_archives.bzl", "http_archives")',
+      'http_archives()',
+    ])
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('http_archives.bzl', [
+      'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+      'def http_archives():',
+      '    http_archive(',
+      '        name = "io_bazel_rules_go",',
+      '        sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f",',
+      '        urls = [',
+      '            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",',
+      '            "https://github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",',
+      '        ],',
+      '    )',
+    ])
+    self._AssertQueryOutput('buildfiles(//external:io_bazel_rules_go)',
+                            '//:WORKSPACE', '//:http_archives.bzl', '//:BUILD.bazel')
+
   def _AssertQueryOutput(self, query_expr, *expected_results):
     exit_code, stdout, stderr = self.RunBazel(['query', query_expr])
     self.AssertExitCode(exit_code, 0, stderr)
