@@ -714,7 +714,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     write("foo/BUILD", "genrule(name = 'gen', outs = ['gen.out'], cmd = 'touch $@')");
     AtomicBoolean threwOom = new AtomicBoolean(false);
     getSkyframeExecutor()
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {

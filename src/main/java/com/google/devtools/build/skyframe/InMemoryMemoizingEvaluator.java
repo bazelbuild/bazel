@@ -143,8 +143,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public void deleteDirty(long versionAgeLimit) {
-    Preconditions.checkArgument(versionAgeLimit >= 0);
-    final Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    Preconditions.checkArgument(versionAgeLimit >= 0, versionAgeLimit);
+    Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
     valuesToDelete.addAll(
         Sets.filter(
             progressReceiver.getUnenqueuedDirtyKeys(),
@@ -158,14 +158,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, Version version, EvaluationContext evaluationContext)
+      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
-    IntVersion intVersion = (IntVersion) version;
-    Preconditions.checkState((lastGraphVersion == null && intVersion.getVal() == 0)
-        || version.equals(lastGraphVersion.next()),
-        "InMemoryGraph supports only monotonically increasing Integer versions: %s %s",
-        lastGraphVersion, version);
+    IntVersion graphVersion = lastGraphVersion == null ? IntVersion.of(0) : lastGraphVersion.next();
+    evaluationContext = ensureExecutorService(evaluationContext);
     setAndCheckEvaluateState(true, roots);
     try {
       // Mark for removal any inflight nodes from the previous evaluation.
@@ -176,7 +173,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       // diffs for historical versions. This makes the following code sensitive to interrupts.
       // Ideally we would simply not update lastGraphVersion if an interrupt occurs.
       Diff diff =
-          differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion, version);
+          differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion, graphVersion);
       if (!diff.isEmpty() || !valuesToInject.isEmpty() || !valuesToDelete.isEmpty()) {
         valuesToInject.putAll(diff.changedKeysWithNewValues());
         invalidate(diff.changedKeysWithoutNewValues());
@@ -184,7 +181,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         invalidate(valuesToInject.keySet());
 
         performInvalidation();
-        injectValues(intVersion);
+        injectValues(graphVersion);
       }
 
       EvaluationResult<T> result;
@@ -192,7 +189,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         ParallelEvaluator evaluator =
             new ParallelEvaluator(
                 graph,
-                version,
+                graphVersion,
                 skyFunctions,
                 evaluationContext.getEventHandler(),
                 emittedEventState,
@@ -201,12 +198,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
                 evaluationContext.getKeepGoing(),
                 progressReceiver,
                 graphInconsistencyReceiver,
-                evaluationContext
-                    .getExecutorServiceSupplier()
-                    .orElse(
-                        () ->
-                            AbstractQueueVisitor.createExecutorService(
-                                evaluationContext.getParallelism(), "skyframe-evaluator")),
+                evaluationContext.getExecutorServiceSupplier().get(),
                 new SimpleCycleDetector(),
                 evaluationContext.getCPUHeavySkyKeysThreadPoolSize(),
                 evaluationContext.getExecutionPhaseThreadPoolSize(),
@@ -218,9 +210,24 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
           .setWalkableGraph(new DelegatingWalkableGraph(graph))
           .build();
     } finally {
-      lastGraphVersion = intVersion;
+      lastGraphVersion = graphVersion;
       setAndCheckEvaluateState(false, roots);
     }
+  }
+
+  private static EvaluationContext ensureExecutorService(EvaluationContext evaluationContext) {
+    return evaluationContext.getExecutorServiceSupplier().isPresent()
+        ? evaluationContext
+        : evaluationContext
+            .builder()
+            .setNumThreads(evaluationContext.getParallelism())
+            .setExecutorServiceSupplier(
+                () ->
+                    AbstractQueueVisitor.createExecutorService(
+                        evaluationContext.getParallelism(),
+                        "skyframe-evaluator",
+                        evaluationContext.getUseForkJoinPool()))
+            .build();
   }
 
   /**

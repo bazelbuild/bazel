@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 
 /**
  * Includes options and states used by {@link MemoizingEvaluator#evaluate}, {@link
- * BuildDriver#evaluate} and {@link WalkableGraphFactory#prepareAndGet}
+ * MemoizingEvaluator#evaluate} and {@link WalkableGraphFactory#prepareAndGet}
  */
 public class EvaluationContext {
   private final int numThreads;

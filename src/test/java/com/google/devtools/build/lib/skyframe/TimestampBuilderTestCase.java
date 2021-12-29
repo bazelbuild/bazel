@@ -110,7 +110,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -133,9 +132,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
 
-/**
- * The common code that's shared between various builder tests.
- */
+/** The common code that's shared between various builder tests. */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   @SerializationConstant
   protected static final ActionLookupKey ACTION_LOOKUP_KEY =
@@ -153,7 +150,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
-  public final void initialize() throws Exception  {
+  public final void initialize() throws Exception {
     options =
         OptionsParser.builder()
             .optionsClasses(KeepGoingOption.class, BuildRequestOptions.class, CoreOptions.class)
@@ -225,10 +222,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator,
-        ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
     differencer = new SequencedRecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =
@@ -319,7 +317,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             DEFAULT_STORED_EVENT_FILTER,
             new EmittedEventState(),
             /*keepEdges=*/ true);
-    final SequentialBuildDriver driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
@@ -392,7 +389,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .setNumThreads(threadCount)
                 .setEventHandler(reporter)
                 .build();
-        EvaluationResult<SkyValue> result = driver.evaluate(keys, evaluationContext);
+        EvaluationResult<SkyValue> result = evaluator.evaluate(keys, evaluationContext);
         this.latestResult = result;
 
         if (result.hasError()) {

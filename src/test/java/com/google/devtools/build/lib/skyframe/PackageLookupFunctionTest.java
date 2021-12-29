@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -45,8 +44,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -58,7 +55,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -82,7 +78,6 @@ import org.junit.runners.Parameterized.Parameters;
 public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;
-  private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
   private static final String IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING = "config/ignored.txt";
@@ -101,7 +96,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
                 outputBase,
                 ImmutableList.of(Root.fromPath(emptyPackagePath), Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+    deletedPackages = new AtomicReference<>(ImmutableSet.of());
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
@@ -134,7 +129,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<TimestampGranularityMonitor>(),
+            new AtomicReference<>(),
             new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
@@ -167,8 +162,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(
-            LocalRepositoryRule.NAME, (RepositoryFunction) new LocalRepositoryFunction());
+        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
@@ -182,12 +176,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
-    driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
-        differencer, ImmutableMap.<RepositoryName, PathFragment>of());
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
@@ -213,8 +205,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver.<PackageLookupValue>evaluate(
-        ImmutableList.of(packageIdentifierSkyKey), evaluationContext);
+    return evaluator.evaluate(ImmutableList.of(packageIdentifierSkyKey), evaluationContext);
   }
 
   @Test
@@ -349,7 +340,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testPackageLookupValueHashCodeAndEqualsContract() throws Exception {
+  public void testPackageLookupValueHashCodeAndEqualsContract() {
     Root root1 = Root.fromPath(rootDirectory.getRelative("root1"));
     Root root2 = Root.fromPath(rootDirectory.getRelative("root2"));
     // Our (seeming) duplication of parameters here is intentional. Some of the subclasses of
@@ -434,8 +425,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
       Path localRepoWorkspace = scratch.resolve("local/repo/WORKSPACE");
       Path localRepoWorkspaceLink = scratch.resolve("local/repo/WORKSPACE.link");
-      FileSystemUtils.createDirectoryAndParents(localRepoWorkspace.getParentDirectory());
-      FileSystemUtils.createDirectoryAndParents(localRepoWorkspaceLink.getParentDirectory());
+      localRepoWorkspace.getParentDirectory().createDirectoryAndParents();
+      localRepoWorkspaceLink.getParentDirectory().createDirectoryAndParents();
       localRepoWorkspace.createSymbolicLink(localRepoWorkspaceLink);
       localRepoWorkspaceLink.createSymbolicLink(localRepoWorkspace);
       scratch.file("local/repo/BUILD");

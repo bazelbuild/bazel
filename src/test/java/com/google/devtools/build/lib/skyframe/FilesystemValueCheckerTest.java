@@ -83,7 +83,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -140,7 +139,6 @@ public final class FilesystemValueCheckerTest {
   private final MockFileSystem fs = new MockFileSystem();
   private RecordingDifferencer differencer;
   private MemoizingEvaluator evaluator;
-  private SequentialBuildDriver driver;
   private Path pkgRoot;
   @TestParameter private BatchStatMode batchStat;
 
@@ -328,7 +326,6 @@ public final class FilesystemValueCheckerTest {
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions.buildOrThrow(), differencer);
-    driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
   }
@@ -530,7 +527,7 @@ public final class FilesystemValueCheckerTest {
         FileStateValue.key(
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo")));
     EvaluationResult<SkyValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+        evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
@@ -542,7 +539,7 @@ public final class FilesystemValueCheckerTest {
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), skyKey);
 
     differencer.invalidate(ImmutableList.of(skyKey));
-    result = driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+    result = evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
@@ -583,7 +580,7 @@ public final class FilesystemValueCheckerTest {
     Iterable<SkyKey> allKeys = ImmutableList.of(symlinkKey, fooKey);
 
     // First build -- prime the graph.
-    EvaluationResult<FileValue> result = driver.evaluate(allKeys, EVALUATION_OPTIONS);
+    EvaluationResult<FileValue> result = evaluator.evaluate(allKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     FileValue symlinkValue = result.get(symlinkKey);
     FileValue fooValue = result.get(fooKey);
@@ -598,7 +595,7 @@ public final class FilesystemValueCheckerTest {
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
     differencer.invalidate(ImmutableList.of(sym1FileStateKey));
-    result = driver.evaluate(ImmutableList.of(), EVALUATION_OPTIONS);
+    result = evaluator.evaluate(ImmutableList.of(), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
@@ -610,7 +607,7 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(symlink, "new symlink contents");
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), symlinkFileStateKey);
     differencer.invalidate(ImmutableList.of(symlinkFileStateKey));
-    result = driver.evaluate(allKeys, EVALUATION_OPTIONS);
+    result = evaluator.evaluate(allKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     symlinkValue = result.get(symlinkKey);
     assertWithMessage(symlinkValue.toString()).that(symlinkValue.isSymlink()).isFalse();
@@ -638,7 +635,7 @@ public final class FilesystemValueCheckerTest {
         FileStateValue.key(
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo2")));
     Iterable<SkyKey> skyKeys = ImmutableList.of(key1, key2);
-    EvaluationResult<SkyValue> result = driver.evaluate(skyKeys, EVALUATION_OPTIONS);
+    EvaluationResult<SkyValue> result = evaluator.evaluate(skyKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
@@ -659,7 +656,7 @@ public final class FilesystemValueCheckerTest {
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), key1, key2);
 
     differencer.invalidate(skyKeys);
-    result = driver.evaluate(skyKeys, EVALUATION_OPTIONS);
+    result = evaluator.evaluate(skyKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
@@ -675,7 +672,7 @@ public final class FilesystemValueCheckerTest {
         FileStateValue.key(
             RootedPath.toRootedPath(Root.fromPath(pkgRoot), PathFragment.create("foo")));
     EvaluationResult<SkyValue> result =
-        driver.evaluate(ImmutableList.of(fileKey), EVALUATION_OPTIONS);
+        evaluator.evaluate(ImmutableList.of(fileKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
 
     fs.readlinkThrowsIoException = false;
@@ -698,7 +695,7 @@ public final class FilesystemValueCheckerTest {
     SkyKey fileKey1 = FileValue.key(RootedPath.toRootedPath(Root.fromPath(pkgRoot), path1));
 
     EvaluationResult<SkyValue> result =
-        driver.evaluate(ImmutableList.of(fileKey1), EVALUATION_OPTIONS);
+        evaluator.evaluate(ImmutableList.of(fileKey1), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
 
     FilesystemValueChecker checker =
@@ -762,7 +759,7 @@ public final class FilesystemValueCheckerTest {
                         Runnables.doNothing(),
                         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                         ImmutableSet.of(out2)))));
-    assertThat(driver.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
+    assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
     assertThat(
             new FilesystemValueChecker(
                     /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
@@ -1153,7 +1150,7 @@ public final class FilesystemValueCheckerTest {
             .setNumThreads(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    assertThat(driver.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
+    assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
   }
 
   private Artifact createDerivedArtifact(String relPath) throws IOException {
@@ -1299,7 +1296,9 @@ public final class FilesystemValueCheckerTest {
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(
-            driver.evaluate(ImmutableList.of(actionKey1, actionKey2), evaluationContext).hasError())
+            evaluator
+                .evaluate(ImmutableList.of(actionKey1, actionKey2), evaluationContext)
+                .hasError())
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
@@ -1351,7 +1350,7 @@ public final class FilesystemValueCheckerTest {
             .setNumThreads(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    assertThat(driver.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
+    assertThat(evaluator.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
@@ -1383,7 +1382,7 @@ public final class FilesystemValueCheckerTest {
         ImmutableList.of(
             FileValue.key(
                 RootedPath.toRootedPath(Root.fromPath(pkgRoot), PathFragment.create("foo"))));
-    driver.evaluate(values, EVALUATION_OPTIONS);
+    evaluator.evaluate(values, EVALUATION_OPTIONS);
     AtomicReference<Throwable> uncaughtRef = new AtomicReference<>();
     CountDownLatch throwableCaught = new CountDownLatch(1);
     Thread.UncaughtExceptionHandler uncaughtExceptionHandler =

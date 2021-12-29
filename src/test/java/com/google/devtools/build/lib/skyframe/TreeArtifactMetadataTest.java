@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -137,7 +136,6 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     ImmutableList<PathFragment> children =
         ImmutableList.of(PathFragment.create("one"), PathFragment.create("two"));
     TreeArtifactValue valueOne = evaluateTreeArtifact(treeArtifact, children);
-    MemoizingEvaluator evaluator = driver.getGraphForTesting();
     // Delete action execution node to force our artifacts to be re-evaluated.
     evaluator.delete(key -> actions.contains(key.argument()));
     TreeArtifactValue valueTwo = evaluateTreeArtifact(treeArtifact, children);
@@ -251,7 +249,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver.evaluate(Arrays.asList(keys), evaluationContext);
+    return evaluator.evaluate(Arrays.asList(keys), evaluationContext);
   }
 
   private class TreeArtifactExecutionFunction implements SkyFunction {

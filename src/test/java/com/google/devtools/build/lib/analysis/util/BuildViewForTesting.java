@@ -167,7 +167,7 @@ public class BuildViewForTesting {
 
   private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
     ImmutableMap<ActionLookupKey, Version> newMap =
-        stream(skyframeExecutor.getEvaluatorForTesting().getGraphEntries())
+        stream(skyframeExecutor.getEvaluator().getGraphEntries())
             .filter(e -> e.getKey() instanceof ActionLookupKey)
             .collect(
                 toImmutableMap(

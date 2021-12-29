@@ -94,10 +94,10 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -214,7 +214,7 @@ public final class ActionsTestUtil {
       FileOutErr fileOutErr,
       Path execRoot,
       MetadataHandler metadataHandler,
-      BuildDriver buildDriver,
+      MemoizingEvaluator evaluator,
       DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
@@ -227,7 +227,7 @@ public final class ActionsTestUtil {
         fileOutErr,
         eventHandler,
         ImmutableMap.of(),
-        new BlockingSkyFunctionEnvironment(buildDriver, eventHandler),
+        new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
         /*actionFileSystem=*/ null,
         discoveredModulesPruner,
         UnixGlob.DEFAULT_SYSCALLS,
@@ -319,11 +319,12 @@ public final class ActionsTestUtil {
    * requested keys, blocking until the values are ready.
    */
   private static final class BlockingSkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
-    private final BuildDriver driver;
+    private final MemoizingEvaluator evaluator;
     private final EventHandler eventHandler;
 
-    private BlockingSkyFunctionEnvironment(BuildDriver driver, EventHandler eventHandler) {
-      this.driver = driver;
+    private BlockingSkyFunctionEnvironment(
+        MemoizingEvaluator evaluator, EventHandler eventHandler) {
+      this.evaluator = evaluator;
       this.eventHandler = eventHandler;
     }
 
@@ -339,7 +340,7 @@ public final class ActionsTestUtil {
                 .setNumThreads(ResourceUsage.getAvailableProcessors())
                 .setEventHandler(new Reporter(new EventBus(), eventHandler))
                 .build();
-        evaluationResult = driver.evaluate(depKeys, evaluationContext);
+        evaluationResult = evaluator.evaluate(depKeys, evaluationContext);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         for (SkyKey key : depKeys) {

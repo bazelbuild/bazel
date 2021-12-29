@@ -902,7 +902,6 @@ java_library(
     name = "package_specification_provider",
     srcs = ["PackageSpecificationProvider.java"],
     deps = [
-        ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
     ],
@@ -1234,7 +1233,6 @@ java_library(
         ":actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//third_party:guava",
         "//third_party:jsr305",

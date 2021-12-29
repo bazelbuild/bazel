@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -68,7 +67,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -85,7 +83,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
 
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
   private final RecordingDifferencer differencer = new SequencedRecordingDifferencer();
   private EvaluationContext evaluationContext;
 
@@ -124,14 +122,14 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
             .build(ruleClassProvider, fileSystem);
 
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
-    MemoizingEvaluator evaluator =
+    evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileValue.FILE, new FileFunction(packageLocator))
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(
@@ -173,7 +171,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                     new SkyFunction() {
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env)
-                          throws SkyFunctionException, InterruptedException {
+                          throws SkyFunctionException {
                         // Dummy function that returns a dep graph with just the root module in it.
                         return BazelModuleResolutionFunction.createValue(
                             ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
@@ -207,7 +205,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .build(),
             differencer);
-    driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
@@ -240,7 +237,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
         "    })");
   }
 
-  private FakeBzlmodRepoRuleHelper getFakeBzlmodRepoRuleHelper() {
+  private static FakeBzlmodRepoRuleHelper getFakeBzlmodRepoRuleHelper() {
     ImmutableMap.Builder<String, RepoSpec> repoSpecs = ImmutableMap.builder();
     repoSpecs
         // repos from non-registry overrides
@@ -288,7 +285,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   @Test
   public void createRepoRule_bazelTools() throws Exception {
     EvaluationResult<BzlmodRepoRuleValue> result =
-        driver.evaluate(
+        evaluator.evaluate(
             ImmutableList.of(BzlmodRepoRuleValue.key("bazel_tools")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
@@ -309,7 +306,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
       return;
     }
     EvaluationResult<BzlmodRepoRuleValue> result =
-        driver.evaluate(
+        evaluator.evaluate(
             ImmutableList.of(BzlmodRepoRuleValue.key("local_config_platform")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
@@ -325,7 +322,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   @Test
   public void createRepoRule_overrides() throws Exception {
     EvaluationResult<BzlmodRepoRuleValue> result =
-        driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("A")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("A")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -341,9 +338,9 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   @Test
   public void createRepoRule_bazelModules() throws Exception {
     // Using a starlark rule in a RepoSpec requires having run Selection first.
-    driver.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     EvaluationResult<BzlmodRepoRuleValue> result =
-        driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("B")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("B")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -360,9 +357,9 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   @Test
   public void createRepoRule_moduleRules() throws Exception {
     // Using a starlark rule in a RepoSpec requires having run Selection first.
-    driver.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     EvaluationResult<BzlmodRepoRuleValue> result =
-        driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("C")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("C")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -381,7 +378,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   @Test
   public void createRepoRule_notFound() throws Exception {
     EvaluationResult<BzlmodRepoRuleValue> result =
-        driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("unknown")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("unknown")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }

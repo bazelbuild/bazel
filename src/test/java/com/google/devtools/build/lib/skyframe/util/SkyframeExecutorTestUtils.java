@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.util;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -51,7 +50,7 @@ public class SkyframeExecutorTestUtils {
   @Nullable
   public static SkyValue getExistingValue(SkyframeExecutor skyframeExecutor, SkyKey key)
       throws InterruptedException {
-    return skyframeExecutor.getEvaluatorForTesting().getExistingValue(key);
+    return skyframeExecutor.getEvaluator().getExistingValue(key);
   }
 
   /**
@@ -60,7 +59,7 @@ public class SkyframeExecutorTestUtils {
   @Nullable
   public static ErrorInfo getExistingError(SkyframeExecutor skyframeExecutor, SkyKey key)
       throws InterruptedException {
-    return skyframeExecutor.getEvaluatorForTesting().getExistingErrorForTesting(key);
+    return skyframeExecutor.getEvaluator().getExistingErrorForTesting(key);
   }
 
   /** Calls {@link MemoizingEvaluator#evaluate} on the given {@link SkyframeExecutor}'s graph. */
@@ -76,7 +75,7 @@ public class SkyframeExecutorTestUtils {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(errorEventListener)
             .build();
-    return skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+    return skyframeExecutor.getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
   }
 
   /**
@@ -117,15 +116,9 @@ public class SkyframeExecutorTestUtils {
    * BuildConfigurationValue)}, this doesn't make the caller request a specific configuration.
    */
   public static Iterable<ConfiguredTarget> getExistingConfiguredTargets(
-      SkyframeExecutor skyframeExecutor, final Label label) {
+      SkyframeExecutor skyframeExecutor, Label label) {
     return Iterables.filter(
-        getAllExistingConfiguredTargets(skyframeExecutor),
-        new Predicate<ConfiguredTarget>() {
-          @Override
-          public boolean apply(ConfiguredTarget input) {
-            return input.getLabel().equals(label);
-          }
-        });
+        getAllExistingConfiguredTargets(skyframeExecutor), input -> input.getLabel().equals(label));
   }
 
   /**
@@ -134,8 +127,10 @@ public class SkyframeExecutorTestUtils {
   public static Iterable<ConfiguredTarget> getAllExistingConfiguredTargets(
       SkyframeExecutor skyframeExecutor) {
     Collection<SkyValue> values =
-        Maps.filterKeys(skyframeExecutor.getEvaluatorForTesting().getValues(),
-            SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET)).values();
+        Maps.filterKeys(
+                skyframeExecutor.getEvaluator().getValues(),
+                SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET))
+            .values();
     List<ConfiguredTarget> cts = Lists.newArrayList();
     for (SkyValue value : values) {
       if (value != null) {

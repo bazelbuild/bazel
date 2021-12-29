@@ -187,7 +187,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer;
@@ -296,8 +295,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
-
-  private BuildDriver buildDriver;
 
   private final Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit;
 
@@ -439,7 +436,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.packageManager =
         new SkyframePackageManager(
             new SkyframePackageLoader(),
-            new QueryTransitivePackagePreloader(this::getDriver, this::newEvaluationContextBuilder),
+            new QueryTransitivePackagePreloader(
+                () -> memoizingEvaluator, this::newEvaluationContextBuilder),
             syscalls,
             pkgLocator,
             numPackagesLoaded);
@@ -744,10 +742,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     incrementalBuildMonitor = null;
   }
 
-  public final BuildDriver getDriver() {
-    return buildDriver;
-  }
-
   /**
    * Was there an analysis-invalidating change, like a configuration option changing, causing a
    * non-incremental analysis phase to be performed. Calling this resets the state to false.
@@ -811,7 +805,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             DEFAULT_FILTER_WITH_ACTIONS,
             emittedEventState,
             tracksStateForIncrementality());
-    buildDriver = createBuildDriver();
     skyframeExecutorConsumerOnInit.accept(this);
   }
 
@@ -878,9 +871,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   protected abstract Differencer evaluatorDiffer();
-
-  @ForOverride
-  protected abstract BuildDriver createBuildDriver();
 
   /** Clear any configured target data stored outside Skyframe. */
   public void handleAnalysisInvalidatingChange() {
@@ -1267,7 +1257,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .build();
 
     synchronized (valueLookupLock) {
-      result = buildDriver.evaluate(packageKeys.values(), evaluationContext);
+      result = memoizingEvaluator.evaluate(packageKeys.values(), evaluationContext);
     }
 
     if (result.hasError()) {
@@ -1630,7 +1620,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               .setEventHandler(reporter)
               .setExecutionPhase()
               .build();
-      return buildDriver.evaluate(
+      return memoizingEvaluator.evaluate(
           Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
           evaluationContext);
     } finally {
@@ -1653,12 +1643,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker) {
     skyframeActionExecutor.prepareForExecution(
-        reporter,
-        executor,
-        options,
-        actionCacheChecker,
-        outputService,
-        isAnalysisIncremental());
+        reporter, executor, options, actionCacheChecker, outputService, isAnalysisIncremental());
   }
 
   /** Asks the Skyframe evaluator to run a single exclusive test. */
@@ -1769,7 +1754,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setEventHandler(eventHandler)
             .setUseForkJoinPool(true)
             .build();
-    return buildDriver.evaluate(patternSkyKeys, evaluationContext);
+    return memoizingEvaluator.evaluate(patternSkyKeys, evaluationContext);
   }
 
   /**
@@ -2157,8 +2142,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   private static BuildConfigurationKey toConfigurationKey(
-      PlatformMappingValue platformMappingValue,
-      BuildOptions toOption)
+      PlatformMappingValue platformMappingValue, BuildOptions toOption)
       throws InvalidConfigurationException {
     try {
       return BuildConfigurationKey.withPlatformMapping(platformMappingValue, toOption);
@@ -2370,7 +2354,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<ActionLookupValue> result =
-        buildDriver.evaluate(
+        memoizingEvaluator.evaluate(
             Iterables.concat(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
     // Get rid of any memory retained by the cache -- all loading is done.
     perBuildSyscallCache.clear();
@@ -2404,7 +2388,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<BuildDriverValue> result =
-        buildDriver.evaluate(
+        memoizingEvaluator.evaluate(
             Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
     // Get rid of any memory retained by the cache -- all loading is done.
     perBuildSyscallCache.clear();
@@ -2532,17 +2516,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<SkyKey> roots, EvaluationContext evaluationContext) throws InterruptedException {
     EvaluationContext evaluationContextToUse =
         evaluationContext.builder().setKeepGoing(/*keepGoing=*/ true).build();
-    return buildDriver.evaluate(roots, evaluationContextToUse);
-  }
-
-  /**
-   * Get metadata related to the prepareAndGet() lookup. Resulting data is specific to the
-   * underlying evaluation implementation.
-   */
-  public String prepareAndGetMetadata(
-      Collection<String> patterns, PathFragment offset, OptionsProvider options)
-      throws AbruptExitException, InterruptedException {
-    return buildDriver.meta(ImmutableList.of(getUniverseKey(patterns, offset)), options);
+    return memoizingEvaluator.evaluate(roots, evaluationContextToUse);
   }
 
   public Optional<UniverseScope> maybeGetHardcodedUniverseScope() {
@@ -2734,8 +2708,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  @VisibleForTesting
-  public MemoizingEvaluator getEvaluatorForTesting() {
+  public MemoizingEvaluator getEvaluator() {
     return memoizingEvaluator;
   }
 
@@ -3373,7 +3346,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setNumThreads(numThreads)
             .setEventHandler(eventHandler)
             .build();
-    return buildDriver.evaluate(roots, evaluationContext);
+    return memoizingEvaluator.evaluate(roots, evaluationContext);
   }
 
   private static final UnnecessaryTemporaryStateDropper NULL_UNNECESSARY_TEMPORARY_STATE_DROPPER =

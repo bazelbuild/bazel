@@ -383,7 +383,7 @@ public class ConfigCommand implements BlazeCommand {
       findConfigurations(CommandEnvironment env) {
     InMemoryMemoizingEvaluator evaluator =
         (InMemoryMemoizingEvaluator)
-            env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluatorForTesting();
+            env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluator();
     return evaluator.getDoneValues().entrySet().stream()
         .filter(e -> SkyFunctions.BUILD_CONFIGURATION.equals(e.getKey().functionName()))
         .collect(

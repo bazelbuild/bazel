@@ -246,8 +246,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
 
     AspectKey key = Iterables.getOnlyElement(analysisResult.getAspectsMap().keySet());
-    AspectValue aspectValue =
-        (AspectValue) skyframeExecutor.getEvaluatorForTesting().getExistingValue(key);
+    AspectValue aspectValue = (AspectValue) skyframeExecutor.getEvaluator().getExistingValue(key);
     AspectDefinition aspectDefinition = aspectValue.getAspect().getDefinition();
     assertThat(
             aspectDefinition

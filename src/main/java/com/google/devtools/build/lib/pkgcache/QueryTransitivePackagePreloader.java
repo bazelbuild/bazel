@@ -17,8 +17,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationContext;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,13 +30,13 @@ import java.util.function.Supplier;
  * that benefits from loading parallelism.
  */
 public class QueryTransitivePackagePreloader {
-  private final Supplier<BuildDriver> buildDriverSupplier;
+  private final Supplier<MemoizingEvaluator> memoizingEvaluatorSupplier;
   private final Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier;
 
   public QueryTransitivePackagePreloader(
-      Supplier<BuildDriver> buildDriverSupplier,
+      Supplier<MemoizingEvaluator> memoizingEvaluatorSupplier,
       Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier) {
-    this.buildDriverSupplier = buildDriverSupplier;
+    this.memoizingEvaluatorSupplier = memoizingEvaluatorSupplier;
     this.evaluationContextBuilderSupplier = evaluationContextBuilderSupplier;
   }
 
@@ -59,6 +59,6 @@ public class QueryTransitivePackagePreloader {
             .setEventHandler(eventHandler)
             .setUseForkJoinPool(true)
             .build();
-    buildDriverSupplier.get().evaluate(valueNames, evaluationContext);
+    memoizingEvaluatorSupplier.get().evaluate(valueNames, evaluationContext);
   }
 }

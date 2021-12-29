@@ -248,7 +248,6 @@ java_library(
     srcs = ["FilesetOutputSymlink.java"],
     deps = [
         ":has_digest",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",

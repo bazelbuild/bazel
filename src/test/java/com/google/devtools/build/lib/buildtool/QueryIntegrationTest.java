@@ -786,7 +786,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     fs.stubStat(badFile, null);
     CountDownLatch directoryListingLatch = new CountDownLatch(1);
     getSkyframeExecutor()
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {

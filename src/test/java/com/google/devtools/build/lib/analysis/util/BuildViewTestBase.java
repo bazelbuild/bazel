@@ -96,7 +96,7 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
 
   protected void injectGraphListenerForTesting(Listener listener, boolean deterministic) {
     InMemoryMemoizingEvaluator memoizingEvaluator =
-        (InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting();
+        (InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator();
     memoizingEvaluator.injectGraphTransformerForTesting(
         DeterministicHelper.makeTransformer(listener, deterministic));
   }

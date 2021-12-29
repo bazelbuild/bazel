@@ -2230,12 +2230,11 @@ public class ParallelEvaluatorTest {
               throw new IllegalStateException();
             });
 
-    MemoizingEvaluator aug =
+    MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.of(GraphTester.NODE_TYPE, tester.getFunction()),
             new SequencedRecordingDifferencer(),
             progressReceiver);
-    SequentialBuildDriver driver = new SequentialBuildDriver(aug);
 
     tester
         .getOrCreate("top1")
@@ -2257,20 +2256,20 @@ public class ParallelEvaluatorTest {
             .setNumThreads(200)
             .setEventHandler(reporter)
             .build();
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top1", "d1", "d2"));
     assertThat(evaluatedValues)
         .containsExactlyElementsIn(GraphTester.toSkyKeys("top1", "d1", "d2"));
     enqueuedValues.clear();
     evaluatedValues.clear();
 
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
     assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
     enqueuedValues.clear();
     evaluatedValues.clear();
 
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).isEmpty();
     assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top1"));
   }
