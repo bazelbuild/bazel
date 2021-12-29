@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,6 +30,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,6 +50,7 @@ public class GlobCacheTest {
 
   private Path packageDirectory;
   private Path buildFile;
+  private ExecutorService cacheThreadPool;
   private GlobCache cache;
 
   @Before
@@ -92,7 +94,16 @@ public class GlobCacheTest {
     createCache();
   }
 
+  @After
+  public void shutDownThreadPoolIfExists() {
+    if (cacheThreadPool != null) {
+      cacheThreadPool.shutdownNow();
+    }
+  }
+
   private void createCache(PathFragment... ignoredDirectories) {
+    shutDownThreadPoolIfExists();
+    cacheThreadPool = Executors.newFixedThreadPool(10);
     cache =
         new GlobCache(
             packageDirectory,
@@ -118,7 +129,7 @@ public class GlobCacheTest {
               }
             },
             null,
-            TestUtils.getPool(),
+            cacheThreadPool,
             -1,
             ThreadStateReceiver.NULL_INSTANCE);
   }
