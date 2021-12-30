@@ -692,7 +692,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         new BuildEventServiceProtoUtil.Builder()
             .buildRequestId(buildRequestId)
             .invocationId(invocationId)
-            .projectId(besOptions.projectId)
+            .projectId(besOptions.instanceName)
             .commandName(cmdEnv.getCommandName())
             .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
             .build();
