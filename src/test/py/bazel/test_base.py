@@ -450,7 +450,8 @@ class TestBase(unittest.TestCase):
                  env_add=None,
                  shell=False,
                  cwd=None,
-                 allow_failure=True):
+                 allow_failure=True,
+                 executable=None):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
@@ -464,6 +465,8 @@ class TestBase(unittest.TestCase):
       cwd: string; the current working dirctory, will be self._test_cwd if not
         specified.
       allow_failure: bool; if false, the function checks the return code is 0
+      executable: string or None; executable program to run; use args[0]
+        if None
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -471,6 +474,7 @@ class TestBase(unittest.TestCase):
       with tempfile.TemporaryFile(dir=self._test_cwd) as stderr:
         proc = subprocess.Popen(
             args,
+            executable=executable,
             stdout=stdout,
             stderr=stderr,
             cwd=(str(cwd) if cwd else self._test_cwd),

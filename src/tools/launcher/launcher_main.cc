@@ -12,7 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef STRICT
+#define STRICT
+#endif
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#ifndef UNICODE
+#define UNICODE
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
+
 #include <memory>
+#include <string>
 
 #include "src/tools/launcher/bash_launcher.h"
 #include "src/tools/launcher/java_launcher.h"
@@ -33,11 +52,21 @@ using bazel::launcher::die;
 using std::make_unique;
 using std::unique_ptr;
 
-int wmain(int argc, wchar_t* argv[]) {
-  LaunchDataParser::LaunchInfo launch_info;
+static std::wstring GetExecutableFileName() {
+  // https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
+  constexpr std::wstring::size_type maximum_file_name_length = 0x8000;
+  std::wstring buffer(maximum_file_name_length, L'\0');
+  DWORD length = GetModuleFileNameW(nullptr, &buffer.front(), buffer.size());
+  if (length == 0 || length >= buffer.size()) {
+    die(L"Failed to obtain executable filename");
+  }
+  return buffer.substr(0, length);
+}
 
-  if (!LaunchDataParser::GetLaunchInfo(GetBinaryPathWithExtension(argv[0]),
-                                       &launch_info)) {
+int wmain(int argc, wchar_t* argv[]) {
+  const std::wstring executable_file = GetExecutableFileName();
+  LaunchDataParser::LaunchInfo launch_info;
+  if (!LaunchDataParser::GetLaunchInfo(executable_file, &launch_info)) {
     die(L"Failed to parse launch info.");
   }
 
@@ -49,8 +78,8 @@ int wmain(int argc, wchar_t* argv[]) {
   unique_ptr<BinaryLauncherBase> binary_launcher;
 
   if (result->second == L"Python") {
-    binary_launcher =
-        make_unique<PythonBinaryLauncher>(launch_info, argc, argv);
+    binary_launcher = make_unique<PythonBinaryLauncher>(
+        launch_info, executable_file, argc, argv);
   } else if (result->second == L"Bash") {
     binary_launcher = make_unique<BashBinaryLauncher>(launch_info, argc, argv);
   } else if (result->second == L"Java") {
