@@ -3266,14 +3266,14 @@ EOF
 
   # Check the error message when failed to upload
   bazel build --remote_cache=http://nonexistent.example.org //a:foo >& $TEST_log || fail "Failed to build"
-  expect_log "WARNING: Writing to Remote Cache:"
+  expect_log "WARNING: Remote Cache:"
 
   bazel test \
     --remote_cache=grpc://localhost:${worker_port} \
     --experimental_remote_cache_async \
     --flaky_test_attempts=2 \
     //a:test >& $TEST_log  && fail "expected failure" || true
-  expect_not_log "WARNING: Writing to Remote Cache:"
+  expect_not_log "WARNING: Remote Cache:"
 }
 
 function test_download_toplevel_when_turn_remote_cache_off() {

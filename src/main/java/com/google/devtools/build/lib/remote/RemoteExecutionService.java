@@ -132,10 +132,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -161,6 +163,7 @@ public class RemoteExecutionService {
   private final ImmutableSet<PathFragment> filesToDownload;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
+  private final Set<String> reportedErrors = new HashSet<>();
 
   private final Scheduler scheduler;
 
@@ -1186,10 +1189,9 @@ public class RemoteExecutionService {
       return;
     }
 
-    String errorMessage =
-        "Writing to Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
+    String errorMessage = "Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
 
-    reporter.handle(Event.warn(errorMessage));
+    report(Event.warn(errorMessage));
   }
 
   /**
@@ -1310,6 +1312,17 @@ public class RemoteExecutionService {
 
     if (remoteExecutor != null) {
       remoteExecutor.close();
+    }
+  }
+
+  void report(Event evt) {
+
+    synchronized (this) {
+      if (reportedErrors.contains(evt.getMessage())) {
+        return;
+      }
+      reportedErrors.add(evt.getMessage());
+      reporter.handle(evt);
     }
   }
 }

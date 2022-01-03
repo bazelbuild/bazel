@@ -192,7 +192,6 @@ final class RemoteActionContextProvider {
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
-            env.getReporter(),
             getRemoteExecutionService());
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");
   }
