@@ -537,4 +537,46 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("@foo//p:BUILD"); // (loadPackage(@foo//p) would suffice)
     assertContainsEvent("repo=@foo pkg=p");
   }
+
+  @Test
+  public void testNativeBazelVersion() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "repo_bzl_ver.bzl",
+        "def _repo_impl(repository_ctx):",
+        "  repository_ctx.file('BUILD', '')",
+        "  repository_ctx.file('defs.bzl', 'BAZEL_VERSION = \"' + native.bazel_version + '\"')",
+        "  repository_ctx.file('WORKSPACE', '')",
+        "",
+        "repo = repository_rule(",
+        "    implementation=_repo_impl,",
+        "    local=True)");
+    scratch.file(
+        "bzl_ver.bzl",
+        "load('@repo2//:defs.bzl', 'BAZEL_VERSION')",
+        "def _impl(ctx):",
+        "  if BAZEL_VERSION == native.bazel_version:",
+        "    print('native.bazel_version matches')",
+        "  else:",
+        "    fail(BAZEL_VERSION + ' does not equal ' + native.bazel_version)",
+        "  output = ctx.actions.declare_file(ctx.label.name + '.txt')",
+        "  ctx.actions.write(output = output, content = native.bazel_version)",
+        "  return DefaultInfo(files = depset([output]))",
+        "",
+        "check = rule(",
+        "    implementation=_impl)");
+    scratch.file("BUILD", "load('@//:bzl_ver.bzl', 'check')", "check(name = 'check')");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(), 
+        new ImmutableList.Builder<String>()
+        .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+        .add("load('@//:repo_bzl_ver.bzl', 'repo')")
+        .add("repo(name = 'repo2')")
+        .build());
+
+    invalidatePackages();
+
+    getConfiguredTarget("//:check");
+    assertContainsEvent("native.bazel_version matches");
+  }
 }
