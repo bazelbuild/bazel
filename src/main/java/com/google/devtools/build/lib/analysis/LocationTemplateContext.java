@@ -72,13 +72,14 @@ final class LocationTemplateContext implements TemplateContext {
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
       boolean execPaths,
       boolean allowData,
+      boolean collectSrcs,
       boolean windowsPath) {
     this(
         delegate,
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, collectSrcs)),
         execPaths,
         ruleContext.getConfiguration().legacyExternalRunfiles(),
         ruleContext.getRule().getPackage().getRepositoryMapping(),
