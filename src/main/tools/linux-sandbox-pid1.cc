@@ -234,8 +234,15 @@ static void SetupUserNamespace() {
   }
   if (opt.enable_pty) {
     // Change the group to "tty" regardless of what was previously set
-    struct group *g = getgrnam("tty");
-    inner_gid = g->gr_gid;
+    struct group grp;
+    char buf[256];
+    size_t buflen = sizeof(buf);
+    struct group *result;
+    getgrnam_r("tty", &grp, buf, buflen, &result);
+    if (result == nullptr) {
+      DIE("getgrnam_r");
+    }
+    inner_gid = grp.gr_gid;
   }
 
   WriteFile("/proc/self/uid_map", "%d %d 1\n", inner_uid, global_outer_uid);
