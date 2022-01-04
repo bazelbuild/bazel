@@ -82,9 +82,25 @@ BinaryLauncherBase::BinaryLauncherBase(
 }
 
 static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
-  // Look for the runfiles manifest of the binary in a runfiles directory next
-  // to the binary, then look for it (the manifest) next to the binary.
-  wstring directory = GetBinaryPathWithExtension(argv0) + L".runfiles";
+  // If this binary X runs as the data-dependency of some other binary Y, then
+  // X has no runfiles manifest/directory and should use Y's.
+  if (GetEnv(L"RUNFILES_MANIFEST_FILE", result) &&
+      DoesFilePathExist(result->c_str())) {
+    return true;
+  }
+
+  wstring directory;
+  if (GetEnv(L"RUNFILES_DIR", &directory)) {
+    *result = directory + L"/MANIFEST";
+    if (DoesFilePathExist(result->c_str())) {
+      return true;
+    }
+  }
+
+  // If this binary X runs by itself (not as a data-dependency of another
+  // binary), then look for the manifest in a runfiles directory next to the
+  // main binary, then look for it (the manifest) next to the main binary.
+  directory = GetBinaryPathWithExtension(argv0) + L".runfiles";
   *result = directory + L"/MANIFEST";
   if (DoesFilePathExist(result->c_str())) {
     return true;
@@ -93,21 +109,6 @@ static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
   *result = directory + L"_manifest";
   if (DoesFilePathExist(result->c_str())) {
     return true;
-  }
-
-  // If the manifest is not found then this binary (X) runs as the
-  // data-dependency of some other binary (Y) and X has no runfiles
-  // manifest/directory so it should use Y's.
-  if (GetEnv(L"RUNFILES_MANIFEST_FILE", result) &&
-      DoesFilePathExist(result->c_str())) {
-    return true;
-  }
-
-  if (GetEnv(L"RUNFILES_DIR", &directory)) {
-    *result = directory + L"/MANIFEST";
-    if (DoesFilePathExist(result->c_str())) {
-      return true;
-    }
   }
 
   return false;
