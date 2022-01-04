@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
@@ -48,10 +47,7 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.NoSuchElementException;
-import java.util.Set;
-import javax.annotation.Nullable;
 
 /** A remote {@link SpawnCache} implementation. */
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
@@ -66,20 +62,16 @@ final class RemoteSpawnCache implements SpawnCache {
   private final Path execRoot;
   private final RemoteOptions options;
   private final boolean verboseFailures;
-  @Nullable private final Reporter cmdlineReporter;
-  private final Set<String> reportedErrors = new HashSet<>();
   private final RemoteExecutionService remoteExecutionService;
 
   RemoteSpawnCache(
       Path execRoot,
       RemoteOptions options,
       boolean verboseFailures,
-      @Nullable Reporter cmdlineReporter,
       RemoteExecutionService remoteExecutionService) {
     this.execRoot = execRoot;
     this.options = options;
     this.verboseFailures = verboseFailures;
-    this.cmdlineReporter = cmdlineReporter;
     this.remoteExecutionService = remoteExecutionService;
   }
 
@@ -150,13 +142,13 @@ final class RemoteSpawnCache implements SpawnCache {
             errorMessage = Utils.grpcAwareErrorMessage(e);
           } else {
             // On --verbose_failures print the whole stack trace
-            errorMessage = Throwables.getStackTraceAsString(e);
+            errorMessage = "\n" + Throwables.getStackTraceAsString(e);
           }
           if (isNullOrEmpty(errorMessage)) {
             errorMessage = e.getClass().getSimpleName();
           }
-          errorMessage = "Reading from Remote Cache:\n" + errorMessage;
-          report(Event.warn(errorMessage));
+          errorMessage = "Remote Cache: " + errorMessage;
+          remoteExecutionService.report(Event.warn(errorMessage));
         }
       }
     }
@@ -193,7 +185,7 @@ final class RemoteSpawnCache implements SpawnCache {
             try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException | ForbiddenActionInputException e) {
-              report(Event.warn(e.getMessage()));
+              remoteExecutionService.report(Event.warn(e.getMessage()));
               return;
             }
           }
@@ -220,20 +212,6 @@ final class RemoteSpawnCache implements SpawnCache {
       };
     } else {
       return SpawnCache.NO_RESULT_NO_STORE;
-    }
-  }
-
-  private void report(Event evt) {
-    if (cmdlineReporter == null) {
-      return;
-    }
-
-    synchronized (this) {
-      if (reportedErrors.contains(evt.getMessage())) {
-        return;
-      }
-      reportedErrors.add(evt.getMessage());
-      cmdlineReporter.handle(evt);
     }
   }
 
