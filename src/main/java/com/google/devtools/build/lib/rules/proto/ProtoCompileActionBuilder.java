@@ -65,7 +65,7 @@ public class ProtoCompileActionBuilder {
 
   private final ProtoInfo protoInfo;
   private final FilesToRunProvider protoCompiler;
-  private final String progressMessage;
+  private final String language;
   private final String langPrefix;
   private final Iterable<Artifact> outputs;
   private Iterable<Artifact> inputs;
@@ -122,12 +122,12 @@ public class ProtoCompileActionBuilder {
   public ProtoCompileActionBuilder(
       ProtoInfo protoInfo,
       FilesToRunProvider protoCompiler,
-      String progressMessage,
+      String language,
       String langPrefix,
       Iterable<Artifact> outputs) {
     this.protoInfo = protoInfo;
     this.protoCompiler = protoCompiler;
-    this.progressMessage = progressMessage;
+    this.language = language;
     this.langPrefix = langPrefix;
     this.outputs = outputs;
     this.mnemonic = DEFAULT_MNEMONIC;
@@ -207,7 +207,7 @@ public class ProtoCompileActionBuilder {
             /* ctx */ ruleContext.getStarlarkRuleContext(),
             /* proto_info */ protoInfo,
             /* proto_compiler */ protoCompiler,
-            /* progress_message */ progressMessage,
+            /* progress_message */ String.format("Generating %s proto_library %%{label}", language),
             /* outputs */ StarlarkList.immutableCopyOf(outputs),
             /* additional_args */ StarlarkList.immutableCopyOf(additionalArgs.build()),
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build()),
