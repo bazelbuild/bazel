@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,8 +79,8 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
   }
 
   /**
-   * Tests that [for host] tags are added to the progress messages of actions in the
-   * host configuration, but not in the target configuration.
+   * Tests that [for tool] tags are added to the progress messages of actions in the host
+   * configuration, but not in the target configuration.
    */
   @Test
   public void testAdditionalInfo() throws Exception {
@@ -98,12 +99,14 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
 
     buildTarget("//x");
 
-    assertContainsEvent(collector, "Expanding template x/bin [for host]");
-    assertContainsEvent(collector, "Creating source manifest for //x:bin [for host]");
-    assertContainsEvent(collector,
-        "Creating runfiles tree blaze-out/host/bin/x/bin.runfiles [for host]");
+    assertContainsEvent(collector, "Expanding template x/bin [for tool]");
+    assertContainsEvent(collector, "Creating source manifest for //x:bin [for tool]");
+    assertContainsEvent(
+        collector,
+        Pattern.compile(
+            "Creating runfiles tree blaze-out/[^/]*/bin/x/bin.runfiles \\[for tool\\]"));
     assertContainsEvent(collector, "Executing genrule //x:x");
-    assertDoesNotContainEvent(collector, "Executing genrule //x:x [for host]");
+    assertDoesNotContainEvent(collector, "Executing genrule //x:x [for tool]");
   }
 
   @Test

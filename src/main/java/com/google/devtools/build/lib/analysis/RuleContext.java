@@ -140,7 +140,7 @@ public final class RuleContext extends TargetContext
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
   }
 
-  private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
+  private static final String TOOL_CONFIGURATION_PROGRESS_TAG = "for tool";
 
   private final Rule rule;
   /**
@@ -542,7 +542,7 @@ public final class RuleContext extends TargetContext
         rule.getTargetKind(),
         configuration.checksum(),
         configuration.toBuildEvent(),
-        configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null,
+        configuration.isToolConfiguration() ? TOOL_CONFIGURATION_PROGRESS_TAG : null,
         execProperties,
         executionPlatform);
   }
