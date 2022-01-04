@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -516,7 +516,7 @@ public class AspectTest extends AnalysisTestCase {
                                     .aspect(AspectThatRegistersAction.INSTANCE))
                             .add(
                                 attr(":action_listener", LABEL_LIST)
-                                    .cfg(HostTransition.createFactory())
+                                    .cfg(ExecutionTransitionFactory.create())
                                     .value(ACTION_LISTENER)));
 
     public static class AspectThatRegistersAction extends NativeAspectClass
