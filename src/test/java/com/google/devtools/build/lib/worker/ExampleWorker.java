@@ -30,6 +30,7 @@ import com.google.gson.stream.JsonReader;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -194,6 +195,7 @@ public final class ExampleWorker {
         try {
           if (currentRequest.getVerbosity() > 0) {
             originalStdErr.println("VERBOSE: Pretending to do work.");
+            originalStdErr.println("VERBOSE: Running in " + new File(".").getAbsolutePath());
           }
           parseOptionsAndLog(args);
         } catch (Exception e) {

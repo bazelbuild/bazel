@@ -250,6 +250,11 @@ Even when using the input digests to guard against unwanted caching, sandboxed
 workers offer less strict sandboxing than a pure sandbox, because the tool may
 keep other internal state that has been affected by previous requests.
 
+Multiplex workers can only be sandboxed if the worker implementation support it,
+and this sandboxing must be separately enabled with the
+`--experimental_worker_multiplex_sandboxing` flag. See more details in
+[the design doc](https://docs.google.com/document/d/1ncLW0hz6uDhNvci1dpzfEoifwTiNTqiBEm1vi-bIIRM/edit))
+
 ## Further reading <a name="further-reading"></a>
 
 For more information on persistent workers, see:

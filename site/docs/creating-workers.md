@@ -59,6 +59,9 @@ values indicate more verbose output. Passing the `--worker_verbose` flag to
 Bazel sets the `verbosity` field to 10, but smaller or larger values can be
 used manually for different amounts of output.
 
+The optional `sandbox_dir` field is used only by workers that support
+[multiplex sandboxing](multiplex-worker.md).
+
 ### Work responses
 
 A `WorkResponse` contains a request id, a zero or nonzero exit

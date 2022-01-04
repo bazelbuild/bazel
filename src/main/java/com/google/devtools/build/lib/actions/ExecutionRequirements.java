@@ -162,6 +162,8 @@ public class ExecutionRequirements {
 
   public static final String SUPPORTS_WORKER_CANCELLATION = "supports-worker-cancellation";
 
+  public static final String SUPPORTS_MULTIPLEX_SANDBOXING = "supports-multiplex-sandboxing";
+
   /** Denotes what the type of worker protocol the worker uses. */
   public enum WorkerProtocolFormat {
     JSON,

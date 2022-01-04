@@ -67,19 +67,67 @@ class TestUtils {
     workerOptions.workerMultiplex = multiplex;
     workerOptions.workerSandboxing = sandboxed;
 
-    Spawn spawn =
-        createSpawn(
-            ImmutableMap.of(
-                ExecutionRequirements.WORKER_KEY_MNEMONIC, mnemonic,
-                ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "proto",
-                ExecutionRequirements.SUPPORTS_WORKERS, "1",
-                ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1"));
+    return createWorkerKeyFromOptions(
+        protocolFormat,
+        fs.getPath("/outputbase"),
+        workerOptions,
+        dynamic,
+        createSpawn(execRequirementsBuilder(mnemonic).buildOrThrow()),
+        args);
+  }
+
+  /**
+   * Creates a worker key based on a set of options. The {@code extraRequirements} are added to the
+   * {@link Spawn} execution info with the value "1". The "supports-workers" and
+   * "supports-multiplex-workers" execution requirements are always set.
+   *
+   * @param outputBase Global (for the test) outputBase.
+   */
+  static WorkerKey createWorkerKeyWithRequirements(
+      Path outputBase,
+      WorkerOptions workerOptions,
+      String mnemonic,
+      boolean dynamic,
+      String... extraRequirements) {
+    ImmutableMap.Builder<String, String> builder = execRequirementsBuilder(mnemonic);
+    for (String req : extraRequirements) {
+      builder.put(req, "1");
+    }
+    Spawn spawn = createSpawn(builder.buildOrThrow());
+
+    return WorkerParser.createWorkerKey(
+        spawn,
+        /* workerArgs= */ ImmutableList.of(),
+        /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
+        /* execRoot= */ outputBase.getChild("execroot"),
+        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+        /* workerFiles= */ ImmutableSortedMap.of(),
+        workerOptions,
+        dynamic,
+        WorkerProtocolFormat.PROTO);
+  }
+
+  static ImmutableMap.Builder<String, String> execRequirementsBuilder(String mnemonic) {
+    return ImmutableMap.<String, String>builder()
+        .put(ExecutionRequirements.WORKER_KEY_MNEMONIC, mnemonic)
+        .put(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "proto")
+        .put(ExecutionRequirements.SUPPORTS_WORKERS, "1")
+        .put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
+  }
+
+  static WorkerKey createWorkerKeyFromOptions(
+      WorkerProtocolFormat protocolFormat,
+      Path outputBase,
+      WorkerOptions workerOptions,
+      boolean dynamic,
+      Spawn spawn,
+      String... args) {
 
     return WorkerParser.createWorkerKey(
         spawn,
         /* workerArgs= */ ImmutableList.copyOf(args),
         /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
-        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+        /* execRoot= */ outputBase.getChild("execroot"),
         /* workerFilesCombinedHash= */ HashCode.fromInt(0),
         /* workerFiles= */ ImmutableSortedMap.of(),
         workerOptions,
