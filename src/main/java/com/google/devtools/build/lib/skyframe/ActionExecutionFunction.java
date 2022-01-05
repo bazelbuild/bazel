@@ -145,7 +145,7 @@ public class ActionExecutionFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
-  private ConcurrentMap<Action, ContinuationState> stateMap;
+  private ConcurrentMap<Action, InputDiscoveryState> stateMap;
 
   public ActionExecutionFunction(
       SkyframeActionExecutor skyframeActionExecutor,
@@ -207,15 +207,15 @@ public class ActionExecutionFunction implements SkyFunction {
       clientEnv = ImmutableMap.of();
     }
 
-    // For restarts of this ActionExecutionFunction we use a ContinuationState variable, below, to
-    // avoid redoing work.
-    //
-    // However, if two actions are shared and the first one executes, when the
-    // second one goes to execute, we should detect that and short-circuit, even without taking
-    // ContinuationState into account.
+    // If two actions are shared and the first one executes, when the second one goes to execute, we
+    // should detect that and short-circuit.
     //
     // Additionally, if an action restarted (in the Skyframe sense) after it executed because it
     // discovered new inputs during execution, we should detect that and short-circuit.
+    //
+    // Separately, we use InputDiscoveryState to avoid redoing work on Skyframe restarts for actions
+    // that discover inputs. This is not [currently] relevant here, because it is [currently] not
+    // possible for an action to both be shared and also discover inputs; see b/72764586.
     ActionExecutionState previousExecution = skyframeActionExecutor.probeActionExecution(action);
 
     // If this action was previously completed this build, then this evaluation must be happening
@@ -233,13 +233,13 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    ContinuationState state;
+    InputDiscoveryState state;
     if (action.discoversInputs()) {
       state = getState(action);
     } else {
       // Because this is a new state, all conditionals below about whether state has already done
       // something will return false, and so we will execute all necessary steps.
-      state = new ContinuationState();
+      state = new InputDiscoveryState();
     }
     if (!state.hasCollectedInputs()) {
       try {
@@ -372,7 +372,7 @@ public class ActionExecutionFunction implements SkyFunction {
   }
 
   private static Iterable<SkyKey> getInputDepKeys(
-      NestedSet<Artifact> allInputs, ContinuationState state) {
+      NestedSet<Artifact> allInputs, InputDiscoveryState state) {
     // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order to
     // save memory:
     // - This top layer costs 1 extra ArtifactNestedSetKey node.
@@ -439,7 +439,7 @@ public class ActionExecutionFunction implements SkyFunction {
           inputDeps,
       NestedSet<Artifact> allInputs,
       Iterable<SkyKey> depKeys,
-      ContinuationState state)
+      InputDiscoveryState state)
       throws InterruptedException, ActionExecutionFunctionException {
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
@@ -731,7 +731,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(
       Action action,
-      ContinuationState state,
+      InputDiscoveryState state,
       Environment env,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
@@ -745,9 +745,9 @@ public class ActionExecutionFunction implements SkyFunction {
       // 1. Another instance of a shared action won the race and got executed first.
       // 2. The action was already started earlier, and this SkyFunction got restarted since
       //    there's progress to be made.
-      // In either case, we must use this continuation to continue. Note that in the first case, we
-      // don't have any input metadata available, so we couldn't re-execute the action even if we
-      // wanted to.
+      // In either case, we must use this ActionExecutionState to continue. Note that in the first
+      // case, we don't have any input metadata available, so we couldn't re-execute the action even
+      // if we wanted to.
       return previousAction.getResultOrDependOnFuture(
           env,
           actionLookupData,
@@ -872,9 +872,9 @@ public class ActionExecutionFunction implements SkyFunction {
 
   /** Implementation of {@link ActionPostprocessing}. */
   private final class ActionPostprocessingImpl implements ActionPostprocessing {
-    private final ContinuationState state;
+    private final InputDiscoveryState state;
 
-    ActionPostprocessingImpl(ContinuationState state) {
+    ActionPostprocessingImpl(InputDiscoveryState state) {
       this.state = state;
     }
 
@@ -1379,10 +1379,10 @@ public class ActionExecutionFunction implements SkyFunction {
     actionRewindStrategy.reset(eventHandler);
   }
 
-  private ContinuationState getState(Action action) {
-    ContinuationState state = stateMap.get(action);
+  private InputDiscoveryState getState(Action action) {
+    InputDiscoveryState state = stateMap.get(action);
     if (state == null) {
-      state = new ContinuationState();
+      state = new InputDiscoveryState();
       Preconditions.checkState(stateMap.put(action, state) == null, action);
     }
     return state;
@@ -1404,7 +1404,7 @@ public class ActionExecutionFunction implements SkyFunction {
    *       execution.
    * </ol>
    */
-  static class ContinuationState {
+  static class InputDiscoveryState {
     AllInputs allInputs;
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
