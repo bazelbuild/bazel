@@ -376,6 +376,12 @@ def _should_create_per_object_debug_info(feature_configuration, cpp_configuratio
                feature_name = "per_object_debug_info",
            )
 
+def _libraries_from_linking_context(linking_context):
+    libraries = []
+    for linker_input in linking_context.linker_inputs.to_list():
+        libraries.extend(linker_input.libraries)
+    return depset(libraries, order = "topological")
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -398,4 +404,5 @@ cc_helper = struct(
     get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
     should_create_per_object_debug_info = _should_create_per_object_debug_info,
     check_srcs_extensions = _check_srcs_extensions,
+    libraries_from_linking_context = _libraries_from_linking_context,
 )
