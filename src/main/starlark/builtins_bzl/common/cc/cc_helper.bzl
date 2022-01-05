@@ -382,6 +382,12 @@ def _libraries_from_linking_context(linking_context):
         libraries.extend(linker_input.libraries)
     return depset(libraries, order = "topological")
 
+def _additional_inputs_from_linking_context(linking_context):
+    inputs = []
+    for linker_input in linking_context.linker_inputs.to_list():
+        inputs.extend(linker_input.additional_inputs)
+    return depset(inputs, order = "topological")
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -405,4 +411,5 @@ cc_helper = struct(
     should_create_per_object_debug_info = _should_create_per_object_debug_info,
     check_srcs_extensions = _check_srcs_extensions,
     libraries_from_linking_context = _libraries_from_linking_context,
+    additional_inputs_from_linking_context = _additional_inputs_from_linking_context,
 )
