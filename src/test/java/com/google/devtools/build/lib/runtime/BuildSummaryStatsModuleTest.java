@@ -47,7 +47,8 @@ public class BuildSummaryStatsModuleTest {
   public void setUp() throws Exception {
     Properties props = System.getProperties();
     String OSName = props.getProperty("os.name");
-    MacOS = OSName.contains("Mac OS");
+    MacOS = OSName.contains("Mac");
+    System.out.println("\n" + "OSName:" + OSName);
     CommandEnvironment env = mock(CommandEnvironment.class);
     actionKeyContextMock = mock(ActionKeyContext.class);
     reporterMock = mock(Reporter.class);
