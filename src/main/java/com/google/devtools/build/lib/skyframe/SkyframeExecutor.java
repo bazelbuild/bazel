@@ -722,10 +722,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT);
   }
 
-  public void dump(boolean summarize, PrintStream out) {
-    memoizingEvaluator.dump(summarize, out);
-  }
-
   @ForOverride
   protected abstract void dumpPackages(PrintStream out);
 

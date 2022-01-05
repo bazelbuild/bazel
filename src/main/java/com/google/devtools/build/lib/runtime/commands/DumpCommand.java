@@ -36,6 +36,9 @@ import com.google.devtools.build.lib.server.FailureDetails.DumpCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.RuleStat;
+import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -56,7 +59,6 @@ import java.util.Optional;
 
 /** Implementation of the dump command. */
 @Command(
-  allowResidue = false,
   mustRunInWorkspace = false,
   options = {DumpCommand.DumpOptions.class},
   help =
@@ -70,8 +72,8 @@ import java.util.Optional;
 public class DumpCommand implements BlazeCommand {
 
   /**
-   * NB! Any changes to this class must be kept in sync with anyOutput variable
-   * value in the {@link DumpCommand#exec(CommandEnvironment,OptionsProvider)} method below.
+   * NB! Any changes to this class must be kept in sync with anyOutput variable value in the {@link
+   * DumpCommand#exec} method below.
    */
   public static class DumpOptions extends OptionsBase {
 
@@ -130,6 +132,15 @@ public class DumpCommand implements BlazeCommand {
       help = "Dump Skyframe graph: 'off', 'summary', or 'detailed'."
     )
     public SkyframeDumpOption dumpSkyframe;
+
+    @Option(
+        name = "skyfunction_filter",
+        defaultValue = ".*",
+        converter = RegexFilterConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Regex filter of SkyFunction names to output. Only used with --skyframe=detailed.")
+    public RegexFilter skyFunctionFilter;
   }
 
   /**
@@ -161,7 +172,7 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.dumpRuleClasses
             || dumpOptions.dumpRules
             || dumpOptions.starlarkMemory != null
-            || (dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF);
+            || dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF;
     if (!anyOutput) {
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
       optionList.add(DumpOptions.class);
@@ -219,10 +230,17 @@ public class DumpCommand implements BlazeCommand {
         }
       }
 
-      if (dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF) {
-        dumpSkyframe(
-            env.getSkyframeExecutor(), dumpOptions.dumpSkyframe == SkyframeDumpOption.SUMMARY, out);
-        out.println();
+      MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
+      switch (dumpOptions.dumpSkyframe) {
+        case OFF:
+          break;
+        case SUMMARY:
+          evaluator.dumpSummary(out);
+          break;
+        case DETAILED:
+          evaluator.dumpDetailed(
+              out, k -> dumpOptions.skyFunctionFilter.test(k.functionName().getName()));
+          break;
       }
 
       return failure.orElse(BlazeCommandResult.success());
@@ -240,10 +258,6 @@ public class DumpCommand implements BlazeCommand {
       return false;
     }
     return true;
-  }
-
-  private static void dumpSkyframe(SkyframeExecutor executor, boolean summarize, PrintStream out) {
-    executor.dump(summarize, out);
   }
 
   private static void dumpRuleClasses(BlazeRuntime runtime, PrintStream out) {

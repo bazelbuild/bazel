@@ -177,11 +177,21 @@ public interface MemoizingEvaluator {
   }
 
   /**
-   * Write the graph to the output stream. Not necessarily thread-safe. Use only for debugging
-   * purposes.
+   * Writes a brief summary about the graph to the given output stream.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
   @ThreadHostile
-  void dump(boolean summarize, PrintStream out);
+  void dumpSummary(PrintStream out);
+
+  /**
+   * Writes a detailed summary of the graph to the given output stream, omitting keys that do not
+   * match the given filter.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpDetailed(PrintStream out, Predicate<SkyKey> filter);
 
   /** A supplier for creating instances of a particular evaluator implementation. */
   interface EvaluatorSupplier {

@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -26,6 +24,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
@@ -366,39 +365,48 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  public void dump(boolean summarize, PrintStream out) {
-    if (summarize) {
-      long nodes = 0;
-      long edges = 0;
-      for (InMemoryNodeEntry entry : graph.getAllValues().values()) {
-        nodes++;
-        if (entry.isDone()) {
-          edges += Iterables.size(entry.getDirectDeps());
-        }
-      }
-      out.println("Node count: " + nodes);
-      out.println("Edge count: " + edges);
-    } else {
-      Function<SkyKey, String> keyFormatter =
-          key ->
-              String.format(
-                  "%s:%s", key.functionName(), key.argument().toString().replace('\n', '_'));
-
-      for (Map.Entry<SkyKey, InMemoryNodeEntry> mapPair : graph.getAllValues().entrySet()) {
-        SkyKey key = mapPair.getKey();
-        InMemoryNodeEntry entry = mapPair.getValue();
-        if (entry.isDone()) {
-          out.print(keyFormatter.apply(key));
-          out.print("|");
-          if (entry.keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
-            out.println(" (direct deps not stored)");
-          } else {
-            out.println(
-                Joiner.on('|').join(Iterables.transform(entry.getDirectDeps(), keyFormatter)));
-          }
-        }
+  public void dumpSummary(PrintStream out) {
+    long nodes = 0;
+    long edges = 0;
+    for (InMemoryNodeEntry entry : graph.getAllValues().values()) {
+      nodes++;
+      if (entry.isDone()) {
+        edges += Iterables.size(entry.getDirectDeps());
       }
     }
+    out.println("Node count: " + nodes);
+    out.println("Edge count: " + edges);
+  }
+
+  @Override
+  public void dumpDetailed(PrintStream out, Predicate<SkyKey> filter) {
+    graph
+        .getAllValues()
+        .forEach(
+            (key, entry) -> {
+              if (!filter.test(key) || !entry.isDone()) {
+                return;
+              }
+              printKey(key, out);
+              if (entry.keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
+                out.println("  (direct deps not stored)");
+              } else {
+                GroupedList<SkyKey> deps =
+                    GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
+                for (int i = 0; i < deps.listSize(); i++) {
+                  out.format("  Group %d:\n", i + 1);
+                  for (SkyKey dep : deps.get(i)) {
+                    out.print("    ");
+                    printKey(dep, out);
+                  }
+                }
+              }
+              out.println();
+            });
+  }
+
+  private static void printKey(SkyKey key, PrintStream out) {
+    out.format("%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
   }
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionsForTesting() {
