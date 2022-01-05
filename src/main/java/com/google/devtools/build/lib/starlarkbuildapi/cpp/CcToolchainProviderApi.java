@@ -196,6 +196,9 @@ public interface CcToolchainProviderApi<
   @StarlarkMethod(name = "fdo_context", documented = false, useStarlarkThread = true)
   FdoContextT getFdoContextForStarlark(StarlarkThread thread) throws EvalException;
 
+  @StarlarkMethod(name = "compiler_files", documented = false, useStarlarkThread = true)
+  Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException;
+
   @StarlarkMethod(
       name = "objcopy_executable",
       structField = true,
