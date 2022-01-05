@@ -315,8 +315,11 @@ final class AspectFunction implements SkyFunction {
     }
 
     SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
-    NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
-        storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
+    ConfiguredTargetFunction.State state =
+        env.getState(
+            () ->
+                new ConfiguredTargetFunction.State(
+                    storeTransitivePackagesForPackageRootResolution));
 
     TargetAndConfiguration originalTargetAndConfiguration =
         new TargetAndConfiguration(target, configuration);
@@ -327,16 +330,14 @@ final class AspectFunction implements SkyFunction {
         return null;
       }
 
-      NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
-
       // Get the configuration targets that trigger this rule's configurable attributes.
       ConfigConditions configConditions =
           ConfiguredTargetFunction.getConfigConditions(
               env,
               originalTargetAndConfiguration,
-              transitivePackagesForPackageRootResolution,
+              state.transitivePackagesForPackageRootResolution,
               unloadedToolchainContext == null ? null : unloadedToolchainContext.targetPlatform(),
-              transitiveRootCauses);
+              state.transitiveRootCauses);
       if (configConditions == null) {
         // Those targets haven't yet been resolved.
         return null;
@@ -346,6 +347,7 @@ final class AspectFunction implements SkyFunction {
       try {
         depValueMap =
             ConfiguredTargetFunction.computeDependencies(
+                state,
                 env,
                 resolver,
                 originalTargetAndConfiguration,
@@ -358,9 +360,7 @@ final class AspectFunction implements SkyFunction {
                         .build(),
                 shouldUseToolchainTransition(configuration, aspect.getDefinition()),
                 ruleClassProvider,
-                buildViewProvider.getSkyframeBuildView().getHostConfiguration(),
-                transitivePackagesForPackageRootResolution,
-                transitiveRootCauses);
+                buildViewProvider.getSkyframeBuildView().getHostConfiguration());
       } catch (ConfiguredValueCreationException e) {
         throw new AspectCreationException(
             e.getMessage(), key.getLabel(), configuration, e.getDetailedExitCode());
@@ -368,8 +368,8 @@ final class AspectFunction implements SkyFunction {
       if (depValueMap == null) {
         return null;
       }
-      if (!transitiveRootCauses.isEmpty()) {
-        NestedSet<Cause> causes = transitiveRootCauses.build();
+      if (!state.transitiveRootCauses.isEmpty()) {
+        NestedSet<Cause> causes = state.transitiveRootCauses.build();
         throw new AspectFunctionException(
             new AspectCreationException(
                 "Loading failed",
@@ -403,7 +403,7 @@ final class AspectFunction implements SkyFunction {
           configConditions,
           toolchainContext,
           depValueMap,
-          transitivePackagesForPackageRootResolution);
+          state.transitivePackagesForPackageRootResolution);
     } catch (DependencyEvaluationException e) {
       // TODO(bazel-team): consolidate all env.getListener().handle() calls in this method, like in
       // ConfiguredTargetFunction. This encourages clear, consistent user messages (ideally without
@@ -636,7 +636,8 @@ final class AspectFunction implements SkyFunction {
               originalTargetAndAspectConfiguration,
               hostConfiguration,
               configConditions.asProviders());
-      ImmutableList<Dependency> deps = resolver.resolveConfiguration(depKind, depKey);
+      ImmutableList<Dependency> deps =
+          resolver.resolveConfiguration(depKind, depKey, env.getListener());
       if (deps == null) {
         return null;
       }
