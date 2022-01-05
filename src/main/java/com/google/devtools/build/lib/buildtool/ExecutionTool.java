@@ -243,12 +243,14 @@ public class ExecutionTool {
    *
    * <p>b/199053098: This method concentrates the setup steps for execution, which were previously
    * scattered over several classes. We need this in order to merge analysis & execution phases.
-   * TODO(b/199053098): Minimize code duplication with the main code path.
+   * TODO(b/199053098): Minimize code duplication with the main code path. TODO(b/213040766): Write
+   * tests for these setup steps.
    */
   public void prepareForExecution(
       UUID buildId, Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects)
       throws AbruptExitException, BuildFailedException, InterruptedException {
     init();
+    BuildRequestOptions options = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     // TODO(b/199053098): Support symlink forest.
@@ -284,8 +286,11 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    ActionCache actionCache = getActionCache();
-    actionCache.resetStatistics();
+    ActionCache actionCache = null;
+    if (options.useActionCache) {
+      actionCache = getActionCache();
+      actionCache.resetStatistics();
+    }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
       skyframeBuilder =
