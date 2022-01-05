@@ -379,7 +379,14 @@ Generating a new `SkyValue` involves the following steps:
 
 A consequence of this is that if not all dependencies are available in (3), the
 function needs to be completely restarted and thus computation needs to be
-re-done. This is obviously inefficient. We work around this in a number of ways:
+re-done, which is obviously inefficient. `SkyFunction.Environment.getState()`
+lets us directly work around this issue by having Skyframe maintain the
+`SkyKeyComputeState` instance between calls to `SkyFunction.compute` for the
+same `SkyKey`. Check out the example in the javadoc for
+`SkyFunction.Environment.getState()`, as well as real usages in the Bazel
+codebase.
+
+Other indirect workarounds:
 
 1.  Declaring dependencies of `SkyFunction`s in groups so that if a function
     has, say, 10 dependencies, it only needs to restart once instead of ten
@@ -387,12 +394,8 @@ re-done. This is obviously inefficient. We work around this in a number of ways:
 2.  Splitting `SkyFunction`s so that one function does not need to be restarted
     many times. This has the side effect of interning data into Skyframe that
     may be internal to the `SkyFunction`, thus increasing memory use.
-3.  Using caches "behind the back of Skyframe" to keep state (e.g. the state of
-    actions being executed in `ActionExecutionFunction.stateMap` . In the
-    extreme, this ends up resulting in writing code in continuation-passing
-    style (e.g. action execution), which does not help readability.
 
-Of course, these are all just workarounds for the limitations of Skyframe, which
+These are all just workarounds for the limitations of Skyframe, which
 is mostly a consequence of the fact that Java doesn't support lightweight
 threads and that we routinely have hundreds of thousands of in-flight Skyframe
 nodes.
