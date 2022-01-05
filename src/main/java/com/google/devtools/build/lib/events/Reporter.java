@@ -38,7 +38,7 @@ import net.starlark.java.syntax.Location;
  * <p>Thread-safe: calls to {@code #report} may be made on any thread. Handlers may be run in an
  * arbitrary thread (but right now, they will not be run concurrently).
  */
-public class Reporter implements ExtendedEventHandler, ExceptionListener {
+public class Reporter implements ExtendedEventHandler {
 
   /** Set of {@link EventHandler} registered in this reporter. */
   private final ConcurrentLinkedQueue<EventHandler> eventHandlers = new ConcurrentLinkedQueue<>();
