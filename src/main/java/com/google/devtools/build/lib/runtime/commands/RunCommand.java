@@ -370,26 +370,37 @@ public class RunCommand implements BlazeCommand  {
           Code.RUN_PREREQ_UNMET);
     }
 
-    Path runfilesDir;
-    FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
-    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
+    // Ensure runfiles directories are constructed, both for the target to run
+    // and the --run_under target. The path of the runfiles directory of the
+    // target to run needs to be preserved, as it acts as the working directory.
+    Path targetToRunRunfilesDir = null;
+    RunfilesSupport targetToRunRunfilesSupport = null;
+    for (ConfiguredTarget target : targetsBuilt) {
+      FilesToRunProvider provider = target.getProvider(FilesToRunProvider.class);
+      RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
 
-    if (runfilesSupport == null) {
-      runfilesDir = env.getWorkingDirectory();
-    } else {
-      try {
-        runfilesDir = ensureRunfilesBuilt(env, runfilesSupport,
-            env.getSkyframeExecutor().getConfiguration(env.getReporter(),
-                targetToRun.getConfigurationKey()));
-      } catch (RunfilesException e) {
-        env.getReporter().handle(Event.error(e.getMessage()));
-        return BlazeCommandResult.failureDetail(e.createFailureDetail());
-      } catch (InterruptedException e) {
-        env.getReporter().handle(Event.error("Interrupted"));
-        return BlazeCommandResult.failureDetail(
-            FailureDetail.newBuilder()
-                .setInterrupted(Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED))
-                .build());
+      if (runfilesSupport != null) {
+        try {
+          Path runfilesDir =
+              ensureRunfilesBuilt(
+                  env,
+                  runfilesSupport,
+                  env.getSkyframeExecutor()
+                      .getConfiguration(env.getReporter(), target.getConfigurationKey()));
+          if (target == targetToRun) {
+            targetToRunRunfilesDir = runfilesDir;
+            targetToRunRunfilesSupport = runfilesSupport;
+          }
+        } catch (RunfilesException e) {
+          env.getReporter().handle(Event.error(e.getMessage()));
+          return BlazeCommandResult.failureDetail(e.createFailureDetail());
+        } catch (InterruptedException e) {
+          env.getReporter().handle(Event.error("Interrupted"));
+          return BlazeCommandResult.failureDetail(
+              FailureDetail.newBuilder()
+                  .setInterrupted(Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED))
+                  .build());
+        }
       }
     }
 
@@ -472,9 +483,12 @@ public class RunCommand implements BlazeCommand  {
             InterruptedFailureDetails.detailedExitCode(message));
       }
     } else {
-      workingDir = runfilesDir;
-      if (runfilesSupport != null) {
-        runfilesSupport.getActionEnvironment().resolve(runEnvironment, env.getClientEnv());
+      workingDir =
+          targetToRunRunfilesDir != null ? targetToRunRunfilesDir : env.getWorkingDirectory();
+      if (targetToRunRunfilesSupport != null) {
+        targetToRunRunfilesSupport
+            .getActionEnvironment()
+            .resolve(runEnvironment, env.getClientEnv());
       }
       try {
         List<String> args = computeArgs(targetToRun, commandLineArgs);
