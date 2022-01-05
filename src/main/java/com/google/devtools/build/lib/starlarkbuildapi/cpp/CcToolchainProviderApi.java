@@ -113,6 +113,18 @@ public interface CcToolchainProviderApi<
   public String getSysroot();
 
   @StarlarkMethod(
+      name = "runtime_sysroot",
+      useStarlarkThread = true,
+      allowReturnNones = true,
+      documented = false,
+      doc =
+          "Returns the runtime sysroot, where the dynamic linker and system libraries are found at"
+              + "runtime. This is usually an absolute path. If the toolchain compiler does not"
+              + "support sysroots then this method returns <code>None></code>.")
+  @Nullable
+  public String getRuntimeSysrootForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "compiler",
       structField = true,
       doc = "C++ compiler.",

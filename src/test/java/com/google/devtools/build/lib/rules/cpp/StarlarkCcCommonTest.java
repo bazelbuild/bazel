@@ -8004,4 +8004,29 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
+  @Test
+  public void testCcToolchainRuntimeSysrootNotAccessibleFromOutsideBuiltins() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain.runtime_sysroot()",
+        "  return [DefaultInfo()]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'_cc_toolchain': attr.label(default=Label('//foo:alias'))},",
+        "  fragments = ['cpp'],",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
 }

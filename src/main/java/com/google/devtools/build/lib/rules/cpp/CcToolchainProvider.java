@@ -653,6 +653,14 @@ public final class CcToolchainProvider extends NativeInfo
     return runtimeSysroot;
   }
 
+  @Override
+  @Nullable
+  public String getRuntimeSysrootForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    PathFragment runtimeSysroot = getRuntimeSysroot();
+    return runtimeSysroot != null ? runtimeSysroot.getPathString() : null;
+  }
+
   /**
    * Return the name of the directory (relative to the bin directory) that holds mangled links to
    * shared libraries. This name is always set to the '{@code _solib_<cpu_archictecture_name>}.
