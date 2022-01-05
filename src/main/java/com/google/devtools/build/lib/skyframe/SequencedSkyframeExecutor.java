@@ -87,7 +87,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
@@ -96,7 +95,6 @@ import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -201,11 +199,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     this.customDirtinessCheckers = customDirtinessCheckers;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
     this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
-  }
-
-  @Override
-  protected BuildDriver createBuildDriver() {
-    return new SequentialBuildDriver(memoizingEvaluator);
   }
 
   @Override
@@ -498,7 +491,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               .setNumThreads(DEFAULT_THREAD_COUNT)
               .setEventHandler(eventHandler)
               .build();
-      getDriver().evaluate(ImmutableList.of(), evaluationContext);
+      memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
 
       FilesystemValueChecker fsvc =
           new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
@@ -571,7 +564,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                     tmpExternalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
       }
       handleChangedFiles(
-          ImmutableList.<Root>of(),
+          ImmutableList.of(),
           batchDirtyResult,
           batchDirtyResult.getNumKeysChecked(),
           /*managedDirectoriesChanged=*/ false);
@@ -890,7 +883,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                     .setNumThreads(ResourceUsage.getAvailableProcessors())
                     .setEventHandler(eventHandler)
                     .build();
-            getDriver().evaluate(ImmutableList.of(), evaluationContext);
+            memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
             return null;
           });
     } catch (Exception e) {
@@ -1017,7 +1010,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             .setNumThreads(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
-    return getDriver().evaluate(ImmutableSet.of(key), evaluationContext).get(key);
+    return memoizingEvaluator.evaluate(ImmutableSet.of(key), evaluationContext).get(key);
   }
 
   public static Builder builder() {

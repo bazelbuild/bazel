@@ -22,7 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -41,7 +41,7 @@ public final class BazelPyTestRule implements RuleDefinition {
         .cfg(PyRuleClasses.VERSION_TRANSITION)
         .add(
             attr("$zipper", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(env.getToolsLabel("//tools/zip:zipper")))
         .override(
@@ -55,7 +55,7 @@ public final class BazelPyTestRule implements RuleDefinition {
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .add(
             attr("$launcher", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/launcher:launcher")))
         .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .build();

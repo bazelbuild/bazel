@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -41,8 +43,8 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
-import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
@@ -91,7 +93,7 @@ abstract class AbstractParallelEvaluator {
    */
   private final AtomicInteger globalEnqueuedIndex = new AtomicInteger(Integer.MIN_VALUE);
 
-  protected final SkyKeyComputeStateManager skyKeyComputeStateManager;
+  protected final Cache<SkyKey, SkyKeyComputeState> stateCache = Caffeine.newBuilder().build();
 
   AbstractParallelEvaluator(
       ProcessableGraph graph,
@@ -113,7 +115,7 @@ abstract class AbstractParallelEvaluator {
     Supplier<QuiescingExecutor> quiescingExecutorSupplier =
         getQuiescingExecutorSupplier(
             executorService, cpuHeavySkyKeysThreadPoolSize, executionJobsThreadPoolSize);
-    evaluatorContext =
+    this.evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
             graphVersion,
@@ -128,8 +130,8 @@ abstract class AbstractParallelEvaluator {
             () ->
                 new NodeEntryVisitor(
                     quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
-            /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0);
-    this.skyKeyComputeStateManager = new SkyKeyComputeStateManager(skyFunctions);
+            /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0,
+            stateCache);
   }
 
   private Supplier<QuiescingExecutor> getQuiescingExecutorSupplier(
@@ -551,15 +553,11 @@ abstract class AbstractParallelEvaluator {
                 state);
 
         SkyValue value = null;
-        SkyKeyComputeState skyKeyComputeStateToUse = skyKeyComputeStateManager.maybeGet(skyKey);
         long startTimeNanos = BlazeClock.instance().nanoTime();
         try {
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
-            value =
-                skyKeyComputeStateToUse == null
-                    ? factory.compute(skyKey, env)
-                    : factory.compute(skyKey, skyKeyComputeStateToUse, env);
+            value = factory.compute(skyKey, env);
           } finally {
             evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE);
             long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTimeNanos;
@@ -573,9 +571,7 @@ abstract class AbstractParallelEvaluator {
             }
           }
         } catch (final SkyFunctionException builderException) {
-          if (skyKeyComputeStateToUse != null) {
-            skyKeyComputeStateManager.remove(skyKey);
-          }
+          stateCache.invalidate(skyKey);
 
           ReifiedSkyFunctionException reifiedBuilderException =
               new ReifiedSkyFunctionException(builderException);
@@ -642,7 +638,7 @@ abstract class AbstractParallelEvaluator {
         }
 
         if (maybeHandleRestart(skyKey, state, value)) {
-          skyKeyComputeStateManager.removeAll();
+          stateCache.invalidateAll();
           cancelExternalDeps(env);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
@@ -653,9 +649,7 @@ abstract class AbstractParallelEvaluator {
         GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
 
         if (value != null) {
-          if (skyKeyComputeStateToUse != null) {
-            skyKeyComputeStateManager.remove(skyKey);
-          }
+          stateCache.invalidate(skyKey);
 
           Preconditions.checkState(
               !env.valuesMissing(),

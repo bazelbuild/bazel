@@ -582,7 +582,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     // AnalysisTestCase performs on each evaluation.
     analysisHelper
         .getSkyframeExecutor()
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {

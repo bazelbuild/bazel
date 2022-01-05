@@ -129,9 +129,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
     // When PrepareDepsOfPatternsFunction completes evaluation (with no error because it was
     // recovered from),
-    WalkableGraph walkableGraph =
-        getGraphFromPatternsEvaluation(
-            patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
+    WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains package values for "@//foo" and "@//foo/foo",
     assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
@@ -171,11 +169,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
   private void assertSkipsFoo(ImmutableList<String> patternSequence) throws Exception {
 
-
     // When PrepareDepsOfPatternsFunction completes evaluation (successfully),
-    WalkableGraph walkableGraph =
-        getGraphFromPatternsEvaluation(
-            patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
+    WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a package value for "@//foo",
     assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
@@ -195,7 +190,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     ImmutableList<String> patternSequence = ImmutableList.of("-//foo/bar");
 
     // When PrepareDepsOfPatternsFunction completes evaluation,
-    getGraphFromPatternsEvaluation(patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
+    getGraphFromPatternsEvaluation(patternSequence);
 
     // Then a event is published that says that negative non-TBD patterns are skipped.
     assertContainsEvent(
@@ -205,8 +200,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
   // Helpers:
 
-  private WalkableGraph getGraphFromPatternsEvaluation(
-      ImmutableList<String> patternSequence, boolean successExpected, boolean keepGoing)
+  private WalkableGraph getGraphFromPatternsEvaluation(ImmutableList<String> patternSequence)
       throws InterruptedException {
     SkyKey independentTarget =
         PrepareDepsOfPatternsValue.key(patternSequence, PathFragment.EMPTY_FRAGMENT);
@@ -215,14 +209,14 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     // When PrepareDepsOfPatternsFunction completes evaluation,
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
-            .setKeepGoing(keepGoing)
+            .setKeepGoing(true)
             .setNumThreads(100)
             .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
-        skyframeExecutor.getDriver().evaluate(singletonTargetPattern, evaluationContext);
+        skyframeExecutor.getEvaluator().evaluate(singletonTargetPattern, evaluationContext);
     // The evaluation has no errors if success was expected.
-    assertThat(evaluationResult.hasError()).isNotEqualTo(successExpected);
+    assertThat(evaluationResult.hasError()).isFalse();
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
   }
 

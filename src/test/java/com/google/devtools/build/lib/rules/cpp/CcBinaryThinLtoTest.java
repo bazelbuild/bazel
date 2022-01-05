@@ -195,7 +195,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     RuleConfiguredTargetValue configuredTargetValue =
         (RuleConfiguredTargetValue)
             getSkyframeExecutor()
-                .getEvaluatorForTesting()
+                .getEvaluator()
                 .getExistingEntryAtCurrentlyEvaluatingVersion(
                     ConfiguredTargetKey.builder()
                         .setLabel(pkg.getLabel())

@@ -346,8 +346,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       PackageFactory packageFactory,
       BlazeDirectories directories) {
     ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
-        ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting())
-            .getSkyFunctionsForTesting();
+        ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator()).getSkyFunctionsForTesting();
     BzlLoadFunction bzlLoadFunction =
         BzlLoadFunction.createForInlining(
             packageFactory,
@@ -1095,7 +1094,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfiguredAspect getAspect(String label) throws Exception {
     AspectValue aspect =
         (AspectValue)
-            skyframeExecutor.getEvaluatorForTesting().getDoneValues().entrySet().stream()
+            skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
                 .filter(
                     entry ->
                         entry.getKey() instanceof AspectKey
@@ -1392,7 +1391,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if ((owner instanceof ActionLookupKey)) {
       SkyValue skyValue;
       try {
-        skyValue = skyframeExecutor.getEvaluatorForTesting().getExistingValue((SkyKey) owner);
+        skyValue = skyframeExecutor.getEvaluator().getExistingValue((SkyKey) owner);
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }

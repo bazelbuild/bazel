@@ -46,9 +46,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -74,7 +74,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
   private EventCollector eventCollector;
   private Reporter reporter;
   protected ConfiguredRuleClassProvider ruleClassProvider;
-  private BuildDriver buildDriver;
+  private MemoizingEvaluator evaluator;
 
   @Before
   public void setUp() throws IOException {
@@ -107,7 +107,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   @Test
   public void noPackageErrors() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     scratch.file("BUILD");
     scratch.dir("a1/b1/c1");
@@ -159,7 +159,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   @Test
   public void packageErrors() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     scratch.dir("a1/b1");
     scratch.file("a1/b1/BUILD", "xxx");
@@ -186,7 +186,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   @Test
   public void symlinks() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     Path a1DirPath = scratch.dir("a1");
     scratch.dir("a1/b1/c1");
@@ -223,7 +223,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   @Test
   public void excludedPaths() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     scratch.dir("a1/b1/c1");
     scratch.file("a1/b1/c1/BUILD");
@@ -267,7 +267,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a2/b2/c2");
   }
 
-  private void initBuildDriver() throws AbruptExitException, InterruptedException, IOException {
+  private void initEvaluator() throws AbruptExitException, InterruptedException, IOException {
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.createWithoutExistenceCheck(
             directories.getOutputBase(), ImmutableList.of(root), getBuildFileNamesByPriority());
@@ -317,7 +317,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         /*repoEnvOption=*/ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         OptionsProvider.EMPTY);
-    buildDriver = skyframeExecutor.getDriver();
+    evaluator = skyframeExecutor.getEvaluator();
   }
 
   private CollectPackagesUnderDirectoryValue getCollectPackagesUnderDirectoryValue(String directory)
@@ -345,6 +345,6 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             .setNumThreads(1)
             .setEventHandler(new Reporter(new EventBus(), reporter))
             .build();
-    return buildDriver.evaluate(ImmutableList.of(key), evaluationContext);
+    return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
   }
 }

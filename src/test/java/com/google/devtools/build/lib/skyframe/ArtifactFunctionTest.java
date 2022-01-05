@@ -468,7 +468,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver.evaluate(Arrays.asList(keys), evaluationContext);
+    return evaluator.evaluate(Arrays.asList(keys), evaluationContext);
   }
 
   /**

@@ -52,10 +52,12 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropper;
+import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
-import com.google.devtools.build.skyframe.SkyFunction.SkyKeyComputeState;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -126,7 +128,8 @@ public class ParallelEvaluatorTest {
         () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
         new SimpleCycleDetector(),
         /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-        /*executionJobsThreadPoolSize=*/ 0);
+        /*executionJobsThreadPoolSize=*/ 0,
+        UnnecessaryTemporaryStateDropperReceiver.NULL);
   }
 
   private ParallelEvaluator makeEvaluator(
@@ -2227,12 +2230,11 @@ public class ParallelEvaluatorTest {
               throw new IllegalStateException();
             });
 
-    MemoizingEvaluator aug =
+    MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.of(GraphTester.NODE_TYPE, tester.getFunction()),
             new SequencedRecordingDifferencer(),
             progressReceiver);
-    SequentialBuildDriver driver = new SequentialBuildDriver(aug);
 
     tester
         .getOrCreate("top1")
@@ -2254,20 +2256,20 @@ public class ParallelEvaluatorTest {
             .setNumThreads(200)
             .setEventHandler(reporter)
             .build();
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top1", "d1", "d2"));
     assertThat(evaluatedValues)
         .containsExactlyElementsIn(GraphTester.toSkyKeys("top1", "d1", "d2"));
     enqueuedValues.clear();
     evaluatedValues.clear();
 
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
     assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
     enqueuedValues.clear();
     evaluatedValues.clear();
 
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).isEmpty();
     assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top1"));
   }
@@ -2647,84 +2649,61 @@ public class ParallelEvaluatorTest {
     AtomicReference<WeakReference<State>> stateForKey2Ref = new AtomicReference<>();
     AtomicReference<WeakReference<State>> stateForKey3Ref = new AtomicReference<>();
     SkyFunction skyFunctionForTest =
-        new SkyFunction() {
-          // That supports compute state
-          @Override
-          public boolean supportsSkyKeyComputeState() {
-            return true;
-          }
+        // Whose #compute is such that
+        (skyKey, env) -> {
+          State state = env.getState(State::new);
+          state.usageCount++;
+          int numCallsForKey = (int) numCalls.incrementAndGet(skyKey);
+          // The number of calls to #compute is expected to be equal to the number of usages of
+          // the state for that key,
+          assertThat(state.usageCount).isEqualTo(numCallsForKey);
+          if (skyKey.equals(key1)) {
+            // And the semantics for key1 are:
 
-          @Override
-          public State createNewSkyKeyComputeState() {
-            return new State();
-          }
-
-          // And crashes if the normal #compute method is called
-          @Override
-          public SkyValue compute(SkyKey skyKey, Environment env) {
-            fail();
-            throw new IllegalStateException();
-          }
-
-          // And whose #compute is such that
-          @Override
-          public SkyValue compute(
-              SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
-              throws InterruptedException {
-            State state = (State) skyKeyComputeState;
-            state.usageCount++;
-            int numCallsForKey = (int) numCalls.incrementAndGet(skyKey);
-            // The number of calls to #compute is expected to be equal to the number of usages of
-            // the state for that key,
-            assertThat(state.usageCount).isEqualTo(numCallsForKey);
-            if (skyKey.equals(key1)) {
-              // And the semantics for key1 are:
-
-              // The state for key1 is expected to be the first one created (since key1 is expected
-              // to be the first node we attempt to compute).
-              assertThat(state.instanceCount).isEqualTo(1);
-              // And key1 declares a dep on key2,
-              if (env.getValue(key2) == null) {
-                // (And that dep is expected to be missing on the initial #compute call for key1)
-                assertThat(numCallsForKey).isEqualTo(1);
-                return null;
-              }
-              // And if that dep is not missing, then we expect:
-              //   - We're on the second #compute call for key1
-              assertThat(numCallsForKey).isEqualTo(2);
-              //   - The state for key2 should have been eligible for GC. This is because the node
-              //     for key2 must have been fully computed, meaning its compute state is no longer
-              //     needed, and so ParallelEvaluator ought to have made it eligible for GC.
-              GcFinalization.awaitClear(stateForKey2Ref.get());
-              return new StringValue("value1");
-            } else if (skyKey.equals(key2)) {
-              // And the semantics for key2 are:
-
-              // The state for key2 is expected to be the second one created.
-              assertThat(state.instanceCount).isEqualTo(2);
-              stateForKey2Ref.set(new WeakReference<>(state));
-              // And key2 declares a dep on key3,
-              if (env.getValue(key3) == null) {
-                // (And that dep is expected to be missing on the initial #compute call for key2)
-                assertThat(numCallsForKey).isEqualTo(1);
-                return null;
-              }
-              // And if that dep is not missing, then we expect the same sort of things we expected
-              // for key1 in this situation.
-              assertThat(numCallsForKey).isEqualTo(2);
-              GcFinalization.awaitClear(stateForKey3Ref.get());
-              return new StringValue("value2");
-            } else if (skyKey.equals(key3)) {
-              // And the semantics for key3 are:
-
-              // The state for key3 is expected to be the third one created.
-              assertThat(state.instanceCount).isEqualTo(3);
-              stateForKey3Ref.set(new WeakReference<>(state));
-              // And key3 declares no deps.
-              return new StringValue("value3");
+            // The state for key1 is expected to be the first one created (since key1 is expected
+            // to be the first node we attempt to compute).
+            assertThat(state.instanceCount).isEqualTo(1);
+            // And key1 declares a dep on key2,
+            if (env.getValue(key2) == null) {
+              // (And that dep is expected to be missing on the initial #compute call for key1)
+              assertThat(numCallsForKey).isEqualTo(1);
+              return null;
             }
-            throw new IllegalStateException();
+            // And if that dep is not missing, then we expect:
+            //   - We're on the second #compute call for key1
+            assertThat(numCallsForKey).isEqualTo(2);
+            //   - The state for key2 should have been eligible for GC. This is because the node
+            //     for key2 must have been fully computed, meaning its compute state is no longer
+            //     needed, and so ParallelEvaluator ought to have made it eligible for GC.
+            GcFinalization.awaitClear(stateForKey2Ref.get());
+            return new StringValue("value1");
+          } else if (skyKey.equals(key2)) {
+            // And the semantics for key2 are:
+
+            // The state for key2 is expected to be the second one created.
+            assertThat(state.instanceCount).isEqualTo(2);
+            stateForKey2Ref.set(new WeakReference<>(state));
+            // And key2 declares a dep on key3,
+            if (env.getValue(key3) == null) {
+              // (And that dep is expected to be missing on the initial #compute call for key2)
+              assertThat(numCallsForKey).isEqualTo(1);
+              return null;
+            }
+            // And if that dep is not missing, then we expect the same sort of things we expected
+            // for key1 in this situation.
+            assertThat(numCallsForKey).isEqualTo(2);
+            GcFinalization.awaitClear(stateForKey3Ref.get());
+            return new StringValue("value2");
+          } else if (skyKey.equals(key3)) {
+            // And the semantics for key3 are:
+
+            // The state for key3 is expected to be the third one created.
+            assertThat(state.instanceCount).isEqualTo(3);
+            stateForKey3Ref.set(new WeakReference<>(state));
+            // And key3 declares no deps.
+            return new StringValue("value3");
           }
+          throw new IllegalStateException();
         };
 
     tester.putSkyFunction(SkyKeyForSkyKeyComputeStateTests.FUNCTION_NAME, skyFunctionForTest);
@@ -2761,71 +2740,48 @@ public class ParallelEvaluatorTest {
     CountDownLatch key3SleepingLatch = new CountDownLatch(1);
     AtomicBoolean onNormalEvaluation = new AtomicBoolean(true);
     SkyFunction skyFunctionForTest =
-        new SkyFunction() {
-          // That supports compute state
-          @Override
-          public boolean supportsSkyKeyComputeState() {
-            return true;
-          }
+        // Whose #compute is such that
+        (skyKey, env) -> {
+          if (onNormalEvaluation.get()) {
+            // When we're on the normal evaluation:
 
-          @Override
-          public State createNewSkyKeyComputeState() {
-            return new State();
-          }
+            State state = env.getState(State::new);
+            if (skyKey.equals(key1)) {
+              // For key1:
 
-          // And crashes if the normal #compute method is called
-          @Override
-          public SkyValue compute(SkyKey skyKey, Environment env) {
-            fail();
-            throw new IllegalStateException();
-          }
+              stateForKey1Ref.set(new WeakReference<>(state));
+              // We declare a dep on key.
+              return env.getValue(key2);
+            } else if (skyKey.equals(key2)) {
+              // For key2:
 
-          // And whose #compute is such that
-          @Override
-          public SkyValue compute(
-              SkyKey skyKey, SkyKeyComputeState skyKeyComputeState, Environment env)
-              throws InterruptedException, SkyFunctionException {
-            if (onNormalEvaluation.get()) {
-              // When we're on the normal evaluation:
+              // We wait for the thread computing key3 to be sleeping
+              key3SleepingLatch.await();
+              // And then we throw an error, which will fail the normal evaluation and trigger
+              // error bubbling.
+              onNormalEvaluation.set(false);
+              throw new SkyFunctionExceptionForTest("normal evaluation");
+            } else if (skyKey.equals(key3)) {
+              // For key3:
 
-              State state = (State) skyKeyComputeState;
-              if (skyKey.equals(key1)) {
-                // For key1:
-
-                stateForKey1Ref.set(new WeakReference<>(state));
-                // We declare a dep on key.
-                return env.getValue(key2);
-              } else if (skyKey.equals(key2)) {
-                // For key2:
-
-                // We wait for the thread computing key3 to be sleeping
-                key3SleepingLatch.await();
-                // And then we throw an error, which will fail the normal evaluation and trigger
-                // error bubbling.
-                onNormalEvaluation.set(false);
-                throw new SkyFunctionExceptionForTest("normal evaluation");
-              } else if (skyKey.equals(key3)) {
-                // For key3:
-
-                stateForKey3Ref.set(new WeakReference<>(state));
-                key3SleepingLatch.countDown();
-                // We sleep forever. (To be interrupted by ParallelEvaluator when the normal
-                // evaluation fails).
-                Thread.sleep(Long.MAX_VALUE);
-              }
-              throw new IllegalStateException();
-            } else {
-              // When we're in error bubbling:
-
-              // The states for the nodes from normal evaluation should have been eligible for GC.
-              // This is because ParallelEvaluator ought to have them eligible for GC before
-              // starting error bubbling.
-              GcFinalization.awaitClear(stateForKey1Ref.get());
-              GcFinalization.awaitClear(stateForKey3Ref.get());
-
-              // We bubble up a unique error message.
-              throw new SkyFunctionExceptionForTest("error bubbling for " + skyKey.argument());
+              stateForKey3Ref.set(new WeakReference<>(state));
+              key3SleepingLatch.countDown();
+              // We sleep forever. (To be interrupted by ParallelEvaluator when the normal
+              // evaluation fails).
+              Thread.sleep(Long.MAX_VALUE);
             }
+            throw new IllegalStateException();
+          } else {
+            // When we're in error bubbling:
+
+            // The states for the nodes from normal evaluation should have been eligible for GC.
+            // This is because ParallelEvaluator ought to have them eligible for GC before
+            // starting error bubbling.
+            GcFinalization.awaitClear(stateForKey1Ref.get());
+            GcFinalization.awaitClear(stateForKey3Ref.get());
+
+            // We bubble up a unique error message.
+            throw new SkyFunctionExceptionForTest("error bubbling for " + skyKey.argument());
           }
         };
 
@@ -2840,5 +2796,110 @@ public class ParallelEvaluatorTest {
         // And the error message for key1 is from error bubbling,
         .isEqualTo("error bubbling for key1");
     // Confirming that all our other expectations about the compute states were correct.
+  }
+
+  // Demonstrates we're able to drop SkyKeyCompute state intra-evaluation.
+  @Test
+  public void skyKeyComputeState_unnecessaryTemporaryStateDropperReceiver()
+      throws InterruptedException {
+    // When we have 2 nodes: key1, key2
+    // (with dependency graph key1 -> key2, to be declared later in this test)
+    // (and we'll be evaluating key1 later in this test)
+    SkyKey key1 = new SkyKeyForSkyKeyComputeStateTests("key1");
+    SkyKey key2 = new SkyKeyForSkyKeyComputeStateTests("key2");
+
+    // And an SkyKeyComputeState implementation that tracks global instance counts,
+    AtomicInteger globalStateInstanceCounter = new AtomicInteger();
+    class State implements SkyKeyComputeState {
+      final int instanceCount = globalStateInstanceCounter.incrementAndGet();
+    }
+
+    // And a UnnecessaryTemporaryStateDropperReceiver that,
+    AtomicReference<UnnecessaryTemporaryStateDropper> dropperRef = new AtomicReference<>();
+    UnnecessaryTemporaryStateDropperReceiver dropperReceiver =
+        new UnnecessaryTemporaryStateDropperReceiver() {
+          @Override
+          public void onEvaluationStarted(UnnecessaryTemporaryStateDropper dropper) {
+            // Captures the UnnecessaryTemporaryStateDropper (for our use intra-evaluation)
+            dropperRef.set(dropper);
+          }
+
+          @Override
+          public void onEvaluationFinished() {
+            // And then throws it away when the evaluation is done.
+            dropperRef.set(null);
+          }
+        };
+
+    AtomicReference<WeakReference<State>> stateForKey1Ref = new AtomicReference<>();
+
+    // And a SkyFunction for these nodes,
+    SkyFunction skyFunctionForTest =
+        // Whose #compute is such that
+        (skyKey, env) -> {
+          State state = env.getState(State::new);
+          if (skyKey.equals(key1)) {
+            // The semantics for key1 are:
+
+            // We declare a dep on key2.
+            if (env.getValue(key2) == null) {
+              // If key2 is missing, that means we're on the initial #compute call for key1,
+              // And so we expect the compute state to be the first instance ever.
+              assertThat(state.instanceCount).isEqualTo(1);
+              stateForKey1Ref.set(new WeakReference<>(state));
+
+              return null;
+            } else {
+              // But if key2 is not missing, that means we're on the subsequent #compute call for
+              // key1. That means we expect the compute state to be the third instance ever,
+              // because...
+              assertThat(state.instanceCount).isEqualTo(3);
+
+              return new StringValue("value1");
+            }
+          } else if (skyKey.equals(key2)) {
+            // ... The semantics for key2 are:
+
+            // Drop all compute states.
+            dropperRef.get().drop();
+            // Confirm the old compute state for key1 was GC'd.
+            GcFinalization.awaitClear(stateForKey1Ref.get());
+            // Also confirm key2's compute state is the second instance ever.
+            assertThat(state.instanceCount).isEqualTo(2);
+
+            return new StringValue("value2");
+          }
+          throw new IllegalStateException();
+        };
+
+    tester.putSkyFunction(SkyKeyForSkyKeyComputeStateTests.FUNCTION_NAME, skyFunctionForTest);
+    graph = new InMemoryGraphImpl();
+
+    ParallelEvaluator parallelEvaluator =
+        new ParallelEvaluator(
+            graph,
+            graphVersion,
+            tester.getSkyFunctionMap(),
+            storedEventHandler,
+            new MemoizingEvaluator.EmittedEventState(),
+            InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
+            ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+            // Doesn't matter for this test case.
+            /*keepGoing=*/ false,
+            revalidationReceiver,
+            GraphInconsistencyReceiver.THROWING,
+            // We ought not need more than 1 thread for this test case.
+            () -> AbstractQueueVisitor.createExecutorService(1, "test-pool"),
+            new SimpleCycleDetector(),
+            /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
+            /*executionJobsThreadPoolSize=*/ 0,
+            dropperReceiver);
+    // Then, when we evaluate key1,
+    SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);
+    // It successfully produces the value we expect, confirming all our other expectations about
+    // the compute states were correct.
+    assertThat(resultValue).isEqualTo(new StringValue("value1"));
+    // And we threw away the dropper, confirming the #onEvaluationFinished method was called.
+    assertThat(dropperRef.get()).isNull();
   }
 }

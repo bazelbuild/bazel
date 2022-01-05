@@ -20,6 +20,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An environment that can observe the deps requested through getValue(s) calls. */
@@ -408,5 +409,10 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return delegate.getState(stateSupplier);
   }
 }

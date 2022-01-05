@@ -63,8 +63,8 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -85,15 +85,14 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   private final Map<Artifact, TreeArtifactValue> artifactValueMap = new LinkedHashMap<>();
   private final SequencedRecordingDifferencer differencer = new SequencedRecordingDifferencer();
-  private final SequentialBuildDriver driver =
-      new SequentialBuildDriver(
-          new InMemoryMemoizingEvaluator(
-              ImmutableMap.of(
-                  Artifact.ARTIFACT,
-                  new DummyArtifactFunction(artifactValueMap),
-                  SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                  new ActionTemplateExpansionFunction(new ActionKeyContext())),
-              differencer));
+  private final MemoizingEvaluator evaluator =
+      new InMemoryMemoizingEvaluator(
+          ImmutableMap.of(
+              Artifact.ARTIFACT,
+              new DummyArtifactFunction(artifactValueMap),
+              SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+              new ActionTemplateExpansionFunction(new ActionKeyContext())),
+          differencer);
 
   @Before
   public void setUp() {
@@ -348,7 +347,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
-        driver.evaluate(ImmutableList.of(templateKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(templateKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }

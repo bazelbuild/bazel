@@ -574,8 +574,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     ActionLookupValue actionLookupValue;
     try {
       actionLookupValue =
-          (ActionLookupValue)
-              skyframeExecutor.getEvaluatorForTesting().getExistingValue(actionLookupKey);
+          (ActionLookupValue) skyframeExecutor.getEvaluator().getExistingValue(actionLookupKey);
     } catch (InterruptedException e) {
       throw new IllegalStateException(e);
     }

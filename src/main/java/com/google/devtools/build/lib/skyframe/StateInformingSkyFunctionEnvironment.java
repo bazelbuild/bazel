@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.ValueOrException5;
 import com.google.devtools.build.skyframe.Version;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An environment that wraps each call to its delegate by informing injected {@link Informee}s. */
@@ -380,6 +381,11 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return delegate.getState(stateSupplier);
   }
 
   interface Informee {

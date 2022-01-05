@@ -170,7 +170,6 @@ public class Reporter implements ExtendedEventHandler, ExceptionListener {
     handle(Event.of(EventKind.FINISH, location, message));
   }
 
-  @Override
   public void error(Location location, String message, Throwable error) {
     handle(Event.error(location, message));
     error.printStackTrace(new PrintStream(getOutErr().getErrorStream()));

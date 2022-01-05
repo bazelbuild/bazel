@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -356,16 +357,6 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  @Override
-  public boolean supportsSkyKeyComputeState() {
-    return true;
-  }
-
-  @Override
-  public SkyKeyComputeState createNewSkyKeyComputeState() {
-    return new State();
-  }
-
   private static class LoadedPackage {
     private final Package.Builder builder;
     private final Set<SkyKey> globDepKeys;
@@ -385,12 +376,6 @@ public class PackageFunction implements SkyFunction {
 
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-      throws PackageFunctionException, InterruptedException {
-    return compute(key, createNewSkyKeyComputeState(), env);
-  }
-
-  @Override
-  public SkyValue compute(SkyKey key, SkyKeyComputeState skyKeyComputeState, Environment env)
       throws PackageFunctionException, InterruptedException {
     PackageIdentifier packageId = (PackageIdentifier) key.argument();
     if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
@@ -526,7 +511,7 @@ public class PackageFunction implements SkyFunction {
     // like we do for .bzl files, so that we don't need to recompile BUILD files each time their
     // .bzl dependencies change.
 
-    State state = (State) skyKeyComputeState;
+    State state = env.getState(State::new);
     LoadedPackage loadedPackage = state.loadedPackage;
     if (loadedPackage == null) {
       loadedPackage =

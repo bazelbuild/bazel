@@ -66,14 +66,33 @@ A ruleset is encouraged to use multiplex workers if possible, to reduce memory
 pressure and improve performance. However, multiplex workers are not currently
 compatible with [dynamic execution](/dynamic-execution.html).
 
-### Warning about rare bug
+## Multiplex sandboxing
 
-Due to a rare bug, multiplex workers are currently not enabled by default.
-Occasionally,  Bazel hangs indefinitely at the execution phase. If you see this
-behavior,  stop the Bazel server and rerun. This delay is probably caused by
+Multiplex workers can be sandboxed by adding explicit support for it in the
+worker implementations. While singleplex worker sandboxing can be done by
+running each worker process in its own sandbox, multiplex workers share the
+process working directory between multiple parallel requests. To allow
+sandboxing of multiplex workers, the worker must support reading from and
+writing to a subdirectory specified in each request, instead of directly in
+its working directory.
 
- * Multiplex workers waiting for responses from the worker process that never
-   comes.
- * Incorrectly configured ruleset worker implementation where a thread dies or
-   a race condition occurs. To counteract this, ensure the worker process
-   returns responses in all circumstances.
+To support multiplex sandboxing, the worker must use the `sandbox_dir` field
+from the `WorkRequest` and use that as a prefix for all file reads and writes.
+While the `arguments` and `inputs` fields remain unchanged from an unsandboxed
+request, the actual inputs are relative to the `sandbox_dir`. The worker must
+translate file paths found in `arguments` and `inputs` to read from this
+modified path, and must also write all outputs relative to the `sandbox_dir`.
+This includes paths such as '.', as well as paths found in files specified
+in the arguments (e.g. ["argfile"](https://docs.oracle.com/javase/7/docs/technotes/tools/windows/javac.html#commandlineargfile) arguments).
+
+Once a worker supports multiplex sandboxing, the ruleset can declare this
+support by adding `supports-multiplex-sandboxing` to the
+`execution_requirements` of an action. Bazel will then use multiplex sandboxing
+if the `--experimental_worker_multiplex_sandboxing` flag is passed, or if
+the worker is used with dynamic execution.
+
+The worker files of a sandboxed multiplex worker are still relative to the
+working directory of the worker process. Thus, if a file is
+used both for running the worker and as an input, it must be specified both as
+an input in the flagfile argument as well as in `tools`, `executable`, or
+`runfiles`.

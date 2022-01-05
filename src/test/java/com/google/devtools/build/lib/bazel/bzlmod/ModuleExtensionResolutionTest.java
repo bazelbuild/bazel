@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -79,7 +78,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -99,7 +97,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
   private Path workspaceRoot;
   private Path modulesRoot;
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
   private EvaluationContext evaluationContext;
   private FakeRegistry registry;
   private RecordingDifferencer differencer;
@@ -152,14 +150,14 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
-    MemoizingEvaluator evaluator =
+    evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileValue.FILE, new FileFunction(packageLocator))
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(
@@ -239,7 +237,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                     new ModuleExtensionResolutionFunction())
                 .build(),
             differencer);
-    driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -301,7 +298,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -371,7 +368,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -428,7 +425,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -482,7 +479,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     SkyKey skyKey =
         BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("@ext.1.0.ext.ext_repo//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -538,7 +535,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -599,7 +596,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -659,7 +656,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -715,7 +712,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -765,7 +762,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -814,7 +811,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -848,7 +845,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()
@@ -869,7 +866,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()
@@ -899,7 +896,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }

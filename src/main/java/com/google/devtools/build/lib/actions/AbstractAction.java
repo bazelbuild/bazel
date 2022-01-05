@@ -369,9 +369,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   /**
-   * Returns a progress message string that is specific for this action. This is
-   * then annotated with additional information, currently the string '[for host]'
-   * for actions in the host configurations.
+   * Returns a progress message string that is specific for this action. This is then annotated with
+   * additional information, currently the string '[for tool]' for actions in the tool
+   * configurations.
    *
    * <p>A return value of null indicates no message should be reported.
    */

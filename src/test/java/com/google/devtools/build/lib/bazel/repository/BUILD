@@ -46,7 +46,6 @@ java_library(
         "//third_party:guava",
         "//third_party:java-diff-utils",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
         "@bazel_tools//tools/java/runfiles",
     ],

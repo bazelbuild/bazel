@@ -114,8 +114,7 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
       throws InterruptedException {
     final WalkableGraph graph =
         new DelegatingWalkableGraph(
-            ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting())
-                .getGraphForTesting());
+            ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator()).getGraphForTesting());
     List<SkyKey> startingKeys = new ArrayList<>();
     for (Label label : startingLabels) {
       startingKeys.add(TransitiveTargetKey.of(label));
