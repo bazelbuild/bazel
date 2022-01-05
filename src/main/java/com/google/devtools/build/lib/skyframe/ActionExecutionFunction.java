@@ -95,6 +95,7 @@ import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -110,7 +111,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -145,7 +145,6 @@ public class ActionExecutionFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
-  private ConcurrentMap<Action, InputDiscoveryState> stateMap;
 
   public ActionExecutionFunction(
       SkyframeActionExecutor skyframeActionExecutor,
@@ -156,9 +155,6 @@ public class ActionExecutionFunction implements SkyFunction {
     this.directories = directories;
     this.tsgm = tsgm;
     this.bugReporter = bugReporter;
-    // TODO(b/136156191): This stays in RAM while the SkyFunction of the action is pending, which
-    // can result in a lot of memory pressure if a lot of actions are pending.
-    stateMap = Maps.newConcurrentMap();
   }
 
   @Override
@@ -235,7 +231,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     InputDiscoveryState state;
     if (action.discoversInputs()) {
-      state = getState(action);
+      state = env.getState(InputDiscoveryState::new);
     } else {
       // Because this is a new state, all conditionals below about whether state has already done
       // something will return false, and so we will execute all necessary steps.
@@ -284,8 +280,6 @@ public class ActionExecutionFunction implements SkyFunction {
         checkedInputs = checkInputs(env, action, inputDeps, allInputs, depKeys, actionLookupData);
       }
     } catch (ActionExecutionException e) {
-      // Remove action from state map in case it's there (won't be unless it discovers inputs).
-      stateMap.remove(action);
       throw new ActionExecutionFunctionException(e);
     }
 
@@ -300,8 +294,6 @@ public class ActionExecutionFunction implements SkyFunction {
     try {
       skyframeDepsResult = establishSkyframeDependencies(env, action);
     } catch (ActionExecutionException e) {
-      // Remove action from state map in case it's there (won't be unless it discovers inputs).
-      stateMap.remove(action);
       throw new ActionExecutionFunctionException(
           skyframeActionExecutor.processAndGetExceptionToThrow(
               env.getListener(),
@@ -349,8 +341,6 @@ public class ActionExecutionFunction implements SkyFunction {
       return handleLostInputs(
           e, actionLookupData, action, actionStartTime, env, inputDeps, allInputs, depKeys, state);
     } catch (ActionExecutionException e) {
-      // Remove action from state map in case it's there (won't be unless it discovers inputs).
-      stateMap.remove(action);
       // In this case we do not report the error to the action reporter because we have already
       // done it in SkyframeActionExecutor.reportErrorIfNotAbortingMode() method. That method
       // prints the error in the top-level reporter and also dumps the recorded StdErr for the
@@ -359,15 +349,12 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     if (env.valuesMissing()) {
-      // Only input-discovering actions are present in the stateMap. Other actions may have
+      // This usually happens only for input-discovering actions. Other actions may have
       // valuesMissing() here in rare circumstances related to Fileset inputs being unavailable.
       // See comments in ActionInputMapHelper#getFilesets().
-      Preconditions.checkState(!action.discoversInputs() || stateMap.containsKey(action), action);
       return null;
     }
 
-    // Remove action from state map in case it's there (won't be unless it discovers inputs).
-    stateMap.remove(action);
     return result;
   }
 
@@ -441,9 +428,6 @@ public class ActionExecutionFunction implements SkyFunction {
       Iterable<SkyKey> depKeys,
       InputDiscoveryState state)
       throws InterruptedException, ActionExecutionFunctionException {
-    // Remove action from state map in case it's there (won't be unless it discovers inputs).
-    stateMap.remove(action);
-
     Preconditions.checkState(
         e.isPrimaryAction(actionLookupData),
         "non-primary action handling lost inputs exception: %s %s",
@@ -1369,23 +1353,13 @@ public class ActionExecutionFunction implements SkyFunction {
   }
 
   /**
-   * Should be called once execution is over, and the intra-build cache of in-progress computations
-   * should be discarded. If the cache is non-empty (due to an interrupted/failed build), failure to
-   * call complete() can both cause a memory leak and incorrect results on the subsequent build.
+   * Clears bookkeeping used by action rewinding.
+   *
+   * <p>Should be called once execution is over, otherwise there may be a memory leak of the action
+   * rewinding bookkeeping information.
    */
   public void complete(ExtendedEventHandler eventHandler) {
-    // Discard all remaining state (there should be none after a successful execution).
-    stateMap = Maps.newConcurrentMap();
     actionRewindStrategy.reset(eventHandler);
-  }
-
-  private InputDiscoveryState getState(Action action) {
-    InputDiscoveryState state = stateMap.get(action);
-    if (state == null) {
-      state = new InputDiscoveryState();
-      Preconditions.checkState(stateMap.put(action, state) == null, action);
-    }
-    return state;
   }
 
   /**
@@ -1404,7 +1378,7 @@ public class ActionExecutionFunction implements SkyFunction {
    *       execution.
    * </ol>
    */
-  static class InputDiscoveryState {
+  static class InputDiscoveryState implements SkyKeyComputeState {
     AllInputs allInputs;
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;

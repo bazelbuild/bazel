@@ -516,10 +516,16 @@ public interface SkyFunction {
      *
      * <p>Now {@code someExpensiveComputation(x)} gets called exactly once for each {@code x}!
      *
-     * <p>Important: There's no guarantee the{@link SkyKeyComputeState} instance will be the same
+     * <p>Important: There's no guarantee the {@link SkyKeyComputeState} instance will be the same
      * exact instance used on the previous call to this method for the same {@link SkyKey}. The
      * above example was just illustrating the best-case outcome. Therefore, {@link SkyFunction}
      * implementations should make use of this feature only as a performance optimization.
+     *
+     * <p>A notable example of the above note is that if {@link #compute} returns a {@link Restart}
+     * then a call to {@link #getState} on the subsequent call to {@link #compute} will definitely
+     * use the {@code stateSupplier}. It's important that Skyframe do this because {@link Restart}
+     * indicates that work should be redone, and so it'd be wrong to reuse work from the previous
+     * {@link #compute} call.
      *
      * <p>TODO(b/209701268): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
      * sort of optimization.

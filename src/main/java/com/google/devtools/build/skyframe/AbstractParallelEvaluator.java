@@ -638,7 +638,7 @@ abstract class AbstractParallelEvaluator {
         }
 
         if (maybeHandleRestart(skyKey, state, value)) {
-          stateCache.invalidateAll();
+          stateCache.invalidate(skyKey);
           cancelExternalDeps(env);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
