@@ -14,16 +14,14 @@
 
 #include <notify.h>
 
+#include "src/main/cpp/util/logging.h"
 #include "src/main/native/darwin/util.h"
-#include "src/main/native/macros.h"
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 
 void portable_start_memory_pressure_monitoring() {
   // To test use:
-  //   /usr/bin/log stream -level debug \
-  //      --predicate '(subsystem == "build.bazel")'
   //   sudo memory_pressure -S -l warn
   //   sudo memory_pressure -S -l critical
   // or use the test notifications that we register.
@@ -33,19 +31,19 @@ void portable_start_memory_pressure_monitoring() {
     dispatch_source_t source = dispatch_source_create(
         DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0,
         DISPATCH_MEMORYPRESSURE_WARN | DISPATCH_MEMORYPRESSURE_CRITICAL, queue);
-    CHECK(source != nullptr);
+    BAZEL_CHECK_NE(source, nullptr);
     dispatch_source_set_event_handler(source, ^{
       dispatch_source_memorypressure_flags_t pressureLevel =
           dispatch_source_get_data(source);
       if (pressureLevel == DISPATCH_MEMORYPRESSURE_WARN) {
-        log_if_possible("memory pressure warning anomaly");
+        BAZEL_LOG(USER) << "memory pressure warning anomaly";
         memory_pressure_callback(MemoryPressureLevelWarning);
       } else if (pressureLevel == DISPATCH_MEMORYPRESSURE_CRITICAL) {
-        log_if_possible("memory pressure critical anomaly");
+        BAZEL_LOG(USER) << "memory pressure critical anomaly";
         memory_pressure_callback(MemoryPressureLevelCritical);
       } else {
-        log_if_possible("error: unknown memory pressure critical level: %d",
-                        (int)pressureLevel);
+        BAZEL_LOG(FATAL) << "unknown memory pressure critical level: "
+                         << pressureLevel;
       }
     });
     dispatch_resume(source);
@@ -55,18 +53,17 @@ void portable_start_memory_pressure_monitoring() {
     int32_t status = notify_register_dispatch(
         "com.google.bazel.test.memorypressurelevel.warning", &testToken, queue,
         ^(int state) {
-          log_if_possible("memory pressure test warning anomaly");
+          BAZEL_LOG(USER) << "memory pressure test warning anomaly";
           memory_pressure_callback(MemoryPressureLevelWarning);
         });
-    CHECK(status == NOTIFY_STATUS_OK);
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
     status = notify_register_dispatch(
         "com.google.bazel.test.memorypressurelevel.critical", &testToken, queue,
         ^(int state) {
-          log_if_possible("memory pressure test critical anomaly");
+          BAZEL_LOG(USER) << "memory pressure test critical anomaly";
           memory_pressure_callback(MemoryPressureLevelCritical);
         });
-    CHECK(status == NOTIFY_STATUS_OK);
-    log_if_possible("memory pressure monitoring registered");
+    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
   });
 }
 

@@ -76,8 +76,9 @@ cc_binary(
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
         ":latin1_jni_path",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:port",
     ],
 )
 
