@@ -27,6 +27,7 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import java.io.BufferedOutputStream;
@@ -75,13 +76,15 @@ public class CompatDexBuilder {
     }
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args)
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
     CompatDexBuilder compatDexBuilder = new CompatDexBuilder();
     compatDexBuilder.processRequest(args);
   }
 
   @SuppressWarnings("JdkObsolete")
-  private void processRequest(String[] args) throws Exception {
+  private void processRequest(String[] args)
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
     List<String> flags = new ArrayList<>();
     String input = null;
     String output = null;

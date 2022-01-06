@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipFile;
+import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -40,7 +41,8 @@ public class CompatDexBuilderTest {
   @Rule public TemporaryFolder temp = new TemporaryFolder();
 
   @Test
-  public void compileManyClasses() throws Exception {
+  public void compileManyClasses()
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
     // Random set of classes from the R8 example test directory naming001.
     final String inputJar = System.getProperty("CompatDexBuilderTests.naming001");
     final List<String> classNames =
