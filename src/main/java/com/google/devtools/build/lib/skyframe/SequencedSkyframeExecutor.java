@@ -471,19 +471,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       int fsvcThreads)
       throws InterruptedException {
 
-    // We freshly compute knowledge of the presence of external files in the skyframe graph. We use
-    // a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after* we
-    // are done with the graph scan, lest an interrupt during the graph scan causes us to
-    // incorrectly think there are no longer any external files.
-    ExternalFilesHelper tmpExternalFilesHelper =
-        externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
-
     ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
     if (!pathEntriesWithoutDiffInformation.isEmpty()
         || (externalFilesKnowledge.anyOutputFilesSeen && checkOutputFiles)
         || repositoryHelpersHolder != null
         || externalFilesKnowledge.anyFilesInExternalReposSeen
         || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+      // We freshly compute knowledge of the presence of external files in the skyframe graph. We
+      // use
+      // a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after* we
+      // are done with the graph scan, lest an interrupt during the graph scan causes us to
+      // incorrectly think there are no longer any external files.
+      ExternalFilesHelper tmpExternalFilesHelper =
+          externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
 
       // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
       // have actually been invalidated (recall that invalidation happens at the beginning of the
@@ -514,7 +514,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (checkOutputFiles) {
         fileTypesToCheck.add(FileType.OUTPUT);
       }
-      if (externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+      if (externalFilesKnowledge.tooManyNonOutputExternalFilesSeen
+          || !externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
         fileTypesToCheck.add(FileType.EXTERNAL);
       }
       logger.atInfo().log(
@@ -540,9 +541,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           batchDirtyResult,
           /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked(),
           managedDirectoriesChanged);
-    }
-    if (!externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()
-        && !externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+      // We use the knowledge gained during the graph scan that just completed. Otherwise, naively,
+      // once an external file gets into the Skyframe graph, we'll overly-conservatively always
+      // think the graph needs to be scanned.
+      externalFilesHelper.setExternalFilesKnowledge(
+          tmpExternalFilesHelper.getExternalFilesKnowledge());
+    } else if (!externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
       logger.atInfo().log(
           "About to scan %d external files",
           externalFilesKnowledge.nonOutputExternalFilesSeen.size());
@@ -566,8 +570,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         batchDirtyResult =
             fsvc.getDirtyKeys(
                 externalDirtyNodes,
-                new ExternalDirtinessChecker(
-                    tmpExternalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
+                new ExternalDirtinessChecker(externalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
       }
       handleChangedFiles(
           ImmutableList.of(),
@@ -579,11 +582,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pathEntriesWithoutDiffInformation) {
       pair.getSecond().markProcessed();
     }
-    // We use the knowledge gained during the graph scan that just completed. Otherwise, naively,
-    // once an external file gets into the Skyframe graph, we'll overly-conservatively always think
-    // the graph needs to be scanned.
-    externalFilesHelper.setExternalFilesKnowledge(
-        tmpExternalFilesHelper.getExternalFilesKnowledge());
   }
 
   private void handleChangedFiles(

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NotifyingHelper;
@@ -124,6 +125,34 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     AbruptExitException e = assertThrows(AbruptExitException.class, () -> buildTarget("//foo"));
 
     assertThat(e.getCause()).hasCauseThat().hasCauseThat().isSameInstanceAs(injectedException);
+  }
+
+  @Test
+  public void ignoreOutputFilesThenCheckAgainDoesCheck() throws Exception {
+    Path buildFile =
+        write(
+            "foo/BUILD",
+            "genrule(name = 'foo', outs = ['out'], cmd = 'cp $< $@', srcs = ['link'])");
+    Path outputFile = directories.getOutputBase().getChild("linkTarget");
+    FileSystemUtils.writeContentAsLatin1(outputFile, "one");
+    buildFile.getParentDirectory().getChild("link").createSymbolicLink(outputFile.asFragment());
+
+    buildTarget("//foo:foo");
+
+    assertContents("one", "//foo:foo");
+
+    addOptions("--noexperimental_check_output_files");
+    FileSystemUtils.writeContentAsLatin1(outputFile, "two");
+
+    buildTarget("//foo:foo");
+
+    assertContents("one", "//foo:foo");
+
+    addOptions("--experimental_check_output_files");
+
+    buildTarget("//foo:foo");
+
+    assertContents("two", "//foo:foo");
   }
 
   @Test
