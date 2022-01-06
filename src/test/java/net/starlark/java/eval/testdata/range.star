@@ -23,3 +23,27 @@ assert_fails(lambda: range(-1, maxint), "len\\(range\\(-1, 2147483647\\)\\) exce
 assert_fails(lambda: range(minint - 1, minint), "got -2147483649 for start, want value in signed 32-bit range")
 assert_fails(lambda: range(maxint, maxint + 1), "got 2147483648 for stop, want value in signed 32-bit range")
 assert_fails(lambda: range(-1, maxint, maxint + 1), "got 2147483648 for step, want value in signed 32-bit range")
+
+# Correct behavior when first out-of-bounds step would not be in 32-bit range
+assert_eq(len(range(1, 2, maxint)), 1)
+assert_eq(list(range(1, 2, maxint)), [1])
+assert_eq(len(range(-1, -2, minint)), 1)
+assert_eq(list(range(-1, -2, minint)), [-1])
+assert_eq(len(range(minint, maxint, maxint)), 3)
+assert_eq(list(range(minint, maxint, maxint)), [minint, -1, maxint - 1])
+assert_eq(len(range(maxint, minint, minint)), 2)
+assert_eq(list(range(maxint, minint, minint)), [maxint, -1])
+
+# Range subslices
+assert_eq(list(range(0, 10, 2)[0:]), [0, 2, 4, 6, 8])
+assert_eq(list(range(0, 10, 2)[1:5]), [2, 4, 6, 8])
+assert_eq(list(range(0, 10, 2)[1:5:2]), [2, 6])
+assert_eq(list(range(0, 10, 2)[1:5:maxint]), [2])
+assert_eq(list(range(0, 10, 2)[4:1:minint]), [8])
+assert_eq(list(range(minint, maxint, maxint)[0:2:2]), [minint])
+assert_eq(list(range(-1, -10, -2)[0:]), [-1, -3, -5, -7, -9])
+assert_eq(list(range(-1, -10, -2)[1:5]), [-3, -5, -7, -9])
+assert_eq(list(range(-1, -10, -2)[1:5:2]), [-3, -7])
+assert_eq(list(range(-1, -10, -2)[1:5:maxint]), [-3])
+assert_eq(list(range(-1, -10, -2)[4:1:minint]), [-9])
+assert_eq(list(range(maxint, minint, minint)[0:2:2]), [maxint])

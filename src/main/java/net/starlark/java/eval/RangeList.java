@@ -70,19 +70,21 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
     // https://github.com/python/cpython/blob/09bb918a61031377d720f1a0fa1fe53c962791b6/Objects/rangeobject.c#L144
     int low; // [low,high) is a half-open interval
     int high;
+    long absStep;
     if (step > 0) {
       low = start;
       high = stop;
+      absStep = step;
     } else {
       low = stop;
       high = start;
-      step = -step;
+      absStep = -(long) step;
     }
     if (low >= high) {
       this.size = 0;
     } else {
       long diff = (long) high - low - 1;
-      long size = diff / step + 1;
+      long size = diff / absStep + 1;
       if ((int) size != size) {
         throw Starlark.errorf("len(%s) exceeds signed 32-bit range", Starlark.repr(this));
       }
@@ -156,7 +158,7 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   @Override
   public Iterator<StarlarkInt> iterator() {
     return new UnmodifiableIterator<StarlarkInt>() {
-      int cursor = start;
+      long cursor = start; // returned by next() if hasNext() is true
 
       @Override
       public boolean hasNext() {
@@ -168,7 +170,8 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
         if (!hasNext()) {
           throw new NoSuchElementException();
         }
-        int current = cursor;
+        // If cursor is valid, it's guaranteed to be in [start, stop) range, thus a 32-bit value.
+        int current = (int) cursor;
         cursor += step;
         return StarlarkInt.of(current);
       }
@@ -178,9 +181,21 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   @Override
   public Sequence<StarlarkInt> getSlice(Mutability mu, int start, int stop, int step)
       throws EvalException {
-    // TODO(arostovtsev): verify step * this.step doesn't overflow int. Otherwise, we can get a
-    // shorter or even zero step size (and the latter would fail a precondition check).
-    return new RangeList(at(start), at(stop), step * this.step);
+    long sliceStep = (long) step * (long) this.step;
+    if (sliceStep != (int) sliceStep) {
+      // It is not an error to take a slice of a RangeList such that the slice step * list step
+      // doesn't fit in a 32-bit int; the result ought to be a RangeList containing only one
+      // element (the start). Since difference between 2 successive elements of a RangeList must be
+      // a 32-bit int, clamping the step to Integer.MAX_VALUE or MIN_VALUE and moving stop to start
+      // +/- 1 gives us the 1-element RangeList we need.
+      sliceStep = sliceStep > 0 ? Integer.MAX_VALUE : Integer.MIN_VALUE; // note sliceStep != 0
+      if (stop > start) {
+        stop = start + 1;
+      } else if (stop < start) {
+        stop = start - 1;
+      }
+    }
+    return new RangeList(at(start), at(stop), (int) sliceStep);
   }
 
   // Like get, but without bounds check or Integer allocation.
