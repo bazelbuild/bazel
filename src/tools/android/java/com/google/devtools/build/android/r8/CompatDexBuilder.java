@@ -27,7 +27,6 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import java.io.BufferedOutputStream;
