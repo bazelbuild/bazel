@@ -30,6 +30,8 @@ import net.starlark.java.annot.StarlarkBuiltin;
  * simple math to compute a value at each index. This is particularly useful when range is huge or
  * only a few elements from it are used.
  *
+ * <p>The start, stop, step, and size of the range must all fit within 32-bit signed integers.
+ *
  * <p>Eventually {@code range} function should produce an instance of the {@code range} type as is
  * the case in Python 3, but for now to preserve backwards compatibility with Python 2, {@code list}
  * is returned.
@@ -56,8 +58,7 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   private final int step;
   private final int size; // (derived)
 
-  // TODO(adonovan): use StarlarkInt computation, to avoid overflow.
-  RangeList(int start, int stop, int step) {
+  RangeList(int start, int stop, int step) throws EvalException {
     Preconditions.checkArgument(step != 0);
 
     this.start = start;
@@ -80,8 +81,12 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
     if (low >= high) {
       this.size = 0;
     } else {
-      int diff = high - low - 1;
-      this.size = diff / step + 1;
+      long diff = (long) high - low - 1;
+      long size = diff / step + 1;
+      if ((int) size != size) {
+        throw Starlark.errorf("len(%s) exceeds signed 32-bit range", Starlark.repr(this));
+      }
+      this.size = (int) size;
     }
   }
 
@@ -171,7 +176,10 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   }
 
   @Override
-  public Sequence<StarlarkInt> getSlice(Mutability mu, int start, int stop, int step) {
+  public Sequence<StarlarkInt> getSlice(Mutability mu, int start, int stop, int step)
+      throws EvalException {
+    // TODO(arostovtsev): verify step * this.step doesn't overflow int. Otherwise, we can get a
+    // shorter or even zero step size (and the latter would fail a precondition check).
     return new RangeList(at(start), at(stop), step * this.step);
   }
 

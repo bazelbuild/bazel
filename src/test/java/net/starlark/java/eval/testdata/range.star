@@ -13,3 +13,13 @@ assert_eq(list(range(5, 0, -1)), [5, 4, 3, 2, 1])
 assert_eq(list(range(5, 0, -10)), [5])
 assert_eq(list(range(0, -3, -2)), [0, -2])
 assert_fails(lambda: range(2, 3, 0), "step cannot be 0")
+
+maxint = (1 << 31) - 1
+minint = (-1) << 31
+
+assert_eq(maxint, len(range(0, maxint)))
+assert_eq(maxint, len(range(minint, maxint - 1, 2)))
+assert_fails(lambda: range(-1, maxint), "len\\(range\\(-1, 2147483647\\)\\) exceeds signed 32-bit range")
+assert_fails(lambda: range(minint - 1, minint), "got -2147483649 for start, want value in signed 32-bit range")
+assert_fails(lambda: range(maxint, maxint + 1), "got 2147483648 for stop, want value in signed 32-bit range")
+assert_fails(lambda: range(-1, maxint, maxint + 1), "got 2147483648 for step, want value in signed 32-bit range")
