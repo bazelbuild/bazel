@@ -20,6 +20,7 @@ CROSS_PLATFORM_WINDOWS_TESTS = [
 
 # Tests that are broken out from the SkyframeTests target into separate targets.
 EXCLUDED_FROM_SKYFRAME_TESTS = [
+    "LocalDiffAwarenessIntegrationTest.java",
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
 ] + CROSS_PLATFORM_WINDOWS_TESTS
 
@@ -372,6 +373,31 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "LocalDiffAwarenessIntegrationTest",
+    srcs = ["LocalDiffAwarenessIntegrationTest.java"],
+    # TODO(pcloudy): Even with --experimental_windows_watchfs, there's an extra
+    #  getValues() on the second build in
+    #  externalSymlink_doesNotTriggerFullGraphTraversal with Windows, and
+    #  non-deterministic failure to detect changes (watchfs bug?).
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
         "//third_party:junit4",
