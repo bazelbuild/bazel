@@ -1381,4 +1381,18 @@ function test_config_function_invalid_config() {
   expect_log "Unknown configuration ID 'notaconfighash'"
 }
 
+function test_error_keep_going() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name='maple', deps=[':japanese'])
+sh_library(name='japanese')
+EOF
+
+  # This causes a failure in the cquery function, which should produce an
+  # actionable error, not a stack trace.
+  bazel cquery --keep_going "config(//$pkg:oak, notaconfighash)" > output 2>"$TEST_log" && fail "Expected error"
+  expect_not_log "QueryException"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

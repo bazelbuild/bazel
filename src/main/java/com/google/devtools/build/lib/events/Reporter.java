@@ -19,6 +19,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -170,9 +171,15 @@ public final class Reporter implements ExtendedEventHandler {
     handle(Event.of(EventKind.FINISH, location, message));
   }
 
-  public void error(Location location, String message, Throwable error) {
+  public void error(Location location, String message) {
+    error(location, message, /*error=*/ null);
+  }
+
+  public void error(Location location, String message, @Nullable Throwable error) {
     handle(Event.error(location, message));
-    error.printStackTrace(new PrintStream(getOutErr().getErrorStream()));
+    if (error != null) {
+      error.printStackTrace(new PrintStream(getOutErr().getErrorStream()));
+    }
   }
 
   /**
