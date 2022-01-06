@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFacto
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -165,7 +164,6 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -178,7 +176,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -190,7 +187,6 @@ import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer;
-import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropper;
@@ -1293,13 +1289,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected abstract void invalidate(Predicate<SkyKey> pred);
 
-  private static boolean compatibleFileTypes(Dirent.Type oldType, FileStateType newType) {
-    return (oldType.equals(Dirent.Type.FILE) && newType.equals(FileStateType.REGULAR_FILE))
-        || (oldType.equals(Dirent.Type.UNKNOWN) && newType.equals(FileStateType.SPECIAL_FILE))
-        || (oldType.equals(Dirent.Type.DIRECTORY) && newType.equals(FileStateType.DIRECTORY))
-        || (oldType.equals(Dirent.Type.SYMLINK) && newType.equals(FileStateType.SYMLINK));
-  }
-
   protected Differencer.Diff getDiff(
       TimestampGranularityMonitor tsgm,
       ModifiedFileSet modifiedFileSet,
@@ -1322,69 +1311,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
 
-    if (!modifiedFileSet.includesAncestorDirectories()) {
-      return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
-          tsgm, valuesMap, memoizingEvaluator.getDoneValues(), dirtyFileStateSkyKeys, fsvcThreads);
-    }
-
-    // We only need to invalidate directory values when a file has been created or deleted or
-    // changes type, not when it has merely been modified. Unfortunately we do not have that
-    // information here, so we compute it ourselves.
-    // TODO(bazel-team): Fancy filesystems could provide it with a hypothetically modified
-    // DiffAwareness interface.
-    logger.atInfo().log(
-        "About to recompute filesystem nodes corresponding to files that are known to have "
-            + "changed");
-    FilesystemValueChecker fsvc =
-        new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
-    Differencer.DiffWithDelta diff =
-        fsvc.getNewAndOldValues(valuesMap, dirtyFileStateSkyKeys, new FileDirtinessChecker());
-
-    Set<SkyKey> valuesToInvalidate = new HashSet<>();
-    Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
-    for (Map.Entry<SkyKey, Delta> entry : diff.changedKeysWithNewAndOldValues().entrySet()) {
-      SkyKey key = entry.getKey();
-      Preconditions.checkState(key.functionName().equals(FileStateValue.FILE_STATE), key);
-      RootedPath rootedPath = (RootedPath) key.argument();
-      Delta delta = entry.getValue();
-      @Nullable FileStateValue oldValue = (FileStateValue) delta.oldValue();
-      FileStateValue newValue = (FileStateValue) delta.newValue();
-      valuesToInject.put(key, newValue);
-      SkyKey dirListingStateKey = parentDirectoryListingStateKey(rootedPath);
-      // Invalidate the directory listing for the path's parent directory if the change was
-      // relevant (e.g. path turned from a symlink into a directory) OR if we don't have enough
-      // information to determine it was irrelevant.
-      boolean changedType;
-      if (oldValue != null) {
-        changedType = !oldValue.getType().equals(newValue.getType());
-      } else {
-        DirectoryListingStateValue oldDirListingStateValue =
-            (DirectoryListingStateValue) valuesMap.get(dirListingStateKey);
-        if (oldDirListingStateValue != null) {
-          String baseName = rootedPath.getRootRelativePath().getBaseName();
-          Dirent oldDirent = oldDirListingStateValue.getDirents().maybeGetDirent(baseName);
-          changedType =
-              (oldDirent == null) || !compatibleFileTypes(oldDirent.getType(), newValue.getType());
-        } else {
-          changedType = true;
-        }
-      }
-      if (changedType) {
-        valuesToInvalidate.add(dirListingStateKey);
-      }
-    }
-    for (SkyKey key : diff.changedKeysWithoutNewValues()) {
-      Preconditions.checkState(key.functionName().equals(FileStateValue.FILE_STATE), key);
-      RootedPath rootedPath = (RootedPath) key.argument();
-      valuesToInvalidate.add(key);
-      valuesToInvalidate.add(parentDirectoryListingStateKey(rootedPath));
-    }
-    return new ImmutableDiff(valuesToInvalidate, valuesToInject);
-  }
-
-  private static SkyKey parentDirectoryListingStateKey(RootedPath rootedPath) {
-    RootedPath parentDirRootedPath = rootedPath.getParentDirectory();
-    return DirectoryListingStateValue.key(parentDirRootedPath);
+    return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
+        tsgm, valuesMap, memoizingEvaluator.getDoneValues(), dirtyFileStateSkyKeys, fsvcThreads);
   }
 
   /**
