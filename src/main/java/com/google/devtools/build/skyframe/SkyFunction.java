@@ -526,9 +526,6 @@ public interface SkyFunction {
      * use the {@code stateSupplier}. It's important that Skyframe do this because {@link Restart}
      * indicates that work should be redone, and so it'd be wrong to reuse work from the previous
      * {@link #compute} call.
-     *
-     * <p>TODO(b/209701268): Reimplement Blaze-on-Skyframe SkyFunctions that would benefit from this
-     * sort of optimization.
      */
     <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier);
   }
