@@ -382,9 +382,6 @@ public class PackageFunction implements SkyFunction {
       return getExternalPackage(env);
     }
 
-    // TODO(b/209701268): opt: can't all the following statements be moved
-    // into the state.loadedPackage cache-miss case?
-
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     PackageLookupValue packageLookupValue;
     try {
@@ -442,22 +439,6 @@ public class PackageFunction implements SkyFunction {
       throw new IllegalStateException();
     }
 
-    WorkspaceNameValue workspaceNameValue =
-        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
-
-    RepositoryMappingValue repositoryMappingValue =
-        (RepositoryMappingValue)
-            env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
-    RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
-
-    FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
-    RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
-    ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
-        PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.get(env);
-    IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
-        (IgnoredPackagePrefixesValue)
-            env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
-
     StarlarkBuiltinsValue starlarkBuiltinsValue;
     try {
       if (bzlLoadFunctionForInlining == null) {
@@ -487,56 +468,27 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    String workspaceName = workspaceNameValue.getName();
-    RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
-
-    Label preludeLabel = null;
-    // Can be null in tests.
-    if (packageFactory != null) {
-      // Load the prelude from the same repository as the package being loaded.  Can't use
-      // Label.resolveRepositoryRelative because rawPreludeLabel is in the main repository, not the
-      // default one, so it is resolved to itself.
-      // TODO(brandjon): Why can't we just replace the use of the main repository with the default
-      // repository in the prelude label?
-      Label rawPreludeLabel = packageFactory.getRuleClassProvider().getPreludeLabel();
-      if (rawPreludeLabel != null) {
-        PackageIdentifier preludePackage =
-            PackageIdentifier.create(
-                packageId.getRepository(), rawPreludeLabel.getPackageFragment());
-        preludeLabel = Label.createUnvalidated(preludePackage, rawPreludeLabel.getName());
-      }
-    }
-
     // TODO(adonovan): put BUILD compilation from BUILD execution in separate Skyframe functions
     // like we do for .bzl files, so that we don't need to recompile BUILD files each time their
     // .bzl dependencies change.
 
     State state = env.getState(State::new);
-    LoadedPackage loadedPackage = state.loadedPackage;
-    if (loadedPackage == null) {
-      loadedPackage =
+    if (state.loadedPackage == null) {
+      state.loadedPackage =
           loadPackage(
-              workspaceName,
-              repositoryMapping,
-              repositoryIgnoredPackagePrefixes.getPatterns(),
+              packageLookupValue,
               packageId,
-              buildFileRootedPath,
-              buildFileValue,
-              defaultVisibility,
-              configSettingVisibilityPolicy,
               starlarkBuiltinsValue,
-              preludeLabel,
               packageLookupValue.getRoot(),
               env,
               key,
               state);
-      if (loadedPackage == null) {
-        return null; // skyframe restart
+      if (state.loadedPackage == null) {
+        return null;
       }
-      state.loadedPackage = loadedPackage;
     }
     PackageFunctionException pfeFromNonSkyframeGlobbing = null;
-    Package.Builder pkgBuilder = loadedPackage.builder;
+    Package.Builder pkgBuilder = state.loadedPackage.builder;
     try {
       pkgBuilder.buildPartial();
       // Since the Skyframe dependencies we request below in
@@ -564,7 +516,7 @@ public class PackageFunction implements SkyFunction {
     } catch (InternalInconsistentFilesystemException e) {
       throw e.throwPackageFunctionException();
     }
-    Set<SkyKey> globKeys = loadedPackage.globDepKeys;
+    Set<SkyKey> globKeys = state.loadedPackage.globDepKeys;
     try {
       handleGlobDepsAndPropagateFilesystemExceptions(
           packageId, globKeys, env, pkgBuilder.containsErrors());
@@ -602,7 +554,7 @@ public class PackageFunction implements SkyFunction {
       packageFactory.afterDoneLoadingPackage(
           pkg,
           starlarkBuiltinsValue.starlarkSemantics,
-          loadedPackage.loadTimeNanos,
+          state.loadedPackage.loadTimeNanos,
           env.getListener());
     } catch (InvalidPackageException e) {
       throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -1216,21 +1168,50 @@ public class PackageFunction implements SkyFunction {
    */
   @Nullable
   private LoadedPackage loadPackage(
-      String workspaceName,
-      RepositoryMapping repositoryMapping,
-      ImmutableSet<PathFragment> repositoryIgnoredPatterns,
+      PackageLookupValue packageLookupValue,
       PackageIdentifier packageId,
-      RootedPath buildFilePath,
-      FileValue buildFileValue,
-      RuleVisibility defaultVisibility,
-      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       StarlarkBuiltinsValue starlarkBuiltinsValue,
-      @Nullable Label preludeLabel,
       Root packageRoot,
       Environment env,
       SkyKey keyForMetrics,
       State state)
       throws InterruptedException, PackageFunctionException {
+    WorkspaceNameValue workspaceNameValue =
+        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue)
+            env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
+    RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
+    FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
+    RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
+    ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+        PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.get(env);
+    IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
+        (IgnoredPackagePrefixesValue)
+            env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
+    if (env.valuesMissing()) {
+      return null;
+    }
+    String workspaceName = workspaceNameValue.getName();
+    RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
+    ImmutableSet<PathFragment> repositoryIgnoredPatterns =
+        repositoryIgnoredPackagePrefixes.getPatterns();
+    Label preludeLabel = null;
+    // Can be null in tests.
+    if (packageFactory != null) {
+      // Load the prelude from the same repository as the package being loaded.  Can't use
+      // Label.resolveRepositoryRelative because rawPreludeLabel is in the main repository, not the
+      // default one, so it is resolved to itself.
+      // TODO(brandjon): Why can't we just replace the use of the main repository with the default
+      // repository in the prelude label?
+      Label rawPreludeLabel = packageFactory.getRuleClassProvider().getPreludeLabel();
+      if (rawPreludeLabel != null) {
+        PackageIdentifier preludePackage =
+            PackageIdentifier.create(
+                packageId.getRepository(), rawPreludeLabel.getPackageFragment());
+        preludeLabel = Label.createUnvalidated(preludePackage, rawPreludeLabel.getName());
+      }
+    }
 
     // TODO(adonovan): opt: evaluate splitting this part out as a separate Skyframe
     // function (PackageCompileFunction, by analogy with BzlCompileFunction).
@@ -1253,7 +1234,12 @@ public class PackageFunction implements SkyFunction {
         }
         compiled =
             compileBuildFile(
-                packageId, buildFilePath, buildFileValue, starlarkBuiltinsValue, preludeLabel, env);
+                packageId,
+                buildFileRootedPath,
+                buildFileValue,
+                starlarkBuiltinsValue,
+                preludeLabel,
+                env);
         if (compiled == null) {
           return null; // skyframe restart
         }
@@ -1316,7 +1302,7 @@ public class PackageFunction implements SkyFunction {
                   workspaceName,
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping)
-              .setFilename(buildFilePath)
+              .setFilename(buildFileRootedPath)
               .setDefaultVisibility(defaultVisibility)
               // "defaultVisibility" comes from the command line.
               // Let's give the BUILD file a chance to set default_visibility once,
@@ -1330,7 +1316,7 @@ public class PackageFunction implements SkyFunction {
       if (compiled.ok()) {
         GlobberWithSkyframeGlobDeps globber =
             makeGlobber(
-                buildFilePath.asPath(),
+                buildFileRootedPath.asPath(),
                 packageId,
                 repositoryIgnoredPatterns,
                 packageRoot,
