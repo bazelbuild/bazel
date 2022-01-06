@@ -321,7 +321,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return new JavaSpawn(
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
-        executionInfo,
+        getExecutionInfo(),
         inputs);
   }
 
@@ -336,7 +336,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return new JavaSpawn(
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
-        executionInfo,
+        getExecutionInfo(),
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
             .addTransitive(transitiveInputs)

@@ -363,6 +363,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
         commandLines.allArguments(),
+        this,
         /*env=*/ ImmutableMap.of(),
         /*envResolved=*/ false,
         inputs,
@@ -401,6 +402,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
+        this,
         env,
         envResolved,
         getInputs(),
@@ -558,7 +560,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
-  private class ActionSpawn extends BaseSpawn {
+  private static class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
@@ -571,6 +573,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     private ActionSpawn(
         ImmutableList<String> arguments,
+        SpawnAction parent,
         Map<String, String> env,
         boolean envResolved,
         NestedSet<Artifact> inputs,
@@ -580,10 +583,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       super(
           arguments,
           ImmutableMap.<String, String>of(),
-          executionInfo,
-          SpawnAction.this.getRunfilesSupplier(),
-          SpawnAction.this,
-          SpawnAction.this.resourceSetOrBuilder);
+          parent.getExecutionInfo(),
+          parent.getRunfilesSupplier(),
+          parent,
+          parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs.toList()) {
@@ -603,7 +606,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       if (envResolved) {
         effectiveEnvironment = ImmutableMap.copyOf(env);
       } else {
-        effectiveEnvironment = SpawnAction.this.getEffectiveEnvironment(env);
+        effectiveEnvironment = parent.getEffectiveEnvironment(env);
       }
     }
 
