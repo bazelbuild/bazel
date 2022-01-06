@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -110,10 +112,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -139,7 +143,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   // that on the next build we try to inject/invalidate some nodes that aren't needed for the build.
   private final RecordingDifferencer recordingDiffer = new SequencedRecordingDifferencer();
   private final DiffAwarenessManager diffAwarenessManager;
-  private final Iterable<SkyValueDirtinessChecker> customDirtinessCheckers;
+  // If this is null then workspace header pre-calculation won't happen.
+  @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
   private int modifiedFiles;
@@ -149,8 +154,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private int numSourceFilesCheckedBecauseOfMissingDiffs;
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
-  // If this is null then workspace header pre-calculation won't happen.
-  @Nullable private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
   private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
 
   private SequencedSkyframeExecutor(
@@ -164,13 +167,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       SkyFunction ignoredPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
+      @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     super(
@@ -192,12 +194,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         GraphInconsistencyReceiver.THROWING,
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
-        managedDirectoriesKnowledge,
+        repositoryHelpersHolder == null
+            ? null
+            : repositoryHelpersHolder.managedDirectoriesKnowledge(),
         skyKeyStateReceiver,
         bugReporter);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
-    this.customDirtinessCheckers = customDirtinessCheckers;
-    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+    this.repositoryHelpersHolder = repositoryHelpersHolder;
     this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
   }
 
@@ -337,7 +340,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     numSourceFilesCheckedBecauseOfMissingDiffs = 0;
 
     boolean managedDirectoriesChanged =
-        managedDirectoriesKnowledge != null && refreshWorkspaceHeader(eventHandler);
+        repositoryHelpersHolder != null && refreshWorkspaceHeader(eventHandler);
     if (managedDirectoriesChanged) {
       invalidateCachedWorkspacePathsStates();
     }
@@ -415,7 +418,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Iterable<SkyKey> deletedKeys =
         Sets.difference(previousClientEnvironment, clientEnv.get().keySet()).stream()
             .map(ClientEnvironmentFunction::key)
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
     recordingDiffer.invalidate(deletedKeys);
     previousClientEnvironment = clientEnv.get().keySet();
     // Inject current client environmental values. We can inject unconditionally without fearing
@@ -478,7 +481,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
     if (!pathEntriesWithoutDiffInformation.isEmpty()
         || (externalFilesKnowledge.anyOutputFilesSeen && checkOutputFiles)
-        || !Iterables.isEmpty(customDirtinessCheckers)
+        || repositoryHelpersHolder != null
         || externalFilesKnowledge.anyFilesInExternalReposSeen
         || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
 
@@ -523,11 +526,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             fsvc.getDirtyKeys(
                 memoizingEvaluator.getValues(),
                 new UnionDirtinessChecker(
-                    Iterables.concat(
-                        customDirtinessCheckers,
-                        ImmutableList.<SkyValueDirtinessChecker>of(
+                    Stream.of(
                             new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
-                            new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
+                            new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck),
+                            repositoryHelpersHolder == null
+                                ? null
+                                : repositoryHelpersHolder.repositoryDirectoryDirtinessChecker())
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList())));
       }
       handleChangedFiles(
           diffPackageRootsUnderWhichToCheck,
@@ -970,7 +976,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                                   .ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES))
                   .build()));
     }
-    return managedDirectoriesKnowledge.workspaceHeaderReloaded(oldValue, newValue);
+    return repositoryHelpersHolder
+        .managedDirectoriesKnowledge()
+        .workspaceHeaderReloaded(oldValue, newValue);
   }
 
   // We only check the FileStateValue of the WORKSPACE file; we do not support the case
@@ -1033,7 +1041,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ExternalPackageHelper externalPackageHelper;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
-    @Nullable private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
     // Fields with default values.
     private ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
@@ -1041,7 +1048,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories = ImmutableList.of();
     private WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver =
         (ignored1, ignored2) -> {};
-    private Iterable<SkyValueDirtinessChecker> customDirtinessCheckers = ImmutableList.of();
+    @Nullable private SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder = null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredPackagePrefixesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
@@ -1073,13 +1080,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               diffAwarenessFactories,
               workspaceInfoFromDiffReceiver,
               extraSkyFunctions,
-              customDirtinessCheckers,
               ignoredPackagePrefixesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
               externalPackageHelper,
+              repositoryHelpersHolder,
               actionOnIOExceptionReadingBuildFile,
-              managedDirectoriesKnowledge,
               skyKeyStateReceiver,
               bugReporter);
       skyframeExecutor.init();
@@ -1139,9 +1145,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setCustomDirtinessCheckers(
-        Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
-      this.customDirtinessCheckers = customDirtinessCheckers;
+    public Builder setRepositoryHelpersHolder(
+        SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder) {
+      this.repositoryHelpersHolder = repositoryHelpersHolder;
       return this;
     }
 
@@ -1175,12 +1181,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     public Builder setSkyKeyStateReceiver(SkyKeyStateReceiver skyKeyStateReceiver) {
       this.skyKeyStateReceiver = Preconditions.checkNotNull(skyKeyStateReceiver);
-      return this;
-    }
-
-    public Builder setManagedDirectoriesKnowledge(
-        @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
-      this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
       return this;
     }
   }

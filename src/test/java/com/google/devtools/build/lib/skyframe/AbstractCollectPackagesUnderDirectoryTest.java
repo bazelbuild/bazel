@@ -293,8 +293,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 /*workspaceStatusActionFactory=*/ null,
                 /*diffAwarenessFactories=*/ ImmutableList.of(),
                 getExtraSkyFunctions(),
-                /*customDirtinessCheckers=*/ ImmutableList.of(),
-                /*managedDirectoriesKnowledge=*/ null,
+                /*repositoryHelpersHolder=*/ null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(

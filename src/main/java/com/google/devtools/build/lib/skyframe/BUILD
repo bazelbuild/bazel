@@ -184,6 +184,7 @@ java_library(
         ":sky_functions",
         ":sky_value_dirtiness_checker",
         ":skyframe_aware_action",
+        ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
         ":skylark_module_cycle_reporter",
         ":starlark_builtins_value",
@@ -2258,6 +2259,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "skyframe_executor_repository_helpers_holder",
+    srcs = ["SkyframeExecutorRepositoryHelpersHolder.java"],
+    deps = [
+        ":managed_directories_knowledge",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//third_party:auto_value",
     ],
 )
 
