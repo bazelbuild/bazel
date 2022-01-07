@@ -360,6 +360,37 @@ EOF
   assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 }
 
+function test_direct_alias_requirements() {
+  # Aliases delegate many read calls to their actual targets. This test
+  # ensures we don't skip requirements that the alias has but its actual
+  # target doesn't.
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+cc_library(
+    name = "ccrule",
+    srcs = ["ccrule.cc"],
+)
+config_setting(
+    name = "cfg",
+    define_values = {"abc": "1"},
+)
+alias(
+    name = "al",
+    actual = select({
+        ":cfg": ":ccrule",
+    }),
+)
+EOF
+
+  bazel cquery "//$pkg:al" --show_config_fragments=direct --define=abc=1 \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:al .*--define:abc" output
+  # CppConfiguration is a transitive, not direct, requirement.
+  assert_not_contains "//$pkg:al .*CppConfiguration" output
+}
+
 function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
