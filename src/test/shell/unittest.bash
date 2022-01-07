@@ -517,7 +517,7 @@ function __update_shards() {
     [ "$TEST_SHARD_INDEX" -lt 0 -o "$TEST_SHARD_INDEX" -ge  "$TEST_TOTAL_SHARDS" ] &&
       { echo "Invalid shard $shard_index" >&2; exit 1; }
 
-    read -rd $'\0' -a TESTS < <(
+    IFS=$'\n' read -rd $'\0' -a TESTS < <(
         for test in "${TESTS[@]}"; do echo "$test"; done |
             awk "NR % $TEST_TOTAL_SHARDS == $TEST_SHARD_INDEX" && echo -en '\0')
 
@@ -669,7 +669,7 @@ function run_suite() {
   if [ ${#TESTS[@]} -eq 0 ]; then
     # Even if there aren't any tests, this needs to succeed.
     local all_tests=()
-    read -d $'\0' -ra all_tests < <(
+    IFS=$'\n' read -d $'\0' -ra all_tests < <(
         declare -F | awk '{print $3}' | grep ^test_ || true; echo -en '\0')
 
     if (( "${#_TEST_FILTERS[@]}" == 0 )); then

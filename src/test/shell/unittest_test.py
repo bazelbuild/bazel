@@ -560,6 +560,32 @@ run_suite "empty test suite"
         "WARNING: Both --test_arg and --test_filter specified, ignoring --test_arg"
     )
 
+  def test_custom_ifs_variable_finds_and_runs_test(self):
+    for sharded in (False, True):
+      with self.subTest(sharded=sharded):
+        self.__custom_ifs_variable_finds_and_runs_test(sharded)
+
+  def __custom_ifs_variable_finds_and_runs_test(self, sharded):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        IFS=$'\t'
+        function test_foo() {
+          :
+        }
+
+        run_suite "custom IFS test"
+        """))
+
+    result = self.execute_test(
+        "thing.sh",
+        env={} if not sharded else {
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": 1
+        })
+    result.assertSuccess("custom IFS test")
+    result.assertTestPassed("test_foo")
+
 
 if __name__ == "__main__":
   unittest.main()
