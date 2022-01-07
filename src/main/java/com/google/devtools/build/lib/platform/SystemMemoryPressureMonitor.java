@@ -27,10 +27,8 @@ public final class SystemMemoryPressureMonitor {
   private static final SystemMemoryPressureMonitor singleton = new SystemMemoryPressureMonitor();
 
   @GuardedBy("this")
-  @Nullable private Reporter reporter;
-
-  @GuardedBy("this")
-  private int eventCount = 0;
+  @Nullable
+  private Reporter reporter;
 
   public static SystemMemoryPressureMonitor getInstance() {
     return singleton;
@@ -45,21 +43,57 @@ public final class SystemMemoryPressureMonitor {
 
   private native void registerJNI();
 
-  /** The number of times that a memory pressure notification has been seen. */
-  public synchronized int eventCount() {
-    return eventCount;
+  private native int systemMemoryPressure();
+
+  /** The possible memory pressure levels. */
+  public enum Level {
+    NORMAL("Normal"),
+    WARNING("Warning"),
+    CRITICAL("Critical");
+
+    private final String logString;
+
+    Level(String logString) {
+      this.logString = logString;
+    }
+
+    public String logString() {
+      return logString;
+    }
+
+    /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
+    static Level fromInt(int number) {
+      switch (number) {
+        case 0:
+          return NORMAL;
+        case 1:
+          return WARNING;
+        case 2:
+          return CRITICAL;
+        default:
+          throw new IllegalStateException("Unknown memory pressure level: " + number);
+      }
+    }
+  };
+
+  /** Return current memory pressure */
+  public Level level() {
+    return Level.fromInt(systemMemoryPressure());
   }
 
   public synchronized void setReporter(@Nullable Reporter reporter) {
     this.reporter = reporter;
+    int pressure = systemMemoryPressure();
+    if (Level.fromInt(pressure) != Level.NORMAL) {
+      memoryPressureCallback(pressure);
+    }
   }
 
   synchronized void memoryPressureCallback(int value) {
-    SystemMemoryPressureEvent event = new SystemMemoryPressureEvent(value);
+    SystemMemoryPressureEvent event = new SystemMemoryPressureEvent(Level.fromInt(value));
     if (reporter != null) {
       reporter.post(event);
     }
     logger.atInfo().log("%s", event.logString());
-    eventCount += 1;
   }
 }

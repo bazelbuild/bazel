@@ -142,13 +142,17 @@ void portable_start_memory_pressure_monitoring();
 // These need to be kept in sync with constants in
 // j/c/g/devtools/build/lib/buildtool/buildevent/SystemMemoryPressureEvent.java
 typedef enum  {
-  MemoryPressureLevelWarning = 0,
-  MemoryPressureLevelCritical = 1,
+  MemoryPressureLevelNormal = 0,
+  MemoryPressureLevelWarning = 1,
+  MemoryPressureLevelCritical = 2,
 } MemoryPressureLevel;
 
 // Declaration for callback function that is called by memory pressure
 // monitoring when memory pressure is detected.
 extern void memory_pressure_callback(MemoryPressureLevel level);
+
+// Returns the current memory pressure.
+MemoryPressureLevel portable_memory_pressure();
 
 // Starts up any infrastructure needed to do disk space monitoring.
 // May be called more than once.

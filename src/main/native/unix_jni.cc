@@ -1447,6 +1447,17 @@ void memory_pressure_callback(MemoryPressureLevel level) {
   }
 }
 
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
+ * Method:    systemMemoryPressure
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_systemMemoryPressure(
+    JNIEnv *env, jclass) {
+  return portable_memory_pressure();
+}
+
 jobject g_disk_space_module;
 
 /*

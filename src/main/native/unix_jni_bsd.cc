@@ -152,6 +152,11 @@ void portable_start_memory_pressure_monitoring() {
   // Currently not implemented.
 }
 
+MemoryPressureLevel portable_memory_pressure() {
+  // Currently not implemented.
+  return MemoryPressureLevelNormal;
+}
+
 void portable_start_disk_space_monitoring() {
   // Currently not implemented.
 }
