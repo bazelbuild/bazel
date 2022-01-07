@@ -203,6 +203,9 @@ public interface Action extends ActionExecutionMetadata {
   NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
+  /** Prepare for input discovery, called before the first call to {@link #discoverInputs}. */
+  default void prepareInputDiscovery() {}
+
   /**
    * Resets this action's inputs to a pre {@linkplain #discoverInputs input discovery} state.
    *

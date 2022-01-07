@@ -126,7 +126,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @VisibleForTesting public static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   @VisibleForTesting public static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
 
-  protected final Artifact outputFile;
+  final Artifact outputFile;
   private final Artifact sourceFile;
   private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -144,7 +144,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final boolean shouldScanIncludes;
   private final boolean usePic;
   private final boolean useHeaderModules;
-  protected final boolean needsIncludeValidation;
+  final boolean needsIncludeValidation;
 
   private final CcCompilationContext ccCompilationContext;
   private final ImmutableList<Artifact> builtinIncludeFiles;
@@ -175,6 +175,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
 
+  // TODO(b/213594908): Make CppCompileAction immutable.
   /**
    * Set when the action prepares for execution. Used to preserve state between preparation and
    * execution.
@@ -457,6 +458,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     } catch (ExecException e) {
       throw ActionExecutionException.fromExecException(e, "include scanning", this);
     }
+  }
+
+  // TODO(b/213594908): Remove this method from Action interface once CppCompileAction is immutable.
+  @Override
+  public void prepareInputDiscovery() {
+    // Make sure to clear the additional inputs potentially left over from an old build (in case we
+    // ran discoverInputs, but not beginExecution).
+    clearAdditionalInputs();
   }
 
   /**

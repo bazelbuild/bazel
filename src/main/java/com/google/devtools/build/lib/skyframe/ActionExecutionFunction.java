@@ -794,6 +794,10 @@ public class ActionExecutionFunction implements SkyFunction {
     if (action.discoversInputs()) {
       Duration discoveredInputsDuration = Duration.ZERO;
       if (state.discoveredInputs == null) {
+        if (!state.preparedInputDiscovery) {
+          action.prepareInputDiscovery();
+          state.preparedInputDiscovery = true;
+        }
         try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "discoverInputs")) {
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
@@ -1390,6 +1394,7 @@ public class ActionExecutionFunction implements SkyFunction {
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
+    boolean preparedInputDiscovery = false;
 
     /**
      * Stores the ArtifactNestedSetKeys created from the inputs of this actions. Objective: avoid
