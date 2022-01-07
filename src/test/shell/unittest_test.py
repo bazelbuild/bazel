@@ -25,6 +25,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 # The test setup for this external test is forwarded to the internal bash test.
@@ -137,7 +138,7 @@ class UnittestTest(unittest.TestCase):
     # Base on the current dir
     return "%s/.." % os.getcwd()
 
-  def execute_test(self, filename, env=None):
+  def execute_test(self, filename, env=None, args=()):
     """Executes the file and stores the results."""
 
     filepath = os.path.join(self.work_dir, filename)
@@ -153,7 +154,7 @@ class UnittestTest(unittest.TestCase):
       for k, v in env.items():
         test_env[k] = str(v)
     completed = subprocess.run(
-        [filepath],
+        [filepath, *args],
         env=test_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -358,6 +359,206 @@ run_suite "empty test suite"
         })
     result.assertSuccess("empty test suite")
     result.assertNotLogMessage("No tests")
+
+  def test_filter_runs_only_matching_test(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a*"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+
+  def test_filter_prefix_match_only_skips_test(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          echo "running abc"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a"})
+
+    result.assertNotSuccess("tests to filter")
+    result.assertLogMessage("No tests found.")
+
+  def test_filter_multiple_globs_runs_tests_matching_any(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          echo "running abc"
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "donotmatch:*a*"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+
+  def test_filter_character_group_runs_only_matching_tests(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_aaa() {
+          :
+        }
+
+        function test_daa() {
+          :
+        }
+
+        function test_zaa() {
+          echo "running zaa"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_[a-f]aa"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_aaa")
+    result.assertTestPassed("test_daa")
+    result.assertNotLogMessage("running zaa")
+
+  def test_filter_sharded_runs_subset_of_filtered_tests(self):
+    for index in range(2):
+      with self.subTest(index=index):
+        self.__filter_sharded_runs_subset_of_filtered_tests(index)
+
+  def __filter_sharded_runs_subset_of_filtered_tests(self, index):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_a0() {
+          echo "running a0"
+        }
+
+        function test_a1() {
+          echo "running a1"
+        }
+
+        function test_bb() {
+          echo "running bb"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh",
+        env={
+            "TESTBRIDGE_TEST_ONLY": "test_a*",
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": index
+        })
+
+    result.assertSuccess("tests to filter")
+    # The sharding logic is shifted by 1, starts with 2nd shard.
+    result.assertTestPassed("test_a" + str(index ^ 1))
+    result.assertLogMessage("running a" + str(index ^ 1))
+    result.assertNotLogMessage("running a" + str(index))
+    result.assertNotLogMessage("running bb")
+
+  def test_arg_runs_only_matching_test_and_issues_warning(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test("thing.sh", args=["test_abc"])
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+    result.assertLogMessage(
+        r"WARNING: Passing test names in arguments \(--test_arg\) is "
+        "deprecated, please use --test_filter='test_abc' instead.")
+
+  def test_arg_multiple_tests_issues_warning_with_test_filter_command(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          :
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test("thing.sh", args=["test_abc", "test_def"])
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertTestPassed("test_def")
+    result.assertLogMessage(
+        r"WARNING: Passing test names in arguments \(--test_arg\) is "
+        "deprecated, please use --test_filter='test_abc:test_def' instead.")
+
+  def test_arg_and_filter_ignores_arg(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", args=["test_def"], env={"TESTBRIDGE_TEST_ONLY": "test_a*"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+    result.assertLogMessage(
+        "WARNING: Both --test_arg and --test_filter specified, ignoring --test_arg"
+    )
 
 
 if __name__ == "__main__":

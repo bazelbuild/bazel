@@ -106,7 +106,18 @@ TESTS=()                        # A subset or "working set" of test
                                 # functions that should be run.  By
                                 # default, all tests called test_* are
                                 # run.
-if [ $# -gt 0 ]; then
+
+_TEST_FILTERS=()                # List of globs to use to filter the tests.
+                                # If non-empty, all tests matching at least one
+                                # of the globs are run and test list provided in
+                                # the arguments is ignored if present.
+
+if (( $# > 0 )); then
+  (
+    IFS=':'
+    echo "WARNING: Passing test names in arguments (--test_arg) is deprecated, please use --test_filter='$*' instead." >&2
+  )
+
   # Legacy behavior is to ignore missing regexp, but with errexit
   # the following line fails without || true.
   # TODO(dmarting): maybe we should revisit the way of selecting
@@ -119,8 +130,12 @@ fi
 # TESTBRIDGE_TEST_ONLY contains the value of --test_filter, if any. We want to
 # preferentially use that instead of $@ to determine which tests to run.
 if [[ ${TESTBRIDGE_TEST_ONLY:-} != "" ]]; then
-  # Split TESTBRIDGE_TEST_ONLY on comma and put the results into an array.
-  IFS=',' read -r -a TESTS <<< "$TESTBRIDGE_TEST_ONLY"
+  if (( ${#TESTS[@]} != 0 )); then
+    echo "WARNING: Both --test_arg and --test_filter specified, ignoring --test_arg" >&2
+    TESTS=()
+  fi
+  # Split TESTBRIDGE_TEST_ONLY on colon and store it in `_TEST_FILTERS` array.
+  IFS=':' read -r -a _TEST_FILTERS <<< "$TESTBRIDGE_TEST_ONLY"
 fi
 
 TEST_verbose="true"             # Whether or not to be verbose.  A
@@ -502,8 +517,9 @@ function __update_shards() {
     [ "$TEST_SHARD_INDEX" -lt 0 -o "$TEST_SHARD_INDEX" -ge  "$TEST_TOTAL_SHARDS" ] &&
       { echo "Invalid shard $shard_index" >&2; exit 1; }
 
-    TESTS=$(for test in "${TESTS[@]}"; do echo "$test"; done |
-      awk "NR % $TEST_TOTAL_SHARDS == $TEST_SHARD_INDEX")
+    read -rd $'\0' -a TESTS < <(
+        for test in "${TESTS[@]}"; do echo "$test"; done |
+            awk "NR % $TEST_TOTAL_SHARDS == $TEST_SHARD_INDEX" && echo -en '\0')
 
     [ -z "${TEST_SHARD_STATUS_FILE-}" ] || touch "$TEST_SHARD_STATUS_FILE"
 }
@@ -652,7 +668,29 @@ function run_suite() {
   # working set), use them all.
   if [ ${#TESTS[@]} -eq 0 ]; then
     # Even if there aren't any tests, this needs to succeed.
-    TESTS=$(declare -F | awk '{print $3}' | grep ^test_ || true)
+    local all_tests=()
+    read -d $'\0' -ra all_tests < <(
+        declare -F | awk '{print $3}' | grep ^test_ || true; echo -en '\0')
+
+    if (( "${#_TEST_FILTERS[@]}" == 0 )); then
+      # Use ${array[@]+"${array[@]}"} idiom to avoid errors when running with
+      # Bash version <= 4.4 with `nounset` when `all_tests` is empty (
+      # https://github.com/bminor/bash/blob/a0c0a00fc419b7bc08202a79134fcd5bc0427071/CHANGES#L62-L63).
+      TESTS=("${all_tests[@]+${all_tests[@]}}")
+    else
+      for t in "${all_tests[@]+${all_tests[@]}}"; do
+        local matches=0
+        for f in "${_TEST_FILTERS[@]}"; do
+          # We purposely want to glob match.
+          # shellcheck disable=SC2053
+          [[ "$t" = $f ]] && matches=1 && break
+        done
+        if (( matches )); then
+          TESTS+=("$t")
+        fi
+      done
+    fi
+
   elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
     if grep -q "TESTS=" "$TEST_script" ; then
       echo "TESTS variable overridden in sh_test. Please remove before submitting" \
@@ -661,7 +699,7 @@ function run_suite() {
   fi
 
   # Reset TESTS in the common case where it contains a single empty string.
-  if [ -z "${TESTS[*]}" ]; then
+  if [ -z "${TESTS[*]-}" ]; then
     TESTS=()
   fi
   local original_tests_size=${#TESTS[@]}
