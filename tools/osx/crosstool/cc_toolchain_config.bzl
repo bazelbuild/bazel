@@ -75,6 +75,8 @@ def _impl(ctx):
         target_system_name = "x86_64-apple-ios"
     elif (ctx.attr.cpu == "ios_sim_arm64"):
         target_system_name = "arm64-apple-ios-simulator"
+    elif (ctx.attr.cpu == "watchos_arm64"):
+        target_system_name = "arm64-apple-watchos-simulator"
     elif (ctx.attr.cpu == "darwin_x86_64"):
         target_system_name = "x86_64-apple-macosx"
     elif (ctx.attr.cpu == "darwin_arm64"):
@@ -743,7 +745,8 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
-        ctx.attr.cpu == "watchos_x86_64"):
+        ctx.attr.cpu == "watchos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64"):
         apply_default_compiler_flags_feature = feature(
             name = "apply_default_compiler_flags",
             flag_sets = [
@@ -927,7 +930,8 @@ def _impl(ctx):
         ctx.attr.cpu == "ios_sim_arm64" or
         ctx.attr.cpu == "tvos_x86_64" or
         ctx.attr.cpu == "watchos_i386" or
-        ctx.attr.cpu == "watchos_x86_64"):
+        ctx.attr.cpu == "watchos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64"):
         apply_simulator_compiler_flags_feature = feature(
             name = "apply_simulator_compiler_flags",
             flag_sets = [
@@ -999,7 +1003,8 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
-        ctx.attr.cpu == "watchos_x86_64"):
+        ctx.attr.cpu == "watchos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64"):
         contains_objc_source_feature = feature(
             name = "contains_objc_source",
             flag_sets = [
@@ -1311,7 +1316,9 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "watchos_i386" or ctx.attr.cpu == "watchos_x86_64"):
+    elif (ctx.attr.cpu == "watchos_i386" or
+          ctx.attr.cpu == "watchos_x86_64" or
+          ctx.attr.cpu == "watchos_arm64"):
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [
@@ -1761,7 +1768,8 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
-        ctx.attr.cpu == "watchos_x86_64"):
+        ctx.attr.cpu == "watchos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64"):
         apply_implicit_frameworks_feature = feature(
             name = "apply_implicit_frameworks",
             flag_sets = [
@@ -2845,7 +2853,8 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
-        ctx.attr.cpu == "watchos_x86_64"):
+        ctx.attr.cpu == "watchos_x86_64" or
+        ctx.attr.cpu == "watchos_arm64"):
         features = [
             fastbuild_feature,
             no_legacy_features_feature,
