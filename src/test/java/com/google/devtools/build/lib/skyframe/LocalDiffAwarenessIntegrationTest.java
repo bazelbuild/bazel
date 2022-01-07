@@ -127,6 +127,9 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     assertThat(e.getCause()).hasCauseThat().hasCauseThat().isSameInstanceAs(injectedException);
   }
 
+  // This test doesn't use --watchfs functionality, but if the source filesystem doesn't offer diffs
+  // Bazel must scan the full Skyframe graph anyway, so a bug in checking output files wouldn't be
+  // detected without --watchfs.
   @Test
   public void ignoreOutputFilesThenCheckAgainDoesCheck() throws Exception {
     Path buildFile =

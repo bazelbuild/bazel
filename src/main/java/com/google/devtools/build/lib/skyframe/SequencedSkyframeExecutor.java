@@ -478,9 +478,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         || externalFilesKnowledge.anyFilesInExternalReposSeen
         || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
       // We freshly compute knowledge of the presence of external files in the skyframe graph. We
-      // use
-      // a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after* we
-      // are done with the graph scan, lest an interrupt during the graph scan causes us to
+      // use a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after*
+      // we are done with the graph scan, lest an interrupt during the graph scan causes us to
       // incorrectly think there are no longer any external files.
       ExternalFilesHelper tmpExternalFilesHelper =
           externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
