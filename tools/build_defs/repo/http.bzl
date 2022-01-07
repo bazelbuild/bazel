@@ -242,7 +242,7 @@ field will make your build non-hermetic. It is optional to make development
 easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "netrc": attr.label(
-        doc = "Location of the .netrc file to use for authentication",
+        doc = "A label that specifies the location of the .netrc file to use for authentication.",
         allow_single_file = True,
     ),
     "auth_patterns": attr.string_dict(
