@@ -444,8 +444,9 @@ unless it was added to the cache by a request with the same canonical id.
 Each entry must be a file, http or https URL. Redirections are followed.
 Authentication is not supported.""",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
+    "netrc": attr.label(
+        doc = "A label that specifies the location of the .netrc file to use for authentication.",
+        allow_single_file = True,
     ),
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
@@ -498,8 +499,9 @@ unless it was added to the cache by a request with the same canonical id.
             "A list of URLS the jar can be fetched from. They have to end " +
             "in `.jar`.",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
+    "netrc": attr.label(
+        doc = "A label that specifies the location of the .netrc file to use for authentication.",
+        allow_single_file = True,
     ),
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
