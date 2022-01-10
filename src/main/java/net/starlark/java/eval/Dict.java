@@ -72,7 +72,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "0 in d, \"a\" in d  # (True, False)\n"
             + "[(k, v) for k, v in d.items()]  # [(0, \"a\"), (1, 1), (2, \"b\")]\n"
             + "</pre>\n"
-            + "<p>There are three ways to construct a dictionary:\n"
+            + "<p>There are four ways to construct a dictionary:\n"
             + "<ol>\n"
             + "<li>A dictionary expression <code>{k: v, ...}</code> yields a new dictionary with"
             + " the specified key/value entries, inserted in the order they appear in the"
@@ -90,6 +90,13 @@ import net.starlark.java.annot.StarlarkMethod;
             + " a dictionary containing the specified entries, which are inserted in argument"
             + " order, positional arguments before named. As with comprehensions, duplicate keys"
             + " are permitted.\n"
+            + "<li>Dictionaries support the <code>|</code> operator to form unions. Example:<br>"
+            + "<pre class=language-python>"
+            + "d = {\"foo\": \"FOO\"} | {\"foo\": \"BAZ\", \"bar\": \"BAR\"}\n"
+            + "# d == {\"foo\": \"BAZ\", \"bar\": \"BAR\"}\n"
+            + "d = {\"a\": 1, \"b\": 2}\n"
+            + "d |= {\"a\": 3}\n"
+            + "# d == {\"a\": 3, \"b\": 2}</pre>"
             + "</ol>")
 public class Dict<K, V>
     implements Map<K, V>,
