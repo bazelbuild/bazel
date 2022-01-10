@@ -1662,10 +1662,13 @@ Of integration tests, we have two kinds:
 1.  Ones implemented using a very elaborate bash test framework under
     `src/test/shell`
 2.  Ones implemented in Java. These are implemented as subclasses of
-    `AbstractBlackBoxTest`.
+    'BuildIntegrationTestCase'.
 
-`AbstractBlackBoxTest` has the virtue that it works on Windows, too, but most of
-our integration tests are written in bash.
+`BuildIntegrationTestCase` is the preferred integration testing framework as it
+is well-equipped for most testing scenarios. As it is a Java framework, it
+provides debuggability and seamless integration with many common development
+tools. There are many examples of `BuildIntegrationTestCase` classes in the
+Bazel repository.
 
 Analysis tests are implemented as subclasses of `BuildViewTestCase`. There is a
 scratch file system you can use to write BUILD files, then various helper
