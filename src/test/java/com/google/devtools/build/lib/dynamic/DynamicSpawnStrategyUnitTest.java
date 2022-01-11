@@ -42,8 +42,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.dynamic.DynamicSpawnStrategy.LocalBranch;
-import com.google.devtools.build.lib.dynamic.DynamicSpawnStrategy.RemoteBranch;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
