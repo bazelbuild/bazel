@@ -1261,7 +1261,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             TestUtils.getPool(),
             -1,
             ThreadStateReceiver.NULL_INSTANCE);
-    assertThat(globCache.globUnsorted(include, exclude, false, true))
+    assertThat(globCache.globUnsorted(include, exclude, Globber.Operation.FILES_AND_DIRS, true))
         .containsExactlyElementsIn(expected);
   }
 

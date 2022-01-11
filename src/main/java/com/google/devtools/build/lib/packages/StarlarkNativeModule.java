@@ -99,6 +99,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
     List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
+    Globber.Operation op =
+        excludeDirs.signum() != 0 ? Globber.Operation.FILES : Globber.Operation.FILES_AND_DIRS;
 
     List<String> matches;
     boolean allowEmpty;
@@ -113,8 +115,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     try {
-      Globber.Token globToken =
-          context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
+      Globber.Token globToken = context.globber.runAsync(includes, excludes, op, allowEmpty);
       matches = context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
       logger.atWarning().withCause(e).log(
