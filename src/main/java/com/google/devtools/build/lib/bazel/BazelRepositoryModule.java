@@ -279,6 +279,7 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
+      downloadManager.setUrlsAsDefaultCanonicalId(repoOptions.urlsAsDefaultCanonicalId);
 
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
