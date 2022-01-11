@@ -267,13 +267,28 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     }
   }
 
+  /**
+   * Tests dependencies in attribute with host transition.
+   *
+   * <p>Note: This cannot be used to test exec transition, because mocks don't set up toolchain
+   * contexts.
+   */
   @Test
   public void hostDeps() throws Exception {
     scratch.file(
+        "a/host_rule.bzl",
+        "host_rule = rule(",
+        "  implementation = lambda ctx: [],",
+        "  attrs = {'tools': attr.label_list(cfg = 'host')},",
+        ")");
+    scratch.file(
         "a/BUILD",
+        "load('//a:host_rule.bzl', 'host_rule')",
         "cc_binary(name = 'host_tool', srcs = ['host_tool.cc'])",
-        "genrule(name = 'gen', srcs = [], cmd = '', outs = ['gen.out'], tools = [':host_tool'])");
+        "host_rule(name = 'gen', tools = [':host_tool'])");
+
     ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
+
     assertThat(getConfiguration(toolDep).isHostConfiguration()).isTrue();
   }
 

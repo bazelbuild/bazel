@@ -305,12 +305,13 @@ class RunfilesTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir)
     self.AssertExitCode(exit_code, 0, stderr)
+    [exec_dir] = [f for f in os.listdir(bazel_output) if "exec" in f]
     if self.IsWindows():
-      manifest_path = os.path.join(bazel_output,
-                                   "host/bin/bin.exe.runfiles_manifest")
+      manifest_path = os.path.join(bazel_output, exec_dir,
+                                   "bin/bin.exe.runfiles_manifest")
     else:
-      manifest_path = os.path.join(bazel_output,
-                                   "host/bin/bin.runfiles_manifest")
+      manifest_path = os.path.join(bazel_output, exec_dir,
+                                   "bin/bin.runfiles_manifest")
     self.AssertFileContentNotContains(manifest_path, "__main__/external/A")
 
 
