@@ -77,7 +77,7 @@
 # This framework implements the "test sharding protocol".
 #
 
-[ -n "$BASH_VERSION" ] ||
+[[ -n "$BASH_VERSION" ]] ||
   { echo "unittest.bash only works with bash!" >&2; exit 1; }
 
 export BAZEL_SHELL_TEST=1
@@ -122,7 +122,7 @@ if (( $# > 0 )); then
   # the following line fails without || true.
   # TODO(dmarting): maybe we should revisit the way of selecting
   # test with that framework (use Bazel's environment variable instead).
-  TESTS=($(for i in $@; do echo $i; done | grep ^test_ || true))
+  TESTS=($(for i in "$@"; do echo $i; done | grep ^test_ || true))
   if (( ${#TESTS[@]} == 0 )); then
     echo "WARNING: Arguments do not specify tests!" >&2
   fi
@@ -145,7 +145,7 @@ TEST_verbose="true"             # Whether or not to be verbose.  A
 TEST_script="$0"                # Full path to test script
 # Check if the script path is absolute, if not prefix the PWD.
 if [[ ! "$TEST_script" = /* ]]; then
-  TEST_script="$(pwd)/$0"
+  TEST_script="${PWD}/$0"
 fi
 
 
@@ -153,7 +153,7 @@ fi
 
 function __show_log() {
     echo "-- Test log: -----------------------------------------------------------"
-    [[ -e $TEST_log ]] && cat $TEST_log || echo "(Log file did not exist.)"
+    [[ -e $TEST_log ]] && cat "$TEST_log" || echo "(Log file did not exist.)"
     echo "------------------------------------------------------------------------"
 }
 
@@ -165,7 +165,7 @@ function __pad() {
     # Ignore the subshell error -- `head` closes the fd before reading to the
     # end, therefore the subshell will get SIGPIPE while stuck in `write`.
     {
-        echo -n "$pad$pad $title "
+        echo -n "${pad}${pad} ${title} "
         printf "%80s" " " | tr ' ' "$pad"
     } | head -c 80 || true
     echo
@@ -225,8 +225,8 @@ function testenv_tear_down() {
 # $TEST_log.
 function fail() {
     __show_log >&2
-    echo "$TEST_name FAILED: $*." >&2
-    echo "$@" >$TEST_TMPDIR/__fail
+    echo "${TEST_name} FAILED: $*." >&2
+    echo "$@" >"$TEST_TMPDIR"/__fail
     TEST_passed="false"
     __show_stack
     # Cleanup as we are leaving the subshell now
@@ -242,11 +242,11 @@ function fail() {
 # the stack because they just add noise.)
 function warn() {
     __show_log >&2
-    echo "$TEST_name WARNING: $1." >&2
+    echo "${TEST_name} WARNING: $1." >&2
     __show_stack
 
-    if [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
-      echo "$TEST_name WARNING: $1." >> "$TEST_WARNINGS_OUTPUT_FILE"
+    if [[ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]]; then
+      echo "${TEST_name} WARNING: $1." >> "$TEST_WARNINGS_OUTPUT_FILE"
     fi
 }
 
@@ -260,12 +260,12 @@ __show_stack() {
     local trace_found=0
 
     # Skip over active calls within this module:
-    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} == ${BASH_SOURCE[0]} ]]; do
+    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} == "${BASH_SOURCE[0]}" ]]; do
        (( ++i ))
     done
 
     # Show all calls until the next one within this module (typically run_suite):
-    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} != ${BASH_SOURCE[0]} ]]; do
+    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} != "${BASH_SOURCE[0]}" ]]; do
         # Read online docs for BASH_LINENO to understand the strange offset.
         # Undefined can occur in the BASH_SOURCE stack apparently when one exits from a subshell
         echo "${BASH_SOURCE[i]:-"Unknown"}:${BASH_LINENO[i - 1]:-"Unknown"}: in call to ${FUNCNAME[i]:-"Unknown"}" >&2
@@ -273,7 +273,7 @@ __show_stack() {
         trace_found=1
     done
 
-    [ $trace_found = 1 ] || echo "[Stack trace not available]" >&2
+    (( trace_found )) || echo "[Stack trace not available]" >&2
 }
 
 # Usage: expect_log <regexp> [error-message]
@@ -320,7 +320,7 @@ function expect_log_n() {
     local expectednum=${2:-1}
     local message=${3:-Expected regexp "$pattern" not found exactly $expectednum times}
     local count=$(grep -sc -- "$pattern" $TEST_log)
-    [[ $count = $expectednum ]] && return 0
+    (( count == expectednum )) && return 0
     fail "$message"
     return 1
 }
@@ -341,7 +341,7 @@ function expect_not_log() {
 # Usage: expect_query_targets <arguments>
 # Checks that log file contains exactly the targets in the argument list.
 function expect_query_targets() {
-  for arg in $@; do
+  for arg in "$@"; do
     expect_log_once "^$arg$"
   done
 
@@ -359,13 +359,13 @@ function expect_log_with_timeout() {
     local timeout=$2
     local message=${3:-Regexp "$pattern" not found in "$timeout" seconds}
     local count=0
-    while [ $count -lt $timeout ]; do
-      grep -sq -- "$pattern" $TEST_log && return 0
+    while (( count < timeout )); do
+      grep -sq -- "$pattern" "$TEST_log" && return 0
       let count=count+1
       sleep 1
     done
 
-    grep -sq -- "$pattern" $TEST_log && return 0
+    grep -sq -- "$pattern" "$TEST_log" && return 0
     fail "$message"
     return 1
 }
@@ -379,15 +379,15 @@ function expect_cmd_with_timeout() {
     local cmd="$2"
     local timeout=${3:-10}
     local count=0
-    while [ $count -lt $timeout ]; do
+    while (( count < timeout )); do
       local actual="$($cmd)"
-      [ "$expected" = "$actual" ] && return 0
-      let count=count+1
+      [[ "$expected" == "$actual" ]] && return 0
+      (( ++count ))
       sleep 1
     done
 
-    [ "$expected" = "$actual" ] && return 0
-    fail "Expected '$expected' within ${timeout}s, was '$actual'"
+    [[ "$expected" == "$actual" ]] && return 0
+    fail "Expected '${expected}' within ${timeout}s, was '${actual}'"
     return 1
 }
 
@@ -403,7 +403,7 @@ function assert_one_of() {
     local actual=${args[last_arg_index]}
     unset args[last_arg_index]
     for expected_item in "${args[@]}"; do
-      [ "$expected_item" = "$actual" ] && return 0
+      [[ "$expected_item" == "$actual" ]] && return 0
     done;
 
     fail "Expected one of '${args[*]}', was '$actual'"
@@ -422,7 +422,7 @@ function assert_not_one_of() {
     local actual=${args[last_arg_index]}
     unset args[last_arg_index]
     for expected_item in "${args[@]}"; do
-      if [ "$expected_item" = "$actual" ]; then
+      if [[ "$expected_item" == "$actual" ]]; then
         fail "'${args[*]}' contains '$actual'"
         return 1
       fi
@@ -432,22 +432,22 @@ function assert_not_one_of() {
 }
 
 # Usage: assert_equals <expected> <actual>
-# Asserts [ expected = actual ].
+# Asserts [[ expected == actual ]].
 function assert_equals() {
     local expected=$1 actual=$2
-    [ "$expected" = "$actual" ] && return 0
+    [[ "$expected" == "$actual" ]] && return 0
 
     fail "Expected '$expected', was '$actual'"
     return 1
 }
 
 # Usage: assert_not_equals <unexpected> <actual>
-# Asserts [ unexpected != actual ].
+# Asserts [[ unexpected != actual ]].
 function assert_not_equals() {
     local unexpected=$1 actual=$2
-    [ "$unexpected" != "$actual" ] && return 0;
+    [[ "$unexpected" != "$actual" ]] && return 0;
 
-    fail "Expected not '$unexpected', was '$actual'"
+    fail "Expected not '${unexpected}', was '${actual}'"
     return 1
 }
 
@@ -499,7 +499,7 @@ function assert_contains_n() {
       fail "$file is not a file: $message"
       return 1
     fi
-    [[ $count = $expectednum ]] && return 0
+    (( count == expectednum )) && return 0
 
     cat "$file" >&2
     fail "$message"
@@ -509,19 +509,20 @@ function assert_contains_n() {
 # Updates the global variables TESTS if
 # sharding is enabled, i.e. ($TEST_TOTAL_SHARDS > 0).
 function __update_shards() {
-    [ -z "${TEST_TOTAL_SHARDS-}" ] && return 0
+    [[ -z "${TEST_TOTAL_SHARDS-}" ]] && return 0
 
-    [ "$TEST_TOTAL_SHARDS" -gt 0 ] ||
-      { echo "Invalid total shards $TEST_TOTAL_SHARDS" >&2; exit 1; }
+    (( TEST_TOTAL_SHARDS > 0 )) ||
+      { echo "Invalid total shards ${TEST_TOTAL_SHARDS}" >&2; exit 1; }
 
-    [ "$TEST_SHARD_INDEX" -lt 0 -o "$TEST_SHARD_INDEX" -ge  "$TEST_TOTAL_SHARDS" ] &&
-      { echo "Invalid shard $shard_index" >&2; exit 1; }
+    (( TEST_SHARD_INDEX < 0 || TEST_SHARD_INDEX >= TEST_TOTAL_SHARDS )) &&
+      { echo "Invalid shard ${TEST_SHARD_INDEX}" >&2; exit 1; }
 
     IFS=$'\n' read -rd $'\0' -a TESTS < <(
         for test in "${TESTS[@]}"; do echo "$test"; done |
-            awk "NR % $TEST_TOTAL_SHARDS == $TEST_SHARD_INDEX" && echo -en '\0')
+            awk "NR % ${TEST_TOTAL_SHARDS} == ${TEST_SHARD_INDEX}" &&
+            echo -en '\0')
 
-    [ -z "${TEST_SHARD_STATUS_FILE-}" ] || touch "$TEST_SHARD_STATUS_FILE"
+    [[ -z "${TEST_SHARD_STATUS_FILE-}" ]] || touch "$TEST_SHARD_STATUS_FILE"
 }
 
 # Usage: __test_terminated <signal-number>
@@ -556,7 +557,7 @@ function __test_terminated_err() {
     __show_stack
     # If $TEST_name is still empty, the test suite failed before we even started
     # to run tests, so we shouldn't call tear_down.
-    if [[ ! -z "$TEST_name" ]]; then
+    if [[ -n "$TEST_name" ]]; then
       tear_down
       testenv_tear_down
     fi
@@ -581,7 +582,7 @@ function __log_to_test_report() {
     local block="$2"
     if [[ ! -e "$XML_OUTPUT_FILE" ]]; then
         local xml_header='<?xml version="1.0" encoding="UTF-8"?>'
-        echo "$xml_header<testsuites></testsuites>" > $XML_OUTPUT_FILE
+        echo "${xml_header}<testsuites></testsuites>" > "$XML_OUTPUT_FILE"
     fi
 
     # replace match on node with block and match
@@ -608,20 +609,20 @@ function __finish_test_report() {
 
     # Update the xml output with the suite name and total number of
     # passed/failed tests.
-    cat $XML_OUTPUT_FILE | \
+    cat "$XML_OUTPUT_FILE" | \
       sed \
         "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
       sed \
         "s/<testsuite>/<testsuite name=\"${suite_name}\" tests=\"$total\" failures=\"0\" errors=\"$failed\">/" \
-        > $XML_OUTPUT_FILE.bak
+        > "${XML_OUTPUT_FILE}.bak"
 
-    rm -f $XML_OUTPUT_FILE
-    mv $XML_OUTPUT_FILE.bak $XML_OUTPUT_FILE
+    rm -f "$XML_OUTPUT_FILE"
+    mv "${XML_OUTPUT_FILE}.bak" "$XML_OUTPUT_FILE"
 }
 
 # Multi-platform timestamp function
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
-if [ "$UNAME" = "linux" ] || [[ "$UNAME" =~ msys_nt* ]]; then
+if [[ "$UNAME" == "linux" ]] || [[ "$UNAME" =~ msys_nt* ]]; then
     function timestamp() {
       echo $(($(date +%s%N)/1000000))
     }
@@ -640,8 +641,8 @@ fi
 function get_run_time() {
   local ts_start=$1
   local ts_end=$2
-  run_time_ms=$((${ts_end}-${ts_start}))
-  echo $(($run_time_ms/1000)).${run_time_ms: -3}
+  run_time_ms=$((ts_end - ts_start))
+  echo $((run_time_ms / 1000)).${run_time_ms: -3}
 }
 
 # Usage: run_tests <suite-comment>
@@ -651,7 +652,7 @@ function run_suite() {
   local message="$1"
   # The name of the suite should be the script being run, which
   # will be the filename with the ".sh" extension removed.
-  local suite_name="$(basename $0)"
+  local suite_name="$(basename "$0")"
 
   echo >&2
   echo "$message" >&2
@@ -666,7 +667,7 @@ function run_suite() {
 
   # If the user didn't specify an explicit list of tests (e.g. a
   # working set), use them all.
-  if [ ${#TESTS[@]} -eq 0 ]; then
+  if (( ${#TESTS[@]} == 0 )); then
     # Even if there aren't any tests, this needs to succeed.
     local all_tests=()
     IFS=$'\n' read -d $'\0' -ra all_tests < <(
@@ -691,7 +692,7 @@ function run_suite() {
       done
     fi
 
-  elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
+  elif [[ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]]; then
     if grep -q "TESTS=" "$TEST_script" ; then
       echo "TESTS variable overridden in sh_test. Please remove before submitting" \
         >> "$TEST_WARNINGS_OUTPUT_FILE"
@@ -699,7 +700,7 @@ function run_suite() {
   fi
 
   # Reset TESTS in the common case where it contains a single empty string.
-  if [ -z "${TESTS[*]-}" ]; then
+  if [[ -z "${TESTS[*]-}" ]]; then
     TESTS=()
   fi
   local original_tests_size=${#TESTS[@]}
@@ -707,26 +708,26 @@ function run_suite() {
   __update_shards
 
   if [[ "${#TESTS[@]}" -ne 0 ]]; then
-    for TEST_name in ${TESTS[@]}; do
-      >$TEST_log # Reset the log.
+    for TEST_name in "${TESTS[@]}"; do
+      >"$TEST_log" # Reset the log.
       TEST_passed="true"
 
-      total=$(($total + 1))
+      (( ++total ))
       if [[ "$TEST_verbose" == "true" ]]; then
           date >&2
-          __pad $TEST_name '*' >&2
+          __pad "$TEST_name" '*' >&2
       fi
 
       local run_time="0.0"
-      rm -f $TEST_TMPDIR/{__ts_start,__ts_end}
+      rm -f "${TEST_TMPDIR}"/{__ts_start,__ts_end}
 
-      if [ "$(type -t $TEST_name)" = function ]; then
+      if [[ "$(type -t "$TEST_name")" == function ]]; then
         # Save exit handlers eventually set.
         local SAVED_ATEXIT="$ATEXIT";
         ATEXIT=
 
         # Run test in a subshell.
-        rm -f $TEST_TMPDIR/__err_handled
+        rm -f "${TEST_TMPDIR}"/__err_handled
         __trap_with_arg __test_terminated INT KILL PIPE TERM ABRT FPE ILL QUIT SEGV
 
         # Remember -o pipefail value and disable it for the subshell result
@@ -744,35 +745,37 @@ function run_suite() {
             set -E
             trap __test_terminated_err ERR
           fi
-          timestamp >$TEST_TMPDIR/__ts_start
+          timestamp >"${TEST_TMPDIR}"/__ts_start
           testenv_set_up
           set_up
-          eval $TEST_name
+          eval "$TEST_name"
           tear_down
           testenv_tear_down
-          timestamp >$TEST_TMPDIR/__ts_end
-          test $TEST_passed == "true"
-        ) 2>&1 | tee $TEST_TMPDIR/__log
+          timestamp >"${TEST_TMPDIR}"/__ts_end
+          test "$TEST_passed" == "true"
+        ) 2>&1 | tee "${TEST_TMPDIR}"/__log
         # Note that tee will prevent the control flow continuing if the test
         # spawned any processes which are still running and have not closed
         # their stdout.
 
         test_subshell_status=${PIPESTATUS[0]}
         set "${__opt_switch}" pipefail
-        if [ "$test_subshell_status" != 0 ]; then
+        if (( test_subshell_status != 0 )); then
           TEST_passed="false"
           # Ensure that an end time is recorded in case the test subshell
           # terminated prematurely.
-          [ -f $TEST_TMPDIR/__ts_end ] || timestamp >$TEST_TMPDIR/__ts_end
+          [[ -f "$TEST_TMPDIR"/__ts_end ]] || timestamp >"$TEST_TMPDIR"/__ts_end
         fi
 
         # Calculate run time for the testcase.
-        local ts_start=$(cat $TEST_TMPDIR/__ts_start)
-        local ts_end=$(cat $TEST_TMPDIR/__ts_end)
+        local ts_start
+        ts_start=$(<"${TEST_TMPDIR}"/__ts_start)
+        local ts_end
+        ts_end=$(<"${TEST_TMPDIR}"/__ts_end)
         run_time=$(get_run_time $ts_start $ts_end)
 
         # Eventually restore exit handlers.
-        if [ -n "$SAVED_ATEXIT" ]; then
+        if [[ -n "$SAVED_ATEXIT" ]]; then
           ATEXIT="$SAVED_ATEXIT"
           trap "$ATEXIT" EXIT
         fi
@@ -792,18 +795,18 @@ function run_suite() {
 
       if [[ "$TEST_passed" == "true" ]]; then
         if [[ "$TEST_verbose" == "true" ]]; then
-          echo -e "${green}PASSED${no_color}: $TEST_name" >&2
+          echo -e "${green}PASSED${no_color}: ${TEST_name}" >&2
         fi
-        passed=$(($passed + 1))
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"></testcase>"
+        (( ++passed ))
+        testcase_tag="<testcase name=\"${TEST_name}\" status=\"run\" time=\"${run_time}\" classname=\"\"></testcase>"
       else
-        echo -e "${red}FAILED${no_color}: $TEST_name" >&2
+        echo -e "${red}FAILED${no_color}: ${TEST_name}" >&2
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
-        log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
-        fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
+        log=$(sed 's/]]>/]]>]]&gt;<![CDATA[/g' "${TEST_TMPDIR}"/__log)
+        fail_msg=$(cat "${TEST_TMPDIR}"/__fail 2> /dev/null || echo "No failure message")
         # Replacing '&' with '&amp;', '<' with '&lt;', '>' with '&gt;', and '"' with '&quot;'
-        escaped_fail_msg=$(echo $fail_msg | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$escaped_fail_msg\"><![CDATA[$log]]></error></testcase>"
+        escaped_fail_msg=$(echo "$fail_msg" | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
+        testcase_tag="<testcase name=\"${TEST_name}\" status=\"run\" time=\"${run_time}\" classname=\"\"><error message=\"${escaped_fail_msg}\"><![CDATA[${log}]]></error></testcase>"
       fi
 
       if [[ "$TEST_verbose" == "true" ]]; then
@@ -814,18 +817,17 @@ function run_suite() {
   fi
 
   __finish_test_report "$suite_name" $total $passed
-  __pad "$passed / $total tests passed." '*' >&2
-  if [ $original_tests_size -eq 0 ]; then
+  __pad "${passed} / ${total} tests passed." '*' >&2
+  if (( original_tests_size == 0 )); then
     __pad "No tests found." '*'
     exit 1
-  elif [ $total -eq 0 ]; then
+  elif (( total != passed )); then
+    __pad "There were errors." '*' >&2
+    exit 1
+  elif (( total == 0 )); then
     __pad "No tests executed due to sharding. Check your test's shard_count." '*'
     __pad "Succeeding anyway." '*'
   fi
-  [ $total = $passed ] || {
-    __pad "There were errors." '*'
-    exit 1
-  } >&2
 
   exit 0
 }

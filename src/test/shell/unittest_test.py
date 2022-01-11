@@ -562,20 +562,22 @@ run_suite "empty test suite"
 
   def test_custom_ifs_variable_finds_and_runs_test(self):
     for sharded in (False, True):
-      with self.subTest(sharded=sharded):
-        self.__custom_ifs_variable_finds_and_runs_test(sharded)
+      for ifs in (r"\t", "t"):
+        with self.subTest(ifs=ifs, sharded=sharded):
+          self.__custom_ifs_variable_finds_and_runs_test(ifs, sharded)
 
-  def __custom_ifs_variable_finds_and_runs_test(self, sharded):
+  def __custom_ifs_variable_finds_and_runs_test(self, ifs, sharded):
     self.write_file(
         "thing.sh",
         textwrap.dedent(r"""
-        IFS=$'\t'
+        set -euo pipefail
+        IFS=$'%s'
         function test_foo() {
           :
         }
 
         run_suite "custom IFS test"
-        """))
+        """ % ifs))
 
     result = self.execute_test(
         "thing.sh",
@@ -585,7 +587,6 @@ run_suite "empty test suite"
         })
     result.assertSuccess("custom IFS test")
     result.assertTestPassed("test_foo")
-
 
 if __name__ == "__main__":
   unittest.main()
