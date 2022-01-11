@@ -262,7 +262,7 @@ final class RuntimeEntityResolver {
           MethodKey.create(owner, method.getName(), Type.getMethodDescriptor(method)),
           method);
     }
-    return reflectionBasedMembers.build();
+    return reflectionBasedMembers.buildOrThrow();
   }
 
   private static Class<?> loadClassLiteral(
