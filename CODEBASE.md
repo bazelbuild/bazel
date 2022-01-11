@@ -1662,7 +1662,7 @@ Of integration tests, we have two kinds:
 1.  Ones implemented using a very elaborate bash test framework under
     `src/test/shell`
 2.  Ones implemented in Java. These are implemented as subclasses of
-    'BuildIntegrationTestCase'.
+    'BuildIntegrationTestCase'
 
 `BuildIntegrationTestCase` is the preferred integration testing framework as it
 is well-equipped for most testing scenarios. As it is a Java framework, it
