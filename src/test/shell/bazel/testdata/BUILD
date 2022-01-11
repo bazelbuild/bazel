@@ -44,7 +44,14 @@ gen_workspace_stanza(
         "remote_java_tools_test_linux",
         "remote_java_tools_test_windows",
         "remote_java_tools_test_darwin",
+        "openjdk11_linux_archive"
     ],
+   repo_clause = """
+  name = "{repo}",
+  sha256 = "{sha256}",
+  strip_prefix = {strip_prefix},
+  urls = {urls},
+"""
     template = "jdk_http_archives.tmpl",
     visibility = ["//:__pkg__"],
 )
