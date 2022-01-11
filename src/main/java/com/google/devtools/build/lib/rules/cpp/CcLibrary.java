@@ -339,21 +339,17 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
         Artifact defParser = common.getDefParser();
         if (defParser != null) {
-          try {
-            generatedDefFile =
-                CppHelper.createDefFileActions(
-                    ruleContext,
-                    defParser,
-                    ccCompilationOutputs.getObjectFiles(false),
-                    ccToolchain
-                        .getFeatures()
-                        .getArtifactNameForCategory(
-                            ArtifactCategory.DYNAMIC_LIBRARY,
-                            ruleContext.getLabel().getName() + dllNameSuffix));
-            targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
-          } catch (EvalException e) {
-            throw ruleContext.throwWithRuleError(e);
-          }
+          generatedDefFile =
+              CppHelper.createDefFileActions(
+                  ruleContext,
+                  defParser,
+                  ccCompilationOutputs.getObjectFiles(false),
+                  ccToolchain
+                      .getFeatures()
+                      .getArtifactNameForCategory(
+                          ArtifactCategory.DYNAMIC_LIBRARY,
+                          ruleContext.getLabel().getName() + dllNameSuffix));
+          targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
         }
         linkingHelper.setDefFile(
             CppHelper.getWindowsDefFileForLinking(

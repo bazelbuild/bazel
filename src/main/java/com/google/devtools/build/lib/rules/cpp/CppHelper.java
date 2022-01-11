@@ -482,7 +482,6 @@ public class CppHelper {
       name =
           name.replaceName(
               getArtifactNameForCategory(
-                  ruleContext,
                   ccToolchain,
                   linkType.getLinkerOutput(),
                   name.getBaseName()
@@ -761,21 +760,14 @@ public class CppHelper {
   }
 
   public static String getArtifactNameForCategory(
-      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory category,
       String outputName)
       throws RuleErrorException {
-    try {
-      return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
-    } catch (EvalException e) {
-      ruleErrorConsumer.throwWithRuleError(e);
-      throw new IllegalStateException("Should not be reached");
-    }
+    return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
   }
 
   static String getDotdFileName(
-      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory outputCategory,
       String outputName)
@@ -784,10 +776,9 @@ public class CppHelper {
         outputCategory == ArtifactCategory.OBJECT_FILE
                 || outputCategory == ArtifactCategory.PROCESSED_HEADER
             ? outputName
-            : getArtifactNameForCategory(ruleErrorConsumer, toolchain, outputCategory, outputName);
+            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
 
-    return getArtifactNameForCategory(
-        ruleErrorConsumer, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+    return getArtifactNameForCategory(toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
   }
 
   /**

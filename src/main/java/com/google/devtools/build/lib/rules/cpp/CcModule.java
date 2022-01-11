@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategor
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
@@ -76,10 +75,7 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.FormatMethod;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -1142,15 +1138,14 @@ public abstract class CcModule
             .map(actionConfig -> actionConfig.getActionName())
             .collect(ImmutableSet.toImmutableSet());
 
-    ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
+    CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
+        new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
     for (Object artifactNamePattern : artifactNamePatterns) {
       checkRightStarlarkInfoProvider(
           artifactNamePattern, "artifact_name_patterns", "ArtifactNamePatternInfo");
-      artifactNamePatternBuilder.add(
-          artifactNamePatternFromStarlark((StarlarkInfo) artifactNamePattern));
+      artifactNamePatternFromStarlark(
+          (StarlarkInfo) artifactNamePattern, artifactNamePatternBuilder::addOverride);
     }
-
-    getLegacyArtifactNamePatterns(artifactNamePatternBuilder);
 
     // Pairs (toolName, toolPath)
     ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
@@ -1686,10 +1681,14 @@ public abstract class CcModule
         actionName, actionName, toolBuilder.build(), flagSetBuilder.build(), enabled, implies);
   }
 
-  /** Creates an {@link ArtifactNamePattern} from a {@link StarlarkInfo}. */
   @VisibleForTesting
-  static ArtifactNamePattern artifactNamePatternFromStarlark(StarlarkInfo artifactNamePatternStruct)
-      throws EvalException {
+  interface ArtifactNamePatternAdder {
+    void add(ArtifactCategory category, String prefix, String extension);
+  }
+
+  @VisibleForTesting
+  static void artifactNamePatternFromStarlark(
+      StarlarkInfo artifactNamePatternStruct, ArtifactNamePatternAdder adder) throws EvalException {
     checkRightProviderType(artifactNamePatternStruct, "artifact_name_pattern");
     String categoryName =
         getMandatoryFieldFromStarlarkProvider(
@@ -1729,7 +1728,7 @@ public abstract class CcModule
         Strings.nullToEmpty(
             getMandatoryFieldFromStarlarkProvider(
                 artifactNamePatternStruct, "prefix", String.class));
-    return new ArtifactNamePattern(foundCategory, prefix, extension);
+    adder.add(foundCategory, prefix, extension);
   }
 
   private static <T> T getOptionalFieldFromStarlarkProvider(
@@ -1786,31 +1785,6 @@ public abstract class CcModule
     return v == null
         ? ImmutableList.of()
         : ImmutableList.copyOf(Sequence.noneableCast(v, StarlarkInfo.class, fieldName));
-  }
-
-  private static void getLegacyArtifactNamePatterns(
-      ImmutableList.Builder<ArtifactNamePattern> patterns) {
-    Set<ArtifactCategory> definedCategories = new HashSet<>();
-    for (ArtifactNamePattern pattern : patterns.build()) {
-      try {
-        definedCategories.add(
-            ArtifactCategory.valueOf(
-                pattern.getArtifactCategory().getCategoryName().toUpperCase(Locale.ENGLISH)));
-      } catch (IllegalArgumentException e) {
-        // Invalid category name, will be detected later.
-        continue;
-      }
-    }
-
-    for (ArtifactCategory category : ArtifactCategory.values()) {
-      if (!definedCategories.contains(category)
-          && category.getDefaultPrefix() != null
-          && category.getDefaultExtension() != null) {
-        patterns.add(
-            new ArtifactNamePattern(
-                category, category.getDefaultPrefix(), category.getDefaultExtension()));
-      }
-    }
   }
 
   @Nullable

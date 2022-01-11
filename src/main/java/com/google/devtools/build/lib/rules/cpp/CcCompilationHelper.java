@@ -1530,7 +1530,7 @@ public final class CcCompilationHelper {
       CppSource source,
       String outputName,
       CppCompileActionBuilder builder,
-      Iterable<ArtifactCategory> outputCategories,
+      ImmutableList<ArtifactCategory> outputCategories,
       boolean usePic) {
     if (usePic) {
       builder = new CppCompileActionBuilder(builder).setPicMode(true);
@@ -1719,15 +1719,13 @@ public final class CcCompilationHelper {
    * initialized.
    */
   private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) {
-    CppCompileActionBuilder builder =
-        new CppCompileActionBuilder(
-            actionConstructionContext, grepIncludes, ccToolchain, configuration);
-    builder.setSourceFile(sourceArtifact);
-    builder.setCcCompilationContext(ccCompilationContext);
-    builder.setCoptsFilter(coptsFilter);
-    builder.setFeatureConfiguration(featureConfiguration);
-    builder.addExecutionInfo(executionInfo);
-    return builder;
+    return new CppCompileActionBuilder(
+            actionConstructionContext, grepIncludes, ccToolchain, configuration)
+        .setSourceFile(sourceArtifact)
+        .setCcCompilationContext(ccCompilationContext)
+        .setCoptsFilter(coptsFilter)
+        .setFeatureConfiguration(featureConfiguration)
+        .addExecutionInfo(executionInfo);
   }
 
   private void createModuleCodegenAction(
@@ -1751,7 +1749,7 @@ public final class CcCompilationHelper {
 
     String gcnoFileName =
         CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
+            ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
     // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
     Artifact gcnoFile =
         isCodeCoverageEnabled
@@ -1804,7 +1802,7 @@ public final class CcCompilationHelper {
       throws RuleErrorException {
     String outputNameBase =
         CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
+            ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
 
     builder
         .setOutputs(
@@ -1880,12 +1878,11 @@ public final class CcCompilationHelper {
     // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
     if (generatePicAction) {
       String picOutputBase =
-          CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, outputName);
+          CppHelper.getArtifactNameForCategory(ccToolchain, ArtifactCategory.PIC_FILE, outputName);
       CppCompileActionBuilder picBuilder = copyAsPicBuilder(builder, picOutputBase, outputCategory);
       String gcnoFileName =
           CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
+              ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
       Artifact gcnoFile =
           enableCoverage
               ? CppHelper.getCompileOutputArtifact(
@@ -1946,14 +1943,13 @@ public final class CcCompilationHelper {
           CppHelper.getCompileOutputArtifact(
               actionConstructionContext,
               label,
-              CppHelper.getArtifactNameForCategory(
-                  ruleErrorConsumer, ccToolchain, outputCategory, outputName),
+              CppHelper.getArtifactNameForCategory(ccToolchain, outputCategory, outputName),
               configuration);
       builder.setOutputs(
           actionConstructionContext, ruleErrorConsumer, label, outputCategory, outputName);
       String gcnoFileName =
           CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
+              ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
@@ -2030,8 +2026,7 @@ public final class CcCompilationHelper {
 
   String getOutputNameBaseWith(String base, boolean usePic) throws RuleErrorException {
     return usePic
-        ? CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, base)
+        ? CppHelper.getArtifactNameForCategory(ccToolchain, ArtifactCategory.PIC_FILE, base)
         : base;
   }
 

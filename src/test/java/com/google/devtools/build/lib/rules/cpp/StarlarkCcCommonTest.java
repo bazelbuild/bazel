@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
@@ -71,6 +70,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -4366,7 +4366,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e)
         .hasMessageThat()
         .contains("Field 'category_name' is not of 'java.lang.String' type.");
@@ -4388,7 +4390,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Field 'extension' is not of 'java.lang.String' type.");
   }
 
@@ -4408,7 +4412,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Field 'prefix' is not of 'java.lang.String' type.");
   }
 
@@ -4425,7 +4431,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e)
         .hasMessageThat()
         .contains("The 'category_name' field of artifact_name_pattern must be a nonempty string.");
@@ -4441,9 +4449,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo artifactNamePatternStruct =
         (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
-    ArtifactNamePattern artifactNamePattern =
-        CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct);
-    assertThat(artifactNamePattern).isNotNull();
+    AtomicBoolean called = new AtomicBoolean(false);
+    CcModule.artifactNamePatternFromStarlark(
+        artifactNamePatternStruct, (c, p, ext) -> called.set(true));
+    assertThat(called.get()).isTrue();
   }
 
   @Test
@@ -4456,9 +4465,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo artifactNamePatternStruct =
         (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
-    ArtifactNamePattern artifactNamePattern =
-        CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct);
-    assertThat(artifactNamePattern).isNotNull();
+    AtomicBoolean called = new AtomicBoolean(false);
+    CcModule.artifactNamePatternFromStarlark(
+        artifactNamePatternStruct, (c, p, ext) -> called.set(true));
+    assertThat(called.get()).isTrue();
   }
 
   @Test
@@ -4474,7 +4484,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Artifact category unknown not recognized");
   }
 
@@ -4494,7 +4506,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> CcModule.artifactNamePatternFromStarlark(artifactNamePatternStruct));
+            () ->
+                CcModule.artifactNamePatternFromStarlark(
+                    artifactNamePatternStruct, (c, p, ext) -> {}));
     assertThat(e).hasMessageThat().contains("Unrecognized file extension 'a'");
   }
 

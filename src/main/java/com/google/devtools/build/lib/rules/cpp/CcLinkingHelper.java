@@ -900,7 +900,7 @@ public final class CcLinkingHelper {
     if (linkTargetType.picness() == Picness.PIC) {
       maybePicName =
           CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
+              ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
     }
 
     String linkedName = maybePicName;
@@ -909,7 +909,7 @@ public final class CcLinkingHelper {
     }
     linkedName =
         CppHelper.getArtifactNameForCategory(
-            ruleErrorConsumer, ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
+            ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
 
     PathFragment artifactFragment = PathFragment.create(linkedName);
     ArtifactRoot artifactRoot = configuration.getBinDirectory(label.getRepository());
