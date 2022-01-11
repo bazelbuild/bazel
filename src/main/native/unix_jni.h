@@ -169,6 +169,17 @@ typedef enum  {
 // monitoring when a disk space alert happens.
 extern void disk_space_callback(DiskSpaceLevel level);
 
+// Starts up any infrastructure needed to do cpu speed monitoring.
+// May be called more than once.
+void portable_start_cpu_speed_monitoring();
+
+// Returns the current CPU speed. Return -1 in case of error.
+int portable_cpu_speed();
+
+// Declaration for callback function that is called by cpu speed
+// monitoring when a cpu speed alert happens.
+extern void cpu_speed_callback(int speed);
+
 }  // namespace blaze_jni
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

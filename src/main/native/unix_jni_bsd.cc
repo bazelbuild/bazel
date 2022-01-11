@@ -161,4 +161,13 @@ void portable_start_disk_space_monitoring() {
   // Currently not implemented.
 }
 
+void portable_start_cpu_speed_monitoring() {
+  // Currently not implemented.
+}
+
+int portable_cpu_speed() {
+  // Currently not implemented.
+  return -1;
+}
+
 }  // namespace blaze_jni

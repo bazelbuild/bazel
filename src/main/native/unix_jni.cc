@@ -1498,4 +1498,56 @@ void disk_space_callback(DiskSpaceLevel level) {
   }
 }
 
+jobject g_cpu_speed_module;
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule
+ * Method:    registerJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+
+  if (g_cpu_speed_module != nullptr) {
+    PostAssertionError(
+        env, "Singleton SystemCPUSpeedModule already registered");
+    return;
+  }
+
+  JavaVM *java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(
+        env, "Unable to get javaVM registering SystemCPUSpeedModule");
+    return;
+  }
+
+  g_cpu_speed_module = env->NewGlobalRef(local_object);
+  if (g_cpu_speed_module == nullptr) {
+    PostAssertionError(
+        env, "Unable to create global ref for SystemCPUSpeedModule");
+    return;
+  }
+  portable_start_cpu_speed_monitoring();
+}
+
+void cpu_speed_callback(int speed) {
+  if (g_cpu_speed_module != nullptr) {
+    PerformIntegerValueCallback(g_cpu_speed_module, "cpuSpeedCallback", speed);
+  }
+}
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule
+ * Method:    cpuSpeed
+ * Signature: ()I
+ *
+ * Returns 1-100 to represent CPU speed. Returns -1 in case of error.
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_cpuSpeed(
+    JNIEnv *env, jclass) {
+  return portable_cpu_speed();
+}
+
 }  // namespace blaze_jni
