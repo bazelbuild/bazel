@@ -44,7 +44,22 @@ gen_workspace_stanza(
         "remote_java_tools_test_linux",
         "remote_java_tools_test_windows",
         "remote_java_tools_test_darwin",
-        "openjdk11_linux_archive"
+        "openjdk11_linux_archive",
+        "openjdk11_darwin_archive",
+        "openjdk11_darwin_aarch64_archive",
+        "openjdk11_windows_archive",
+        "openjdk15_linux_archive",
+        "openjdk15_darwin_archive",
+        "openjdk15_darwin_aarch64_archive",
+        "openjdk15_windows_archive",
+        "openjdk16_linux_archive",
+        "openjdk16_darwin_archive",
+        "openjdk16_darwin_aarch64_archive",
+        "openjdk16_windows_archive",
+        "openjdk17_linux_archive",
+        "openjdk17_darwin_archive",
+        "openjdk17_darwin_aarch64_archive",
+        "openjdk17_windows_archive"
     ],
    repo_clause = """
   name = "{repo}",
