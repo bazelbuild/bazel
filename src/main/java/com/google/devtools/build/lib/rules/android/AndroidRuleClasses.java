@@ -683,6 +683,10 @@ public final class AndroidRuleClasses {
           .add(
               attr("$desugared_java8_legacy_apis", LABEL)
                   .value(env.getToolsLabel("//tools/android:desugared_java8_legacy_apis")))
+          .add(
+              attr("$merge_proguard_maps", LABEL)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:merge_proguard_maps")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and

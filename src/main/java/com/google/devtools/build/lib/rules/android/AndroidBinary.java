@@ -448,9 +448,31 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
     // which this -printmapping command line flag will override.
     Artifact proguardOutputMap = null;
-    if (ProguardHelper.genProguardMapping(ruleContext.attributes())
-        || dataContext.isResourceShrinkingEnabled()) {
-      proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+    boolean generateProguardMap =
+        ProguardHelper.genProguardMapping(ruleContext.attributes())
+            || dataContext.isResourceShrinkingEnabled();
+    boolean postprocessingRewritesMap = androidSemantics.postprocessClassesRewritesMap(ruleContext);
+    boolean desugarJava8LibsGeneratesMap =
+        AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs();
+    if (generateProguardMap) {
+      // Determine the output of the Proguard map from shrinking the app. This depends on the
+      // additional steps which can process the map before the final Proguard map artifact is
+      // generated.
+      if (!hasProguardSpecs && !postprocessingRewritesMap) {
+        // When no shrinking happens a generating rule for the output map artifact is still needed.
+        proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+      } else if (postprocessingRewritesMap) {
+        // Proguard map from shrinking goes to postprocessing.
+        proguardOutputMap =
+            ProguardHelper.getProguardTempArtifact(ruleContext, "proguard_output_for_rex.map");
+      } else if (desugarJava8LibsGeneratesMap) {
+        // Proguard map from shrinking will be merged with desugared library proguard map.
+        proguardOutputMap =
+            getDxArtifact(ruleContext, "_proguard_output_for_desugared_library.map");
+      } else {
+        // Proguard map from shrinking is the final output.
+        proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+      }
     }
 
     ProguardOutput proguardOutput =
@@ -462,6 +484,36 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             proguardSpecs,
             proguardMapping,
             proguardOutputMap);
+
+    // Determine the outputs for the proguard map transition through post-processing and adding of
+    // desugared library map.
+    Artifact postProcessingOutputMap = null;
+    Artifact finalProguardOutputMap = null;
+    if (proguardOutput.hasMapping()) {
+      // Determine the Proguard map artifacts for the additional steps (if any) if shrinking of
+      // the app is enabled.
+      if (postprocessingRewritesMap && desugarJava8LibsGeneratesMap) {
+        // Proguard map from preprocessing will be merged with Proguard map for desugared
+        // library.
+        postProcessingOutputMap =
+            getDxArtifact(ruleContext, "_proguard_output_for_desugared_library.map");
+        finalProguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+      } else if (postprocessingRewritesMap) {
+        // No desugared library, Proguard map from preprocessing is the final Proguard map.
+        postProcessingOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+        finalProguardOutputMap = postProcessingOutputMap;
+      } else if (desugarJava8LibsGeneratesMap) {
+        // No postprocessing, Proguard map from merging with the desugared library map is the
+        // final Proguard map.
+        postProcessingOutputMap = proguardOutputMap;
+        finalProguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+      } else {
+        // No postprocessing, no desugared library, the final Proguard map is the Proguard map
+        // from shrinking
+        postProcessingOutputMap = proguardOutputMap;
+        finalProguardOutputMap = proguardOutputMap;
+      }
+    }
 
     if (dataContext.useResourceShrinking(hasProguardSpecs)) {
       resourceApk =
@@ -506,10 +558,78 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     DexPostprocessingOutput dexPostprocessingOutput =
         androidSemantics.postprocessClassesDexZip(
-            ruleContext, filesBuilder, dexingOutput.classesDexZip, proguardOutput);
+            ruleContext,
+            filesBuilder,
+            dexingOutput.classesDexZip,
+            proguardOutput,
+            postProcessingOutputMap);
 
-    if (!proguardSpecs.isEmpty()) {
-      proguardOutput.addAllToSet(filesBuilder, dexPostprocessingOutput.proguardMap());
+    // Compute the final DEX files by appending Java 8 legacy .dex if used.
+    Artifact finalClassesDex;
+    Java8LegacyDexOutput java8LegacyDexOutput;
+    ImmutableList<Artifact> finalShardDexZips = dexingOutput.shardDexZips;
+    if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()
+        && dexPostprocessingOutput.classesDexZip().getFilename().endsWith(".zip")) {
+      if (binaryJar.equals(jarToDex)) {
+        // No shrinking: use canned Java 8 legacy .dex file
+        java8LegacyDexOutput = Java8LegacyDexOutput.getCanned(ruleContext);
+      } else {
+        // Shrinking is used: build custom Java 8 legacy .dex file
+        java8LegacyDexOutput = buildJava8LegacyDex(ruleContext, jarToDex);
+
+        // Merge the mapping files from shrinking the program and Java 8 legacy .dex file.
+        if (finalProguardOutputMap != null) {
+          ruleContext.registerAction(
+              createSpawnActionBuilder(ruleContext)
+                  .useDefaultShellEnvironment()
+                  .setExecutable(ruleContext.getExecutablePrerequisite("$merge_proguard_maps"))
+                  .addInput(dexPostprocessingOutput.proguardMap())
+                  .addInput(java8LegacyDexOutput.getMap())
+                  .addOutput(finalProguardOutputMap)
+                  .addCommandLine(
+                      CustomCommandLine.builder()
+                          .addExecPath("--pg-map", dexPostprocessingOutput.proguardMap())
+                          .addExecPath("--pg-map", java8LegacyDexOutput.getMap())
+                          .addExecPath("--pg-map-output", finalProguardOutputMap)
+                          .build())
+                  .setMnemonic("MergeProguardMaps")
+                  .setProgressMessage(
+                      "Merging app and desugared library Proguard maps for %{label}")
+                  .build(ruleContext));
+        }
+      }
+
+      // Append legacy .dex library to app's .dex files
+      finalClassesDex = getDxArtifact(ruleContext, "_final_classes.dex.zip");
+      ruleContext.registerAction(
+          createSpawnActionBuilder(ruleContext)
+              .useDefaultShellEnvironment()
+              .setMnemonic("AppendJava8LegacyDex")
+              .setProgressMessage("Adding Java 8 legacy library for %s", ruleContext.getLabel())
+              .setExecutable(ruleContext.getExecutablePrerequisite("$merge_dexzips"))
+              .addInput(dexPostprocessingOutput.classesDexZip())
+              .addInput(java8LegacyDexOutput.getDex())
+              .addOutput(finalClassesDex)
+              // Order matters here: we want java8LegacyDex to be the highest-numbered classesN.dex
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath("--input_zip", dexPostprocessingOutput.classesDexZip())
+                      .addExecPath("--input_zip", java8LegacyDexOutput.getDex())
+                      .addExecPath("--output_zip", finalClassesDex)
+                      .build())
+              .build(ruleContext));
+      finalShardDexZips =
+          ImmutableList.<Artifact>builder()
+              .addAll(finalShardDexZips)
+              .add(java8LegacyDexOutput.getDex())
+              .build();
+
+    } else {
+      finalClassesDex = dexPostprocessingOutput.classesDexZip();
+    }
+
+    if (hasProguardSpecs) {
+      proguardOutput.addAllToSet(filesBuilder, finalProguardOutputMap);
     }
 
     Artifact unsignedApk =
@@ -526,60 +646,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     String keyRotationMinSdk = ruleContext.attributes().get("key_rotation_min_sdk", Type.STRING);
     FilesToRunProvider resourceExtractor =
         ruleContext.getExecutablePrerequisite("$resource_extractor");
-
-    Artifact finalClassesDex;
-    ImmutableList<Artifact> finalShardDexZips = dexingOutput.shardDexZips;
-    if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()
-        && dexPostprocessingOutput.classesDexZip().getFilename().endsWith(".zip")) {
-      Artifact java8LegacyDex;
-      if (binaryJar.equals(jarToDex)) {
-        // No Proguard: use canned Java 8 legacy .dex file
-        java8LegacyDex = ruleContext.getPrerequisiteArtifact("$java8_legacy_dex");
-      } else {
-        // Proguard is used: build custom Java 8 legacy .dex file
-        java8LegacyDex = getDxArtifact(ruleContext, "_java8_legacy.dex.zip");
-        Artifact androidJar = AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar();
-        ruleContext.registerAction(
-            createSpawnActionBuilder(ruleContext)
-                .setExecutable(ruleContext.getExecutablePrerequisite("$build_java8_legacy_dex"))
-                .addInput(jarToDex)
-                .addInput(androidJar)
-                .addOutput(java8LegacyDex)
-                .addCommandLine(
-                    CustomCommandLine.builder()
-                        .addExecPath("--binary", jarToDex)
-                        .addExecPath("--android_jar", androidJar)
-                        .addExecPath("--output", java8LegacyDex)
-                        .build())
-                .setMnemonic("BuildLegacyDex")
-                .setProgressMessage("Building Java 8 legacy library for %s", ruleContext.getLabel())
-                .build(ruleContext));
-      }
-
-      // Append legacy .dex library to app's .dex files
-      finalClassesDex = getDxArtifact(ruleContext, "_final_classes.dex.zip");
-      ruleContext.registerAction(
-          createSpawnActionBuilder(ruleContext)
-              .useDefaultShellEnvironment()
-              .setMnemonic("AppendJava8LegacyDex")
-              .setProgressMessage("Adding Java 8 legacy library for %s", ruleContext.getLabel())
-              .setExecutable(ruleContext.getExecutablePrerequisite("$merge_dexzips"))
-              .addInput(dexPostprocessingOutput.classesDexZip())
-              .addInput(java8LegacyDex)
-              .addOutput(finalClassesDex)
-              // Order matters here: we want java8LegacyDex to be the highest-numbered classesN.dex
-              .addCommandLine(
-                  CustomCommandLine.builder()
-                      .addExecPath("--input_zip", dexPostprocessingOutput.classesDexZip())
-                      .addExecPath("--input_zip", java8LegacyDex)
-                      .addExecPath("--output_zip", finalClassesDex)
-                      .build())
-              .build(ruleContext));
-      finalShardDexZips =
-          ImmutableList.<Artifact>builder().addAll(finalShardDexZips).add(java8LegacyDex).build();
-    } else {
-      finalClassesDex = dexPostprocessingOutput.classesDexZip();
-    }
 
     ApkActionsBuilder.create("apk")
         .setClassesDex(finalClassesDex)
@@ -759,6 +825,59 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addOutputGroup("android_deploy_info", deployInfo);
   }
 
+  static class Java8LegacyDexOutput {
+    private final Artifact dex;
+    private final Artifact map;
+
+    private Java8LegacyDexOutput(Artifact dex, Artifact map) {
+      this.dex = dex;
+      this.map = map;
+    }
+
+    static Java8LegacyDexOutput getCanned(RuleContext ruleContext) {
+      return new Java8LegacyDexOutput(
+          ruleContext.getPrerequisiteArtifact("$java8_legacy_dex"), null);
+    }
+
+    boolean isEmpty() {
+      return dex == null;
+    }
+
+    public Artifact getDex() {
+      return dex;
+    }
+
+    public Artifact getMap() {
+      return map;
+    }
+  }
+
+  static Java8LegacyDexOutput buildJava8LegacyDex(RuleContext ruleContext, Artifact jarToDex) {
+    Artifact java8LegacyDexRules = getDxArtifact(ruleContext, "_java8_legacy.dex.pgcfg");
+    Artifact java8LegacyDex = getDxArtifact(ruleContext, "_java8_legacy.dex.zip");
+    Artifact java8LegacyDexMap = getDxArtifact(ruleContext, "_java8_legacy.dex.map");
+    Artifact androidJar = AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar();
+    ruleContext.registerAction(
+        createSpawnActionBuilder(ruleContext)
+            .setExecutable(ruleContext.getExecutablePrerequisite("$build_java8_legacy_dex"))
+            .addInput(jarToDex)
+            .addInput(androidJar)
+            .addOutput(java8LegacyDexRules)
+            .addOutput(java8LegacyDex)
+            .addOutput(java8LegacyDexMap)
+            .addCommandLine(
+                CustomCommandLine.builder()
+                    .addExecPath("--rules", java8LegacyDexRules)
+                    .addExecPath("--binary", jarToDex)
+                    .addExecPath("--android_jar", androidJar)
+                    .addExecPath("--output", java8LegacyDex)
+                    .addExecPath("--output_map", java8LegacyDexMap)
+                    .build())
+            .setMnemonic("BuildLegacyDex")
+            .setProgressMessage("Building Java 8 legacy library for %{label}")
+            .build(ruleContext));
+    return new Java8LegacyDexOutput(java8LegacyDex, java8LegacyDexMap);
+  }
   /**
    * For coverage builds, this returns a Jar containing <b>un</b>instrumented bytecode for the
    * coverage reporter's consumption. This method simply returns the deploy Jar. Note the deploy Jar
@@ -902,7 +1021,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             failures.build().toSet(),
             "Can't run Proguard without proguard_specs",
             Code.PROGUARD_SPECS_MISSING));
-    return new ProguardOutput(deployJarArtifact, null, null, null, null, null, null);
+    return ProguardOutput.createEmpty(deployJarArtifact);
   }
 
   static ImmutableList<Artifact> getProguardSpecs(

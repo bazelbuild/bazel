@@ -180,6 +180,12 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
+sh_binary(
+    name = "merge_proguard_maps",
+    srcs = ["fail.sh"],
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "java8_legacy_dex",
     outs = ["java8_legacy.dex.zip"],
