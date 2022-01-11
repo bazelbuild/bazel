@@ -720,6 +720,84 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .isEqualTo("requirements: get up at 6am. go to bed at 11pm.");
   }
 
+  /** Tests that a complex-typed attribute (here, string_list_dict) behaves well on a tag. */
+  @Test
+  public void complexTypedAttribute() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='data_repo', version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext')",
+        "ext.tag(data={'foo':['val1','val2'],'bar':['val3','val4']})",
+        "use_repo(ext, 'foo', 'bar')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "tag = tag_class(attrs = {'data':attr.string_list_dict()})",
+        "def _ext_impl(ctx):",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      for key in tag.data:",
+        "        data_repo(name=key,data=','.join(tag.data[key]))",
+        "ext = module_extension(implementation=_ext_impl, tag_classes={'tag':tag})");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@foo//:data.bzl', foo_data='data')",
+        "load('@bar//:data.bzl', bar_data='data')",
+        "data = 'foo:'+foo_data+' bar:'+bar_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("foo:val1,val2 bar:val3,val4");
+  }
+
+  /**
+   * Tests that a complex-typed attribute (here, string_list_dict) behaves well when it has a
+   * default value and is omitted in a tag.
+   */
+  @Test
+  public void complexTypedAttribute_default() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='data_repo', version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext')",
+        "ext.tag()",
+        "use_repo(ext, 'foo', 'bar')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "tag = tag_class(attrs = {",
+        "  'data': attr.string_list_dict(",
+        "    default = {'foo':['val1','val2'],'bar':['val3','val4']},",
+        ")})",
+        "def _ext_impl(ctx):",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      for key in tag.data:",
+        "        data_repo(name=key,data=','.join(tag.data[key]))",
+        "ext = module_extension(implementation=_ext_impl, tag_classes={'tag':tag})");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@foo//:data.bzl', foo_data='data')",
+        "load('@bar//:data.bzl', bar_data='data')",
+        "data = 'foo:'+foo_data+' bar:'+bar_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("foo:val1,val2 bar:val3,val4");
+  }
+
   @Test
   public void generatedReposHaveCorrectMappings() throws Exception {
     scratch.file(
