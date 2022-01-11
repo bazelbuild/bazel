@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,18 +21,20 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
-import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -53,9 +56,16 @@ import javax.annotation.Nullable;
  */
 public class ActionTemplateExpansionFunction implements SkyFunction {
   private final ActionKeyContext actionKeyContext;
+  private final BugReporter bugReporter;
 
   ActionTemplateExpansionFunction(ActionKeyContext actionKeyContext) {
+    this(actionKeyContext, BugReporter.defaultInstance());
+  }
+
+  @VisibleForTesting
+  ActionTemplateExpansionFunction(ActionKeyContext actionKeyContext, BugReporter bugReporter) {
     this.actionKeyContext = actionKeyContext;
+    this.bugReporter = bugReporter;
   }
 
   @Override
@@ -80,21 +90,34 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       return null;
     }
     ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
-    GeneratingActions generatingActions;
+    ImmutableList<? extends Action> actions;
     try {
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
-      ImmutableList<? extends Action> actions =
-          generateAndValidateActionsFromTemplate(actionTemplate, inputTreeFileArtifacts, key);
+      actions = generateAndValidateActionsFromTemplate(actionTemplate, inputTreeFileArtifacts, key);
+    } catch (ActionExecutionException e) {
+      env.getListener()
+          .handle(
+              Event.error(
+                  actionTemplate.getOwner().getLocation(),
+                  actionTemplate.describe() + " failed: " + e.getMessage()));
+      throw new ActionTemplateExpansionFunctionException(
+          new AlreadyReportedActionExecutionException(e));
+    }
+    GeneratingActions generatingActions;
+    try {
       generatingActions = checkActionAndArtifactConflicts(actions, key);
+      // It is currently not possible for Starlark actions to create action template actions, so
+      // no exceptions here are expected. However, they may be possible in the future.
     } catch (ActionConflictException e) {
+      bugReporter.sendBugReport(
+          new IllegalStateException("Unexpected action conflict for " + skyKey, e));
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
     } catch (ArtifactPrefixConflictException e) {
-      env.getListener().handle(Event.error(e.getMessage()));
-      throw new ActionTemplateExpansionFunctionException(e);
-    } catch (ActionTemplateExpansionException e) {
+      bugReporter.sendBugReport(
+          new IllegalStateException("Unexpected artifact prefix conflict for " + skyKey, e));
       env.getListener().handle(Event.error(e.getMessage()));
       throw new ActionTemplateExpansionFunctionException(e);
     }
@@ -103,7 +126,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   }
 
   /** Exception thrown by {@link ActionTemplateExpansionFunction}. */
-  public static final class ActionTemplateExpansionFunctionException extends SkyFunctionException {
+  private static final class ActionTemplateExpansionFunctionException extends SkyFunctionException {
     ActionTemplateExpansionFunctionException(ActionConflictException e) {
       super(e, Transience.PERSISTENT);
     }
@@ -112,7 +135,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       super(e, Transience.PERSISTENT);
     }
 
-    ActionTemplateExpansionFunctionException(ActionTemplateExpansionException e) {
+    ActionTemplateExpansionFunctionException(ActionExecutionException e) {
       super(e, Transience.PERSISTENT);
     }
   }
@@ -121,7 +144,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       ActionTemplate<?> actionTemplate,
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
       ActionTemplateExpansionKey key)
-      throws ActionTemplateExpansionException {
+      throws ActionExecutionException {
     Set<Artifact> outputs = actionTemplate.getOutputs();
     for (Artifact output : outputs) {
       Preconditions.checkState(

@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -1168,8 +1168,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   /** Returns the actions created by the action template corresponding to given artifact. */
   protected ImmutableList<CppCompileAction> getActionsForInputsOfGeneratingActionTemplate(
-      Artifact artifact, TreeFileArtifact treeFileArtifact)
-      throws ActionTemplateExpansionException {
+      Artifact artifact, TreeFileArtifact treeFileArtifact) throws ActionExecutionException {
     CppCompileActionTemplate template =
         (CppCompileActionTemplate) getActionGraph().getGeneratingAction(artifact);
     return template.generateActionsForInputArtifacts(

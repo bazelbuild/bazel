@@ -96,6 +96,7 @@ java_library(
         ":action_metadata_handler",
         ":action_rewind_strategy",
         ":action_template_expansion_function",
+        ":action_template_expansion_value",
         ":action_utils",
         ":actiongraph/v2/aquery_output_handler",
         ":actiongraph/v2/known_artifacts",

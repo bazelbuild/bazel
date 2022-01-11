@@ -825,13 +825,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           if (primaryKey instanceof ActionLookupKey) {
             return Predicates.alwaysTrue();
           } else {
-            return NO_ACTION_LOOKUP;
+            return key ->
+                (key instanceof ActionTemplateExpansionValue.ActionTemplateExpansionKey)
+                    || !(key instanceof ActionLookupKey);
           }
         }
       };
-
-  private static final Predicate<SkyKey> NO_ACTION_LOOKUP =
-      (key) -> !(key instanceof ActionLookupKey);
 
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
     return new SkyframeProgressReceiver();

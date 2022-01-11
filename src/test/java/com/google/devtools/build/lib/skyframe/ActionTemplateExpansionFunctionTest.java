@@ -50,6 +50,10 @@ import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -68,12 +72,15 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,13 +92,14 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   private final Map<Artifact, TreeArtifactValue> artifactValueMap = new LinkedHashMap<>();
   private final SequencedRecordingDifferencer differencer = new SequencedRecordingDifferencer();
+  private final RecordingBugReporter bugReporter = new RecordingBugReporter();
   private final MemoizingEvaluator evaluator =
       new InMemoryMemoizingEvaluator(
           ImmutableMap.of(
               Artifact.ARTIFACT,
               new DummyArtifactFunction(artifactValueMap),
               SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-              new ActionTemplateExpansionFunction(new ActionKeyContext())),
+              new ActionTemplateExpansionFunction(new ActionKeyContext(), bugReporter)),
           differencer);
 
   @Before
@@ -103,6 +111,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             rootDirectory.getFileSystem().getPath("/outputbase"),
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+  }
+
+  @After
+  public void assertNoBugReports() {
+    bugReporter.assertNoExceptions();
   }
 
   @Test
@@ -143,7 +156,14 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
+    ActionConflictException e =
+        assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
+    assertThat(bugReporter.getExceptions()).hasSize(1);
+    assertThat(bugReporter.getFirstCause()).isSameInstanceAs(e);
+    assertThat(bugReporter.getExceptions().get(0))
+        .hasMessageThat()
+        .contains("Unexpected action conflict for ActionTemplateExpansionKey{");
+    bugReporter.clear();
   }
 
   @Test
@@ -179,7 +199,14 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    assertThrows(ArtifactPrefixConflictException.class, () -> evaluate(spawnActionTemplate));
+    ArtifactPrefixConflictException e =
+        assertThrows(ArtifactPrefixConflictException.class, () -> evaluate(spawnActionTemplate));
+    assertThat(bugReporter.getExceptions()).hasSize(1);
+    assertThat(bugReporter.getFirstCause()).isSameInstanceAs(e);
+    assertThat(bugReporter.getExceptions().get(0))
+        .hasMessageThat()
+        .contains("Unexpected artifact prefix conflict for ActionTemplateExpansionKey{");
+    bugReporter.clear();
   }
 
   @Test
@@ -505,6 +532,43 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     @Override
     public String toString() {
       return prettyPrint();
+    }
+  }
+
+  /** {@link BugReporter} that stores bug reports for later inspection. */
+  private static class RecordingBugReporter implements BugReporter {
+    @GuardedBy("this")
+    private final List<Throwable> exceptions = new ArrayList<>();
+
+    @Override
+    public synchronized void sendBugReport(
+        Throwable exception, List<String> args, String... values) {
+      exceptions.add(exception);
+    }
+
+    @Override
+    public void handleCrash(Crash crash, CrashContext ctx) {
+      // Unexpected: try to crash JVM.
+      BugReport.handleCrash(crash, ctx);
+    }
+
+    public synchronized ImmutableList<Throwable> getExceptions() {
+      return ImmutableList.copyOf(exceptions);
+    }
+
+    public synchronized Throwable getFirstCause() {
+      assertThat(exceptions).isNotEmpty();
+      Throwable first = exceptions.get(0);
+      assertThat(first).hasCauseThat().isNotNull();
+      return first.getCause();
+    }
+
+    public synchronized void assertNoExceptions() {
+      assertThat(exceptions).isEmpty();
+    }
+
+    public synchronized void clear() {
+      exceptions.clear();
     }
   }
 }

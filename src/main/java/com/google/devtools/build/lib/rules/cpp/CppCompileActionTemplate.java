@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -33,6 +34,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import javax.annotation.Nullable;
@@ -89,7 +92,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
-      throws ActionTemplateExpansionException {
+      throws ActionExecutionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
     ImmutableList.Builder<TreeFileArtifact> sourcesBuilder = ImmutableList.builder();
@@ -110,11 +113,13 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       if (isSource || (isHeader && shouldCompileHeaders() && !isTextualInclude)) {
         sourcesBuilder.add(inputTreeFileArtifact);
       } else if (!isHeader) {
-        throw new ActionTemplateExpansionException(
+        String message =
             String.format(
                 "Artifact '%s' expanded from the directory artifact '%s' is neither header "
                     + "nor source file.",
-                inputTreeFileArtifact.getExecPathString(), sourceTreeArtifact.getExecPathString()));
+                inputTreeFileArtifact.getExecPathString(), sourceTreeArtifact.getExecPathString());
+        throw new ActionExecutionException(
+            message, this, /*catastrophe=*/ false, makeDetailedExitCode(message));
       }
     }
     ImmutableList<TreeFileArtifact> sources = sourcesBuilder.build();
@@ -182,7 +187,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       TreeFileArtifact outputTreeFileArtifact,
       @Nullable Artifact dotdFileArtifact,
       NestedSet<Artifact> privateHeaders)
-      throws ActionTemplateExpansionException {
+      throws ActionExecutionException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(cppCompileActionBuilder)
             .setAdditionalPrunableHeaders(privateHeaders)
@@ -208,7 +213,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     try {
       return builder.buildAndVerify();
     } catch (CppCompileActionBuilder.UnconfiguredActionConfigException e) {
-      throw new ActionTemplateExpansionException(e);
+      throw throwActionExecutionException(e);
     }
   }
 
@@ -219,6 +224,12 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       outputName = toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
     }
     return outputName;
+  }
+
+  private ActionExecutionException throwActionExecutionException(Exception cause)
+      throws ActionExecutionException {
+    throw new ActionExecutionException(
+        cause, this, /*catastrophe=*/ false, makeDetailedExitCode(cause.getMessage()));
   }
 
   @Override
@@ -314,5 +325,17 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   @Override
   public String toString() {
     return prettyPrint();
+  }
+
+  private static DetailedExitCode makeDetailedExitCode(String message) {
+    return DetailedExitCode.of(
+        FailureDetails.FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExecution(
+                FailureDetails.Execution.newBuilder()
+                    .setCode(
+                        FailureDetails.Execution.Code
+                            .PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE))
+            .build());
   }
 }
