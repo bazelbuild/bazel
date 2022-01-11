@@ -24,6 +24,15 @@ cc_binary(
 )
 
 cc_binary(
+    name = "bin_so",
+    linkshared = 1,
+    linkstatic = 0,
+    deps = [
+       "a_suffix",
+    ],
+)
+
+cc_binary(
     name = "binary_with_bar_so_twice",
     srcs = ["main.cc"],
     dynamic_deps = [
@@ -65,12 +74,14 @@ cc_binary(
 
 cc_shared_library(
     name = "foo_so",
-    additional_linker_inputs = [
+    additional_linker_inputs = select({
+		    "//src/conditions:windows": [],
+		    "//conditions:default": [
         ":foo.lds",
         ":additional_script.txt",
-    ],
+    ]}),
     dynamic_deps = ["bar_so"],
-    preloaded_deps = ["preloaded_dep"],
+    #preloaded_deps = ["preloaded_dep"],
     roots = [
         "baz",
         "foo",
@@ -81,11 +92,14 @@ cc_shared_library(
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:prebuilt",
     ],
-    user_link_flags = [
+    user_link_flags = select({
+		    "//src/conditions:windows": [],
+		    "//conditions:default": [
         "-Wl,-rpath,kittens",
         "-Wl,--version-script=$(location :foo.lds)",
         "-Wl,--script=$(location :additional_script.txt)",
-    ],
+    ]
+		    }),
 )
 
 cc_library(
@@ -99,7 +113,7 @@ cc_library(
     srcs = ["foo.cc"],
     hdrs = ["foo.h"],
     deps = [
-        "preloaded_dep",
+        #"preloaded_dep",
         "bar",
         "baz",
         # Not exported.
@@ -144,9 +158,11 @@ config_setting(
 
 cc_shared_library(
     name = "bar_so",
-    additional_linker_inputs = [
+    additional_linker_inputs = select({
+		    "//src/conditions:windows": [],
+		    "//conditions:default": [
         ":bar.lds",
-    ],
+    ]}),
     exports_filter = [
         "bar3",  # Exported transitive dependency
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
@@ -166,9 +182,11 @@ cc_shared_library(
         "@test_repo//:bar",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
     ],
-    user_link_flags = [
+    user_link_flags = select({
+		    "//src/conditions:windows": [],
+		    "//conditions:default": [
         "-Wl,--version-script=$(location :bar.lds)",
-    ],
+    ]}),
 )
 
 cc_library(
@@ -219,6 +237,7 @@ sh_test(
         ":cc_test",
         ":debug_files",
         ":foo_so",
+    	"@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -231,11 +250,19 @@ filegroup(
 linking_suffix_test(
     name = "linking_action_test",
     target_under_test = ":foo_so",
+    # TODO(bazel-team): Support this test on Windows.
+    is_windows = select({
+		    "//src/conditions:windows": True,
+		    "//conditions:default": False}),
 )
 
 additional_inputs_test(
     name = "additional_inputs_test",
     target_under_test = ":foo_so",
+    # TODO(bazel-team): Support this test on Windows.
+    is_windows = select({
+		    "//src/conditions:windows": True,
+		    "//conditions:default": False}),
 )
 
 build_failure_test(

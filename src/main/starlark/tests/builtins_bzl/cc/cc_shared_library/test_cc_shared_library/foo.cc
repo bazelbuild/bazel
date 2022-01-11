@@ -13,13 +13,13 @@
 // limitations under the License.
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/bar.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/baz.h"
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/preloaded_dep.h"
+// #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/preloaded_dep.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/qux.h"
 
 int foo() {
   bar();
   baz();
   qux();
-  preloaded_dep();
+  // preloaded_dep();
   return 42;
 }

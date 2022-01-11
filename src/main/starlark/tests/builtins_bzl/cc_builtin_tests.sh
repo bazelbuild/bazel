@@ -18,14 +18,37 @@
 # for cc_import with Bazel built from head. Once the Stararlark
 # implementation can rely on release Bazel, we can add the tests directly.
 
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${TEST_SRCDIR}/io_bazel/src/test/shell/integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "${CURRENT_DIR}/builtin_test_setup.sh" \
-  || { echo "builtin_test_setup.sh not found!" >&2; exit 1; }
+# --- begin runfiles.bash initialization ---
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
+	|| { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/main/starlark/tests/builtins_bzl/builtin_test_setup.sh")" \
+	|| { echo "builtin_test_setup.sh not found!" >&2; exit 1; }
 
 function test_starlark_cc() {
   setup_tests src/main/starlark/tests/builtins_bzl/cc
+  mkdir -p "src/conditions"
+  cp "$(rlocation "io_bazel/src/conditions/BUILD")" "src/conditions/BUILD"
 
   cat >> WORKSPACE<<EOF
 local_repository(
@@ -34,7 +57,7 @@ local_repository(
 )
 EOF
 
-  bazel test --define=is_bazel=true --test_output=streamed \
+  bazel --output_user_root=C:/tmp test --define=is_bazel=true --test_output=streamed \
     --experimental_cc_shared_library_debug \
     --experimental_link_static_libraries_once \
     --experimental_enable_target_export_check --experimental_cc_shared_library \
