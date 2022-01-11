@@ -363,29 +363,14 @@ dist_http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz",
-        "zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz",
-        "zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz",
-        "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
-        "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz",
         "android_tools_pkg-0.23.0.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
-        "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz": "b8e8a63b79bc312aa90f3558edbea59e71495ef1a9c340e38900dd28a1c579f3",
-        "zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz": "61254688067454d3ccf0ef25993b5dcab7b56c8129e53b73566c28a8dd4d48fb",
-        "zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz": "0b8c8b7cf89c7c55b7e2239b47201d704e8d2170884875b00f3103cf0662d6d7",
-        "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz": "e908a0b4c0da08d41c3e19230f819b364ff2e5f1dafd62d2cf991a85a34d3a17",
-        "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz": "42ae65e75d615a3f06a674978e1fa85fdf078cad94e553fee3e779b2b42bb015",
         "android_tools_pkg-0.23.0.tar.gz": "ed5290594244c2eeab41f0104519bcef51e27c699ff4b379fcbd25215270513e",
     },
     urls = {
-        "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz"],
-        "zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz"],
-        "zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz"],
-        "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz"],
-        "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
         "android_tools_pkg-0.23.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.23.0.tar.gz",
         ],
