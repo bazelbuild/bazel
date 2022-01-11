@@ -212,15 +212,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       } else {
         // If there are no threads available for dynamic execution because we're limited
         // to the number of CPUs, we can just execute remotely.
-        ImmutableList<SpawnResult> spawnResults =
-            RemoteBranch.runRemotely(spawn, actionExecutionContext, null);
-        for (SpawnResult r : spawnResults) {
-          if (r.isCacheHit()) {
-            delayLocalExecution.set(true);
-            break;
-          }
-        }
-        return spawnResults;
+        return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
       }
 
       // Extra logging to debug b/194373457
@@ -379,7 +371,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           spawn.getResourceOwner().prettyPrint(),
           executionPolicy.canRunLocally() ? "allows" : "forbids",
           dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, DynamicMode.LOCAL));
-      return RemoteBranch.runRemotely(spawn, actionExecutionContext, null);
+      return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
     } else if (localCanExec && !remoteCanExec) {
       // Extra logging to debug b/194373457
       logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
@@ -406,7 +398,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                     "Disabling dynamic execution until we have seen a successful build, see"
                         + " --experimental_dynamic_skip_first_build."));
       }
-      return RemoteBranch.runRemotely(spawn, actionExecutionContext, null);
+      return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
     }
     return null;
   }

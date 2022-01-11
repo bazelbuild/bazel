@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
@@ -61,7 +62,8 @@ class RemoteBranch extends Branch {
   }
 
   /**
-   * Try to run the given spawn remotely.
+   * Try to run the given spawn remotely. If successful, updates {@link #delayLocalExecution} if
+   * there was a cache hit among the results.
    *
    * <p>Precondition: At least one {@code dynamic_remote_strategy} returns {@code true} from its
    * {@link SpawnStrategy#canExec canExec} method for the given {@code spawn}.
@@ -69,7 +71,8 @@ class RemoteBranch extends Branch {
   static ImmutableList<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
+      @Nullable StopConcurrentSpawns stopConcurrentSpawns,
+      AtomicBoolean delayLocalExecution)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
@@ -88,6 +91,12 @@ class RemoteBranch extends Branch {
                           "Remote strategy %s for %s target %s returned null, which it shouldn't"
                               + " do.",
                           strategy, spawn.getMnemonic(), spawn.getResourceOwner().prettyPrint())));
+        }
+        for (SpawnResult r : results) {
+          if (r.isCacheHit()) {
+            delayLocalExecution.set(true);
+            break;
+          }
         }
         return results;
       }
@@ -126,27 +135,20 @@ class RemoteBranch extends Branch {
         checkState(Thread.interrupted());
         throw new InterruptedException();
       }
-      ImmutableList<SpawnResult> spawnResults =
-          runRemotely(
-              spawn,
-              context,
-              (exitCode, errorMessage, outErr) -> {
-                maybeIgnoreFailure(exitCode, errorMessage, outErr);
-                DynamicSpawnStrategy.stopBranch(
-                    localBranch,
-                    this,
-                    DynamicMode.REMOTE,
-                    strategyThatCancelled,
-                    options,
-                    this.context);
-              });
-      for (SpawnResult r : spawnResults) {
-        if (r.isCacheHit()) {
-          delayLocalExecution.set(true);
-          break;
-        }
-      }
-      return spawnResults;
+      return runRemotely(
+          spawn,
+          context,
+          (exitCode, errorMessage, outErr) -> {
+            maybeIgnoreFailure(exitCode, errorMessage, outErr);
+            DynamicSpawnStrategy.stopBranch(
+                localBranch,
+                this,
+                DynamicMode.REMOTE,
+                strategyThatCancelled,
+                options,
+                this.context);
+          },
+          delayLocalExecution);
     } catch (DynamicInterruptedException e) {
       if (options.debugSpawnScheduler) {
         logger.atInfo().log(
