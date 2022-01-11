@@ -324,7 +324,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     assertThat(e)
         .hasCauseThat()
         .hasMessageThat()
-        .contains(template + " generated an action with an output under an undeclared tree");
+        .contains(
+            template
+                + " generated an action with an output File:[[<execution_root>]out]undeclared/child"
+                + " under an undeclared tree not in [File:[[<execution_root>]out]output]");
   }
 
   @Test

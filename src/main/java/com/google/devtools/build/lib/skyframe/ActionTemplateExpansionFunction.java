@@ -168,18 +168,23 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       for (Artifact output : action.getOutputs()) {
         Preconditions.checkState(
             output.getArtifactOwner().equals(key),
-            "%s generated an action with an output owned by the wrong owner: %s",
+            "%s generated an action with an output owned by the wrong owner %s not %s (%s)",
             actionTemplate,
+            output.getArtifactOwner(),
+            key,
             action);
         Preconditions.checkState(
             output.hasParent(),
-            "%s generated an action which outputs a non-TreeFileArtifact: %s",
+            "%s generated an action which outputs a non-TreeFileArtifact %s (%s)",
             actionTemplate,
+            output,
             action);
         Preconditions.checkState(
             outputs.contains(output.getParent()),
-            "%s generated an action with an output under an undeclared tree: %s",
+            "%s generated an action with an output %s under an undeclared tree not in %s (%s)",
             actionTemplate,
+            output,
+            outputs,
             action);
       }
     }
