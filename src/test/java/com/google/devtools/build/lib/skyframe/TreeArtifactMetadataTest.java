@@ -226,7 +226,9 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     return result.get(key);
   }
 
-  private void setGeneratingActions() throws InterruptedException, ActionConflictException {
+  private void setGeneratingActions()
+      throws InterruptedException, ActionConflictException,
+          Actions.ArtifactGeneratedByOtherRuleException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
       differencer.inject(
           ImmutableMap.of(
@@ -241,7 +243,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   private <E extends SkyValue> EvaluationResult<E> evaluate(SkyKey... keys)
-      throws InterruptedException, ActionConflictException {
+      throws InterruptedException, ActionConflictException,
+          Actions.ArtifactGeneratedByOtherRuleException {
     setGeneratingActions();
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()

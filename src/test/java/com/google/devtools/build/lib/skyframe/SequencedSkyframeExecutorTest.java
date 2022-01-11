@@ -1667,7 +1667,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   private static ActionLookupValue createActionLookupValue(
       ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey)
-      throws ActionConflictException, InterruptedException {
+      throws ActionConflictException, InterruptedException,
+          Actions.ArtifactGeneratedByOtherRuleException {
     return new BasicActionLookupValue(
         Actions.assignOwnersAndFindAndThrowActionConflict(
             new ActionKeyContext(), ImmutableList.of(generatingAction), actionLookupKey));

@@ -329,7 +329,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         return Preconditions.checkNotNull(latestResult);
       }
 
-      private void setGeneratingActions() throws ActionConflictException, InterruptedException {
+      private void setGeneratingActions()
+          throws ActionConflictException, InterruptedException,
+              Actions.ArtifactGeneratedByOtherRuleException {
         if (evaluator.getExistingValue(ACTION_LOOKUP_KEY) == null) {
           differencer.inject(
               ImmutableMap.of(
@@ -379,7 +381,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
         try {
           setGeneratingActions();
-        } catch (ActionConflictException e) {
+        } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
           throw new IllegalStateException(e);
         }
 

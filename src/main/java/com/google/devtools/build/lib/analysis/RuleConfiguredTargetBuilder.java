@@ -257,12 +257,18 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions =
-        Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-            analysisEnvironment.getActionKeyContext(),
-            analysisEnvironment.getRegisteredActions(),
-            ruleContext.getOwner(),
-            ((Rule) ruleContext.getTarget()).getOutputFiles());
+    GeneratingActions generatingActions = null;
+    try {
+      generatingActions =
+          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+              analysisEnvironment.getActionKeyContext(),
+              analysisEnvironment.getRegisteredActions(),
+              ruleContext.getOwner(),
+              ((Rule) ruleContext.getTarget()).getOutputFiles());
+    } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
     return new RuleConfiguredTarget(
         ruleContext,
         providers,
