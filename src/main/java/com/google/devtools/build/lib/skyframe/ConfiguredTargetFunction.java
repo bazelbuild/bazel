@@ -1118,7 +1118,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
-    } catch (ActionConflictException | InvalidExecGroupException e) {
+    } catch (ActionConflictException e) {
+      e.reportTo(env.getListener());
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
+    } catch (InvalidExecGroupException e) {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
