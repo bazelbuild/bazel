@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -118,8 +119,9 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       try {
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             ConfiguredTargetFunction.computeDependencies(
-                new ConfiguredTargetFunction.State(
-                    /*storeTransitivePackagesForPackageRootResolution=*/ false),
+                new ConfiguredTargetFunction.ComputeDependenciesState(),
+                /*transitivePackagesForPackageRootResolution=*/ null,
+                /*transitiveRootCauses=*/ NestedSetBuilder.stableOrder(),
                 env,
                 new SkyframeDependencyResolver(env),
                 (TargetAndConfiguration) skyKey.argument(),

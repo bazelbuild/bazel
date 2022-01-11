@@ -190,6 +190,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
+    @Nullable TargetAndConfiguration targetAndConfiguration;
+
+    ComputeDependenciesState computeDependenciesState = new ComputeDependenciesState();
+
+    State(boolean storeTransitivePackagesForPackageRootResolution) {
+      this.transitivePackagesForPackageRootResolution =
+          storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
+    }
+  }
+
+  static class ComputeDependenciesState implements SkyKeyComputeState {
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
     @Nullable private OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMapResult;
 
@@ -228,17 +239,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
      * thrown away.
      */
     @Nullable private StoredEventHandler storedEventHandlerFromResolveConfigurations;
-
-    State(boolean storeTransitivePackagesForPackageRootResolution) {
-      this.transitivePackagesForPackageRootResolution =
-          storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
-    }
   }
 
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws ReportedException, UnreportedException, InterruptedException {
     State state = env.getState(() -> new State(storeTransitivePackagesForPackageRootResolution));
+
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
       env =
           new StateInformingSkyFunctionEnvironment(
@@ -246,57 +253,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               /*preFetch=*/ this::maybeReleaseSemaphore,
               /*postFetch=*/ () -> maybeAcquireSemaphoreWithLogging(key));
     }
-    SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
 
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
-    Label label = configuredTargetKey.getLabel();
-    BuildConfigurationValue configuration = null;
-    ImmutableSet<SkyKey> packageAndMaybeConfiguration;
-    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
-    SkyKey configurationKeyMaybe = configuredTargetKey.getConfigurationKey();
-    if (configurationKeyMaybe == null) {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
-    } else {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
-    }
-    Map<SkyKey, SkyValue> packageAndMaybeConfigurationValues =
-        env.getValues(packageAndMaybeConfiguration);
-    if (env.valuesMissing()) {
+    TargetAndConfiguration targetAndConfiguration =
+        getTargetAndConfiguration(configuredTargetKey, state, env);
+    if (targetAndConfiguration == null) {
       return null;
     }
-    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
-    if (configurationKeyMaybe != null) {
-      configuration =
-          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
-    }
-
-    // TODO(ulfjack): This tries to match the logic in TransitiveTargetFunction /
-    // TargetMarkerFunction. Maybe we can merge the two?
-    Package pkg = packageValue.getPackage();
-    Target target;
-    try {
-      target = pkg.getTarget(label.getName());
-    } catch (NoSuchTargetException e) {
-      if (!e.getMessage().isEmpty()) {
-        env.getListener().handle(Event.error(pkg.getBuildFile().getLocation(), e.getMessage()));
-      }
-      throw new ReportedException(
-          new ConfiguredValueCreationException(
-              pkg.getBuildFile().getLocation(),
-              e.getMessage(),
-              label,
-              configuration.getEventId(),
-              null,
-              e.getDetailedExitCode()));
-    }
-    if (pkg.containsErrors()) {
-      FailureDetail failureDetail = pkg.contextualizeFailureDetailForTarget(target);
-      state.transitiveRootCauses.add(
-          new LoadingFailedCause(label, DetailedExitCode.of(failureDetail)));
-    }
-    if (state.transitivePackagesForPackageRootResolution != null) {
-      state.transitivePackagesForPackageRootResolution.add(pkg);
-    }
+    Target target = targetAndConfiguration.getTarget();
     if (target.isConfigurable() == (configuredTargetKey.getConfigurationKey() == null)) {
       // We somehow ended up in a target that requires a non-null configuration as a dependency of
       // one that requires a null configuration or the other way round. This is always an error, but
@@ -310,10 +274,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               : state.transitivePackagesForPackageRootResolution.build());
     }
 
-    TargetAndConfiguration ctgValue = new TargetAndConfiguration(target, configuration);
-
+    SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
-
     ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
     ExecGroupCollection.Builder execGroupCollectionBuilder = null;
 
@@ -326,7 +288,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Determine what toolchains are needed by this target.
       ComputedToolchainContexts result =
           computeUnloadedToolchainContexts(
-              env, ruleClassProvider, ctgValue, configuredTargetKey.getExecutionPlatformLabel());
+              env,
+              ruleClassProvider,
+              targetAndConfiguration,
+              configuredTargetKey.getExecutionPlatformLabel());
       if (env.valuesMissing()) {
         return null;
       }
@@ -337,7 +302,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfigConditions configConditions =
           getConfigConditions(
               env,
-              ctgValue,
+              targetAndConfiguration,
               state.transitivePackagesForPackageRootResolution,
               unloadedToolchainContexts == null
                   ? null
@@ -360,7 +325,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .handle(Event.error(target.getLocation(), "Cannot compute config conditions"));
         throw new ReportedException(
             new ConfiguredValueCreationException(
-                ctgValue,
+                targetAndConfiguration,
                 "Cannot compute config conditions",
                 causes,
                 getPrioritizedDetailedExitCode(causes)));
@@ -369,16 +334,19 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Calculate the dependencies of this target.
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap =
           computeDependencies(
-              state,
+              state.computeDependenciesState,
+              state.transitivePackagesForPackageRootResolution,
+              state.transitiveRootCauses,
               env,
               resolver,
-              ctgValue,
+              targetAndConfiguration,
               ImmutableList.of(),
               configConditions.asProviders(),
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
-              DependencyResolver.shouldUseToolchainTransition(configuration, ctgValue.getTarget()),
+              DependencyResolver.shouldUseToolchainTransition(
+                  targetAndConfiguration.getConfiguration(), targetAndConfiguration.getTarget()),
               ruleClassProvider,
               view.getHostConfiguration());
       if (!state.transitiveRootCauses.isEmpty()) {
@@ -387,7 +355,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         // BuildTool to handle. Calling code needs to be untangled for that to work and pass tests.
         throw new UnreportedException(
             new ConfiguredValueCreationException(
-                ctgValue, "Analysis failed", causes, getPrioritizedDetailedExitCode(causes)));
+                targetAndConfiguration,
+                "Analysis failed",
+                causes,
+                getPrioritizedDetailedExitCode(causes)));
       }
       if (env.valuesMissing()) {
         return null;
@@ -416,7 +387,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           createConfiguredTarget(
               view,
               env,
-              ctgValue,
+              targetAndConfiguration,
               configuredTargetKey,
               depValueMap,
               configConditions,
@@ -458,7 +429,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           cvce != null
               ? cvce
               : new ConfiguredValueCreationException(
-                  ctgValue, errorMessage, null, e.getDetailedExitCode()));
+                  targetAndConfiguration, errorMessage, null, e.getDetailedExitCode()));
     } catch (ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
@@ -468,7 +439,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (AspectCreationException e) {
       throw new ReportedException(
           new ConfiguredValueCreationException(
-              ctgValue, e.getMessage(), e.getCauses(), e.getDetailedExitCode()));
+              targetAndConfiguration, e.getMessage(), e.getCauses(), e.getDetailedExitCode()));
     } catch (ToolchainException e) {
       String message =
           String.format(
@@ -477,7 +448,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfiguredValueCreationException cvce = asConfiguredValueCreationException(e);
       if (cvce == null) {
         cvce =
-            new ConfiguredValueCreationException(ctgValue, message, null, e.getDetailedExitCode());
+            new ConfiguredValueCreationException(
+                targetAndConfiguration, message, null, e.getDetailedExitCode());
       }
       if (!message.isEmpty()) {
         // Report the error to the user.
@@ -487,6 +459,64 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } finally {
       maybeReleaseSemaphore();
     }
+  }
+
+  @Nullable
+  private TargetAndConfiguration getTargetAndConfiguration(
+      ConfiguredTargetKey configuredTargetKey, State state, Environment env)
+      throws InterruptedException, ReportedException {
+    if (state.targetAndConfiguration != null) {
+      return state.targetAndConfiguration;
+    }
+    Label label = configuredTargetKey.getLabel();
+    BuildConfigurationValue configuration = null;
+    ImmutableSet<SkyKey> packageAndMaybeConfiguration;
+    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
+    SkyKey configurationKeyMaybe = configuredTargetKey.getConfigurationKey();
+    if (configurationKeyMaybe == null) {
+      packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
+    } else {
+      packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
+    }
+    Map<SkyKey, SkyValue> packageAndMaybeConfigurationValues =
+        env.getValues(packageAndMaybeConfiguration);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
+    Package pkg = packageValue.getPackage();
+    if (configurationKeyMaybe != null) {
+      configuration =
+          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
+    }
+    // TODO(ulfjack): This tries to match the logic in TransitiveTargetFunction /
+    // TargetMarkerFunction. Maybe we can merge the two?
+    Target target;
+    try {
+      target = pkg.getTarget(label.getName());
+    } catch (NoSuchTargetException e) {
+      if (!e.getMessage().isEmpty()) {
+        env.getListener().handle(Event.error(pkg.getBuildFile().getLocation(), e.getMessage()));
+      }
+      throw new ReportedException(
+          new ConfiguredValueCreationException(
+              pkg.getBuildFile().getLocation(),
+              e.getMessage(),
+              label,
+              configuration.getEventId(),
+              null,
+              e.getDetailedExitCode()));
+    }
+    if (pkg.containsErrors()) {
+      FailureDetail failureDetail = pkg.contextualizeFailureDetailForTarget(target);
+      state.transitiveRootCauses.add(
+          new LoadingFailedCause(label, DetailedExitCode.of(failureDetail)));
+    }
+    if (state.transitivePackagesForPackageRootResolution != null) {
+      state.transitivePackagesForPackageRootResolution.add(pkg);
+    }
+    state.targetAndConfiguration = new TargetAndConfiguration(target, configuration);
+    return state.targetAndConfiguration;
   }
 
   /**
@@ -681,7 +711,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   //   involve making a corresponding change to State to match the control flow.
   @Nullable
   static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
-      State state,
+      ComputeDependenciesState state,
+      @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
+      NestedSetBuilder<Cause> transitiveRootCauses,
       Environment env,
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
@@ -717,7 +749,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   configConditions,
                   toolchainContexts,
                   useToolchainTransition,
-                  state.transitiveRootCauses,
+                  transitiveRootCauses,
                   ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
         } catch (DependencyResolver.Failure e) {
           env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
@@ -774,8 +806,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               env,
               ctgValue,
               depValueNames.values(),
-              state.transitivePackagesForPackageRootResolution,
-              state.transitiveRootCauses);
+              transitivePackagesForPackageRootResolution,
+              transitiveRootCauses);
       if (env.valuesMissing()) {
         return null;
       }
@@ -789,10 +821,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } else {
       depAspects =
           AspectResolver.resolveAspectDependencies(
-              env,
-              depValues,
-              depValueNames.values(),
-              state.transitivePackagesForPackageRootResolution);
+              env, depValues, depValueNames.values(), transitivePackagesForPackageRootResolution);
       if (env.valuesMissing()) {
         return null;
       }
