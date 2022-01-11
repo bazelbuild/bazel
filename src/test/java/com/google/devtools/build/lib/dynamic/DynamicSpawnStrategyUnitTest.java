@@ -28,12 +28,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
@@ -41,6 +42,8 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.dynamic.DynamicSpawnStrategy.LocalBranch;
+import com.google.devtools.build.lib.dynamic.DynamicSpawnStrategy.RemoteBranch;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
@@ -57,6 +60,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.After;
 import org.junit.Before;
@@ -419,13 +423,26 @@ public class DynamicSpawnStrategyUnitTest {
     SandboxedSpawnStrategy local = createMockSpawnStrategy();
     SandboxedSpawnStrategy remote = createMockSpawnStrategy();
     ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>();
+    DynamicExecutionOptions options = new DynamicExecutionOptions();
+    LocalBranch localBranch =
+        new LocalBranch(
+            actionExecutionContext, spawn, strategyThatCancelled, options, null, null, null);
+    RemoteBranch remoteBranch =
+        new RemoteBranch(actionExecutionContext, spawn, strategyThatCancelled, options, null, null);
+    SettableFuture<ImmutableList<SpawnResult>> localFuture =
+        localBranch.prepareFuture(remoteBranch);
+    SettableFuture<ImmutableList<SpawnResult>> remoteFuture =
+        remoteBranch.prepareFuture(localBranch);
+    localFuture.set(null);
+    remoteFuture.set(null);
     AssertionError error =
         assertThrows(
             AssertionError.class,
             () ->
                 DynamicSpawnStrategy.waitBranches(
-                    Futures.immediateFuture(null),
-                    Futures.immediateFuture(null),
+                    localBranch,
+                    remoteBranch,
                     spawn,
                     new DynamicExecutionOptions(),
                     actionExecutionContext));
