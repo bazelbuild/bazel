@@ -1,3 +1,15 @@
+## Release 6.0.0-pre.20211220.1 (2022-01-11)
+
+```
+Baseline: 7f55cb768ae22352ac6599086e7cf6525a9565a5
+```
+
+Important changes:
+
+  - Match remote and local xcode version by most granular version.
+
+This release contains contributions from many people at Google, as well as Kevin Lin, lihu.
+
 ## Release 6.0.0-pre.20211215.3 (2021-12-21)
 
 ```
