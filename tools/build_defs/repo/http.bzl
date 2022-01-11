@@ -241,9 +241,8 @@ to omit the checksum as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but either this attribute or `sha256` should be set before shipping.""",
     ),
-    "netrc": attr.label(
-        doc = "A label that specifies the location of the .netrc file to use for authentication.",
-        allow_single_file = True,
+    "netrc": attr.string(
+        doc = "Location of the .netrc file to use for authentication",
     ),
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
@@ -444,9 +443,8 @@ unless it was added to the cache by a request with the same canonical id.
 Each entry must be a file, http or https URL. Redirections are followed.
 Authentication is not supported.""",
     ),
-    "netrc": attr.label(
-        doc = "A label that specifies the location of the .netrc file to use for authentication.",
-        allow_single_file = True,
+    "netrc": attr.string(
+        doc = "Location of the .netrc file to use for authentication",
     ),
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
@@ -499,9 +497,8 @@ unless it was added to the cache by a request with the same canonical id.
             "A list of URLS the jar can be fetched from. They have to end " +
             "in `.jar`.",
     ),
-    "netrc": attr.label(
-        doc = "A label that specifies the location of the .netrc file to use for authentication.",
-        allow_single_file = True,
+    "netrc": attr.string(
+        doc = "Location of the .netrc file to use for authentication",
     ),
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
