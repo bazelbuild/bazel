@@ -25,17 +25,35 @@ java_library(
 )
 
 java_library(
+    name = "globber",
+    srcs = ["Globber.java"],
+)
+
+java_library(
+    name = "globber_utils",
+    srcs = ["GlobberUtils.java"],
+    deps = [
+        ":globber",
+        "//third_party:error_prone_annotations",
+    ],
+)
+
+java_library(
     name = "packages",
     srcs = glob(
         ["*.java"],
         exclude = [
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
+            "Globber.java",
+            "GlobberUtils.java",
             "ExecGroup.java",
             "ConfiguredAttributeMapper.java",
         ],
     ),
     deps = [
         ":exec_group",
+        ":globber",
+        ":globber_utils",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",

@@ -610,8 +610,9 @@ public final class PackageFactory {
     if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
       try {
         boolean allowEmpty = true;
-        globber.runAsync(globs, ImmutableList.of(), /*excludeDirs=*/ true, allowEmpty);
-        globber.runAsync(globsWithDirs, ImmutableList.of(), /*excludeDirs=*/ false, allowEmpty);
+        globber.runAsync(globs, ImmutableList.of(), Globber.Operation.FILES, allowEmpty);
+        globber.runAsync(
+            globsWithDirs, ImmutableList.of(), Globber.Operation.FILES_AND_DIRS, allowEmpty);
       } catch (BadGlobException ex) {
         logger.atWarning().withCause(ex).log(
             "Suppressing exception for globs=%s, globsWithDirs=%s", globs, globsWithDirs);

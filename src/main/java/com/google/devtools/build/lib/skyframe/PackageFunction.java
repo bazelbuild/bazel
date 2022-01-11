@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Globber;
+import com.google.devtools.build.lib.packages.GlobberUtils;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
@@ -854,9 +855,12 @@ public class PackageFunction implements SkyFunction {
 
     @Override
     public Token runAsync(
-        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
+        List<String> includes,
+        List<String> excludes,
+        Globber.Operation globberOperation,
+        boolean allowEmpty)
         throws BadGlobException, InterruptedException {
-      return delegate.runAsync(includes, excludes, excludeDirs, allowEmpty);
+      return delegate.runAsync(includes, excludes, globberOperation, allowEmpty);
     }
 
     @Override
@@ -956,10 +960,11 @@ public class PackageFunction implements SkyFunction {
       return ImmutableSet.copyOf(globDepsRequested);
     }
 
-    private SkyKey getGlobKey(String pattern, boolean excludeDirs) throws BadGlobException {
+    private SkyKey getGlobKey(String pattern, Globber.Operation globberOperation)
+        throws BadGlobException {
       try {
         return GlobValue.key(
-            packageId, packageRoot, pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
+            packageId, packageRoot, pattern, globberOperation, PathFragment.EMPTY_FRAGMENT);
       } catch (InvalidGlobPatternException e) {
         throw new BadGlobException(e.getMessage());
       }
@@ -967,13 +972,16 @@ public class PackageFunction implements SkyFunction {
 
     @Override
     public Token runAsync(
-        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
+        List<String> includes,
+        List<String> excludes,
+        Globber.Operation globberOperation,
+        boolean allowEmpty)
         throws BadGlobException, InterruptedException {
       LinkedHashSet<SkyKey> globKeys = Sets.newLinkedHashSetWithExpectedSize(includes.size());
       Map<SkyKey, String> globKeyToPatternMap = Maps.newHashMapWithExpectedSize(includes.size());
 
       for (String pattern : includes) {
-        SkyKey globKey = getGlobKey(pattern, excludeDirs);
+        SkyKey globKey = getGlobKey(pattern, globberOperation);
         globKeys.add(globKey);
         globKeyToPatternMap.put(globKey, pattern);
       }
@@ -997,9 +1005,9 @@ public class PackageFunction implements SkyFunction {
           globsToDelegate.isEmpty()
               ? null
               : nonSkyframeGlobber.runAsync(
-                  globsToDelegate, ImmutableList.of(), excludeDirs, allowEmpty);
+                  globsToDelegate, ImmutableList.of(), globberOperation, allowEmpty);
       return new HybridToken(
-          globValueMap, globKeys, nonSkyframeIncludesToken, excludes, allowEmpty);
+          globValueMap, globKeys, nonSkyframeIncludesToken, excludes, globberOperation, allowEmpty);
     }
 
     private static Collection<SkyKey> getMissingKeys(
@@ -1057,6 +1065,8 @@ public class PackageFunction implements SkyFunction {
 
       private final List<String> excludes;
 
+      private final Globber.Operation globberOperation;
+
       private final boolean allowEmpty;
 
       private HybridToken(
@@ -1064,11 +1074,13 @@ public class PackageFunction implements SkyFunction {
           Iterable<SkyKey> includesGlobKeys,
           @Nullable NonSkyframeGlobber.Token nonSkyframeGlobberIncludesToken,
           List<String> excludes,
+          Globber.Operation globberOperation,
           boolean allowEmpty) {
         this.globValueMap = globValueMap;
         this.includesGlobKeys = includesGlobKeys;
         this.nonSkyframeGlobberIncludesToken = nonSkyframeGlobberIncludesToken;
         this.excludes = excludes;
+        this.globberOperation = globberOperation;
         this.allowEmpty = allowEmpty;
       }
 
@@ -1083,12 +1095,8 @@ public class PackageFunction implements SkyFunction {
             foundMatch = true;
           }
           if (!allowEmpty && !foundMatch) {
-            throw new BadGlobException(
-                "glob pattern '"
-                    + ((GlobDescriptor) includeGlobKey.argument()).getPattern()
-                    + "' didn't match anything, but allow_empty is set to False "
-                    + "(the default value of allow_empty can be set with "
-                    + "--incompatible_disallow_empty_glob).");
+            GlobberUtils.throwBadGlobExceptionEmptyResult(
+                ((GlobDescriptor) includeGlobKey.argument()).getPattern(), globberOperation);
           }
         }
         if (nonSkyframeGlobberIncludesToken != null) {
@@ -1102,10 +1110,7 @@ public class PackageFunction implements SkyFunction {
         List<String> result = new ArrayList<>(matches);
 
         if (!allowEmpty && result.isEmpty()) {
-          throw new BadGlobException(
-              "all files in the glob have been excluded, but allow_empty is set to False "
-                  + "(the default value of allow_empty can be set with "
-                  + "--incompatible_disallow_empty_glob).");
+          GlobberUtils.throwBadGlobExceptionAllExcluded(globberOperation);
         }
         return result;
       }

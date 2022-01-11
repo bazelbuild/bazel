@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -136,10 +137,12 @@ public class RecursiveGlobTest {
 
   @Test
   public void testRecursiveGlobsAreOptimized() throws Exception {
-    long numGlobTasks = new UnixGlob.Builder(tmpPath)
-        .addPattern("**")
-        .setExcludeDirectories(false)
-        .globInterruptibleAndReturnNumGlobTasksForTesting();
+    long numGlobTasks =
+        new UnixGlob.Builder(tmpPath)
+            .addPattern("**")
+            .setPathDiscriminator(
+                new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> !isDir))
+            .globInterruptibleAndReturnNumGlobTasksForTesting();
 
     // The old glob implementation used to use 41 total glob tasks.
     // Yes, checking for an exact value here is super brittle, but it lets us catch performance

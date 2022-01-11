@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -62,6 +63,7 @@ public final class GlobFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws GlobFunctionException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
+    Globber.Operation globberOperation = glob.globberOperation();
 
     RepositoryName repositoryName = glob.getPackageId().getRepository();
     IgnoredPackagePrefixesValue ignoredPackagePrefixes =
@@ -121,7 +123,6 @@ public final class GlobFunction implements SkyFunction {
 
     boolean globMatchesBareFile = patternTail == null;
 
-
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
     if (alwaysUseDirListing || containsGlobs(patternHead)) {
       // Pattern contains globs, so a directory listing is required.
@@ -139,7 +140,8 @@ public final class GlobFunction implements SkyFunction {
         // "**" also matches an empty segment, so try the case where it is not present.
         if (globMatchesBareFile) {
           // Recursive globs aren't supposed to match the package's directory.
-          if (!glob.excludeDirs() && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
+          if (globberOperation == Globber.Operation.FILES_AND_DIRS
+              && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
             matches.add(globSubdir);
           }
         } else {
@@ -152,7 +154,7 @@ public final class GlobFunction implements SkyFunction {
                   glob.getPackageRoot(),
                   globSubdir,
                   patternTail,
-                  glob.excludeDirs());
+                  globberOperation);
           Map<SkyKey, SkyValue> listingAndRecursiveGlobMap =
               env.getValues(
                   ImmutableList.of(keyForRecursiveGlobInCurrentDirectory, directoryListingKey));
@@ -369,7 +371,7 @@ public final class GlobFunction implements SkyFunction {
   private static SkyKey getSkyKeyForSubdir(
       String fileName, GlobDescriptor glob, String subdirPattern) {
     if (subdirPattern == null) {
-      if (glob.excludeDirs()) {
+      if (glob.globberOperation() == Globber.Operation.FILES) {
         return null;
       } else {
         return PackageLookupValue.key(
@@ -389,7 +391,7 @@ public final class GlobFunction implements SkyFunction {
           glob.getPackageRoot(),
           glob.getSubdir().getRelative(fileName),
           subdirPattern,
-          glob.excludeDirs());
+          glob.globberOperation());
     }
   }
 
