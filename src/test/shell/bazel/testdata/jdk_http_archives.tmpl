@@ -18,32 +18,32 @@ http_archive(
 #################################### JDK 11 ####################################
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk11_linux_archive},
+    {openjdk11_linux_archive}
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk11_darwin_archive},
+    {openjdk11_darwin_archive}
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk11_darwin_aarch64_archive},
+    {openjdk11_darwin_aarch64_archive}
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk11_windows_archive},
+    {openjdk11_windows_archive}
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
 )
 
 #################################### JDK 15 ####################################
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk15_linux_archive},
+    {openjdk15_linux_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -52,7 +52,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk15_darwin_archive},
+    {openjdk15_darwin_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -61,7 +61,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk15_darwin_aarch64_archive},
+    {openjdk15_darwin_aarch64_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -70,7 +70,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk15_windows_archive},
+    {openjdk15_windows_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -80,7 +80,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 #################################### JDK 16 ####################################
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk16_linux_archive},
+    {openjdk16_linux_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -89,7 +89,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    {openjdk16_darwin_archive},
+    {openjdk16_darwin_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -98,7 +98,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    {openjdk16_darwin_aarch64_archive},
+    {openjdk16_darwin_aarch64_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -107,7 +107,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    {openjdk16_windows_archive},
+    {openjdk16_windows_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -117,7 +117,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 #################################### JDK 17 ####################################
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
-    {openjdk17_linux_archive},
+    {openjdk17_linux_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -126,7 +126,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    {openjdk17_darwin_archive},
+    {openjdk17_darwin_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -135,7 +135,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    {openjdk17_darwin_aarch64_archive},
+    {openjdk17_darwin_aarch64_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -144,7 +144,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    {openjdk17_windows_archive},
+    {openjdk17_windows_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
