@@ -400,7 +400,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         False,
     ), ":")
 
-    bazel_linkopts = "-lstdc++:-lm"
+    bazel_linkopts = "-lc++:-lm" if darwin else "-lstdc++:-lm"
     bazel_linklibs = ""
     if repository_ctx.flag_enabled("incompatible_linkopts_to_linklibs"):
         bazel_linkopts, bazel_linklibs = bazel_linklibs, bazel_linkopts
