@@ -109,7 +109,7 @@ java_lite_proto_aspect = aspect(
     attr_aspects = ["deps"],
     attrs = {
         PROTO_TOOLCHAIN_ATTR: attr.label(
-            default = Label(semantics.JAVA_LITE_PROTO_TOOLCHAIN_LABEL),
+            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),
         JAVA_TOOLCHAIN_ATTR: attr.label(
             default = Label(semantics.JAVA_TOOLCHAIN_LABEL),

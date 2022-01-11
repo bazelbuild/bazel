@@ -255,6 +255,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.protoToolchainForJ2objc;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_toolchain_for_java_lite",
+      doc = "Label for the java lite proto toolchains.",
+      defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
   public Label protoToolchainForJavaLite() {
     return options.protoToolchainForJavaLite;
   }
