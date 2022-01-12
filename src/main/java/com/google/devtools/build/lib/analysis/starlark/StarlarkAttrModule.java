@@ -268,10 +268,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
         aspect.attachToAspectsList(
             /** baseAspectName= */
-            null,
-            builder.getAspectsListBuilder(),
-            /** allowAspectsParameters= */
-            true);
+            null, builder.getAspectsListBuilder());
       }
     }
 

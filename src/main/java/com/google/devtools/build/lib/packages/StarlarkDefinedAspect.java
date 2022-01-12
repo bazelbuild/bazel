@@ -347,8 +347,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   }
 
   @Override
-  public void attachToAspectsList(
-      String baseAspectName, AspectsListBuilder aspectsList, boolean allowAspectsParameters)
+  public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
       throws EvalException {
 
     if (!this.isExported()) {
@@ -356,12 +355,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
           "Aspects should be top-level values in extension files that define them.");
     }
 
-    if (!allowAspectsParameters && !this.paramAttributes.isEmpty()) {
-      throw Starlark.errorf("Cannot use parameterized aspect %s at the top level.", this.getName());
-    }
-
     for (StarlarkAspect requiredAspect : requiredAspects) {
-      requiredAspect.attachToAspectsList(this.getName(), aspectsList, allowAspectsParameters);
+      requiredAspect.attachToAspectsList(this.getName(), aspectsList);
     }
 
     aspectsList.addAspect(this, baseAspectName);

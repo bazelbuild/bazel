@@ -5993,64 +5993,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testTopLevelAspectRequiresAspect_requiredNativeAspect_parametersNotAllowed()
-      throws Exception {
-    exposeNativeAspectToStarlark();
-    scratch.file(
-        "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   return []",
-        "aspect_a = aspect(implementation = _impl,",
-        "                  requires = [parametrized_native_aspect])");
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
-    reporter.removeHandler(failFastHandler);
-
-    // The call to `update` does not throw an exception when "--keep_going" is passed in the
-    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
-    if (keepGoing()) {
-      AnalysisResult result =
-          update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
-      assertThat(result.hasError()).isTrue();
-    } else {
-      assertThrows(
-          ViewCreationFailedException.class,
-          () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
-    }
-    assertContainsEvent(
-        "Cannot use parameterized aspect ParametrizedAspectWithProvider at the top level.");
-  }
-
-  @Test
-  public void testTopLevelAspectRequiresAspect_requiredStarlarkAspect_parametersNotAllowed()
-      throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file(
-        "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   return []",
-        "aspect_b = aspect(implementation = _impl,",
-        "                  attrs = {'attr': attr.string(values=['val'])})",
-        "aspect_a = aspect(implementation = _impl,",
-        "                  requires = [aspect_b])");
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
-    reporter.removeHandler(failFastHandler);
-
-    // The call to `update` does not throw an exception when "--keep_going" is passed in the
-    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
-    if (keepGoing()) {
-      AnalysisResult result =
-          update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
-      assertThat(result.hasError()).isTrue();
-    } else {
-      assertThrows(
-          ViewCreationFailedException.class,
-          () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
-    }
-    assertContainsEvent(
-        "Cannot use parameterized aspect //test:defs.bzl%aspect_b at the top level.");
-  }
-
-  @Test
   public void testTopLevelAspectRequiresAspect_ruleAttributes() throws Exception {
     scratch.file(
         "test/defs.bzl",
@@ -6711,7 +6653,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(
@@ -6789,7 +6730,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -6853,7 +6793,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(
@@ -6925,7 +6864,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(
@@ -6990,7 +6928,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7055,7 +6992,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7132,7 +7068,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7196,7 +7131,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7252,7 +7186,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(
@@ -7704,7 +7637,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7767,7 +7699,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(
@@ -7823,7 +7754,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target");
@@ -8139,7 +8069,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(
@@ -8195,7 +8124,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target");
@@ -8248,7 +8176,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule(",
         "  name = 'dep_target_2',",
         ")");
-    useConfiguration("--experimental_allow_top_level_aspects_parameters");
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
