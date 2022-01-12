@@ -32,3 +32,10 @@ bazel_dep(name = "rules_cc", version = "0.0.1")
 bazel_dep(name = "rules_python", version = "0.4.0")
 bazel_dep(name = "rules_java", version = "5.0.0")
 bazel_dep(name = "rules_proto", version = "4.0.0")
+
+# TODO(pcloudy): Remove this when rules_jvm_external adopts Bzlmod.
+single_version_override(
+  module_name = "protobuf",
+  patches = ["//third_party/protobuf:3.19.2.bzlmod.patch"],
+  patch_strip = 1,
+)
