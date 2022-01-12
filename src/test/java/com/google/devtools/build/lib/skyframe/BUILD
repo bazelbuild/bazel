@@ -152,6 +152,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",

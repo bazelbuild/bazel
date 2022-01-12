@@ -13,15 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainCollectionSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -57,7 +65,7 @@ import org.junit.runners.JUnit4;
  * doesn't support direct access to environments.
  */
 @RunWith(JUnit4.class)
-public class ToolchainsForTargetsTest extends AnalysisTestCase {
+public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   /** Returns a {@link SkyKey} for a given <Target, BuildConfigurationValue> pair. */
   private static Key key(
       TargetAndConfiguration targetAndConfiguration, ConfiguredTargetKey configuredTargetKey) {
@@ -469,5 +477,55 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
     assertThat(toolchainCollection)
         .defaultToolchainContext()
         .hasExecutionPlatform("//platforms:local_platform_b");
+  }
+
+  /** Regression test for b/214105142, https://github.com/bazelbuild/bazel/issues/14521 */
+  @Test
+  public void toolchainWithDifferentExecutionPlatforms_doesNotGenerateConflictingCoverageAction()
+      throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        "constraint_setting(name = 'local_setting')",
+        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
+        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
+        "platform(name = 'local_platform_a', constraint_values = [':local_value_a'])",
+        "platform(name = 'local_platform_b', constraint_values = [':local_value_b'])");
+    scratch.file(
+        "a/BUILD",
+        "load('//toolchain:rule.bzl', 'my_rule')",
+        "my_rule(name='a', exec_compatible_with=['//platforms:local_value_a'])",
+        "my_rule(name='b', exec_compatible_with=['//platforms:local_value_b'])");
+    useConfiguration(
+        "--collect_code_coverage",
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
+
+    update("//a:a", "//a:b");
+
+    // Sanity check that a coverage action was generated for the rule itself.
+    assertHasBaselineCoverageAction("//a:a", "Writing file a/a/baseline_coverage.dat");
+    assertHasBaselineCoverageAction("//a:b", "Writing file a/b/baseline_coverage.dat");
+    assertThat(getActions("//toolchains:toolchain_1_impl")).isEmpty();
+    ToolchainContext toolchainAContext =
+        getToolchainCollection("//a:a").getDefaultToolchainContext();
+    assertThat(toolchainAContext).hasExecutionPlatform("//platforms:local_platform_a");
+    assertThat(toolchainAContext).hasToolchainType("//toolchain:test_toolchain");
+    assertThat(toolchainAContext).hasResolvedToolchain("//toolchains:toolchain_1_impl");
+    ToolchainContext toolchainBContext =
+        getToolchainCollection("//a:b").getDefaultToolchainContext();
+    assertThat(toolchainBContext).hasExecutionPlatform("//platforms:local_platform_b");
+    assertThat(toolchainBContext).hasToolchainType("//toolchain:test_toolchain");
+    assertThat(toolchainBContext).hasResolvedToolchain("//toolchains:toolchain_1_impl");
+  }
+
+  private void assertHasBaselineCoverageAction(String label, String progressMessage)
+      throws InterruptedException {
+    Action coverageAction = Iterables.getOnlyElement(getActions(label));
+    assertThat(coverageAction).isInstanceOf(BaselineCoverageAction.class);
+    assertThat(coverageAction.getProgressMessage()).isEqualTo(progressMessage);
+  }
+
+  private ImmutableList<Action> getActions(String label) throws InterruptedException {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream().map(Action.class::cast).collect(toImmutableList());
   }
 }
