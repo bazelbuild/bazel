@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
@@ -122,6 +123,11 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
     return (isCancelled() ? "cancelled" : "not cancelled")
         + " and "
         + (isDone() ? "done" : "not done");
+  }
+
+  /** Executes this branch using the provided executor. */
+  public void execute(ListeningExecutorService executor) {
+    future.setFuture(executor.submit(this));
   }
 
   /**

@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
@@ -45,6 +44,8 @@ import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
@@ -105,6 +106,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   /** Limit on how many threads we should use for dynamic execution. */
   private final Semaphore threadLimiter;
+
+  /** Set of jobs that are waiting for local execution. */
+  private final Deque<LocalBranch> waitingLocalJobs = new ArrayDeque<>();
 
   /**
    * Constructs a {@code DynamicSpawnStrategy}.
@@ -203,69 +207,76 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return nonDynamicResults;
     }
 
-    // True if we got the threads we need for actual dynamic execution.
-    boolean gotThreads = false;
+    // Extra logging to debug b/194373457
+    logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+        "Spawn %s dynamically executed both ways", spawn.getResourceOwner().describe());
+    debugLog("Dynamic execution of %s beginning%n", spawn.getResourceOwner().prettyPrint());
+    // else both can exec. Fallthrough to below.
+
+    AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>(null);
+
+    LocalBranch localBranch =
+        new LocalBranch(
+            actionExecutionContext,
+            spawn,
+            strategyThatCancelled,
+            options,
+            ignoreFailureCheck,
+            getExtraSpawnForLocalExecution,
+            delayLocalExecution);
+    RemoteBranch remoteBranch =
+        new RemoteBranch(
+            actionExecutionContext,
+            spawn,
+            strategyThatCancelled,
+            options,
+            ignoreFailureCheck,
+            delayLocalExecution);
+
+    localBranch.prepareFuture(remoteBranch);
+    remoteBranch.prepareFuture(localBranch);
+    synchronized (waitingLocalJobs) {
+      waitingLocalJobs.add(localBranch);
+    }
+    tryScheduleLocalJob();
+    remoteBranch.execute(executorService);
+
     try {
-      if (threadLimiter.tryAcquire()) {
-        gotThreads = true;
-      } else {
-        // If there are no threads available for dynamic execution because we're limited
-        // to the number of CPUs, we can just execute remotely.
-        return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
-      }
-
-      // Extra logging to debug b/194373457
-      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
-          "Spawn %s dynamically executed both ways", spawn.getResourceOwner().describe());
-      debugLog("Dynamic execution of %s beginning%n", spawn.getResourceOwner().prettyPrint());
-      // else both can exec. Fallthrough to below.
-
-      AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>(null);
-
-      LocalBranch localBranch =
-          new LocalBranch(
-              actionExecutionContext,
-              spawn,
-              strategyThatCancelled,
-              options,
-              ignoreFailureCheck,
-              getExtraSpawnForLocalExecution,
-              delayLocalExecution);
-      RemoteBranch remoteBranch =
-          new RemoteBranch(
-              actionExecutionContext,
-              spawn,
-              strategyThatCancelled,
-              options,
-              ignoreFailureCheck,
-              delayLocalExecution);
-
-      SettableFuture<ImmutableList<SpawnResult>> localFuture =
-          localBranch.prepareFuture(remoteBranch);
-      SettableFuture<ImmutableList<SpawnResult>> remoteFuture =
-          remoteBranch.prepareFuture(localBranch);
-      localFuture.setFuture(executorService.submit(localBranch));
-      remoteFuture.setFuture(executorService.submit(remoteBranch));
-
-      try {
-        return waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
-      } finally {
-        checkState(localBranch.isDone());
-        checkState(remoteBranch.isDone());
-        logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
-            "Dynamic execution of %s ended with local %s, remote %s%n",
-            spawn.getResourceOwner().prettyPrint(),
-            localBranch.isCancelled() ? "cancelled" : "done",
-            remoteBranch.isCancelled() ? "cancelled" : "done");
-        debugLog(
-            "Dynamic execution of %s ended with local %s, remote %s%n",
-            spawn.getResourceOwner().prettyPrint(),
-            localBranch.isCancelled() ? "cancelled" : "done",
-            remoteBranch.isCancelled() ? "cancelled" : "done");
-      }
+      return waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
     } finally {
-      if (gotThreads) {
-        threadLimiter.release();
+      checkState(localBranch.isDone());
+      checkState(remoteBranch.isDone());
+      if (!waitingLocalJobs.contains(localBranch)) {
+        synchronized (waitingLocalJobs) {
+          if (!waitingLocalJobs.contains(localBranch)) {
+            threadLimiter.release();
+            tryScheduleLocalJob();
+          }
+        }
+      }
+      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+          "Dynamic execution of %s ended with local %s, remote %s%n",
+          spawn.getResourceOwner().prettyPrint(),
+          localBranch.isCancelled() ? "cancelled" : "done",
+          remoteBranch.isCancelled() ? "cancelled" : "done");
+      debugLog(
+          "Dynamic execution of %s ended with local %s, remote %s%n",
+          spawn.getResourceOwner().prettyPrint(),
+          localBranch.isCancelled() ? "cancelled" : "done",
+          remoteBranch.isCancelled() ? "cancelled" : "done");
+    }
+  }
+
+  /**
+   * Tries to schedule as many local jobs as are permitted by {@link #threadLimiter}. "Scheduling"
+   * here means putting it on a thread and making it start the normal strategy execution, but it
+   * will still have to wait for resources, so it may not execute for a while.
+   */
+  private void tryScheduleLocalJob() {
+    synchronized (waitingLocalJobs) {
+      while (!waitingLocalJobs.isEmpty() && threadLimiter.tryAcquire()) {
+        LocalBranch job = waitingLocalJobs.pollLast();
+        job.execute(executorService);
       }
     }
   }

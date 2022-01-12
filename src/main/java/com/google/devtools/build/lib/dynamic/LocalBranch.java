@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
@@ -132,7 +131,7 @@ class LocalBranch extends Branch {
   }
 
   /** Sets up the {@link Future} used in the local branch to know what remote branch to cancel. */
-  protected SettableFuture<ImmutableList<SpawnResult>> prepareFuture(RemoteBranch remoteBranch) {
+  protected void prepareFuture(RemoteBranch remoteBranch) {
     // TODO(b/203094728): Maybe generify this method and move it up.
     this.remoteBranch = remoteBranch;
     future.addListener(
@@ -147,7 +146,6 @@ class LocalBranch extends Branch {
           }
         },
         MoreExecutors.directExecutor());
-    return future;
   }
 
   @Override

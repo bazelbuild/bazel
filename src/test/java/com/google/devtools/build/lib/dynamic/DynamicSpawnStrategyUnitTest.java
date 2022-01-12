@@ -28,7 +28,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -413,7 +412,7 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
-  public void waitBranches_givesDebugOutputOnWeirdCases() throws Exception {
+  public void waitBranches_givesDebugOutputIfBothCancelled() throws Exception {
     Spawn spawn =
         new SpawnBuilder()
             .withOwnerPrimaryOutput(new SourceArtifact(rootDir, PathFragment.create("/foo"), null))
@@ -428,12 +427,10 @@ public class DynamicSpawnStrategyUnitTest {
             actionExecutionContext, spawn, strategyThatCancelled, options, null, null, null);
     RemoteBranch remoteBranch =
         new RemoteBranch(actionExecutionContext, spawn, strategyThatCancelled, options, null, null);
-    SettableFuture<ImmutableList<SpawnResult>> localFuture =
-        localBranch.prepareFuture(remoteBranch);
-    SettableFuture<ImmutableList<SpawnResult>> remoteFuture =
-        remoteBranch.prepareFuture(localBranch);
-    localFuture.set(null);
-    remoteFuture.set(null);
+    localBranch.prepareFuture(remoteBranch);
+    remoteBranch.prepareFuture(localBranch);
+    localBranch.cancel();
+    remoteBranch.cancel();
     AssertionError error =
         assertThrows(
             AssertionError.class,

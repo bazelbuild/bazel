@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
@@ -111,7 +110,7 @@ class RemoteBranch extends Branch {
   }
 
   /** Sets up the future for this branch, once the other branch is available. */
-  public SettableFuture<ImmutableList<SpawnResult>> prepareFuture(LocalBranch localBranch) {
+  public void prepareFuture(LocalBranch localBranch) {
     this.localBranch = localBranch;
     future.addListener(
         () -> {
@@ -125,7 +124,6 @@ class RemoteBranch extends Branch {
           }
         },
         MoreExecutors.directExecutor());
-    return future;
   }
 
   @Override
