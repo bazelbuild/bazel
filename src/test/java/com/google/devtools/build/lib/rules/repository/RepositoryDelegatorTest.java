@@ -314,31 +314,29 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         RepositoryDirectoryValue.builder()
             .setPath(rootDirectory.getRelative("b"))
             .setFetchingDelayed()
+            .setDigest(new byte[] {1})
             .build();
 
     assertThat(checker.check(key, fetchDelayed, tsgm).isDirty()).isTrue();
 
+    RepositoryName managedName = RepositoryName.create("@managed");
+    RepositoryDirectoryValue.Key managedKey = RepositoryDirectoryValue.key(managedName);
     SuccessfulRepositoryDirectoryValue withManagedDirectories =
         RepositoryDirectoryValue.builder()
             .setPath(rootDirectory.getRelative("c"))
             .setDigest(new byte[] {1})
-            .setManagedDirectories(ImmutableSet.of(PathFragment.create("m")))
             .build();
 
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
+    knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), managedName));
+    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isTrue();
 
     Path managedDirectoryM = rootPath.getRelative("m");
     assertThat(managedDirectoryM.createDirectory()).isTrue();
 
-    knowledge.setManagedDirectories(
-        ImmutableMap.of(PathFragment.create("m"), RepositoryName.create("@other")));
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
-
-    knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), repositoryName));
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isFalse();
+    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isFalse();
 
     managedDirectoryM.deleteTree();
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
+    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isTrue();
   }
 
   @Test
