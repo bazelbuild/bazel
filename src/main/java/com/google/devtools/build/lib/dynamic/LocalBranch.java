@@ -61,10 +61,15 @@ class LocalBranch extends Branch {
       IgnoreFailureCheck ignoreFailureCheck,
       Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution,
       AtomicBoolean delayLocalExecution) {
-    super(DynamicMode.LOCAL, actionExecutionContext, spawn, strategyThatCancelled, options);
+    super(actionExecutionContext, spawn, strategyThatCancelled, options);
     this.ignoreFailureCheck = ignoreFailureCheck;
     this.getExtraSpawnForLocalExecution = getExtraSpawnForLocalExecution;
     this.delayLocalExecution = delayLocalExecution;
+  }
+
+  @Override
+  public DynamicMode getMode() {
+    return LOCAL;
   }
 
   /**
@@ -164,7 +169,7 @@ class LocalBranch extends Branch {
           (exitCode, errorMessage, outErr) -> {
             maybeIgnoreFailure(exitCode, errorMessage, outErr);
             DynamicSpawnStrategy.stopBranch(
-                remoteBranch, this, LOCAL, strategyThatCancelled, options, this.context);
+                remoteBranch, this, strategyThatCancelled, options, this.context);
           },
           getExtraSpawnForLocalExecution);
     } catch (DynamicInterruptedException e) {

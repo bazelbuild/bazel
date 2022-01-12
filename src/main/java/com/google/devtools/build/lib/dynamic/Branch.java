@@ -55,29 +55,32 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
    */
   protected final SettableFuture<ImmutableList<SpawnResult>> future = SettableFuture.create();
 
+  /**
+   * The strategy (local or remote) that cancelled the other one. Null until one has been cancelled.
+   * This object is shared between the local and remote branch of an action.
+   */
   protected final AtomicReference<DynamicMode> strategyThatCancelled;
-  /** Semaphore that indicates whether this branch is done, i.e. either completed or cancelled. */
+  /**
+   * Semaphore that indicates whether this branch is done, i.e. either completed or cancelled. This
+   * is needed to wait for the branch to finish its own cleanup (e.g. terminating subprocesses) once
+   * it has been cancelled.
+   */
   protected final Semaphore done = new Semaphore(0);
 
   protected final DynamicExecutionOptions options;
-  private final DynamicMode mode;
   protected final ActionExecutionContext context;
 
   /**
    * Creates a new branch of dynamic execution.
    *
-   * @param mode the dynamic mode that this branch represents (e.g. {@link DynamicMode#REMOTE}).
-   *     Used to qualify temporary files.
    * @param context the action execution context given to the dynamic strategy, used to obtain the
    *     final location of the stdout/stderr
    */
   Branch(
-      DynamicMode mode,
       ActionExecutionContext context,
       Spawn spawn,
       AtomicReference<DynamicMode> strategyThatCancelled,
       DynamicExecutionOptions options) {
-    this.mode = mode;
     this.context = context;
     this.spawn = spawn;
     this.strategyThatCancelled = strategyThatCancelled;
@@ -111,6 +114,8 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
   public Spawn getSpawn() {
     return spawn;
   }
+
+  public abstract DynamicMode getMode();
 
   /** Returns a human-readable description of what we can tell about the state of this Future. */
   String branchState() {
@@ -169,7 +174,7 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
    */
   @Override
   public final ImmutableList<SpawnResult> call() throws InterruptedException, ExecException {
-    FileOutErr fileOutErr = getSuffixedFileOutErr(context.getFileOutErr(), "." + mode.name());
+    FileOutErr fileOutErr = getSuffixedFileOutErr(context.getFileOutErr(), "." + getMode().name());
 
     ImmutableList<SpawnResult> results = null;
     ExecException exception = null;

@@ -188,8 +188,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return false;
     }
     List<SandboxedSpawnStrategy> remoteStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(
-            spawn, DynamicStrategyRegistry.DynamicMode.REMOTE);
+        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE);
     return remoteStrategies.stream().anyMatch(s -> s.canExec(spawn, actionContextRegistry));
   }
 
@@ -220,9 +219,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           "Spawn %s dynamically executed both ways", spawn.getResourceOwner().describe());
       debugLog("Dynamic execution of %s beginning%n", spawn.getResourceOwner().prettyPrint());
       // else both can exec. Fallthrough to below.
-
-      // Semaphores to track termination of each branch. These are necessary to wait for the branch
-      // to finish its own cleanup (e.g. terminating subprocesses) once it has been cancelled.
 
       AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>(null);
 
@@ -379,13 +375,13 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
               + "remote strategies are %s.%n",
           spawn.getResourceOwner().prettyPrint(),
           executionPolicy.canRunRemotely() ? "allows" : "forbids",
-          dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, DynamicMode.REMOTE));
+          dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE));
       debugLog(
           "Dynamic execution of %s can only be done locally: Remote execution policy %s it, "
               + "remote strategies are %s.%n",
           spawn.getResourceOwner().prettyPrint(),
           executionPolicy.canRunRemotely() ? "allows" : "forbids",
-          dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, DynamicMode.REMOTE));
+          dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE));
       return LocalBranch.runLocally(
           spawn, actionExecutionContext, null, getExtraSpawnForLocalExecution);
     } else if (options.skipFirstBuild && firstBuild) {
@@ -467,7 +463,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       throws ExecException, InterruptedException {
     ImmutableList<SpawnResult> localResult;
     try {
-      localResult = waitBranch(localBranch, options, LOCAL, context);
+      localResult = waitBranch(localBranch, options, context);
     } catch (ExecException | InterruptedException | RuntimeException e) {
       if (options.debugSpawnScheduler) {
         context
@@ -482,7 +478,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       throw e;
     }
 
-    ImmutableList<SpawnResult> remoteResult = waitBranch(remoteBranch, options, REMOTE, context);
+    ImmutableList<SpawnResult> remoteResult = waitBranch(remoteBranch, options, context);
 
     if (remoteResult != null && localResult != null) {
       throw new AssertionError(
@@ -520,11 +516,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    */
   @Nullable
   private static ImmutableList<SpawnResult> waitBranch(
-      Branch branch,
-      DynamicExecutionOptions options,
-      DynamicMode mode,
-      ActionExecutionContext context)
+      Branch branch, DynamicExecutionOptions options, ActionExecutionContext context)
       throws ExecException, InterruptedException {
+    DynamicMode mode = branch.getMode();
     try {
       ImmutableList<SpawnResult> spawnResults = branch.getResults();
       if (spawnResults == null && options.debugSpawnScheduler) {
@@ -594,9 +588,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    *
    * @param otherBranch The other branch, the one that should be cancelled.
    * @param cancellingBranch The branch that is performing the cancellation.
-   * @param cancellingStrategy identifier of the strategy that is performing the cancellation. Used
-   *     to prevent cross-cancellations and to check that the same strategy doesn't issue the
-   *     cancellation twice.
    * @param strategyThatCancelled name of the first strategy that executed this method, or a null
    *     reference if this is the first time this method is called. If not null, we expect the value
    *     referenced by this to be different than {@code cancellingStrategy}, or else we have a bug.
@@ -609,11 +600,11 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   static void stopBranch(
       Branch otherBranch,
       Branch cancellingBranch,
-      DynamicMode cancellingStrategy,
       AtomicReference<DynamicMode> strategyThatCancelled,
       DynamicExecutionOptions options,
       ActionExecutionContext context)
       throws InterruptedException {
+    DynamicMode cancellingStrategy = cancellingBranch.getMode();
     if (cancellingBranch.isCancelled()) {
       // TODO(b/173020239): Determine why stopBranch() can be called when cancellingBranch is
       // cancelled.

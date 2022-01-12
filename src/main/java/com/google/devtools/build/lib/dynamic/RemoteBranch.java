@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.dynamic;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode.REMOTE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -56,9 +57,14 @@ class RemoteBranch extends Branch {
       DynamicExecutionOptions options,
       IgnoreFailureCheck ignoreFailureCheck,
       AtomicBoolean delayLocalExecution) {
-    super(DynamicMode.REMOTE, actionExecutionContext, spawn, strategyThatCancelled, options);
+    super(actionExecutionContext, spawn, strategyThatCancelled, options);
     this.ignoreFailureCheck = ignoreFailureCheck;
     this.delayLocalExecution = delayLocalExecution;
+  }
+
+  @Override
+  public DynamicMode getMode() {
+    return REMOTE;
   }
 
   /**
@@ -78,7 +84,7 @@ class RemoteBranch extends Branch {
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
 
     for (SandboxedSpawnStrategy strategy :
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, DynamicMode.REMOTE)) {
+        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE)) {
       if (strategy.canExec(spawn, actionExecutionContext)) {
         ImmutableList<SpawnResult> results =
             strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
@@ -141,12 +147,7 @@ class RemoteBranch extends Branch {
           (exitCode, errorMessage, outErr) -> {
             maybeIgnoreFailure(exitCode, errorMessage, outErr);
             DynamicSpawnStrategy.stopBranch(
-                localBranch,
-                this,
-                DynamicMode.REMOTE,
-                strategyThatCancelled,
-                options,
-                this.context);
+                localBranch, this, strategyThatCancelled, options, this.context);
           },
           delayLocalExecution);
     } catch (DynamicInterruptedException e) {
