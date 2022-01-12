@@ -17,7 +17,8 @@ achieve the same, or better performance. For example, instead of having one
 worker process per worker, Bazel can have four multiplexed workers talking to
 the same worker process, which can then handle requests in parallel. For
 languages like Java and Scala, this saves JVM warm-up time and JIT compilation
-time.
+time, and in general it allows using one shared cache between all workers of
+the same type.
 
 ## Overview
 
@@ -28,7 +29,8 @@ sequentially along with a `request_id`, the worker process processes the request
 and sends responses to the `WorkerMultiplexer`. When the `WorkerMultiplexer`
 receives a response, it parses the `request_id` and then forwards the responses
 back to the correct `WorkerProxy`. Just as with non-multiplexed workers, all
-communication is done over standard in/out.
+communication is done over standard in/out, but the tool cannot just use
+`stderr` for user-visible output ([see below](#output)).
 
 Each worker has a key. Bazel uses the key's hash code (composed of environment
 variables, the execution root, and the mnemonic) to determine which
@@ -50,6 +52,17 @@ the same time, the worker process needs to make sure the responses are written
 atomically (i.e. messages don't overlap). Responses must contain the
 `request_id` of the request they're handling.
 
+### Handling multiplex output <a name="output"></a>
+
+Multiplex workers need to be more careful about handling their output than
+singleplex workers. Anything sent to `stderr` will go into a single log file
+shared among all `WorkerProxy`s of the same type,
+randomly interleaved between concurrent requests. While redirecting `stdout`
+into `stderr` is a good idea, do not collect that output into the `output`
+field of `WorkResponse`, as that could show the user mangled pieces of output.
+If your tool only sends user-oriented output to `stdout` or `stderr`, you will
+need to change that behaviour before you can enable multiplex workers.
+
 ## Enabling multiplex workers
 
 Multiplex workers are not enabled by default. A ruleset can turn on multiplex
@@ -60,11 +73,15 @@ strategy needs to be specified, either at the ruleset level (for example,
 `--strategy=[some_mnemonic]=worker`) or generally at the strategy level (for
 example, `--dynamic_local_strategy=worker,standalone`.) No additional flags are
 necessary, and `supports-multiplex-workers` takes precedence over
-`supports-workers`, if both are set.
+`supports-workers`, if both are set. You can turn off multiplex workers
+globally by passing `--noexperimental_worker_multiplex`.
 
 A ruleset is encouraged to use multiplex workers if possible, to reduce memory
 pressure and improve performance. However, multiplex workers are not currently
-compatible with [dynamic execution](/dynamic-execution.html).
+compatible with [dynamic execution](/dynamic-execution.html) unless they
+implement multiplex sandboxing. Attempting to run non-sandboxed multiplex
+workers with dynamic execution will silently use sandboxed
+singleplex workers instead.
 
 ## Multiplex sandboxing
 
