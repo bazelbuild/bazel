@@ -75,7 +75,15 @@ public class ObjcImportTest extends ObjcRuleTestCase {
   @Test
   public void testImportLibrariesLinkedToFinalBinary() throws Exception {
     addTrivialImportLibrary();
-    createBinaryTargetWriter("//bin:bin").setList("deps", "//imp:imp").write();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
     CommandAction linkBinAction = linkAction("//bin:bin");
     verifyObjlist(linkBinAction, "imp/precomp_lib.a");
     assertThat(Artifact.asExecPaths(linkBinAction.getInputs())).contains("imp/precomp_lib.a");

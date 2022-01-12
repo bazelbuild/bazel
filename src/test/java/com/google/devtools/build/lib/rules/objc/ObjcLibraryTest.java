@@ -494,6 +494,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
+    addAppleBinaryStarlarkRule(scratch);
     addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
@@ -896,9 +897,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//lib1:lib1")
         .setList("defines", "C=bar", "D")
         .write();
-    createBinaryTargetWriter("//bin:bin")
-        .setList("deps", "//lib2:lib2")
-        .write();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//lib2:lib2'],",
+        ")");
 
     assertThat(compileAction("//lib1:lib1", "a.o").getArguments())
         .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
@@ -1650,15 +1657,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
     useConfiguration("--cpu=ios_i386");
+    addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(
         "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "cc_library(",
         "    name = 'cc_lib',",
         "    srcs = ['a.cc'],",
         ")",
         "",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'objc_bin',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",

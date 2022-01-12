@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
-import com.google.devtools.build.lib.bazel.rules.objc.BazelAppleBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelAppleStaticLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcImportRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcLibraryRule;
@@ -66,7 +65,6 @@ public class ObjcRules implements RuleSet {
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
-    builder.addRuleDefinition(new BazelAppleBinaryRule());
     builder.addRuleDefinition(new BazelAppleStaticLibraryRule());
     builder.addRuleDefinition(new BazelObjcImportRule());
     builder.addRuleDefinition(new BazelObjcLibraryRule());

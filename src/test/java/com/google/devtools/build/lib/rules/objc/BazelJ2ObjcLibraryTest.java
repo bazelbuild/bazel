@@ -423,6 +423,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testNoJ2ObjcDeadCodeRemovalActionWithoutOptFlag() throws Exception {
     useConfiguration("--noj2objc_dead_code_removal");
     addSimpleJ2ObjcLibraryWithEntryClasses();
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
     Artifact expectedPrunedSource = getBinArtifact(
@@ -563,12 +564,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("app/Info.plist");
     scratch.file(
         "app/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "package(default_visibility=['//visibility:public'])",
         "objc_library(",
         "    name = 'lib',",
         "    deps = ['" + j2objcLibraryTargetDep + "'])",
         "",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'app',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -705,8 +707,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcAppearsInLinkArgs() throws Exception {
     scratch.file(
         "java/c/y/BUILD", "java_library(", "    name = 'ylib',", "    srcs = ['lib.java'],", ")");
+    addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "j2objc_library(",
         "    name = 'j2',",
         "    deps = [ '//java/c/y:ylib' ],",
@@ -714,7 +718,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             + TestConstants.TOOLS_REPOSITORY
             + "//third_party/java/j2objc:jre_io_lib' ],",
         ")",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'test',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -911,6 +915,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcSourcesCompilationAndLinking() throws Exception {
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/dummy/test:transpile");
 
     checkObjcArchiveAndLinkActions(
@@ -937,6 +942,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "        ':dummy',",
         "        '//java/com/google/dummy/test:transpile',",
         "    ])");
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/dummy:transpile");
 
     checkObjcArchiveAndLinkActions(
@@ -1117,6 +1123,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcDeadCodeRemovalActionWithOptFlag() throws Exception {
     useConfiguration("--j2objc_dead_code_removal");
     addSimpleJ2ObjcLibraryWithEntryClasses();
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
     ConfiguredTarget appTarget = getConfiguredTargetInAppleBinaryTransition("//app:app");

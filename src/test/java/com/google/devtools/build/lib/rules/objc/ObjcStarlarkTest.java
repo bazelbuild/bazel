@@ -274,10 +274,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "})");
 
     scratch.file("examples/apple_starlark/a.m");
+    addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "load('//examples/rule:apple_rules.bzl', 'swift_library')",
+        "package(default_visibility = ['//visibility:public'])",
         "swift_library(",
         "   name='my_target',",
         "   deps=[':lib'],",
@@ -286,7 +288,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   name = 'lib',",
         "   srcs = ['a.m'],",
         ")",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   platform_type = 'ios',",
         "   deps = [':my_target']",
@@ -313,10 +315,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   attrs = {})");
 
     scratch.file("examples/apple_starlark/a.m");
+    addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "package(default_visibility = ['//visibility:public'])",
         "my_rule(",
         "   name='my_target'",
         ")",
@@ -325,7 +329,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   srcs = ['a.m'],",
         "   deps = [':my_target']",
         ")",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   platform_type = 'ios',",
         "   deps = [':lib']",

@@ -28,16 +28,23 @@ import org.junit.runners.JUnit4;
 
 /** Test case for apple_dyamic_library. */
 @RunWith(JUnit4.class)
-public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
-  static final RuleType RULE_TYPE = new RuleType("apple_binary") {
-    @Override
-    Iterable<String> requiredAttributes(Scratch scratch, String packageDir,
-        Set<String> alreadyAdded) throws IOException {
-      return Iterables.concat(ImmutableList.of("binary_type = 'dylib'"),
-          AppleBinaryTest.RULE_TYPE.requiredAttributes(scratch, packageDir,
-          Sets.union(alreadyAdded, ImmutableSet.of("binary_type"))));
-    }
-  };
+public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
+  static final RuleType RULE_TYPE =
+      new RuleType("apple_binary_starlark") {
+        @Override
+        Iterable<String> requiredAttributes(
+            Scratch scratch, String packageDir, Set<String> alreadyAdded) throws IOException {
+          return Iterables.concat(
+              ImmutableList.of("binary_type = 'dylib'"),
+              AppleBinaryStarlarkApiTest.RULE_TYPE.requiredAttributes(
+                  scratch, packageDir, Sets.union(alreadyAdded, ImmutableSet.of("binary_type"))));
+        }
+
+        @Override
+        public String starlarkLoadPrerequisites() {
+          return "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')";
+        }
+      };
 
   @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
@@ -54,9 +61,12 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
     checkError(
         "package",
         "test",
-        String.format(MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
+        String.format(
+            MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
             "meow_meow_os"),
-        "apple_binary(name = 'test', binary_type = 'dylib', platform_type = 'meow_meow_os')");
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(name = 'test', binary_type = 'dylib', platform_type ="
+            + " 'meow_meow_os')");
   }
 
   @Test
@@ -88,7 +98,6 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   public void testObjcProviderLinkInputsInLinkAction() throws Exception {
     checkObjcProviderLinkInputsInLinkAction(RULE_TYPE);
   }
-
 
   @Test
   public void testAppleSdkVersionEnv() throws Exception {
@@ -148,11 +157,6 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testMinimumOs_watchos() throws Exception {
     checkMinimumOsLinkAndCompileArg_watchos(RULE_TYPE);
-  }
-
-  @Test
-  public void testMinimumOs_invalid() throws Exception {
-    checkMinimumOs_invalid_nonVersion(RULE_TYPE);
   }
 
   @Test

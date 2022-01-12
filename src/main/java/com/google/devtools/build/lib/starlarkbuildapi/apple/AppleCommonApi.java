@@ -408,12 +408,10 @@ public interface AppleCommonApi<
             name = "should_lipo",
             named = true,
             positional = false,
-            defaultValue = "True",
+            defaultValue = "False",
             doc =
                 "If True, invoke lipo after linking to create a universal binary. This parameter "
-                    + "is temporary and defaults to True for legacy purposes. After rules_apple "
-                    + "has been updated to call this with False, the default will be changed to "
-                    + "False and the support for invoking lipo inside "
+                    + "is temporary. The support for invoking lipo inside "
                     + "<code>link_multi_arch_binary</code> will be removed, along with this "
                     + "parameter.")
       },

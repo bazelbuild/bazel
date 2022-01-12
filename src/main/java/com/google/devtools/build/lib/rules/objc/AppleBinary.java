@@ -26,19 +26,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -53,17 +47,13 @@ import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.Dependenc
 import java.util.Map;
 import java.util.TreeMap;
 
-/** Implementation for the "apple_binary" rule. */
-public class AppleBinary implements RuleConfiguredTargetFactory {
+/** Native support for Apple binary rules. */
+public class AppleBinary {
   public static final String BINARY_TYPE_ATTR = "binary_type";
   public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
   public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
 
-  private final CppSemantics cppSemantics;
-
-  protected AppleBinary(CppSemantics cppSemantics) {
-    this.cppSemantics = cppSemantics;
-  }
+  private AppleBinary() {}
 
   /** Type of linked binary that apple_binary may create. */
   public enum BinaryType {
@@ -94,11 +84,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
      */
     DYLIB;
 
-    @Override
-    public String toString() {
-      return name().toLowerCase();
-    }
-
     /**
      * Returns the {@link BinaryType} with given name (case insensitive).
      *
@@ -122,30 +107,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   @VisibleForTesting
   static final String BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR =
       "Can only use bundle_loader when binary_type is bundle.";
-
-  @Override
-  public final ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
-    ObjcConfiguration objcConfig =
-        ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
-    if (objcConfig.disableNativeAppleBinaryRule()) {
-      ruleContext.throwWithRuleError(
-          "The native apple_binary rule is deprecated and will be deleted. Please use the Starlark"
-              + " rule from https://github.com/bazelbuild/rules_apple.");
-    }
-
-    AppleLinkingOutputs linkingOutputs =
-        linkMultiArchBinary(
-            ruleContext,
-            cppSemantics,
-            /* avoidDeps= */ ImmutableList.of(),
-            ImmutableList.of(),
-            ImmutableList.of(),
-            AnalysisUtils.isStampingEnabled(ruleContext),
-            /* shouldLipo= */ true);
-
-    return ruleConfiguredTargetFromLinkingOutputs(ruleContext, linkingOutputs);
-  }
 
   /**
    * Links a (potentially multi-architecture) binary targeting Apple platforms.
@@ -369,57 +330,5 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   private static BinaryType getBinaryType(RuleContext ruleContext) {
     String binaryTypeString = ruleContext.attributes().get(BINARY_TYPE_ATTR, STRING);
     return BinaryType.fromString(binaryTypeString);
-  }
-
-  private static ConfiguredTarget ruleConfiguredTargetFromLinkingOutputs(
-      RuleContext ruleContext, AppleLinkingOutputs linkingOutputs)
-      throws RuleErrorException, ActionConflictException, InterruptedException {
-    NativeInfo nativeInfo = linkingOutputs.getLegacyBinaryInfoProvider();
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
-    ObjcProvider objcProvider;
-    Artifact outputArtifact;
-
-    switch (getBinaryType(ruleContext)) {
-      case EXECUTABLE:
-        AppleExecutableBinaryInfo executableProvider = (AppleExecutableBinaryInfo) nativeInfo;
-        objcProvider = executableProvider.getDepsObjcProvider();
-        outputArtifact = executableProvider.getAppleExecutableBinary();
-        break;
-      case DYLIB:
-        AppleDylibBinaryInfo dylibProvider = (AppleDylibBinaryInfo) nativeInfo;
-        objcProvider = dylibProvider.getDepsObjcProvider();
-        outputArtifact = dylibProvider.getAppleDylibBinary();
-        break;
-      case LOADABLE_BUNDLE:
-        AppleLoadableBundleBinaryInfo loadableBundleProvider =
-            (AppleLoadableBundleBinaryInfo) nativeInfo;
-        objcProvider = loadableBundleProvider.getDepsObjcProvider();
-        outputArtifact = loadableBundleProvider.getAppleLoadableBundleBinary();
-        break;
-      default:
-        throw ruleContext.throwWithRuleError("Unhandled binary type " + getBinaryType(ruleContext));
-    }
-
-    NestedSetBuilder<Artifact> filesToBuild =
-        NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
-
-    RuleConfiguredTargetBuilder targetBuilder =
-        ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
-
-    if (appleConfiguration.shouldLinkingRulesPropagateObjc() && objcProvider != null) {
-      targetBuilder.addNativeDeclaredProvider(objcProvider);
-      targetBuilder.addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider);
-    }
-
-    InstrumentedFilesInfo instrumentedFilesProvider =
-        InstrumentedFilesCollector.forward(ruleContext, "deps", "bundle_loader");
-
-    return targetBuilder
-        .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .addNativeDeclaredProvider(nativeInfo)
-        .addNativeDeclaredProvider(linkingOutputs.getLegacyDebugOutputsProvider())
-        .addOutputGroups(linkingOutputs.getOutputGroups())
-        .build();
   }
 }
