@@ -9,8 +9,8 @@ licenses(["notice"])  # Apache License 2.0
 exports_files(["LICENSE"])
 
 filegroup(
-  name = "srcs",
-  srcs = glob(["**"]),
+    name = "srcs",
+    srcs = glob(["**"]),
 )
 
 # Base library shared by build tools and the data binding runtime.

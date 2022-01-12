@@ -10,6 +10,6 @@ filegroup(
 )
 
 java_import(
-  name = "antlr",
-  jars = ["antlr4-4.5.3.jar"],
+    name = "antlr",
+    jars = ["antlr4-4.5.3.jar"],
 )

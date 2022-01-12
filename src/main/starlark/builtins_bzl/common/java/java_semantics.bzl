@@ -46,6 +46,7 @@ def _get_coverage_runner(ctx):
     if not runner:
         fail("jacocorunner not set in java_toolchain")
     runner_jar = runner.executable
+
     # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
     return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
 
