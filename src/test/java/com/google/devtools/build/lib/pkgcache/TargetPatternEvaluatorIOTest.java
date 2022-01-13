@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
@@ -167,7 +166,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     // Given a package, "parent",
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     // And a child, "badstat",
-    FileSystemUtils.createDirectoryAndParents(parent.getRelative("badstat"));
+    parent.getRelative("badstat").createDirectoryAndParents();
 
     // Such that badstat reports that it is a directory, but throws an error when its Dirents are
     // collected,
