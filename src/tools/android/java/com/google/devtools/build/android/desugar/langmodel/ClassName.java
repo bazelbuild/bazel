@@ -109,7 +109,7 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
           .put("javadesugar/testing/", "jd$/testing/")
           .put("sun/misc/Desugar", "j$/sun/misc/Desugar")
           .put("jdk/internal/util/", "j$/jdk/internal/util/")
-          .build();
+          .buildOrThrow();
 
   public static final TypeMapper SHADOWED_TO_MIRRORED_TYPE_MAPPER =
       new TypeMapper(ClassName::shadowedToMirrored);
