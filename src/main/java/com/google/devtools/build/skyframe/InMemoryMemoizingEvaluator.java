@@ -24,13 +24,11 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import java.io.PrintStream;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -42,15 +40,14 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * An inmemory implementation that uses the eager invalidation strategy. This class is, by itself,
- * not thread-safe. Neither is it thread-safe to use this class in parallel with any of the
- * returned graphs. However, it is allowed to access the graph from multiple threads as long as
+ * An in-memory {@link MemoizingEvaluator} that uses the eager invalidation strategy. This class is,
+ * by itself, not thread-safe. Neither is it thread-safe to use this class in parallel with any of
+ * the returned graphs. However, it is allowed to access the graph from multiple threads as long as
  * that does not happen in parallel with an {@link #evaluate} call.
  *
- * <p>This memoizing evaluator requires a sequential versioning scheme. Evaluations
- * must pass in a monotonically increasing {@link IntVersion}.
+ * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion}.
  */
-public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
+public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingEvaluator {
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   private final DirtyTrackingProgressReceiver progressReceiver;
@@ -81,7 +78,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
-    this(skyFunctions, differencer, null);
+    this(skyFunctions, differencer, /*progressReceiver=*/ null);
   }
 
   public InMemoryMemoizingEvaluator(
@@ -95,7 +92,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         GraphInconsistencyReceiver.THROWING,
         DEFAULT_STORED_EVENT_FILTER,
         new EmittedEventState(),
-        true);
+        /*keepEdges=*/ true);
   }
 
   public InMemoryMemoizingEvaluator(
@@ -310,103 +307,13 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues() {
-    return graph.getValues();
-  }
-
-  @Override
-  public Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> getGraphEntries() {
-    return graph.getAllValuesMutable().entrySet();
-  }
-
-  @Override
-  public Map<SkyKey, SkyValue> getDoneValues() {
-    return graph.getDoneValues();
-  }
-
-  private static boolean isDone(@Nullable NodeEntry entry) {
-    return entry != null && entry.isDone();
-  }
-
-  @Override
-  @Nullable
-  public SkyValue getExistingValue(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    try {
-      return isDone(entry) ? entry.getValue() : null;
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("InMemoryGraph does not throw" + key + ", " + entry, e);
-    }
-  }
-
-  @Override
-  @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    try {
-      return isDone(entry) ? entry.getErrorInfo() : null;
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("InMemoryGraph does not throw" + key + ", " + entry, e);
-    }
-  }
-
-  @Nullable
-  @Override
-  public NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) {
-    return graph.get(null, Reason.OTHER, key);
-  }
-
-  @Override
   public void injectGraphTransformerForTesting(GraphTransformerForTesting transformer) {
     this.graph = transformer.transform(this.graph);
   }
 
-  public ProcessableGraph getGraphForTesting() {
+  @Override
+  protected InMemoryGraph inMemoryGraph() {
     return graph;
-  }
-
-  @Override
-  public void dumpSummary(PrintStream out) {
-    long nodes = 0;
-    long edges = 0;
-    for (InMemoryNodeEntry entry : graph.getAllValues().values()) {
-      nodes++;
-      if (entry.isDone()) {
-        edges += Iterables.size(entry.getDirectDeps());
-      }
-    }
-    out.println("Node count: " + nodes);
-    out.println("Edge count: " + edges);
-  }
-
-  @Override
-  public void dumpDetailed(PrintStream out, Predicate<SkyKey> filter) {
-    graph
-        .getAllValues()
-        .forEach(
-            (key, entry) -> {
-              if (!filter.test(key) || !entry.isDone()) {
-                return;
-              }
-              printKey(key, out);
-              if (entry.keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
-                out.println("  (direct deps not stored)");
-              } else {
-                GroupedList<SkyKey> deps =
-                    GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
-                for (int i = 0; i < deps.listSize(); i++) {
-                  out.format("  Group %d:\n", i + 1);
-                  for (SkyKey dep : deps.get(i)) {
-                    out.print("    ");
-                    printKey(dep, out);
-                  }
-                }
-              }
-              out.println();
-            });
-  }
-
-  private static void printKey(SkyKey key, PrintStream out) {
-    out.format("%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
   }
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionsForTesting() {

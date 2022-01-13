@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -35,8 +36,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.DelegatingWalkableGraph;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
@@ -109,12 +109,20 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
    * labels, even if they were not successfully loaded, but does not contain other unsuccessfully
    * loaded targets.
    */
-  public static Set<Label> getVisitedLabels(
+  public static ImmutableSet<Label> getVisitedLabels(
       Iterable<Label> startingLabels, SkyframeExecutor skyframeExecutor)
       throws InterruptedException {
-    final WalkableGraph graph =
-        new DelegatingWalkableGraph(
-            ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator()).getGraphForTesting());
+    // Do an empty evaluation just to get access to the WalkableGraph.
+    WalkableGraph graph =
+        skyframeExecutor
+            .getEvaluator()
+            .evaluate(
+                ImmutableSet.of(),
+                EvaluationContext.newBuilder()
+                    .setNumThreads(1)
+                    .setEventHandler(NullEventHandler.INSTANCE)
+                    .build())
+            .getWalkableGraph();
     List<SkyKey> startingKeys = new ArrayList<>();
     for (Label label : startingLabels) {
       startingKeys.add(TransitiveTargetKey.of(label));
