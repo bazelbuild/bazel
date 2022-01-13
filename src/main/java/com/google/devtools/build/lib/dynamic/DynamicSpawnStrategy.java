@@ -232,13 +232,13 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             options,
             ignoreFailureCheck,
             delayLocalExecution);
-
     localBranch.prepareFuture(remoteBranch);
     remoteBranch.prepareFuture(localBranch);
     synchronized (waitingLocalJobs) {
       waitingLocalJobs.add(localBranch);
+      tryScheduleLocalJob();
     }
-    tryScheduleLocalJob();
+
     remoteBranch.execute(executorService);
 
     try {
@@ -246,12 +246,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     } finally {
       checkState(localBranch.isDone());
       checkState(remoteBranch.isDone());
-      if (!waitingLocalJobs.contains(localBranch)) {
-        synchronized (waitingLocalJobs) {
-          if (!waitingLocalJobs.contains(localBranch)) {
-            threadLimiter.release();
-            tryScheduleLocalJob();
-          }
+      synchronized (waitingLocalJobs) {
+        if (!waitingLocalJobs.remove(localBranch)) {
+          threadLimiter.release();
+          tryScheduleLocalJob();
         }
       }
       logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
