@@ -73,7 +73,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact optional = createSourceArtifact("hello.optional");
     Artifact goodbye = createDerivedArtifact("goodbye");
@@ -157,7 +157,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testModifyingInputCausesActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
@@ -196,7 +196,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
 
     Artifact hello = createSourceArtifact("hello");
     Artifact there = createSourceArtifact("there");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
     FileSystemUtils.writeContentAsLatin1(there.getPath(), "there");
     Artifact goodbye = createDerivedArtifact("goodbye");
@@ -224,7 +224,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testOldCacheKeysAreCleanedUp() throws Exception {
     // [action1] -> (/goodbye), cache key will be /goodbye
     Artifact goodbye = createDerivedArtifact("goodbye");
-    FileSystemUtils.createDirectoryAndParents(goodbye.getPath().getParentDirectory());
+    goodbye.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(goodbye.getPath(), "test");
     Button button = createActionButton(emptyNestedSet, ImmutableSet.of(goodbye));
 
@@ -257,7 +257,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // /hello -> [action] -> /goodbye
 
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
@@ -273,7 +273,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // Now create duplicate graph, replacing "hello" with "hi".
     clearActions();
     Artifact hi = createSourceArtifact("hi");
-    FileSystemUtils.createDirectoryAndParents(hi.getPath().getParentDirectory());
+    hi.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hi.getPath(), "hello");
     Artifact goodbye2 = createDerivedArtifact("goodbye");
     Button button2 = createActionButton(asNestedSet(hi), ImmutableSet.of(goodbye2));
@@ -292,7 +292,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testModifyingTimestampOnlyDoesNotCauseActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
