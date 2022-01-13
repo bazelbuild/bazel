@@ -189,42 +189,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java15_test",
-    srcs = ["bazel_java15_test.sh"],
-    args = [
-        # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
-    ],
-    data = [
-        ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = ["local"],
-)
-
-sh_test(
-    name = "bazel_java16_test",
-    srcs = ["bazel_java16_test.sh"],
-    args = [
-        # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
-    ],
-    data = [
-        ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = ["local"],
-)
-
-sh_test(
     name = "bazel_java17_test",
     srcs = ["bazel_java17_test.sh"],
     args = [
@@ -260,11 +224,9 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11", "15", "16", "17")
+JAVA_VERSIONS = ("11", "17")
 
-# TODO(davido): Enable test coverage for JDK 16 toolchain when this issue is fixed:
-# https://github.com/bazelbuild/bazel/issues/13358
-JAVA_VERSIONS_COVERAGE = ("11", "15")
+JAVA_VERSIONS_COVERAGE = ("11",)
 
 [
     sh_test(
