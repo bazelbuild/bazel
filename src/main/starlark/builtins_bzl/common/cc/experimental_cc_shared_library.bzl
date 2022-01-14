@@ -20,7 +20,7 @@ rely on this. It requires bazel >1.2  and passing the flag
 """
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/objc/semantics.bzl", "semantics")
+load(":common/cc/semantics.bzl", "semantics")
 
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
@@ -161,7 +161,9 @@ def _wrap_static_library_with_alwayslink(ctx, feature_configuration, cc_toolchai
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
             static_library = old_library_to_link.static_library,
+            objects = old_library_to_link.objects,
             pic_static_library = old_library_to_link.pic_static_library,
+            pic_objects = old_library_to_link.pic_objects,
             alwayslink = True,
         )
         new_libraries_to_link.append(new_library_to_link)
@@ -377,7 +379,10 @@ def _cc_shared_library_impl(ctx):
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
-        requested_features = ctx.features,
+        # This features enables behavior which creates a def file automatically
+        # for exporting all the symbols in a shared libary on Windows. If a
+        # custom def file is passed, this behavior doesn't apply.
+        requested_features = ctx.features + ["windows_export_all_symbols"],
         unsupported_features = ctx.disabled_features,
     )
 
@@ -431,9 +436,28 @@ def _cc_shared_library_impl(ctx):
     debug_files.append(exports_debug_file)
     debug_files.append(link_once_static_libs_debug_file)
 
+    win_def_file = None
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
+        object_files = []
+        for linker_input in linking_context.linker_inputs.to_list():
+            for library in linker_input.libraries:
+                if library.pic_static_library != None:
+                    if library.pic_objects != None:
+                        object_files.extend(library.pic_objects)
+                elif library.static_library != None:
+                    if library.objects != None:
+                        object_files.extend(library.objects)
+
+        def_parser = ctx.file._def_parser
+
+        generated_def_file = None
+        if def_parser != None:
+            generated_def_file = _generate_def_file(ctx, def_parser, object_files, ctx.label.name)
+        custom_win_def_file = ctx.file.win_def_file
+        win_def_file = _get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
+
     additional_inputs = []
     additional_inputs.extend(ctx.files.additional_linker_inputs)
-
     linking_outputs = cc_common.link(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
@@ -444,10 +468,15 @@ def _cc_shared_library_impl(ctx):
         name = ctx.label.name,
         output_type = "dynamic_library",
         main_output = main_output,
+        win_def_file = win_def_file,
     )
 
+    runfiles_files = []
+    if linking_outputs.library_to_link.resolved_symlink_dynamic_library != None:
+        runfiles_files.append(linking_outputs.library_to_link.resolved_symlink_dynamic_library)
+    runfiles_files.append(linking_outputs.library_to_link.dynamic_library)
     runfiles = ctx.runfiles(
-        files = [linking_outputs.library_to_link.resolved_symlink_dynamic_library, linking_outputs.library_to_link.dynamic_library],
+        files = runfiles_files,
     )
     transitive_debug_files = []
     for dep in ctx.attr.dynamic_deps:
@@ -486,6 +515,45 @@ def _cc_shared_library_impl(ctx):
             preloaded_deps = preloaded_dep_merged_cc_info,
         ),
     ]
+
+def _gen_empty_def_file(ctx):
+    trivial_def_file = ctx.actions.declare_file(ctx.label.name + ".gen.empty.def")
+    ctx.actions.write(trivial_def_file, "", False)
+    return trivial_def_file
+
+def _get_windows_def_file_for_linking(ctx, custom_def_file, generated_def_file, feature_configuration):
+    # 1. If a custom DEF file is specified in win_def_file attribute, use it.
+    # 2. If a generated DEF file is available and should be used, use it.
+    # 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
+    if custom_def_file != None:
+        return custom_def_file
+    elif generated_def_file != None and _should_generate_def_file(ctx, feature_configuration) == True:
+        return generated_def_file
+    else:
+        return _gen_empty_def_file(ctx)
+
+def _should_generate_def_file(ctx, feature_configuration):
+    windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "windows_export_all_symbols")
+    no_windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_windows_export_all_symbols")
+    return windows_export_all_symbols_enabled and (not no_windows_export_all_symbols_enabled) and (ctx.attr.win_def_file == None)
+
+def _generate_def_file(ctx, def_parser, object_files, dll_name):
+    def_file = ctx.actions.declare_file(ctx.label.name + ".gen.def")
+    argv = ctx.actions.args()
+    argv.add(def_file)
+    argv.add(dll_name)
+    for object_file in object_files:
+        argv.add(object_file.path)
+
+    ctx.actions.run(
+        mnemonic = "DefParser",
+        executable = def_parser,
+        arguments = [argv],
+        inputs = object_files,
+        outputs = [def_file],
+        use_default_shell_env = True,
+    )
+    return def_file
 
 def _graph_structure_aspect_impl(target, ctx):
     children = []
@@ -543,9 +611,11 @@ cc_shared_library = rule(
         "exports_filter": attr.string_list(),
         "permissions": attr.label_list(providers = [CcSharedLibraryPermissionsInfo]),
         "preloaded_deps": attr.label_list(providers = [CcInfo]),
+        "win_def_file": attr.label(allow_single_file = [".def"]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
         "static_deps": attr.string_list(),
         "user_link_flags": attr.string_list(),
+        "_def_parser": semantics.get_def_parser(),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     },
     toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],  # copybara-use-repo-external-label

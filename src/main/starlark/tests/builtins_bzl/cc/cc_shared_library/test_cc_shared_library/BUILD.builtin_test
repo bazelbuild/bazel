@@ -65,10 +65,12 @@ cc_binary(
 
 cc_shared_library(
     name = "foo_so",
-    additional_linker_inputs = [
+    additional_linker_inputs = select({
+      "//src/conditions:linux": [
         ":foo.lds",
         ":additional_script.txt",
-    ],
+      ],
+      "//conditions:default": []}),
     dynamic_deps = ["bar_so"],
     preloaded_deps = ["preloaded_dep"],
     roots = [
@@ -81,11 +83,13 @@ cc_shared_library(
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:prebuilt",
     ],
-    user_link_flags = [
+    user_link_flags = select({
+      "//src/conditions:linux": [
         "-Wl,-rpath,kittens",
         "-Wl,--version-script=$(location :foo.lds)",
         "-Wl,--script=$(location :additional_script.txt)",
-    ],
+      ],
+      "//conditions:default": []}),
 )
 
 cc_library(
@@ -98,6 +102,10 @@ cc_library(
     name = "foo",
     srcs = ["foo.cc"],
     hdrs = ["foo.h"],
+    defines = select({
+      "//src/conditions:linux": ["IS_LINUX"],
+      "//conditions:default": [],
+    }),
     deps = [
         "preloaded_dep",
         "bar",
@@ -144,9 +152,9 @@ config_setting(
 
 cc_shared_library(
     name = "bar_so",
-    additional_linker_inputs = [
-        ":bar.lds",
-    ],
+    additional_linker_inputs = select({
+      "//src/conditions:linux": [":bar.lds",],
+      "//conditions:default": []}),
     exports_filter = [
         "bar3",  # Exported transitive dependency
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
@@ -166,9 +174,12 @@ cc_shared_library(
         "@test_repo//:bar",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
     ],
-    user_link_flags = [
+    user_link_flags = select({
+      "//src/conditions:linux": [
         "-Wl,--version-script=$(location :bar.lds)",
-    ],
+      ],
+      "//conditions:default": [],
+    }),
 )
 
 cc_library(
@@ -212,6 +223,10 @@ sh_test(
     srcs = [
         "cc_shared_library_integration_test.sh",
     ],
+    args = select({
+        "//src/conditions:linux": ["linux"],
+        "//conditions:default": ["non_linux"],
+    }),
     data = [
         "testenv.sh",
         ":bar_so",
@@ -219,7 +234,12 @@ sh_test(
         ":cc_test",
         ":debug_files",
         ":foo_so",
-    ],
+    ] +  select({
+        ":is_bazel": [
+           "@bazel_tools//tools/bash/runfiles",
+        ],
+        "//conditions:default": [
+        ],})
 )
 
 filegroup(
@@ -231,11 +251,19 @@ filegroup(
 linking_suffix_test(
     name = "linking_action_test",
     target_under_test = ":foo_so",
+    # TODO(bazel-team): Support this test on Windows and Mac.
+    is_linux = select({
+        "//src/conditions:linux": True,
+        "//conditions:default": False}),
 )
 
 additional_inputs_test(
     name = "additional_inputs_test",
     target_under_test = ":foo_so",
+    # TODO(bazel-team): Support this test on Windows and Mac.
+    is_linux = select({
+        "//src/conditions:linux": True,
+        "//conditions:default": False}),
 )
 
 build_failure_test(
@@ -266,13 +294,6 @@ cc_library(
     srcs = [":just_main_output"],
 )
 
-genrule(
-    name = "check_file_named_correctly",
-    srcs = ["just_main_output"],
-    outs = ["direct_so_file_copy.so"],
-    cmd = "cp $$(dirname $(location :just_main_output))/direct_so_file.so $@",
-)
-
 filegroup(
     name = "just_main_output",
     srcs = ["direct_so_file"],
@@ -284,7 +305,27 @@ cc_shared_library(
     roots = [
         ":direct_so_file_cc_lib",
     ],
-    shared_lib_name = "direct_so_file.so",
+)
+
+genrule(
+    name = "check_file_named_correctly",
+    srcs = ["just_main_output_renamed"],
+    outs = ["renamed_so_file_copy.so"],
+    cmd = "cp $$(dirname $(location :just_main_output_renamed))/renamed_so_file.so $@",
+)
+
+filegroup(
+    name = "just_main_output_renamed",
+    srcs = ["renamed_so_file"],
+    output_group = "main_shared_library_output",
+)
+
+cc_shared_library(
+    name = "renamed_so_file",
+    roots = [
+        ":direct_so_file_cc_lib",
+    ],
+    shared_lib_name = "renamed_so_file.so",
 )
 
 cc_library(
