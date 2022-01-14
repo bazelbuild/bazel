@@ -113,7 +113,7 @@ public class BazelModuleResolutionFunctionTest {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
-        .setImports(importsBuilder.build())
+        .setImports(importsBuilder.buildOrThrow())
         .setLocation(Location.BUILTIN)
         .build();
   }
