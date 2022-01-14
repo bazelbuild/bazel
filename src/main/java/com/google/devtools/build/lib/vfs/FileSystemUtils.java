@@ -333,7 +333,7 @@ public class FileSystemUtils {
     if (link.isSymbolicLink()) {
       link.delete(); // Remove the symlink since it is pointing somewhere else.
     } else {
-      createDirectoryAndParents(link.getParentDirectory());
+      link.getParentDirectory().createDirectoryAndParents();
     }
     try {
       link.createSymbolicLink(target);
@@ -724,7 +724,7 @@ public class FileSystemUtils {
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
-    createDirectoryAndParents(file.getParentDirectory());
+    file.getParentDirectory().createDirectoryAndParents();
     asByteSink(file).asCharSink(charset).writeLines(lines);
   }
 
@@ -735,7 +735,7 @@ public class FileSystemUtils {
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
-    createDirectoryAndParents(file.getParentDirectory());
+    file.getParentDirectory().createDirectoryAndParents();
     asByteSink(file, true).asCharSink(charset).writeLines(lines);
   }
 
@@ -945,7 +945,7 @@ public class FileSystemUtils {
     } else {
       Path parentDir = linkPath.getParentDirectory();
       if (!parentDir.exists()) {
-        FileSystemUtils.createDirectoryAndParents(parentDir);
+        parentDir.createDirectoryAndParents();
       }
       originalPath.createHardLink(linkPath);
     }
