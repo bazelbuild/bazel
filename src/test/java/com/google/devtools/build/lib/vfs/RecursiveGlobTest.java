@@ -45,7 +45,7 @@ public class RecursiveGlobTest {
                          "foo/baz/quip/wiz",
                          "food/baz/wiz",
                          "fool/baz/wiz")) {
-      FileSystemUtils.createDirectoryAndParents(tmpPath.getRelative(dir));
+      tmpPath.getRelative(dir).createDirectoryAndParents();
     }
     FileSystemUtils.createEmptyFile(tmpPath.getRelative("foo/bar/wiz/file"));
   }

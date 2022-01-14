@@ -82,7 +82,7 @@ public class GlobTest {
             "foo/bar/wiz", "foo/barnacle/wiz", "food/barnacle/wiz", "fool/barnacle/wiz");
 
     for (String dir : directories) {
-      FileSystemUtils.createDirectoryAndParents(tmpPath.getRelative(dir));
+      tmpPath.getRelative(dir).createDirectoryAndParents();
     }
     FileSystemUtils.createEmptyFile(tmpPath.getRelative("foo/bar/wiz/file"));
   }
@@ -350,7 +350,7 @@ public class GlobTest {
   @Test
   public void testSpecialRegexCharacter() throws Exception {
     Path tmpPath2 = fs.getPath("/globtmp2");
-    FileSystemUtils.createDirectoryAndParents(tmpPath2);
+    tmpPath2.createDirectoryAndParents();
     Path aDotB = tmpPath2.getChild("a.b");
     FileSystemUtils.createEmptyFile(aDotB);
     Path aPlusB = tmpPath2.getChild("a+b");
@@ -385,7 +385,7 @@ public class GlobTest {
   @Test
   public void testParenthesesInRegex() throws Exception {
     Path tmpPath3 = fs.getPath("/globtmp3");
-    FileSystemUtils.createDirectoryAndParents(tmpPath3);
+    tmpPath3.createDirectoryAndParents();
     Path fooBar = tmpPath3.getChild("foo bar");
     FileSystemUtils.createEmptyFile(fooBar);
     Path fooBarInParentheses = tmpPath3.getChild("foo (bar)");
@@ -456,7 +456,7 @@ public class GlobTest {
   @Test
   public void testHiddenFiles() throws Exception {
     for (String dir : ImmutableList.of(".hidden", "..also.hidden", "not.hidden")) {
-      FileSystemUtils.createDirectoryAndParents(tmpPath.getRelative(dir));
+      tmpPath.getRelative(dir).createDirectoryAndParents();
     }
 
     // Note that these are not in the result: ".", ".."
