@@ -80,6 +80,12 @@ java_library(
 gen_workspace_stanza(
     name = "workspace_with_rules_java",
     out = "jdk.WORKSPACE",
+    repo_clause = """
+    name = "{repo}",
+    sha256 = "{sha256}",
+    strip_prefix = {strip_prefix},
+    urls = {urls},
+    """,
     repos = [
         "remote_java_tools",
         "remote_java_tools_linux",
@@ -88,8 +94,18 @@ gen_workspace_stanza(
         "rules_cc",
         "rules_java",
         "rules_proto",
+        "remotejdk11_linux",
+        "remotejdk11_linux_aarch64",
+        "remotejdk11_linux_ppc64le",
+        "remotejdk11_linux_s390x",
+        "remotejdk11_macos",
+        "remotejdk11_macos_aarch64",
+        "remotejdk11_win",
+        "remotejdk17_linux",
+        "remotejdk17_macos",
+        "remotejdk17_macos_aarch64",
+        "remotejdk17_win",
     ],
     template = "jdk.WORKSPACE.tmpl",
-    use_maybe = True,
     visibility = ["//:__pkg__"],
 )
