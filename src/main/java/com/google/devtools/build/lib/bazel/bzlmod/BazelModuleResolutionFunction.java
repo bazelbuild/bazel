@@ -150,7 +150,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       }
     }
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-        extensionUsagesTableBuilder.build();
+        extensionUsagesTableBuilder.buildOrThrow();
 
     // Calculate a unique name for each used extension id.
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
