@@ -1,3 +1,28 @@
+## Release 6.0.0-pre.20220105.5 (2022-01-14)
+
+```
+Baseline: 60dedb723131e2eb0070fc19bb218e0019351917
+```
+
+Important changes:
+
+  - Adds `--experimental_worker_multiplex_sandboxing` flag that
+    controls whether to sandbox multiplex workers that support it.
+
+This release contains contributions from many people at Google, as well as Alex Scott, Benjamin Peterson, Fabian Meumertzheim, Patrick Balestra, Pras Velagapudi, Ulrik Falklof, Yannic Bonenberger.
+
+## Release 6.0.0-pre.20211220.1 (2022-01-11)
+
+```
+Baseline: 7f55cb768ae22352ac6599086e7cf6525a9565a5
+```
+
+Important changes:
+
+  - Match remote and local xcode version by most granular version.
+
+This release contains contributions from many people at Google, as well as Kevin Lin, lihu.
+
 ## Release 6.0.0-pre.20211215.3 (2021-12-21)
 
 ```
