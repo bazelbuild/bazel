@@ -277,8 +277,8 @@ toolchain(
   name = "x86-clang8.0.7-libcpp_toolchain",
   toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
   target_compatible_with = [
-      "@bazel_tools//platforms:android",
-      "@bazel_tools//platforms:x86_32"
+      "@platforms//os:android",
+      "@platforms//cpu:x86_32",
   ],
   toolchain = "@androidndk//:x86-clang8.0.7-libcpp",
 )
@@ -287,8 +287,8 @@ toolchain(
   name = "x86_64-clang8.0.7-libcpp_toolchain",
   toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
   target_compatible_with = [
-      "@bazel_tools//platforms:android",
-      "@bazel_tools//platforms:x86_64"
+      "@platforms//os:android",
+      "@platforms//cpu:x86_64",
   ],
   toolchain = "@androidndk//:x86_64-clang8.0.7-libcpp",
 )
@@ -297,8 +297,8 @@ toolchain(
   name = "arm-linux-androideabi-clang8.0.7-v7a-libcpp_toolchain",
   toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
   target_compatible_with = [
-      "@bazel_tools//platforms:android",
-      "@bazel_tools//platforms:arm"
+      "@platforms//os:android",
+      "@platforms//cpu:arm",
   ],
   toolchain = "@androidndk//:arm-linux-androideabi-clang8.0.7-v7a-libcpp",
 )
