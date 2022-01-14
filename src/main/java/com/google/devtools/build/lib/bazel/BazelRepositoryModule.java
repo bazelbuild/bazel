@@ -86,7 +86,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBoots
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -315,7 +314,7 @@ public class BazelRepositoryModule extends BlazeModule {
                 .getOutputUserRoot()
                 .getRelative(DEFAULT_CACHE_LOCATION);
         try {
-          FileSystemUtils.createDirectoryAndParents(repositoryCachePath);
+          repositoryCachePath.createDirectoryAndParents();
           repositoryCache.setRepositoryCachePath(repositoryCachePath);
         } catch (IOException e) {
           env.getReporter()
