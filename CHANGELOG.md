@@ -1,3 +1,16 @@
+## Release 6.0.0-pre.20220105.5 (2022-01-14)
+
+```
+Baseline: 60dedb723131e2eb0070fc19bb218e0019351917
+```
+
+Important changes:
+
+  - Adds `--experimental_worker_multiplex_sandboxing` flag that
+    controls whether to sandbox multiplex workers that support it.
+
+This release contains contributions from many people at Google, as well as Alex Scott, Benjamin Peterson, Fabian Meumertzheim, Patrick Balestra, Pras Velagapudi, Ulrik Falklof, Yannic Bonenberger.
+
 ## Release 6.0.0-pre.20211220.1 (2022-01-11)
 
 ```
