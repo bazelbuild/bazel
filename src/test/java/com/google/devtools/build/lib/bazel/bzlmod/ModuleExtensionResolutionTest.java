@@ -753,7 +753,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -795,7 +795,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
-        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
