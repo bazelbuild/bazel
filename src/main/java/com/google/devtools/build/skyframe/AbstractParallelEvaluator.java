@@ -535,6 +535,7 @@ abstract class AbstractParallelEvaluator {
                   skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
+          stateCache.invalidate(skyKey);
           restart(skyKey, state);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
