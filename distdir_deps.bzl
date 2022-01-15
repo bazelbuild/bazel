@@ -351,7 +351,6 @@ DIST_DEPS = {
             "remotejdk11_linux_for_testing",
             "openjdk11_linux_archive",
         ],
-        "archive": "zulu11.50.19-ca-jdk11.0.12-linux_x64.tar.gz",
         "sha256": "b8e8a63b79bc312aa90f3558edbea59e71495ef1a9c340e38900dd28a1c579f3",
         "strip_prefix": "zulu11.50.19-ca-jdk11.0.12-linux_x64",
         "urls": [
@@ -363,7 +362,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk11_linux_aarch64_for_testing",
         ],
-        "archive": "zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz",
         "sha256": "61254688067454d3ccf0ef25993b5dcab7b56c8129e53b73566c28a8dd4d48fb",
         "strip_prefix": "zulu11.50.19-ca-jdk11.0.12-linux_aarch64",
         "urls": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-linux_aarch64.tar.gz"],
@@ -398,7 +396,6 @@ DIST_DEPS = {
             "remotejdk11_macos_for_testing",
             "openjdk11_darwin_archive",
         ],
-        "archive": "zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz",
         "sha256": "0b8c8b7cf89c7c55b7e2239b47201d704e8d2170884875b00f3103cf0662d6d7",
         "strip_prefix": "zulu11.50.19-ca-jdk11.0.12-macosx_x64",
         "urls": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-macosx_x64.tar.gz"],
@@ -409,7 +406,6 @@ DIST_DEPS = {
             "remotejdk11_macos_aarch64_for_testing",
             "openjdk11_darwin_aarch64_archive",
         ],
-        "archive": "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64.tar.gz",
         "sha256": "e908a0b4c0da08d41c3e19230f819b364ff2e5f1dafd62d2cf991a85a34d3a17",
         "strip_prefix": "zulu11.50.19-ca-jdk11.0.12-macosx_aarch64",
         "urls": [
@@ -423,7 +419,6 @@ DIST_DEPS = {
             "remotejdk11_win_for_testing",
             "openjdk11_windows_archive",
         ],
-        "archive": "zulu11.50.19-ca-jdk11.0.12-win_x64.tar.gz",
         "sha256": "42ae65e75d615a3f06a674978e1fa85fdf078cad94e553fee3e779b2b42bb015",
         "strip_prefix": "zulu11.50.19-ca-jdk11.0.12-win_x64",
         "urls": ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
