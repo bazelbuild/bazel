@@ -468,7 +468,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
       Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
-      SkyFunction factory = evaluatorContext.getSkyFunctions().get(parent.functionName());
+      SkyFunction skyFunction = evaluatorContext.getSkyFunctions().get(parent.functionName());
       if (parentEntry.isDirty()) {
         switch (parentEntry.getDirtyState()) {
           case CHECK_DEPENDENCIES:
@@ -503,7 +503,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       try {
         // This build is only to check if the parent node can give us a better error. We don't
         // care about a return value.
-        factory.compute(parent, env);
+        skyFunction.compute(parent, env);
         completedRun = true;
       } catch (InterruptedException interruptedException) {
         logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
