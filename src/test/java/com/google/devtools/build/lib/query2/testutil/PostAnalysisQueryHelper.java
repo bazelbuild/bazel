@@ -176,7 +176,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     Path rootDirectory = getRootDirectory();
     Path linkPath = rootDirectory.getRelative(link);
     Path targetPath = rootDirectory.getRelative(target);
-    FileSystemUtils.createDirectoryAndParents(linkPath.getParentDirectory());
+    linkPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.ensureSymbolicLink(linkPath, targetPath);
   }
 
