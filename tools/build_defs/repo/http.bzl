@@ -32,10 +32,9 @@ replace the native rules.
 
 load(
     ":utils.bzl",
+    "get_ath",
     "patch",
-    "read_netrc",
     "update_attrs",
-    "use_netrc",
     "workspace_and_buildfile",
 )
 
@@ -73,26 +72,6 @@ Authorization: Bearer RANDOM-TOKEN
 </pre>
 """
 
-def _get_auth(ctx, urls):
-    """Given the list of URLs obtain the correct auth dict."""
-    if ctx.attr.netrc:
-        netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "HOME" in ctx.os.environ and not ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"])
-        if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "USERPROFILE" in ctx.os.environ and ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
-        if ctx.path(netrcfile).exists:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    return {}
-
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
     if not ctx.attr.url and not ctx.attr.urls:
@@ -106,7 +85,7 @@ def _http_archive_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
 
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
 
     download_info = ctx.download_and_extract(
         all_urls,
@@ -149,7 +128,7 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    auth = _get_auth(ctx, ctx.attr.urls)
+    auth = get_auth(ctx, ctx.attr.urls)
     download_info = ctx.download(
         ctx.attr.urls,
         "file/" + downloaded_file_path,
@@ -189,7 +168,7 @@ def _http_jar_impl(ctx):
         all_urls = ctx.attr.urls
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
     downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,
