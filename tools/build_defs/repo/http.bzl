@@ -95,7 +95,7 @@ def _http_archive_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
 
-    auth = get_auth(ctx, all_urls)
+    auth = _get_auth(ctx, all_urls)
 
     download_info = ctx.download_and_extract(
         all_urls,
@@ -138,7 +138,7 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    auth = get_auth(ctx, ctx.attr.urls)
+    auth = _get_auth(ctx, ctx.attr.urls)
     download_info = ctx.download(
         ctx.attr.urls,
         "file/" + downloaded_file_path,
@@ -178,7 +178,7 @@ def _http_jar_impl(ctx):
         all_urls = ctx.attr.urls
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
-    auth = get_auth(ctx, all_urls)
+    auth = _get_auth(ctx, all_urls)
     downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,
