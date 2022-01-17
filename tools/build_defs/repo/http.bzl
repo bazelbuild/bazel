@@ -32,7 +32,7 @@ replace the native rules.
 
 load(
     ":utils.bzl",
-    "get_ath",
+    "get_auth",
     "patch",
     "update_attrs",
     "workspace_and_buildfile",
