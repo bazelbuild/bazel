@@ -32,9 +32,11 @@ replace the native rules.
 
 load(
     ":utils.bzl",
-    "get_auth",
     "patch",
+    "read_netrc",
+    "read_user_netrc",
     "update_attrs",
+    "use_netrc",
     "workspace_and_buildfile",
 )
 
@@ -71,6 +73,14 @@ The final HTTP request would have the following header:
 Authorization: Bearer RANDOM-TOKEN
 </pre>
 """
+
+def _get_auth(ctx, urls):
+    """Given the list of URLs obtain the correct auth dict."""
+    if ctx.attr.netrc:
+        netrc = read_netrc(ctx, ctx.attr.netrc)
+    else:
+        netrc = read_user_netrc(ctx)
+    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""

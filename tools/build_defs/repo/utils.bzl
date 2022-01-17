@@ -28,11 +28,6 @@ load(
 ```
 """
 
-load(
-    "@bazel_skylib//lib:paths.bzl",
-    "paths",
-)
-
 # Temporary directory for downloading remote patch files.
 _REMOTE_PATCH_DIR = ".tmp_remote_patches"
 
@@ -391,12 +386,8 @@ def use_netrc(netrc, urls, patterns):
 
     return auth
 
-def get_auth(ctx, urls):
-    """Given the list of URLs obtain the correct auth dict."""
-    if ctx.attr.netrc:
-        netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
+def read_user_netrc(ctx):
+    "Read user's default netrc file"
     if ctx.os.name.startswith("windows"):
         home_dir = ctx.os.environ.get("USERPROFILE", "")
     else:
@@ -405,8 +396,7 @@ def get_auth(ctx, urls):
     if not home_dir:
         return {}
 
-    netrcfile = paths.join(home_dir, ".netrc")
+    netrcfile = "{}/.netrc".format(home_dir)
     if not ctx.path(netrcfile).exists:
         return {}
-    netrc = read_netrc(ctx, netrcfile)
-    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
+    return read_netrc(ctx, netrcfile)
