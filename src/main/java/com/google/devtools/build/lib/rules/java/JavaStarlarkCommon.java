@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -297,6 +298,9 @@ public class JavaStarlarkCommon
   @Override
   public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
+    if (target instanceof MergedConfiguredTarget) {
+      target = ((MergedConfiguredTarget) target).getBaseConfiguredTarget();
+    }
     if (target instanceof AbstractConfiguredTarget) {
       return ((AbstractConfiguredTarget) target).getRuleClassString();
     }
