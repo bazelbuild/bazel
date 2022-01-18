@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule.IgnoreFailureCheck;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -51,6 +53,7 @@ class LocalBranch extends Branch {
   private final IgnoreFailureCheck ignoreFailureCheck;
   private final Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution;
   private final AtomicBoolean delayLocalExecution;
+  private final Instant creationTime = Instant.now();
 
   public LocalBranch(
       ActionExecutionContext actionExecutionContext,
@@ -69,6 +72,10 @@ class LocalBranch extends Branch {
   @Override
   public DynamicMode getMode() {
     return LOCAL;
+  }
+
+  public Duration getAge() {
+    return Duration.between(creationTime, Instant.now());
   }
 
   /**

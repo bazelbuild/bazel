@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -238,7 +239,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       waitingLocalJobs.add(localBranch);
       tryScheduleLocalJob();
     }
-
     remoteBranch.execute(executorService);
 
     try {
@@ -273,7 +273,18 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private void tryScheduleLocalJob() {
     synchronized (waitingLocalJobs) {
       while (!waitingLocalJobs.isEmpty() && threadLimiter.tryAcquire()) {
-        LocalBranch job = waitingLocalJobs.pollLast();
+        LocalBranch job;
+        // TODO(b/120910324): Prioritize jobs where the remote branch has already failed.
+        if (options.slowRemoteTime > 0
+            && waitingLocalJobs
+                    .peekFirst()
+                    .getAge()
+                    .compareTo(Duration.ofSeconds(options.slowRemoteTime))
+                > 0) {
+          job = waitingLocalJobs.pollFirst();
+        } else {
+          job = waitingLocalJobs.pollLast();
+        }
         job.execute(executorService);
       }
     }

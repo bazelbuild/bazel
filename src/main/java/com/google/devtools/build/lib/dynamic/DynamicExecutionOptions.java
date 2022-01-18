@@ -146,4 +146,14 @@ public class DynamicExecutionOptions extends OptionsBase {
           "If set, dynamic execution is turned off until there has been at least one successful"
               + " build.")
   public boolean skipFirstBuild;
+
+  @Option(
+      name = "experimental_dynamic_slow_remote_time",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "0",
+      help =
+          "If >0, the number of seconds a dynamically run action must run remote-only before we"
+              + " prioritize its local execution to avoid remote timeouts.")
+  public int slowRemoteTime;
 }
