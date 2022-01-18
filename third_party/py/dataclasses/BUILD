@@ -15,6 +15,6 @@ filegroup(
 py_library(
     name = "dataclasses",
     srcs = glob(["**/*.py"]),
-    imports = ["."],
     srcs_version = "PY3",  # Only works with Python 3.
+    imports = ["."],
 )

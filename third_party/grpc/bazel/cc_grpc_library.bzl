@@ -47,10 +47,8 @@ def cc_grpc_library(
           https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes
     """
     if len(srcs) != 1:
-        fail(
-            "The srcs attribute must be a singleton list but was " + str(srcs),
-            "srcs",
-        )
+        fail("The srcs attribute must be a singleton list but was " + str(srcs),
+             "srcs")
 
     codegen_grpc_target = "_" + name + "_grpc_codegen"
     generate_cc(

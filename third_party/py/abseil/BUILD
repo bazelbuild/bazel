@@ -12,9 +12,9 @@ filegroup(
 
 py_library(
     name = "abseil",
-    srcs = glob(["**/*.py"]),
-    imports = ["."],
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
     deps = ["//third_party/py/six"],
+    srcs = glob(["**/*.py"]),
+    srcs_version = "PY2AND3",
+    imports = ["."],
+    visibility = ["//visibility:public"],
 )
