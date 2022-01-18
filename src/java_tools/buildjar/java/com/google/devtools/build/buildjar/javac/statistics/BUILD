@@ -5,11 +5,13 @@ package(default_visibility = ["//visibility:public"])
 java_library(
     name = "statistics",
     srcs = ["BlazeJavacStatistics.java"],
+    javacopts = [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    ],
     deps = [
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 

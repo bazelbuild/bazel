@@ -320,6 +320,7 @@ java_test(
     srcs = [
         "DesugarCoreLibraryFunctionalTest.java",
     ],
+    javacopts = ["-source 8 -target 8"],
     jvm_flags = [
         # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
         "-XX:+IgnoreUnrecognizedVMOptions",
@@ -693,7 +694,10 @@ sh_test(
 java_library(
     name = "testdata",
     srcs = glob(["testdata/*.java"]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":separate",
@@ -707,7 +711,10 @@ java_library(
         "testdata/*.java",
         "testdata/java8/**/*.java",
     ]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":separate",
@@ -721,6 +728,7 @@ java_library(
     srcs = glob([
         "testdata/core_library/**/*.java",
     ]),
+    javacopts = ["-source 8 -target 8"],
     resources = ["testdata/testresource.txt"],
     deps = [
         "//third_party:error_prone",
@@ -741,7 +749,10 @@ java_library(
 java_library(
     name = "testdata_like_in_android_studio",
     srcs = glob(["testdata/*.java"]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
@@ -755,7 +766,10 @@ java_library(
         "testdata/*.java",
         "testdata/java8/**/*.java",
     ]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
