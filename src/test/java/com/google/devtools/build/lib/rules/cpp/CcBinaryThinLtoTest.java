@@ -1621,6 +1621,8 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
 
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
+    assertThat(ActionsTestUtil.baseArtifactNames(linkAction.getInputs()))
+        .contains("ld_profile.txt");
 
     List<String> commandLine = linkAction.getLinkCommandLine().getRawLinkArgv();
     assertThat(commandLine.toString())
@@ -1638,6 +1640,195 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsMatch(expectedBuildTypeFlag);
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("cc_profile.txt");
+
+    CppLinkAction indexAction = getIndexAction(backendAction);
+    assertThat(ActionsTestUtil.baseArtifactNames(indexAction.getInputs()))
+        .doesNotContain("ld_profile.txt");
+  }
+
+  @Test
+  public void testPropellerCcCompile() throws Exception {
+    createBuildFiles();
+
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
+
+    useConfiguration(
+        "--propeller_optimize_absolute_cc_profile=/tmp/cc_profile.txt",
+        "--propeller_optimize_absolute_ld_profile=/tmp/ld_profile.txt",
+        "--compilation_mode=opt");
+    Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
+
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+    CppLinkAction indexAction = getIndexAction(backendAction);
+    CppCompileAction bitcodeAction =
+        (CppCompileAction)
+            getPredecessorByInputName(indexAction, "pkg/_objs/bin/binfile.indexing.o");
+    assertThat(ActionsTestUtil.baseArtifactNames(bitcodeAction.getInputs()))
+        .doesNotContain("cc_profile.txt");
+    assertThat(Joiner.on(" ").join(bitcodeAction.getArguments()))
+        .doesNotContainMatch("-fbasic-block-sections=");
+  }
+
+  /**
+   * Check that the temporary opt-out from disabling Propeller profiles for ThinLTO compile actions
+   * works.
+   *
+   * <p>TODO(b/182804945): Remove after making sure that the rollout of the new Propeller profile
+   * passing logic didn't break anything.
+   */
+  @Test
+  public void testPropellerCcCompileWithPropellerOptimizeThinLtoCompileActions() throws Exception {
+    createBuildFiles();
+
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
+
+    useConfiguration(
+        "--propeller_optimize_absolute_cc_profile=/tmp/cc_profile.txt",
+        "--propeller_optimize_absolute_ld_profile=/tmp/ld_profile.txt",
+        "--compilation_mode=opt",
+        "--features=propeller_optimize_thinlto_compile_actions");
+    Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
+
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+    CppLinkAction indexAction = getIndexAction(backendAction);
+    assertThat(artifactsToStrings(indexAction.getInputs()))
+        .containsAtLeast(
+            "bin pkg/_objs/bin/binfile.indexing.o", "bin pkg/_objs/lib/libfile.indexing.o");
+
+    CppCompileAction bitcodeAction =
+        (CppCompileAction)
+            getPredecessorByInputName(indexAction, "pkg/_objs/bin/binfile.indexing.o");
+    assertThat(ActionsTestUtil.baseArtifactNames(bitcodeAction.getInputs()))
+        .contains("cc_profile.txt");
+    assertThat(Joiner.on(" ").join(bitcodeAction.getArguments()))
+        .containsMatch("-fbasic-block-sections=list=.*/cc_profile.txt");
+  }
+
+  @Test
+  public void testPropellerCcCompileWithThinLtoDisabled() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "package(features = ['thin_lto'])",
+        "",
+        "cc_binary(name = '" + targetName + "',",
+        "          srcs = ['binfile.cc', ],",
+        "          deps = [ ':lib' ], ",
+        "          malloc = '//base:system_malloc')",
+        "cc_library(name = 'lib',",
+        "        srcs = ['libfile.cc'],",
+        "        hdrs = ['libfile.h'],",
+        "        linkstamp = 'linkstamp.cc',",
+        "        features = ['-thin_lto'],",
+        "       )");
+
+    scratch.file("pkg/binfile.cc", "#include \"pkg/libfile.h\"", "int main() { return pkg(); }");
+    scratch.file("pkg/libfile.cc", "int pkg() { return 42; }");
+    scratch.file("pkg/libfile.h", "int pkg();");
+    scratch.file("pkg/linkstamp.cc");
+
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
+
+    useConfiguration(
+        "--propeller_optimize_absolute_cc_profile=/tmp/cc_profile.txt",
+        "--propeller_optimize_absolute_ld_profile=/tmp/ld_profile.txt",
+        "--compilation_mode=opt");
+    Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
+
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    CppCompileAction compileAction =
+        (CppCompileAction) getPredecessorByInputName(linkAction, "pkg/_objs/lib/libfile.o");
+    assertThat(ActionsTestUtil.baseArtifactNames(compileAction.getInputs()))
+        .contains("cc_profile.txt");
+    assertThat(Joiner.on(" ").join(compileAction.getArguments()))
+        .containsMatch("-fbasic-block-sections=list=.*/cc_profile.txt");
+  }
+
+  @Test
+  public void testPropellerHostBuilds() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "package(features = ['thin_lto'])",
+        "",
+        "cc_binary(name = '" + targetName + "',",
+        "          srcs = ['binfile.cc', ],",
+        "          deps = [ ':lib' ], ",
+        "          malloc = '//base:system_malloc')",
+        "cc_library(name = 'lib',",
+        "        srcs = ['libfile.cc'],",
+        "        hdrs = ['libfile.h'])",
+        "cc_binary(name = 'gen_lib',",
+        "        srcs = ['gen_lib.cc'])",
+        "genrule(name = 'lib_genrule',",
+        "        srcs = [],",
+        "        outs = ['libfile.cc'],",
+        "        cmd = '$(location gen_lib) > \"$@\"',",
+        "        tools = [':gen_lib'])");
+
+    scratch.file("pkg/binfile.cc", "#include \"pkg/libfile.h\"", "int main() { return pkg(); }");
+    scratch.file(
+        "pkg/gen_lib.cc",
+        "#include <cstdio>",
+        "int main() { puts(\"int pkg() { return 42; }\"); }");
+    scratch.file("pkg/libfile.h", "int pkg();");
+
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
+
+    useConfiguration(
+        "--propeller_optimize_absolute_cc_profile=/tmp/cc_profile.txt",
+        "--propeller_optimize_absolute_ld_profile=/tmp/ld_profile.txt",
+        "--compilation_mode=opt");
+    Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
+
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+    CppLinkAction indexAction = getIndexAction(backendAction);
+    assertThat(artifactsToStrings(indexAction.getInputs()))
+        .contains("bin pkg/_objs/lib/libfile.indexing.o");
+
+    CppCompileAction bitcodeAction =
+        (CppCompileAction)
+            getPredecessorByInputName(indexAction, "pkg/_objs/lib/libfile.indexing.o");
+
+    Action genruleAction = getPredecessorByInputName(bitcodeAction, "pkg/libfile.cc");
+
+    CppLinkAction hostLinkAction =
+        (CppLinkAction) getPredecessorByInputName(genruleAction, "pkg/gen_lib");
+    assertThat(ActionsTestUtil.baseArtifactNames(hostLinkAction.getInputs()))
+        .doesNotContain("ld_profile.txt");
+    assertThat(hostLinkAction.getLinkCommandLine().getRawLinkArgv().toString())
+        .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
+
+    LtoBackendAction hostBackendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                hostLinkAction, "pkg/gen_lib.lto/pkg/_objs/gen_lib/gen_lib.o");
+    assertThat(ActionsTestUtil.baseArtifactNames(hostBackendAction.getInputs()))
+        .doesNotContain("cc_profile.txt");
+    assertThat(Joiner.on(" ").join(hostBackendAction.getArguments()))
+        .doesNotContainMatch("-fbasic-block-sections");
+
+    CppLinkAction hostIndexAction = getIndexAction(hostBackendAction);
+    assertThat(hostIndexAction).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(hostIndexAction.getInputs()))
+        .doesNotContain("ld_profile.txt");
+    assertThat(hostIndexAction.getLinkCommandLine().getRawLinkArgv().toString())
+        .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
+
+    CppCompileAction hostBitcodeAction =
+        (CppCompileAction)
+            getPredecessorByInputName(hostIndexAction, "pkg/_objs/gen_lib/gen_lib.indexing.o");
+    assertThat(ActionsTestUtil.baseArtifactNames(hostBitcodeAction.getInputs()))
+        .doesNotContain("cc_profile.txt");
+    assertThat(Joiner.on(" ").join(hostBitcodeAction.getArguments()))
+        .doesNotContainMatch("-fbasic-block-sections=");
   }
 
   private void testPropellerOptimizeOption(boolean label) throws Exception {

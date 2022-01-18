@@ -635,6 +635,13 @@ public final class CcLinkingHelper {
     }
   }
 
+  /** Returns whether Propeller profiles should be passed to the linking step. */
+  private boolean shouldPassPropellerProfiles() {
+    return !ccToolchain.isToolConfiguration()
+        && fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null;
+  }
+
   private CppLinkAction registerActionForStaticLibrary(
       LinkTargetType linkTargetTypeUsedForNaming,
       CcCompilationOutputs ccOutputs,
@@ -642,7 +649,7 @@ public final class CcLinkingHelper {
       String libraryIdentifier)
       throws RuleErrorException, InterruptedException {
     Artifact linkedArtifact = getLinkedArtifact(linkTargetTypeUsedForNaming);
-    CppLinkAction action =
+    CppLinkActionBuilder builder =
         newLinkActionBuilder(linkedArtifact, linkTargetTypeUsedForNaming)
             .addObjectFiles(ccOutputs.getObjectFiles(usePic))
             .addLtoCompilationContext(ccOutputs.getLtoCompilationContext())
@@ -650,8 +657,11 @@ public final class CcLinkingHelper {
             .setLinkingMode(LinkingMode.STATIC)
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(libraryIdentifier)
-            .addVariablesExtensions(variablesExtensions)
-            .build();
+            .addVariablesExtensions(variablesExtensions);
+    if (shouldPassPropellerProfiles()) {
+      builder.addNonCodeInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    }
+    CppLinkAction action = builder.build();
     actionConstructionContext.registerAction(action);
     return action;
   }
@@ -786,6 +796,11 @@ public final class CcLinkingHelper {
       dynamicLinkActionBuilder.setLtoIndexing(false);
     }
 
+    if (shouldPassPropellerProfiles()) {
+      dynamicLinkActionBuilder.addNonCodeInput(
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    }
+
     if (dynamicLinkActionBuilder.getAllLtoBackendArtifacts() != null) {
       ccLinkingOutputs.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
     }
@@ -844,11 +859,6 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      this.additionalLinkerInputsBuilder.add(
-          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-    }
     String mnemonic =
         (linkType.equals(LinkTargetType.OBJCPP_EXECUTABLE)
                 || linkType.equals(LinkTargetType.OBJC_EXECUTABLE))

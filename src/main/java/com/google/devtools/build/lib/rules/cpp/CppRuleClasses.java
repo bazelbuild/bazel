@@ -380,6 +380,15 @@ public class CppRuleClasses {
   /** A string constant for the propeller optimize feature. */
   public static final String PROPELLER_OPTIMIZE = "propeller_optimize";
 
+  /**
+   * A string constant for the propeller_optimize_thinlto_compile_actions feature.
+   *
+   * <p>TODO(b/182804945): Remove after making sure that the rollout of the new Propeller profile
+   * passing logic didn't break anything.
+   */
+  public static final String PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS =
+      "propeller_optimize_thinlto_compile_actions";
+
   /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
 

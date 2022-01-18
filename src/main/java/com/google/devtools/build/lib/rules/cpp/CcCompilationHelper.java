@@ -79,13 +79,8 @@ public final class CcCompilationHelper {
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
-  private static void configureFdoBuildVariables(
-      Map<String, String> variablesBuilder,
-      FeatureConfiguration featureConfiguration,
-      FdoContext fdoContext,
-      String fdoInstrument,
-      String csFdoInstrument,
-      CppConfiguration cppConfiguration) {
+  private void configureFdoBuildVariables(
+      Map<String, String> variablesBuilder, String fdoInstrument, String csFdoInstrument) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
@@ -107,24 +102,24 @@ public final class CcCompilationHelper {
           fdoContext.getPrefetchHintsArtifact().getExecPathString());
     }
 
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
-          fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
-    }
+    if (shouldPassPropellerProfiles()) {
+      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+        variablesBuilder.put(
+            CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
+            fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
+      }
 
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
-          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+        variablesBuilder.put(
+            CompileBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
+            fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      }
     }
 
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
-      if (!getAuxiliaryFdoInputs(fdoContext).isEmpty()) {
+      if (!getAuxiliaryFdoInputs().isEmpty()) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
@@ -142,20 +137,37 @@ public final class CcCompilationHelper {
     }
   }
 
+  /** Returns whether Propeller profiles should be passed to a compile action. */
+  private boolean shouldPassPropellerProfiles() {
+    if (ccToolchain.isToolConfiguration()) {
+      // Propeller doesn't make much sense for host builds.
+      return false;
+    }
+
+    if (fdoContext.getPropellerOptimizeInputFile() == null) {
+      // No Propeller profiles to pass.
+      return false;
+    }
+    // Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
+    return !featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
+        || featureConfiguration.isEnabled(
+            CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS);
+  }
+
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private static NestedSet<Artifact> getAuxiliaryFdoInputs(FdoContext fdoContext) {
+  private NestedSet<Artifact> getAuxiliaryFdoInputs() {
     NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
       auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
     }
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
-    }
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    if (shouldPassPropellerProfiles()) {
+      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
+      }
+      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+      }
     }
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // If --fdo_optimize was not specified, we don't have any additional inputs.
@@ -1629,7 +1641,7 @@ public final class CcCompilationHelper {
     if (needsFdoBuildVariables && fdoContext.hasArtifacts(cppConfiguration)) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
-      builder.addMandatoryInputs(getAuxiliaryFdoInputs(fdoContext));
+      builder.addMandatoryInputs(getAuxiliaryFdoInputs());
     }
     CcToolchainVariables parent = needsFdoBuildVariables ? prebuiltParentWithFdo : prebuiltParent;
     // We use the prebuilt parent variables if and only if the passed in cppModuleMap is the
@@ -1650,11 +1662,8 @@ public final class CcCompilationHelper {
       if (needsFdoBuildVariables) {
         configureFdoBuildVariables(
             genericAdditionalBuildVariables,
-            featureConfiguration,
-            fdoContext,
             cppConfiguration.getFdoInstrument(),
-            cppConfiguration.getCSFdoInstrument(),
-            cppConfiguration);
+            cppConfiguration.getCSFdoInstrument());
       }
       buildVariables =
           CcToolchainVariables.builder(
