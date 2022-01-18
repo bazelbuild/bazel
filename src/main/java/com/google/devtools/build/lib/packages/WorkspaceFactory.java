@@ -146,8 +146,9 @@ public class WorkspaceFactory {
       List<String> globs = new ArrayList<>(); // unused
       if (PackageFactory.checkBuildSyntax(
           file,
-          globs,
-          globs,
+          /*globs=*/ globs,
+          /*globsWithDirs=*/ globs,
+          /*subpackages=*/ globs,
           new HashMap<>(),
           error ->
               localReporter.handle(

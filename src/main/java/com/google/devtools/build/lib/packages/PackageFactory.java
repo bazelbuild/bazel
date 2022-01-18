@@ -601,6 +601,7 @@ public final class PackageFactory {
       Program buildFileProgram,
       ImmutableList<String> globs,
       ImmutableList<String> globsWithDirs,
+      ImmutableList<String> subpackages,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
@@ -613,6 +614,8 @@ public final class PackageFactory {
         globber.runAsync(globs, ImmutableList.of(), Globber.Operation.FILES, allowEmpty);
         globber.runAsync(
             globsWithDirs, ImmutableList.of(), Globber.Operation.FILES_AND_DIRS, allowEmpty);
+        globber.runAsync(
+            subpackages, ImmutableList.of(), Globber.Operation.SUBPACKAGES, allowEmpty);
       } catch (BadGlobException ex) {
         logger.atWarning().withCause(ex).log(
             "Suppressing exception for globs=%s, globsWithDirs=%s", globs, globsWithDirs);
@@ -734,6 +737,7 @@ public final class PackageFactory {
       StarlarkFile file,
       Collection<String> globs,
       Collection<String> globsWithDirs,
+      Collection<String> subpackages,
       Map<Location, String> generatorNameByLocation,
       Consumer<SyntaxError> errors) {
     final boolean[] success = {true};
@@ -747,11 +751,16 @@ public final class PackageFactory {
           // Extract literal glob patterns from calls of the form:
           //   glob(include = ["pattern"])
           //   glob(["pattern"])
-          // This may spuriously match user-defined functions named glob;
-          // that's ok, it's only a heuristic.
+          //   subpackages(include = ["pattern"])
+          // This may spuriously match user-defined functions named glob or
+          // subpackages; that's ok, it's only a heuristic.
           void extractGlobPatterns(CallExpression call) {
-            if (call.getFunction() instanceof Identifier
-                && ((Identifier) call.getFunction()).getName().equals("glob")) {
+            if (call.getFunction() instanceof Identifier) {
+              String functionName = ((Identifier) call.getFunction()).getName();
+              if (!functionName.equals("glob") && !functionName.equals("subpackages")) {
+                return;
+              }
+
               Expression excludeDirectories = null, include = null;
               List<Argument> arguments = call.getArguments();
               for (int i = 0; i < arguments.size(); i++) {
@@ -779,7 +788,11 @@ public final class PackageFactory {
                         exclude = false;
                       }
                     }
-                    (exclude ? globs : globsWithDirs).add(pattern);
+                    if (functionName.equals("glob")) {
+                      (exclude ? globs : globsWithDirs).add(pattern);
+                    } else {
+                      subpackages.add(pattern);
+                    }
                   }
                 }
               }
