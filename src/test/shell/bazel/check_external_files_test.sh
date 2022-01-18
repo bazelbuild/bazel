@@ -191,7 +191,7 @@ run_override_repository_isnt_affected() {
 test_override_repository_isnt_affected() {
   run_override_repository_isnt_affected "--nowatchfs"
 }
-test_override_repository_isnt_affected() {
+test_override_repository_isnt_affected_with_skips() {
   run_override_repository_isnt_affected "--noexperimental_check_output_files --watchfs"
 }
 
