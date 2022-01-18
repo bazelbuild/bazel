@@ -144,7 +144,6 @@ The following Python features are not supported:
 * `while`, `yield`.
 * float and set types.
 * generators and generator expressions.
-* `lambda` and nested functions.
 * `is` (use `==` instead).
 * `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail) for fatal errors).
 * `global`, `nonlocal`.
