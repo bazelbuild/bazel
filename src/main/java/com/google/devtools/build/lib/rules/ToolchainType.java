@@ -55,6 +55,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
           .advertiseStarlarkProvider(ToolchainTypeInfo.PROVIDER.id())
           .removeAttribute("licenses")
           .removeAttribute("distribs")
+          .removeAttribute(":action_listener")
           .build();
     }
 
