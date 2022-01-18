@@ -338,6 +338,4 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
           return true;
         }
       };
-
-  public static final EvaluatorSupplier SUPPLIER = InMemoryMemoizingEvaluator::new;
 }

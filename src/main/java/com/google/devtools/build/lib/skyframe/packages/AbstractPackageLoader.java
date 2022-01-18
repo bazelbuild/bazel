@@ -387,7 +387,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
               ? new PackageOrException(null, exceptionFromErrorInfo(error, pkgId))
               : new PackageOrException(packageValue.getPackage(), null));
     }
-    return new Result(result.build(), storedEventHandler.getEvents());
+    return new Result(result.buildOrThrow(), storedEventHandler.getEvents());
   }
 
   public ConfiguredRuleClassProvider getRuleClassProvider() {
@@ -413,7 +413,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   }
 
   private MemoizingEvaluator makeFreshEvaluator() {
-    return InMemoryMemoizingEvaluator.SUPPLIER.create(
+    return new InMemoryMemoizingEvaluator(
         makeFreshSkyFunctions(),
         preinjectedDifferencer,
         EvaluationProgressReceiver.NULL,
@@ -513,6 +513,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 IncrementalityIntent.NON_INCREMENTAL,
                 k -> ThreadStateReceiver.NULL_INSTANCE))
         .putAll(extraSkyFunctions);
-    return builder.build();
+    return builder.buildOrThrow();
   }
 }

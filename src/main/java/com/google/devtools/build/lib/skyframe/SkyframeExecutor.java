@@ -42,7 +42,6 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -176,6 +175,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -194,12 +194,11 @@ import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporary
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
-import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -241,7 +240,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 public abstract class SkyframeExecutor implements WalkableGraphFactory, ConfigurationsCollector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final EvaluatorSupplier evaluatorSupplier;
   protected MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
       new MemoizingEvaluator.EmittedEventState();
@@ -250,7 +248,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final FileSystem fileSystem;
   protected final BlazeDirectories directories;
   protected final ExternalFilesHelper externalFilesHelper;
-  private final GraphInconsistencyReceiver graphInconsistencyReceiver;
   private final BugReporter bugReporter;
 
   /**
@@ -398,7 +395,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected SkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
-      EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       FileSystem fileSystem,
       BlazeDirectories directories,
@@ -412,7 +408,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
-      GraphInconsistencyReceiver graphInconsistencyReceiver,
       @Nullable PackageProgressReceiver packageProgress,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
@@ -421,10 +416,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
-    this.evaluatorSupplier = evaluatorSupplier;
     this.pkgFactory = pkgFactory;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
-    this.graphInconsistencyReceiver = graphInconsistencyReceiver;
     this.skyKeyStateReceiver = skyKeyStateReceiver;
     this.bugReporter = bugReporter;
     this.pkgFactory.setSyscalls(syscalls);
@@ -504,7 +497,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(
         SkyFunctions.BZL_COMPILE, // TODO rename
-        new BzlCompileFunction(pkgFactory, getHashFunction()));
+        new BzlCompileFunction(pkgFactory, getDigestFunction().getHashFunction()));
     map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
     GlobFunction globFunction = newGlobFunction();
@@ -677,7 +670,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected SkyFunction newBzlLoadFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return BzlLoadFunction.create(this.pkgFactory, directories, getHashFunction(), bzlCompileCache);
+    return BzlLoadFunction.create(
+        this.pkgFactory, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int globbingThreads) {
@@ -789,16 +783,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final void init() {
     progressReceiver = newSkyframeProgressReceiver();
     memoizingEvaluator =
-        evaluatorSupplier.create(
-            skyFunctions(),
-            evaluatorDiffer(),
-            progressReceiver,
-            graphInconsistencyReceiver,
-            DEFAULT_FILTER_WITH_ACTIONS,
-            emittedEventState,
-            tracksStateForIncrementality());
+        createEvaluator(
+            skyFunctions(), progressReceiver, DEFAULT_FILTER_WITH_ACTIONS, emittedEventState);
     skyframeExecutorConsumerOnInit.accept(this);
   }
+
+  @ForOverride
+  protected abstract MemoizingEvaluator createEvaluator(
+      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
+      SkyframeProgressReceiver progressReceiver,
+      EventFilter eventFilter,
+      EmittedEventState emittedEventState);
 
   /**
    * Use the fact that analysis of a target must occur before execution of that target, and in a
@@ -860,8 +855,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void postLoggingStatsWhenCrashing(ExtendedEventHandler eventHandler) {
     memoizingEvaluator.postLoggingStats(eventHandler);
   }
-
-  protected abstract Differencer evaluatorDiffer();
 
   /** Clear any configured target data stored outside Skyframe. */
   public void handleAnalysisInvalidatingChange() {
@@ -2511,8 +2504,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   // TODO(janakr): Is there a better place for this?
-  public HashFunction getHashFunction() {
-    return fileSystem.getDigestFunction().getHashFunction();
+  public final DigestHashFunction getDigestFunction() {
+    return fileSystem.getDigestFunction();
   }
 
   /** Exception thrown when {@link #getDoneSkyValueForIntrospection} fails. */

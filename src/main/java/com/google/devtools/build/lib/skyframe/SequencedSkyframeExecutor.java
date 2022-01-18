@@ -91,10 +91,11 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.EvaluationContext;
+import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -158,7 +159,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
-      EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       FileSystem fileSystem,
       BlazeDirectories directories,
@@ -177,7 +177,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       BugReporter bugReporter) {
     super(
         skyframeExecutorConsumerOnInit,
-        evaluatorSupplier,
         pkgFactory,
         fileSystem,
         directories,
@@ -191,7 +190,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
         /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
-        GraphInconsistencyReceiver.THROWING,
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
         repositoryHelpersHolder == null
@@ -211,8 +209,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  protected Differencer evaluatorDiffer() {
-    return recordingDiffer;
+  protected InMemoryMemoizingEvaluator createEvaluator(
+      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
+      SkyframeProgressReceiver progressReceiver,
+      EventFilter eventFilter,
+      EmittedEventState emittedEventState) {
+    return new InMemoryMemoizingEvaluator(
+        skyFunctions,
+        recordingDiffer,
+        progressReceiver,
+        GraphInconsistencyReceiver.THROWING,
+        eventFilter,
+        emittedEventState,
+        trackIncrementalState);
   }
 
   @Override
@@ -430,7 +439,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           ClientEnvironmentFunction.key(entry.getKey()),
           new ClientEnvironmentValue(entry.getValue()));
     }
-    recordingDiffer.inject(newValuesBuilder.build());
+    recordingDiffer.inject(newValuesBuilder.buildOrThrow());
   }
 
   /**
@@ -1068,7 +1077,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       SequencedSkyframeExecutor skyframeExecutor =
           new SequencedSkyframeExecutor(
               skyframeExecutorConsumerOnInit,
-              InMemoryMemoizingEvaluator.SUPPLIER,
               pkgFactory,
               fileSystem,
               directories,
