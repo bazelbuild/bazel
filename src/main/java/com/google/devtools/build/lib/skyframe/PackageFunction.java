@@ -135,6 +135,7 @@ public class PackageFunction implements SkyFunction {
     @Nullable private final Program prog;
     @Nullable private final ImmutableList<String> globs;
     @Nullable private final ImmutableList<String> globsWithDirs;
+    @Nullable private final ImmutableList<String> subpackages;
     @Nullable private final ImmutableMap<Location, String> generatorMap;
     @Nullable private final ImmutableMap<String, Object> predeclared;
 
@@ -147,11 +148,13 @@ public class PackageFunction implements SkyFunction {
         Program prog,
         ImmutableList<String> globs,
         ImmutableList<String> globsWithDirs,
+        ImmutableList<String> subpackages,
         ImmutableMap<Location, String> generatorMap,
         ImmutableMap<String, Object> predeclared) {
       this.errors = null;
       this.prog = prog;
       this.globs = globs;
+      this.subpackages = subpackages;
       this.globsWithDirs = globsWithDirs;
       this.generatorMap = generatorMap;
       this.predeclared = predeclared;
@@ -163,6 +166,7 @@ public class PackageFunction implements SkyFunction {
       this.prog = null;
       this.globs = null;
       this.globsWithDirs = null;
+      this.subpackages = null;
       this.generatorMap = null;
       this.predeclared = null;
     }
@@ -1335,6 +1339,7 @@ public class PackageFunction implements SkyFunction {
             compiled.prog,
             compiled.globs,
             compiled.globsWithDirs,
+            compiled.subpackages,
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics,
@@ -1435,9 +1440,11 @@ public class PackageFunction implements SkyFunction {
     // - record the generator_name of each top-level macro call
     Set<String> globs = new HashSet<>();
     Set<String> globsWithDirs = new HashSet<>();
+    Set<String> subpackages = new HashSet<>();
     Map<Location, String> generatorMap = new HashMap<>();
     ImmutableList.Builder<SyntaxError> errors = ImmutableList.builder();
-    if (!PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, generatorMap, errors::add)) {
+    if (!PackageFactory.checkBuildSyntax(
+        file, globs, globsWithDirs, subpackages, generatorMap, errors::add)) {
       return new CompiledBuildFile(errors.build());
     }
 
@@ -1485,6 +1492,7 @@ public class PackageFunction implements SkyFunction {
         prog,
         ImmutableList.copyOf(globs),
         ImmutableList.copyOf(globsWithDirs),
+        ImmutableList.copyOf(subpackages),
         ImmutableMap.copyOf(generatorMap),
         ImmutableMap.copyOf(predeclared));
   }

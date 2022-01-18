@@ -838,4 +838,148 @@ public abstract class GlobFunctionTest {
       return super.statIfFound(path, followSymlinks);
     }
   }
+
+  private void assertSubpackageMatches(String pattern, String... expecteds) throws Exception {
+    assertThat(
+            Iterables.transform(
+                runGlob(pattern, Globber.Operation.SUBPACKAGES).getMatches().toList(),
+                Functions.toStringFunction()))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expecteds));
+  }
+
+  private void makeEmptyPackage(Path newPackagePath) throws Exception {
+    newPackagePath.createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(newPackagePath.getRelative("BUILD"));
+  }
+
+  private void makeEmptyPackage(String path) throws Exception {
+    makeEmptyPackage(pkgPath.getRelative(path));
+  }
+
+  @Test
+  public void subpackages_simple() throws Exception {
+    makeEmptyPackage("horse");
+    makeEmptyPackage("monkey");
+    makeEmptyPackage("horse/saddle");
+
+    // "horse/saddle" should not be in the results because horse/saddle is too deep. a2/b2 added by
+    // setup().
+    assertSubpackageMatches("**", /* => */ "a2/b2", "horse", "monkey");
+  }
+
+  @Test
+  public void subpackages_empty() throws Exception {
+    assertSubpackageMatches("foo/*");
+    assertSubpackageMatches("foo/**");
+  }
+
+  @Test
+  public void subpackages_oneLevelDeep() throws Exception {
+    makeEmptyPackage("base/sub");
+    makeEmptyPackage("base/sub2");
+    makeEmptyPackage("base/sub3");
+
+    assertSubpackageMatches("base/*", /* => */ "base/sub", "base/sub2", "base/sub3");
+    assertSubpackageMatches("base/**", /* => */ "base/sub", "base/sub2", "base/sub3");
+  }
+
+  @Test
+  public void subpackages_oneLevel_notDeepEnough() throws Exception {
+    makeEmptyPackage("base/sub/pkg");
+    makeEmptyPackage("base/sub2/pkg");
+    makeEmptyPackage("base/sub3/pkg");
+
+    // * doesn't go deep enough
+    assertSubpackageMatches("base/*");
+    // But if we go with ** it works fine.
+    assertSubpackageMatches("base/**", /* => */ "base/sub/pkg", "base/sub2/pkg", "base/sub3/pkg");
+  }
+
+  @Test
+  public void subpackages_deepRecurse() throws Exception {
+    makeEmptyPackage("base/sub/1");
+    makeEmptyPackage("base/sub/2");
+    makeEmptyPackage("base/sub2/3");
+    makeEmptyPackage("base/sub2/4");
+    makeEmptyPackage("base/sub3/5");
+    makeEmptyPackage("base/sub3/6");
+
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
+    // "foo/bar" should not be in the results because foo/bar is a separate package.
+    assertSubpackageMatches(
+        "base/*/*",
+        "base/sub/1",
+        "base/sub/2",
+        "base/sub2/3",
+        "base/sub2/4",
+        "base/sub3/5",
+        "base/sub3/6");
+
+    assertSubpackageMatches(
+        "base/**",
+        "base/sub/1",
+        "base/sub/2",
+        "base/sub2/3",
+        "base/sub2/4",
+        "base/sub3/5",
+        "base/sub3/6");
+  }
+
+  @Test
+  public void subpackages_middleWidlcard() throws Exception {
+    makeEmptyPackage("base/sub1/same");
+    makeEmptyPackage("base/sub2/same");
+    makeEmptyPackage("base/sub3/same");
+    makeEmptyPackage("base/sub4/same");
+    makeEmptyPackage("base/sub5/same");
+    makeEmptyPackage("base/sub6/same");
+
+    assertSubpackageMatches(
+        "base/*/same",
+        "base/sub1/same",
+        "base/sub2/same",
+        "base/sub3/same",
+        "base/sub4/same",
+        "base/sub5/same",
+        "base/sub6/same");
+
+    assertSubpackageMatches(
+        "base/**/same",
+        "base/sub1/same",
+        "base/sub2/same",
+        "base/sub3/same",
+        "base/sub4/same",
+        "base/sub5/same",
+        "base/sub6/same");
+  }
+
+  @Test
+  public void subpackages_noWildcard() throws Exception {
+    makeEmptyPackage("sub1");
+    makeEmptyPackage("sub2");
+    makeEmptyPackage("sub3/deep");
+    makeEmptyPackage("sub4/deeper/deeper");
+
+    assertSubpackageMatches("sub");
+    assertSubpackageMatches("sub1", "sub1");
+    assertSubpackageMatches("sub2", "sub2");
+    assertSubpackageMatches("sub3/deep", "sub3/deep");
+    assertSubpackageMatches("sub4/deeper/deeper", "sub4/deeper/deeper");
+  }
+
+  @Test
+  public void subpackages_testSymlinks() throws Exception {
+    Path newPackagePath = pkgPath.getRelative("path/to/pkg");
+    makeEmptyPackage(newPackagePath);
+
+    pkgPath.getRelative("symlinks").createDirectoryAndParents();
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("symlinks/deeplink"), newPackagePath);
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("shallowlink"), newPackagePath);
+
+    assertSubpackageMatches("**", "a2/b2", "symlinks/deeplink", "path/to/pkg", "shallowlink");
+    assertSubpackageMatches("*", "shallowlink");
+
+    assertSubpackageMatches("symlinks/**", "symlinks/deeplink");
+    assertSubpackageMatches("symlinks/*", "symlinks/deeplink");
+  }
 }

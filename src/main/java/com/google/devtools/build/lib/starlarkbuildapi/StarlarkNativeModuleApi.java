@@ -237,4 +237,41 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + "<code>REPOSITORY_NAME</code>.",
       useStarlarkThread = true)
   String repositoryName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "subpackages",
+      doc =
+          "Returns a new mutable list of every direct subpackage of the current package,"
+              + " regardless of file-system directory depth. List returned is sorted and contains"
+              + " the names of subpackages relative to the current package. It is advised to"
+              + " prefer using the methods in bazel_skylib.subpackages module rather than calling"
+              + " this function directly.",
+      parameters = {
+        @Param(
+            name = "include",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            positional = false,
+            named = true,
+            doc = "The list of glob patterns to include in subpackages scan."),
+        @Param(
+            name = "exclude",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            positional = false,
+            named = true,
+            doc = "The list of glob patterns to exclude from subpackages scan."),
+        @Param(
+            name = "allow_empty",
+            defaultValue = "False",
+            positional = false,
+            named = true,
+            doc =
+                "Whether we fail if the call returns an empty list. By default empty list indicates"
+                    + " potential error in BUILD file where the call to subpackages() is"
+                    + " superflous.  Setting to true allows this function to succeed in that case.")
+      },
+      useStarlarkThread = true)
+  Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException;
 }

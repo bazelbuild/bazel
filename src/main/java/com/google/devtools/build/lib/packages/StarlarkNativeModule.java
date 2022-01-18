@@ -102,7 +102,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Globber.Operation op =
         excludeDirs.signum() != 0 ? Globber.Operation.FILES : Globber.Operation.FILES_AND_DIRS;
 
-    List<String> matches;
     boolean allowEmpty;
     if (allowEmptyArgument == Starlark.UNBOUND) {
       allowEmpty =
@@ -114,35 +113,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
           "expected boolean for argument `allow_empty`, got `%s`", allowEmptyArgument);
     }
 
-    try {
-      Globber.Token globToken = context.globber.runAsync(includes, excludes, op, allowEmpty);
-      matches = context.globber.fetchUnsorted(globToken);
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log(
-          "Exception processing includes=%s, excludes=%s)", includes, excludes);
-      String errorMessage =
-          String.format(
-              "error globbing [%s]%s: %s",
-              Joiner.on(", ").join(includes),
-              excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
-              e.getMessage());
-      Location loc = thread.getCallerLocation();
-      Event error =
-          Package.error(
-              loc,
-              errorMessage,
-              // If there are other IOExceptions that can result from user error, they should be
-              // tested for here. Currently FileNotFoundException is not one of those, because globs
-              // only encounter that error in the presence of an inconsistent filesystem.
-              e instanceof FileSymlinkException
-                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
-                  : Code.GLOB_IO_EXCEPTION);
-      context.eventHandler.handle(error);
-      context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
-      matches = ImmutableList.of();
-    } catch (BadGlobException e) {
-      throw new EvalException(e);
-    }
+    List<String> matches = runGlobOperation(context, thread, includes, excludes, op, allowEmpty);
 
     ArrayList<String> result = new ArrayList<>(matches.size());
     for (String match : matches) {
@@ -749,6 +720,64 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   private static class NotRepresentableException extends EvalException {
     NotRepresentableException(String msg) {
       super(msg);
+    }
+  }
+
+  @Override
+  public Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.subpackages");
+    PackageContext context = getContext(thread);
+
+    List<String> includes = Type.STRING_LIST.convert(include, "'subpackages' argument");
+    List<String> excludes = Type.STRING_LIST.convert(exclude, "'subpackages' argument");
+
+    List<String> matches =
+        runGlobOperation(
+            context, thread, includes, excludes, Globber.Operation.SUBPACKAGES, allowEmpty);
+    matches.sort(naturalOrder());
+
+    return StarlarkList.copyOf(thread.mutability(), matches);
+  }
+
+  private List<String> runGlobOperation(
+      PackageContext context,
+      StarlarkThread thread,
+      List<String> includes,
+      List<String> excludes,
+      Globber.Operation operation,
+      boolean allowEmpty)
+      throws EvalException, InterruptedException {
+    try {
+      Globber.Token globToken = context.globber.runAsync(includes, excludes, operation, allowEmpty);
+      return context.globber.fetchUnsorted(globToken);
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log(
+          "Exception processing includes=%s, excludes=%s)", includes, excludes);
+      String errorMessage =
+          String.format(
+              "error globbing [%s]%s op=%s: %s",
+              Joiner.on(", ").join(includes),
+              excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
+              operation,
+              e.getMessage());
+      Location loc = thread.getCallerLocation();
+      Event error =
+          Package.error(
+              loc,
+              errorMessage,
+              // If there are other IOExceptions that can result from user error, they should be
+              // tested for here. Currently FileNotFoundException is not one of those, because globs
+              // only encounter that error in the presence of an inconsistent filesystem.
+              e instanceof FileSymlinkException
+                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
+                  : Code.GLOB_IO_EXCEPTION);
+      context.eventHandler.handle(error);
+      context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
+      return ImmutableList.of();
+    } catch (BadGlobException e) {
+      throw new EvalException(e);
     }
   }
 }
