@@ -187,7 +187,7 @@ public class DigestHashFunction {
 
   private static boolean supportsClone(MessageDigest toCheck) {
     try {
-      toCheck.clone();
+      Object unused = toCheck.clone();
       return true;
     } catch (CloneNotSupportedException e) {
       return false;
