@@ -37,6 +37,7 @@ java_test(
     tags = ["black_box_test"],
     deps = [
         ":common_deps",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -113,12 +114,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -277,8 +276,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         tsgm,
         options);
     long startTime = System.nanoTime();
+    RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
+    boolean checkExternalRepositoryFiles =
+        repoOptions == null || repoOptions.checkExternalRepositoryFiles;
     WorkspaceInfoFromDiff workspaceInfo =
-        handleDiffs(eventHandler, packageOptions.checkOutputFiles, options);
+        handleDiffs(
+            eventHandler, packageOptions.checkOutputFiles, checkExternalRepositoryFiles, options);
     long stopTime = System.nanoTime();
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
@@ -337,12 +340,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       dropConfiguredTargetsNow(eventHandler);
       super.lastAnalysisDiscarded = false;
     }
-    handleDiffs(eventHandler, /*checkOutputFiles=*/ false, OptionsProvider.EMPTY);
+    handleDiffs(
+        eventHandler,
+        /*checkOutputFiles=*/ false,
+        /*checkExternalRepositoryFiles=*/ true,
+        OptionsProvider.EMPTY);
   }
 
   @Nullable
   private WorkspaceInfoFromDiff handleDiffs(
-      ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsProvider options)
+      ExtendedEventHandler eventHandler,
+      boolean checkOutputFiles,
+      boolean checkExternalRepositoryFiles,
+      OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles = 0;
@@ -385,6 +395,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         tsgm,
         pathEntriesWithoutDiffInformation,
         checkOutputFiles,
+        checkExternalRepositoryFiles,
         managedDirectoriesChanged,
         fsvcThreads);
     handleClientEnvironmentChanges();
@@ -476,15 +487,16 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation,
       boolean checkOutputFiles,
+      boolean checkExternalRepositoryFiles,
       boolean managedDirectoriesChanged,
       int fsvcThreads)
       throws InterruptedException {
 
     ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
     if (!pathEntriesWithoutDiffInformation.isEmpty()
-        || (externalFilesKnowledge.anyOutputFilesSeen && checkOutputFiles)
-        || repositoryHelpersHolder != null
-        || externalFilesKnowledge.anyFilesInExternalReposSeen
+        || (checkOutputFiles && externalFilesKnowledge.anyOutputFilesSeen)
+        || (checkExternalRepositoryFiles && repositoryHelpersHolder != null)
+        || (checkExternalRepositoryFiles && externalFilesKnowledge.anyFilesInExternalReposSeen)
         || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
       // We freshly compute knowledge of the presence of external files in the skyframe graph. We
       // use a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after*
@@ -516,16 +528,43 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
       }
 
-      EnumSet<FileType> fileTypesToCheck =
-          EnumSet.of(FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
-      // See the comment for FileType.OUTPUT for why we need to consider output files here.
-      if (checkOutputFiles) {
-        fileTypesToCheck.add(FileType.OUTPUT);
+      EnumSet<FileType> fileTypesToCheck = EnumSet.noneOf(FileType.class);
+      Iterable<SkyValueDirtinessChecker> dirtinessCheckers = ImmutableList.of();
+
+      if (!diffPackageRootsUnderWhichToCheck.isEmpty()) {
+        dirtinessCheckers =
+            Iterables.concat(
+                dirtinessCheckers,
+                ImmutableList.of(
+                    new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)));
+      }
+      if (checkExternalRepositoryFiles && repositoryHelpersHolder != null) {
+        dirtinessCheckers =
+            Iterables.concat(
+                dirtinessCheckers,
+                ImmutableList.of(repositoryHelpersHolder.repositoryDirectoryDirtinessChecker()));
+      }
+      if (checkExternalRepositoryFiles) {
+        fileTypesToCheck =
+            EnumSet.of(FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
       }
       if (externalFilesKnowledge.tooManyNonOutputExternalFilesSeen
           || !externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
         fileTypesToCheck.add(FileType.EXTERNAL);
       }
+      // See the comment for FileType.OUTPUT for why we need to consider output files here.
+      if (checkOutputFiles) {
+        fileTypesToCheck.add(FileType.OUTPUT);
+      }
+      if (!fileTypesToCheck.isEmpty()) {
+        dirtinessCheckers =
+            Iterables.concat(
+                dirtinessCheckers,
+                ImmutableList.of(
+                    new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck)));
+      }
+      Preconditions.checkArgument(!Iterables.isEmpty(dirtinessCheckers));
+
       logger.atInfo().log(
           "About to scan skyframe graph checking for filesystem nodes of types %s",
           Iterables.toString(fileTypesToCheck));
@@ -534,15 +573,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         batchDirtyResult =
             fsvc.getDirtyKeys(
                 memoizingEvaluator.getValues(),
-                new UnionDirtinessChecker(
-                    Stream.of(
-                            new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
-                            new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck),
-                            repositoryHelpersHolder == null
-                                ? null
-                                : repositoryHelpersHolder.repositoryDirectoryDirtinessChecker())
-                        .filter(Objects::nonNull)
-                        .collect(toImmutableList())));
+                new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       handleChangedFiles(
           diffPackageRootsUnderWhichToCheck,

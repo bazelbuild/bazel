@@ -132,6 +132,10 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
   // detected without --watchfs.
   @Test
   public void ignoreOutputFilesThenCheckAgainDoesCheck() throws Exception {
+    if ("bazel".equals(this.getRuntime().getProductName())) {
+      // Repository options only in Bazel.
+      addOptions("--noexperimental_check_external_repository_files");
+    }
     Path buildFile =
         write(
             "foo/BUILD",
@@ -161,6 +165,10 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
   @Test
   public void externalSymlink_doesNotTriggerFullGraphTraversal() throws Exception {
     addOptions("--symlink_prefix=/");
+    if ("bazel".equals(this.getRuntime().getProductName())) {
+      // Repository options only in Bazel.
+      addOptions("--noexperimental_check_external_repository_files");
+    }
     AtomicInteger calledGetValues = new AtomicInteger(0);
     skyframeExecutor()
         .getEvaluator()
@@ -184,29 +192,25 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     calledGetValues.set(0);
     // getValues() called during output file checking (although if an output service is able to
     // report modified files in practice there is no iteration).
-    // If external repositories are being used, getValues called because of that too.
-    // TODO(bazel-team): get rid of this when we can disable checks for external repositories.
-    int numGetValuesInFullDiffAwarenessBuild =
-        1 + ("bazel".equals(this.getRuntime().getProductName()) ? 1 : 0);
 
     buildTarget("//hello:BUILD");
-    assertThat(calledGetValues.getAndSet(0)).isEqualTo(numGetValuesInFullDiffAwarenessBuild);
+    assertThat(calledGetValues.getAndSet(0)).isEqualTo(1);
 
     // Now bring the external symlink into Bazel's awareness.
     buildTarget("//hello:target");
     assertContents("one", "//hello:target");
-    assertThat(calledGetValues.getAndSet(0)).isEqualTo(numGetValuesInFullDiffAwarenessBuild);
+    assertThat(calledGetValues.getAndSet(0)).isEqualTo(1);
 
     // Builds that follow a build containing an external file don't trigger a traversal.
     buildTarget("//hello:target");
     assertContents("one", "//hello:target");
-    assertThat(calledGetValues.getAndSet(0)).isEqualTo(numGetValuesInFullDiffAwarenessBuild);
+    assertThat(calledGetValues.getAndSet(0)).isEqualTo(1);
 
     write(externalLink, "two");
 
     buildTarget("//hello:target");
     // External file changes are tracked.
     assertContents("two", "//hello:target");
-    assertThat(calledGetValues.getAndSet(0)).isEqualTo(numGetValuesInFullDiffAwarenessBuild);
+    assertThat(calledGetValues.getAndSet(0)).isEqualTo(1);
   }
 }
