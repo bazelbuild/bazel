@@ -343,8 +343,11 @@ public class JavaStarlarkCommon
       builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
     } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
       builder.addProvider(
-          JavaCompilationArgsProvider.class,
-          javaInfo.getProvider(JavaCompilationArgsProvider.class));
+          JavaCompilationInfoProvider.class,
+          new JavaCompilationInfoProvider.Builder()
+              .setRuntimeClasspath(
+                  javaInfo.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars())
+              .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
       builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());
