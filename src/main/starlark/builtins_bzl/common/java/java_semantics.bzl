@@ -26,7 +26,7 @@ def _macro_preprocess(kwargs):
 def _check_rule(ctx):
     pass
 
-def _check_dependency_rule_kinds(ctx):
+def _check_dependency_rule_kinds(ctx, rule_class = ""):
     pass
 
 def _preprocess(ctx):

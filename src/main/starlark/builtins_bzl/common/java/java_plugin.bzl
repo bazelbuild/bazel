@@ -25,7 +25,7 @@ JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
 def _java_plugin_rule_impl(ctx):
     semantics.check_rule(ctx)
-    semantics.check_dependency_rule_kinds(ctx)
+    semantics.check_dependency_rule_kinds(ctx, "java_plugin")
 
     extra_resources = semantics.preprocess(ctx)
 

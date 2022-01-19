@@ -30,7 +30,7 @@ def _java_library_rule_impl(ctx):
         fail("deps not allowed without srcs; move to runtime_deps?")
 
     semantics.check_rule(ctx)
-    semantics.check_dependency_rule_kinds(ctx)
+    semantics.check_dependency_rule_kinds(ctx, "java_library")
 
     extra_resources = semantics.preprocess(ctx)
 
