@@ -228,6 +228,18 @@ public class RepositoryOptions extends OptionsBase {
               + "that URL changes don't result in broken repositories being masked by the cache.")
   public boolean urlsAsDefaultCanonicalId;
 
+  @Option(
+      name = "experimental_check_external_repository_files",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Check for modifications to files in external repositories. Consider setting "
+              + "this flag to false if you don't expect these files to change outside of bazel "
+              + "since it will speed up subsequent runs as they won't have to check a "
+              + "previous run's cache.")
+  public boolean checkExternalRepositoryFiles;
+
   /** An enum for specifying different modes for checking direct dependency accuracy. */
   public enum CheckDirectDepsMode {
     OFF, // Don't check direct dependency accuracy.

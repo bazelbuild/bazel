@@ -1363,3 +1363,13 @@ sh_test(
         "requires-network",
     ],
 )
+
+sh_test(
+    name = "check_external_files_test",
+    srcs = ["check_external_files_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
