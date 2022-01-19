@@ -1,3 +1,115 @@
+## Release 5.0.0 (2022-01-19)
+
+```
+Baseline: 8d66a4171baddcbe1569972f019e54130111202c
+
+Cherry picks:
+
+   + becd1494481b96d2bc08055d3d9d4d7968d9702e:
+     Remote: Cache merkle trees
+   + d7628e1b566be353fe7172241ac8f15d5f8e7ff5:
+     Update DEFAULT_IOS_CPU for M1 arm64 simulator support
+   + 80c56ff7b603fcfff02a5f97829a2a5935f360a0:
+     Compile Apple tools as fat binaries if possible
+   + 3c09f3438a966b49a7c1726022c898b390b3a6e5:
+     Add protobuf as a well known module
+   + 3a5b3606a6f5433467a5b49f0188c41411684bf5:
+     Remote: Merge target-level exec_properties with
+     --remote_default_exec_properties
+   + 917e15ea408e1d3d25574edbb466b39cfbcb61fe:
+     Add -no_uuid for hermetic macOS toolchain setup
+   + f5cf8b076bc913dbe021104d5f6837fb4a6cd8b3:
+     Remote: Fixes an issue when --experimental_remote_cache_async
+     encounter flaky tests.
+   + 77a002cce050e861fcc87c89acf7768aa5c97124:
+     Remove DigestUtils.getDigestInExclusiveMode() now that SsdModule
+     has …
+   + 557a7e71eeb5396f2c87c909ddc025fde2678780:
+     Fixes for the Starlark transition hash computation (#14251)
+   + 34c71465f84fa780217926db2e8e5ca3d6d4568c:
+     Do location expansion in copts of objc_library
+   + 50274a9f714616d4735a560db7f617e53fb8d01b:
+     [5.x] Remote: Add support for compression on gRPC cache (#14277)
+   + 61bf2e5b5181cbe34a2f0d584053570943881804:
+     Automated rollback of commit
+     34c71465f84fa780217926db2e8e5ca3d6d4568c.
+   + 79888fe7369479c398bafe064daa19a7ae30f710:
+     Silence a zstd-jni GCC warning.
+   + 063b5c9c2c09b4794010b9a169b44890ffc79ec4:
+     Remote: Limit max number of gRPC connections by
+     --remote_max_connections.
+   + fd727ec96d861573dcbad3249d727a94eff84789:
+     Do location expansion in copts of objc_library
+   + 23d096931be9b7247eafa750999dd7feadde14c1:
+     Fix _is_shared_library_extension_valid
+   + 5cf1d6e1f78bc860fcd0e2e86eff6fe43ab4a5a2:
+     Remove merging of java_outputs in JavaPluginInfo.
+   + cea5f4f499aa832cf90c68898671869ce79d63f2:
+     Cherrypick Bzlmod documentation (#14301)
+   + 227e49e28e5122cddd6c4cb70686ff7bde3617ea:
+     Format work requests according to ndjson spec
+   + ae0a6c98d4f94abedbedb2d51c27de5febd7df67:
+     Enable user_link_flags_feature for macosx cc_toolchain_config
+   + 8c2c78cdc66cc9d5eb2cd59823c659892c1643a7:
+     Remote: Use Action's salt field to differentiate cache across
+     workspaces.
+   + f94898915268be5670fb1e93a16c03e9b14d2a58:
+     [5.x] Remote: Fix "file not found" error when remote cache is
+     changed from enabled to disabled.  (#14321)
+   + 3069ac4e33dcca6f3d1abf55940cdd764d03bdbf:
+     Delete marker file before fetching an external repository
+   + c05c6261cdb2cacb7c9881c255c0ada435ab5182:
+     Remote: Fix file counting in merkletree.DirectoryTreeBuilder
+   + d84f7998ef8f15e27376a0c8f25b320145c4ba9e:
+     Fix remote spawn tests for remote_merkle_tree_cache=true
+   + 59e16e944200555da377799aa0d9e8d0674d2e27:
+     Show skipped tests as a warning
+   + 76b3c242831f8e88835e3002a831a185a41fcc52:
+     Build xcode-locator as a universal binary
+   + aa52f2ddf9bab1ebd18e5431124061e813bfcd80:
+     Exit collect_coverage.sh early if LCOV_MERGER is not set.
+   + 4256d46327bad8638df91be1a5d4ef83b12b74c7:
+     Automated rollback of commit
+     d84f7998ef8f15e27376a0c8f25b320145c4ba9e.
+   + dce24350befd08216b3910ae343670015444ff81:
+     [apple] fix issues compiling C in objc_library for watchos/armv7k
+   + bfc24139d93f8643686d91596ba347df2e01966a:
+     5.x: Remote: Ignore blobs referenced in BEP if the generating
+     action cannot be cached remotely. (#14389)
+   + 5aef53a8884038f3c9f06e6dddb9372196253378:
+     Remote: Don't blocking-get when acquiring gRPC connections.
+     (#14420)
+   + 005361c895da334beb873901e93aff06d180256e:
+     Disable IncludeValidation for ObjC in bazel
+   + d703b7b4f09fb3c389f99e52bac1f23930280b56:
+     Update java_tools v11.6
+   + 90965b072eb4a6dec8ff5b8abde3726732d37bdc:
+     Stop remote blob upload if upload is complete. (#14467)
+   + dc59d9e8f7937f2e317c042e8da8f97ba6b1237e:
+     [5.x] Make remote BES uploader better (#14472)
+   + 2edab739e1f61fe8813230b03396ca46f0790089:
+     Avoid too verbose warnings in terminal when cache issues
+   + 1160485192b5e6d95bcd426b55cc9a35fc6b8614:
+     Rename --project_id to --bes_instance_name
+   + c63d9ecbe5fcb5716a0be21d8fc781d7aa5bbc30:
+     Automated rollback of commit
+     bfdfa6ebfd21b388f1c91f512291c848e1a92a96.
+   + b341802700484d11c775bf02d80f43ba3f33b218:
+     [apple] support watchos_arm64 in toolchain
+   + 43bcf80a3dfdc5ac89c1e4d615d6f29a495855fb:
+     Disable implicitly collecting baseline coverage for toolchain
+     targets.
+   + 302971e1b3d803069ac949c0085c0d2a3916c8ab:
+     Automated rollback of commit
+     7d09b4a15985052670244c277e4357557b4d0039.
+   + 62002024ca7012ffe0f4fc74ac20b5471513c8c8:
+     Bzlmod: Starlarkify default attr values for TypeCheckedTags
+   + 38117d491cbc4a5686e0bdb1e58f8946d96aed58:
+     Fix build after rc4 cherrypicks (#14581)
+```
+
+This release contains contributions from many people at Google, as well as amberdixon, Benjamin Peterson, Brentley Jones, Dan Fleming, Danny Wolf, Fabian Meumertzheim, Keith Smiley, Noa Resare, Oliver Eikemeier, Philipp Schrader, Xùdōng Yáng, Yannic.
+
 ## Release 6.0.0-pre.20220105.5 (2022-01-14)
 
 ```
