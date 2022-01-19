@@ -1,3 +1,47 @@
+## Release 6.0.0-pre.20220112.2 (2022-01-19)
+
+```
+Baseline: 10fb5ee47d22a6dbd7732e43bfa8ae8fdaf3fb48
+
+Cherry picks:
+
+   + fd646928d63dee15e37d20b3a504d887f44208e3:
+     Automated rollback of commit
+     ceece65abd46833fe277a43fded9ee9f387bab14.
+```
+
+Incompatible changes:
+
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since the path would refer to a
+    netrc file inside the external repository by absolute path.
+    Migration should be straightforward.
+  - genrule switched to use exec transition instead of host. This can
+    break targets with hardcoded output paths. To avoid using
+    hardcoded paths use make variables, see
+    https://docs.bazel.build/versions/4.2.2/be/make-variables.html#pre
+    defined_label_variables
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since...
+
+Important changes:
+
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+  - The Build Event Protocol now contains file digests and sizes
+    along with the file name and URI.
+  - Refactor system suspend event handling.
+  - alias() can now select() directly on constraint_value()
+  - Allow \a \b \f \v escape sequences in Starlark.
+  - Match remote and local xcode version by most granular version.
+  - Adds `--experimental_worker_multiplex_sandboxing` flag that
+    controls whether to sandbox multiplex workers that support it.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Eagle, Alex Scott, Andrew Katson, Benedek Thaler, Benjamin Lee, Benjamin Peterson, Bradley Burns, Brandon Jacklyn, Brentley Jones, Chris Fredrickson, crydell-ericsson, Dan Fleming, Danny Wolf, Dimi Shahbaz, Ed Schouten, Fabian Meumertzheim, Fredrik Medley, Greg Estren, Greg, hvadehra, Jiawen Chen, Keith Smiley, Ken Micklas, Kevin Lin, lihu, Noa Resare, Patrick Balestra, Pras Velagapudi, Rahul Butani, Simon Bjorklen, Stiopa Koltsov, Tetsuo Kiso, Ulf Adams, Ulrik Falklof, William Muir, Xavier Bonaventura, Xdng Yng, Yannic Bonenberger.
+
 ## Release 5.0.0 (2022-01-19)
 
 ```
