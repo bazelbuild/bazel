@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
@@ -269,7 +268,7 @@ final class ExecutionServer extends ExecutionImplBase {
     }
 
     Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
-    FileSystemUtils.createDirectoryAndParents(workingDirectory);
+    workingDirectory.createDirectoryAndParents();
 
     List<Path> outputs = new ArrayList<>(command.getOutputFilesList().size());
     for (String output : command.getOutputFilesList()) {
@@ -277,7 +276,7 @@ final class ExecutionServer extends ExecutionImplBase {
       if (file.exists()) {
         throw new FileAlreadyExistsException("Output file already exists: " + file);
       }
-      FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+      file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);
     }
     for (String output : command.getOutputDirectoriesList()) {
@@ -285,7 +284,7 @@ final class ExecutionServer extends ExecutionImplBase {
       if (file.exists()) {
         throw new FileAlreadyExistsException("Output directory/file already exists: " + file);
       }
-      FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+      file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);
     }
 
