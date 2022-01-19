@@ -484,7 +484,7 @@ DIST_DEPS = {
             "openjdk17_windows_archive",
         ],
         "sha256": "ab7c10f1cb76d10b801a4a130fee874e8e30e597fecb0afa9e76800e7d34aee7",
-        "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-win_x64.zip",
+        "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-win_x64",
         "urls": [
             "https://mirror.bazel.build/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_x64.zip",
             "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_x64.zip",
