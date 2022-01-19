@@ -409,7 +409,7 @@ public class FileSystemUtils {
    * individual requests are more costly, but can also be larger.
    */
   private static long copyLargeBuffer(InputStream from, OutputStream to) throws IOException {
-    byte[] buf = new byte[131072];
+    byte[] buf = new byte[1 * 1024 * 1024]; // Match libfuse3 maximum FUSE request size of 1 MB.
     long total = 0;
     while (true) {
       int r = from.read(buf);
