@@ -1127,22 +1127,6 @@ sh_test(
 )
 
 sh_test(
-    name = "toolchain_test",
-    size = "large",
-    srcs = ["toolchain_test.sh"],
-    data = [":test-deps"],
-    shard_count = 5,
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "toolchain_transition_test",
-    srcs = ["toolchain_transition_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "java_launcher_test",
     size = "medium",
     srcs = ["java_launcher_test.sh"],

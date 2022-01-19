@@ -16,9 +16,29 @@
 #
 # Test the toolchain transition.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
@@ -26,8 +46,9 @@ function set_up() {
 }
 
 function write_constraints() {
-  mkdir constraint
-  cat >constraint/BUILD.bazel <<EOF
+  local pkg="${1}"
+  mkdir -p "${pkg}/constraint"
+  cat > "${pkg}/constraint/BUILD" <<EOF
 package(default_visibility = ["//visibility:public"])
 
 # Common constraints for testing.
@@ -64,8 +85,10 @@ EOF
 }
 
 function write_platforms() {
-  mkdir platform
-  cat >platform/platform.bzl <<EOF
+  local pkg="${1}"
+  mkdir -p "${pkg}/platform"
+
+  cat > "${pkg}/platform/platform.bzl" <<EOF
 ShowPlatformInfo = provider(fields = ["platform_type", "level"])
 
 def describe_platform_info(platform_info):
@@ -101,16 +124,16 @@ def _show_platform_impl(ctx):
 show_platform = rule(
     implementation = _show_platform_impl,
     attrs = {
-        "_target_constraint": attr.label(default = Label("//constraint:target")),
-        "_exec_constraint": attr.label(default = Label("//constraint:exec")),
-        "_host_constraint": attr.label(default = Label("//constraint:host")),
-        "_alpha_constraint": attr.label(default = Label("//constraint:alpha")),
-        "_beta_constraint": attr.label(default = Label("//constraint:beta")),
+        "_target_constraint": attr.label(default = Label("//${pkg}/constraint:target")),
+        "_exec_constraint": attr.label(default = Label("//${pkg}/constraint:exec")),
+        "_host_constraint": attr.label(default = Label("//${pkg}/constraint:host")),
+        "_alpha_constraint": attr.label(default = Label("//${pkg}/constraint:alpha")),
+        "_beta_constraint": attr.label(default = Label("//${pkg}/constraint:beta")),
     },
     provides = [ShowPlatformInfo],
 )
 EOF
-  cat >platform/BUILD.bazel <<EOF
+  cat > "${pkg}/platform/BUILD" <<EOF
 load(":platform.bzl", "show_platform")
 
 package(default_visibility = ["//visibility:public"])
@@ -123,16 +146,16 @@ show_platform(name = "platform")
 platform(
     name = "exec_alpha",
     constraint_values = [
-        "//constraint:alpha",
-        "//constraint:exec",
+        "//${pkg}/constraint:alpha",
+        "//${pkg}/constraint:exec",
     ],
 )
 
 platform(
     name = "exec_beta",
     constraint_values = [
-        "//constraint:beta",
-        "//constraint:exec",
+        "//${pkg}/constraint:beta",
+        "//${pkg}/constraint:exec",
     ],
 )
 
@@ -140,7 +163,7 @@ platform(
 platform(
     name = "host",
     constraint_values = [
-        "//constraint:host",
+        "//${pkg}/constraint:host",
     ],
 )
 
@@ -148,23 +171,25 @@ platform(
 platform(
     name = "target",
     constraint_values = [
-        "//constraint:target",
+        "//${pkg}/constraint:target",
     ],
 )
 EOF
+
   # Append to WORKSPACE
   cat >>WORKSPACE <<EOF
 register_execution_platforms(
-    "//platform:exec_alpha",
-    "//platform:exec_beta",
+    "//${pkg}/platform:exec_alpha",
+    "//${pkg}/platform:exec_beta",
 )
 EOF
 }
 
 function write_toolchains() {
-  mkdir toolchain
-  cat >toolchain/toolchain.bzl <<EOF
-load("//platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
+  local pkg="${1}"
+  mkdir -p "${pkg}/toolchain"
+  cat > "${pkg}/toolchain/toolchain.bzl" <<EOF
+load("//${pkg}/platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
 load(":extra_lib.bzl", "ExtraMessageProvider")
 
 def _sample_toolchain_impl(ctx):
@@ -191,13 +216,19 @@ sample_toolchain = rule(
     attrs = {
         "message": attr.string(),
         "deps": attr.label_list(),
-        "_target_dep": attr.label(cfg = "target", providers = [ShowPlatformInfo], default = Label("//platform")),
-        "_tool_dep": attr.label(cfg = "exec", providers = [ShowPlatformInfo], default = Label("//platform")),
+        "_target_dep": attr.label(
+            cfg = "target",
+            providers = [ShowPlatformInfo],
+            default = Label("//${pkg}/platform")),
+        "_tool_dep": attr.label(
+            cfg = "exec",
+            providers = [ShowPlatformInfo],
+            default = Label("//${pkg}/platform")),
     },
 )
 EOF
-  cat >toolchain/extra_lib.bzl <<EOF
-load("//platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
+  cat > "${pkg}/toolchain/extra_lib.bzl" <<EOF
+load("//${pkg}/platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
 
 ExtraMessageProvider = provider(fields = ["message"])
 
@@ -217,13 +248,19 @@ extra_lib = rule(
     implementation = _extra_lib_impl,
     attrs = {
         "message": attr.string(),
-        "_target_dep": attr.label(cfg = "target", providers = [ShowPlatformInfo], default = Label("//platform")),
-        "_tool_dep": attr.label(cfg = "exec", providers = [ShowPlatformInfo], default = Label("//platform")),
+        "_target_dep": attr.label(
+            cfg = "target",
+            providers = [ShowPlatformInfo],
+            default = Label("//${pkg}/platform")),
+        "_tool_dep": attr.label(
+            cfg = "exec",
+            providers = [ShowPlatformInfo],
+            default = Label("//${pkg}/platform")),
     },
     provides = [ExtraMessageProvider],
 )
 EOF
-  cat >toolchain/BUILD.bazel <<EOF
+  cat > "${pkg}/toolchain/BUILD" <<EOF
 package(default_visibility = ["//visibility:public"])
 
 load(":toolchain.bzl", "sample_toolchain")
@@ -241,7 +278,7 @@ sample_toolchain(
 toolchain(
     name = "sample_toolchain_alpha",
     exec_compatible_with = [
-        "//constraint:alpha",
+        "//${pkg}/constraint:alpha",
     ],
     toolchain = "sample_toolchain_alpha_impl",
     toolchain_type = ":toolchain_type",
@@ -265,28 +302,30 @@ extra_lib(
 toolchain(
     name = "sample_toolchain_beta",
     exec_compatible_with = [
-        "//constraint:beta",
+        "//${pkg}/constraint:beta",
     ],
     toolchain = "sample_toolchain_beta_impl",
     toolchain_type = ":toolchain_type",
 )
 EOF
+
   # Append to WORKSPACE
   cat >>WORKSPACE <<EOF
 register_toolchains(
-    "//toolchain:sample_toolchain_alpha",
-    "//toolchain:sample_toolchain_beta",
+    "//${pkg}/toolchain:sample_toolchain_alpha",
+    "//${pkg}/toolchain:sample_toolchain_beta",
 )
 EOF
 }
 
 function write_rule() {
-  mkdir rule
-  cat >rule/rule.bzl <<EOF
-load("//platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
+  local pkg="${1}"
+  mkdir -p "${pkg}/rule"
+  cat > "${pkg}/rule/rule.bzl" <<EOF
+load("//${pkg}/platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
 
 def _sample_impl(ctx):
-    toolchain = ctx.toolchains["//toolchain:toolchain_type"]
+    toolchain = ctx.toolchains["//${pkg}/toolchain:toolchain_type"]
     message = ctx.attr.message
     exec_platform = describe_platform_info(ctx.attr._exec[ShowPlatformInfo])
 
@@ -303,48 +342,53 @@ sample = rule(
     implementation = _sample_impl,
     attrs = {
         "message": attr.string(),
-        "_exec": attr.label(cfg = "exec", providers = [ShowPlatformInfo], default = Label("//platform")),
+        "_exec": attr.label(
+            cfg = "exec",
+            providers = [ShowPlatformInfo],
+            default = Label("//${pkg}/platform")),
     },
     outputs = {
         "log": "%{name}.log",
     },
-    toolchains = ["//toolchain:toolchain_type"],
+    toolchains = ["//${pkg}/toolchain:toolchain_type"],
     incompatible_use_toolchain_transition = True,
 )
 EOF
-  cat >rule/BUILD.bazel <<EOF
+  cat > "${pkg}/rule/BUILD" <<EOF
 package(default_visibility = ["//visibility:public"])
 
 EOF
 }
 
 function test_toolchain_transition() {
-  write_constraints
-  write_platforms
-  write_toolchains
-  write_rule
+  local -r pkg="${FUNCNAME[0]}"
+  write_constraints "${pkg}"
+  write_platforms "${pkg}"
+  write_toolchains "${pkg}"
+  write_rule "${pkg}"
 
-  cat >BUILD.bazel <<EOF
+  mkdir -p "${pkg}"
+  cat > "${pkg}/BUILD" <<EOF
 package(default_visibility = ["//visibility:public"])
 
-load("//rule:rule.bzl", "sample")
+load("//${pkg}/rule:rule.bzl", "sample")
 
 sample(
     name = "sample",
     exec_compatible_with = [
-        "//constraint:beta",
+        "//${pkg}/constraint:beta",
     ],
     message = "Hello",
 )
 EOF
 
   bazel build \
-    --platforms=//platform:target \
-    --host_platform=//platform:host \
-     //:sample &> $TEST_log || fail "Build failed"
+    --platforms="//${pkg}/platform:target" \
+    --host_platform="//${pkg}/platform:host" \
+     "//${pkg}:sample" &> $TEST_log || fail "Build failed"
 
   # Verify contents of sample.log.
-  cat bazel-bin/sample.log >> $TEST_log
+  cat "bazel-bin/${pkg}/sample.log" >> $TEST_log
   # The execution platform should be beta.
   expect_log 'rule message: "Hello", exec platform: "exec-beta"'
   # The toolchain should have proper target and exec matching the top target.
@@ -358,15 +402,17 @@ EOF
 # This was causing cquery to not correctly generate ConfiguredTargetKeys for
 # toolchains, leading to the message "Targets were missing from graph"
 function test_toolchain_transition_cquery() {
-  write_constraints
-  write_platforms
-  write_toolchains
-  write_rule
+  local -r pkg="${FUNCNAME[0]}"
+  write_constraints "${pkg}"
+  write_platforms "${pkg}"
+  write_toolchains "${pkg}"
+  write_rule "${pkg}"
 
-  cat >BUILD.bazel <<EOF
+  mkdir -p "${pkg}"
+  cat > "${pkg}/BUILD" <<EOF
 package(default_visibility = ["//visibility:public"])
 
-load("//rule:rule.bzl", "sample")
+load("//${pkg}/rule:rule.bzl", "sample")
 
 sample(
     name = "sample",
@@ -375,9 +421,9 @@ sample(
 EOF
 
   bazel cquery \
-    --platforms=//platform:target \
-    --host_platform=//platform:host \
-     'deps(//:sample)' &> $TEST_log || fail "Build failed"
+    --platforms="//${pkg}/platform:target" \
+    --host_platform="//${pkg}/platform:host" \
+     "deps(//${pkg}:sample)" &> $TEST_log || fail "Build failed"
 
   expect_not_log "Targets were missing from graph"
 }
