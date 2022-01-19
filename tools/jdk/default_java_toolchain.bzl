@@ -51,6 +51,8 @@ DEFAULT_JAVACOPTS = [
     "-XDcompilePolicy=simple",
     "-g",
     "-parameters",
+    # https://github.com/bazelbuild/java_tools/issues/51#issuecomment-927940699
+    "-XepOpt:ReturnValueIgnored:ObjectMethods=false",
 ]
 
 # java_toolchain parameters without specifying javac, java.compiler,
