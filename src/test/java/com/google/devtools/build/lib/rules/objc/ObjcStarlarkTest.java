@@ -950,27 +950,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testStarlarkCanCreateObjcProviderWithHeaders() throws Exception {
-    ConfiguredTarget starlarkTarget =
-        createObjcProviderStarlarkTarget(
-            "   hdr1 = ctx.actions.declare_file('hdr1')",
-            "   hdr2 = ctx.actions.declare_file('hdr2')",
-            "   ctx.actions.run_shell(outputs=[hdr1, hdr2], command='echo')",
-            "   header = depset([hdr1, hdr2])",
-            "   created_provider = apple_common.new_objc_provider\\",
-            "(header=header)",
-            "   return [created_provider]");
-
-    Iterable<Artifact> foundHeaders =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.HEADER).toList();
-    assertThat(foundHeaders).isEmpty();
-
-    Iterable<Artifact> directHeaders =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).getDirect(ObjcProvider.HEADER);
-    assertThat(ActionsTestUtil.baseArtifactNames(directHeaders)).containsExactly("hdr1", "hdr2");
-  }
-
-  @Test
   public void testStarlarkCanCreateObjcProviderWithStrictDeps() throws Exception {
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(

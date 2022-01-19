@@ -1878,8 +1878,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider dependerProvider = providerForTarget("//x:bar");
-    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.HEADER)))
-        .containsExactly("bar.h", "bar.inc");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
 

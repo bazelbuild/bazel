@@ -84,16 +84,13 @@ public class ObjcProviderTest {
   @Test
   public void directFieldsSingleAdd() {
     Artifact source = createArtifact("/main.m");
-    Artifact header = createArtifact("/Foo.h");
     Artifact module = createArtifact("/module.modulemap");
     ObjcProvider provider =
         objcProviderBuilder()
             .addDirect(ObjcProvider.SOURCE, source)
-            .addDirect(ObjcProvider.HEADER, header)
             .addDirect(ObjcProvider.MODULE_MAP, module)
             .build();
     assertThat(provider.getDirect(ObjcProvider.SOURCE)).containsExactly(source);
-    assertThat(provider.getDirect(ObjcProvider.HEADER)).containsExactly(header);
     assertThat(provider.getDirect(ObjcProvider.MODULE_MAP)).containsExactly(module);
   }
 
@@ -104,11 +101,9 @@ public class ObjcProviderTest {
     ObjcProvider provider =
         objcProviderBuilder()
             .addAllDirect(ObjcProvider.SOURCE, artifacts)
-            .addAllDirect(ObjcProvider.HEADER, artifacts)
             .addAllDirect(ObjcProvider.MODULE_MAP, artifacts)
             .build();
     assertThat(provider.getDirect(ObjcProvider.SOURCE)).containsExactlyElementsIn(artifacts);
-    assertThat(provider.getDirect(ObjcProvider.HEADER)).containsExactlyElementsIn(artifacts);
     assertThat(provider.getDirect(ObjcProvider.MODULE_MAP)).containsExactlyElementsIn(artifacts);
   }
 
@@ -119,11 +114,9 @@ public class ObjcProviderTest {
     Depset set = Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
     ObjcProvider.StarlarkBuilder builder = objcProviderBuilder();
     builder.addElementsFromStarlark(ObjcProvider.SOURCE, set);
-    builder.addElementsFromStarlark(ObjcProvider.HEADER, set);
     builder.addElementsFromStarlark(ObjcProvider.MODULE_MAP, set);
     ObjcProvider provider = builder.build();
     assertThat(provider.getDirect(ObjcProvider.SOURCE)).containsExactlyElementsIn(artifacts);
-    assertThat(provider.getDirect(ObjcProvider.HEADER)).containsExactlyElementsIn(artifacts);
     assertThat(provider.getDirect(ObjcProvider.MODULE_MAP)).containsExactlyElementsIn(artifacts);
   }
 
