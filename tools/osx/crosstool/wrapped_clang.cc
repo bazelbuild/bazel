@@ -125,9 +125,13 @@ bool RunSubProcess(const std::vector<std::string> &args) {
                 << strerror(errno) << "\n";
       return false;
     }
-    if (WEXITSTATUS(status) != 0) {
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
       std::cerr << "Error in child process '" << args[0] << "'. "
                 << WEXITSTATUS(status) << "\n";
+      return false;
+    } else if (WIFSIGNALED(status)) {
+      std::cerr << "Error in child process '" << args[0] << "'. "
+                << WTERMSIG(status) << "\n";
       return false;
     }
   } else {
