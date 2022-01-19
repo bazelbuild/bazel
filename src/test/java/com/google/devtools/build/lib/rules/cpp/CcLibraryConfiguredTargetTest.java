@@ -2155,6 +2155,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
     List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/main.runfiles/__main__/_solib_k8/");
     assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
     assertThat(linkArgv)
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
@@ -2215,6 +2216,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
     List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/main.runfiles/__main__/_solib_k8/");
     assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
     assertThat(Joiner.on(" ").join(linkArgv))
         .contains("-Wl,-rpath,$ORIGIN/../../../k8-fastbuild-ST-");
