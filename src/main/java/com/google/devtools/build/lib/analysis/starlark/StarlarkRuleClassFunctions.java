@@ -77,7 +77,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -272,14 +271,25 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   }
 
   @Override
-  public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {
+  public Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+      throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
       builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
     }
-    return builder.build();
+    if (init == Starlark.NONE) {
+      return builder.build();
+    } else {
+      if (init instanceof StarlarkCallable) {
+        builder.setInit((StarlarkCallable) init);
+      } else {
+        throw Starlark.errorf("got %s for init, want callable value", Starlark.type(init));
+      }
+      StarlarkProvider provider = builder.build();
+      return Tuple.of(provider, provider.createRawConstructor());
+    }
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties

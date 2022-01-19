@@ -126,9 +126,9 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
       List<String> unexpected = unexpectedKeys(schema, table, n);
       if (unexpected != null) {
         throw Starlark.errorf(
-            "unexpected keyword%s %s in call to instantiate provider %s",
+            "got unexpected field%s '%s' in call to instantiate provider %s",
             unexpected.size() > 1 ? "s" : "",
-            Joiner.on(", ").join(unexpected),
+            Joiner.on("', '").join(unexpected),
             provider.getPrintableName());
       }
     }
