@@ -910,6 +910,7 @@ public class ParallelEvaluatorTest {
 
     assertThat(result.getError(topKey).getException()).isInstanceOf(SomeErrorException.class);
     assertThat(result.getError(topKey).getException()).hasMessageThat().isEqualTo("We got: bad");
+    assertThat(result.getCatastrophe()).isNotNull();
   }
 
   @Test

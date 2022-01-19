@@ -380,9 +380,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       options.add("--keep_going");
     }
     QueryOutput result = getQueryResult("deps(//bar:baz)");
-    ExitCode expectedExitcode =
-        keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE;
-    assertExitCode(result, expectedExitcode);
+    assertExitCode(result, ExitCode.ANALYSIS_FAILURE);
     events.assertContainsError("Inconsistent filesystem operations");
     assertThat(events.errors()).hasSize(1);
   }

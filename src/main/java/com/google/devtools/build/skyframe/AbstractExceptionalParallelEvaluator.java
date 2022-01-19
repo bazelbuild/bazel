@@ -641,6 +641,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         skyKeys,
         bubbleErrorInfo,
         catastrophe);
+    result.maybeEnsureCatastrophe(catastrophe);
     EvaluationResult<T> builtResult = result.build();
     Preconditions.checkState(
         bubbleErrorInfo == null || builtResult.hasError(),
