@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -143,46 +142,11 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testMandatoryMinimumVersionEnforced() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(name='a', platform_type='ios')");
-
-    useConfiguration("--experimental_apple_mandatory_minimum_version");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("This attribute must be explicitly specified");
-  }
-
-  @Test
-  public void testMandatoryMinimumOsVersionUnset() throws Exception {
-    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
-    useConfiguration("--experimental_apple_mandatory_minimum_version");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//x:x");
-    assertContainsEvent("must be explicitly specified");
-  }
-
-  @Test
   public void testMandatoryMinimumOsVersionSet() throws Exception {
     getRuleType()
         .scratchTarget(scratch, "minimum_os_version", "'8.0'", "platform_type", "'watchos'");
     useConfiguration("--experimental_apple_mandatory_minimum_version");
     getConfiguredTarget("//x:x");
-  }
-
-  @Test
-  public void testLipoActionEnv() throws Exception {
-    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
-
-    useConfiguration(
-        "--watchos_cpus=i386,armv7k", "--xcode_version=7.3", "--watchos_sdk_version=2.1");
-
-    CommandAction action = (CommandAction) lipoBinAction("//x:x");
-    assertAppleSdkVersionEnv(action, "2.1");
-    assertAppleSdkPlatformEnv(action, "WatchOS");
-    assertXcodeVersionEnv(action, "7.3");
   }
 
   @Test
@@ -387,17 +351,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLipoActionEnv_sdkVersionPadding() throws Exception {
-    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
-
-    useConfiguration(
-        "--watchos_cpus=i386,armv7k", "--xcode_version=7.3", "--watchos_sdk_version=2");
-
-    CommandAction action = (CommandAction) lipoBinAction("//x:x");
-    assertAppleSdkVersionEnv(action, "2.0");
-  }
-
-  @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
     checkCcDependencyLinkoptsArePropagatedToLinkAction(getRuleType());
   }
@@ -408,35 +361,8 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testUnknownPlatformType() throws Exception {
-    checkError(
-        "package",
-        "test",
-        String.format(
-            MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
-            "meow_meow_os"),
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(name = 'test', platform_type = 'meow_meow_os')");
-  }
-
-  @Test
   public void testAvoidDepsObjectsWithCrosstool() throws Exception {
     checkAvoidDepsObjectsWithCrosstool(getRuleType());
-  }
-
-  @Test
-  public void testBundleLoaderCantBeSetWithoutBundleBinaryType() throws Exception {
-    getRuleType().scratchTarget(scratch);
-    checkError(
-        "bundle",
-        "bundle",
-        AppleBinary.BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR,
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'bundle',",
-        "    bundle_loader = '//x:x',",
-        "    platform_type = 'ios',",
-        ")");
   }
 
   /** Returns the bcsymbolmap artifact for given architecture and compilation mode. */
@@ -461,58 +387,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   protected String linkmapPath(String arch) throws Exception {
     return configurationBin(arch, ConfigurationDistinguisher.APPLEBIN_IOS)
         + "examples/apple_starlark/bin.linkmap";
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void testProvider_dylib() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _test_rule_impl(ctx):",
-        "   dep = ctx.attr.deps[0]",
-        "   provider = dep[apple_common.AppleDylibBinary]",
-        "   return MyInfo(",
-        "      binary = provider.binary,",
-        "      objc = provider.objc,",
-        "      dep_dir = dir(dep),",
-        "   )",
-        "test_rule = rule(implementation = _test_rule_impl,",
-        "   attrs = {",
-        "   'deps': attr.label_list(allow_files = False, mandatory = False,)",
-        "})");
-
-    scratch.file(
-        "examples/apple_starlark/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "load('//examples/rule:apple_rules.bzl', 'test_rule')",
-        "package(default_visibility = ['//visibility:public'])",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    deps = [':lib'],",
-        "    binary_type = '" + BinaryType.DYLIB + "',",
-        "    platform_type = 'ios',",
-        ")",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        ")",
-        "test_rule(",
-        "    name = 'my_target',",
-        "    deps = [':bin'],",
-        ")");
-
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-
-    assertThat(myInfo.getValue("binary")).isInstanceOf(Artifact.class);
-    assertThat(myInfo.getValue("objc")).isInstanceOf(ObjcProvider.class);
-
-    List<String> depProviders = (List<String>) myInfo.getValue("dep_dir");
-    assertThat(depProviders).doesNotContain("AppleExecutableBinary");
-    assertThat(depProviders).doesNotContain("AppleLoadableBundleBinary");
   }
 
   @Test
@@ -543,7 +417,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
         "apple_binary_starlark(",
         "    name = 'bin',",
         "    deps = [':lib'],",
-        "    binary_type = '" + BinaryType.EXECUTABLE + "',",
+        "    binary_type = 'executable',",
         "    platform_type = 'ios',",
         ")",
         "objc_library(",
@@ -565,56 +439,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     List<String> depProviders = (List<String>) myInfo.getValue("dep_dir");
     assertThat(depProviders).doesNotContain("AppleDylibBinary");
     assertThat(depProviders).doesNotContain("AppleLoadableBundleBinary");
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void testProvider_loadableBundle() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _test_rule_impl(ctx):",
-        "   dep = ctx.attr.deps[0]",
-        "   provider = dep[apple_common.AppleLoadableBundleBinary]",
-        "   return MyInfo(",
-        "      binary = provider.binary,",
-        "      dep_dir = dir(dep),",
-        "   )",
-        "test_rule = rule(implementation = _test_rule_impl,",
-        "   attrs = {",
-        "   'deps': attr.label_list(allow_files = False, mandatory = False,)",
-        "})");
-
-    scratch.file(
-        "examples/apple_starlark/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "load('//examples/rule:apple_rules.bzl', 'test_rule')",
-        "package(default_visibility = ['//visibility:public'])",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    deps = ['lib'],",
-        "    binary_type = '" + BinaryType.LOADABLE_BUNDLE + "',",
-        "    platform_type = 'ios',",
-        ")",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        ")",
-        "test_rule(",
-        "    name = 'my_target',",
-        "    deps = [':bin'],",
-        ")");
-
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-
-    assertThat((Artifact) myInfo.getValue("binary")).isNotNull();
-
-    List<String> depProviders = (List<String>) myInfo.getValue("dep_dir");
-    assertThat(depProviders).doesNotContain("AppleExecutableBinary");
-    assertThat(depProviders).doesNotContain("AppleDylibBinary");
   }
 
   @Test
@@ -743,8 +567,8 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAvoidDepsThroughDylib() throws Exception {
-    checkAvoidDepsThroughDylib(getRuleType());
+  public void testAvoidDepsThroughAvoidDep() throws Exception {
+    checkAvoidDepsThroughAvoidDep(getRuleType());
   }
 
   @Test
@@ -813,8 +637,8 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testDylibDependenciesPostCleanup() throws Exception {
-    checkDylibDependencies(getRuleType(), new ExtraLinkArgs());
+  public void testAvoidDepsDependenciesPostCleanup() throws Exception {
+    checkAvoidDepsDependencies(getRuleType(), new ExtraLinkArgs());
   }
 
   @Test
@@ -1002,7 +826,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
         "apple_binary_starlark(",
         "    name = 'bundle',",
         "    deps = [':bundle_lib'],",
-        "    binary_type = '" + BinaryType.LOADABLE_BUNDLE + "',",
+        "    binary_type = 'loadable_bundle',",
         "    bundle_loader = ':bin',",
         "    platform_type = 'ios',",
         ")",
@@ -1224,20 +1048,15 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLoadableBundleObjcProvider() throws Exception {
-    scratch.file(
-        "testlib/BUILD",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        "    sdk_frameworks = ['TestFramework'],",
-        ")");
+  public void testExecutableObjcProvider() throws Exception {
+    scratch.file("testlib/BUILD", "objc_library(", "    name = 'lib',", "    srcs = ['a.m'],", ")");
 
     getRuleType()
-        .scratchTarget(scratch, "binary_type", "'loadable_bundle'", "deps", "['//testlib:lib']");
+        .scratchTarget(scratch, "binary_type", "'executable'", "deps", "['//testlib:lib']");
 
     ObjcProvider objcProvider = providerForTarget("//x:x");
-    assertThat(objcProvider.sdkFramework().toList()).contains("TestFramework");
+    assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
+        .contains("testlib/liblib.a");
   }
 
   @Test

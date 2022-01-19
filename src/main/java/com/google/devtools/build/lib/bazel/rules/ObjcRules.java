@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.objc.AppleBinaryBaseRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryBaseRule;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
@@ -60,7 +59,6 @@ public class ObjcRules implements RuleSet {
     // j2objc shouldn't be here!
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
 
-    builder.addRuleDefinition(new AppleBinaryBaseRule());
     builder.addRuleDefinition(new AppleStaticLibraryBaseRule());
 
     builder.addRuleDefinition(new AppleCcToolchainRule());

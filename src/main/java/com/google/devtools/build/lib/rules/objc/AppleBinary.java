@@ -14,16 +14,10 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -36,7 +30,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -49,64 +42,7 @@ import java.util.TreeMap;
 
 /** Native support for Apple binary rules. */
 public class AppleBinary {
-  public static final String BINARY_TYPE_ATTR = "binary_type";
-  public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
-  public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
-
   private AppleBinary() {}
-
-  /** Type of linked binary that apple_binary may create. */
-  public enum BinaryType {
-
-    /**
-     * Binaries that can be loaded by other binaries at runtime, and which can't be directly
-     * executed by the operating system. When linking, a bundle_loader binary may be passed which
-     * signals the linker on where to look for unimplemented symbols, basically declaring that the
-     * bundle should be loaded by that binary. Bundle binaries are usually found in Plugins, and one
-     * common use case is tests. Tests are bundled into an .xctest bundle which contains the test
-     * binary along with required resources. The test bundle is then loaded and run during test
-     * execution.
-     */
-    LOADABLE_BUNDLE,
-
-    /**
-     * Binaries that can be run directly by the operating system. They implement the main method
-     * that is the entry point to the program. In Apple apps, they are usually distributed in .app
-     * bundles, which are directories that contain the executable along with required resources to
-     * run.
-     */
-    EXECUTABLE,
-
-    /**
-     * Binaries meant to be loaded at load time (when the operating system is loading the binary
-     * into memory), which cannot be unloaded. They are usually distributed in frameworks, which are
-     * .framework bundles that contain the dylib as well as well as required resources to run.
-     */
-    DYLIB;
-
-    /**
-     * Returns the {@link BinaryType} with given name (case insensitive).
-     *
-     * @throws IllegalArgumentException if the name does not match a valid platform type.
-     */
-    public static BinaryType fromString(String name) {
-      for (BinaryType binaryType : BinaryType.values()) {
-        if (name.equalsIgnoreCase(binaryType.toString())) {
-          return binaryType;
-        }
-      }
-      throw new IllegalArgumentException(String.format("Unsupported binary type \"%s\"", name));
-    }
-
-    /** Returns the enum values as a list of strings for validation. */
-    public static Iterable<String> getValues() {
-      return Iterables.transform(ImmutableList.copyOf(values()), Functions.toStringFunction());
-    }
-  }
-
-  @VisibleForTesting
-  static final String BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR =
-      "Can only use bundle_loader when binary_type is bundle.";
 
   /**
    * Links a (potentially multi-architecture) binary targeting Apple platforms.
@@ -123,7 +59,6 @@ public class AppleBinary {
    * @param extraLinkopts extra linkopts to pass to the linker actions
    * @param extraLinkInputs extra input files to pass to the linker action
    * @param isStampingEnabled whether linkstamping is enabled
-   * @param shouldLipo whether lipoing all binary slices as one output is desired
    * @return a tuple containing all necessary information about the linked binary
    */
   public static AppleLinkingOutputs linkMultiArchBinary(
@@ -132,30 +67,8 @@ public class AppleBinary {
       ImmutableList<TransitiveInfoCollection> avoidDeps,
       Iterable<String> extraLinkopts,
       Iterable<Artifact> extraLinkInputs,
-      boolean isStampingEnabled,
-      boolean shouldLipo)
+      boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    ApplePlatform platform = null;
-
-    if (shouldLipo) {
-      MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
-      PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
-
-      AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
-      try {
-        platform = appleConfiguration.getMultiArchPlatform(platformType);
-      } catch (IllegalArgumentException e) {
-        ruleContext.throwWithRuleError(e);
-      }
-
-      avoidDeps =
-          ImmutableList.<TransitiveInfoCollection>builder()
-              .addAll(getDylibProviderTargets(ruleContext))
-              .addAll(avoidDeps)
-              .build();
-    }
-
     ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
         MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
 
@@ -170,14 +83,8 @@ public class AppleBinary {
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
 
-    NestedSetBuilder<Artifact> binariesToLipo = null;
     ImmutableList.Builder<Artifact> allLinkInputs = ImmutableList.builder();
     ImmutableList.Builder<String> allLinkopts = ImmutableList.builder();
-    if (shouldLipo) {
-      binariesToLipo = NestedSetBuilder.stableOrder();
-      allLinkInputs.addAll(getRequiredLinkInputs(ruleContext));
-      allLinkopts.addAll(getRequiredLinkopts(ruleContext));
-    }
     allLinkInputs.addAll(extraLinkInputs);
     allLinkopts.addAll(extraLinkopts);
 
@@ -223,9 +130,6 @@ public class AppleBinary {
               isStampingEnabled,
               cpuToDepsCollectionMap.get(configCpu),
               outputGroupCollector);
-      if (shouldLipo) {
-        binariesToLipo.add(binaryArtifact);
-      }
 
       // TODO(b/177442911): Use the target platform from platform info coming from split
       // transition outputs instead of inferring this based on the target CPU.
@@ -260,75 +164,9 @@ public class AppleBinary {
       builder.addOutput(outputBuilder.build());
     }
 
-    if (shouldLipo) {
-      Artifact outputArtifact =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
-      builder.setLegacyBinaryArtifact(outputArtifact, getBinaryType(ruleContext));
-      new LipoSupport(ruleContext)
-          .registerCombineArchitecturesAction(binariesToLipo.build(), outputArtifact, platform);
-    }
-
     return builder
         .setDepsObjcProvider(objcProviderBuilder.build())
         .setLegacyDebugOutputsProvider(legacyDebugOutputsBuilder.build())
         .build();
-  }
-
-  private static ExtraLinkArgs getRequiredLinkopts(RuleContext ruleContext)
-      throws RuleErrorException {
-    BinaryType binaryType = getBinaryType(ruleContext);
-
-    ImmutableList.Builder<String> extraLinkArgs = new ImmutableList.Builder<>();
-
-    boolean didProvideBundleLoader =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified(BUNDLE_LOADER_ATTR_NAME);
-
-    if (didProvideBundleLoader && binaryType != BinaryType.LOADABLE_BUNDLE) {
-      ruleContext.throwWithRuleError(BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR);
-    }
-
-    switch (binaryType) {
-      case LOADABLE_BUNDLE:
-        extraLinkArgs.add("-bundle");
-        extraLinkArgs.add("-Wl,-rpath,@loader_path/Frameworks");
-        if (didProvideBundleLoader) {
-          AppleExecutableBinaryInfo executableProvider =
-              ruleContext.getPrerequisite(
-                  BUNDLE_LOADER_ATTR_NAME, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
-          extraLinkArgs.add(
-              "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
-        }
-        break;
-      case DYLIB:
-        extraLinkArgs.add("-dynamiclib");
-        break;
-      case EXECUTABLE:
-        break;
-    }
-
-    return new ExtraLinkArgs(extraLinkArgs.build());
-  }
-
-  private static ImmutableList<TransitiveInfoCollection> getDylibProviderTargets(
-      RuleContext ruleContext) {
-    return ImmutableList.<TransitiveInfoCollection>builder()
-        .addAll(ruleContext.getPrerequisites(DYLIBS_ATTR_NAME))
-        .addAll(ruleContext.getPrerequisites(BUNDLE_LOADER_ATTR_NAME))
-        .build();
-  }
-
-  private static Iterable<Artifact> getRequiredLinkInputs(RuleContext ruleContext) {
-    AppleExecutableBinaryInfo executableProvider =
-        ruleContext.getPrerequisite(
-            BUNDLE_LOADER_ATTR_NAME, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
-    if (executableProvider != null) {
-      return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
-    }
-    return ImmutableSet.<Artifact>of();
-  }
-
-  private static BinaryType getBinaryType(RuleContext ruleContext) {
-    String binaryTypeString = ruleContext.attributes().get(BINARY_TYPE_ATTR, STRING);
-    return BinaryType.fromString(binaryTypeString);
   }
 }

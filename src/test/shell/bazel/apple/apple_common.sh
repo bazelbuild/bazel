@@ -20,9 +20,6 @@
 function make_starlark_apple_binary_rule_in() {
   local dir="$1"; shift
 
-  # TODO(b/63092114): Add lipo logic here, too. Based on a reduced subset of
-  # lipo.bzl, avoiding the apple_support dependency.
-
   # All of the attributes below, except for `stamp`, are required as part of the
   # implied contract of `apple_common.link_multi_arch_binary` since it asks for
   # attributes directly from the rule context. As these requirements are changed
@@ -31,13 +28,42 @@ function make_starlark_apple_binary_rule_in() {
 def _starlark_apple_binary_impl(ctx):
     link_result = apple_common.link_multi_arch_binary(
         ctx = ctx,
-        should_lipo = True,
         stamp = ctx.attr.stamp,
     )
+    processed_binary = ctx.actions.declare_file(
+        '{}_lipobin'.format(ctx.label.name)
+    )
+    lipo_inputs = [output.binary for output in link_result.outputs]
+    if len(lipo_inputs) > 1:
+        apple_env = {}
+        xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+        apple_env.update(apple_common.apple_host_system_env(xcode_config))
+        apple_env.update(
+            apple_common.target_apple_env(
+                xcode_config,
+                ctx.fragments.apple.single_arch_platform,
+            ),
+        )
+        args = ctx.actions.args()
+        args.add('-create')
+        args.add_all(lipo_inputs)
+        args.add('-output', processed_binary)
+        ctx.actions.run(
+            arguments = [args],
+            env = apple_env,
+            executable = '/usr/bin/lipo',
+            execution_requirements = xcode_config.execution_info(),
+            inputs = lipo_inputs,
+            outputs = [processed_binary],
+        )
+    else:
+        ctx.actions.symlink(
+            target_file = lipo_inputs[0],
+            output = processed_binary,
+        )
     return [
-        DefaultInfo(files = depset([link_result.binary_provider.binary])),
+        DefaultInfo(files = depset([processed_binary])),
         OutputGroupInfo(**link_result.output_groups),
-        link_result.binary_provider,
         link_result.debug_outputs_provider,
     ]
 

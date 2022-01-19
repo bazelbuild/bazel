@@ -57,19 +57,6 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
   }
 
   @Test
-  public void testUnknownPlatformType() throws Exception {
-    checkError(
-        "package",
-        "test",
-        String.format(
-            MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
-            "meow_meow_os"),
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(name = 'test', binary_type = 'dylib', platform_type ="
-            + " 'meow_meow_os')");
-  }
-
-  @Test
   public void testCanUseCrosstool_singleArch() throws Exception {
     checkLinkingRuleCanUseCrosstool_singleArch(RULE_TYPE);
   }
@@ -145,8 +132,8 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
   }
 
   @Test
-  public void testDylibDependencies() throws Exception {
-    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
+  public void testAvoidDepsDependencies() throws Exception {
+    checkAvoidDepsDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
   }
 
   @Test

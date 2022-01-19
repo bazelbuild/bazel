@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstDerivedArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
 import com.google.common.base.Joiner;
@@ -82,8 +81,6 @@ import javax.annotation.Nullable;
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private static final Correspondence<String, String> MATCHES_REGEX =
       Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
-  protected static final String MOCK_XCRUNWRAPPER_PATH =
-      toolsRepoExecPath("tools/objc/xcrunwrapper.sh");
   protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
       toolExecutable("tools/objc/xcrunwrapper");
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
@@ -428,16 +425,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     if (executableProvider != null) {
       return executableProvider.getDepsObjcProvider();
     }
-    AppleDylibBinaryInfo dylibProvider =
-        getConfiguredTarget(label).get(AppleDylibBinaryInfo.STARLARK_CONSTRUCTOR);
-    if (dylibProvider != null) {
-      return dylibProvider.getDepsObjcProvider();
-    }
-    AppleLoadableBundleBinaryInfo loadableBundleProvider =
-        getConfiguredTarget(label).get(AppleLoadableBundleBinaryInfo.STARLARK_CONSTRUCTOR);
-    if (loadableBundleProvider != null) {
-      return loadableBundleProvider.getDepsObjcProvider();
-    }
     return null;
   }
 
@@ -510,30 +497,65 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
         "def apple_binary_starlark_impl(ctx):",
-        "  all_avoid_deps = []",
-        "  linkopts = []",
-        "  link_inputs = []",
-        "  if ctx.attr.bundle_loader:",
+        "    all_avoid_deps = list(ctx.attr.avoid_deps)",
+        "    binary_type = ctx.attr.binary_type",
         "    bundle_loader = ctx.attr.bundle_loader",
-        "    bundle_loader_file = bundle_loader[apple_common.AppleExecutableBinary].binary",
-        "    all_avoid_deps.append(bundle_loader)",
-        "    linkopts.extend(['-bundle_loader', bundle_loader_file.path])",
-        "    link_inputs.append(bundle_loader_file)",
-        "  link_result = apple_common.link_multi_arch_binary(",
-        "      ctx = ctx,",
-        "      avoid_deps = all_avoid_deps,",
-        "      extra_linkopts = linkopts,",
-        "      extra_link_inputs = link_inputs,",
-        "      should_lipo = True,",
-        "      stamp = ctx.attr.stamp,",
-        "  )",
-        "  return [",
-        "      DefaultInfo(",
-        "          files=depset([link_result.binary_provider.binary])),",
-        "      OutputGroupInfo(**link_result.output_groups),",
-        "      link_result.binary_provider,",
-        "      link_result.debug_outputs_provider",
-        "  ]",
+        "    linkopts = []",
+        "    link_inputs = []",
+        "    if binary_type == 'dylib':",
+        "        linkopts.append('-dynamiclib')",
+        "    elif binary_type == 'loadable_bundle':",
+        "        linkopts.extend(['-bundle', '-Wl,-rpath,@loader_path/Frameworks'])",
+        "    if ctx.attr.bundle_loader:",
+        "        bundle_loader = ctx.attr.bundle_loader",
+        "        bundle_loader_file = bundle_loader[apple_common.AppleExecutableBinary].binary",
+        "        all_avoid_deps.append(bundle_loader)",
+        "        linkopts.extend(['-bundle_loader', bundle_loader_file.path])",
+        "        link_inputs.append(bundle_loader_file)",
+        "    link_result = apple_common.link_multi_arch_binary(",
+        "        ctx = ctx,",
+        "        avoid_deps = all_avoid_deps,",
+        "        extra_linkopts = linkopts,",
+        "        extra_link_inputs = link_inputs,",
+        "        stamp = ctx.attr.stamp,",
+        "    )",
+        "    processed_binary = ctx.actions.declare_file('{}_lipobin'.format(ctx.label.name))",
+        "    lipo_inputs = [output.binary for output in link_result.outputs]",
+        "    if len(lipo_inputs) > 1:",
+        "        apple_env = {}",
+        "        xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]",
+        "        apple_env.update(apple_common.apple_host_system_env(xcode_config))",
+        "        apple_env.update(",
+        "            apple_common.target_apple_env(",
+        "                xcode_config,",
+        "                ctx.fragments.apple.single_arch_platform,",
+        "            ),",
+        "        )",
+        "        args = ctx.actions.args()",
+        "        args.add('-create')",
+        "        args.add_all(lipo_inputs)",
+        "        args.add('-output', processed_binary)",
+        "        ctx.actions.run(",
+        "            arguments = [args],",
+        "            env = apple_env,",
+        "            executable = '/usr/bin/lipo',",
+        "            execution_requirements = xcode_config.execution_info(),",
+        "            inputs = lipo_inputs,",
+        "            outputs = [processed_binary],",
+        "        )",
+        "    else:",
+        "        ctx.actions.symlink(target_file = lipo_inputs[0], output = processed_binary)",
+        "    providers = [",
+        "        DefaultInfo(files=depset([processed_binary])),",
+        "        OutputGroupInfo(**link_result.output_groups),",
+        "        link_result.debug_outputs_provider,",
+        "    ]",
+        "    if binary_type == 'executable':",
+        "        providers.append(apple_common.new_executable_binary_provider(",
+        "            binary = processed_binary,",
+        "            objc = link_result.objc,",
+        "        ))",
+        "    return providers",
         "apple_binary_starlark = rule(",
         "    apple_binary_starlark_impl,",
         "    attrs = {",
@@ -544,6 +566,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_dummy_lib': attr.label(",
         "            default = Label('" + toolsLoc + ":dummy_lib'),),",
+        "        '_grep_includes': attr.label(",
+        "            cfg = 'host',",
+        "            allow_single_file = True,",
+        "            executable = True,",
+        "            default = Label('" + toolsRepo + "//tools/cpp:grep-includes'),",
+        "        ),",
         "        '_j2objc_dead_code_pruner': attr.label(",
         "            default = Label('" + toolsLoc + ":j2objc_dead_code_pruner'),),",
         "        '_xcode_config': attr.label(",
@@ -556,12 +584,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        'additional_linker_inputs': attr.label_list(",
         "            allow_files = True,",
         "        ),",
-        "        'binary_type': attr.string(default = 'executable'),",
+        "        'avoid_deps': attr.label_list(default=[]),",
+        "        'binary_type': attr.string(",
+        "             default = 'executable',",
+        "             values = ['dylib', 'executable', 'loadable_bundle']",
+        "        ),",
         "        'bundle_loader': attr.label(),",
         "        'deps': attr.label_list(",
         "             cfg=apple_common.multi_arch_split,",
         "        ),",
-        "        'dylibs': attr.label_list(),",
         "        'linkopts': attr.string_list(),",
         "        'platform_type': attr.string(),",
         "        'minimum_os_version': attr.string(),",
@@ -1097,7 +1128,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3.1'"));
   }
 
-  private void checkDylibDependenciesSetupFramework() throws Exception {
+  private void checkAvoidDepsDependenciesSetupFramework() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_dynamic_framework_import_impl(ctx):",
@@ -1120,11 +1151,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         ")");
   }
 
-  protected void checkDylibDependencies(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
+  protected void checkAvoidDepsDependencies(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
       throws Exception {
-    ruleType.scratchTarget(scratch, "dylibs", "['//fx:framework_import']");
+    ruleType.scratchTarget(scratch, "avoid_deps", "['//fx:framework_import']");
 
-    checkDylibDependenciesSetupFramework();
+    checkAvoidDepsDependenciesSetupFramework();
 
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
@@ -1174,18 +1205,16 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+        .containsExactly(i386Bin, x8664Bin);
 
     assertThat(action.getArguments())
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH,
-            LIPO,
+            "/usr/bin/lipo",
             "-create",
             i386Bin,
             x8664Bin,
-            "-o",
+            "-output",
             execPathEndingWith(action.getOutputs(), "x_lipobin"))
         .inOrder();
 
@@ -1491,20 +1520,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+        .containsExactly(i386Bin, armv7kBin);
 
     assertThat(action.getArguments())
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsAtLeast(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create")
+        .containsAtLeast("/usr/bin/lipo", "-create")
         .inOrder();
     assertThat(action.getArguments()).containsAtLeast(armv7kBin, i386Bin);
     assertContainsSublist(
         action.getArguments(),
-        ImmutableList.of("-o", execPathEndingWith(action.getOutputs(), "x_lipobin")));
+        ImmutableList.of("-output", execPathEndingWith(action.getOutputs(), "x_lipobin")));
 
     assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly("x/x_lipobin");
-    assertAppleSdkPlatformEnv(action, "WatchOS");
+    assertAppleSdkPlatformEnv(action, "MacOSX");
     assertRequiresDarwin(action);
   }
 
@@ -1548,7 +1576,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file(
         bzlPath,
         "def framework_stub_impl(ctx):",
-        "  bin_provider = ctx.attr.binary[apple_common.AppleDylibBinary]",
+        "  bin_provider = ctx.attr.binary[apple_common.AppleExecutableBinary]",
         "  my_provider = apple_common.new_dynamic_framework_provider(",
         "      objc = bin_provider.objc,",
         "      binary = bin_provider.binary,",
@@ -1558,7 +1586,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "framework_stub_rule = rule(",
         "    framework_stub_impl,",
         "    attrs = {'binary': attr.label(mandatory=True,",
-        "                                  providers=[apple_common.AppleDylibBinary])},",
+        "                                  providers=[apple_common.AppleExecutableBinary])},",
         "    fragments = ['apple', 'objc'],",
         ")");
   }
@@ -1566,7 +1594,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void assertAvoidDepsObjects(RuleType ruleType) throws Exception {
     /*
      * The target tree for ease of understanding:
-     * x depends on "avoidLib" as a dylib and "objcLib" as a static dependency.
      *
      *               (    objcLib    )
      *              /              \
@@ -1579,7 +1606,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
      * All libraries prefixed with "avoid" shouldn't be statically linked in the top level target.
      */
     ruleType.scratchTarget(
-        scratch, "deps", "['//package:objcLib']", "dylibs", "['//package:avoidLib']");
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidLib']");
     if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
       addAppleBinaryStarlarkRule(scratch);
     }
@@ -1595,7 +1622,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "objc_library(name = 'baseLibDep', srcs = [ 'basedep.m' ],",
         "    sdk_frameworks = ['BaseSDK'])",
         "framework_stub_rule(name = 'avoidLib', binary = ':avoidLibBinary')",
-        "apple_binary_starlark(name = 'avoidLibBinary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'avoidLibBinary', binary_type = 'executable',",
         "    platform_type = 'ios',",
         "    deps = [':avoidLibDep'])",
         "objc_library(name = 'avoidLibDep', srcs = [ 'd.m' ], deps = [':avoidLibDepTwo'])",
@@ -1628,12 +1655,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   /**
-   * Verifies that if apple_binary_starlark A depends on a dylib B1 which then depends on a dylib
-   * B2, that the symbols from B2 are not present in A.
+   * Verifies that if apple_binary_starlark A has an avoid deps dep on B1 which then depends on an
+   * apple_binary_starlark B2, that the symbols from B2 are not present in A.
    */
-  public void checkAvoidDepsThroughDylib(RuleType ruleType) throws Exception {
+  public void checkAvoidDepsThroughAvoidDep(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(
-        scratch, "deps", "['//package:ObjcLib']", "dylibs", "['//package:dylib1']");
+        scratch, "deps", "['//package:ObjcLib']", "avoid_deps", "['//package:dylib1']");
     if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
       addAppleBinaryStarlarkRule(scratch);
     }
@@ -1647,11 +1674,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "objc_library(name = 'Dylib1Lib', srcs = [ 'Dylib1Lib.m' ])",
         "objc_library(name = 'Dylib2Lib', srcs = [ 'Dylib2Lib.m' ])",
         "framework_stub_rule(name = 'dylib1', binary = ':dylib1Binary')",
-        "apple_binary_starlark(name = 'dylib1Binary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'dylib1Binary', binary_type = 'executable',",
         "    platform_type = 'ios',",
-        "    deps = [':Dylib1Lib'], dylibs = ['//package:dylib2'])",
+        "    deps = [':Dylib1Lib'], avoid_deps = ['//package:dylib2'])",
         "framework_stub_rule(name = 'dylib2', binary = ':dylib2Binary')",
-        "apple_binary_starlark(name = 'dylib2Binary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'dylib2Binary', binary_type = 'executable',",
         "    platform_type = 'ios',",
         "    deps = [':Dylib2Lib'])",
         "apple_binary_starlark(name = 'alternate',",
@@ -1670,7 +1697,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(linkAction.getInputs(), "package/libDylib2Lib.a"))
         .isNull();
 
-    // Check that the identical binary without dylibs would be fully linked.
+    // Check that the identical binary without avoid_deps would be fully linked.
     Action alternateLipobinAction = lipoBinAction("//package:alternate");
     Artifact alternateBinArtifact =
         getFirstArtifactEndingWith(alternateLipobinAction.getInputs(), "package/alternate_bin");
@@ -1687,13 +1714,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   /**
-   * Tests that direct cc_library dependencies of a dylib (and their dependencies) are correctly
+   * Tests that direct cc_library dependencies of an avoid_dep (and its dependencies) are correctly
    * removed from the main binary.
    */
   // transitively avoided, even if it is not present in deps.
   public void checkAvoidDepsObjects_avoidViaCcLibrary(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(
-        scratch, "deps", "['//package:objcLib']", "dylibs", "['//package:avoidLib']");
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidLib']");
     if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
       addAppleBinaryStarlarkRule(scratch);
     }
@@ -1703,7 +1730,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
         "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "framework_stub_rule(name = 'avoidLib', binary = ':avoidLibBinary')",
-        "apple_binary_starlark(name = 'avoidLibBinary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'avoidLibBinary', binary_type = 'executable',",
         "    platform_type = 'ios',",
         "    deps = [':avoidCclib'])",
         "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidObjcLib'])",
