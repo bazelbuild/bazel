@@ -126,9 +126,10 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Callback<Target> callback,
       boolean batch) {
     if (batch) {
-      // This uses AbstractQueryEnvironment#eval that aggregates the results of the futures into a
-      // single batch before running the callback on the batch of results, providing an alternative
-      // for the environment to decide when to batch the results and when batching is not needed.
+      // This uses AbstractBlazeQueryEnvironment#eval that aggregates the results of the futures
+      // into a single batch before running the callback on the batch of results, providing an
+      // alternative for the environment to decide when to batch the results and when batching is
+      // not needed.
       return super.eval(expr, context, callback);
     }
     return eval(expr, context, callback);

@@ -13,15 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.common;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -32,7 +37,7 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -40,6 +45,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
@@ -52,6 +58,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -60,8 +71,8 @@ import javax.annotation.Nullable;
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much of
  * QueryEnvironment as possible while remaining mostly agnostic as to the objects being stored.
  */
-public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvironment<T>
-    implements AutoCloseable {
+public abstract class AbstractBlazeQueryEnvironment<T>
+    implements QueryEnvironment<T>, AutoCloseable {
   protected ErrorSensingEventHandler<DetailedExitCode> eventHandler;
   protected final boolean keepGoing;
   protected final boolean strictScope;
@@ -205,6 +216,84 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       }
     }
     return QueryEvalResult.success(emptySensingCallback.isEmpty());
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> immediateSuccessfulFuture(R value) {
+    return new QueryTaskFutureImpl<>(Futures.immediateFuture(value));
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> immediateFailedFuture(QueryException e) {
+    return new QueryTaskFutureImpl<>(Futures.immediateFailedFuture(e));
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> immediateCancelledFuture() {
+    return new QueryTaskFutureImpl<>(Futures.immediateCancelledFuture());
+  }
+
+  @Override
+  public QueryTaskFuture<Void> eval(
+      QueryExpression expr, QueryExpressionContext<T> context, final Callback<T> callback) {
+    // Not all QueryEnvironment implementations embrace the async+streaming evaluation framework. In
+    // particular, the streaming callbacks employed by functions like 'deps' use
+    // QueryEnvironment#buildTransitiveClosure. So if the implementation of that method does some
+    // heavyweight blocking work, then it's best to do this blocking work in a single batch.
+    // Importantly, the callback we pass in needs to maintain order.
+    final QueryUtil.AggregateAllCallback<T, ?> aggregateAllCallback =
+        QueryUtil.newOrderedAggregateAllOutputFormatterCallback(this);
+    QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
+    return whenSucceedsCall(
+        evalAllFuture,
+        () -> {
+          callback.process(aggregateAllCallback.getResult());
+          return null;
+        });
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> execute(QueryTaskCallable<R> callable) {
+    try {
+      return immediateSuccessfulFuture(callable.call());
+    } catch (QueryException e) {
+      return immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return immediateCancelledFuture();
+    }
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> executeAsync(QueryTaskAsyncCallable<R> callable) {
+    return callable.call();
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> whenSucceedsCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable) {
+    return whenAllSucceedCall(ImmutableList.of(future), callable);
+  }
+
+  @Override
+  public QueryTaskFuture<Void> whenAllSucceed(Iterable<? extends QueryTaskFuture<?>> futures) {
+    return whenAllSucceedCall(futures, Dummy.INSTANCE);
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> whenAllSucceedCall(
+      Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable) {
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.whenAllSucceed(cast(futures)).call(callable, directExecutor()));
+  }
+
+  @Override
+  public <T1, T2> QueryTaskFuture<T2> transformAsync(
+      QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.transformAsync(
+            (QueryTaskFutureImpl<T1>) future,
+            input -> (QueryTaskFutureImpl<T2>) function.apply(input),
+            directExecutor()));
   }
 
   private static class EmptinessSensingCallback<T> extends OutputFormatterCallback<T> {
@@ -355,5 +444,91 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
           "Null detailed exit code for %s %s", message, expr);
     }
     return event;
+  }
+
+  /** Concrete implementation of {@link QueryTaskFuture}. */
+  @SuppressWarnings("ShouldNotSubclass")
+  protected static final class QueryTaskFutureImpl<T> extends QueryTaskFutureImplBase<T>
+      implements ListenableFuture<T> {
+    private final ListenableFuture<T> delegate;
+
+    private QueryTaskFutureImpl(ListenableFuture<T> delegate) {
+      this.delegate = delegate;
+    }
+
+    public static <R> QueryTaskFutureImpl<R> ofDelegate(ListenableFuture<R> delegate) {
+      return (delegate instanceof QueryTaskFutureImpl)
+          ? (QueryTaskFutureImpl<R>) delegate
+          : new QueryTaskFutureImpl<>(delegate);
+    }
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+      return delegate.cancel(mayInterruptIfRunning);
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return delegate.isCancelled();
+    }
+
+    @Override
+    public boolean isDone() {
+      return delegate.isDone();
+    }
+
+    @Override
+    public T get() throws InterruptedException, ExecutionException {
+      return delegate.get();
+    }
+
+    @Override
+    public T get(long timeout, TimeUnit unit)
+        throws InterruptedException, ExecutionException, TimeoutException {
+      return delegate.get(timeout, unit);
+    }
+
+    @Override
+    public void addListener(Runnable listener, Executor executor) {
+      delegate.addListener(listener, executor);
+    }
+
+    @Override
+    public T getIfSuccessful() {
+      try {
+        return Futures.getDone(delegate);
+      } catch (CancellationException | ExecutionException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    public T getChecked() throws InterruptedException, QueryException {
+      try {
+        return get();
+      } catch (CancellationException unused) {
+        throw new InterruptedException();
+      } catch (ExecutionException e) {
+        Throwable cause = e.getCause();
+        Throwables.propagateIfPossible(cause, QueryException.class);
+        Throwables.propagateIfPossible(cause, InterruptedException.class);
+        throw new IllegalStateException(e);
+      }
+    }
+  }
+
+  private static class Dummy implements QueryTaskCallable<Void> {
+    public static final Dummy INSTANCE = new Dummy();
+
+    private Dummy() {}
+
+    @Override
+    public Void call() {
+      return null;
+    }
+  }
+
+  protected static Iterable<QueryTaskFutureImpl<?>> cast(
+      Iterable<? extends QueryTaskFuture<?>> futures) {
+    return Iterables.transform(futures, QueryTaskFutureImpl.class::cast);
   }
 }
