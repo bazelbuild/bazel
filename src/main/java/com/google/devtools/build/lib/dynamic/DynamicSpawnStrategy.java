@@ -52,7 +52,6 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -106,7 +105,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private boolean skipBuildWarningShown;
 
   /** Limit on how many threads we should use for dynamic execution. */
-  private final Semaphore threadLimiter;
+  private final ShrinkableSemaphore threadLimiter;
 
   /** Set of jobs that are waiting for local execution. */
   private final Deque<LocalBranch> waitingLocalJobs = new ArrayDeque<>();
@@ -115,7 +114,16 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    * Constructs a {@code DynamicSpawnStrategy}.
    *
    * @param executorService an {@link ExecutorService} that will be used to run Spawn actions.
+   * @param options The options for dynamic execution.
+   * @param getExecutionPolicy Function that will give an execution policy for a given {@link
+   *     Spawn}.
+   * @param getPostProcessingSpawnForLocalExecution A function that returns any post-processing
+   *     spawns that should be run after finishing running a spawn locally.
    * @param firstBuild True if this is the first build since the server started.
+   * @param numCpus The number of CPUs allowed for local execution (--local_cpu_resources).
+   * @param jobs The maximum number of jobs (--jobs parameter).
+   * @param ignoreFailureCheck A callback to check if a failure on one branch should be allowed to
+   *     be ignored in favor of the other branch.
    */
   public DynamicSpawnStrategy(
       ExecutorService executorService,
@@ -124,13 +132,18 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution,
       boolean firstBuild,
       int numCpus,
+      int jobs,
       IgnoreFailureCheck ignoreFailureCheck) {
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.options = options;
     this.getExecutionPolicy = getExecutionPolicy;
     this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
     this.firstBuild = firstBuild;
-    this.threadLimiter = new Semaphore(numCpus);
+    this.threadLimiter =
+        new ShrinkableSemaphore(
+            options.cpuLimited || options.localLoadFactor > 0 ? numCpus : jobs,
+            jobs,
+            options.localLoadFactor);
     this.ignoreFailureCheck = ignoreFailureCheck;
   }
 
@@ -272,6 +285,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    */
   private void tryScheduleLocalJob() {
     synchronized (waitingLocalJobs) {
+      threadLimiter.updateLoad(waitingLocalJobs.size());
       while (!waitingLocalJobs.isEmpty() && threadLimiter.tryAcquire()) {
         LocalBranch job;
         // TODO(b/120910324): Prioritize jobs where the remote branch has already failed.

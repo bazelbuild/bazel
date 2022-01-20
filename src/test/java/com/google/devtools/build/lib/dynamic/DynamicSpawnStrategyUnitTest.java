@@ -291,6 +291,7 @@ public class DynamicSpawnStrategyUnitTest {
             ignored -> Optional.empty(),
             false,
             10,
+            10,
             (s, exitCode, errorMsg, outErr, isLocal) -> isLocal && errorMsg.contains("Ignorable"));
     SandboxedSpawnStrategy local = createMockSpawnStrategy();
     // Make sure that local execution does not win the race before remote starts.
@@ -335,6 +336,7 @@ public class DynamicSpawnStrategyUnitTest {
             ignored -> ExecutionPolicy.ANYWHERE,
             ignored -> Optional.empty(),
             false,
+            10,
             10,
             (s, exitCode, errorMsg, outErr, isLocal) -> isLocal && errorMsg.contains("Ignorable"));
     SandboxedSpawnStrategy local = createMockSpawnStrategy();
@@ -545,6 +547,7 @@ public class DynamicSpawnStrategyUnitTest {
         ignored -> executionPolicy,
         getPostProcessingSpawnForLocalExecution,
         isFirst,
+        10,
         10,
         null);
   }
