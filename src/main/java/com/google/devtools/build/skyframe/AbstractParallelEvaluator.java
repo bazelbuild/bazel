@@ -67,6 +67,33 @@ import javax.annotation.Nullable;
  * Defines the evaluation action used in the multi-threaded Skyframe evaluation, and constructs the
  * {@link ParallelEvaluatorContext} that the actions rely on.
  *
+ * <p>Evaluates a set of given functions ({@code SkyFunction}s) with arguments ({@code SkyKey}s).
+ * Cycles are not allowed and are detected during the traversal.
+ *
+ * <p>This class implements multi-threaded evaluation. This is a fairly complex process that has
+ * strong consistency requirements between the {@link ProcessableGraph}, the nodes in the graph of
+ * type {@link NodeEntry}, the work queue, and the set of in-flight nodes.
+ *
+ * <p>The basic invariants are:
+ *
+ * <p>A node can be in one of three states: ready, waiting, and done. A node is ready if and only if
+ * all of its dependencies have been signaled. A node is done if it has a value. It is waiting if
+ * not all of its dependencies have been signaled.
+ *
+ * <p>A node must be in the work queue if and only if it is ready. It is an error for a node to be
+ * in the work queue twice at the same time.
+ *
+ * <p>A node is considered in-flight if it has been created, and is not done yet. In case of an
+ * interrupt, the work queue is discarded, and the in-flight set is used to remove partially
+ * computed values.
+ *
+ * <p>Each evaluation of the graph takes place at a "version," which is currently given by a
+ * non-negative {@code long}. The version can also be thought of as an "mtime." Each node in the
+ * graph has a version, which is the last version at which its value changed. This version data is
+ * used to avoid unnecessary re-evaluation of values. If a node is re-evaluated and found to have
+ * the same data as before, its version (mtime) remains the same. If all of a node's children's have
+ * the same version as before, its re-evaluation can be skipped.
+ *
  * <p>This does not implement other parts of Skyframe evaluation setup and post-processing, such as
  * translating a set of requested top-level nodes into actions, or constructing an evaluation
  * result. Derived classes should do this.
