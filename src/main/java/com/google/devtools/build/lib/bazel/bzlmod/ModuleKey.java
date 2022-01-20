@@ -62,8 +62,11 @@ public abstract class ModuleKey {
     if (WELL_KNOWN_MODULES.containsKey(getName())) {
       return WELL_KNOWN_MODULES.get(getName());
     }
+    if (ROOT.equals(this)) {
+      return "";
+    }
     if (getVersion().isEmpty()) {
-      return getName();
+      return getName() + ".override";
     }
     return getName() + "." + getVersion();
   }

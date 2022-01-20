@@ -173,19 +173,19 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.override")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.override")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
                     ImmutableMap.of(
-                        "name", "C",
+                        "name", "C.override",
                         "path", "/foo/bar/C"))
                 .build());
   }
