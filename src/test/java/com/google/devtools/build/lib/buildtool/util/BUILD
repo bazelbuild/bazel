@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
     ],
 )
+
 java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
