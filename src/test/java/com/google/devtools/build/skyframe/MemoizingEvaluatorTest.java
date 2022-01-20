@@ -75,16 +75,13 @@ import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/** Tests for {@link MemoizingEvaluator}. */
-@RunWith(JUnit4.class)
-public class MemoizingEvaluatorTest {
+/** Tests for a {@link MemoizingEvaluator}. */
+public abstract class MemoizingEvaluatorTest {
 
   protected MemoizingEvaluatorTester tester;
   protected EventCollector eventCollector;
-  private ExtendedEventHandler reporter;
+  protected ExtendedEventHandler reporter;
   protected MemoizingEvaluator.EmittedEventState emittedEventState;
 
   // Knobs that control the size / duration of larger tests.
@@ -104,7 +101,7 @@ public class MemoizingEvaluatorTest {
     if (customProgressReceiver != null) {
       tester.setProgressReceiver(customProgressReceiver);
     }
-    tester.initialize(true);
+    tester.initialize();
   }
 
   protected TrackingProgressReceiver createTrackingProgressReceiver(
@@ -121,22 +118,13 @@ public class MemoizingEvaluatorTest {
     return new SequencedRecordingDifferencer();
   }
 
-  protected MemoizingEvaluator getMemoizingEvaluator(
-      Map<SkyFunctionName, SkyFunction> functions,
+  @ForOverride
+  protected abstract MemoizingEvaluator getMemoizingEvaluator(
+      ImmutableMap<SkyFunctionName, SkyFunction> functions,
       Differencer differencer,
       EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      EventFilter eventFilter,
-      boolean keepEdges) {
-    return new InMemoryMemoizingEvaluator(
-        functions,
-        differencer,
-        progressReceiver,
-        graphInconsistencyReceiver,
-        eventFilter,
-        emittedEventState,
-        true);
-  }
+      EventFilter eventFilter);
 
   /** Invoked immediately before each call to {@link MemoizingEvaluator#evaluate}. */
   @ForOverride
@@ -211,7 +199,7 @@ public class MemoizingEvaluatorTest {
             }));
     // #initialize must be called after setting the GraphInconsistencyReceiver for the receiver to
     // be registered with the test's memoizing evaluator.
-    tester.initialize(/*keepEdges=*/ true);
+    tester.initialize();
     return inconsistencies;
   }
 
@@ -2461,7 +2449,7 @@ public class MemoizingEvaluatorTest {
               Preconditions.checkState(restartingKey.equals(key), key);
               numInconsistencyCalls.incrementAndGet();
             }));
-    tester.initialize(/*keepEdges=*/ true);
+    tester.initialize();
     AtomicInteger numFunctionCalls = new AtomicInteger(0);
     tester
         .getOrCreate(restartingKey)
@@ -2506,7 +2494,7 @@ public class MemoizingEvaluatorTest {
               Preconditions.checkState(restartingKey.equals(key), key);
               numInconsistencyCalls.incrementAndGet();
             }));
-    tester.initialize(mode != RunResetNodeOnRequestWithDepsMode.NO_KEEP_EDGES_SO_NO_REEVALUATION);
+    tester.initialize();
     StringValue expectedValue = new StringValue("done");
     SkyKey alreadyRequestedDep = GraphTester.skyKey("alreadyRequested");
     SkyKey newlyRequestedNotDoneDep = GraphTester.skyKey("newlyRequestedNotDone");
@@ -2606,7 +2594,7 @@ public class MemoizingEvaluatorTest {
               Preconditions.checkState(topKey.equals(key), key);
               numInconsistencyCalls.incrementAndGet();
             }));
-    tester.initialize(/*keepEdges=*/ true);
+    tester.initialize();
     tester.getOrCreate(missingChild).setConstantValue(new StringValue("will go missing"));
     SkyKey presentChild = GraphTester.nonHermeticKey("present");
     tester.getOrCreate(presentChild).setConstantValue(new StringValue("present"));
@@ -4108,7 +4096,7 @@ public class MemoizingEvaluatorTest {
             }
           }
         });
-    tester.initialize(/*keepEdges=*/ true);
+    tester.initialize();
     tester
         .getOrCreate(parent)
         .addDependency(excludedDep)
@@ -5203,7 +5191,7 @@ public class MemoizingEvaluatorTest {
     private EventFilter eventFilter = InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER;
 
     /** Constructs a new {@link #evaluator}, so call before injecting a transformer into it! */
-    public void initialize(boolean keepEdges) {
+    public void initialize() {
       this.differencer = getRecordingDifferencer();
       this.evaluator =
           getMemoizingEvaluator(
@@ -5211,8 +5199,7 @@ public class MemoizingEvaluatorTest {
               differencer,
               progressReceiver,
               graphInconsistencyReceiver,
-              eventFilter,
-              keepEdges);
+              eventFilter);
     }
 
     /**
