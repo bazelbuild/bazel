@@ -94,7 +94,7 @@ public class BazelModuleResolutionFunctionTest {
             "dep.1.0", createModuleKey("dep", "1.0"),
             "dep.2.0", createModuleKey("dep", "2.0"),
             "rules_cc.1.0", createModuleKey("rules_cc", "1.0"),
-            "rules_java", createModuleKey("rules_java", ""));
+            "rules_java.override", createModuleKey("rules_java", ""));
     assertThat(value.getModuleNameLookup())
         .containsExactly(
             "rules_cc", createModuleKey("rules_cc", "1.0"),
