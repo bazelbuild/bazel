@@ -551,6 +551,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
+      if (workspace == null) {
+        return; // A crash during server startup.
+      }
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
       if (eventBus != null) {
         workspace
