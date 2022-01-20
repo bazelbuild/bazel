@@ -514,7 +514,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     BatchStreamedCallback batchCallback =
         new BatchStreamedCallback(
             callback, BATCH_CALLBACK_SIZE, createUniquifierForOuterBatchStreamedCallback(expr));
-    return super.evaluateQuery(expr, batchCallback);
+    return evaluateQueryInternal(expr, batchCallback);
   }
 
   Map<SkyKey, Collection<Target>> targetifyValues(Map<SkyKey, ? extends Iterable<SkyKey>> input)
@@ -1080,8 +1080,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
-      throws QueryException, TargetParsingException {
+  protected final void preloadOrThrow(QueryExpression caller, Collection<String> patterns) {
     // SkyQueryEnvironment directly evaluates target patterns in #getTarget and similar methods
     // using its graph, which is prepopulated using the universeScope (see #beforeEvaluateQuery),
     // so no preloading of target patterns is necessary.

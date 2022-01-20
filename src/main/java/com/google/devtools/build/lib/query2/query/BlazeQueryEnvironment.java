@@ -68,6 +68,9 @@ import java.util.Set;
 
 /**
  * The environment of a Blaze query. Not thread-safe.
+ *
+ * <p>This environment is valid only for a single query, called via {@link #evaluateQuery}. Call
+ * only once!
  */
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
@@ -83,6 +86,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected final int loadingPhaseThreads;
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
+
+  private boolean doneQuery;
 
   /**
    * Note that the correct operation of this class critically depends on the Reporter being a
@@ -130,8 +135,9 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpression expr,
       ThreadSafeOutputFormatterCallback<Target> callback)
           throws QueryException, InterruptedException, IOException {
-    resolvedTargetPatterns.clear();
-    QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
+    Preconditions.checkState(!doneQuery, "Can only use environment for one query: %s", expr);
+    doneQuery = true;
+    QueryEvalResult queryEvalResult = evaluateQueryInternal(expr, callback);
     return new DigraphQueryEvalResult<>(
         queryEvalResult.getSuccess(),
         queryEvalResult.isEmpty(),
@@ -458,13 +464,16 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
       throws TargetParsingException, InterruptedException {
-    if (!resolvedTargetPatterns.keySet().containsAll(patterns)) {
-      // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
-      // being called from within a SkyFunction.
-      resolvedTargetPatterns.putAll(
-          targetPatternPreloader.preloadTargetPatterns(
-              eventHandler, relativeWorkingDirectory, patterns, keepGoing));
-    }
+    Preconditions.checkState(
+        resolvedTargetPatterns.isEmpty(),
+        "Already resolved patterns: %s %s",
+        patterns,
+        resolvedTargetPatterns);
+    // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
+    // being called from within a SkyFunction.
+    resolvedTargetPatterns.putAll(
+        targetPatternPreloader.preloadTargetPatterns(
+            eventHandler, relativeWorkingDirectory, patterns, keepGoing));
   }
 
   private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels, Set<Target> nodes) {

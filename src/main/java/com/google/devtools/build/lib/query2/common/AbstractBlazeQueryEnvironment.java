@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.common;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -73,6 +74,8 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractBlazeQueryEnvironment<T>
     implements QueryEnvironment<T>, AutoCloseable {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   protected ErrorSensingEventHandler<DetailedExitCode> eventHandler;
   protected final boolean keepGoing;
   protected final boolean strictScope;
@@ -82,8 +85,6 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected AbstractBlazeQueryEnvironment(
       boolean keepGoing,
@@ -131,6 +132,10 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     return QueryExpressionContext.empty();
   }
 
+  public abstract QueryEvalResult evaluateQuery(
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
+      throws QueryException, IOException, InterruptedException;
+
   /**
    * Evaluate the specified query expression in this environment, streaming results to the given
    * {@code callback}. {@code callback.start()} will be called before query evaluation and {@code
@@ -143,7 +148,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
    * @throws QueryException if the evaluation failed and {@code --nokeep_going} was in effect
    * @throws IOException for output formatter failures from {@code callback}
    */
-  public QueryEvalResult evaluateQuery(
+  protected final QueryEvalResult evaluateQueryInternal(
       QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException, IOException {
     EmptinessSensingCallback<T> emptySensingCallback = new EmptinessSensingCallback<>(callback);
@@ -330,7 +335,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   }
 
   @Override
-  public void handleError(
+  public final void handleError(
       QueryExpression expression, String message, DetailedExitCode detailedExitCode)
       throws QueryException {
     if (!keepGoing) {
@@ -358,6 +363,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       try {
         target = getTarget(label);
       } catch (TargetNotFoundException e) {
+        logger.atInfo().withCause(e).atMostEvery(1, SECONDS).log("Failure to load %s", label);
         continue;
       }
       resultBuilder.put(label, target);
