@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -172,6 +173,13 @@ public class WorkspaceFactory {
     } catch (SyntaxError.Exception ex) {
       // compilation failed
       Event.replayEventsOn(localReporter, ex.errors());
+      builder.setFailureDetailOverride(
+          FailureDetails.FailureDetail.newBuilder()
+              .setMessage(ex.getMessage())
+              .setPackageLoading(
+                  FailureDetails.PackageLoading.newBuilder()
+                      .setCode(PackageLoading.Code.SYNTAX_ERROR))
+              .build());
     }
 
     // cleanup (success or failure)

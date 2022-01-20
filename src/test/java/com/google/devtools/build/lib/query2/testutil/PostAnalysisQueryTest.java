@@ -707,6 +707,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Override
   public void testRegression1309697() {}
 
+  @Override
+  public void badRuleInDeps() {}
+
   // Can't handle cycles.
   @Override
   public void testDotDotDotWithCycle() {}

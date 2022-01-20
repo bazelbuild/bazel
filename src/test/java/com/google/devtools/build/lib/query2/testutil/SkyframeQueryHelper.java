@@ -71,6 +71,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.AbstractSet;
 import java.util.ArrayList;
@@ -152,6 +153,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
   }
 
+  @ForOverride
   protected QueryEnvironmentFactory makeQueryEnvironmentFactory() {
     return new QueryEnvironmentFactory();
   }

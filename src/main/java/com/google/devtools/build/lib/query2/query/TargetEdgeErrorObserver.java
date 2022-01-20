@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.query2.query;
 
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -93,6 +94,9 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
       FailureDetail failureDetail = node.getPackage().getFailureDetail();
       if (failureDetail != null) {
         errorCode.compareAndSet(/*expect=*/ null, /*update=*/ DetailedExitCode.of(failureDetail));
+      } else {
+        BugReport.sendBugReport(
+            new IllegalStateException("Undetailed error from package: " + node));
       }
     }
   }

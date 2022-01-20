@@ -34,7 +34,7 @@ import net.starlark.java.syntax.Location;
  * can be asked if a specific package is included in it.
  */
 public class PackageGroup implements Target {
-  private boolean containsErrors;
+  private final boolean containsErrors;
   private final Label label;
   private final Location location;
   private final Package containingPackage;
@@ -55,13 +55,14 @@ public class PackageGroup implements Target {
 
     // TODO(bazel-team): Consider refactoring so constructor takes a PackageGroupContents.
     ImmutableList.Builder<PackageSpecification> packagesBuilder = ImmutableList.builder();
+    boolean errorsFound = false;
     for (String packageSpecification : packageSpecifications) {
       PackageSpecification specification = null;
       try {
         specification =
             PackageSpecification.fromString(label.getRepository(), packageSpecification);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
-        containsErrors = true;
+        errorsFound = true;
         eventHandler.handle(
             Package.error(location, e.getMessage(), Code.INVALID_PACKAGE_SPECIFICATION));
       }
@@ -70,6 +71,7 @@ public class PackageGroup implements Target {
         packagesBuilder.add(specification);
       }
     }
+    this.containsErrors = errorsFound;
     this.packageSpecifications = PackageGroupContents.create(packagesBuilder.build());
   }
 

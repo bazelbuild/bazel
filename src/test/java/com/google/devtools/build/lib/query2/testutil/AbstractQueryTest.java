@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.testutil;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -1797,6 +1798,28 @@ public abstract class AbstractQueryTest<T> {
     writeFile("bar/bar.bzl", "sym = 0");
     assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
         .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+  }
+
+  @Test
+  public void badRuleInDeps() throws Exception {
+    runBadRuleInDeps(Code.STARLARK_EVAL_ERROR);
+  }
+
+  protected final void runBadRuleInDeps(Object code) throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:bar'])");
+    writeFile("bar/BUILD", "sh_library(name = 'bar', srcs = 'bad_single_file')");
+    EvalThrowsResult evalThrowsResult =
+        evalThrows("deps(//foo:foo)", /*unconditionallyThrows=*/ false);
+    FailureDetail.Builder failureDetailBuilder = FailureDetail.newBuilder();
+    if (code instanceof FailureDetails.PackageLoading.Code) {
+      failureDetailBuilder.setPackageLoading(
+          FailureDetails.PackageLoading.newBuilder().setCode((Code) code));
+    } else if (code instanceof Query.Code) {
+      failureDetailBuilder.setQuery(FailureDetails.Query.newBuilder().setCode((Query.Code) code));
+    }
+    assertThat(evalThrowsResult.getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(failureDetailBuilder.build());
   }
 
   @Test

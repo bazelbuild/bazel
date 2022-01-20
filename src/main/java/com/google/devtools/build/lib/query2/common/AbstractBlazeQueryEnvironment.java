@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
@@ -244,7 +245,13 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       QueryExpression expression, String message, DetailedExitCode detailedExitCode)
       throws QueryException {
     if (!keepGoing) {
-      throw new QueryException(expression, message, detailedExitCode.getFailureDetail());
+      if (detailedExitCode != null) {
+        throw new QueryException(expression, message, detailedExitCode.getFailureDetail());
+      } else {
+        BugReport.sendBugReport(
+            new IllegalStateException("Undetailed failure: " + message + " for " + expression));
+        throw new QueryException(expression, message, Code.NON_DETAILED_ERROR);
+      }
     }
     eventHandler.handle(createErrorEvent(expression, message, detailedExitCode));
   }

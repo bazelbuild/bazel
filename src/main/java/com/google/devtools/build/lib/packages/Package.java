@@ -28,6 +28,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -868,9 +869,7 @@ public class Package {
    */
   public static Event error(Location location, String message, Code code) {
     Event error = Event.error(location, message);
-    // The DetailedExitCode's message is the base event's toString because that string nicely
-    // includes the location value.
-    return error.withProperty(DetailedExitCode.class, createDetailedCode(error.toString(), code));
+    return error.withProperty(DetailedExitCode.class, createDetailedCode(message, code));
   }
 
   private static DetailedExitCode createDetailedCode(String errorMessage, Code code) {
@@ -1306,7 +1305,9 @@ public class Package {
     }
 
     /**
-     * Declares that errors were encountering while loading this package.
+     * Declares that errors were encountering while loading this package. If called, {@link
+     * #addEvent} or {@link #addEvents} should already have been called with an {@link Event} of
+     * type {@link EventKind#ERROR} that includes a {@link FailureDetail}.
      */
     public Builder setContainsErrors() {
       containsErrors = true;
@@ -1346,6 +1347,7 @@ public class Package {
         return failureDetailOverride;
       }
 
+      List<Event> undetailedEvents = null;
       for (Event event : this.events) {
         if (event.getKind() != EventKind.ERROR) {
           continue;
@@ -1354,6 +1356,16 @@ public class Package {
         if (detailedExitCode != null && detailedExitCode.getFailureDetail() != null) {
           return detailedExitCode.getFailureDetail();
         }
+        if (containsErrors) {
+          if (undetailedEvents == null) {
+            undetailedEvents = new ArrayList<>();
+          }
+          undetailedEvents.add(event);
+        }
+      }
+      if (undetailedEvents != null) {
+        BugReport.sendBugReport(
+            new IllegalStateException("Package has undetailed error from " + undetailedEvents));
       }
       return null;
     }
