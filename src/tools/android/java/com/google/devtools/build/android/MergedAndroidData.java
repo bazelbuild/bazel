@@ -53,7 +53,7 @@ class MergedAndroidData implements ManifestContainer {
   public DensityFilteredAndroidData filter(
       DensitySpecificResourceFilter resourceFilter,
       DensitySpecificManifestProcessor manifestProcessor)
-      throws ManifestProcessingException {
+      throws AndroidManifestProcessor.ManifestProcessingException {
     return new DensityFilteredAndroidData(
         resourceFilter.filter(resourceDir), assetDir, manifestProcessor.process(manifest));
   }
