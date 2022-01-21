@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,10 +31,6 @@ import net.starlark.java.syntax.TokenKind;
 
 /** An struct-like Info (provider instance) for providers defined in Starlark. */
 public final class StarlarkInfo extends StructImpl implements HasBinary {
-
-  // TODO(adonovan): move to sole use in js_common.provider(transpilation_mapping=...).
-  public static final Depset.ElementType TYPE = Depset.ElementType.of(StarlarkInfo.class);
-
   private final Provider provider;
 
   // For a n-element info, the table contains n key strings, sorted,
