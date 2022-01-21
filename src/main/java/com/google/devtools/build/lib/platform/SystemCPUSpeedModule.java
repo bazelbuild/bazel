@@ -68,6 +68,6 @@ public final class SystemCPUSpeedModule extends BlazeModule {
     if (reporter != null) {
       reporter.post(event);
     }
-    logger.atInfo().log(event.logString());
+    logger.atInfo().log("%s", event.logString());
   }
 }
