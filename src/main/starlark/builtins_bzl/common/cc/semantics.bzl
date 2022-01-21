@@ -47,9 +47,9 @@ def _get_loose_mode_in_hdrs_check_allowed_attr():
 
 def _get_def_parser():
     return attr.label(
-            default = "@bazel_tools//tools/def_parser:def_parser",
-            allow_single_file = True,
-            cfg = "exec",
+        default = "@bazel_tools//tools/def_parser:def_parser",
+        allow_single_file = True,
+        cfg = "exec",
     )
 
 semantics = struct(
