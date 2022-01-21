@@ -218,7 +218,7 @@ java_library(
         ":workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
-        "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure_handler",
+        "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure_event",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",

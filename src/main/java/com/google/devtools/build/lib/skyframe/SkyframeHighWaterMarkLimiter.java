@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.runtime.MemoryPressureHandler;
+import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
 
 /**
  * Drops unnecessary temporary Skyframe state in response to memory pressure.
@@ -35,24 +36,20 @@ import com.google.devtools.build.lib.runtime.MemoryPressureHandler;
  * using SkyKeyComputeState but then GC thrashing and suffering when Blaze is memory constrained.
  * Instead, we get the best of both worlds.
  */
-public class SkyframeHighWaterMarkLimiter implements MemoryPressureHandler {
+public class SkyframeHighWaterMarkLimiter {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private volatile SkyframeExecutor skyframeExecutor;
-  private volatile int threshold = 100;
+  private final SkyframeExecutor skyframeExecutor;
+  private final int threshold;
 
-  public void setSkyframeExecutor(SkyframeExecutor skyframeExecutor) {
+  public SkyframeHighWaterMarkLimiter(SkyframeExecutor skyframeExecutor, int threshold) {
     this.skyframeExecutor = skyframeExecutor;
-  }
-
-  public void setThreshold(int threshold) {
     this.threshold = threshold;
   }
 
-  @Override
-  public void handle(Event event) {
+  @Subscribe
+  void handle(MemoryPressureEvent event) {
     int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
-    int threshold = this.threshold;
     if (actual >= threshold) {
       logger.atInfo().atMostEvery(10, SECONDS).log(
           "Dropping unnecessary temporary Skyframe state in response to memory pressure. actual=%s"

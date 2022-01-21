@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * collection; if it's still more than {@link #occupiedHeapPercentageThreshold}% full, exit with an
  * {@link OutOfMemoryError}.
  */
-final class RetainedHeapLimiter implements MemoryPressureHandler {
+final class RetainedHeapLimiter {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final long MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS = 60000;
@@ -84,8 +84,7 @@ final class RetainedHeapLimiter implements MemoryPressureHandler {
 
   // Can be called concurrently, handles concurrent calls with #setThreshold gracefully.
   @ThreadSafety.ThreadSafe
-  @Override
-  public void handle(Event event) {
+  public void handle(MemoryPressureEvent event) {
     if (event.wasManualGc() && !heapLimiterTriggeredGc.getAndSet(false)) {
       // This was a manually triggered GC, but not from us earlier: short-circuit.
       return;

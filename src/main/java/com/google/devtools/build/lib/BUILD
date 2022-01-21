@@ -206,12 +206,11 @@ java_library(
 )
 
 java_library(
-    name = "runtime/memory_pressure_handler",
+    name = "runtime/memory_pressure_event",
     srcs = [
-        "runtime/MemoryPressureHandler.java",
+        "runtime/MemoryPressureEvent.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party:auto_value",
     ],
 )
