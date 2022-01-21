@@ -1,7 +1,6 @@
 licenses(["notice"])
 
 exports_files([
-    "3.11.3.patch",
     "3.19.2.patch",
     "3.19.2.bzlmod.patch",
 ])
