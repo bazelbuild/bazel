@@ -297,8 +297,12 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   }
 
   private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
-    Preconditions.checkState(evaluating.getAndSet(newValue) != newValue,
-        "Re-entrant evaluation for request: %s", requestInfo);
+    Preconditions.checkState(
+        evaluating.getAndSet(newValue) != newValue,
+        "Re-entrant evaluation for request: %s (version=%s, current thread=%s)",
+        requestInfo,
+        lastGraphVersion,
+        Thread.currentThread());
   }
 
   @Override

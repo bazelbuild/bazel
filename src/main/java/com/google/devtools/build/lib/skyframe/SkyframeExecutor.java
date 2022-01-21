@@ -2566,40 +2566,38 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
      */
     Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
         throws InterruptedException, NoSuchPackageException {
+      SkyKey key = PackageValue.key(pkgName);
+      ImmutableList<SkyKey> keys = ImmutableList.of(key);
+      EvaluationResult<PackageValue> result;
       synchronized (valueLookupLock) {
-        SkyKey key = PackageValue.key(pkgName);
-        // Any call to this method post-loading phase should either be error-free or be in a
-        // keep_going build, since otherwise the build would have failed during loading. Thus
-        // we set keepGoing=true unconditionally.
-        EvaluationResult<PackageValue> result =
-            evaluate(
-                ImmutableList.of(key),
-                /*keepGoing=*/ true,
-                /*numThreads=*/ DEFAULT_THREAD_COUNT,
-                eventHandler);
-        ErrorInfo error = result.getError(key);
-        if (error != null) {
-          if (!error.getCycleInfo().isEmpty()) {
-            reportCycles(eventHandler, result.getError().getCycleInfo(), key);
-            // This can only happen if a package is freshly loaded outside of the target parsing
-            // or loading phase
-            throw new BuildFileContainsErrorsException(
-                pkgName, "Cycle encountered while loading package " + pkgName);
-          }
-          Throwable e = Preconditions.checkNotNull(error.getException(), "%s %s", pkgName, error);
-          // PackageFunction should be catching, swallowing, and rethrowing all transitive
-          // errors as NoSuchPackageExceptions or constructing packages with errors, since we're in
-          // keep_going mode.
-          Throwables.throwIfInstanceOf(e, NoSuchPackageException.class);
-          throw new IllegalStateException(
-              "Unexpected Exception type from PackageValue for '"
-                  + pkgName
-                  + "'' with error: "
-                  + error,
-              e);
-        }
-        return result.get(key).getPackage();
+        // Loading a single package shouldn't be too bad to do in keep_going mode even if the build
+        // overall is in nokeep_going mode: the worst that happens is we parse some unnecessary
+        // .bzl files.
+        result =
+            evaluate(keys, /*keepGoing=*/ true, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
       }
+      ErrorInfo error = result.getError(key);
+      if (error != null) {
+        if (!error.getCycleInfo().isEmpty()) {
+          reportCycles(eventHandler, result.getError().getCycleInfo(), key);
+          // This can only happen if a package is freshly loaded outside of the target parsing or
+          // loading phase
+          throw new BuildFileContainsErrorsException(
+              pkgName, "Cycle encountered while loading package " + pkgName);
+        }
+        Throwable e = Preconditions.checkNotNull(error.getException(), "%s %s", pkgName, error);
+        // PackageFunction should be catching, swallowing, and rethrowing all transitive errors as
+        // NoSuchPackageExceptions or constructing packages with errors, since we're in keep_going
+        // mode.
+        Throwables.throwIfInstanceOf(e, NoSuchPackageException.class);
+        throw new IllegalStateException(
+            "Unexpected Exception type from PackageValue for '"
+                + pkgName
+                + "'' with error: "
+                + error,
+            e);
+      }
+      return result.get(key).getPackage();
     }
 
     /** Returns whether the given package should be consider deleted and thus should be ignored. */

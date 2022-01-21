@@ -84,6 +84,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
+  private final String queryIdForDebugging;
   private final ErrorPrintingTargetEdgeErrorObserver errorObserver;
   private final LabelVisitor labelVisitor;
   protected final int loadingPhaseThreads;
@@ -116,16 +117,18 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      String queryIdForDebugging) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
+    this.queryIdForDebugging = queryIdForDebugging;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter, queryIdForDebugging);
   }
 
   @Override
@@ -236,7 +239,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     }
     Set<Target> result = Sets.newConcurrentHashSet();
     try (SilentCloseable closeable = Profiler.instance().profile("syncUncached")) {
-      new LabelVisitor(targetProvider, dependencyFilter)
+      new LabelVisitor(targetProvider, dependencyFilter, queryIdForDebugging)
           .syncUncached(
               eventHandler,
               from,

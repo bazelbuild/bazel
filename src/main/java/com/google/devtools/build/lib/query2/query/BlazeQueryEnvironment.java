@@ -113,7 +113,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      String queryIdForDebugging) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
@@ -122,7 +123,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.cachingPackageLocator = cachingPackageLocator;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter, queryIdForDebugging);
   }
 
   @Override
