@@ -355,7 +355,6 @@ DIST_DEPS = {
         "sha256": "77a126669b26b3a89e0117b0f28cddfcd24fcd7699b2c1d35f921487148b9a9f",
         "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-linux_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-linux_x64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
@@ -368,7 +367,6 @@ DIST_DEPS = {
         "sha256": "6be187379c26506a4b804b4f734c17e554aebe4204bde58a10b429054cc9cf9f",
         "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-linux_aarch64",
         "urls": [
-            "https://mirror.bazel.build/zulu-embedded/bin/zulu11.52.13-ca-jdk11.0.13-linux_aarch64.tar.gz",
             "https://cdn.azul.com/zulu-embedded/bin/zulu11.52.13-ca-jdk11.0.13-linux_aarch64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
@@ -380,7 +378,6 @@ DIST_DEPS = {
         "sha256": "82f14cda71cff99c878bf8400598a87235adb6c81b0337f7077c27e5cac1190c",
         "strip_prefix": "jdk-11.0.13+8",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
             "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
         ],
         "used_in": [],
@@ -392,7 +389,6 @@ DIST_DEPS = {
         "sha256": "9d280d86fdf6a7d9e5cbf54dc37f1d6d09dfe676ff5c684802fdfa3932eee63e",
         "strip_prefix": "jdk-11.0.13+8",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
             "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
         ],
         "used_in": [],
@@ -406,7 +402,6 @@ DIST_DEPS = {
         "sha256": "e27a11a6e970ba6f597ecc957c0cdb502ff8990c243a6abd9df1e3413a0a3e44",
         "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_x64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
@@ -420,7 +415,6 @@ DIST_DEPS = {
         "sha256": "eb8d593a61a9461a554e7bb1d67bca0f94242273f1d01a13f58c20c269b35fe5",
         "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_aarch64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-macosx_aarch64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
@@ -434,7 +428,6 @@ DIST_DEPS = {
         "sha256": "49289cc181504a01c946d5a66a5c904f8e6d912a2226dd82db62eb37e6c0a9d9",
         "strip_prefix": "zulu11.52.13-ca-jdk11.0.13-win_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu11.52.13-ca-jdk11.0.13-win_x64.zip",
             "https://cdn.azul.com/zulu/bin/zulu11.52.13-ca-jdk11.0.13-win_x64.zip",
         ],
         "used_in": ["test_WORKSPACE_files"],
@@ -447,7 +440,6 @@ DIST_DEPS = {
         "sha256": "9b8e4d1e47b02b9c2392462ee82988c189357471de3224c37173fa58e2b25112",
         "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu17.30.15-ca-jdk17.0.1-linux_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-linux_x64.tar.gz",
         ],
         "used_in": [],
@@ -460,7 +452,6 @@ DIST_DEPS = {
         "sha256": "09d64fe576373b4314422811bc8402fbb7700176822b0e1e2bf2ff8a6cad10eb",
         "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu17.30.15-ca-jdk17.0.1-macosx_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-macosx_x64.tar.gz",
         ],
         "used_in": [],
@@ -473,7 +464,6 @@ DIST_DEPS = {
         "sha256": "ce10425ce9cefdfb23ebeabebc0944cfb41531114a2d5bd89e3c19cc5cfa9913",
         "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu17.30.15-ca-jdk17.0.1-macosx_aarch64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-macosx_aarch64.tar.gz",
         ],
         "used_in": [],
@@ -486,7 +476,6 @@ DIST_DEPS = {
         "sha256": "ab7c10f1cb76d10b801a4a130fee874e8e30e597fecb0afa9e76800e7d34aee7",
         "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-win_x64",
         "urls": [
-            "https://mirror.bazel.build/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_x64.zip",
             "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_x64.zip",
         ],
         "used_in": [],
