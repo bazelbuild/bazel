@@ -1370,7 +1370,7 @@ public class Package {
       return null;
     }
 
-    Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
+    public Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
       this.starlarkFileDependencies = starlarkFileDependencies;
       return this;
     }
