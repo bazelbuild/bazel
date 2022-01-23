@@ -197,7 +197,7 @@ function write_xml_output_file {
       error_msg="<error message=\"exited with error code $exitCode\"></error>"
     fi
     test_name="${TEST_BINARY#./}"
-    test_name="${TEST_BINARY#../}"
+    test_name="${test_name#../}"
     # Ensure that test shards have unique names in the xml output.
     if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
       ((shard_num=TEST_SHARD_INDEX+1))
