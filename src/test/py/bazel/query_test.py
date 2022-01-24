@@ -84,6 +84,37 @@ class QueryTest(test_base.TestBase):
     self._AssertQueryOutputContains('buildfiles(//external:io_bazel_rules_python)',
                             '//external:WORKSPACE', '//:deps.bzl', '//:private_deps.bzl', '//:BUILD.bazel')
 
+  def testBuildFilesForExternalRepos_NoDuplicates(self):
+    self.ScratchFile('WORKSPACE', [
+      'load("//:deps.bzl", "repos")',
+      'repos()',
+    ])
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('deps.bzl', [
+      'def repos():',
+      '    native.new_local_repository(',
+      '        name = "io_bazel_rules_go",',
+      '        path = ".",',
+      """        build_file_content = "exports_files(glob(['*.go']))",""",
+      '    )',
+      '    other_repos()',
+      '',
+      'def other_repos():',
+      '    native.new_local_repository(',
+      '        name = "io_bazel_rules_python",',
+      '        path = ".",',
+      """        build_file_content = "exports_files(glob(['*.py']))",""",
+      '    )',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(['query', 'buildfiles(//external:io_bazel_rules_python)'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    result = set()
+    for item in stdout:
+      if not item:
+        continue
+      self.assertNotIn(item, result)
+      result.add(item)
 
   def _AssertQueryOutput(self, query_expr, *expected_results):
     exit_code, stdout, stderr = self.RunBazel(['query', query_expr])

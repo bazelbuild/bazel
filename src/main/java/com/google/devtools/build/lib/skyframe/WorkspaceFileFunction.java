@@ -327,7 +327,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               directories.getWorkspace(),
               directories.getLocalJavabase(),
               starlarkSemantics);
-      Set<Label> starlarkFileDependencies = Sets.newLinkedHashSet();
+      Set<Label> starlarkFileDependencies;
       if (prevValue != null) {
         starlarkFileDependencies = Sets.newLinkedHashSet(prevValue.getPackage()
             .getStarlarkFileDependencies());
@@ -337,6 +337,8 @@ public class WorkspaceFileFunction implements SkyFunction {
         } catch (NameConflictException e) {
           throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
         }
+      } else {
+        starlarkFileDependencies = Sets.newLinkedHashSet();
       }
       PackageFactory.transitiveClosureOfLabelsRec(starlarkFileDependencies, loadedModules);
       builder.setStarlarkFileDependencies(ImmutableList.copyOf(starlarkFileDependencies));
