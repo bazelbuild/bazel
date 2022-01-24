@@ -922,7 +922,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         skyKey);
     Preconditions.checkNotNull(version, skyKey);
     Preconditions.checkState(
-        version.atMost(evaluatorContext.getGraphVersion()),
+        !evaluatorContext.getGraphVersion().lowerThan(version),
         "Invalid injected version (%s > %s) for %s",
         version,
         evaluatorContext.getGraphVersion(),

@@ -243,12 +243,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
       new MemoizingEvaluator.EmittedEventState();
-  private final PackageFactory pkgFactory;
+  protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final FileSystem fileSystem;
   protected final BlazeDirectories directories;
   protected final ExternalFilesHelper externalFilesHelper;
-  private final BugReporter bugReporter;
+  protected final BugReporter bugReporter;
 
   /**
    * Measures source artifacts read this build. Does not include cached artifacts, so is less useful
