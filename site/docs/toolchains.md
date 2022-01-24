@@ -210,6 +210,11 @@ To define some toolchains for a given toolchain type, you need three things:
 1.  A language-specific rule representing the kind of tool or tool suite. By
     convention this rule's name is suffixed with "\_toolchain".
 
+    1.  **Note:** The `\_toolchain` rule cannot create any build actions.
+        Rather, it collects artifacts from other rules and forwards them to the
+        rule that uses the toolchain. That rule is responsible for creating all
+        build actions.
+
 2.  Several targets of this rule type, representing versions of the tool or tool
     suite for different platforms.
 
@@ -319,6 +324,57 @@ toolchain targets, and `toolchain` definition targets can't all be in separate
 packages.
 
 See the [`go_toolchain`][Go toolchain] for a real-world example.
+
+### Toolchains and configurations
+
+An important question for rule authors is, when a `bar_toolchain` target is
+analyzed, what [configuration][Configuration] does it see, and what transitions
+should be used for dependencies? The example above uses string attributes, but
+what would happen for a more complicated toolchain that depends on other targets
+in the Bazel repository?
+
+Let's see a more complex version of `bar_toolchain`:
+
+```python
+def _bar_toolchain_impl(ctx):
+    # The implementation is mostly the same as above, so skipping.
+    pass
+
+bar_toolchain = rule(
+    implementation = _bar_toolchain_impl,
+    attrs = {
+        "compiler": attr.label(
+            executable = True,
+            mandatory = True,
+            cfg = "exec",
+        ),
+        "system_lib": attr.label(
+            mandatory = True,
+            cfg = "target",
+        ),
+        "arch_flags": attr.string_list(),
+    },
+)
+```
+
+The use of [`attr.label`][Label attributes] is the same as for a standard rule,
+but the meaning of the `cfg` parameter is slightly different.
+
+The dependency from a target (called the "parent") to a toolchain via toolchain
+resolution uses a special configuration transition called the "toolchain
+transition". The toolchain transition keeps the configuration the same, except
+that it forces the execution platform to be the same for the toolchain as for
+the parent (otherwise, toolchain resolution for the toolchain could pick any
+execution platform, and wouldn't necessarily be the same as for parent). This
+allows any `exec` dependencies of the toolchain to also be executable for the
+parent's build actions. Any of the toolchain's dependencies which use `cfg =
+"target"` (or which don't specify `cfg`, since "target" is the default) are
+built for the same target platform as the parent. This allows toolchain rules to
+contribute both libraries (the `system_lib` attribute above) and tools (the
+`compiler` attribute) to the build rules which need them. The system libraries
+are linked into the final artifact, and so need to be built for the same
+platform, whereas the compiler is a tool invoked during the build, and needs to
+be able to run on the execution platform.
 
 ## Registering and building with toolchains
 
@@ -454,11 +510,13 @@ $ bazel cquery 'deps(//cc:my_cc_lib, 1)' --transitions=lite | grep "toolchain de
 
 [Common exec_compatible_with attribute]: be/common-definitions.html#common.exec_compatible_with
 [Configurable attributes]: configurable-attributes.html
+[Configuration]: glossary.html#configuration
 [cquery]: cquery.html
 [cquery-transitions]: cquery.html#transitions
 [Flag extra_execution_platforms]: command-line-reference.html#flag--extra_execution_platforms
 [Flag extra_toolchains]: command-line-reference.html#flag--extra_toolchains
 [Go toolchain]: https://github.com/bazelbuild/rules_go/blob/master/go/private/go_toolchain.bzl
+[Label attributes]: skylark/lib/attr.html#label
 [Platforms]: platforms.html
 [Rule exec_compatible_with argument]: skylark/lib/globals.html#rule.exec_compatible_with
 [Rules]: skylark/rules.html
