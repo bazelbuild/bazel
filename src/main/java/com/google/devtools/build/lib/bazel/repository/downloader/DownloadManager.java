@@ -218,7 +218,7 @@ public class DownloadManager {
                       Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
                 }
               }
-              FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
+              destination.getParentDirectory().createDirectoryAndParents();
               FileSystemUtils.copyFile(candidate, destination);
               return destination;
             }
