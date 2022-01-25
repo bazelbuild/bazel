@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -58,6 +59,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -325,14 +327,21 @@ public class WorkspaceFileFunction implements SkyFunction {
               directories.getWorkspace(),
               directories.getLocalJavabase(),
               starlarkSemantics);
+      Set<Label> starlarkFileDependencies;
       if (prevValue != null) {
+        starlarkFileDependencies =
+            Sets.newLinkedHashSet(prevValue.getPackage().getStarlarkFileDependencies());
         try {
           parser.setParent(
               prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
         } catch (NameConflictException e) {
           throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
         }
+      } else {
+        starlarkFileDependencies = Sets.newLinkedHashSet();
       }
+      PackageFactory.transitiveClosureOfLabelsRec(starlarkFileDependencies, loadedModules);
+      builder.setStarlarkFileDependencies(ImmutableList.copyOf(starlarkFileDependencies));
       // Execute the partial files that comprise this chunk.
       for (StarlarkFile partialFile : chunk) {
         parser.execute(partialFile, loadedModules, key);
