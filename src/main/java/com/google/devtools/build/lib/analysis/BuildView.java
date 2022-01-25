@@ -401,6 +401,8 @@ public class BuildView {
                 topLevelOptions,
                 eventBus,
                 keepGoing,
+                viewOptions.strictConflictChecks,
+                checkForActionConflicts,
                 loadingPhaseThreads,
                 viewOptions.cpuHeavySkyKeysThreadPoolSize,
                 mergedPhasesExecutionJobsCount);

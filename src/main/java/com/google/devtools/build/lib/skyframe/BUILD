@@ -148,6 +148,7 @@ java_library(
         ":glob_value",
         ":ignored_package_prefixes_function",
         ":ignored_package_prefixes_value",
+        ":incremental_artifact_conflict_finder",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
         ":managed_directories_knowledge",
@@ -706,6 +707,19 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "incremental_artifact_conflict_finder",
+    srcs = ["IncrementalArtifactConflictFinder.java"],
+    deps = [
+        ":artifact_conflict_finder",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
     ],
 )
 

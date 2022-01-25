@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -368,6 +369,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Map<String, String> lastRemoteDefaultExecProperties;
   private RemoteOutputsMode lastRemoteOutputsMode;
   private Boolean lastRemoteCacheEnabled;
+  private IncrementalArtifactConflictFinder incrementalArtifactConflictFinder;
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -630,7 +632,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.ARTIFACT_NESTED_SET,
         ArtifactNestedSetFunction.createInstance(valueBasedChangePruningEnabled()));
-    map.put(SkyFunctions.BUILD_DRIVER, new BuildDriverFunction());
+    this.incrementalArtifactConflictFinder =
+        IncrementalArtifactConflictFinder.createWithActionGraph(
+            new MapBasedActionGraph(actionKeyContext));
+    map.put(
+        SkyFunctions.BUILD_DRIVER,
+        new BuildDriverFunction(this, this::getIncrementalArtifactConflictFinder));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -2349,7 +2356,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   static final class TopLevelActionConflictReport {
 
-    private final EvaluationResult<ActionLookupConflictFindingValue> result;
+    public final EvaluationResult<ActionLookupConflictFindingValue> result;
     private final TopLevelArtifactContext topLevelArtifactContext;
 
     TopLevelActionConflictReport(
@@ -2390,6 +2397,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   void resetActionConflictsStoredInSkyframe() {
     memoizingEvaluator.delete(
         SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
+  }
+
+  /** Resets the incremental artifact conflict finder to ensure incremental correctness. */
+  public void resetIncrementalArtifactConflictFinder() throws InterruptedException {
+    incrementalArtifactConflictFinder.shutdown();
+    incrementalArtifactConflictFinder =
+        IncrementalArtifactConflictFinder.createWithActionGraph(
+            new MapBasedActionGraph(actionKeyContext));
+  }
+
+  public IncrementalArtifactConflictFinder getIncrementalArtifactConflictFinder() {
+    return incrementalArtifactConflictFinder;
   }
 
   /**
@@ -3094,6 +3113,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               Iterables.concat(topLevelCtKeys, aspectKeys),
               SkyframeExecutorWrappingWalkableGraph.of(this));
       foundActions.forEach(result::accumulate);
+      return result;
+    }
+  }
+
+  final AnalysisTraversalResult collectTransitiveActionLookupKeys(ActionLookupKey key)
+      throws InterruptedException {
+    try (SilentCloseable c =
+        Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupKeys")) {
+      AnalysisTraversalResult result = new AnalysisTraversalResult();
+      Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
+          FindActionsRecursively.run(
+              ImmutableList.of(key), SkyframeExecutorWrappingWalkableGraph.of(this));
+      foundTransitiveActionLookupEntities.forEach(result::accumulate);
       return result;
     }
   }

@@ -58,6 +58,7 @@ public final class MapBasedActionGraph implements MutableActionGraph {
     }
   }
 
+  @Override
   public int getSize() {
     return generatingActionMap.size();
   }

@@ -186,9 +186,8 @@ class ArtifactConflictFinder {
 
     abstract int getOutputArtifactCount();
 
-    private static ActionConflictsAndStats create(
-        ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts,
-        int artifactCount) {
+    static ActionConflictsAndStats create(
+        ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts, int artifactCount) {
       return new AutoValue_ArtifactConflictFinder_ActionConflictsAndStats(conflicts, artifactCount);
     }
   }
