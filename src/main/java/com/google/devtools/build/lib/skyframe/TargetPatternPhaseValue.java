@@ -66,6 +66,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     this.notSymlinkedInExecrootDirectories = notSymlinkedInExecrootDirectories;
   }
 
+  /** Expensive. Results in a Skyframe evaluation. */
   private static ImmutableSet<Target> getTargetsFromLabels(
       Collection<Label> labels, ExtendedEventHandler eventHandler, PackageManager packageManager)
       throws InterruptedException {
