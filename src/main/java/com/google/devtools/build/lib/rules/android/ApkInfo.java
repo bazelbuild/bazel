@@ -43,6 +43,7 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   private final Artifact mergedManifest;
   private final ImmutableList<Artifact> signingKeys;
   @Nullable private final Artifact signingLineage;
+  @Nullable private final String signingMinV3RotationApiVersion;
 
   ApkInfo(
       Artifact apk,
@@ -51,7 +52,8 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
       @Nullable Artifact coverageMetadata,
       Artifact mergedManifest,
       List<Artifact> signingKeys,
-      @Nullable Artifact signingLineage) {
+      @Nullable Artifact signingLineage,
+      @Nullable String signingMinV3RotationApiVersion) {
     this.apk = apk;
     this.unsignedApk = unsignedApk;
     this.deployJar = deployJar;
@@ -59,6 +61,7 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
     this.mergedManifest = mergedManifest;
     this.signingKeys = ImmutableList.copyOf(signingKeys);
     this.signingLineage = signingLineage;
+    this.signingMinV3RotationApiVersion = signingMinV3RotationApiVersion;
   }
 
   @Override
@@ -110,6 +113,12 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   @Override
   public Artifact getSigningLineage() {
     return signingLineage;
+  }
+
+  @Nullable
+  @Override
+  public String getSigningMinV3RotationApiVersion() {
+    return signingMinV3RotationApiVersion;
   }
 
   /** Provider for {@link ApkInfo}. */

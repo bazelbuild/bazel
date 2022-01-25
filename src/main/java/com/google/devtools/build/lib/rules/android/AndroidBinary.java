@@ -817,7 +817,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 getCoverageInstrumentationJarForApk(ruleContext),
                 resourceApk.getManifest(),
                 signingKeys,
-                signingLineage))
+                signingLineage,
+                keyRotationMinSdk))
         .addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex))
         .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
