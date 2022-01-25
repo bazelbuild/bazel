@@ -380,8 +380,8 @@ DIST_DEPS = {
         "sha256": "82f14cda71cff99c878bf8400598a87235adb6c81b0337f7077c27e5cac1190c",
         "strip_prefix": "jdk-11.0.13+8",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
-            "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
+            "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.13_8.tar.gz",
         ],
         "used_in": [],
     },
@@ -392,8 +392,8 @@ DIST_DEPS = {
         "sha256": "9d280d86fdf6a7d9e5cbf54dc37f1d6d09dfe676ff5c684802fdfa3932eee63e",
         "strip_prefix": "jdk-11.0.13+8",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
-            "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13%2B8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
+            "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.13+8/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.13_8.tar.gz",
         ],
         "used_in": [],
     },
