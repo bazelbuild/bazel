@@ -27,6 +27,7 @@ import java.util.Properties;
 import java.util.Optional;
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.text.DecimalFormatSymbols;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,14 +42,10 @@ public class BuildSummaryStatsModuleTest {
   private Reporter reporterMock;
   private ActionKeyContext actionKeyContextMock;
   private Class tBSSM;
-  private boolean MacOS = false;
+  private boolean Comma = false;
 
   @Before
   public void setUp() throws Exception {
-    Properties props = System.getProperties();
-    String OSName = props.getProperty("os.name");
-    MacOS = OSName.contains("Mac");
-    System.out.println("\n" + "OSName:" + OSName);
     CommandEnvironment env = mock(CommandEnvironment.class);
     actionKeyContextMock = mock(ActionKeyContext.class);
     reporterMock = mock(Reporter.class);
@@ -65,6 +62,13 @@ public class BuildSummaryStatsModuleTest {
     Field field0 = tBSSM.getDeclaredField("statsSummary");
     field0.setAccessible(true);
     field0.setBoolean(buildSummaryStatsModule, true);
+    DecimalFormatSymbols dfs = new DecimalFormatSymbols();
+    if(dfs.getDecimalSeparator() == ','){
+      Comma = true;
+    }
+    else{
+      Comma = false;
+    }
   }
 
   private ActionResultReceivedEvent createActionEvent(Duration userTime, Duration systemTime) {
@@ -104,7 +108,7 @@ public class BuildSummaryStatsModuleTest {
     field1.setAccessible(true);
     field1.setLong(buildSummaryStatsModule, 11000);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(MacOS) {
+    if(Comma) {
       verify(reporterMock).handle(Event.info("CPU time 88,00s (user 55,00s, system 22,00s, bazel 11,00s)"));
     }
     else{
@@ -129,7 +133,7 @@ public class BuildSummaryStatsModuleTest {
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50), null);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(MacOS) {
+    if(Comma) {
       verify(reporterMock).handle(Event.info("CPU time ???s (user 50,00s, system ???s, bazel ???s)"));
     }
     else{
@@ -146,7 +150,7 @@ public class BuildSummaryStatsModuleTest {
     field1.setAccessible(true);
     field1.setLong(buildSummaryStatsModule, 10000);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(MacOS) {
+    if(Comma) {
       verify(reporterMock).handle(Event.info("CPU time 80,00s (user 50,00s, system 20,00s, bazel 10,00s)"));
     }
     else{
@@ -154,7 +158,7 @@ public class BuildSummaryStatsModuleTest {
     }
     // One more build, and verify that previous values are not preserved.
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    if(MacOS) {
+    if(Comma) {
       verify(reporterMock).handle(Event.info("CPU time ???s (user 0,00s, system 0,00s, bazel ???s)"));
     }
     else{
