@@ -281,6 +281,17 @@ def Deduplicate(items):
           seen.add(it)
           yield it
 
+def target_to_filepath(build_target, module_space):
+  # TODO (tlater): Find a way to properly resolve this at execution
+  # time, rather than relying on label syntax matching up to a
+  # specific location in runfiles.
+  build_target = build_target.replace("@", "/")
+  build_target = build_target.replace("//", "/")
+  build_target = build_target.replace(":", "/")
+
+  coverage_entry_point = os.path.join(module_space, build_target.lstrip("/") + ".py")
+  return coverage_entry_point
+
 def ExecuteFile(python_program, main_filename, args, env, module_space,
                 coverage_tool=None, workspace=None):
   """Executes the given python file using the various environment settings.
@@ -400,12 +411,14 @@ def Main():
   # COVERAGE_DIR is set iff the instrumentation is configured for the
   # file and coverage is enabled.
   if os.environ.get('COVERAGE_DIR'):
-    if 'PYTHON_COVERAGE' in os.environ:
+    if 'PYTHON_COVERAGE_TARGET' in os.environ:
+      cov_tool = target_to_filepath(os.environ.get('PYTHON_COVERAGE_TARGET'), module_space)
+    elif 'PYTHON_COVERAGE' in os.environ:
       cov_tool = os.environ.get('PYTHON_COVERAGE')
     else:
       raise EnvironmentError(
         'No python coverage tool set, '
-        'set PYTHON_COVERAGE '
+        'set PYTHON_COVERAGE or PYTHON_COVERAGE_TARGET '
         'to configure the coverage tool'
       )
 
