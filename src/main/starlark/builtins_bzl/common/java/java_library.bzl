@@ -16,7 +16,7 @@
 Definition of java_library rule.
 """
 
-load(":common/java/java_common.bzl", "JAVA_COMMON_DEP")
+load(":common/java/java_common.bzl", "JAVA_COMMON_DEP", "collect_resources", "construct_defaultinfo")
 load(":common/rule_util.bzl", "create_rule")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
@@ -34,7 +34,18 @@ def _java_library_rule_impl(ctx):
 
     extra_resources = semantics.preprocess(ctx)
 
-    base_info = JAVA_COMMON_DEP.call(ctx, extra_resources = extra_resources)
+    base_info = JAVA_COMMON_DEP.call(
+        ctx,
+        srcs = ctx.files.srcs,
+        deps = ctx.attr.deps,
+        runtime_deps = ctx.attr.runtime_deps,
+        exports = ctx.attr.exports,
+        exported_plugins = ctx.attr.exported_plugins,
+        resources = collect_resources(ctx, extra_resources),
+        plugins = ctx.attr.plugins,
+        javacopts = ctx.attr.javacopts,
+        neverlink = ctx.attr.neverlink,
+    )
 
     proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx)
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
@@ -42,8 +53,17 @@ def _java_library_rule_impl(ctx):
 
     java_info = semantics.postprocess(ctx, base_info)
 
+    default_info = construct_defaultinfo(
+        ctx,
+        base_info.files_to_build,
+        ctx.attr.neverlink,
+        base_info.has_sources_or_resources,
+        ctx.attr.exports,
+        ctx.attr.runtime_deps,
+    )
+
     return [
-        base_info.default_info,
+        default_info,
         java_info,
         base_info.instrumented_files_info,
         OutputGroupInfo(**base_info.output_groups),

@@ -36,7 +36,7 @@ def _postprocess(ctx, base_info):
     return base_info.java_info
 
 def _postprocess_plugin(ctx, base_info):
-    return base_info.java_info, base_info.default_info
+    return base_info.java_info, []
 
 def _check_proto_registry_collision(ctx):
     pass

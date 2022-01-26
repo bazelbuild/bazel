@@ -58,46 +58,61 @@ def _filter_javainfo_and_legacy_jars(attr):
             dep_list.append(dep[JavaInfo])
     return dep_list
 
-def _base_common_impl(
+def basic_java_library(
         ctx,
-        extra_resources,
-        enable_compile_jar_action = True,
-        extra_runtime_jars = [],
+        srcs,
+        deps = [],
+        runtime_deps = [],
+        plugins = [],
+        exports = [],
+        exported_plugins = [],
+        resources = [],
         classpath_resources = [],
-        extra_runtime_deps = [],
+        javacopts = [],
+        neverlink = False,
+        enable_compile_jar_action = True,
         coverage_config = None):
-    srcs = ctx.files.srcs
+    """
+    Creates actions that compile and lint Java sources, sets up coverage and returns JavaInfo, InstrumentedFilesInfo and output groups.
+
+    The call creates actions and providers needed and shared by `java_library`,
+    `java_plugin`,`java_binary`, and `java_test` rules and it is primarily
+    intended to be used in those rules.
+
+    To prepare arguments for this call from rule's attributes use the provided
+    helpers: `collect_deps`, `collect_plugins`, and `collect_resources`.
+
+    Before compilation coverage.runner is added to the dependencies and if
+    present plugins are extended with the value of `--plugin` flag.
+
+    Args:
+      ctx: (RuleContext) Used to register the actions.
+      srcs: (list[File]) The list of source files that are processed to create the target.
+      deps: (list[Target]) The list of other libraries to be linked in to the target.
+      runtime_deps: (list[Target]) Libraries to make available to the final binary or test at runtime only.
+      plugins: (list[Target]) Java compiler plugins to run at compile-time.
+      exports: (list[Target]) Exported libraries.
+      exported_plugins: (list[Target]) The list of `java_plugin`s (e.g. annotation
+        processors) to export to libraries that directly depend on this library.
+      resources: (list[File]) A list of data files to include in a Java jar.
+      classpath_resources: (list[File])
+      javacopts: (list[str])
+      neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
+      enable_compile_jar_action: (bool) Enables header compilation or ijar creation.
+      coverage_config: (struct{runner:Target, support_files:list[File]|depset[File], env:dict[str,str]})
+        Coverage configuration. `runner` is added to dependencies during
+        compilation, `support_files` and `env` is returned in InstrumentedFilesInfo.
+
+    Returns:
+      ({java_info: JavaInfo,
+        files_to_build: list[File],
+        has_sources_or_resources: bool,
+        instrumented_files_info: InstrumentedFilesInfo,
+        output_groups: dict[str,list[File]],
+        extra_providers: list[Provider]})
+    """
     source_files = _filter_srcs(srcs, "java")
     source_jars = _filter_srcs(srcs, "srcjar")
-
-    resources = []
-    if semantics.COLLECT_SRCS_FROM_PROTO_LIBRARY:
-        for resource in ctx.attr.resources:
-            if ProtoInfo in resource:
-                resources.extend(resource[ProtoInfo].transitive_sources.to_list())
-            else:
-                resources.extend(resource[DefaultInfo].files.to_list())
-    else:
-        resources.extend(ctx.files.resources)
-    resources.extend(_filter_srcs(ctx.files.srcs, "properties"))
-    resources.extend(extra_resources)
-
-    plugins = _filter_provider(JavaPluginInfo, ctx.attr.plugins)
-    plugins.append(ctx.attr._java_plugins[JavaPluginInfo])
-
-    deps = []
-    deps.extend(ctx.attr.deps)
-    if coverage_config:
-        deps.append(coverage_config.runner)
-
-    runtime_deps = _get_attr_safe(ctx, "runtime_deps", []) + extra_runtime_deps
-    exports = _get_attr_safe(ctx, "exports", [])
-    exported_plugins = _get_attr_safe(ctx, "exported_plugins", [])
-
-    deps_javainfo = _filter_javainfo_and_legacy_jars(deps)
-    runtime_deps_javainfo = _filter_javainfo_and_legacy_jars(runtime_deps)
-    runtime_deps_javainfo.extend([JavaInfo(jar, None) for jar in extra_runtime_jars])
-    exports_javainfo = _filter_javainfo_and_legacy_jars(exports)
 
     java_info, compilation_info = COMPILE_ACTION.call(
         ctx,
@@ -105,31 +120,18 @@ def _base_common_impl(
         output_source_jar = ctx.outputs.sourcejar,
         source_files = source_files,
         source_jars = source_jars,
-        deps = deps_javainfo,
-        runtime_deps = runtime_deps_javainfo,
-        plugins = plugins,
-        exports = exports_javainfo,
-        exported_plugins = _filter_provider(JavaPluginInfo, exported_plugins),
-        resources = resources,
+        deps = _collect_deps(deps + ([coverage_config.runner] if coverage_config else [])),
+        runtime_deps = _collect_deps(runtime_deps),
+        plugins = _collect_plugins(plugins + [ctx.attr._java_plugins]),
+        exports = _collect_deps(exports),
+        exported_plugins = _collect_plugins(exported_plugins),
+        resources = resources + _filter_srcs(srcs, "properties"),
         classpath_resources = classpath_resources,
-        native_libraries = _filter_provider(CcInfo, deps, runtime_deps, exports),
-        javacopts = ctx.attr.javacopts,
-        neverlink = ctx.attr.neverlink,
+        native_libraries = _collect_native_libraries(deps, runtime_deps, exports),
+        javacopts = javacopts,
+        neverlink = neverlink,
         strict_deps = ctx.fragments.java.strict_java_deps,
         enable_compile_jar_action = enable_compile_jar_action,
-    )
-
-    files = depset(compilation_info.output_class_jars)
-    if ctx.attr.neverlink:
-        runfiles = None
-    else:
-        has_sources = source_files or source_jars
-        run_files = files if has_sources or resources else None
-        runfiles = ctx.runfiles(transitive_files = run_files, collect_default = True)
-        runfiles = runfiles.merge_all([dep[DefaultInfo].default_runfiles for attr in [runtime_deps, exports] for dep in attr])
-    default_info = DefaultInfo(
-        files = files,
-        runfiles = runfiles,
     )
 
     output_groups = dict(
@@ -141,7 +143,7 @@ def _base_common_impl(
     # TODO(b/131760365): This is a hack, since the Starlark APIs don't have
     # an explicit test for "host" or "tool" configuration.
     if not (ctx.configuration == ctx.host_configuration or
-            ctx.bin_dir.path.find("-exec-") >= 0) and not ctx.attr.neverlink:
+            ctx.bin_dir.path.find("-exec-") >= 0) and not neverlink:
         lint_output = android_lint_action(
             ctx,
             source_files,
@@ -161,13 +163,110 @@ def _base_common_impl(
 
     return struct(
         java_info = java_info,
-        default_info = default_info,
+        files_to_build = compilation_info.output_class_jars,
+        has_sources_or_resources = source_files or source_jars or resources,
         instrumented_files_info = instrumented_files_info,
         output_groups = output_groups,
         extra_providers = [],
     )
 
+def collect_resources(ctx, extra_resources = []):
+    """Collects resources files from different attributes defined by Java rules.
+
+    The default location to specify resources is resources attribute.
+
+    .properties files may be also specified in srcs attribute.
+
+    Depending on semantics proto_library targets in resources attribute may be
+    expanded to .proto files or to a descriptor set.
+
+    Args:
+      ctx: (RuleContext) Uses ctx.attr.resources, ctx.files.resources, ctx.files.srcs.
+      extra_resources: (list[File]) Additional resource files.
+    Returns:
+      (list[File]) List of resource files.
+    """
+    resources = []
+    if semantics.COLLECT_SRCS_FROM_PROTO_LIBRARY:
+        for resource in ctx.attr.resources:
+            if ProtoInfo in resource:
+                resources.extend(resource[ProtoInfo].transitive_sources.to_list())
+            else:
+                resources.extend(resource[DefaultInfo].files.to_list())
+    else:
+        resources.extend(ctx.files.resources)
+    resources.extend(extra_resources)
+    return resources
+
+def _collect_plugins(plugins):
+    """Collects plugins from an attribute.
+
+    Use this call to collect plugins from `plugins` or `exported_plugins` attribute.
+
+    The call simply extracts JavaPluginInfo provider.
+
+    Args:
+      plugins: (list[Target]) Attribute to collect plugins from.
+    Returns:
+      (list[JavaPluginInfo]) The plugins.
+    """
+    return _filter_provider(JavaPluginInfo, plugins)
+
+def _collect_deps(deps):
+    """Collects dependencies from an attribute.
+
+    Use this call to collect plugins from `deps`, `runtime_deps`, or `exports` attribute.
+
+    The call extracts JavaInfo and additionaly also "legacy jars". "legacy jars"
+    are wrapped into a JavaInfo.
+
+    Args:
+      deps: (list[Target]) Attribute to collect dependencies from.
+    Returns:
+      (list[JavaInfo]) The dependencies.
+    """
+    return _filter_javainfo_and_legacy_jars(deps)
+
+def _collect_native_libraries(*attrs):
+    """Collects native libraries from a list of attributes.
+
+    Use this call to collect native libraries from `deps`, `runtime_deps`, or `exports` attributes.
+
+    The call simply extracts CcInfo provider.
+    Args:
+      *attrs: (*list[Target]) Attribute to collect native libraries from.
+    Returns:
+      (list[CcInfo]) The native library dependencies.
+    """
+    return _filter_provider(CcInfo, *attrs)
+
+def construct_defaultinfo(ctx, files, neverlink, has_sources_or_resources, *extra_attrs):
+    """Constructs DefaultInfo for Java library like rule.
+
+    Args:
+      ctx: (RuleContext) Used to construct the runfiles.
+      files: (list[File]) List of the files built by the rule.
+      neverlink: (bool) When true empty runfiles are constructed.
+      has_sources_or_resources: (bool) TODO(b/213551463): Check if this can be removed.
+      *extra_attrs: (list[Target]) Extra attributes to merge runfiles from.
+
+    Returns:
+      (DefaultInfo) DefaultInfo provider.
+    """
+    files_depset = depset(files)
+    if neverlink:
+        runfiles = None
+    else:
+        run_files = files_depset if has_sources_or_resources else None
+        runfiles = ctx.runfiles(transitive_files = run_files, collect_default = True)
+        runfiles = runfiles.merge_all([dep[DefaultInfo].default_runfiles for attr in extra_attrs for dep in attr])
+    default_info = DefaultInfo(
+        files = files_depset,
+        runfiles = runfiles,
+    )
+    return default_info
+
 JAVA_COMMON_DEP = create_composite_dep(
-    _base_common_impl,
+    basic_java_library,
     COMPILE_ACTION,
 )

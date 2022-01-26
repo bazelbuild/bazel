@@ -16,7 +16,7 @@
 Definition of java_plugin rule.
 """
 
-load(":common/java/java_common.bzl", "JAVA_COMMON_DEP")
+load(":common/java/java_common.bzl", "JAVA_COMMON_DEP", "collect_resources", "construct_defaultinfo")
 load(":common/rule_util.bzl", "create_rule")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
@@ -29,19 +29,34 @@ def _java_plugin_rule_impl(ctx):
 
     extra_resources = semantics.preprocess(ctx)
 
-    base_info = JAVA_COMMON_DEP.call(ctx, extra_resources = extra_resources)
+    base_info = JAVA_COMMON_DEP.call(
+        ctx,
+        srcs = ctx.files.srcs,
+        deps = ctx.attr.deps,
+        resources = collect_resources(ctx, extra_resources),
+        plugins = ctx.attr.plugins,
+        javacopts = ctx.attr.javacopts,
+        neverlink = ctx.attr.neverlink,
+    )
 
     proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx)
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers.append(proguard_specs_provider)
 
-    java_info, default_info = semantics.postprocess_plugin(ctx, base_info)
+    java_info, extra_files = semantics.postprocess_plugin(ctx, base_info)
 
     java_plugin_info = JavaPluginInfo(
         runtime_deps = [java_info],
         processor_class = ctx.attr.processor_class if ctx.attr.processor_class else None,  # ignore empty string (default)
         data = ctx.files.data,
         generates_api = ctx.attr.generates_api,
+    )
+
+    default_info = construct_defaultinfo(
+        ctx,
+        base_info.files_to_build + extra_files,
+        ctx.attr.neverlink,
+        base_info.has_sources_or_resources,
     )
 
     return [
