@@ -74,7 +74,7 @@ def java_plugin_rule(
 
     proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx, proguard_specs = proguard_specs, transitive_attrs = [deps, plugins])
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
-    base_info.extra_providers.append(proguard_specs_provider)
+    base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
 
     java_info, extra_files = semantics.postprocess_plugin(ctx, base_info)
 
@@ -92,12 +92,12 @@ def java_plugin_rule(
         base_info.has_sources_or_resources,
     )
 
-    return [
-        default_info,
-        java_plugin_info,
-        base_info.instrumented_files_info,
-        OutputGroupInfo(**base_info.output_groups),
-    ] + base_info.extra_providers
+    return dict({
+        "DefaultInfo": default_info,
+        "JavaPluginInfo": java_plugin_info,
+        "InstrumentedFilesInfo": base_info.instrumented_files_info,
+        "OutputGroupInfo": OutputGroupInfo(**base_info.output_groups),
+    }, **base_info.extra_providers)
 
 def _proxy(ctx):
     return java_plugin_rule(
@@ -112,7 +112,7 @@ def _proxy(ctx):
         javacopts = ctx.attr.javacopts,
         neverlink = ctx.attr.neverlink,
         proguard_specs = ctx.files.proguard_specs,
-    )
+    ).values()
 
 java_plugin = create_rule(
     _proxy,

@@ -167,7 +167,7 @@ def basic_java_library(
         has_sources_or_resources = source_files or source_jars or resources,
         instrumented_files_info = instrumented_files_info,
         output_groups = output_groups,
-        extra_providers = [],
+        extra_providers = {},
     )
 
 def collect_resources(ctx, extra_resources = []):

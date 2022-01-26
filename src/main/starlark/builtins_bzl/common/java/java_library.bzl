@@ -86,7 +86,7 @@ def java_library_rule(
         transitive_attrs = [deps, runtime_deps, exports, plugins, exported_plugins],
     )
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
-    base_info.extra_providers.append(proguard_specs_provider)
+    base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
 
     java_info = semantics.postprocess(ctx, base_info)
 
@@ -99,12 +99,12 @@ def java_library_rule(
         runtime_deps,
     )
 
-    return [
-        default_info,
-        java_info,
-        base_info.instrumented_files_info,
-        OutputGroupInfo(**base_info.output_groups),
-    ] + base_info.extra_providers
+    return dict({
+        "DefaultInfo": default_info,
+        "JavaInfo": java_info,
+        "InstrumentedFilesInfo": base_info.instrumented_files_info,
+        "OutputGroupInfo": OutputGroupInfo(**base_info.output_groups),
+    }, **base_info.extra_providers)
 
 def _proxy(ctx):
     return java_library_rule(
@@ -119,7 +119,7 @@ def _proxy(ctx):
         javacopts = ctx.attr.javacopts,
         neverlink = ctx.attr.neverlink,
         proguard_specs = ctx.files.proguard_specs,
-    )
+    ).values()
 
 java_library = create_rule(
     _proxy,
