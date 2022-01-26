@@ -37,7 +37,11 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -157,117 +161,65 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  public void maybeRegister(RuleContext ruleContext) {
+  public void maybeRegister(RuleContext ruleContext)
+      throws RuleErrorException, InterruptedException {
     if (isEmpty(outputs)) {
       return;
     }
 
-    try {
-      SpawnAction action = createAction(ruleContext).build(ruleContext);
-      if (action != null) {
-        ruleContext.registerAction(action);
-      }
-    } catch (MissingPrerequisiteException e) {
-      // Ignore missing proto compiler.
-    }
-  }
-
-  private SpawnAction.Builder createAction(RuleContext ruleContext)
-      throws MissingPrerequisiteException {
-    SpawnAction.Builder result =
-        new SpawnAction.Builder().addTransitiveInputs(protoInfo.getTransitiveProtoSources());
-
-    if (langPlugin != null) {
-      result.addTool(langPlugin);
-    }
-
-    if (inputs != null) {
-      result.addInputs(inputs);
-    }
-
-    if (this.additionalTools != null) {
-      for (FilesToRunProvider tool : additionalTools) {
-        result.addTool(tool);
-      }
-    }
-
-    if (protoCompiler == null) {
-      throw new MissingPrerequisiteException();
-    }
-
-    result
-        .addOutputs(outputs)
-        .setResources(new ProtoCompileResourceSetBuilder())
-        .useDefaultShellEnvironment()
-        .setExecutable(protoCompiler)
-        .addCommandLine(
-            createProtoCompilerCommandLine(ruleContext).build(),
-            ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-        .setProgressMessage("Generating %s proto_library %s", language, ruleContext.getLabel())
-        .setMnemonic(mnemonic);
-
-    return result;
-  }
-
-  /** Commandline generator for protoc invocations. */
-  private CustomCommandLine.Builder createProtoCompilerCommandLine(RuleContext ruleContext) {
-    CustomCommandLine.Builder result = CustomCommandLine.builder();
+    ImmutableList.Builder<Object> additionalArgs = ImmutableList.builder();
 
     if (langPlugin != null && langPlugin.getExecutable() != null) {
       // We pass a separate langPlugin as there are plugins that cannot be overridden
       // and thus we have to deal with "$xx_plugin" and "xx_plugin".
-      result.addFormatted(
-          "--plugin=protoc-gen-%s=%s", langPrefix, langPlugin.getExecutable().getExecPath());
+      additionalArgs.add(
+          Tuple.of(
+              langPlugin.getExecutable(), String.format("--plugin=protoc-gen-%s=%%s", langPrefix)));
     }
 
     if (langPluginParameter != null) {
-      result.addLazyString(new OnDemandLangPluginFlag(langPrefix, langPluginParameter));
-    }
-
-    result.addAll(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
-
-    boolean areDepsStrict = areDepsStrict(ruleContext);
-
-    // Add include maps
-    addIncludeMapArguments(
-        result,
-        areDepsStrict ? protoInfo.getStrictImportableSources() : null,
-        protoInfo.getTransitiveSources());
-
-    if (areDepsStrict) {
-      // Note: the %s in the line below is used by proto-compiler. That is, the string we create
-      // here should have a literal %s in it.
-      result.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleContext.getLabel());
-    }
-
-    for (Artifact src : protoInfo.getDirectProtoSources()) {
-      result.addPath(src.getExecPath());
+      additionalArgs.add(
+          Tuple.of(langPluginParameter.get(), String.format("--%s_out=%%s", langPrefix)));
     }
 
     if (!hasServices) {
-      result.add("--disallow_services");
-    }
-    if (checkStrictImportPublic) {
-      NestedSet<ProtoSource> publicImportSources = protoInfo.getPublicImportSources();
-      if (publicImportSources.isEmpty()) {
-        // This line is necessary to trigger the check.
-        result.add("--allowed_public_imports=");
-      } else {
-        result.addAll(
-            "--allowed_public_imports",
-            VectorArg.join(":").each(publicImportSources).mapped(EXPAND_TO_IMPORT_PATHS));
-      }
+      additionalArgs.add("--disallow_services");
     }
 
     if (additionalCommandLineArguments != null) {
-      result.addAll(ImmutableList.copyOf(additionalCommandLineArguments));
+      additionalArgs.addAll(additionalCommandLineArguments);
     }
 
-    return result;
-  }
+    ImmutableList.Builder<FilesToRunProvider> plugins = new ImmutableList.Builder<>();
+    if (additionalTools != null) {
+      plugins.addAll(additionalTools);
+    }
+    if (langPlugin != null) {
+      plugins.add(langPlugin);
+    }
 
-  /** Signifies that a prerequisite could not be satisfied. */
-  private static class MissingPrerequisiteException extends Exception {}
+    StarlarkFunction createProtoCompileAction =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("create_proto_compile_action");
+    ruleContext.initStarlarkRuleContext();
+    ruleContext.callStarlarkOrThrowRuleError(
+        createProtoCompileAction,
+        ImmutableList.of(
+            /* ctx */ ruleContext.getStarlarkRuleContext(),
+            /* proto_info */ protoInfo,
+            /* proto_compiler */ protoCompiler,
+            /* progress_message */ String.format("Generating %s proto_library %%{label}", language),
+            /* outputs */ StarlarkList.immutableCopyOf(outputs),
+            /* additional_args */ StarlarkList.immutableCopyOf(additionalArgs.build()),
+            /* plugins */ StarlarkList.immutableCopyOf(plugins.build()),
+            /* mnemonic */ mnemonic,
+            /* strict_imports */ checkStrictImportPublic,
+            /* additional_inputs */ inputs == null
+                ? Depset.of(
+                    ElementType.EMPTY, NestedSetBuilder.<Object>emptySet(Order.STABLE_ORDER))
+                : Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs))),
+        ImmutableMap.of());
+    // TODO  ProtoCompileResourceSetBuilder
+  }
 
   public static void writeDescriptorSet(
       RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices) {
