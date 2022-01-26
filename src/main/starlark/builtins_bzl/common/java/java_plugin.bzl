@@ -23,7 +23,40 @@ load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
 
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
-def _java_plugin_rule_impl(ctx):
+def java_plugin_rule(
+        ctx,
+        srcs = [],
+        data = [],
+        generates_api = False,
+        processor_class = "",
+        deps = [],
+        plugins = [],
+        resources = [],
+        javacopts = [],
+        neverlink = False,
+        proguard_specs = []):
+    """Implements java_plugin rule.
+
+    Use this call when you need to produce a fully fledged java_plugin from
+    another rule's implementation.
+
+    Args:
+      ctx: (RuleContext) Used to register the actions.
+      srcs: (list[File]) The list of source files that are processed to create the target.
+      data: (list[File]) The list of files needed by this plugin at runtime.
+      generates_api: (bool) This attribute marks annotation processors that generate API code.
+      processor_class: (str) The processor class is the fully qualified type of
+        the class that the Java compiler should use as entry point to the annotation processor.
+      deps: (list[Target]) The list of other libraries to be linked in to the target.
+      plugins: (list[Target]) Java compiler plugins to run at compile-time.
+      resources: (list[File]) A list of data files to include in a Java jar.
+      javacopts: (list[str]) Extra compiler options for this library.
+      neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
+      proguard_specs: (list[File]) Files to be used as Proguard specification.
+    Returns:
+      (list[provider]) A list containing DefaultInfo, JavaInfo,
+        InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
+    """
     semantics.check_rule(ctx)
     semantics.check_dependency_rule_kinds(ctx, "java_plugin")
 
@@ -31,15 +64,15 @@ def _java_plugin_rule_impl(ctx):
 
     base_info = JAVA_COMMON_DEP.call(
         ctx,
-        srcs = ctx.files.srcs,
-        deps = ctx.attr.deps,
-        resources = collect_resources(ctx, extra_resources),
-        plugins = ctx.attr.plugins,
-        javacopts = ctx.attr.javacopts,
-        neverlink = ctx.attr.neverlink,
+        srcs = srcs,
+        resources = resources + extra_resources,
+        plugins = plugins,
+        deps = deps,
+        javacopts = javacopts,
+        neverlink = neverlink,
     )
 
-    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx, proguard_specs = ctx.files.proguard_specs, transitive_attrs = [ctx.attr.deps, ctx.attr.plugins])
+    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx, proguard_specs = proguard_specs, transitive_attrs = [deps, plugins])
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers.append(proguard_specs_provider)
 
@@ -47,15 +80,15 @@ def _java_plugin_rule_impl(ctx):
 
     java_plugin_info = JavaPluginInfo(
         runtime_deps = [java_info],
-        processor_class = ctx.attr.processor_class if ctx.attr.processor_class else None,  # ignore empty string (default)
-        data = ctx.files.data,
-        generates_api = ctx.attr.generates_api,
+        processor_class = processor_class if processor_class else None,  # ignore empty string (default)
+        data = data,
+        generates_api = generates_api,
     )
 
     default_info = construct_defaultinfo(
         ctx,
         base_info.files_to_build + extra_files,
-        ctx.attr.neverlink,
+        neverlink,
         base_info.has_sources_or_resources,
     )
 
@@ -66,8 +99,23 @@ def _java_plugin_rule_impl(ctx):
         OutputGroupInfo(**base_info.output_groups),
     ] + base_info.extra_providers
 
+def _proxy(ctx):
+    return java_plugin_rule(
+        ctx,
+        srcs = ctx.files.srcs,
+        data = ctx.files.data,
+        generates_api = ctx.attr.generates_api,
+        processor_class = ctx.attr.processor_class,
+        deps = ctx.attr.deps,
+        plugins = ctx.attr.plugins,
+        resources = collect_resources(ctx),
+        javacopts = ctx.attr.javacopts,
+        neverlink = ctx.attr.neverlink,
+        proguard_specs = ctx.files.proguard_specs,
+    )
+
 java_plugin = create_rule(
-    _java_plugin_rule_impl,
+    _proxy,
     attrs = dict(
         {
             "generates_api": attr.bool(),
