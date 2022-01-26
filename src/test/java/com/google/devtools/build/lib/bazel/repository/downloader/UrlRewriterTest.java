@@ -330,7 +330,7 @@ public class UrlRewriterTest {
   @Test
   public void testNetrc_netrcNotExist_shouldIgnore() throws Exception {
     String home = "/home/foo";
-    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
     Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
@@ -352,7 +352,7 @@ public class UrlRewriterTest {
   @Test
   public void testNetrc_netrcExist_cant_Parse() throws Exception {
     String home = "/home/foo";
-    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Scratch scratch = new Scratch(fileSystem);
     scratch.file(home + "/.netrc", "mach foo.example.org log foouser password foopass");
@@ -367,7 +367,7 @@ public class UrlRewriterTest {
 
   private static Credentials parseNetrc(String content) throws IOException, UrlRewriterParseException {
     String home = "/home/foo";
-    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
+    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Scratch scratch = new Scratch(fileSystem);
     scratch.file(home + "/.netrc", content);

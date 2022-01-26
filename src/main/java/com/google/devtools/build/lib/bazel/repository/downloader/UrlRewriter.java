@@ -281,7 +281,7 @@ public class UrlRewriter {
    *
    * <ol>
    *   <li>If environment variable $NETRC exists, use it as the path to the .netrc file
-   *   <li>Fallback to $HOME/.netrc
+   *   <li>Fallback to $HOME/.netrc or $USERPROFILE/.netrc
    * </ol>
    *
    * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
