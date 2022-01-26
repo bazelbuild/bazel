@@ -469,6 +469,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
                 + " via %s, %s (%s)",
             errorKey, childErrorKey, error, bubbleErrorInfo);
       }
+      if (completedRun && !env.encounteredErrorDuringBubbling()) {
+        logger.atInfo().log(
+            "Skyfunction did not encounter error: %s via %s, %s (%s)",
+            errorKey, childErrorKey, error, bubbleErrorInfo);
+      }
       // Builder didn't throw its own exception, so just propagate this one up.
       Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
           env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);

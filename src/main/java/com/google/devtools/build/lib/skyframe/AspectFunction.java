@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -471,13 +472,23 @@ final class AspectFunction implements SkyFunction {
     ConfiguredTargetValue baseConfiguredTargetValue;
     try {
       baseConfiguredTargetValue =
-          (ConfiguredTargetValue)
-              initialValues
-                  .get(baseConfiguredTargetKey)
-                  .getOrThrow(ConfiguredValueCreationException.class);
+          (ConfiguredTargetValue) initialValues.get(baseConfiguredTargetKey).get();
     } catch (ConfiguredValueCreationException e) {
       throw new AspectFunctionException(
           new AspectCreationException(e.getMessage(), e.getRootCauses(), e.getDetailedExitCode()));
+    } catch (BzlLoadFailedException e) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "BzlLoadFailedException should have been processed by ConfiguredTargetFunction for "
+                  + baseConfiguredTargetKey
+                  + " and "
+                  + key,
+              e));
+      throw new AspectFunctionException(
+          new AspectCreationException(
+              e.getMessage(),
+              NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+              e.getDetailedExitCode()));
     }
 
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
