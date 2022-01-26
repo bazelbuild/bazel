@@ -60,15 +60,19 @@ def bazel_java_plugin_rule(
     """
     base_info = basic_java_library(
         ctx,
-        srcs = srcs,
-        resources = resources,
-        plugins = plugins,
-        deps = deps,
-        javacopts = javacopts,
-        neverlink = neverlink,
+        srcs,
+        deps,
+        [],  # runtime_deps
+        plugins,
+        [],  # exports
+        [],  # exported_plugins
+        resources,
+        [],  # classpath_resources
+        javacopts,
+        neverlink,
     )
 
-    proguard_specs_provider = validate_proguard_specs(ctx, proguard_specs = proguard_specs, transitive_attrs = [deps, plugins])
+    proguard_specs_provider = validate_proguard_specs(ctx, proguard_specs, [deps, plugins])
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
 
@@ -98,16 +102,16 @@ def bazel_java_plugin_rule(
 def _proxy(ctx):
     return bazel_java_plugin_rule(
         ctx,
-        srcs = ctx.files.srcs,
-        data = ctx.files.data,
-        generates_api = ctx.attr.generates_api,
-        processor_class = ctx.attr.processor_class,
-        deps = ctx.attr.deps,
-        plugins = ctx.attr.plugins,
-        resources = ctx.files.resources,
-        javacopts = ctx.attr.javacopts,
-        neverlink = ctx.attr.neverlink,
-        proguard_specs = ctx.files.proguard_specs,
+        ctx.files.srcs,
+        ctx.files.data,
+        ctx.attr.generates_api,
+        ctx.attr.processor_class,
+        ctx.attr.deps,
+        ctx.attr.plugins,
+        ctx.files.resources,
+        ctx.attr.javacopts,
+        ctx.attr.neverlink,
+        ctx.files.proguard_specs,
     ).values()
 
 JAVA_PLUGIN_ATTRS = merge_attrs(

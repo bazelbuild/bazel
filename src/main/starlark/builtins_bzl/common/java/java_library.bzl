@@ -64,21 +64,22 @@ def bazel_java_library_rule(
 
     base_info = basic_java_library(
         ctx,
-        srcs = srcs,
-        resources = resources,
-        plugins = plugins,
-        deps = deps,
-        runtime_deps = runtime_deps,
-        exports = exports,
-        exported_plugins = exported_plugins,
-        javacopts = javacopts,
-        neverlink = neverlink,
+        srcs,
+        deps,
+        runtime_deps,
+        plugins,
+        exports,
+        exported_plugins,
+        resources,
+        [],  # class_pathresources
+        javacopts,
+        neverlink,
     )
 
     proguard_specs_provider = validate_proguard_specs(
         ctx,
-        proguard_specs = proguard_specs,
-        transitive_attrs = [deps, runtime_deps, exports, plugins, exported_plugins],
+        proguard_specs,
+        [deps, runtime_deps, exports, plugins, exported_plugins],
     )
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
@@ -102,16 +103,16 @@ def bazel_java_library_rule(
 def _proxy(ctx):
     return bazel_java_library_rule(
         ctx,
-        srcs = ctx.files.srcs,
-        deps = ctx.attr.deps,
-        runtime_deps = ctx.attr.runtime_deps,
-        plugins = ctx.attr.plugins,
-        exports = ctx.attr.exports,
-        exported_plugins = ctx.attr.exported_plugins,
-        resources = ctx.files.resources,
-        javacopts = ctx.attr.javacopts,
-        neverlink = ctx.attr.neverlink,
-        proguard_specs = ctx.files.proguard_specs,
+        ctx.files.srcs,
+        ctx.attr.deps,
+        ctx.attr.runtime_deps,
+        ctx.attr.plugins,
+        ctx.attr.exports,
+        ctx.attr.exported_plugins,
+        ctx.files.resources,
+        ctx.attr.javacopts,
+        ctx.attr.neverlink,
+        ctx.files.proguard_specs,
     ).values()
 
 JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
