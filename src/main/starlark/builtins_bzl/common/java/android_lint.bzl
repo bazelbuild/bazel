@@ -118,6 +118,7 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
         progress_message = semantics.LINT_PROGRESS_MESSAGE,
         executable = executable,
         inputs = depset(
+            # TODO(b/213551463) benchmark using a transitive depset instead
             source_files + source_jars,
             transitive = transitive_inputs,
         ),

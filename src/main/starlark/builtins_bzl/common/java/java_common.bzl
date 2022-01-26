@@ -114,18 +114,26 @@ def basic_java_library(
     source_files = _filter_srcs(srcs, "java")
     source_jars = _filter_srcs(srcs, "srcjar")
 
+    plugins_javaplugininfo = _collect_plugins(plugins)
+    plugins_javaplugininfo.append(ctx.attr._java_plugins[JavaPluginInfo])
+
+    properties = _filter_srcs(srcs, "properties")
+    if properties:
+        resources = list(resources)
+        resources.extend(properties)
+
     java_info, compilation_info = compile_action(
         ctx,
         output_class_jar = ctx.outputs.classjar,
         output_source_jar = ctx.outputs.sourcejar,
         source_files = source_files,
         source_jars = source_jars,
-        deps = _collect_deps(deps + ([coverage_config.runner] if coverage_config else [])),
+        deps = _collect_deps(deps + [coverage_config.runner]) if coverage_config else _collect_deps(deps),
         runtime_deps = _collect_deps(runtime_deps),
-        plugins = _collect_plugins(plugins + [ctx.attr._java_plugins]),
+        plugins = plugins_javaplugininfo,
         exports = _collect_deps(exports),
         exported_plugins = _collect_plugins(exported_plugins),
-        resources = resources + _filter_srcs(srcs, "properties"),
+        resources = resources,
         classpath_resources = classpath_resources,
         native_libraries = _collect_native_libraries(deps, runtime_deps, exports),
         javacopts = javacopts,
@@ -144,10 +152,15 @@ def basic_java_library(
     # an explicit test for "host" or "tool" configuration.
     if not (ctx.configuration == ctx.host_configuration or
             ctx.bin_dir.path.find("-exec-") >= 0) and not neverlink:
+        generated_source_jars = [
+            output.generated_source_jar
+            for output in java_info.java_outputs
+            if output.generated_source_jar != None
+        ]
         lint_output = android_lint_action(
             ctx,
             source_files,
-            source_jars + [output.generated_source_jar for output in java_info.java_outputs if output.generated_source_jar != None],
+            source_jars + generated_source_jars,
             compilation_info,
         )
         if lint_output:
