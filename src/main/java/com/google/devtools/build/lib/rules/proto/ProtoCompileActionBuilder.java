@@ -66,11 +66,12 @@ public class ProtoCompileActionBuilder {
   private final ProtoInfo protoInfo;
   private final FilesToRunProvider protoCompiler;
   private final String progressMessage;
-  private final String langPrefix;
   private final Iterable<Artifact> outputs;
   private Iterable<Artifact> inputs;
   private FilesToRunProvider langPlugin;
+  private String langPluginFormat;
   private Supplier<String> langPluginParameter;
+  private String langPluginParameterFormat;
   private boolean hasServices;
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
@@ -87,8 +88,10 @@ public class ProtoCompileActionBuilder {
     return this;
   }
 
-  public ProtoCompileActionBuilder setLangPlugin(FilesToRunProvider langPlugin) {
+  public ProtoCompileActionBuilder setLangPlugin(
+      FilesToRunProvider langPlugin, String langPluginFormat) {
     this.langPlugin = langPlugin;
+    this.langPluginFormat = langPluginFormat;
     return this;
   }
 
@@ -97,8 +100,10 @@ public class ProtoCompileActionBuilder {
     return this;
   }
 
-  public ProtoCompileActionBuilder setLangPluginParameter(Supplier<String> langPluginParameter) {
+  public ProtoCompileActionBuilder setLangPluginParameter(
+      Supplier<String> langPluginParameter, String langPluginParameterFormat) {
     this.langPluginParameter = langPluginParameter;
+    this.langPluginParameterFormat = langPluginParameterFormat;
     return this;
   }
 
@@ -123,12 +128,10 @@ public class ProtoCompileActionBuilder {
       ProtoInfo protoInfo,
       FilesToRunProvider protoCompiler,
       String progressMessage,
-      String langPrefix,
       Iterable<Artifact> outputs) {
     this.protoInfo = protoInfo;
     this.protoCompiler = protoCompiler;
     this.progressMessage = progressMessage;
-    this.langPrefix = langPrefix;
     this.outputs = outputs;
     this.mnemonic = DEFAULT_MNEMONIC;
   }
@@ -172,14 +175,11 @@ public class ProtoCompileActionBuilder {
     if (langPlugin != null && langPlugin.getExecutable() != null) {
       // We pass a separate langPlugin as there are plugins that cannot be overridden
       // and thus we have to deal with "$xx_plugin" and "xx_plugin".
-      additionalArgs.add(
-          Tuple.of(
-              langPlugin.getExecutable(), String.format("--plugin=protoc-gen-%s=%%s", langPrefix)));
+      additionalArgs.add(Tuple.of(langPlugin.getExecutable(), langPluginFormat));
     }
 
     if (langPluginParameter != null) {
-      additionalArgs.add(
-          Tuple.of(langPluginParameter.get(), String.format("--%s_out=%%s", langPrefix)));
+      additionalArgs.add(Tuple.of(langPluginParameter.get(), langPluginParameterFormat));
     }
 
     if (!hasServices) {
