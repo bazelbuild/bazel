@@ -16,10 +16,11 @@
 Definition of java_plugin rule.
 """
 
-load(":common/java/java_common.bzl", "JAVA_COMMON_DEP", "construct_defaultinfo")
-load(":common/rule_util.bzl", "create_rule")
+load(":common/java/java_common.bzl", "basic_java_library", "construct_defaultinfo")
+load(":common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "JAVA_LIBRARY_IMPLICIT_ATTRS")
+load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
+load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
@@ -57,7 +58,7 @@ def bazel_java_plugin_rule(
       (list[provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
     """
-    base_info = JAVA_COMMON_DEP.call(
+    base_info = basic_java_library(
         ctx,
         srcs = srcs,
         resources = resources,
@@ -67,7 +68,7 @@ def bazel_java_plugin_rule(
         neverlink = neverlink,
     )
 
-    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx, proguard_specs = proguard_specs, transitive_attrs = [deps, plugins])
+    proguard_specs_provider = validate_proguard_specs(ctx, proguard_specs = proguard_specs, transitive_attrs = [deps, plugins])
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
 
@@ -109,25 +110,28 @@ def _proxy(ctx):
         proguard_specs = ctx.files.proguard_specs,
     ).values()
 
-java_plugin = create_rule(
+JAVA_PLUGIN_ATTRS = merge_attrs(
+    JAVA_LIBRARY_ATTRS,
+    {
+        "generates_api": attr.bool(),
+        "processor_class": attr.string(),
+        "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+    },
+    remove_attrs = ["runtime_deps", "exports", "exported_plugins"],
+)
+
+JAVA_PLUGIN_IMPLICIT_ATTRS = JAVA_LIBRARY_IMPLICIT_ATTRS
+
+java_plugin = rule(
     _proxy,
-    attrs = dict(
-        {
-            "generates_api": attr.bool(),
-            "processor_class": attr.string(),
-            "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-            "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        },
-        **semantics.EXTRA_PLUGIN_ATTRIBUTES
+    attrs = merge_attrs(
+        JAVA_PLUGIN_ATTRS,
+        JAVA_PLUGIN_IMPLICIT_ATTRS,
     ),
-    deps = [
-        JAVA_COMMON_DEP,
-        VALIDATE_PROGUARD_SPECS,
-    ],
     provides = [JavaPluginInfo],
     outputs = {
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },
-    remove_attrs = ["runtime_deps", "exports", "exported_plugins"],
+    fragments = ["java", "cpp"],
 )

@@ -16,10 +16,10 @@
 Definition of java_library rule.
 """
 
-load(":common/java/java_common.bzl", "JAVA_COMMON_DEP", "construct_defaultinfo")
-load(":common/rule_util.bzl", "create_rule")
+load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
+load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
+load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
 
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
@@ -62,7 +62,7 @@ def bazel_java_library_rule(
     if not srcs and deps:
         fail("deps not allowed without srcs; move to runtime_deps?")
 
-    base_info = JAVA_COMMON_DEP.call(
+    base_info = basic_java_library(
         ctx,
         srcs = srcs,
         resources = resources,
@@ -75,7 +75,7 @@ def bazel_java_library_rule(
         neverlink = neverlink,
     )
 
-    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(
+    proguard_specs_provider = validate_proguard_specs(
         ctx,
         proguard_specs = proguard_specs,
         transitive_attrs = [deps, runtime_deps, exports, plugins, exported_plugins],
@@ -114,19 +114,70 @@ def _proxy(ctx):
         proguard_specs = ctx.files.proguard_specs,
     ).values()
 
-java_library = create_rule(
+JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
+    BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
+    VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS,
+)
+
+JAVA_LIBRARY_ATTRS = merge_attrs(
+    JAVA_LIBRARY_IMPLICIT_ATTRS,
+    {
+        "srcs": attr.label_list(
+            allow_files = [".java", ".srcjar", ".properties"] + semantics.EXTRA_SRCS_TYPES,
+            flags = ["DIRECT_COMPILE_TIME_INPUT", "ORDER_INDEPENDENT"],
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
+        ),
+        "resources": attr.label_list(
+            allow_files = True,
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE", "ORDER_INDEPENDENT"],
+        ),
+        "plugins": attr.label_list(
+            providers = [JavaPluginInfo],
+            allow_files = True,
+            cfg = "exec",
+        ),
+        "deps": attr.label_list(
+            allow_files = [".jar"],
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_IN_DEPS_WITH_WARNING,
+            providers = [
+                [CcInfo],
+                [JavaInfo],
+            ],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+        ),
+        "runtime_deps": attr.label_list(
+            allow_files = [".jar"],
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+            providers = [[CcInfo], [JavaInfo]],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+        ),
+        "exports": attr.label_list(
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+            providers = [[JavaInfo], [CcInfo]],
+        ),
+        "exported_plugins": attr.label_list(
+            providers = [JavaPluginInfo],
+            cfg = "exec",
+        ),
+        "javacopts": attr.string_list(),
+        "neverlink": attr.bool(),
+        "resource_strip_prefix": attr.string(),
+        "proguard_specs": attr.label_list(allow_files = True),
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+    },
+)
+
+java_library = rule(
     _proxy,
-    attrs = dict(
-        {
-            "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        },
-        **semantics.EXTRA_ATTRIBUTES
-    ),
-    deps = [JAVA_COMMON_DEP, VALIDATE_PROGUARD_SPECS],
+    attrs = JAVA_LIBRARY_ATTRS,
     provides = [JavaInfo],
     outputs = {
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },
+    fragments = ["java", "cpp"],
     compile_one_filetype = [".java"],
 )

@@ -43,12 +43,6 @@ semantics = struct(
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
     PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
     EXTRA_SRCS_TYPES = [],
-    EXTRA_ATTRIBUTES = {
-        "resource_strip_prefix": attr.string(),
-    },
-    EXTRA_PLUGIN_ATTRIBUTES = {
-        "resource_strip_prefix": attr.string(),
-    },
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1
         "cc_library",
