@@ -17,7 +17,7 @@ Common code for reuse across java_* rules
 """
 
 load(":common/rule_util.bzl", "create_composite_dep")
-load(":common/java/android_lint.bzl", "ANDROID_LINT_ACTION")
+load(":common/java/android_lint.bzl", "android_lint_action")
 load(":common/java/compile_action.bzl", "COMPILE_ACTION")
 load(":common/java/java_semantics.bzl", "semantics")
 
@@ -138,9 +138,18 @@ def _base_common_impl(
         _direct_source_jars = java_info.source_jars,
     )
 
-    lint_output = ANDROID_LINT_ACTION.call(ctx, java_info, source_files, source_jars, compilation_info)
-    if lint_output:
-        output_groups["_validation"] = [lint_output]
+    # TODO(b/131760365): This is a hack, since the Starlark APIs don't have
+    # an explicit test for "host" or "tool" configuration.
+    if not (ctx.configuration == ctx.host_configuration or
+            ctx.bin_dir.path.find("-exec-") >= 0) and not ctx.attr.neverlink:
+        lint_output = android_lint_action(
+            ctx,
+            source_files,
+            source_jars + [output.generated_source_jar for output in java_info.java_outputs if output.generated_source_jar != None],
+            compilation_info,
+        )
+        if lint_output:
+            output_groups["_validation"] = [lint_output]
 
     instrumented_files_info = coverage_common.instrumented_files_info(
         ctx,
@@ -161,5 +170,4 @@ def _base_common_impl(
 JAVA_COMMON_DEP = create_composite_dep(
     _base_common_impl,
     COMPILE_ACTION,
-    ANDROID_LINT_ACTION,
 )

@@ -14,21 +14,41 @@
 
 """Creates the android lint action for java rules"""
 
-load(":common/rule_util.bzl", "create_dep")
 load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 
-def _impl(ctx, java_info, source_files, source_jars, compilation_info):
+def android_lint_action(ctx, source_files, source_jars, compilation_info):
+    """
+    Creates an action that runs Android lint against Java source files.
+
+    You need to add `ANDROID_LINT_IMPLICIT_ATTRS` to any rule or aspect using this call.
+
+    To lint generated source jars (java_info.java_outputs.gen_source_jar)
+    add them to the `source_jar` parameter.
+
+    `compilation_info` parameter should supply the classpath and Javac options
+    that were used during Java compilation.
+
+    The Android lint tool is obtained from Java toolchain.
+
+    Args:
+      ctx: (RuleContext) Used to register the action.
+      source_files: (list[File]) A list of .java source files
+      source_jars: (list[File])  A list of .jar or .srcjar files containing
+        source files. It should also include generated source jars.
+      compilation_info: (struct) Information about compilation.
+
+    Returns:
+      (None|File) The Android lint output file or None if no source files were
+      present.
+    """
+
     # assuming that linting is enabled for all java rules i.e.
     # --experimental_run_android_lint_on_java_rules=true and
     # --experimental_limit_android_lint_to_android_constrained_java=false
-    if (ctx.configuration == ctx.host_configuration or
-        ctx.bin_dir.path.find("-exec-") >= 0):
-        return None
 
-    srcs = ctx.files.srcs
-    if not srcs or (hasattr(ctx.attr, "neverlink") and ctx.attr.neverlink):
+    if not (source_files or source_jars):
         return None
 
     toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
@@ -55,12 +75,7 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
         tools = [java_runtime.files, linter.tool]
         args_list = [jvm_args, args]
 
-    for output in java_info.java_outputs:
-        if output.generated_source_jar != None:
-            source_jars.append(output.generated_source_jar)
-
-    # TODO(ilist): collect compile_jars from JavaInfo in deps & exports
-    classpath = java_info.compilation_info.compilation_classpath
+    classpath = compilation_info.compilation_classpath
 
     # TODO(hvd): get from toolchain if we need this - probably android only
     bootclasspath_aux = []
@@ -80,7 +95,7 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
     args.add_all("--plugins", compilation_info.plugins.processor_jars)
     args.add("--target_label", ctx.label)
 
-    javac_opts = java_info.compilation_info.javac_options
+    javac_opts = compilation_info.javac_options
     if (javac_opts):
         args.add_all("--javacopts", javac_opts)
         args.add("--")
@@ -113,6 +128,9 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
     )
     return android_lint_out
 
-ANDROID_LINT_ACTION = create_dep(
-    call = _impl,
-)
+ANDROID_LINT_IMPLICIT_ATTRS = {
+    "_java_toolchain": attr.label(
+        default = semantics.JAVA_TOOLCHAIN_LABEL,
+        providers = [java_common.JavaToolchainInfo],
+    ),
+}

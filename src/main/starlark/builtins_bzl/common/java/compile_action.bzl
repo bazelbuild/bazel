@@ -119,7 +119,10 @@ def _compile_action(
         by non-library targets such as binaries that do not have dependants.
 
     Returns:
-      ((JavaInfo, {output_class_jars: list[File], plugins: {processor_jars, processor_data: depset[File]}})
+      ((JavaInfo, {output_class_jars: list[File],
+                   compilation_classpath: list[File],
+                   plugins: {processor_jars,
+                             processor_data: depset[File]}})
       A tuple with JavaInfo provider and additional compilation info.
     """
 
@@ -149,6 +152,9 @@ def _compile_action(
 
     compilation_info = struct(
         output_class_jars = output_class_jars,
+        # TODO(ilist): collect compile_jars from JavaInfo in deps & exports
+        compilation_classpath = java_info.compilation_info.compilation_classpath,
+        javac_options = java_info.compilation_info.javac_options,
         plugins = _collect_plugins(deps, plugins),
     )
 
