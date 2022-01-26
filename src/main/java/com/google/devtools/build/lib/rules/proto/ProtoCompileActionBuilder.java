@@ -51,8 +51,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /** Constructs actions to run the protocol compiler to generate sources from .proto files. */
@@ -216,9 +221,27 @@ public class ProtoCompileActionBuilder {
             /* additional_inputs */ inputs == null
                 ? Depset.of(
                     ElementType.EMPTY, NestedSetBuilder.<Object>emptySet(Order.STABLE_ORDER))
-                : Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs))),
+                : Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs)),
+            /* resource_set */
+            new StarlarkCallable() {
+              @Override
+              public String getName() {
+                return "proto_compile_resource_set";
+              }
+
+              @Override
+              public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
+                // args are a tuple of OS and inputsSize
+                int inputsSize = ((StarlarkInt) args.get(1)).toIntUnchecked();
+                return Dict.immutableCopyOf(
+                    ImmutableMap.of(
+                        "memory",
+                        StarlarkFloat.of(25 + 0.15 * inputsSize),
+                        "cpu",
+                        StarlarkInt.of(1)));
+              }
+            }),
         ImmutableMap.of());
-    // TODO  ProtoCompileResourceSetBuilder
   }
 
   public static void writeDescriptorSet(

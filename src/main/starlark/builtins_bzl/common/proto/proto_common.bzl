@@ -28,7 +28,8 @@ def _create_proto_compile_action(
         plugins = [],
         mnemonic = "GenProto",
         strict_imports = False,
-        additional_inputs = depset()):
+        additional_inputs = depset(),
+        resource_set = None):
     """Creates proto compile action for compiling *.proto files to language specific sources.
 
     It uses proto configuration fragment to access protoc_opts and strict_proto_deps flags.
@@ -46,6 +47,8 @@ def _create_proto_compile_action(
       mnemonic: The mnemonic to set on the action.
       strict_imports: Whether to check for strict imports.
       additional_inputs: Additional inputs to add to the action.
+      resource_set: A callback function that is passed to the created action.
+        See `ctx.actions.run`, `resource_set` parameter.
     """
 
     args = ctx.actions.args()
@@ -106,6 +109,7 @@ def _create_proto_compile_action(
         outputs = outputs,
         tools = plugins,
         use_default_shell_env = True,
+        resource_set = resource_set,
     )
 
 def _proto_path_flag(path):
