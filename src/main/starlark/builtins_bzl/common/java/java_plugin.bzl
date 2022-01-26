@@ -39,7 +39,7 @@ def _java_plugin_rule_impl(ctx):
         neverlink = ctx.attr.neverlink,
     )
 
-    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx)
+    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx, proguard_specs = ctx.files.proguard_specs, transitive_attrs = [ctx.attr.deps, ctx.attr.plugins])
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers.append(proguard_specs_provider)
 

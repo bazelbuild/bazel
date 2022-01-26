@@ -21,22 +21,8 @@ load(":common/rule_util.bzl", "create_dep")
 
 ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 
-def _get_attr_safe(ctx, attr, default):
-    return getattr(ctx.attr, attr) if hasattr(ctx.attr, attr) else default
-
 def _filter_provider(provider, *attrs):
     return [dep[provider] for attr in attrs for dep in attr if provider in dep]
-
-def _collect_transitive_proguard_specs(ctx):
-    attrs = [
-        ctx.attr.deps,
-        _get_attr_safe(ctx, "runtime_deps", []),
-        _get_attr_safe(ctx, "exports", []),
-        _get_attr_safe(ctx, "plugins", []),
-        _get_attr_safe(ctx, "exported_plugins", []),
-    ]
-
-    return [proguard.specs for proguard in _filter_provider(ProguardSpecProvider, *attrs)]
 
 def _validate_spec(ctx, spec_file):
     validated_proguard_spec = ctx.actions.declare_file(
@@ -58,14 +44,28 @@ def _validate_spec(ctx, spec_file):
 
     return validated_proguard_spec
 
-def _validate_proguard_specs_impl(ctx):
-    if ctx.files.proguard_specs and not hasattr(ctx.attr, "_proguard_allowlister"):
-        fail("_proguard_allowlister is required to use proguard_specs")
+def _validate_proguard_specs_impl(ctx, proguard_specs = [], transitive_attrs = []):
+    """
+    Creates actions that validate Proguard specification and returns ProguardSpecProvider.
 
+    Use transtive_attrs parameter to collect Proguard validations from `deps`,
+    `runtime_deps`, `exports`, `plugins`, and `exported_plugins` attributes.
+
+    Args:
+      ctx: (RuleContext) Used to register the actions.
+      proguard_specs: (list[File]) List of Proguard specs files.
+      transitive_attrs: (list[list[Target]])  Attributes to collect transitive
+        proguard validations from.
+    Returns:
+      (ProguardSpecProvider) A ProguardSpecProvider.
+    """
+    if proguard_specs and not hasattr(ctx.attr, "_proguard_allowlister"):
+        fail("_proguard_allowlister is required to use proguard_specs")
+    proguard_validations = _filter_provider(ProguardSpecProvider, *transitive_attrs)
     return ProguardSpecProvider(
         depset(
-            [_validate_spec(ctx, spec_file) for spec_file in ctx.files.proguard_specs],
-            transitive = _collect_transitive_proguard_specs(ctx),
+            [_validate_spec(ctx, spec_file) for spec_file in proguard_specs],
+            transitive = [validation.specs for validation in proguard_validations],
         ),
     )
 
