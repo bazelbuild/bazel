@@ -70,7 +70,7 @@ public class ProtoCompileActionBuilder {
   private Iterable<Artifact> inputs;
   private FilesToRunProvider langPlugin;
   private String langPluginFormat;
-  private Supplier<String> langPluginParameter;
+  private Iterable<String> langPluginParameter;
   private String langPluginParameterFormat;
   private boolean hasServices;
   private Iterable<String> additionalCommandLineArguments;
@@ -101,7 +101,7 @@ public class ProtoCompileActionBuilder {
   }
 
   public ProtoCompileActionBuilder setLangPluginParameter(
-      Supplier<String> langPluginParameter, String langPluginParameterFormat) {
+      Iterable<String> langPluginParameter, String langPluginParameterFormat) {
     this.langPluginParameter = langPluginParameter;
     this.langPluginParameterFormat = langPluginParameterFormat;
     return this;
@@ -179,7 +179,7 @@ public class ProtoCompileActionBuilder {
     }
 
     if (langPluginParameter != null) {
-      additionalArgs.add(Tuple.of(langPluginParameter.get(), langPluginParameterFormat));
+      additionalArgs.add(Tuple.of(langPluginParameter, langPluginParameterFormat));
     }
 
     if (!hasServices) {
