@@ -121,7 +121,7 @@ public class UrlRewriter {
    * @param urls The input list of {@link URL}s. May be empty.
    * @return The amended lists of URLs.
    */
-  public List<RewrittenURL> amend(List<URL> urls) {
+  public ImmutableList<RewrittenURL> amend(List<URL> urls) {
     Objects.requireNonNull(urls, "URLS to check must be set but may be empty");
 
     ImmutableList<RewrittenURL> rewritten =
@@ -187,7 +187,7 @@ public class UrlRewriter {
       return ImmutableList.of(RewrittenURL.create(url, false));
     }
 
-    List<RewrittenURL> rewrittenUrls = applyRewriteRules(url);
+    ImmutableList<RewrittenURL> rewrittenUrls = applyRewriteRules(url);
 
     ImmutableList.Builder<RewrittenURL> toReturn = ImmutableList.builder();
     // Now iterate over the URLs

@@ -119,11 +119,11 @@ public class DownloadManager {
       canonicalId = originalUrls.stream().map(URL::toExternalForm).collect(Collectors.joining(" "));
     }
 
-    List<URL> rewrittenUrls = originalUrls;
+    ImmutableList<URL> rewrittenUrls = ImmutableList.copyOf(originalUrls);
     Map<URI, Map<String, String>> rewrittenAuthHeaders = authHeaders;
 
     if (rewriter != null) {
-      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = ImmutableList.copyOf(rewriter.amend(originalUrls));
+      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
       rewrittenUrls = rewrittenUrlMappings.stream().map(url -> url.url()).collect(toImmutableList());
       rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders);
     }
