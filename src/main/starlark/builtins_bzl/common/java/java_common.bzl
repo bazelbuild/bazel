@@ -16,9 +16,10 @@
 Common code for reuse across java_* rules
 """
 
-load(":common/rule_util.bzl", "create_composite_dep")
+load(":common/rule_util.bzl", "create_composite_dep", "merge_attrs")
 load(":common/java/android_lint.bzl", "android_lint_action")
-load(":common/java/compile_action.bzl", "COMPILE_ACTION")
+load(":common/java/compile_action.bzl", "COMPILE_ACTION", "COMPILE_ACTION_IMPLICIT_ATTRS", "compile_action")
+load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
@@ -113,7 +114,7 @@ def basic_java_library(
     source_files = _filter_srcs(srcs, "java")
     source_jars = _filter_srcs(srcs, "srcjar")
 
-    java_info, compilation_info = COMPILE_ACTION.call(
+    java_info, compilation_info = compile_action(
         ctx,
         output_class_jar = ctx.outputs.classjar,
         output_source_jar = ctx.outputs.sourcejar,
@@ -237,6 +238,17 @@ def construct_defaultinfo(ctx, files, neverlink, has_sources_or_resources, *extr
     )
     return default_info
 
+BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
+    COMPILE_ACTION_IMPLICIT_ATTRS,
+    {
+        "_java_plugins": attr.label(
+            default = semantics.JAVA_PLUGINS_FLAG_ALIAS_LABEL,
+            providers = [JavaPluginInfo],
+        ),
+    },
+)
+
+# TODO(b/213551463) remove once unused
 JAVA_COMMON_DEP = create_composite_dep(
     basic_java_library,
     COMPILE_ACTION,

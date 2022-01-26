@@ -44,7 +44,7 @@ def _validate_spec(ctx, spec_file):
 
     return validated_proguard_spec
 
-def _validate_proguard_specs_impl(ctx, proguard_specs = [], transitive_attrs = []):
+def validate_proguard_specs(ctx, proguard_specs = [], transitive_attrs = []):
     """
     Creates actions that validate Proguard specification and returns ProguardSpecProvider.
 
@@ -69,8 +69,18 @@ def _validate_proguard_specs_impl(ctx, proguard_specs = [], transitive_attrs = [
         ),
     )
 
+VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS = {
+    "_proguard_allowlister": attr.label(
+        allow_files = True,
+        default = semantics.PROGUARD_ALLOWLISTER_LABEL,
+        cfg = "exec",
+        executable = True,
+    ),
+}
+
+# TODO(b/213551463) remove once unused
 VALIDATE_PROGUARD_SPECS = create_dep(
-    _validate_proguard_specs_impl,
+    validate_proguard_specs,
     {
         "proguard_specs": attr.label_list(allow_files = True),
         "_proguard_allowlister": attr.label(

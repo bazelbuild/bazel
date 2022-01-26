@@ -42,7 +42,7 @@ def _collect_plugins(deps, plugins):
         processor_data = depset(transitive = transitive_processor_data),
     )
 
-def _compile_action(
+def compile_action(
         ctx,
         output_class_jar,
         output_source_jar,
@@ -160,8 +160,16 @@ def _compile_action(
 
     return java_info, compilation_info
 
+COMPILE_ACTION_IMPLICIT_ATTRS = {
+    "_java_toolchain": attr.label(
+        default = semantics.JAVA_TOOLCHAIN_LABEL,
+        providers = [java_common.JavaToolchainInfo],
+    ),
+}
+
+# TODO(b/213551463) remove once unused
 COMPILE_ACTION = create_dep(
-    _compile_action,
+    compile_action,
     attrs = {
         "srcs": attr.label_list(
             allow_files = [".java", ".srcjar", ".properties"] + semantics.EXTRA_SRCS_TYPES,
