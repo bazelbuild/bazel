@@ -463,6 +463,12 @@ public final class CcToolchainProvider extends NativeInfo
     return compilerFiles;
   }
 
+  @Override
+  public Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getCompilerFiles());
+  }
+
   /**
    * Returns the files necessary for compilation excluding headers, assuming that included files
    * will be discovered by input discovery. If the toolchain does not provide this fileset, falls
@@ -651,6 +657,14 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public PathFragment getRuntimeSysroot() {
     return runtimeSysroot;
+  }
+
+  @Override
+  @Nullable
+  public String getRuntimeSysrootForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    PathFragment runtimeSysroot = getRuntimeSysroot();
+    return runtimeSysroot != null ? runtimeSysroot.getPathString() : null;
   }
 
   /**

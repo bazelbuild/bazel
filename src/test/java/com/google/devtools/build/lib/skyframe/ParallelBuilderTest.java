@@ -681,7 +681,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
               ImmutableSet.of(out)) {
             @Override
             public ActionResult execute(ActionExecutionContext actionExecutionContext)
-                throws ActionExecutionException {
+                throws ActionExecutionException, InterruptedException {
               if (catastrophe && iCopy == 0) {
                 try {
                   Thread.sleep(300); // 300ms
@@ -726,7 +726,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   private Artifact createInputFile(String name) throws IOException {
     Artifact artifact = createSourceArtifact(name);
     Path path = artifact.getPath();
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
     return artifact;
   }

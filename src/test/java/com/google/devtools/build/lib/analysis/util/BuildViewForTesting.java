@@ -147,10 +147,7 @@ public class BuildViewForTesting {
       CoverageReportActionFactory coverageReportActionFactory) {
     this.buildView =
         new BuildView(
-            directories,
-            ruleClassProvider,
-            skyframeExecutor,
-            coverageReportActionFactory);
+            directories, ruleClassProvider, skyframeExecutor, coverageReportActionFactory);
     this.ruleClassProvider = ruleClassProvider;
     this.skyframeExecutor = Preconditions.checkNotNull(skyframeExecutor);
     this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
@@ -170,7 +167,7 @@ public class BuildViewForTesting {
 
   private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
     ImmutableMap<ActionLookupKey, Version> newMap =
-        stream(skyframeExecutor.getEvaluatorForTesting().getGraphEntries())
+        stream(skyframeExecutor.getEvaluator().getGraphEntries())
             .filter(e -> e.getKey() instanceof ActionLookupKey)
             .collect(
                 toImmutableMap(
@@ -182,9 +179,7 @@ public class BuildViewForTesting {
         difference.entriesDiffering().keySet(), difference.entriesOnlyOnLeft().keySet());
   }
 
-  /**
-   * Returns whether the given configured target has errors.
-   */
+  /** Returns whether the given configured target has errors. */
   public boolean hasErrors(ConfiguredTarget configuredTarget) {
     return configuredTarget == null;
   }
@@ -196,6 +191,7 @@ public class BuildViewForTesting {
       Set<String> multiCpu,
       ImmutableSet<String> explicitTargetPatterns,
       List<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
       boolean keepGoing,
       int loadingPhaseThreads,
@@ -210,11 +206,13 @@ public class BuildViewForTesting {
         multiCpu,
         explicitTargetPatterns,
         aspects,
+        aspectsParameters,
         viewOptions,
         keepGoing,
         /*checkForActionConflicts=*/ true,
         loadingPhaseThreads,
         topLevelOptions,
+        /*reportIncompatibleTargets=*/ true,
         eventHandler,
         eventBus,
         /*includeExecutionPhase=*/ false,
@@ -407,8 +405,7 @@ public class BuildViewForTesting {
     }
 
     class SilentDependencyResolver extends DependencyResolver {
-      private SilentDependencyResolver() {
-      }
+      private SilentDependencyResolver() {}
 
       @Override
       protected Map<Label, Target> getTargets(
@@ -438,7 +435,6 @@ public class BuildViewForTesting {
     TargetAndConfiguration ctgNode = new TargetAndConfiguration(target, configuration);
     return dependencyResolver.dependentNodeMap(
         ctgNode,
-        configurations.getHostConfiguration(),
         /*aspect=*/ null,
         getConfigurableAttributeKeysForTesting(
             eventHandler,
@@ -470,8 +466,8 @@ public class BuildViewForTesting {
         if (BuildType.Selector.isReservedLabel(label)) {
           continue;
         }
-        ConfiguredTarget ct = getConfiguredTargetForTesting(
-            eventHandler, label, ctg.getConfiguration());
+        ConfiguredTarget ct =
+            getConfiguredTargetForTesting(eventHandler, label, ctg.getConfiguration());
         ConfigMatchingProvider matchProvider = ct.getProvider(ConfigMatchingProvider.class);
         ConstraintValueInfo constraintValueInfo = ct.get(ConstraintValueInfo.PROVIDER);
         if (matchProvider != null) {

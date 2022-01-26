@@ -13,6 +13,7 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -28,6 +29,9 @@ public final class Program {
 
   private Program(
       Resolver.Function body, ImmutableList<String> loads, ImmutableList<Location> loadLocations) {
+    Preconditions.checkArgument(
+        loads.size() == loadLocations.size(), "each load must have a corresponding location");
+
     // TODO(adonovan): compile here.
     this.body = body;
     this.loads = loads;

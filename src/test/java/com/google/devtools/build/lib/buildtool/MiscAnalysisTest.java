@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.lang.ref.WeakReference;
 import org.junit.Test;
@@ -132,8 +131,6 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
   // propagate transitively".
   @Test
   public void testExperimentalDepsOkInheritedByHostConfiguration() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-
     write("x/BUILD",
           "genrule(name='x', outs=['x.out'], tools=[':y'], cmd=':')",
           "genrule(name='y', srcs=['//experimental/x'], outs=['y.out'], cmd=':')");
@@ -153,8 +150,6 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
    */
   @Test
   public void testHostDefine() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-
     write("x/BUILD",
         "vardef('CMD', 'false');",
         "genrule(name='foo', outs=['foo.out'], tools=[':bar'], cmd='touch $@ && ' + varref('CMD'))",

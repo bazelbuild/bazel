@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
@@ -109,7 +110,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       };
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
-  
+
   @Nullable private final String mnemonic;
   private final LibraryToLink outputLibrary;
   private final Artifact linkOutput;
@@ -220,7 +221,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return executionRequirements;
+    return mergeMaps(super.getExecutionInfo(), executionRequirements);
   }
 
   @Override
@@ -451,8 +452,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            CppLinkAction.this);
+        throw ActionExecutionException.fromExecException(e, CppLinkAction.this);
       }
     }
   }

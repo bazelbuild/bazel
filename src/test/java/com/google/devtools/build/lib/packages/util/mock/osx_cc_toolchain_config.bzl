@@ -6991,7 +6991,7 @@ def _impl(ctx):
                     actions = _ALL_LINK_ACTIONS,
                     flag_groups = [
                         flag_group(
-                            flags = ["-lc++", "-target", "armv7-apple-watchos"],
+                            flags = ["-lc++", "-target", "armv7k-apple-watchos"],
                         ),
                     ],
                 ),

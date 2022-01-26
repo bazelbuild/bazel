@@ -63,7 +63,7 @@ public class SystemSuspensionEvent implements ExtendedEventHandler.Postable {
     this.reason = Reason.fromInt(reason);
   }
 
-  public Reason getReason() {
+  public Reason reason() {
     return reason;
   }
 

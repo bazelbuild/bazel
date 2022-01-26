@@ -510,7 +510,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         }
         canonicalizedDict.put(label, entry.getValue());
       }
-      return canonicalizedDict.build();
+      return canonicalizedDict.buildOrThrow();
     }
 
     @Override

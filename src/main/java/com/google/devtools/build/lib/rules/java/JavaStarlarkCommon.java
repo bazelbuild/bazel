@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -85,6 +84,7 @@ public class JavaStarlarkCommon
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
+      Sequence<?> classpathResources, // <Artifact> expected
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
@@ -124,7 +124,8 @@ public class JavaStarlarkCommon
           Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins")
               .getImmutableList();
     }
-    if (!enableCompileJarAction) {
+    // checks for private API access
+    if (!enableCompileJarAction || !classpathResources.isEmpty()) {
       checkPrivateAccess(thread);
     }
     return JavaInfoBuildHelper.getInstance()
@@ -153,6 +154,7 @@ public class JavaStarlarkCommon
             javaToolchain,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
+            Sequence.cast(classpathResources, Artifact.class, "classpath_resources"),
             neverlink,
             enableAnnotationProcessing,
             enableCompileJarAction,
@@ -215,9 +217,7 @@ public class JavaStarlarkCommon
   public JavaInfo mergeJavaProviders(
       Sequence<?> providers, /* <JavaInfo> expected. */ StarlarkThread thread)
       throws EvalException {
-    return JavaInfo.merge(
-        Sequence.cast(providers, JavaInfo.class, "providers"),
-        thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER));
+    return JavaInfo.merge(Sequence.cast(providers, JavaInfo.class, "providers"));
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.
@@ -341,6 +341,13 @@ public class JavaStarlarkCommon
     JavaInfo.Builder builder = JavaInfo.Builder.create();
     if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
       builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
+    } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
+      builder.addProvider(
+          JavaCompilationInfoProvider.class,
+          new JavaCompilationInfoProvider.Builder()
+              .setRuntimeClasspath(
+                  javaInfo.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars())
+              .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
       builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());

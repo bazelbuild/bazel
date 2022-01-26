@@ -139,7 +139,6 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         + "neither a file nor directory nor symlink.");
   }
 
-  @VisibleForTesting
   @ThreadSafe
   public static Key key(RootedPath rootedPath) {
     return Key.create(rootedPath);

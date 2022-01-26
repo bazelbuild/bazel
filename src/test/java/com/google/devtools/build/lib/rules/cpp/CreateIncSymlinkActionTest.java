@@ -183,6 +183,6 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     for (int i = 0; i < artifacts.length; i += 2) {
       symlinks.put(artifacts[i], artifacts[i + 1]);
     }
-    return symlinks.build();
+    return symlinks.buildOrThrow();
   }
 }

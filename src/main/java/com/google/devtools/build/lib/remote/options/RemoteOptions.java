@@ -270,6 +270,16 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteUploadLocalResults;
 
   @Option(
+      name = "incompatible_remote_build_event_upload_respect_no_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
+              + " generating action cannot be cached remotely.")
+  public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
+
+  @Option(
       name = "incompatible_remote_results_ignore_disk",
       defaultValue = "false",
       category = "remote",
@@ -554,6 +564,14 @@ public final class RemoteOptions extends OptionsBase {
               + "These symbolic links may, for example, point to a FUSE file system "
               + "that loads objects from the CAS on demand.")
   public String remoteDownloadSymlinkTemplate;
+
+  @Option(
+      name = "bep_maximum_open_remote_upload_files",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Maximum number of open files allowed during BEP artifact upload.")
+  public int maximumOpenFiles;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

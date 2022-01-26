@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -85,7 +84,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -156,7 +154,6 @@ public final class SkyframeActionExecutor {
   private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
-  @Nullable private TopDownActionCache topDownActionCache;
   private final Profiler profiler = Profiler.instance();
 
   // We keep track of actions already executed this build in order to avoid executing a shared
@@ -259,7 +256,6 @@ public final class SkyframeActionExecutor {
       Executor executor,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
-      TopDownActionCache topDownActionCache,
       OutputService outputService,
       boolean incrementalAnalysis) {
     this.reporter = Preconditions.checkNotNull(reporter);
@@ -272,7 +268,6 @@ public final class SkyframeActionExecutor {
     this.lostDiscoveredInputsMap = Maps.newConcurrentMap();
     this.hadExecutionError = false;
     this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
-    this.topDownActionCache = topDownActionCache;
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
@@ -358,7 +353,6 @@ public final class SkyframeActionExecutor {
     this.completedAndResetActions = null;
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
-    this.topDownActionCache = null;
     this.outputDirectoryHelper = null;
   }
 
@@ -508,10 +502,6 @@ public final class SkyframeActionExecutor {
     return emitProgressEvents ? reporter : progressSuppressingEventHandler;
   }
 
-  TopDownActionCache getTopDownActionCache() {
-    return topDownActionCache;
-  }
-
   private ActionExecutionContext getContext(
       Environment env,
       Action action,
@@ -593,27 +583,31 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver pathResolver)
       throws ActionExecutionException, InterruptedException {
     Token token;
+    RemoteOptions remoteOptions;
+    SortedMap<String, String> remoteDefaultProperties;
+    EventHandler handler;
+    boolean isRemoteCacheEnabled;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
-      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
-      SortedMap<String, String> remoteDefaultProperties =
+      remoteOptions = this.options.getOptions(RemoteOptions.class);
+      remoteDefaultProperties =
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      boolean isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      handler =
+          options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
               clientEnv,
-              options.getOptions(BuildRequestOptions.class).explanationPath != null
-                  ? reporter
-                  : null,
+              handler,
               metadataHandler,
               artifactExpander,
               remoteDefaultProperties,
               isRemoteCacheEnabled);
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
     if (token == null) {
       boolean eventPosted = false;
@@ -658,7 +652,19 @@ public final class SkyframeActionExecutor {
                 return executorEngine.getContext(type);
               }
             };
-        notify.actionCacheHit(context);
+        boolean recordActionCacheHit = notify.actionCacheHit(context);
+        if (!recordActionCacheHit) {
+          token =
+              actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
+                  action,
+                  resolvedCacheArtifacts,
+                  clientEnv,
+                  handler,
+                  metadataHandler,
+                  artifactExpander,
+                  remoteDefaultProperties,
+                  isRemoteCacheEnabled);
+        }
       }
 
       // We still need to check the outputs so that output file data is available to the value.
@@ -693,7 +699,7 @@ public final class SkyframeActionExecutor {
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
     } catch (UserExecException e) {
-      throw e.toActionExecutionException(action);
+      throw ActionExecutionException.fromExecException(e, action);
     }
 
     try {
@@ -1250,10 +1256,7 @@ public final class SkyframeActionExecutor {
       return ActionExecutionValue.createFromOutputStore(
           this.metadataHandler.getOutputStore(),
           actionExecutionContext.getOutputSymlinks(),
-          (action instanceof IncludeScannable)
-              ? ((IncludeScannable) action).getDiscoveredModules()
-              : null,
-          Actions.dependsOnBuildId(action));
+          action);
     }
 
     /** A closure to continue an asynchronously running action. */

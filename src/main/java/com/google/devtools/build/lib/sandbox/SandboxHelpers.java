@@ -19,9 +19,11 @@ import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -309,6 +311,51 @@ public final class SandboxHelpers {
     knownDirectories.add(path);
   }
 
+  /**
+   * Creates all directories needed for the sandbox.
+   *
+   * <p>No input can be a child of another input, because otherwise we might try to create a symlink
+   * below another symlink we created earlier - which means we'd actually end up writing somewhere
+   * in the workspace.
+   *
+   * <p>If all inputs were regular files, this situation could naturally not happen - but
+   * unfortunately, we might get the occasional action that has directories in its inputs.
+   *
+   * <p>Creating all parent directories first ensures that we can safely create symlinks to
+   * directories, too, because we'll get an IOException with EEXIST if inputs happen to be nested
+   * once we start creating the symlinks for all inputs.
+   *
+   * @param strict If true, absolute directories or directories with multiple up-level references
+   *     are disallowed, for stricter sandboxing.
+   */
+  public static void createDirectories(
+      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict) throws IOException {
+    Set<Path> knownDirectories = new HashSet<>();
+    // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
+    // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
+    // createDirectoryAndParentsInSandboxRoot.
+    knownDirectories.add(dir);
+    knownDirectories.add(dir.getParentDirectory());
+
+    for (PathFragment path : dirsToCreate) {
+      if (strict) {
+        Preconditions.checkArgument(!path.isAbsolute(), path);
+        if (path.containsUplevelReferences() && path.isMultiSegment()) {
+          // Allow a single up-level reference to allow inputs from the siblings of the main
+          // repository in the sandbox execution root, but forbid multiple up-level references.
+          // PathFragment is normalized, so up-level references are guaranteed to be at the
+          // beginning.
+          Preconditions.checkArgument(
+              !PathFragment.containsUplevelReferences(path.getSegment(1)),
+              "%s escapes the sandbox exec root.",
+              path);
+        }
+      }
+
+      createDirectoryAndParentsInSandboxRoot(dir.getRelative(path), knownDirectories, dir);
+    }
+  }
+
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
 
@@ -395,6 +442,17 @@ public final class SandboxHelpers {
       for (VirtualActionInput input : virtualInputs) {
         materializeVirtualInput(input, sandboxExecRoot, /*isExecRootSandboxed=*/ false);
       }
+    }
+
+    /**
+     * Returns a new SandboxInputs instance with only the inputs/symlinks listed in {@code allowed}
+     * included.
+     */
+    public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
+      return new SandboxInputs(
+          Maps.filterKeys(files, allowed::contains),
+          ImmutableSet.of(),
+          Maps.filterKeys(symlinks, allowed::contains));
     }
 
     @Override

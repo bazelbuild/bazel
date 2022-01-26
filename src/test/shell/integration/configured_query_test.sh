@@ -70,10 +70,10 @@ sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')
 EOF
 
- bazel cquery "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
+  bazel cquery "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
 
- assert_contains "//$pkg:maple" output
- assert_contains "//$pkg:japanese" output
+  assert_contains "//$pkg:maple" output
+  assert_contains "//$pkg:japanese" output
 }
 
 function test_basic_query_output_textproto() {
@@ -84,10 +84,10 @@ sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')
 EOF
 
- bazel cquery --output=textproto "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
+  bazel cquery --output=textproto "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
 
- assert_contains "name: \"//$pkg:maple\"" output
- assert_contains "name: \"//$pkg:japanese\"" output
+  assert_contains "name: \"//$pkg:maple\"" output
+  assert_contains "name: \"//$pkg:japanese\"" output
 }
 
 function test_basic_query_output_labelkind() {
@@ -98,12 +98,11 @@ sh_library(name='maple', data=[':japanese'])
 cc_binary(name='japanese', srcs = ['japanese.cc'])
 EOF
 
- bazel cquery --output=label_kind "deps(//$pkg:maple)" > output 2>"$TEST_log" ||
- --noimplicit_deps --nohost_deps fail "Expected success"
+  bazel cquery --output=label_kind "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
 
- assert_contains "sh_library rule //$pkg:maple" output
- assert_contains "cc_binary rule //$pkg:japanese" output
- assert_contains "source file //$pkg:japanese.cc" output
+  assert_contains "sh_library rule //$pkg:maple" output
+  assert_contains "cc_binary rule //$pkg:japanese" output
+  assert_contains "source file //$pkg:japanese.cc" output
 }
 
 function test_config_checksum_determinism() {
@@ -359,6 +358,37 @@ EOF
 
   assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
   assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+}
+
+function test_direct_alias_requirements() {
+  # Aliases delegate many read calls to their actual targets. This test
+  # ensures we don't skip requirements that the alias has but its actual
+  # target doesn't.
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+cc_library(
+    name = "ccrule",
+    srcs = ["ccrule.cc"],
+)
+config_setting(
+    name = "cfg",
+    define_values = {"abc": "1"},
+)
+alias(
+    name = "al",
+    actual = select({
+        ":cfg": ":ccrule",
+    }),
+)
+EOF
+
+  bazel cquery "//$pkg:al" --show_config_fragments=direct --define=abc=1 \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:al .*--define:abc" output
+  # CppConfiguration is a transitive, not direct, requirement.
+  assert_not_contains "//$pkg:al .*CppConfiguration" output
 }
 
 function test_show_transitive_config_fragments_host_deps() {
@@ -1303,6 +1333,97 @@ EOF
   output_after="$(bazel cquery "//$pkg:test")"
 
   assert_not_equals "${output_before}" "${output_after}"
+}
+
+function set_up_config_test() {
+  mkdir -p $pkg
+
+  # Use a rule that has a configuration transition.
+  cat > $pkg/rule.bzl <<EOF
+def _impl(ctx):
+    pass
+
+demo_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "binary": attr.label(cfg = "exec"),
+    },
+)
+EOF
+
+  cat > $pkg/tool.sh <<EOF
+echo "Hello"
+exit 0
+EOF
+  chmod +x $pkg/tool.sh
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rule.bzl", "demo_rule")
+
+sh_binary(name = "tool", srcs = ["tool.sh"])
+
+demo_rule(
+    name = 'demo',
+    binary = ":tool",
+)
+EOF
+
+  # Find out what the specific configurations are.
+  bazel cquery "deps(//$pkg:demo)" &>"$TEST_log" || fail "Unexpected failure"
+
+  # Find the target config.
+  target_config="$(grep "^//$pkg:demo ([0-9a-f]\+)" $TEST_log | sed -e 's,.*(\([^)]*\)).*,\1,')"
+  tool_config="$(grep "^//$pkg:tool ([0-9a-f]\+)" $TEST_log | sed -e 's,.*(\([^)]*\)).*,\1,')"
+
+  assert_not_equals "$target_config" "$tool_config"
+}
+
+function test_config_function() {
+  local -r pkg=$FUNCNAME
+
+  set_up_config_test $pkg
+
+  # Actually call config, verify output
+  bazel cquery "config(//$pkg:demo, $target_config)" &>"$TEST_log" || fail "Unexpected failure"
+  expect_log "^//$pkg:demo ($target_config)"
+  bazel cquery "config(//$pkg:tool, $tool_config)" &>"$TEST_log" || fail "Unexpected failure"
+  expect_log "^//$pkg:tool ($tool_config)"
+}
+
+function test_config_function_wrong_order() {
+  local -r pkg=$FUNCNAME
+
+  set_up_config_test $pkg
+
+  # Actually call config, verify output
+  bazel cquery "config($target_config, //$pkg:demo)" &>"$TEST_log" && fail "Expected to fail"
+  expect_not_log "^//$pkg:demo ($target_config)"
+  expect_log "couldn't determine target from filename '$target_config'"
+}
+
+function test_config_function_invalid_config() {
+  local -r pkg=$FUNCNAME
+
+  set_up_config_test $pkg
+
+  # Actually call config, verify output
+  bazel cquery "config(//$pkg:demo, notaconfighash)" &>"$TEST_log" && fail "Expected to fail"
+  expect_not_log "^//$pkg:demo ($target_config)"
+  expect_log "Unknown configuration ID 'notaconfighash'"
+}
+
+function test_error_keep_going() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name='maple', deps=[':japanese'])
+sh_library(name='japanese')
+EOF
+
+  # This causes a failure in the cquery function, which should produce an
+  # actionable error, not a stack trace.
+  bazel cquery --keep_going "config(//$pkg:oak, notaconfighash)" > output 2>"$TEST_log" && fail "Expected error"
+  expect_not_log "QueryException"
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

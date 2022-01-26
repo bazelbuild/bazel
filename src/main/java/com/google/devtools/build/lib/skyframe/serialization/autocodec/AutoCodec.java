@@ -20,9 +20,20 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Specifies that AutoCodec should generate a codec implementation for the annotated class. For
- * classes, this is generally only needed if they do interning or other non-trivial creation-time
- * work.
+ * Specifies that AutoCodec should generate a codec implementation for the annotated class. This is
+ * generally only needed in the following cases:
+ *
+ * <ol>
+ * <li>Interning work. {@link com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey}
+ * </li>
+ * <li>Non-trivial calculations and field initialization. {@link
+ * com.google.devtools.build.lib.pkgcache.TestFilter} </li>
+ * <li>AutoCodec has a bug that is not tested but DynamicCodec triggers the bug, so AutoCodec is
+ * left for legacy reasons. {@link
+ * com.google.devtools.build.lib.analysis.actions.CustomCommandLine.ExpandedTreeArtifactArg} </li>
+ * <li>Some paths are forbidden for DynamicCodec. {@link
+ * com.google.devtools.build.lib.skyframe.serialization.AutoRegistry} </li>
+ * </ol>
  *
  * <p>Example:
  *
@@ -34,15 +45,10 @@ import java.lang.annotation.Target;
  * The {@code _AutoCodec} suffix is added to the {@code Target} to obtain the generated class name.
  * In the example, that results in a class named {@code Target_AutoCodec} but applications should
  * not need to directly access the generated class.
- *
- * <p>DEPRECATED for this next purpose (use {@link SerializationConstant} instead): Alternative to
- * {@link SerializationConstant}.
  */
-// TODO(janakr): remove ElementType.FIELD from this: migrate usages to @SerializationConstant.
-@Target({ElementType.TYPE, ElementType.FIELD})
+@Target(ElementType.TYPE)
 // TODO(janakr): remove once serialization is complete.
 @Retention(RetentionPolicy.RUNTIME)
-// TODO(janakr): remove unnecessary @AutoCodec annotations throughout our codebase.
 public @interface AutoCodec {
   /**
    * AutoCodec recursively derives a codec using the public interfaces of the class.

@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Nam
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -176,8 +175,6 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
 
   @Test
   public void digestAndLengthInBuildEventProtocol() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-
     // Produces a TargetCompleteEvent in BEP and verifies that we include the output file's
     // length and digest.
     write(

@@ -570,6 +570,89 @@ def _example_library_impl(ctx):
   ]
 ```
 
+##### Custom initialization of providers
+
+It's possible to guard the instantiation of a provider with custom
+preprocessing and validation logic. This can be used to ensure that all
+provider instances obey certain invariants, or to give users a cleaner API for
+obtaining an instance.
+
+This is done by passing an `init` callback to the
+[`provider`](lib/globals.html#provider) function. If this callback is given, the
+return type of `provider()` changes to be a tuple of two values: the provider
+symbol that is the ordinary return value when `init` is not used, and a "raw
+constructor".
+
+In this case, when the provider symbol is called, instead of directly returning
+a new instance, it will forward the arguments along to the `init` callback. The
+callback's return value must be a dict mapping field names (strings) to values;
+this is used to initialize the fields of the new instance. Note that the
+callback may have any signature, and if the arguments do not match the signature
+an error is reported as if the callback were invoked directly.
+
+The raw constructor, by contrast, will bypass the `init` callback.
+
+The following example uses `init` to preprocess and validate its arguments:
+
+```python
+# //pkg:exampleinfo.bzl
+
+_core_headers = [...]  # private constant representing standard library files
+
+# It's possible to define an init accepting positional arguments, but
+# keyword-only arguments are preferred.
+def _exampleinfo_init(*, files_to_link, headers = None, allow_empty_files_to_link = False):
+    if not files_to_link and not allow_empty_files_to_link:
+        fail("files_to_link may not be empty")
+    all_headers = depset(_core_headers, transitive = headers)
+    return {'files_to_link': files_to_link, 'headers': all_headers}
+
+ExampleInfo, _new_exampleinfo = provider(
+    ...
+    init = _exampleinfo_init)
+
+export ExampleInfo
+```
+
+A rule implementation may then instantiate the provider as follows:
+
+```python
+    ExampleInfo(
+        files_to_link=my_files_to_link,  # may not be empty
+        headers = my_headers,  # will automatically include the core headers
+    )
+```
+
+The raw constructor can be used to define alternative public factory functions
+that do not go through the `init` logic. For example, in exampleinfo.bzl we
+could define:
+
+```python
+def make_barebones_exampleinfo(headers):
+    """Returns an ExampleInfo with no files_to_link and only the specified headers."""
+    return _new_exampleinfo(files_to_link = depset(), headers = all_headers)
+```
+
+Typically, the raw constructor is bound to a variable whose name begins with an
+underscore (`_new_exampleinfo` above), so that user code cannot load it and
+generate arbitrary provider instances.
+
+Another use for `init` is to simply prevent the user from calling the provider
+symbol altogether, and force them to use a factory function instead:
+
+```python
+def _exampleinfo_init_banned(*args, **kwargs):
+    fail("Do not call ExampleInfo(). Use make_exampleinfo() instead.")
+
+ExampleInfo, _new_exampleinfo = provider(
+    ...
+    init = _exampleinfo_init_banned)
+
+def make_exampleinfo(...):
+    ...
+    return _new_exampleinfo(...)
+```
+
 <a name="executable-rules"></a>
 
 ## Executable rules and test rules

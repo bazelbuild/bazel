@@ -36,6 +36,17 @@ java_test(
 )
 
 java_test(
+    name = "ShrinkableSemaphoreTest",
+    size = "small",
+    srcs = ["ShrinkableSemaphoreTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "DynamicSpawnStrategyTest",
     size = "small",
     srcs = ["DynamicSpawnStrategyTest.java"],
@@ -45,7 +56,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:blaze_executor",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",

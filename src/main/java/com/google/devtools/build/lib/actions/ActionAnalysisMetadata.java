@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
-import java.util.Map;
+import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -53,10 +53,9 @@ public interface ActionAnalysisMetadata {
   boolean isShareable();
 
   /**
-   * Returns a mnemonic (string constant) for this kind of action; written into
-   * the master log so that the appropriate parser can be invoked for the output
-   * of the action. Effectively a public method as the value is used by the
-   * extra_action feature to match actions.
+   * Returns a mnemonic (string constant) for this kind of action; written into the master log so
+   * that the appropriate parser can be invoked for the output of the action. Effectively a public
+   * method as the value is used by the extra_action feature to match actions.
    */
   String getMnemonic();
 
@@ -100,8 +99,8 @@ public interface ActionAnalysisMetadata {
       throws InterruptedException;
 
   /**
-   * Returns a pretty string representation of this action, suitable for use in
-   * progress messages or error messages.
+   * Returns a pretty string representation of this action, suitable for use in progress messages or
+   * error messages.
    */
   String prettyPrint();
 
@@ -146,8 +145,8 @@ public interface ActionAnalysisMetadata {
   Collection<String> getClientEnvironmentVariables();
 
   /**
-   * Returns the (unordered, immutable) set of output Artifacts that
-   * this action generates.  (It would not make sense for this to be empty.)
+   * Returns the (unordered, immutable) set of output Artifacts that this action generates. (It
+   * would not make sense for this to be empty.)
    */
   ImmutableSet<Artifact> getOutputs();
 
@@ -167,10 +166,12 @@ public interface ActionAnalysisMetadata {
       throws ActionExecutionException, InterruptedException;
 
   /**
-   * Returns the set of output Artifacts that are required to be saved. This is
-   * used to identify items that would otherwise be potentially identified as
-   * orphaned (not consumed by any downstream {@link Action}s and potentially
-   * discarded during the build process.
+   * Returns the set of output Artifacts that are required to be saved. This is used to identify
+   * items that would otherwise be potentially identified as orphaned (not consumed by any
+   * downstream {@link Action}s and potentially discarded during the build process.
+   *
+   * <p>Do not call unless you are in the business of identifying orphaned artifacts: otherwise just
+   * use {@link #getOutputs}.
    */
   ImmutableSet<Artifact> getMandatoryOutputs();
 
@@ -206,10 +207,9 @@ public interface ActionAnalysisMetadata {
   NestedSet<Artifact> getMandatoryInputs();
 
   /**
-   * @return true iff path prefix conflict (conflict where two actions generate
-   *         two output artifacts with one of the artifact's path being the
-   *         prefix for another) between this action and another action should
-   *         be reported.
+   * Returns true iff path prefix conflict (conflict where two actions generate two output artifacts
+   * with one of the artifact's path being the prefix for another) between this action and another
+   * action should be reported.
    */
   boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action);
 
@@ -227,11 +227,21 @@ public interface ActionAnalysisMetadata {
   PlatformInfo getExecutionPlatform();
 
   /**
-   * Returns the execution requirements for this action, or null if the action type does not have
-   * access to execution requirements.
+   * Returns the execution requirements for this action, or an empty map if the action type does not
+   * have access to execution requirements.
    */
-  @Nullable
-  default Map<String, String> getExecutionInfo() {
-    return null;
+  default ImmutableMap<String, String> getExecutionInfo() {
+    return ImmutableMap.of();
+  }
+
+  static ImmutableMap<String, String> mergeMaps(
+      ImmutableMap<String, String> first, ImmutableMap<String, String> second) {
+    // Use a different type to allow overriding keys.
+    // TODO(jcater): When ImmutableMap.Builder.buildKeepingLast is in released guava, upgrade and
+    // use that.
+    LinkedHashMap<String, String> result = new LinkedHashMap<>();
+    result.putAll(first);
+    result.putAll(second);
+    return ImmutableMap.copyOf(result);
   }
 }

@@ -208,20 +208,23 @@ public final class ConfigurationResolver {
    * Keep this in mind when making modifications and performance-test any changes you make.
    *
    * @param dependencyKeys the transition requests for each dep and each dependency kind
+   * @param eventHandler the handler for events
    * @return a mapping from each dependency kind in the source target to the {@link
    *     BuildConfigurationValue}s and {@link Label}s for the deps under that dependency kind .
    *     Returns null if not all Skyframe dependencies are available.
    */
   @Nullable
   public OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
-      OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys)
+      OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys,
+      ExtendedEventHandler eventHandler)
       throws ConfiguredValueCreationException, InterruptedException {
     OrderedSetMultimap<DependencyKind, Dependency> resolvedDeps = OrderedSetMultimap.create();
     boolean needConfigsFromSkyframe = false;
     for (Map.Entry<DependencyKind, DependencyKey> entry : dependencyKeys.entries()) {
       DependencyKind dependencyKind = entry.getKey();
       DependencyKey dependencyKey = entry.getValue();
-      ImmutableList<Dependency> depConfig = resolveConfiguration(dependencyKind, dependencyKey);
+      ImmutableList<Dependency> depConfig =
+          resolveConfiguration(dependencyKind, dependencyKey, eventHandler);
       if (depConfig == null) {
         // Instead of returning immediately, give the loop a chance to queue up every missing
         // dependency, then return all at once. That prevents re-executing this code an unnecessary
@@ -243,7 +246,7 @@ public final class ConfigurationResolver {
    */
   @Nullable
   public ImmutableList<Dependency> resolveConfiguration(
-      DependencyKind dependencyKind, DependencyKey dependencyKey)
+      DependencyKind dependencyKind, DependencyKey dependencyKey, ExtendedEventHandler eventHandler)
       throws ConfiguredValueCreationException, InterruptedException {
 
     Dependency.Builder dependencyBuilder = dependencyKey.getDependencyBuilder();
@@ -251,7 +254,8 @@ public final class ConfigurationResolver {
     ConfigurationTransition transition = dependencyKey.getTransition();
 
     if (transition == NullTransition.INSTANCE) {
-      Dependency resolvedDep = resolveNullTransition(dependencyBuilder, dependencyKind);
+      Dependency resolvedDep =
+          resolveNullTransition(dependencyBuilder, dependencyKind, eventHandler);
       if (resolvedDep == null) {
         return null; // Need Skyframe deps.
       }
@@ -260,19 +264,22 @@ public final class ConfigurationResolver {
       return ImmutableList.of(resolveHostTransition(dependencyBuilder, dependencyKey));
     }
 
-    return resolveGenericTransition(dependencyBuilder, dependencyKey);
+    return resolveGenericTransition(dependencyBuilder, dependencyKey, eventHandler);
   }
 
   @Nullable
   private Dependency resolveNullTransition(
-      Dependency.Builder dependencyBuilder, DependencyKind dependencyKind)
+      Dependency.Builder dependencyBuilder,
+      DependencyKind dependencyKind,
+      ExtendedEventHandler eventHandler)
       throws ConfiguredValueCreationException, InterruptedException {
     // The null configuration can be trivially computed (it's, well, null), so special-case that
     // transition here and skip the rest of the logic. A *lot* of targets have null deps, so
     // this produces real savings. Profiling tests over a simple cc_binary show this saves ~1% of
     // total analysis phase time.
     if (dependencyKind.getAttribute() != null) {
-      ImmutableList<String> transitionKeys = collectTransitionKeys(dependencyKind.getAttribute());
+      ImmutableList<String> transitionKeys =
+          collectTransitionKeys(dependencyKind.getAttribute(), eventHandler);
       if (transitionKeys == null) {
         return null; // Need Skyframe deps.
       }
@@ -293,7 +300,8 @@ public final class ConfigurationResolver {
   @Nullable
   private ImmutableList<Dependency> resolveGenericTransition(
       Dependency.Builder dependencyBuilder,
-      DependencyKey dependencyKey)
+      DependencyKey dependencyKey,
+      ExtendedEventHandler eventHandler)
       throws ConfiguredValueCreationException, InterruptedException {
     Map<String, BuildOptions> toOptions;
     try {
@@ -302,7 +310,7 @@ public final class ConfigurationResolver {
               getCurrentConfiguration().getOptions(),
               dependencyKey.getTransition(),
               env,
-              env.getListener());
+              eventHandler);
       if (toOptions == null) {
         return null; // Need more Skyframe deps for a Starlark transition.
       }
@@ -380,7 +388,8 @@ public final class ConfigurationResolver {
   }
 
   @Nullable
-  private ImmutableList<String> collectTransitionKeys(Attribute attribute)
+  private ImmutableList<String> collectTransitionKeys(
+      Attribute attribute, ExtendedEventHandler eventHandler)
       throws ConfiguredValueCreationException, InterruptedException {
     TransitionFactory<AttributeTransitionData> transitionFactory = attribute.getTransitionFactory();
     if (transitionFactory.isSplit()) {
@@ -397,7 +406,7 @@ public final class ConfigurationResolver {
       try {
         toOptions =
             applyTransitionWithSkyframe(
-                getCurrentConfiguration().getOptions(), baseTransition, env, env.getListener());
+                getCurrentConfiguration().getOptions(), baseTransition, env, eventHandler);
         if (toOptions == null) {
           return null; // Need more Skyframe deps for a Starlark transition.
         }

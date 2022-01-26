@@ -149,7 +149,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException, IOException {
     beforeEvaluateQuery();
-    return super.evaluateQuery(expr, callback);
+    return evaluateQueryInternal(expr, callback);
   }
 
   private void beforeEvaluateQuery() throws QueryException {

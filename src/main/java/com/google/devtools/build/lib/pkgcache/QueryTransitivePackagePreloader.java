@@ -17,8 +17,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationContext;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,11 +30,14 @@ import java.util.function.Supplier;
  * that benefits from loading parallelism.
  */
 public class QueryTransitivePackagePreloader {
-  private final Supplier<BuildDriver> buildDriverSupplier;
+  private final Supplier<MemoizingEvaluator> memoizingEvaluatorSupplier;
+  private final Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier;
 
-  // Needs a Supplier because the SkyframeExecutor creates the BuildDriver on demand.
-  public QueryTransitivePackagePreloader(Supplier<BuildDriver> buildDriverSupplier) {
-    this.buildDriverSupplier = buildDriverSupplier;
+  public QueryTransitivePackagePreloader(
+      Supplier<MemoizingEvaluator> memoizingEvaluatorSupplier,
+      Supplier<EvaluationContext.Builder> evaluationContextBuilderSupplier) {
+    this.memoizingEvaluatorSupplier = memoizingEvaluatorSupplier;
+    this.evaluationContextBuilderSupplier = evaluationContextBuilderSupplier;
   }
 
   /** Loads the specified {@link TransitiveTargetValue}s. */
@@ -49,12 +52,13 @@ public class QueryTransitivePackagePreloader {
       valueNames.add(TransitiveTargetKey.of(label));
     }
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
+        evaluationContextBuilderSupplier
+            .get()
             .setKeepGoing(keepGoing)
             .setNumThreads(parallelThreads)
             .setEventHandler(eventHandler)
             .setUseForkJoinPool(true)
             .build();
-    buildDriverSupplier.get().evaluate(valueNames, evaluationContext);
+    memoizingEvaluatorSupplier.get().evaluate(valueNames, evaluationContext);
   }
 }

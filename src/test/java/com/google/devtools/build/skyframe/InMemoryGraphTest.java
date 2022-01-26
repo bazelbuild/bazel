@@ -14,13 +14,13 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link InMemoryGraphImpl}. */
 @RunWith(JUnit4.class)
 public class InMemoryGraphTest extends GraphTest {
-  private ProcessableGraph graph;
 
   @Override
   protected Version getStartingVersion() {
@@ -41,5 +41,27 @@ public class InMemoryGraphTest extends GraphTest {
   @Override
   protected ProcessableGraph getGraph(Version version) {
     return graph;
+  }
+
+  /** Tests for {@link EdgelessInMemoryGraphImpl}. */
+  public static final class EdgelessInMemoryGraphTest extends InMemoryGraphTest {
+
+    @Override
+    protected void makeGraph() {}
+
+    @Override
+    protected ProcessableGraph getGraph(Version version) {
+      return new EdgelessInMemoryGraphImpl();
+    }
+
+    @Override
+    protected Version getNextVersion(Version version) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected boolean shouldTestIncrementality() {
+      return false;
+    }
   }
 }

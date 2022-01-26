@@ -293,7 +293,19 @@ public abstract class NativeDepsHelper {
   }
 
   /**
-   * Returns the path of the shared native library. The name must be generated based on the
+   * This method facilitates sharing C++ linking between multiple test binaries.
+   *
+   * <p>The theory is that since there are generally multiple test rules that test similar
+   * functionality, their native dependencies must be exactly the same and therefore running C++
+   * linking for each binary is wasteful.
+   *
+   * <p>The way this method gets around that is by computing a file name that depends on the
+   * contents of the eventual shared library (but not on the rule it is generated for). Test actions
+   * put their native dependencies at this place, so if multiple test rules have the same
+   * dependencies it will be a shared action and therefore be executed only once instead of once per
+   * test rule.
+   *
+   * <p>Returns the path of the shared native library. The name must be generated based on the
    * rule-specific inputs to the link actions. At this point this includes order-sensitive list of
    * linker inputs and options collected from the transitive closure and linkstamp-related artifacts
    * that are compiled during linking. All those inputs can be affected by modifying target

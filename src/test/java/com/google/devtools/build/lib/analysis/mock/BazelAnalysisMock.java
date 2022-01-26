@@ -428,6 +428,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("filegroup(name = 'desugar_java8_extra_bootclasspath', srcs = ['fake.jar'])")
         .add("filegroup(name = 'java8_legacy_dex', srcs = ['java8_legacy.dex.zip'])")
         .add("sh_binary(name = 'build_java8_legacy_dex', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'merge_proguard_maps', srcs = ['empty.sh'])")
         .add("filegroup(name = 'desugared_java8_legacy_apis', srcs = ['fake.jar'])")
         .add("sh_binary(name = 'aar_native_libs_zip_creator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resource_extractor', srcs = ['empty.sh'])")

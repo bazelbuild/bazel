@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.NativeInfo;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -81,29 +80,18 @@ public class AppleLinkingOutputs {
   private final ImmutableList<LinkingOutput> outputs;
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
-  private final Artifact legacyBinaryArtifact;
-  private final NativeInfo legacyBinaryInfoProvider;
   private final AppleDebugOutputsInfo legacyDebugOutputsProvider;
 
   AppleLinkingOutputs(
       ObjcProvider depsObjcProvider,
       ImmutableList<LinkingOutput> outputs,
       ImmutableMap<String, NestedSet<Artifact>> outputGroups,
-      Artifact legacyBinaryArtifact,
-      NativeInfo legacyBinaryInfoProvider,
       AppleDebugOutputsInfo legacyDebugOutputsProvider) {
     this.depsObjcProvider = depsObjcProvider;
     this.outputs = outputs;
     this.outputGroups = outputGroups;
 
-    this.legacyBinaryArtifact = legacyBinaryArtifact;
-    this.legacyBinaryInfoProvider = legacyBinaryInfoProvider;
     this.legacyDebugOutputsProvider = legacyDebugOutputsProvider;
-  }
-
-  /** Returns an {@link Artifact} representing the linked binary. */
-  public Artifact getLegacyBinaryArtifact() {
-    return legacyBinaryArtifact;
   }
 
   /**
@@ -117,15 +105,6 @@ public class AppleLinkingOutputs {
   /** Returns the list of single-architecture/platform outputs. */
   public ImmutableList<LinkingOutput> getOutputs() {
     return outputs;
-  }
-
-  /**
-   * Returns a {@link NativeInfo} possessing information about the linked binary. Depending on the
-   * type of binary, this may be either a {@link AppleExecutableBinaryInfo}, a {@link
-   * AppleDylibBinaryInfo}, or a {@link AppleLoadableBundleBinaryInfo}.
-   */
-  public NativeInfo getLegacyBinaryInfoProvider() {
-    return legacyBinaryInfoProvider;
   }
 
   /**
@@ -150,8 +129,6 @@ public class AppleLinkingOutputs {
     private final ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups;
     private ObjcProvider depsObjcProvider;
 
-    private AppleBinary.BinaryType legacyBinaryType;
-    private Artifact legacyBinaryArtifact;
     private AppleDebugOutputsInfo legacyDebugOutputsProvider;
 
     public Builder() {
@@ -168,14 +145,6 @@ public class AppleLinkingOutputs {
     /** Adds a set of output groups to the output result. */
     public Builder addOutputGroups(Map<String, NestedSet<Artifact>> outputGroupsToAdd) {
       outputGroups.putAll(outputGroupsToAdd);
-      return this;
-    }
-
-    /** Sets the legacy binary artifact and type of the output result. */
-    public Builder setLegacyBinaryArtifact(
-        Artifact binaryArtifact, AppleBinary.BinaryType binaryType) {
-      this.legacyBinaryArtifact = binaryArtifact;
-      this.legacyBinaryType = binaryType;
       return this;
     }
 
@@ -199,28 +168,7 @@ public class AppleLinkingOutputs {
           depsObjcProvider,
           outputs.build(),
           outputGroups.build(),
-          legacyBinaryArtifact,
-          createLegacyBinaryInfoProvider(),
           legacyDebugOutputsProvider);
-    }
-
-    /** Returns a new legacy native provider based on the binary type created by the target. */
-    private NativeInfo createLegacyBinaryInfoProvider() {
-      NativeInfo provider = null;
-      if (legacyBinaryType != null) {
-        switch (legacyBinaryType) {
-          case EXECUTABLE:
-            provider = new AppleExecutableBinaryInfo(legacyBinaryArtifact, depsObjcProvider);
-            break;
-          case DYLIB:
-            provider = new AppleDylibBinaryInfo(legacyBinaryArtifact, depsObjcProvider);
-            break;
-          case LOADABLE_BUNDLE:
-            provider = new AppleLoadableBundleBinaryInfo(legacyBinaryArtifact, depsObjcProvider);
-            break;
-        }
-      }
-      return provider;
     }
   }
 }

@@ -28,13 +28,9 @@ public interface StarlarkAspect extends StarlarkAspectApi {
    * @param baseAspectName is the name of the base aspect requiring this aspect, can be {@code null}
    *     if the aspect is directly listed in the aspects list
    * @param aspectsListBuilder is the list to add this aspect to
-   * @param allowAspectsParameters if false an error will be reported if any aspect in the chain of
-   *     required aspects has parameters. This is needed for top-level aspects that do not allow
-   *     parameters at the moment.
    * @throws EvalException if this aspect cannot be successfully added to the aspects list.
    */
-  void attachToAspectsList(
-      String baseAspectName, AspectsListBuilder aspectsListBuilder, boolean allowAspectsParameters)
+  void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsListBuilder)
       throws EvalException;
 
   /** Returns the aspect class for this aspect. */

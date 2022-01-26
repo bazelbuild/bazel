@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayOutputStream;
@@ -43,7 +42,6 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
 
   @Test
   public void testSubcommandEvent() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     EventCollector eventCollector = new EventCollector(EventKind.SUBCOMMAND);
     events.addHandler(eventCollector);
     runtimeWrapper.addOptions("--subcommands");

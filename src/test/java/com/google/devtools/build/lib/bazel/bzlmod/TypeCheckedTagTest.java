@@ -23,6 +23,8 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createTa
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -30,8 +32,13 @@ import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.HashMap;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.Structure;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,6 +46,15 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link TypeCheckedTag}. */
 @RunWith(JUnit4.class)
 public class TypeCheckedTagTest {
+
+  private static Object getattr(Structure structure, String fieldName) throws Exception {
+    return Starlark.getattr(
+        Mutability.IMMUTABLE,
+        StarlarkSemantics.DEFAULT,
+        structure,
+        fieldName,
+        /*defaultValue=*/ null);
+  }
 
   @Test
   public void basic() throws Exception {
@@ -48,7 +64,7 @@ public class TypeCheckedTagTest {
             buildTag("tag_name").addAttr("foo", StarlarkInt.of(3)).build(),
             /*labelConversionContext=*/ null);
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
-    assertThat(typeCheckedTag.getValue("foo")).isEqualTo(StarlarkInt.of(3));
+    assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(StarlarkInt.of(3));
   }
 
   @Test
@@ -66,12 +82,45 @@ public class TypeCheckedTagTest {
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo"),
                 new HashMap<>()));
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
-    assertThat(typeCheckedTag.getValue("foo"))
+    assertThat(getattr(typeCheckedTag, "foo"))
         .isEqualTo(
             StarlarkList.immutableOf(
                 Label.parseAbsoluteUnchecked("@myrepo//mypkg:thing1"),
                 Label.parseAbsoluteUnchecked("@myrepo//pkg:thing2"),
                 Label.parseAbsoluteUnchecked("@other_repo//pkg:thing3")));
+  }
+
+  @Test
+  public void label_withoutDefaultValue() throws Exception {
+    TypeCheckedTag typeCheckedTag =
+        TypeCheckedTag.create(
+            createTagClass(
+                attr("foo", BuildType.LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build()),
+            buildTag("tag_name").build(),
+            new LabelConversionContext(
+                Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
+                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo"),
+                new HashMap<>()));
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+    assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(Starlark.NONE);
+  }
+
+  @Test
+  public void stringListDict_default() throws Exception {
+    TypeCheckedTag typeCheckedTag =
+        TypeCheckedTag.create(
+            createTagClass(
+                attr("foo", Type.STRING_LIST_DICT)
+                    .value(ImmutableMap.of("key", ImmutableList.of("value1", "value2")))
+                    .build()),
+            buildTag("tag_name").build(),
+            null);
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+    assertThat(getattr(typeCheckedTag, "foo"))
+        .isEqualTo(
+            Dict.builder()
+                .put("key", StarlarkList.immutableOf("value1", "value2"))
+                .buildImmutable());
   }
 
   @Test
@@ -88,9 +137,9 @@ public class TypeCheckedTagTest {
                 .build(),
             /*labelConversionContext=*/ null);
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "bar", "quux");
-    assertThat(typeCheckedTag.getValue("foo")).isEqualTo("fooValue");
-    assertThat(typeCheckedTag.getValue("bar")).isEqualTo(StarlarkInt.of(3));
-    assertThat(typeCheckedTag.getValue("quux"))
+    assertThat(getattr(typeCheckedTag, "foo")).isEqualTo("fooValue");
+    assertThat(getattr(typeCheckedTag, "bar")).isEqualTo(StarlarkInt.of(3));
+    assertThat(getattr(typeCheckedTag, "quux"))
         .isEqualTo(StarlarkList.immutableOf("quuxValue1", "quuxValue2"));
   }
 

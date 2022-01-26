@@ -16,6 +16,18 @@ java_library(
 )
 
 java_library(
+    name = "process_package_directory_exception",
+    srcs = ["ProcessPackageDirectoryException.java"],
+    deps = [
+        ":inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+    ],
+)
+
+java_library(
     name = "file_symlink_exception",
     srcs = ["FileSymlinkException.java"],
 )

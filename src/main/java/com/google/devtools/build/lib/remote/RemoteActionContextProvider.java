@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.Executor;
@@ -192,7 +193,6 @@ final class RemoteActionContextProvider {
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
-            env.getReporter(),
             getRemoteExecutionService());
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");
   }
@@ -212,7 +212,9 @@ final class RemoteActionContextProvider {
 
   public void afterCommand() {
     if (remoteExecutionService != null) {
-      remoteExecutionService.shutdown();
+      BlockWaitingModule blockWaitingModule =
+          checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));
+      blockWaitingModule.submit(() -> remoteExecutionService.shutdown());
     } else {
       if (remoteCache != null) {
         remoteCache.release();

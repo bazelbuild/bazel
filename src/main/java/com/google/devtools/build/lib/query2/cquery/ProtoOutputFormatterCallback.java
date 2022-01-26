@@ -134,7 +134,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
       throws InterruptedException {
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
-    formatter.setOptions(options, resolver, skyframeExecutor.getHashFunction());
+    formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
     for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
       AnalysisProtosV2.ConfiguredTarget.Builder builder =
           AnalysisProtosV2.ConfiguredTarget.newBuilder();

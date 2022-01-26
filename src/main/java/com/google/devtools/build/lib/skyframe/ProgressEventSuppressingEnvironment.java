@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
@@ -28,6 +27,7 @@ import com.google.devtools.build.skyframe.ValueOrException5;
 import com.google.devtools.build.skyframe.Version;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
  *
  * <p>Otherwise, delegates calls to its wrapped {@link SkyFunction.Environment}.
  */
-class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
+final class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
 
   private final SkyFunction.Environment delegate;
   private final ProgressSuppressingEventHandler suppressingEventHandler;
@@ -278,14 +278,13 @@ class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
   }
 
   @Override
-  public void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
+  public void registerDependencies(Iterable<SkyKey> keys) {
     delegate.registerDependencies(keys);
   }
 
   @Override
-  @VisibleForTesting
-  public boolean inErrorBubblingForTesting() {
-    return delegate.inErrorBubblingForTesting();
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
   }
 
   @Override
@@ -296,5 +295,10 @@ class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return delegate.getState(stateSupplier);
   }
 }

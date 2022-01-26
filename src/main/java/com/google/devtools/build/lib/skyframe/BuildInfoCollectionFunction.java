@@ -93,14 +93,9 @@ public class BuildInfoCollectionFunction implements SkyFunction {
               collection.getActions(),
               keyAndConfig,
               /*outputFiles=*/ null);
-    } catch (ActionConflictException e) {
-      throw new IllegalStateException("Action conflicts not expected in build info: " + skyKey, e);
+    } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      throw new IllegalStateException("Errors not expected in build info: " + skyKey, e);
     }
     return new BuildInfoCollectionValue(collection, generatingActions);
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

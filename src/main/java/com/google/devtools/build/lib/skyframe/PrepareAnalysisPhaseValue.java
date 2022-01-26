@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -58,7 +57,6 @@ import java.util.stream.Collectors;
  */
 @Immutable
 @ThreadSafe
-@AutoCodec
 public final class PrepareAnalysisPhaseValue implements SkyValue {
   private final BuildConfigurationKey hostConfigurationKey;
   private final ImmutableList<BuildConfigurationKey> targetConfigurationKeys;

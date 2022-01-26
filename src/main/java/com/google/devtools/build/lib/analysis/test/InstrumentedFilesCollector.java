@@ -133,7 +133,7 @@ public final class InstrumentedFilesCollector {
   /**
    * Collects transitive instrumentation data from dependencies, collects local source files from
    * dependencies, collects local metadata files by traversing the action graph of the current
-   * configured target, collect rule-specific instrumentation support file sand creates baseline
+   * configured target, collect rule-specific instrumentation support files and creates baseline
    * coverage actions for the transitive closure of source files (if <code>withBaselineCoverage
    * </code> is true).
    */

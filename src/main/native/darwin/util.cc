@@ -14,7 +14,7 @@
 
 #include "src/main/native/darwin/util.h"
 
-#include "src/main/native/macros.h"
+#include "src/main/cpp/util/logging.h"
 
 namespace bazel {
 namespace darwin {
@@ -24,24 +24,9 @@ dispatch_queue_t JniDispatchQueue() {
   static dispatch_queue_t queue;
   dispatch_once(&once_token, ^{
     queue = dispatch_queue_create("build.bazel.jni", DISPATCH_QUEUE_SERIAL);
-    CHECK(queue);
+    BAZEL_CHECK_NE(queue, nullptr);
   });
   return queue;
-}
-
-os_log_t JniOSLog() {
-  static dispatch_once_t once_token;
-  static os_log_t log = nullptr;
-  // On macOS < 10.12, os_log_create is not available. Since we target 10.10,
-  // this will be weakly linked and can be checked for availability at run
-  // time.
-  if (&os_log_create != nullptr) {
-    dispatch_once(&once_token, ^{
-      log = os_log_create("build.bazel", "jni");
-      CHECK(log);
-    });
-  }
-  return log;
 }
 
 }  // namespace darwin

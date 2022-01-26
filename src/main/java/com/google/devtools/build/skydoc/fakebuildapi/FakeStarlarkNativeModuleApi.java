@@ -77,6 +77,13 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
     return "";
   }
 
+  @Override
+  public Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return StarlarkList.of(thread.mutability());
+  }
+
   @Nullable
   @Override
   public Object getValue(String name) throws EvalException {

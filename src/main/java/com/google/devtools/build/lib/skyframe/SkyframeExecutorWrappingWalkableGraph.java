@@ -55,6 +55,6 @@ public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGra
 
   public static SkyframeExecutorWrappingWalkableGraph of(SkyframeExecutor skyframeExecutor) {
     // TODO(janakr): Provide the graph in a more principled way.
-    return new SkyframeExecutorWrappingWalkableGraph(skyframeExecutor.getEvaluatorForTesting());
+    return new SkyframeExecutorWrappingWalkableGraph(skyframeExecutor.getEvaluator());
   }
 }

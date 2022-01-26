@@ -209,6 +209,7 @@ genrule(
 java_library(
     name = "local_and_anonymous_lib",
     srcs = ["LocalAndAnonymous.java"],
+    javacopts = ["-source 8 -target 8"],
 )
 
 genrule(

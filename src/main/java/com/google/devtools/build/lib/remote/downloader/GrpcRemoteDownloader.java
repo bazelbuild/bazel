@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.grpc.CallCredentials;
+import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -122,7 +123,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         newFetchBlobRequest(options.remoteInstanceName, urls, authHeaders, checksum, canonicalId);
     try {
       FetchBlobResponse response =
-          retrier.execute(() -> fetchBlockingStub(remoteActionExecutionContext).fetchBlob(request));
+          retrier.execute(
+              () ->
+                  channel.withChannelBlocking(
+                      channel ->
+                          fetchBlockingStub(remoteActionExecutionContext, channel)
+                              .fetchBlob(request)));
       final Digest blobDigest = response.getBlobDigest();
 
       retrier.execute(
@@ -172,7 +178,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return requestBuilder.build();
   }
 
-  private FetchBlockingStub fetchBlockingStub(RemoteActionExecutionContext context) {
+  private FetchBlockingStub fetchBlockingStub(
+      RemoteActionExecutionContext context, Channel channel) {
     return FetchGrpc.newBlockingStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))

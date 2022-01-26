@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -138,7 +139,8 @@ class IncludeParser {
   }
 
   /** {@link SkyValue} encapsulating the source-state-dependent part of {@link Hints}. */
-  public static class HintsRules implements SkyValue {
+  public static final class HintsRules implements SkyValue {
+    static final HintsRules EMPTY = new HintsRules(ImmutableList.of());
     private final ImmutableList<Rule> rules;
 
     private HintsRules(ImmutableList<Rule> rules) {
@@ -347,7 +349,7 @@ class IncludeParser {
                   containingPackageLookupValue.getContainingPackageName(),
                   containingPackageLookupValue.getContainingPackageRoot(),
                   pattern,
-                  /*excludeDirs=*/ true,
+                  Globber.Operation.FILES,
                   relativePath.relativeTo(packageFragment)));
         } catch (InvalidGlobPatternException e) {
           env.getListener()

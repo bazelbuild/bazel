@@ -22,6 +22,7 @@ import com.google.common.base.Verify;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor;
+import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor.Level;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import io.grpc.Server;
@@ -85,28 +86,16 @@ class ServerWatcherRunnable implements Runnable {
   }
 
   /**
-   * A low memory conditions checker that relies on memory pressure notifications.
+   * A low memory conditions checker that relies on memory pressure state.
    *
-   * <p>This checker will report a low memory condition when it detects a memory pressure
-   * notification between the point when {@link #reset(long)} was called and {@link
-   * #shouldShutdown()} is called.
-   *
-   * <p>Memory pressure notifications are provided by the platform-agnostic {@link
-   * MemoryPressureCounter} class, which may be a no-op for the current platform.
+   * <p>Memory pressure state is provided by the platform-agnostic {@link
+   * SystemMemoryPressureMonitor} class, which may be a no-op for the current platform.
    */
   private static class MemoryPressureLowMemoryChecker extends LowMemoryChecker {
-    private final SystemMemoryPressureMonitor monitor = SystemMemoryPressureMonitor.getInstance();
-    private int eventCountAtIdleStart = monitor.eventCount();
 
     @Override
     boolean check() {
-      return monitor.eventCount() > eventCountAtIdleStart;
-    }
-
-    @Override
-    void reset(long lastIdleTimeNanos) {
-      super.reset(lastIdleTimeNanos);
-      eventCountAtIdleStart = monitor.eventCount();
+      return SystemMemoryPressureMonitor.getInstance().level() != Level.NORMAL;
     }
   }
 

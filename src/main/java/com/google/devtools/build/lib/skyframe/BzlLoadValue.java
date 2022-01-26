@@ -103,6 +103,13 @@ public class BzlLoadValue implements SkyValue {
     public SkyFunctionName functionName() {
       return SkyFunctions.BZL_LOAD;
     }
+
+    @Override
+    public final boolean valueIsShareable() {
+      // We don't guarantee that all constructs implement equality, meaning we can't correctly
+      // compare deserialized instances. This is currently the case for attribute descriptors.
+      return false;
+    }
   }
 
   /** A key for loading a .bzl during package loading (BUILD evaluation). */

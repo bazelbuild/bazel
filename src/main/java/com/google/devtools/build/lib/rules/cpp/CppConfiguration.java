@@ -426,6 +426,7 @@ public final class CppConfiguration extends Fragment
   @StarlarkConfigurationField(
       name = "custom_malloc",
       doc = "The label specified in --custom_malloc")
+  @Nullable
   public Label customMalloc() {
     return cppOptions.customMalloc;
   }
@@ -482,6 +483,10 @@ public final class CppConfiguration extends Fragment
 
   public boolean experimentalCcSharedLibraryDebug() {
     return cppOptions.experimentalCcSharedLibraryDebug;
+  }
+
+  public boolean experimentalPlatformCcTest() {
+    return cppOptions.experimentalPlatformCcTest;
   }
 
   public boolean legacyWholeArchive() {
@@ -740,6 +745,12 @@ public final class CppConfiguration extends Fragment
     return getLibcTopLabel();
   }
 
+  @Override
+  public boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return shareNativeDeps();
+  }
+
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
@@ -757,6 +768,12 @@ public final class CppConfiguration extends Fragment
       return null;
     }
     return cppOptions.targetLibcTopLabel;
+  }
+
+  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
+  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return enableLegacyCcProvider();
   }
 
   public boolean enableLegacyCcProvider() {
@@ -830,12 +847,26 @@ public final class CppConfiguration extends Fragment
     return cppOptions.generateLlvmLcov;
   }
 
+  public boolean experimentalIncludeScanning() {
+    return cppOptions.experimentalIncludeScanning;
+  }
+
   public boolean objcShouldScanIncludes() {
     return cppOptions.objcScanIncludes;
   }
 
   public boolean objcShouldGenerateDotdFiles() {
     return cppOptions.objcGenerateDotdFiles;
+  }
+
+  @StarlarkMethod(
+      name = "experimental_cc_implementation_deps",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcImplementationDeps();
   }
 
   public boolean experimentalCcImplementationDeps() {
@@ -918,6 +949,12 @@ public final class CppConfiguration extends Fragment
   public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalCcSharedLibraryDebug();
+  }
+
+  @Override
+  public boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalPlatformCcTest();
   }
 
   /**

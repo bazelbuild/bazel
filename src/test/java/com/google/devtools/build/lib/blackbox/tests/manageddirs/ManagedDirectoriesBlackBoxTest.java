@@ -21,17 +21,23 @@ import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /** Tests for managed directories. */
+@RunWith(TestParameterInjector.class)
 public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   private Random random;
   private Integer currentDebugId;
@@ -51,7 +57,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   @Test
-  public void testNodeModulesDeleted() throws Exception {
+  public void testNodeModulesDeleted(@TestParameter boolean watchFs) throws Exception {
     generateProject();
     buildExpectRepositoryRuleCalled();
     checkProjectFiles();
@@ -60,7 +66,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(nodeModules.toFile().isDirectory()).isTrue();
     PathUtils.deleteTree(nodeModules);
 
-    buildExpectRepositoryRuleCalled();
+    buildExpectRepositoryRuleCalled(false, watchFs);
     checkProjectFiles();
   }
 
@@ -162,16 +168,8 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   @Test
-  public void testFilesUnderChangedManagedDirectoriesRefreshed() throws Exception {
-    doTestFilesUnderManagedDirectoriesRefreshed(false);
-  }
-
-  @Test
-  public void testFilesUnderChangedManagedDirectoriesRefreshedWatchFs() throws Exception {
-    doTestFilesUnderManagedDirectoriesRefreshed(true);
-  }
-
-  private void doTestFilesUnderManagedDirectoriesRefreshed(boolean watchFs) throws Exception {
+  public void testFilesUnderManagedDirectoriesRefreshed(@TestParameter boolean watchFs)
+      throws Exception {
     generateProject();
     buildExpectRepositoryRuleCalled(false, watchFs);
     checkProjectFiles();
@@ -238,19 +236,8 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   @Test
-  public void testManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously()
-      throws Exception {
-    doTestManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(false);
-  }
-
-  @Test
-  public void testManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneouslyWatchFs()
-      throws Exception {
-    doTestManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(true);
-  }
-
-  private void doTestManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(
-      boolean watchFs) throws Exception {
+  public void testManagedDirectoriesSettingsAndManagedDirectoriesFilesChangeSimultaneously(
+      @TestParameter boolean watchFs) throws Exception {
     generateProject();
     buildExpectRepositoryRuleCalled(false, watchFs);
     checkProjectFiles();
@@ -390,6 +377,40 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
                 "WORKSPACE file can not be a symlink if incrementally updated directories are"
                     + " used."))
         .isTrue();
+  }
+
+  @Test
+  public void testNoCheckFiles(@TestParameter boolean allSkips, @TestParameter boolean watchFs)
+      throws Exception {
+    // On Darwin CI, --watchfs is nondeterministic if this passes or fails
+    Assume.assumeFalse(OS.DARWIN.equals(OS.getCurrent()));
+
+    generateProject();
+    buildExpectRepositoryRuleCalled(false, watchFs);
+    checkProjectFiles();
+
+    Path nodeModules = context().getWorkDir().resolve("node_modules");
+    assertThat(nodeModules.toFile().isDirectory()).isTrue();
+    PathUtils.deleteTree(nodeModules);
+    assertThat(nodeModules.toFile().isDirectory()).isFalse();
+
+    // As compared to testNodeModulesDeleted, we don't check that the external file disappeared with
+    // this flag so the build is broken
+    BuilderRunner bazel =
+        bazel(watchFs).withFlags("--noexperimental_check_external_repository_files");
+    if (allSkips) {
+      bazel = bazel.withFlags("--noexperimental_check_output_files");
+    }
+
+    ProcessResult result = bazel.shouldFail().build("//...");
+    assertThat(findPattern(result, "Not found package.json")).isTrue();
+
+    // it doesn't make the file on disk
+    assertThat(nodeModules.toFile().isDirectory()).isFalse();
+
+    // In a perfect world we would be able to fix the build by rebuilding here without the flags,
+    // but we don't
+    // invalidate the cache correctly so the server would have to shut down
   }
 
   private void generateProject() throws IOException {

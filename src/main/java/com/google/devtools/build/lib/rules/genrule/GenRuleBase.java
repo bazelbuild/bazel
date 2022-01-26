@@ -159,19 +159,17 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     String baseCommand = ruleContext.attributes().get(cmdAttr, Type.STRING);
 
     // Expand template variables and functions.
-    ImmutableList.Builder<MakeVariableSupplier> makeVariableSuppliers =
-        new ImmutableList.Builder<>();
     CommandResolverContext commandResolverContext =
         new CommandResolverContext(
             ruleContext,
             resolvedSrcs,
             filesToBuild,
-            makeVariableSuppliers.build(),
+            /* makeVariableSuppliers = */ ImmutableList.of(),
             expandToWindowsPath);
     String command =
         ruleContext
             .getExpander(commandResolverContext)
-            .withExecLocations(commandHelper.getLabelMap(), expandToWindowsPath)
+            .withExecLocationsNoSrcs(commandHelper.getLabelMap(), expandToWindowsPath)
             .expand(cmdAttr, baseCommand);
 
     // Heuristically expand things that look like labels.

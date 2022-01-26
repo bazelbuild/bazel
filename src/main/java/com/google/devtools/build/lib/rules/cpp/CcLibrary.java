@@ -339,21 +339,17 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
         Artifact defParser = common.getDefParser();
         if (defParser != null) {
-          try {
-            generatedDefFile =
-                CppHelper.createDefFileActions(
-                    ruleContext,
-                    defParser,
-                    ccCompilationOutputs.getObjectFiles(false),
-                    ccToolchain
-                        .getFeatures()
-                        .getArtifactNameForCategory(
-                            ArtifactCategory.DYNAMIC_LIBRARY,
-                            ruleContext.getLabel().getName() + dllNameSuffix));
-            targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
-          } catch (EvalException e) {
-            throw ruleContext.throwWithRuleError(e);
-          }
+          generatedDefFile =
+              CppHelper.createDefFileActions(
+                  ruleContext,
+                  defParser,
+                  ccCompilationOutputs.getObjectFiles(false),
+                  ccToolchain
+                      .getFeatures()
+                      .getArtifactNameForCategory(
+                          ArtifactCategory.DYNAMIC_LIBRARY,
+                          ruleContext.getLabel().getName() + dllNameSuffix));
+          targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
         }
         linkingHelper.setDefFile(
             CppHelper.getWindowsDefFileForLinking(
@@ -493,7 +489,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 .setCcNativeLibraryInfo(ccNativeLibraryInfo)
                 .build())
         .addOutputGroups(
-            CcCommon.mergeOutputGroups(ImmutableList.of(currentOutputGroups, outputGroups.build())))
+            CcCommon.mergeOutputGroups(
+                ImmutableList.of(currentOutputGroups, outputGroups.buildOrThrow())))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()));
   }
@@ -594,7 +591,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ImmutableSortedMap.naturalOrder();
     if (!ruleContext.attributes().has("alwayslink", Type.BOOLEAN)
         || !ruleContext.attributes().has("linkstatic", Type.BOOLEAN)) {
-      return outputGroups.build();
+      return outputGroups.buildOrThrow();
     }
 
     if (ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
@@ -639,7 +636,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     outputGroups.put(ARCHIVE_LIBRARY_OUTPUT_GROUP_NAME, archiveFile.build());
     outputGroups.put(DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME, dynamicLibrary.build());
-    return outputGroups.build();
+    return outputGroups.buildOrThrow();
   }
 
   private static ImmutableList<LibraryToLink> createLibrariesToLinkList(

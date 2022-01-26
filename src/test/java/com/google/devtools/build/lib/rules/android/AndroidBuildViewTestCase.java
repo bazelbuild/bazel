@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -148,6 +149,16 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   protected String flagValue(String flag, List<String> args) {
     assertThat(args).contains(flag);
     return args.get(args.indexOf(flag) + 1);
+  }
+
+  protected Set<String> flagValues(String flag, List<String> args) {
+    Set<String> result = new HashSet<>();
+    for (int i = 0; i < args.size(); i++) {
+      if (args.get(i).equals(flag)) {
+        result.add(args.get(++i));
+      }
+    }
+    return result;
   }
 
   /**

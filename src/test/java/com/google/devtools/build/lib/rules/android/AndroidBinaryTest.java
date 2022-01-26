@@ -35,6 +35,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -3166,6 +3167,90 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     Action generatingAction = getGeneratingAction(artifact);
     assertThat(ActionsTestUtil.baseArtifactNames(generatingAction.getInputs()))
         .containsAtLeast("classes.dex.zip", /*built*/ "_java8_legacy.dex.zip");
+  }
+
+  private List<String> generatingActionArgs(Artifact artifact) throws Exception {
+    Action action = getGeneratingAction(artifact);
+    return ((SpawnAction) action).getArguments();
+  }
+
+  @Test
+  public void testDesugarJava8Libs_withProguardWithMap() throws Exception {
+    useConfiguration("--experimental_desugar_java8_libs");
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  multidex = 'native',",
+        "  proguard_specs = ['foo.cfg'],",
+        "  proguard_generate_mapping = 1,",
+        ")");
+
+    ConfiguredTarget top = getConfiguredTarget("//java/com/google/android:foo");
+
+    Artifact desugaredLibraryDex = getBinArtifact("_dx/foo/_java8_legacy.dex.zip", top);
+    List<String> desugaredLibraryActionArgs = generatingActionArgs(desugaredLibraryDex);
+    assertThat(desugaredLibraryActionArgs.get(0)).contains("build_java8_legacy_dex");
+    Artifact desugaredLibraryDexProguardMap = getBinArtifact("_dx/foo/_java8_legacy.dex.map", top);
+    MoreAsserts.assertContainsSublist(
+        desugaredLibraryActionArgs,
+        "--rules",
+        getBinArtifact("_dx/foo/_java8_legacy.dex.pgcfg", top).getExecPathString());
+    MoreAsserts.assertContainsSublist(
+        desugaredLibraryActionArgs, "--output", desugaredLibraryDex.getExecPathString());
+    MoreAsserts.assertContainsSublist(
+        desugaredLibraryActionArgs,
+        "--output_map",
+        desugaredLibraryDexProguardMap.getExecPathString());
+
+    Artifact proguardMap = getBinArtifact("foo_proguard.map", top);
+    List<String> mergeProguardMapsActionArgs =
+        ((SpawnAction) getGeneratingAction(proguardMap)).getArguments();
+    assertThat(mergeProguardMapsActionArgs.get(0)).contains("merge_proguard_maps");
+    assertThat(flagValues("--pg-map", mergeProguardMapsActionArgs))
+        .isEqualTo(
+            ImmutableSet.of(
+                desugaredLibraryDexProguardMap.getExecPathString(),
+                getBinArtifact("_dx/foo/_proguard_output_for_desugared_library.map", top)
+                    .getExecPathString()));
+    assertThat(flagValue("--pg-map-output", mergeProguardMapsActionArgs))
+        .isEqualTo(proguardMap.getExecPathString());
+
+    Artifact artifact = getBinArtifact("_dx/foo/_final_classes.dex.zip", top);
+    assertWithMessage("_final_classes.dex.zip").that(artifact).isNotNull();
+    Action generatingAction = getGeneratingAction(artifact);
+    assertThat(ActionsTestUtil.baseArtifactNames(generatingAction.getInputs()))
+        .containsAtLeast("classes.dex.zip", /*built*/ "_java8_legacy.dex.zip");
+  }
+
+  @Test
+  public void testDesugarJava8Libs_withProguardWithoutSpecsWithMap() throws Exception {
+    useConfiguration("--experimental_desugar_java8_libs");
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  multidex = 'native',",
+        "  proguard_generate_mapping = 1,",
+        ")");
+
+    ConfiguredTarget top = getConfiguredTarget("//java/com/google/android:foo");
+
+    Artifact desugaredLibraryDex = getBinArtifact("_dx/foo/_java8_legacy.dex.zip", top);
+    assertThat(getGeneratingAction(desugaredLibraryDex)).isNull();
+
+    Artifact proguardMap = getBinArtifact("foo_proguard.map", top);
+    assertThat(getGeneratingAction(proguardMap)).isInstanceOf(FailAction.class);
+
+    Artifact artifact = getBinArtifact("_dx/foo/_final_classes.dex.zip", top);
+    assertWithMessage("_final_classes.dex.zip").that(artifact).isNotNull();
+    Action generatingAction = getGeneratingAction(artifact);
+    assertThat(ActionsTestUtil.baseArtifactNames(generatingAction.getInputs()))
+        .containsAtLeast("classes.dex.zip", /*canned*/ "java8_legacy.dex.zip");
   }
 
   @Test

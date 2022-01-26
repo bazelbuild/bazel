@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
@@ -44,8 +46,10 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractor
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -67,6 +71,9 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult}, and can therefore not be
  * used with most existing {@link com.google.devtools.build.lib.query2.query.output.OutputFormatter}
  * implementations, many of which expect the latter.
+ *
+ * <p>This environment is valid only for a single query, called via {@link #evaluateQuery}. Call
+ * only once!
  */
 public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     implements CustomFunctionQueryEnvironment<Target> {
@@ -77,11 +84,14 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
+  private final String queryIdForDebugging;
   private final ErrorPrintingTargetEdgeErrorObserver errorObserver;
   private final LabelVisitor labelVisitor;
   protected final int loadingPhaseThreads;
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
+
+  private boolean doneQuery = false;
 
   /**
    * Note that the correct operation of this class critically depends on the Reporter being a
@@ -107,16 +117,18 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      String queryIdForDebugging) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
+    this.queryIdForDebugging = queryIdForDebugging;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter, queryIdForDebugging);
   }
 
   @Override
@@ -126,9 +138,10 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Callback<Target> callback,
       boolean batch) {
     if (batch) {
-      // This uses AbstractQueryEnvironment#eval that aggregates the results of the futures into a
-      // single batch before running the callback on the batch of results, providing an alternative
-      // for the environment to decide when to batch the results and when batching is not needed.
+      // This uses AbstractBlazeQueryEnvironment#eval that aggregates the results of the futures
+      // into a single batch before running the callback on the batch of results, providing an
+      // alternative for the environment to decide when to batch the results and when batching is
+      // not needed.
       return super.eval(expr, context, callback);
     }
     return eval(expr, context, callback);
@@ -141,6 +154,15 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     // not all operators return a single future (e.g. 'SetExpression'), as such, do not use this if
     // the callback does heavy blocking work (e.g. 'deps').
     return expr.eval(this, context, callback);
+  }
+
+  @Override
+  public QueryEvalResult evaluateQuery(
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback)
+      throws QueryException, IOException, InterruptedException {
+    Preconditions.checkState(!doneQuery, "Can only use environment for one query: %s", expr);
+    doneQuery = true;
+    return evaluateQueryInternal(expr, callback);
   }
 
   @Override
@@ -217,7 +239,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     }
     Set<Target> result = Sets.newConcurrentHashSet();
     try (SilentCloseable closeable = Profiler.instance().profile("syncUncached")) {
-      new LabelVisitor(targetProvider, dependencyFilter)
+      new LabelVisitor(targetProvider, dependencyFilter, queryIdForDebugging)
           .syncUncached(
               eventHandler,
               from,
@@ -456,13 +478,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   @Override
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
       throws TargetParsingException, InterruptedException {
-    if (!resolvedTargetPatterns.keySet().containsAll(patterns)) {
-      // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
-      // being called from within a SkyFunction.
-      resolvedTargetPatterns.putAll(
-          targetPatternPreloader.preloadTargetPatterns(
-              eventHandler, relativeWorkingDirectory, patterns, keepGoing));
-    }
+    Preconditions.checkState(
+        resolvedTargetPatterns.isEmpty(),
+        "Already resolved patterns: %s %s",
+        patterns,
+        resolvedTargetPatterns);
+    // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
+    // being called from within a SkyFunction.
+    resolvedTargetPatterns.putAll(
+        targetPatternPreloader.preloadTargetPatterns(
+            eventHandler, relativeWorkingDirectory, patterns, keepGoing));
   }
 
   @Override

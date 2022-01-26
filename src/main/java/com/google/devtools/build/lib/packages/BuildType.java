@@ -249,8 +249,7 @@ public final class BuildType {
         String str = (String) x;
         // TODO(b/110101445): check if context is ever actually null
         if (context == null) {
-          return Label.parseAbsolute(
-              str, /* defaultToMain= */ false, /* repositoryMapping= */ ImmutableMap.of());
+          return Label.parseAbsolute(str, /* repositoryMapping= */ ImmutableMap.of());
           // TODO(b/110308446): remove instances of context being a Label
         } else if (context instanceof Label) {
           return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());

@@ -1049,14 +1049,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
                 actions,
                 (ActionLookupKey) skyKey,
                 /*outputFiles=*/ null));
-      } catch (ActionConflictException e) {
+      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

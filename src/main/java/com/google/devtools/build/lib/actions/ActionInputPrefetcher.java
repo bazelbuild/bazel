@@ -30,6 +30,9 @@ public interface ActionInputPrefetcher {
    * Initiates best-effort prefetching of all given inputs. This should not block.
    *
    * <p>For any path not under this prefetcher's control, the call should be a no-op.
+   *
+   * <p>TODO(b/215316609): Implementation in remote module blocks until download completes. Change
+   * this method to return a Future.
    */
   void prefetchFiles(Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider)
       throws IOException, InterruptedException;

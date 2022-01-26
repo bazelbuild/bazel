@@ -81,14 +81,18 @@ public class TypeCheckedTag implements Structure {
       attrValues[attrIndex] = Attribute.valueToStarlark(nativeValue);
     }
 
-    // Check that all mandatory attributes have been specified.
+    // Check that all mandatory attributes have been specified, and fill in default values.
     for (int i = 0; i < attrValues.length; i++) {
-      if (tagClass.getAttributes().get(i).isMandatory() && attrValues[i] == null) {
+      Attribute attr = tagClass.getAttributes().get(i);
+      if (attr.isMandatory() && attrValues[i] == null) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
             "in tag at %s, mandatory attribute %s isn't being specified",
             tag.getLocation(),
-            tagClass.getAttributes().get(i).getPublicName());
+            attr.getPublicName());
+      }
+      if (attrValues[i] == null) {
+        attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
       }
     }
     return new TypeCheckedTag(tagClass, attrValues);
@@ -106,11 +110,7 @@ public class TypeCheckedTag implements Structure {
     if (attrIndex == null) {
       return null;
     }
-    Object value = attrValues[attrIndex];
-    if (value != null) {
-      return value;
-    }
-    return tagClass.getAttributes().get(attrIndex).getDefaultValueUnchecked();
+    return attrValues[attrIndex];
   }
 
   @Override

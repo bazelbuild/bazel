@@ -48,7 +48,7 @@ public final class LangModelHelper {
           .put(2, 1, Opcodes.DUP2_X1)
           .put(1, 2, Opcodes.DUP_X2)
           .put(2, 2, Opcodes.DUP2_X2)
-          .build();
+          .buildOrThrow();
 
   /**
    * Returns the operation code for pop operations with a single instruction support by their type

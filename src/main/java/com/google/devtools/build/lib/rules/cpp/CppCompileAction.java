@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -125,7 +126,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @VisibleForTesting public static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   @VisibleForTesting public static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
 
-  protected final Artifact outputFile;
+  final Artifact outputFile;
   private final Artifact sourceFile;
   private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -143,7 +144,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final boolean shouldScanIncludes;
   private final boolean usePic;
   private final boolean useHeaderModules;
-  protected final boolean needsIncludeValidation;
+  final boolean needsIncludeValidation;
 
   private final CcCompilationContext ccCompilationContext;
   private final ImmutableList<Artifact> builtinIncludeFiles;
@@ -174,6 +175,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
 
+  // TODO(b/213594908): Make CppCompileAction immutable.
   /**
    * Set when the action prepares for execution. Used to preserve state between preparation and
    * execution.
@@ -454,8 +456,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             createFailureDetail("Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
       }
     } catch (ExecException e) {
-      throw e.toActionExecutionException("include scanning", this);
+      throw ActionExecutionException.fromExecException(e, "include scanning", this);
     }
+  }
+
+  // TODO(b/213594908): Remove this method from Action interface once CppCompileAction is immutable.
+  @Override
+  public void prepareInputDiscovery() {
+    // Make sure to clear the additional inputs potentially left over from an old build (in case we
+    // ran discoverInputs, but not beginExecution).
+    clearAdditionalInputs();
   }
 
   /**
@@ -895,7 +905,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return executionInfo;
+    return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
   private boolean validateInclude(
@@ -1814,7 +1824,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
-        throw e.toActionExecutionException(CppCompileAction.this);
+        throw ActionExecutionException.fromExecException(e, CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
         throw e;
@@ -1892,9 +1902,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             }
           }
         } catch (IOException e) {
-          throw new EnvironmentalExecException(
-                  e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE))
-              .toActionExecutionException(CppCompileAction.this);
+          throw ActionExecutionException.fromExecException(
+              new EnvironmentalExecException(
+                  e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE)),
+              CppCompileAction.this);
         }
       }
     }

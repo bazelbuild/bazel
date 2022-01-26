@@ -87,15 +87,17 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public void actionCacheHit(ActionCachedContext context) {
+  public boolean actionCacheHit(ActionCachedContext context) {
     notifyAboutBaselineCoverage(context.getEventHandler());
+    return true;
   }
 
   /** Notify interested parties about new baseline coverage data. */
-  private void notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
+  private boolean notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
     Artifact output = Iterables.getOnlyElement(getOutputs());
     String ownerString = Label.print(getOwner().getLabel());
     eventHandler.post(new BaselineCoverageResult(output, ownerString));
+    return true;
   }
 
   /**

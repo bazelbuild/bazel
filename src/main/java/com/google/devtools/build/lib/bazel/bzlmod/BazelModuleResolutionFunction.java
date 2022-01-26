@@ -150,7 +150,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       }
     }
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-        extensionUsagesTableBuilder.build();
+        extensionUsagesTableBuilder.buildOrThrow();
 
     // Calculate a unique name for each used extension id.
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
@@ -173,11 +173,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
         extensionUsagesById,
         ImmutableMap.copyOf(extensionUniqueNames.inverse()));
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   static class BazelModuleResolutionFunctionException extends SkyFunctionException {

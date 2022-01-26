@@ -209,11 +209,6 @@ public final class FilesetEntryFunction implements SkyFunction {
     }
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /**
    * Returns the {@link TraversalRequest} node used to compute the Skyframe value for {@code
    * filesetEntryKey}. Should only be called to determine which nodes need to be rewound, and only

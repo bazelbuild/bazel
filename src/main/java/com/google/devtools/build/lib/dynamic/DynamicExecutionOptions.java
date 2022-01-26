@@ -54,6 +54,16 @@ public class DynamicExecutionOptions extends OptionsBase {
   public boolean internalSpawnScheduler;
 
   @Option(
+      name = "experimental_dynamic_execution_cpu_limited",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "Deprecated. Use --experimental_dynamic_local_load_factor instead, with the values"
+              + " 0 for false and 1 for true, or with a value in between.")
+  public boolean cpuLimited;
+
+  @Option(
       name = "dynamic_local_strategy",
       converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -136,4 +146,34 @@ public class DynamicExecutionOptions extends OptionsBase {
           "If set, dynamic execution is turned off until there has been at least one successful"
               + " build.")
   public boolean skipFirstBuild;
+
+  @Option(
+      name = "experimental_dynamic_slow_remote_time",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "0",
+      help =
+          "If >0, the number of seconds a dynamically run action must run remote-only before we"
+              + " prioritize its local execution to avoid remote timeouts."
+              + " This may hide some problems on the remote execution system. Do not turn this on"
+              + " without monitoring of remote execution issues.")
+  public int slowRemoteTime;
+
+  @Option(
+      name = "experimental_dynamic_local_load_factor",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "0",
+      help =
+          "Controls how much load from dynamic execution to put on the local machine."
+              + " This flag adjusts how many actions in dynamic execution we will schedule"
+              + " concurrently. It is based on the number of CPUs Blaze thinks is available,"
+              + " which can be controlled with the --local_cpu_resources flag."
+              + "\nIf this flag is 0, all actions are scheduled locally immediately. If > 0,"
+              + " the amount of actions scheduled locally is limited by the number of CPUs"
+              + " available. If < 1, the load factor is used to reduce the number of locally"
+              + " scheduled actions when the number of actions waiting to schedule is high."
+              + " This lessens the load on the local machine in the clean build case, where"
+              + " the local machine does not contribute much.")
+  public double localLoadFactor;
 }

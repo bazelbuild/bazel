@@ -30,27 +30,34 @@ public class NonSkyframeGlobber implements Globber {
   public static class Token extends Globber.Token {
     private final List<String> includes;
     private final List<String> excludes;
-    private final boolean excludeDirs;
+    private final Globber.Operation globberOperation;
     private final boolean allowEmpty;
 
     private Token(
-        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty) {
+        List<String> includes,
+        List<String> excludes,
+        Globber.Operation globberOperation,
+        boolean allowEmpty) {
       this.includes = includes;
       this.excludes = excludes;
-      this.excludeDirs = excludeDirs;
+      this.globberOperation = globberOperation;
       this.allowEmpty = allowEmpty;
     }
   }
 
   @Override
   public Token runAsync(
-      List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
+      List<String> includes,
+      List<String> excludes,
+      Globber.Operation globberOperation,
+      boolean allowEmpty)
       throws BadGlobException {
+
     for (String pattern : includes) {
       @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, excludeDirs);
+      Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, globberOperation);
     }
-    return new Token(includes, excludes, excludeDirs, allowEmpty);
+    return new Token(includes, excludes, globberOperation, allowEmpty);
   }
 
   @Override
@@ -58,10 +65,7 @@ public class NonSkyframeGlobber implements Globber {
       throws BadGlobException, IOException, InterruptedException {
     Token ourToken = (Token) token;
     return globCache.globUnsorted(
-        ourToken.includes,
-        ourToken.excludes,
-        ourToken.excludeDirs,
-        ourToken.allowEmpty);
+        ourToken.includes, ourToken.excludes, ourToken.globberOperation, ourToken.allowEmpty);
   }
 
   @Override

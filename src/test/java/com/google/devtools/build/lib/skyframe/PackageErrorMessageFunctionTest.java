@@ -70,7 +70,7 @@ public class PackageErrorMessageFunctionTest extends BuildViewTestCase {
             .setEventHandler(reporter)
             .build();
     EvaluationResult<SkyValue> result =
-        skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+        skyframeExecutor.getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     SkyValue value = result.get(key);
     assertThat(value).isInstanceOf(PackageErrorMessageValue.class);

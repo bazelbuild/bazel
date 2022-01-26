@@ -109,21 +109,6 @@ public class CommandLines {
     return expand(artifactExpander, paramFileBasePath, limits, PARAM_FILE_ARG_LENGTH_ESTIMATE);
   }
 
-  /**
-   * Returns all arguments, including ones inside of param files.
-   *
-   * <p>Suitable for debugging and printing messages to users. This expands all command lines, so it
-   * is potentially expensive.
-   */
-  public ImmutableList<String> allArguments()
-      throws CommandLineExpansionException, InterruptedException {
-    ImmutableList.Builder<String> arguments = ImmutableList.builder();
-    for (CommandLineAndParamFileInfo pair : getCommandLines()) {
-      arguments.addAll(pair.commandLine.arguments());
-    }
-    return arguments.build();
-  }
-
   @VisibleForTesting
   ExpandedCommandLines expand(
       ArtifactExpander artifactExpander,
@@ -199,6 +184,21 @@ public class CommandLines {
       }
     }
     return new ExpandedCommandLines(arguments.build(), paramFiles);
+  }
+
+  /**
+   * Returns all arguments, including ones inside of param files.
+   *
+   * <p>Suitable for debugging and printing messages to users. This expands all command lines, so it
+   * is potentially expensive.
+   */
+  public ImmutableList<String> allArguments()
+      throws CommandLineExpansionException, InterruptedException {
+    ImmutableList.Builder<String> arguments = ImmutableList.builder();
+    for (CommandLineAndParamFileInfo pair : getCommandLines()) {
+      arguments.addAll(pair.commandLine.arguments());
+    }
+    return arguments.build();
   }
 
   public void addToFingerprint(

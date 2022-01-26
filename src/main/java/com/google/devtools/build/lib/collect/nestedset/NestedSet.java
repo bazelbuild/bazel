@@ -682,6 +682,16 @@ public final class NestedSet<E> {
   private int walk(
       CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children, int pos) {
     for (Object child : children) {
+      if (pos < 0) {
+        // TODO(b/176077765): remove when diagnosed.
+        throw new IllegalStateException(
+            "Negative position "
+                + pos
+                + " with memo length "
+                + memo.length
+                + " and child length "
+                + children.length);
+      }
       if ((pos >> 3) >= memo.length) {
         memo = Arrays.copyOf(memo, memo.length * 2);
       }

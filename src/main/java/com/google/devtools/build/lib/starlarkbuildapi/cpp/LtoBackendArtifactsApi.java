@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -39,6 +40,11 @@ public interface LtoBackendArtifactsApi<FileT extends FileApi> extends StarlarkV
   @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
   FileT getObjectFileForStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "dwo_file", documented = false, useStarlarkThread = true)
+  @StarlarkMethod(
+      name = "dwo_file",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
   FileT getDwoFileForStarlark(StarlarkThread thread) throws EvalException;
 }

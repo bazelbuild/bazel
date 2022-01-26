@@ -25,7 +25,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//third_party:guava",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

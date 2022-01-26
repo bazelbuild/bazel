@@ -326,7 +326,7 @@ public class NinjaActionsHelper {
     ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
     builder.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
     builder.put("local", "");
-    ImmutableSortedMap<String, String> map = builder.build();
+    ImmutableSortedMap<String, String> map = builder.buildOrThrow();
     Preconditions.checkNotNull(ruleContext.getConfiguration())
         .modifyExecutionInfo(map, "NinjaRule");
     return map;

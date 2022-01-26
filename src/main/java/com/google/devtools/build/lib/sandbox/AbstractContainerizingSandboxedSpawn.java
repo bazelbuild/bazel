@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -115,7 +113,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
 
     // Finally create what needs creating.
-    createDirectories(dirsToCreate);
+    SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict=*/ true);
     createInputs(inputsToCreate, inputs);
     inputs.materializeVirtualInputs(sandboxExecRoot);
   }
@@ -123,45 +121,6 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   protected void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
       throws IOException {}
-
-  /**
-   * Creates all directories needed for the sandbox.
-   *
-   * <p>No input can be a child of another input, because otherwise we might try to create a symlink
-   * below another symlink we created earlier - which means we'd actually end up writing somewhere
-   * in the workspace.
-   *
-   * <p>If all inputs were regular files, this situation could naturally not happen - but
-   * unfortunately, we might get the occasional action that has directories in its inputs.
-   *
-   * <p>Creating all parent directories first ensures that we can safely create symlinks to
-   * directories, too, because we'll get an IOException with EEXIST if inputs happen to be nested
-   * once we start creating the symlinks for all inputs.
-   */
-  void createDirectories(Iterable<PathFragment> dirsToCreate) throws IOException {
-    Set<Path> knownDirectories = new HashSet<>();
-    // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
-    // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
-    // createDirectoryAndParentsInSandboxRoot.
-    knownDirectories.add(sandboxExecRoot);
-    knownDirectories.add(sandboxExecRoot.getParentDirectory());
-
-    for (PathFragment path : dirsToCreate) {
-      Preconditions.checkArgument(!path.isAbsolute(), path);
-      if (path.containsUplevelReferences() && path.isMultiSegment()) {
-        // Allow a single up-level reference to allow inputs from the siblings of the main
-        // repository in the sandbox execution root, but forbid multiple up-level references.
-        // PathFragment is normalized, so up-level references are guaranteed to be at the beginning.
-        Preconditions.checkArgument(
-            !PathFragment.containsUplevelReferences(path.getSegment(1)),
-            "%s escapes the sandbox exec root.",
-            path);
-      }
-
-      SandboxHelpers.createDirectoryAndParentsInSandboxRoot(
-          sandboxExecRoot.getRelative(path), knownDirectories, sandboxExecRoot);
-    }
-  }
 
   /**
    * Creates all inputs needed for this spawn's sandbox.

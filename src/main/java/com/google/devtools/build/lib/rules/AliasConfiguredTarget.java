@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
@@ -66,15 +67,23 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
       ConfiguredTarget actual,
       NestedSet<PackageGroupContents> visibility,
       ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides) {
+    ImmutableClassToInstanceMap.Builder<TransitiveInfoProvider> allOverrides =
+        ImmutableClassToInstanceMap.<TransitiveInfoProvider>builder()
+            .putAll(overrides)
+            .put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getRule(), actual))
+            .put(VisibilityProvider.class, new VisibilityProviderImpl(visibility));
+    if (ruleContext.getRequiredConfigFragments() != null) {
+      // This causes "blaze cquery --show_config_fragments=direct" to only show the
+      // fragments/options the alias directly uses, not those of its actual target. Since alias
+      // has a narrow API this practically means whatever a select() in the alias requires.
+      allOverrides.put(
+          RequiredConfigFragmentsProvider.class, ruleContext.getRequiredConfigFragments());
+    }
     return new AliasConfiguredTarget(
         ruleContext.getLabel(),
         ruleContext.getConfigurationKey(),
         actual,
-        ImmutableClassToInstanceMap.<TransitiveInfoProvider>builder()
-            .put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getRule(), actual))
-            .put(VisibilityProvider.class, new VisibilityProviderImpl(visibility))
-            .putAll(overrides)
-            .build(),
+        allOverrides.build(),
         ruleContext.getConfigConditions());
   }
 

@@ -220,11 +220,13 @@ public final class AnalysisPhaseRunner {
             multiCpu,
             explicitTargetPatterns,
             request.getAspects(),
+            request.getAspectsParameters(),
             request.getViewOptions(),
             request.getKeepGoing(),
             request.getCheckForActionConflicts(),
             request.getLoadingPhaseThreadCount(),
             request.getTopLevelArtifactContext(),
+            request.reportIncompatibleTargets(),
             env.getReporter(),
             env.getEventBus(),
             /*includeExecutionPhase=*/ false,
@@ -239,7 +241,7 @@ public final class AnalysisPhaseRunner {
                 view.getEvaluatedActionsCounts(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
-                env.getSkyframeExecutor().wasAnalysisCacheDiscardedAndResetBit()));
+                env.getSkyframeExecutor().wasAnalysisCacheInvalidatedAndResetBit()));
     ImmutableSet<BuildConfigurationKey> configurationKeys =
         Stream.concat(
                 analysisResult.getTargetsToBuild().stream()

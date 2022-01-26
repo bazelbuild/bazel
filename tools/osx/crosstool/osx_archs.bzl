@@ -21,6 +21,7 @@ OSX_TOOLS_NON_DEVICE_ARCHS = [
     "ios_i386",
     "ios_x86_64",
     "ios_sim_arm64",
+    "watchos_arm64",
     "watchos_i386",
     "watchos_x86_64",
     "tvos_x86_64",

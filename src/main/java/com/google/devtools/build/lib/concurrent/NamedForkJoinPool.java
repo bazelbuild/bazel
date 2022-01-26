@@ -28,6 +28,13 @@ public class NamedForkJoinPool extends ForkJoinPool {
         /*asyncMode=*/ false);
   }
 
+  /**
+   * Creates a new NamedForkJoinPool.
+   *
+   * @param name A string identifying the pool. This string must not contain any formatting
+   *     parameters.
+   * @param numThreads The maximum number of threads to create, see {@link ForkJoinPool}.
+   */
   public static NamedForkJoinPool newNamedPool(String name, int numThreads) {
     return new NamedForkJoinPool(name, numThreads);
   }

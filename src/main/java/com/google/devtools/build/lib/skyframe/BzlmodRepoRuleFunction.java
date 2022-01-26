@@ -290,13 +290,6 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
         bzlmodFile, ruleClassProvider.getRunfilesPrefix(), semantics);
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    // default behaviour
-    return null;
-  }
-
   private static final class BzlmodRepoRuleFunctionException extends SkyFunctionException {
 
     BzlmodRepoRuleFunctionException(InvalidRuleException e, Transience transience) {

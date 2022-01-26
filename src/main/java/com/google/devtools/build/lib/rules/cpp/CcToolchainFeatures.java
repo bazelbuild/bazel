@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -38,10 +39,10 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueP
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,6 +51,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -91,10 +93,6 @@ public class CcToolchainFeatures {
       super(message);
     }
   }
-
-  /** Error message thrown when a toolchain does not provide a required artifact_name_pattern. */
-  public static final String MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE =
-      "Toolchain must provide artifact_name_pattern for category %s";
 
   /** Error message thrown when a toolchain enables two features that provide the same string. */
   public static final String COLLIDING_PROVIDES_ERROR =
@@ -1188,62 +1186,73 @@ public class CcToolchainFeatures {
 
   /** A description of how artifacts of a certain type are named. */
   @Immutable
-  public static class ArtifactNamePattern {
-
-    private final ArtifactCategory artifactCategory;
+  static class ArtifactNamePattern {
     private final String prefix;
     private final String extension;
 
-    ArtifactNamePattern(CToolchain.ArtifactNamePattern artifactNamePattern) throws EvalException {
-
-      ArtifactCategory foundCategory = null;
-      for (ArtifactCategory artifactCategory : ArtifactCategory.values()) {
-        if (artifactNamePattern.getCategoryName().equals(artifactCategory.getCategoryName())) {
-          foundCategory = artifactCategory;
-        }
-      }
-      if (foundCategory == null) {
-        throw Starlark.errorf(
-            "Invalid toolchain configuration: Artifact category %s not recognized",
-            artifactNamePattern.getCategoryName());
-      }
-
-      String extension = artifactNamePattern.getExtension();
-      if (!foundCategory.getAllowedExtensions().contains(extension)) {
-        throw Starlark.errorf(
-            "Unrecognized file extension '%s', allowed extensions are %s,"
-                + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
-            extension,
-            StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
-            foundCategory.getCategoryName());
-      }
-      this.artifactCategory = foundCategory;
-      this.prefix = artifactNamePattern.getPrefix();
-      this.extension = artifactNamePattern.getExtension();
-    }
-
-    public ArtifactNamePattern(ArtifactCategory artifactCategory, String prefix, String extension) {
-      this.artifactCategory = artifactCategory;
+    private ArtifactNamePattern(String prefix, String extension) {
       this.prefix = prefix;
       this.extension = extension;
     }
 
-    /** Returns the ArtifactCategory for this ArtifactNamePattern. */
-    ArtifactCategory getArtifactCategory() {
-      return this.artifactCategory;
-    }
-
-    public String getPrefix() {
+    String getPrefix() {
       return this.prefix;
     }
 
-    public String getExtension() {
+    String getExtension() {
       return this.extension;
     }
 
     /** Returns the artifact name that this pattern selects. */
-    public String getArtifactName(String baseName) {
+    private String getArtifactName(String baseName) {
       return prefix + baseName + extension;
+    }
+  }
+
+  static final class ArtifactNamePatternMapper {
+    private static final ImmutableMap<ArtifactCategory, ArtifactNamePattern> DEFAULT_PATTERNS =
+        Arrays.stream(ArtifactCategory.values())
+            .collect(
+                ImmutableMap.toImmutableMap(
+                    Function.identity(),
+                    c -> new ArtifactNamePattern(c.getDefaultPrefix(), c.getDefaultExtension())));
+
+    private final ImmutableMap<ArtifactCategory, ArtifactNamePattern> prefixExtensionOverrides;
+
+    private ArtifactNamePatternMapper(
+        ImmutableMap<ArtifactCategory, ArtifactNamePattern> prefixExtensionOverrides) {
+      this.prefixExtensionOverrides = prefixExtensionOverrides;
+    }
+
+    public ArtifactNamePattern get(ArtifactCategory category) {
+      ArtifactNamePattern result = prefixExtensionOverrides.get(category);
+      return result != null ? result : DEFAULT_PATTERNS.get(category);
+    }
+
+    public ImmutableMap<ArtifactCategory, ArtifactNamePattern> asImmutableMap() {
+      // Don't have ImmutableMap.Builder#buildKeepingLast in open-source yet.
+      return ImmutableMap.<ArtifactCategory, ArtifactNamePattern>builderWithExpectedSize(
+              DEFAULT_PATTERNS.size())
+          .putAll(prefixExtensionOverrides)
+          .putAll(Maps.filterKeys(DEFAULT_PATTERNS, k -> !prefixExtensionOverrides.containsKey(k)))
+          .buildOrThrow();
+    }
+
+    static class Builder {
+      private final ImmutableMap.Builder<ArtifactCategory, ArtifactNamePattern> overrides =
+          ImmutableMap.builder();
+
+      Builder addOverride(ArtifactCategory category, String prefix, String extension) {
+        if (!category.getDefaultPrefix().equals(prefix)
+            || !category.getDefaultExtension().equals(extension)) {
+          overrides.put(category, new ArtifactNamePattern(prefix, extension));
+        }
+        return this;
+      }
+
+      ArtifactNamePatternMapper build() {
+        return new ArtifactNamePatternMapper(overrides.buildOrThrow());
+      }
     }
   }
 
@@ -1447,8 +1456,7 @@ public class CcToolchainFeatures {
     }
   }
 
-  /** All artifact name patterns defined in this feature configuration. */
-  private final ImmutableList<ArtifactNamePattern> artifactNamePatterns;
+  private final ArtifactNamePatternMapper artifactNamePatterns;
 
   /**
    * All features and action configs in the order in which they were specified in the configuration.
@@ -1737,55 +1745,19 @@ public class CcToolchainFeatures {
 
   /**
    * Returns the artifact selected by the toolchain for the given action type and action category.
-   *
-   * @throws EvalException if the category is not supported by the action config.
    */
-  String getArtifactNameForCategory(ArtifactCategory artifactCategory, String outputName)
-      throws EvalException {
+  String getArtifactNameForCategory(ArtifactCategory artifactCategory, String outputName) {
     PathFragment output = PathFragment.create(outputName);
-
-    ArtifactNamePattern patternForCategory = null;
-    for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
-      if (artifactNamePattern.getArtifactCategory() == artifactCategory) {
-        patternForCategory = artifactNamePattern;
-      }
-    }
-    if (patternForCategory == null) {
-      throw Starlark.errorf(
-          MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName());
-    }
-
-    return output.getParentDirectory()
-        .getChild(patternForCategory.getArtifactName(output.getBaseName())).getPathString();
+    return output
+        .getParentDirectory()
+        .getChild(artifactNamePatterns.get(artifactCategory).getArtifactName(output.getBaseName()))
+        .getPathString();
   }
 
   /**
    * Returns the artifact name extension selected by the toolchain for the given artifact category.
-   *
-   * @throws EvalException if the category is not supported by the action config.
    */
-  String getArtifactNameExtensionForCategory(ArtifactCategory artifactCategory)
-      throws EvalException {
-    ArtifactNamePattern patternForCategory = null;
-    for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
-      if (artifactNamePattern.getArtifactCategory() == artifactCategory) {
-        patternForCategory = artifactNamePattern;
-      }
-    }
-    if (patternForCategory == null) {
-      throw Starlark.errorf(
-          MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName());
-    }
-    return patternForCategory.getExtension();
-  }
-
-  /** Returns true if the toolchain defines an ArtifactNamePattern for the given category. */
-  boolean hasPatternForArtifactCategory(ArtifactCategory artifactCategory) {
-    for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
-      if (artifactNamePattern.getArtifactCategory() == artifactCategory) {
-        return true;
-      }
-    }
-    return false;
+  String getArtifactNameExtensionForCategory(ArtifactCategory artifactCategory) {
+    return artifactNamePatterns.get(artifactCategory).getExtension();
   }
 }

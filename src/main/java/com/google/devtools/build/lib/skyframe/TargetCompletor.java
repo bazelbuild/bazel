@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -137,6 +138,15 @@ class TargetCompletor
           artifactsToBuild.getAllArtifactsByOutputGroup(),
           skyframeActionExecutor.publishTargetSummaries());
     } else {
+      if (target instanceof InputFileConfiguredTarget) {
+        env.getListener()
+            .handle(
+                Event.warn(
+                    configuredTargetAndData.getTarget().getLocation(),
+                    target.getLabel()
+                        + " is a source file, nothing will be built for it. If you want to build a"
+                        + " target that consumes this file, try --compile_one_dependency"));
+      }
       return TargetCompleteEvent.successfulBuild(
           configuredTargetAndData,
           completionContext,

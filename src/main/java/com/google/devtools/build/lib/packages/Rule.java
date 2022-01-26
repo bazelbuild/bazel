@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -813,7 +814,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   void reportError(String message, EventHandler eventHandler) {
-    eventHandler.handle(Event.error(location, message));
+    eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
     this.containsErrors = true;
   }
 

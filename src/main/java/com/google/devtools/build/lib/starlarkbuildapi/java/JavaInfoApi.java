@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
-
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -110,7 +108,10 @@ public interface JavaInfoApi<
       name = "annotation_processing",
       structField = true,
       allowReturnNones = true,
-      doc = "Returns information about annotation processing for this Java/Java-like target.")
+      doc =
+          "Returns information about annotation processors applied on this Java/Java-like target."
+              + "<p>Deprecated: Please use <code>plugins</code> instead (which returns information "
+              + "about annotation processors to be applied by consuming targets).")
   @Nullable
   JavaAnnotationProcessingApi<?> getGenJarsProvider();
 
@@ -153,13 +154,6 @@ public interface JavaInfoApi<
               + " transitive dependencies.",
       structField = true)
   Depset /*<FileT>*/ getTransitiveSourceJars();
-
-  @StarlarkMethod(
-      name = "transitive_exports",
-      structField = true,
-      enableOnlyWithFlag = INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER,
-      doc = "Returns a set of labels that are being exported from this rule transitively.")
-  Depset /*<Label>*/ getTransitiveExports();
 
   @StarlarkMethod(
       name = "transitive_native_libraries",

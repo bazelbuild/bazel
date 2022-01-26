@@ -57,7 +57,10 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setUpMocks() throws Exception {
-    useConfiguration("--proto_compiler=//proto:compiler");
+    useConfiguration(
+        "--proto_compiler=//proto:compiler",
+        "--proto_toolchain_for_javalite=//tools/proto/toolchains:javalite");
+
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
     mockToolchains();
@@ -265,7 +268,10 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "    mnemonics = ['Javac'],",
         "    extra_actions = [':xa'])");
 
-    useConfiguration("--experimental_action_listener=//xa:al", "--proto_compiler=//proto:compiler");
+    useConfiguration(
+        "--experimental_action_listener=//xa:al",
+        "--proto_compiler=//proto:compiler",
+        "--proto_toolchain_for_javalite=//tools/proto/toolchains:javalite");
     ConfiguredTarget ct = getConfiguredTarget("//x:lite_pb2");
     NestedSet<DerivedArtifact> artifacts =
         ct.getProvider(ExtraActionArtifactsProvider.class).getTransitiveExtraActionArtifacts();

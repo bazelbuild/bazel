@@ -510,6 +510,7 @@ class ArtifactFunction implements SkyFunction {
       ActionTemplateExpansionValue.ActionTemplateExpansionKey key =
           ActionTemplateExpansionValue.key(
               artifact.getArtifactOwner(), artifact.getGeneratingActionKey().getActionIndex());
+      // This call may throw an ActionExecutionFunction that bubbles up.
       ActionTemplateExpansionValue value = (ActionTemplateExpansionValue) env.getValue(key);
       return value == null ? null : new ActionTemplateExpansion(value);
     }

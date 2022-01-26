@@ -24,11 +24,8 @@ import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * Uniquely identifies a package, given a repository name and a package's path fragment.
- *
- * <p>The repository the build is happening in is the <i>default workspace</i>, and is identified by
- * the workspace name "". Other repositories can be named in the WORKSPACE file. These workspaces
- * are prefixed by {@literal @}.
+ * Uniquely identifies a package. Contains the (canonical) name of the repository this package lives
+ * in, and the package's path fragment.
  */
 @AutoCodec
 @Immutable
@@ -114,44 +111,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
-    return parse(input, /* repo= */ null, /* repositoryMapping= */ null);
-  }
-
-  public static PackageIdentifier parse(
-      String input, String repo, RepositoryMapping repositoryMapping) throws LabelSyntaxException {
-    String packageName;
-    int packageStartPos = input.indexOf("//");
-    if (repo != null) {
-      packageName = input;
-    } else if (input.startsWith("@") && packageStartPos > 0) {
-      repo = input.substring(0, packageStartPos);
-      packageName = input.substring(packageStartPos + 2);
-    } else if (input.startsWith("@")) {
-      throw new LabelSyntaxException("starts with a '@' but does not contain '//'");
-    } else if (packageStartPos == 0) {
-      repo = RepositoryName.DEFAULT_REPOSITORY;
-      packageName = input.substring(2);
-    } else {
-      repo = RepositoryName.DEFAULT_REPOSITORY;
-      packageName = input;
+    if (input.contains(":")) {
+      throw LabelParser.syntaxErrorf("invalid package identifier '%s': contains ':'", input);
     }
-
-    String error = RepositoryName.validate(repo);
-    if (error != null) {
-      throw new LabelSyntaxException(error);
-    }
-
-    error = LabelValidator.validatePackageName(packageName);
-    if (error != null) {
-      throw new LabelSyntaxException(error);
-    }
-
-    if (repositoryMapping == null) {
-      return create(repo, PathFragment.create(packageName));
-    }
-
-    return create(
-        repositoryMapping.get(RepositoryName.create(repo)), PathFragment.create(packageName));
+    LabelParser.Parts parts = LabelParser.Parts.parse(input + ":dummy_target");
+    RepositoryName repoName =
+        parts.repo == null
+            ? RepositoryName.MAIN
+            : RepositoryName.createFromValidStrippedName(parts.repo);
+    return create(repoName, PathFragment.create(parts.pkg));
   }
 
   public RepositoryName getRepository() {
@@ -175,8 +143,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
    * this is in the main repository or siblingRepositoryLayout is true. Otherwise, returns
    * external/[repository name]/[pkgName].
    */
+  // TODO(bazel-team): Rename getDerivedArtifactPath or similar.
   public PathFragment getPackagePath(boolean siblingRepositoryLayout) {
-    return repository.isDefault() || repository.isMain() || siblingRepositoryLayout
+    return repository.isMain() || siblingRepositoryLayout
         ? pkgName
         : LabelConstants.EXTERNAL_PATH_PREFIX
             .getRelative(repository.strippedName())
@@ -195,30 +164,28 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     return repository.getRunfilesPath().getRelative(pkgName);
   }
 
-  public PackageIdentifier makeAbsolute() {
-    if (!repository.isDefault()) {
-      return this;
-    }
-
-    return create(RepositoryName.MAIN, pkgName);
-  }
-
-  /** Returns the package in label syntax format. */
+  /**
+   * Returns the package in label syntax format.
+   *
+   * <p>Packages in the main repo are formatted without a repo qualifier.
+   */
+  // TODO(bazel-team): Maybe rename to "getDefaultForm"?
   public String getCanonicalForm() {
     String repository = getRepository().getCanonicalForm();
     return repository + "//" + getPackageFragment();
   }
 
   /**
-   * Returns the name of this package.
+   * Returns the package path, possibly qualified with a repository name.
    *
-   * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
-   * package identifier. This isn't specific enough for packages in other repositories, so their
-   * stringified version is '@baz//foo/bar'.
+   * <p>Packages that live in the main repo are stringified without a "@" qualifier or "//"
+   * separator (e.g. "foo/bar"). All other packages include these (e.g. "@repo//foo/bar").
    */
+  // TODO(bazel-team): The absence of "//" for the main repo seems strange. Can we eliminate
+  // that disparity?
   @Override
   public String toString() {
-    return (repository.isDefault() || repository.isMain() ? "" : repository + "//") + pkgName;
+    return (repository.isMain() ? "" : repository + "//") + pkgName;
   }
 
   @Override

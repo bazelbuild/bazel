@@ -54,7 +54,8 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
         (BuildTopLevelAspectsDetailsValue)
             env.getValue(
                 BuildTopLevelAspectsDetailsKey.create(
-                    topLevelAspectsKey.getTopLevelAspectsClasses()));
+                    topLevelAspectsKey.getTopLevelAspectsClasses(),
+                    topLevelAspectsKey.getTopLevelAspectsParameters()));
     if (topLevelAspectsDetails == null) {
       return null; // some aspects details are not ready
     }
@@ -70,12 +71,6 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
     }
 
     return new TopLevelAspectsValue(result.values());
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   private static Collection<AspectKey> getTopLevelAspectsKeys(

@@ -146,6 +146,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -161,9 +162,9 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -305,16 +306,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
     pkgFactory = pkgFactoryBuilder.build(ruleClassProvider, fileSystem);
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
-    skyframeExecutor =
+    SequencedSkyframeExecutor.Builder builder =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
-            .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setManagedDirectoriesKnowledge(getManagedDirectoriesKnowledge())
-            .build();
+            .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories));
+    ManagedDirectoriesKnowledge managedDirectoriesKnowledge = getManagedDirectoriesKnowledge();
+    if (managedDirectoriesKnowledge != null) {
+      builder.setRepositoryHelpersHolder(
+          SkyframeExecutorRepositoryHelpersHolder.create(
+              managedDirectoriesKnowledge,
+              new RepositoryDirectoryDirtinessChecker(
+                  directories.getWorkspace(), managedDirectoriesKnowledge)));
+    }
+    skyframeExecutor = builder.build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, pkgFactory, directories);
     }
@@ -347,8 +355,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       PackageFactory packageFactory,
       BlazeDirectories directories) {
     ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
-        ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting())
-            .getSkyFunctionsForTesting();
+        ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator()).getSkyFunctionsForTesting();
     BzlLoadFunction bzlLoadFunction =
         BzlLoadFunction.createForInlining(
             packageFactory,
@@ -1020,8 +1027,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue config) {
     try {
-      return view.getConfiguredTargetForTesting(
-          reporter, BlazeTestUtils.convertLabel(label), config);
+      return view.getConfiguredTargetForTesting(reporter, label, config);
     } catch (InvalidConfigurationException
         | StarlarkTransition.TransitionException
         | InterruptedException e) {
@@ -1097,7 +1103,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfiguredAspect getAspect(String label) throws Exception {
     AspectValue aspect =
         (AspectValue)
-            skyframeExecutor.getEvaluatorForTesting().getDoneValues().entrySet().stream()
+            skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
                 .filter(
                     entry ->
                         entry.getKey() instanceof AspectKey
@@ -1394,7 +1400,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if ((owner instanceof ActionLookupKey)) {
       SkyValue skyValue;
       try {
-        skyValue = skyframeExecutor.getEvaluatorForTesting().getExistingValue((SkyKey) owner);
+        skyValue = skyframeExecutor.getEvaluator().getExistingValue((SkyKey) owner);
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
@@ -2041,6 +2047,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         /* multiCpu= */ ImmutableSet.of(),
         /*explicitTargetPatterns=*/ ImmutableSet.of(),
         aspects,
+        /*aspectsParameters=*/ ImmutableMap.of(),
         viewOptions,
         keepGoing,
         loadingPhaseThreads,

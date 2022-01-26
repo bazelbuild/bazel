@@ -31,7 +31,6 @@ def _create_context_and_provider(
         runtime_deps,
         linkopts):
     objc_providers = []
-    cc_compilation_contexts_for_direct_fields = []
     cc_linking_contexts = []
     cc_compilation_contexts = []
     cc_linkstamp_contexts = []
@@ -39,9 +38,6 @@ def _create_context_and_provider(
         if apple_common.Objc in dep:
             objc_providers.append(dep[apple_common.Objc])
         elif CcInfo in dep:
-            # This is the way we inject cc_library attributes into direct fields.
-            cc_compilation_contexts_for_direct_fields.append(dep[CcInfo].compilation_context)
-
             # We only use CcInfo's linking info if there is no ObjcProvider.
             # This is required so that objc_library archives do not get treated
             # as if they are from cc targets.
@@ -71,7 +67,6 @@ def _create_context_and_provider(
     ]
     objc_provider_kwargs = {
         "imported_library": [depset(direct = extra_import_libraries, order = "topological")],
-        "header": [],
         "weak_sdk_framework": [],
         "sdk_dylib": [],
         "linkopt": [],
@@ -95,9 +90,6 @@ def _create_context_and_provider(
         "defines": [],
         "includes": [],
     }
-
-    for header_provider in cc_compilation_contexts_for_direct_fields:
-        objc_provider_kwargs["header"].extend(header_provider.headers.to_list())
 
     for link_provider in cc_linking_contexts:
         link_opts = []
@@ -134,13 +126,10 @@ def _create_context_and_provider(
             compilation_attributes.weak_sdk_frameworks.to_list(),
         )
         objc_provider_kwargs["sdk_dylib"].extend(compilation_attributes.sdk_dylibs.to_list())
-        hdrs = compilation_attributes.hdrs.to_list()
-        objc_provider_kwargs["header"].extend(hdrs)
-        textual_hdrs = compilation_attributes.textual_hdrs.to_list()
-        objc_provider_kwargs["header"].extend(textual_hdrs)
-
-        objc_compilation_context_kwargs["public_hdrs"].extend(hdrs)
-        objc_compilation_context_kwargs["public_textual_hdrs"].extend(textual_hdrs)
+        objc_compilation_context_kwargs["public_hdrs"].extend(compilation_attributes.hdrs.to_list())
+        objc_compilation_context_kwargs["public_textual_hdrs"].extend(
+            compilation_attributes.textual_hdrs.to_list(),
+        )
         objc_compilation_context_kwargs["defines"].extend(compilation_attributes.defines)
         objc_compilation_context_kwargs["includes"].extend(
             compilation_attributes.header_search_paths(
@@ -160,7 +149,6 @@ def _create_context_and_provider(
                 depset([compilation_artifacts.archive], order = "topological"),
             ]
         objc_provider_kwargs["source"].extend(all_sources)
-        objc_provider_kwargs["header"].extend(compilation_artifacts.additional_hdrs.to_list())
 
         objc_compilation_context_kwargs["public_hdrs"].extend(
             compilation_artifacts.additional_hdrs.to_list(),

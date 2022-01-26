@@ -191,7 +191,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
   private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
-  private final RetainedHeapLimiter retainedHeapLimiter;
   @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
   private final Supplier<Downloader> downloaderSupplier;
 
@@ -243,7 +242,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.queryOutputFormatters = queryOutputFormatters;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
     this.bugReporter = bugReporter;
-    retainedHeapLimiter = RetainedHeapLimiter.create(bugReporter);
 
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(commandMap));
@@ -522,10 +520,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return queryRuntimeHelperFactory;
   }
 
-  RetainedHeapLimiter getRetainedHeapLimiter() {
-    return retainedHeapLimiter;
-  }
-
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
@@ -557,6 +551,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
+      if (workspace == null) {
+        return; // A crash during server startup.
+      }
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
       if (eventBus != null) {
         workspace
@@ -947,7 +944,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     try {
       logger.atInfo().log(
-          SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
+          "%s", SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
       BlazeCommandResult result =
           dispatcher.exec(
               policy,

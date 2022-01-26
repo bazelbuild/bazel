@@ -29,7 +29,7 @@ if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
 fi
 
-: ${JAVA_VERSION:="1.8"}
+: ${JAVA_VERSION:="11"}
 
 _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \

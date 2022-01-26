@@ -24,6 +24,9 @@ if [ "${PLATFORM}" != "darwin" ]; then
   exit 0
 fi
 
+source "${CURRENT_DIR}/apple_common.sh" \
+  || { echo "apple_common.sh not found!" >&2; exit 1; }
+
 function make_lib() {
   rm -rf ios
   mkdir -p ios
@@ -123,6 +126,7 @@ function test_strip_symbols() {
 
   rm -rf ios
   mkdir -p ios
+  make_starlark_apple_binary_rule_in ios
 
   cat >ios/main.m <<EOF
 #import <UIKit/UIKit.h>
@@ -140,9 +144,10 @@ int addOne(int num) {
 EOF
 
   cat >ios/BUILD <<EOF
-apple_binary(name = 'app',
-             deps = [':main'],
-             platform_type = 'ios')
+load("//ios:starlark_apple_binary.bzl", "starlark_apple_binary")
+starlark_apple_binary(name = 'app',
+                      deps = [':main'],
+                      platform_type = 'ios')
 objc_library(name = 'main',
              non_arc_srcs = ['main.m'])
 EOF
@@ -153,9 +158,9 @@ EOF
       --objc_enable_binary_stripping=true \
       --compilation_mode=opt \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin \
+  ls bazel-out/*/bin/ios/app_lipobin \
     || fail "should generate lipobin (stripped binary)"
-  ! nm bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin | grep addOne \
+  ! nm bazel-out/*/bin/ios/app_lipobin | grep addOne \
     || fail "should fail to find symbol addOne"
 }
 

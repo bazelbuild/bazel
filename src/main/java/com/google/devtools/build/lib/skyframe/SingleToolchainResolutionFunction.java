@@ -294,12 +294,6 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     return mismatchSettingsWithDefault.isEmpty();
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   /** Used to indicate that a toolchain was not found for the current request. */
   public static final class NoToolchainFoundException extends NoSuchThingException {
     private final Label missingToolchainTypeLabel;

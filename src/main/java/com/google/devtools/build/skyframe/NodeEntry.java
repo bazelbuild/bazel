@@ -48,10 +48,10 @@ public interface NodeEntry extends ThinNodeEntry {
     NEEDS_SCHEDULING,
 
     /**
-     * The node was already created, but isn't done yet. The evaluator is responsible for
-     * signaling the reverse dependency node.
+     * The node was already created, but isn't done yet. The evaluator is responsible for signaling
+     * the reverse dependency node.
      */
-    ALREADY_EVALUATING;
+    ALREADY_EVALUATING
   }
 
   /**
@@ -193,13 +193,24 @@ public interface NodeEntry extends ThinNodeEntry {
    * reverse dependencies that are registered at the time of the {@code setValue} call. If b comes
    * in before a, it is signaled (and re-scheduled) by a, otherwise it needs to do that itself.
    *
-   * <p>{@code version} indicates the graph version at which this node is being written. If the
-   * entry determines that the new value is equal to the previous value, the entry will keep its
-   * current version. Callers can query that version to see if the node considers its value to have
-   * changed.
+   * <p>Nodes may elect to use either {@code graphVersion} or {@code maxTransitiveSourceVersion} (if
+   * not {@code null}) for their {@linkplain #getVersion version}. The choice can be distinguished
+   * by calling {@link #getMaxTransitiveSourceVersion} - a return of {@code null} indicates that the
+   * node uses the graph version.
+   *
+   * <p>If the entry determines that the new value is equal to the previous value, the entry may
+   * keep its current version. Callers can query that version to see if the node considers its value
+   * to have changed.
+   *
+   * @param value the new value of this node
+   * @param graphVersion the version of the graph at which this node is being written
+   * @param maxTransitiveSourceVersion the maximal version of this node's dependencies from source,
+   *     or {@code null} if source versions are not being tracked
    */
   @ThreadSafe
-  Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException;
+  Set<SkyKey> setValue(
+      SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
+      throws InterruptedException;
 
   /**
    * Queries if the node is done and adds the given key as a reverse dependency. The return code
@@ -303,11 +314,22 @@ public interface NodeEntry extends ThinNodeEntry {
   @ThreadSafe
   void forceRebuild();
 
-  /**
-   * Gets the current version of this entry.
-   */
+  /** Returns the current version of this node. */
   @ThreadSafe
   Version getVersion();
+
+  /**
+   * Returns the maximal version of this node's dependencies from source.
+   *
+   * <p>This version should only be tracked when non-hermetic functions {@linkplain
+   * SkyFunction.Environment#injectVersionForNonHermeticFunction inject} source versions. Otherwise,
+   * returns {@code null} to signal that source versions are not being tracked.
+   */
+  @ThreadSafe
+  @Nullable
+  default Version getMaxTransitiveSourceVersion() {
+    return null;
+  }
 
   /**
    * Gets the current state of checking this dirty entry to see if it must be re-evaluated. Must be

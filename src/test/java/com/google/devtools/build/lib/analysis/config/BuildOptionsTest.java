@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
@@ -234,7 +235,7 @@ public final class BuildOptionsTest {
                 OptionsChecksumCache.class, new MapBackedChecksumCache()));
     Exception e =
         assertThrows(
-            RuntimeException.class, () -> TestUtils.fromBytes(deserializationContext, bytes));
+            SerializationException.class, () -> TestUtils.fromBytes(deserializationContext, bytes));
     assertThat(e).hasMessageThat().contains(options.checksum());
   }
 

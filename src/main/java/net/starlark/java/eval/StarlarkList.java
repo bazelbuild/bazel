@@ -315,7 +315,8 @@ public final class StarlarkList<E> extends AbstractList<E>
   }
 
   @Override
-  public StarlarkList<E> getSlice(Mutability mu, int start, int stop, int step) {
+  public StarlarkList<E> getSlice(Mutability mu, int start, int stop, int step)
+      throws EvalException {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
     Object[] res = new Object[n];

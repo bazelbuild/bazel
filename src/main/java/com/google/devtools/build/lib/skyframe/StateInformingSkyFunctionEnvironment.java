@@ -27,10 +27,11 @@ import com.google.devtools.build.skyframe.ValueOrException5;
 import com.google.devtools.build.skyframe.Version;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An environment that wraps each call to its delegate by informing injected {@link Informee}s. */
-class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
+final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   private final SkyFunction.Environment delegate;
   private final Informee preFetch;
   private final Informee postFetch;
@@ -149,7 +150,7 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
       throws InterruptedException {
     preFetch.inform();
     try {
-    return delegate.getValues(depKeys);
+      return delegate.getValues(depKeys);
     } finally {
       postFetch.inform();
     }
@@ -352,8 +353,8 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   }
 
   @Override
-  public boolean inErrorBubblingForTesting() {
-    return delegate.inErrorBubblingForTesting();
+  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
   }
 
   @Nullable
@@ -368,6 +369,11 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   }
 
   @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    delegate.registerDependencies(keys);
+  }
+
+  @Override
   public void dependOnFuture(ListenableFuture<?> future) {
     delegate.dependOnFuture(future);
   }
@@ -375,6 +381,11 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return delegate.getState(stateSupplier);
   }
 
   interface Informee {

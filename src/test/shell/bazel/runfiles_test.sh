@@ -129,4 +129,55 @@ EOF
   [[ -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
+# When --nobuild_runfile_links is used, "bazel run --run_under" should still
+# attempt to create the runfiles directory both for the target to run and the
+# --run_under target.
+function test_nobuild_runfile_links_with_run_under() {
+  mkdir data && echo "hello" > data/hello && echo "world" > data/world
+  create_workspace_with_default_repos WORKSPACE foo
+
+cat > hello.sh <<'EOF'
+#!/bin/bash
+set -ex
+[[ -f $0.runfiles/foo/data/hello ]]
+exec "$@"
+EOF
+cat > world.sh <<'EOF'
+#!/bin/bash
+set -ex
+[[ -f $0.runfiles/foo/data/world ]]
+exit 0
+EOF
+  chmod 755 hello.sh world.sh
+  cat > BUILD <<'EOF'
+sh_binary(
+  name = "hello",
+  srcs = ["hello.sh"],
+  data = ["data/hello"],
+)
+
+sh_binary(
+  name = "world",
+  srcs = ["world.sh"],
+  data = ["data/world"],
+)
+EOF
+
+  bazel build --spawn_strategy=local --nobuild_runfile_links //:hello //:world \
+    || fail "Building //:hello and //:world failed"
+
+  [[ ! -f bazel-bin/hello.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
+  [[ ! -f bazel-bin/hello.runfiles/MANIFEST ]] || fail "expected output manifest hello to not exist"
+  [[ ! -f bazel-bin/world.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
+  [[ ! -f bazel-bin/world.runfiles/MANIFEST ]] || fail "expected output manifest world to not exist"
+
+  bazel run --spawn_strategy=local --nobuild_runfile_links --run_under //:hello //:world \
+    || fail "Testing //:foo failed"
+
+  [[ -f bazel-bin/hello.runfiles/foo/data/hello ]] || fail "expected runfile data/hello to exist"
+  [[ -f bazel-bin/hello.runfiles/MANIFEST ]] || fail "expected output manifest hello to exist"
+  [[ -f bazel-bin/world.runfiles/foo/data/world ]] || fail "expected runfile data/world to exist"
+  [[ -f bazel-bin/world.runfiles/MANIFEST ]] || fail "expected output manifest world to exist"
+}
+
 run_suite "runfiles tests"

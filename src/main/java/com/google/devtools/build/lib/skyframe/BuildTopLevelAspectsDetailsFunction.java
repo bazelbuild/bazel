@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
@@ -70,7 +72,10 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
         (BuildTopLevelAspectsDetailsKey) skyKey.argument();
 
     ImmutableList<Aspect> topLevelAspects =
-        getTopLevelAspects(env, topLevelAspectsDetailsKey.getTopLevelAspectsClasses());
+        getTopLevelAspects(
+            env,
+            topLevelAspectsDetailsKey.getTopLevelAspectsClasses(),
+            topLevelAspectsDetailsKey.getTopLevelAspectsParameters());
 
     if (topLevelAspects == null) {
       return null; // some aspects are not loaded
@@ -88,12 +93,6 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
               e.getMessage(), Code.ASPECT_CREATION_FAILED));
     }
     return new BuildTopLevelAspectsDetailsValue(getTopLevelAspectsDetails(aspectCollection));
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   @Nullable
@@ -117,25 +116,14 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
           new TopLevelAspectsDetailsBuildFailedException(
               e.getMessage(), Code.ASPECT_CREATION_FAILED));
     }
-
-    if (!starlarkAspect.getParamAttributes().isEmpty()) {
-      String msg =
-          String.format(
-              "Cannot instantiate parameterized aspect %s at the top level.",
-              starlarkAspect.getName());
-
-      env.getListener().handle(Event.error(msg));
-      throw new BuildTopLevelAspectsDetailsFunctionException(
-          new TopLevelAspectsDetailsBuildFailedException(
-              msg, Code.PARAMETERIZED_TOP_LEVEL_ASPECT_INVALID));
-    }
-
     return starlarkAspect;
   }
 
   @Nullable
   private static ImmutableList<Aspect> getTopLevelAspects(
-      Environment env, ImmutableList<AspectClass> topLevelAspectsClasses)
+      Environment env,
+      ImmutableList<AspectClass> topLevelAspectsClasses,
+      ImmutableMap<String, String> topLevelAspectsParameters)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
     AspectsListBuilder aspectsList = new AspectsListBuilder();
 
@@ -146,8 +134,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
           return null;
         }
         try {
-          starlarkAspect.attachToAspectsList(
-              /*baseAspectName=*/ null, aspectsList, /*allowAspectsParameters=*/ false);
+          starlarkAspect.attachToAspectsList(/*baseAspectName=*/ null, aspectsList);
         } catch (EvalException e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
@@ -165,7 +152,17 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
         }
       }
     }
-    return aspectsList.buildAspects();
+
+    try {
+        // Only use the parameters list if the experimental flag is used.
+        aspectsList.validateTopLevelAspectsParameters(topLevelAspectsParameters);
+        return aspectsList.buildAspects(topLevelAspectsParameters);
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getMessage()));
+      throw new BuildTopLevelAspectsDetailsFunctionException(
+          new TopLevelAspectsDetailsBuildFailedException(
+              e.getMessage(), Code.ASPECT_CREATION_FAILED));
+    }
   }
 
   private static Collection<AspectDetails> getTopLevelAspectsDetails(
@@ -252,20 +249,27 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
         BlazeInterners.newWeakInterner();
 
     private final ImmutableList<AspectClass> topLevelAspectsClasses;
+    private final ImmutableMap<String, String> topLevelAspectsParameters;
     private final int hashCode;
 
     @AutoCodec.Instantiator
     static BuildTopLevelAspectsDetailsKey create(
-        ImmutableList<AspectClass> topLevelAspectsClasses) {
+        ImmutableList<AspectClass> topLevelAspectsClasses,
+        ImmutableMap<String, String> topLevelAspectsParameters) {
       return interner.intern(
           new BuildTopLevelAspectsDetailsKey(
-              topLevelAspectsClasses, topLevelAspectsClasses.hashCode()));
+              topLevelAspectsClasses,
+              topLevelAspectsParameters,
+              Objects.hashCode(topLevelAspectsClasses, topLevelAspectsParameters)));
     }
 
     private BuildTopLevelAspectsDetailsKey(
-        ImmutableList<AspectClass> topLevelAspectsClasses, int hashCode) {
+        ImmutableList<AspectClass> topLevelAspectsClasses,
+        @Nullable ImmutableMap<String, String> topLevelAspectsParameters,
+        int hashCode) {
       Preconditions.checkArgument(!topLevelAspectsClasses.isEmpty(), "No aspects");
       this.topLevelAspectsClasses = topLevelAspectsClasses;
+      this.topLevelAspectsParameters = topLevelAspectsParameters;
       this.hashCode = hashCode;
     }
 
@@ -276,6 +280,10 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
 
     ImmutableList<AspectClass> getTopLevelAspectsClasses() {
       return topLevelAspectsClasses;
+    }
+
+    ImmutableMap<String, String> getTopLevelAspectsParameters() {
+      return topLevelAspectsParameters;
     }
 
     @Override
@@ -293,13 +301,15 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       }
       BuildTopLevelAspectsDetailsKey that = (BuildTopLevelAspectsDetailsKey) o;
       return hashCode == that.hashCode
-          && topLevelAspectsClasses.equals(that.topLevelAspectsClasses);
+          && topLevelAspectsClasses.equals(that.topLevelAspectsClasses)
+          && topLevelAspectsParameters.equals(that.topLevelAspectsParameters);
     }
 
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("topLevelAspectsClasses", topLevelAspectsClasses)
+          .add("topLevelAspectsParameters", topLevelAspectsParameters)
           .toString();
     }
   }

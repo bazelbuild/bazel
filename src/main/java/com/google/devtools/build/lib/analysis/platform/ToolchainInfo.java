@@ -88,7 +88,7 @@ public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi 
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   @Override

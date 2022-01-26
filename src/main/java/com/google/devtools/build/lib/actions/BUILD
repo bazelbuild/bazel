@@ -248,7 +248,6 @@ java_library(
     srcs = ["FilesetOutputSymlink.java"],
     deps = [
         ":has_digest",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -300,8 +299,7 @@ java_library(
         "ResourceSetOrBuilder.java",
     ],
     deps = [
-        ":artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        ":exec_exception",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/unix",
@@ -345,4 +343,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//third_party:error_prone_annotations",
     ],
+)
+
+java_library(
+    name = "exec_exception",
+    srcs = [
+        "ExecException.java",
+        "UserExecException.java",
+    ],
+    deps = ["//src/main/protobuf:failure_details_java_proto"],
 )

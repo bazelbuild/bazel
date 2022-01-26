@@ -86,7 +86,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -109,9 +108,8 @@ import org.mockito.Mockito;
 /** Tests for {@link RepositoryDelegatorFunction} */
 @RunWith(JUnit4.class)
 public class RepositoryDelegatorTest extends FoundationTestCase {
-  private RepositoryDelegatorFunction delegatorFunction;
   private Path overrideDirectory;
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
   private TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
   private RecordingDifferencer differencer;
   private TestStarlarkRepositoryFunction testStarlarkRepositoryFunction;
@@ -136,12 +134,12 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         new TestStarlarkRepositoryFunction(rootPath, downloader, managedDirectoriesKnowledge);
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
-    delegatorFunction =
+    RepositoryDelegatorFunction delegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
             testStarlarkRepositoryFunction,
-            /* isFetch= */ new AtomicBoolean(true),
-            /* clientEnvironmentSupplier= */ ImmutableMap::of,
+            /*isFetch=*/ new AtomicBoolean(true),
+            /*clientEnvironmentSupplier=*/ ImmutableMap::of,
             directories,
             managedDirectoriesKnowledge,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
@@ -173,13 +171,13 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     registryFactory = new FakeRegistry.Factory();
 
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
-    MemoizingEvaluator evaluator =
+    evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
@@ -187,8 +185,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(
-                        null,
-                        null,
                         null,
                         null,
                         null,
@@ -244,11 +240,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         return ModuleExtensionResolutionValue.create(
                             ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
                       }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
-                      }
                     })
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
@@ -256,7 +247,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         pkgFactory, ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
                 .build(),
             differencer);
-    driver = new SequentialBuildDriver(evaluator);
     overrideDirectory = scratch.dir("/foo");
     scratch.file("/foo/WORKSPACE");
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -291,7 +281,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setNumThreads(8)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     Path expectedPath = scratch.dir("/outputbase/external/foo");
@@ -323,31 +314,29 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         RepositoryDirectoryValue.builder()
             .setPath(rootDirectory.getRelative("b"))
             .setFetchingDelayed()
+            .setDigest(new byte[] {1})
             .build();
 
     assertThat(checker.check(key, fetchDelayed, tsgm).isDirty()).isTrue();
 
+    RepositoryName managedName = RepositoryName.create("@managed");
+    RepositoryDirectoryValue.Key managedKey = RepositoryDirectoryValue.key(managedName);
     SuccessfulRepositoryDirectoryValue withManagedDirectories =
         RepositoryDirectoryValue.builder()
             .setPath(rootDirectory.getRelative("c"))
             .setDigest(new byte[] {1})
-            .setManagedDirectories(ImmutableSet.of(PathFragment.create("m")))
             .build();
 
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
+    knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), managedName));
+    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isTrue();
 
     Path managedDirectoryM = rootPath.getRelative("m");
     assertThat(managedDirectoryM.createDirectory()).isTrue();
 
-    knowledge.setManagedDirectories(
-        ImmutableMap.of(PathFragment.create("m"), RepositoryName.create("@other")));
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
-
-    knowledge.setManagedDirectories(ImmutableMap.of(PathFragment.create("m"), repositoryName));
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isFalse();
+    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isFalse();
 
     managedDirectoryM.deleteTree();
-    assertThat(checker.check(key, withManagedDirectories, tsgm).isDirty()).isTrue();
+    assertThat(checker.check(managedKey, withManagedDirectories, tsgm).isDirty()).isTrue();
   }
 
   @Test
@@ -448,7 +437,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setNumThreads(8)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
@@ -472,7 +462,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setNumThreads(8)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
@@ -515,7 +506,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setNumThreads(8)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
 
     // B.1.0 should be fetched from MODULE.bazel file instead of WORKSPACE file.
     // Because FakeRegistry will look for the contents of B.1.0 under $scratch/modules/B.1.0 which
@@ -542,7 +534,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setNumThreads(8)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
 
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
@@ -563,7 +556,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setNumThreads(8)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isTrue();

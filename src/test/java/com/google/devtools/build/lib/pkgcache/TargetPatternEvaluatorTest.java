@@ -27,7 +27,9 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,23 +57,26 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Before
   public final void createFiles() throws Exception {
     // TODO(ulfjack): Also disable the implicit C++ outputs in Google's internal version.
-    boolean hasImplicitCcOutputs = ruleClassProvider.getRuleClassMap().get("cc_library")
-        .getDefaultImplicitOutputsFunction() != ImplicitOutputsFunction.NONE;
+    boolean hasImplicitCcOutputs =
+        ruleClassProvider.getRuleClassMap().get("cc_library").getDefaultImplicitOutputsFunction()
+            != ImplicitOutputsFunction.NONE;
 
-    scratch.file("BUILD",
-        "filegroup(name = 'fg', srcs = glob(['*.cc']))");
+    scratch.file("BUILD", "filegroup(name = 'fg', srcs = glob(['*.cc']))");
     scratch.file("foo.cc");
 
-    scratch.file("foo/BUILD",
+    scratch.file(
+        "foo/BUILD",
         "cc_library(name = 'foo1', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])",
         "exports_files(['baz/bang'])");
-    scratch.file("foo/bar/BUILD",
+    scratch.file(
+        "foo/bar/BUILD",
         "cc_library(name = 'bar1', alwayslink = 1)",
         "cc_library(name = 'bar2')",
         "exports_files(['wiz/bang', 'wiz/all', 'baz', 'baz/bang', 'undeclared.h'])");
 
     // 'filegroup' and 'test_suite' are rules, but 'exports_files' is not.
-    scratch.file("otherrules/BUILD",
+    scratch.file(
+        "otherrules/BUILD",
         "test_suite(name = 'suite1')",
         "filegroup(name='group', srcs=['suite/somefile'])",
         "exports_files(['suite/somefile'])",
@@ -84,25 +89,27 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     rulesBeneathFoo = labels("//foo:foo1", "//foo/bar:bar1", "//foo/bar:bar2");
     rulesInFoo = labels("//foo:foo1");
 
-    targetsInFoo = labels(
-        "//foo:foo1",
-        "//foo:foo1",
-        "//foo:foo1.cc",
-        "//foo:foo1.h",
-        "//foo:BUILD",
-        "//foo:baz/bang");
+    targetsInFoo =
+        labels(
+            "//foo:foo1",
+            "//foo:foo1",
+            "//foo:foo1.cc",
+            "//foo:foo1.h",
+            "//foo:BUILD",
+            "//foo:baz/bang");
     if (hasImplicitCcOutputs) {
       targetsInFoo.addAll(labels("//foo:libfoo1.a", "//foo:libfoo1.so"));
     }
-    targetsInFooBar = labels(
-        "//foo/bar:bar1",
-        "//foo/bar:bar2",
-        "//foo/bar:BUILD",
-        "//foo/bar:wiz/bang",
-        "//foo/bar:wiz/all",
-        "//foo/bar:baz",
-        "//foo/bar:baz/bang",
-        "//foo/bar:undeclared.h");
+    targetsInFooBar =
+        labels(
+            "//foo/bar:bar1",
+            "//foo/bar:bar2",
+            "//foo/bar:BUILD",
+            "//foo/bar:wiz/bang",
+            "//foo/bar:wiz/all",
+            "//foo/bar:baz",
+            "//foo/bar:baz/bang",
+            "//foo/bar:undeclared.h");
     if (hasImplicitCcOutputs) {
       targetsInFooBar.addAll(labels("//foo/bar:libbar1.lo", "//foo/bar:libbar2.a"));
     }
@@ -110,14 +117,15 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     targetsBeneathFoo.addAll(targetsInFoo);
     targetsBeneathFoo.addAll(targetsInFooBar);
 
-    targetsInOtherrules = labels(
-        "//otherrules:group",
-        "//otherrules:wiz",
-        "//otherrules:suite1",
-        "//otherrules:BUILD",
-        "//otherrules:suite/somefile",
-        "//otherrules:wiz",
-        "//otherrules:suite1");
+    targetsInOtherrules =
+        labels(
+            "//otherrules:group",
+            "//otherrules:wiz",
+            "//otherrules:suite1",
+            "//otherrules:BUILD",
+            "//otherrules:suite/somefile",
+            "//otherrules:wiz",
+            "//otherrules:suite1");
     if (hasImplicitCcOutputs) {
       targetsInOtherrules.addAll(labels("//otherrules:libwiz.a"));
     }
@@ -143,8 +151,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   private Set<Label> parseList(String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(
-        getFailFast(parseTargetPatternList(parser, parsingListener, Arrays.asList(patterns),
-            false)));
+        getFailFast(
+            parseTargetPatternList(parser, parsingListener, Arrays.asList(patterns), false)));
   }
 
   private Set<Label> parseListKeepGoingExpectFailure(String... patterns)
@@ -156,8 +164,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   private Set<Label> parseListRelative(String... patterns)
       throws TargetParsingException, InterruptedException {
-    return targetsToLabels(getFailFast(parseTargetPatternList(
-        fooOffset, parser, parsingListener, Arrays.asList(patterns), false)));
+    return targetsToLabels(
+        getFailFast(
+            parseTargetPatternList(
+                fooOffset, parser, parsingListener, Arrays.asList(patterns), false)));
   }
 
   private static Set<Target> getFailFast(ResolvedTargets<Target> result) {
@@ -184,8 +194,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   private Label parseIndividualTarget(String targetLabel) throws Exception {
     return Iterables.getOnlyElement(
-        getFailFast(
-            parseTargetPatternList(parser, parsingListener, ImmutableList.of(targetLabel), false)))
+            getFailFast(
+                parseTargetPatternList(
+                    parser, parsingListener, ImmutableList.of(targetLabel), false)))
         .getLabel();
   }
 
@@ -194,7 +205,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseList("foo:all")).containsExactlyElementsIn(rulesInFoo);
     assertNoEvents();
 
-    scratch.overwriteFile("foo/BUILD",
+    scratch.overwriteFile(
+        "foo/BUILD",
         "cc_library(name = 'foo1', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])",
         "cc_library(name = 'foo2', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])");
     invalidate("foo/BUILD");
@@ -291,7 +303,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testHelpfulMessageForDirectoryWhichIsASubdirectoryOfAPackage() throws Exception {
     scratch.file("bar/BUILD");
     scratch.file("bar/quux/somefile");
-    expectError("no such target '//bar:quux': target 'quux' not declared in package 'bar'; "
+    expectError(
+        "no such target '//bar:quux': target 'quux' not declared in package 'bar'; "
             + "however, a source directory of this name exists.  (Perhaps add "
             + "'exports_files([\"quux\"])' to bar/BUILD, or define a filegroup?) defined by "
             + "/workspace/bar/BUILD",
@@ -319,22 +332,28 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testKeepGoingMissingRecursiveDirectory() throws Exception {
-    assertKeepGoing(rulesBeneathFoo,
+    assertKeepGoing(
+        rulesBeneathFoo,
         "Skipping 'nosuchpkg/...': no targets found beneath 'nosuchpkg'",
-        "nosuchpkg/...", "foo/...");
+        "nosuchpkg/...",
+        "foo/...");
     eventCollector.clear();
-    assertKeepGoing(rulesBeneathFoo,
+    assertKeepGoing(
+        rulesBeneathFoo,
         "Skipping 'nosuchdirectory/...': no targets found beneath 'nosuchdirectory'",
-        "nosuchdirectory/...", "foo/...");
+        "nosuchdirectory/...",
+        "foo/...");
   }
 
   @Test
   public void testKeepGoingMissingTarget() throws Exception {
-    assertKeepGoing(rulesBeneathFoo,
+    assertKeepGoing(
+        rulesBeneathFoo,
         "Skipping '//otherrules:missing_target': no such target "
             + "'//otherrules:missing_target': target 'missing_target' not declared in "
             + "package 'otherrules'",
-        "//otherrules:missing_target", "foo/...");
+        "//otherrules:missing_target",
+        "foo/...");
   }
 
   @Test
@@ -354,10 +373,32 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   @Test
+  public void noKeepGoingOnAllRulesBeneath() throws Exception {
+    scratch.file("foo/bar/bad/BUILD", "invalid build file");
+
+    reporter.removeHandler(failFastHandler);
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> parseList("foo/..."));
+    assertThat(e.getDetailedExitCode())
+        .isEqualTo(
+            DetailedExitCode.of(
+                FailureDetails.FailureDetail.newBuilder()
+                    .setMessage(
+                        "Error evaluating 'foo/...': error loading package 'foo/bar/bad': Package"
+                            + " 'foo/bar/bad' contains errors")
+                    .setTargetPatterns(
+                        FailureDetails.TargetPatterns.newBuilder()
+                            .setCode(FailureDetails.TargetPatterns.Code.PACKAGE_NOT_FOUND))
+                    .build()));
+  }
+
+  @Test
   public void testKeepGoingBadFilenameTarget() throws Exception {
-    assertKeepGoing(rulesBeneathFoo,
+    assertKeepGoing(
+        rulesBeneathFoo,
         "no such target '//:bad/filename/target'",
-        "bad/filename/target", "foo/...");
+        "bad/filename/target",
+        "foo/...");
   }
 
   @Test
@@ -427,8 +468,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     // Modifications not yet known.
     assertThat(parseList("//h/...")).containsExactlyElementsIn(labels("//h"));
 
-    ModifiedFileSet modifiedFileSet = ModifiedFileSet.builder()
-        .modify(PathFragment.create("h/i/j/BUILD")).build();
+    ModifiedFileSet modifiedFileSet =
+        ModifiedFileSet.builder().modify(PathFragment.create("h/i/j/BUILD")).build();
     invalidate(modifiedFileSet);
 
     assertThat(parseList("//h/..."))
@@ -445,13 +486,14 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThrows(TargetParsingException.class, () -> parseList("//h/..."));
 
     scratch.file("h/i/j/k/BUILD", "sh_library(name='l')");
-    ModifiedFileSet modifiedFileSet = ModifiedFileSet.builder()
-        .modify(PathFragment.create("h"))
-        .modify(PathFragment.create("h/i"))
-        .modify(PathFragment.create("h/i/j"))
-        .modify(PathFragment.create("h/i/j/k"))
-        .modify(PathFragment.create("h/i/j/k/BUILD"))
-        .build();
+    ModifiedFileSet modifiedFileSet =
+        ModifiedFileSet.builder()
+            .modify(PathFragment.create("h"))
+            .modify(PathFragment.create("h/i"))
+            .modify(PathFragment.create("h/i/j"))
+            .modify(PathFragment.create("h/i/j/k"))
+            .modify(PathFragment.create("h/i/j/k/BUILD"))
+            .build();
     invalidate(modifiedFileSet);
     reporter.addHandler(failFastHandler);
     Set<Label> nonEmptyResult = parseList("//h/...");
@@ -468,9 +510,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThrows(TargetParsingException.class, () -> parseList("//t/..."));
 
     scratch.file("t/BUILD", "sh_library(name='t')");
-    ModifiedFileSet modifiedFileSet = ModifiedFileSet.builder()
-        .modify(PathFragment.create("t/BUILD"))
-        .build();
+    ModifiedFileSet modifiedFileSet =
+        ModifiedFileSet.builder().modify(PathFragment.create("t/BUILD")).build();
 
     invalidate(modifiedFileSet);
     reporter.addHandler(failFastHandler);
@@ -488,8 +529,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     Path ab = scratch.dir("a/b");
     ab.getChild("c").createSymbolicLink(PathFragment.create("../b"));
     scratch.file("a/b/BUILD", "filegroup(name='g')");
-    ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
-        ImmutableList.of("//a/b/..."), true);
+    ResolvedTargets<Target> result =
+        parseTargetPatternList(parser, parsingListener, ImmutableList.of("//a/b/..."), true);
     assertThat(targetsToLabels(result.getTargets()))
         .containsExactly(Label.parseAbsolute("//a/b:g", ImmutableMap.of()));
   }
@@ -500,8 +541,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     Path ab = scratch.dir("a/b");
     ab.getChild("c").createSymbolicLink(PathFragment.create("c"));
     scratch.file("a/b/BUILD", "filegroup(name='g')");
-    ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
-        ImmutableList.of("//a/b/..."), true);
+    ResolvedTargets<Target> result =
+        parseTargetPatternList(parser, parsingListener, ImmutableList.of("//a/b/..."), true);
     assertThat(targetsToLabels(result.getTargets()))
         .contains(Label.parseAbsolute("//a/b:g", ImmutableMap.of()));
   }
@@ -520,8 +561,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         "a/b/DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN");
     Path ac = scratch.dir("a/c");
     ac.getChild("symlink").createSymbolicLink(PathFragment.create("../../from-c"));
-    ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
-        ImmutableList.of("//a/..."), true);
+    ResolvedTargets<Target> result =
+        parseTargetPatternList(parser, parsingListener, ImmutableList.of("//a/..."), true);
     assertThat(targetsToLabels(result.getTargets()))
         .containsExactly(
             Label.parseAbsolute("//a/c/symlink:from-c", ImmutableMap.of()),

@@ -65,7 +65,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       (input1, input2) -> input1.getExecPath().compareTo(input2.getExecPath());
 
   private static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
-      childDataBuilder().build();
+      childDataBuilder().buildOrThrow();
 
   @SuppressWarnings("unchecked")
   private static ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>
@@ -510,7 +510,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     /** Builds the final {@link TreeArtifactValue}. */
     public TreeArtifactValue build() {
-      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData = childData.build();
+      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
+          childData.buildOrThrow();
       if (finalChildData.isEmpty() && archivedRepresentation == null) {
         return EMPTY;
       }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -63,7 +64,7 @@ public final class GraphNodeAspect extends NativeAspectClass implements Configur
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters params,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws ActionConflictException, InterruptedException {
     ImmutableList.Builder<GraphNodeInfo> children = ImmutableList.builder();
     if (ruleContext.attributes().has("deps")) {

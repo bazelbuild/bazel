@@ -128,7 +128,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
             new FormatterDependencyResolver()
                 .dependentNodeMap(
                     new TargetAndConfiguration(target, config),
-                    hostConfiguration,
                     /*aspect=*/ null,
                     configConditions,
                     toolchainContexts,
@@ -203,8 +202,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         output =
             factory
                 .create(RuleTransitionData.create(target.getAssociatedRule()))
-                .getClass()
-                .getSimpleName()
+                .getName()
                 .concat(" -> ");
       }
     }

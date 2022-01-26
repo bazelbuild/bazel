@@ -125,12 +125,12 @@ EOF
   javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
   expect_log "major version: 55"
 
-  bazel run java/main:JavaBinary --java_language_version=15 --java_runtime_version=15 \
+  bazel run java/main:JavaBinary --java_language_version=17 --java_runtime_version=17 \
       --verbose_failures -s &>"${TEST_log}" \
-      || fail "Building with --java_language_version=15 failed"
+      || fail "Building with --java_language_version=17 failed"
   expect_log "strip_trailing_java11"
   javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
-  expect_log "major version: 59"
+  expect_log "major version: 61"
 }
 
 # When coverage is requested with no Jacoco configured, an error shall be reported.

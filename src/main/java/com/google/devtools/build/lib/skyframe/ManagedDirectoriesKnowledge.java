@@ -22,13 +22,17 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
- * Interface to access the managed directories holder object.
+ * Managed directories are user-owned directories, which can be incrementally updated by repository
+ * rules, so that the updated files are visible for the actions in the same build.
  *
- * <p>Managed directories are user-owned directories, which can be incrementally updated by
- * repository rules, so that the updated files are visible for the actions in the same build.
+ * <p>File and directory nodes inside managed directories depend on the relevant {@link
+ * com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue} node, so that they are
+ * invalidated if the repository definition changes and recomputed based on the contents written by
+ * the repository rule.
  *
- * <p>Having managed directories as a separate component (and not SkyValue) allows to skip recording
- * the dependency in Skyframe for each FileStateValue and DirectoryListingStateValue.
+ * <p>The repository rule will also be re-run if any of the directories it manages is entirely
+ * missing. This allows a user to fairly cleanly regenerate managed directories. Whether this is an
+ * actually used feature is unknown to the Bazel developers.
  */
 public interface ManagedDirectoriesKnowledge {
   ManagedDirectoriesKnowledge NO_MANAGED_DIRECTORIES =
@@ -51,6 +55,10 @@ public interface ManagedDirectoriesKnowledge {
         }
       };
 
+  /**
+   * Returns true if the multi-mapping of repository -> {managed directory} changes. Such changes
+   * trigger a full wipe of the Skyframe graph, similar to a --package_path flag change.
+   */
   boolean workspaceHeaderReloaded(
       @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue)
       throws AbruptExitException;

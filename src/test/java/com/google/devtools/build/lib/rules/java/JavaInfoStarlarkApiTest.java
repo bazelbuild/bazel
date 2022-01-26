@@ -440,29 +440,9 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_transitive-src.jar");
   }
 
-  /** Tests that JavaExportsProvider is empty by default. */
-  @Test
-  public void buildHelperCreateJavaInfoExportIsEmpty() throws Exception {
-    setBuildLanguageOptions("--incompatible_enable_exports_provider");
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(name = 'my_starlark_rule',",
-        "        output_jar = 'my_starlark_rule_lib.jar',",
-        "        source_jars = ['my_starlark_rule_src.jar']",
-        ")");
-    assertNoEvents();
-
-    JavaExportsProvider exportsProvider = fetchJavaInfo().getProvider(JavaExportsProvider.class);
-
-    assertThat(exportsProvider.getTransitiveExports().toList()).isEmpty();
-  }
-
   /** Test exports adds dependencies to JavaCompilationArgsProvider. */
   @Test
   public void buildHelperCreateJavaInfoExportProviderExportsDepsAdded() throws Exception {
-    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     ruleBuilder().build();
     scratch.file(
         "foo/BUILD",
@@ -475,10 +455,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     assertNoEvents();
 
     JavaInfo javaInfo = fetchJavaInfo();
-
-    JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
-
-    assertThat(exportsProvider.getTransitiveExports().toList()).isEmpty();
 
     JavaSourceJarsProvider javaSourceJarsProvider =
         javaInfo.getProvider(JavaSourceJarsProvider.class);
@@ -498,15 +474,9 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("foo/my_starlark_rule_lib.jar", "foo/libmy_java_lib_exports-hjar.jar");
   }
 
-  /**
-   * Test exports adds itself and recursive dependencies to JavaCompilationArgsProvider and
-   * JavaExportsProvider populated.
-   */
+  /** Test exports adds itself and recursive dependencies to JavaCompilationArgsProvider. */
   @Test
   public void buildHelperCreateJavaInfoExportProvider() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_enable_exports_provider",
-        "--experimental_builtins_injection_override=-java_library");
     ruleBuilder().build();
     scratch.file(
         "foo/BUILD",
@@ -524,11 +494,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     assertNoEvents();
 
     JavaInfo javaInfo = fetchJavaInfo();
-
-    JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
-
-    assertThat(exportsProvider.getTransitiveExports().toList())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         javaInfo.getProvider(JavaCompilationArgsProvider.class);
@@ -565,9 +530,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void buildHelperCreateJavaInfoExportProvider001() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_enable_exports_provider",
-        "--experimental_builtins_injection_override=-java_library");
     ruleBuilder().build();
     scratch.file(
         "foo/BUILD",
@@ -590,11 +552,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     assertNoEvents();
 
     JavaInfo javaInfo = fetchJavaInfo();
-
-    JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
-
-    assertThat(exportsProvider.getTransitiveExports().toList())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         javaInfo.getProvider(JavaCompilationArgsProvider.class);

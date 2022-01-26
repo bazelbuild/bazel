@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +41,6 @@ public class EditDuringBuildTest extends BuildIntegrationTestCase {
 
   @Test
   public void testEditDuringBuild() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     // The "echo" effects editing of the source file during the build:
     write("edit/BUILD",
           "genrule(name = 'edit',",

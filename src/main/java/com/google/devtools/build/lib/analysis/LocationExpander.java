@@ -113,7 +113,7 @@ public final class LocationExpander {
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, true)),
         execPaths,
         ruleContext.getConfiguration().legacyExternalRunfiles(),
         ruleContext.getRule().getPackage().getRepositoryMapping());
@@ -380,7 +380,8 @@ public final class LocationExpander {
   static Map<Label, Collection<Artifact>> buildLocationMap(
       RuleContext ruleContext,
       Map<Label, ? extends Collection<Artifact>> labelMap,
-      boolean allowDataAttributeEntriesInLabel) {
+      boolean allowDataAttributeEntriesInLabel,
+      boolean collectSrcs) {
     Map<Label, Collection<Artifact>> locationMap = Maps.newHashMap();
     if (labelMap != null) {
       for (Map.Entry<Label, ? extends Collection<Artifact>> entry : labelMap.entrySet()) {
@@ -399,7 +400,7 @@ public final class LocationExpander {
       }
     }
 
-    if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
+    if (collectSrcs && ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection src :
           ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
         for (Label label : AliasProvider.getDependencyLabels(src)) {

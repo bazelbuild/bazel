@@ -142,13 +142,43 @@ void portable_start_memory_pressure_monitoring();
 // These need to be kept in sync with constants in
 // j/c/g/devtools/build/lib/buildtool/buildevent/SystemMemoryPressureEvent.java
 typedef enum  {
-  MemoryPressureLevelWarning = 0,
-  MemoryPressureLevelCritical = 1,
+  MemoryPressureLevelNormal = 0,
+  MemoryPressureLevelWarning = 1,
+  MemoryPressureLevelCritical = 2,
 } MemoryPressureLevel;
 
 // Declaration for callback function that is called by memory pressure
 // monitoring when memory pressure is detected.
 extern void memory_pressure_callback(MemoryPressureLevel level);
+
+// Returns the current memory pressure.
+MemoryPressureLevel portable_memory_pressure();
+
+// Starts up any infrastructure needed to do disk space monitoring.
+// May be called more than once.
+void portable_start_disk_space_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemDiskSpaceEvent.java
+typedef enum  {
+  DiskSpaceLevelLow = 0,
+  DiskSpaceLevelVeryLow = 1,
+} DiskSpaceLevel;
+
+// Declaration for callback function that is called by disk space
+// monitoring when a disk space alert happens.
+extern void disk_space_callback(DiskSpaceLevel level);
+
+// Starts up any infrastructure needed to do cpu speed monitoring.
+// May be called more than once.
+void portable_start_cpu_speed_monitoring();
+
+// Returns the current CPU speed. Return -1 in case of error.
+int portable_cpu_speed();
+
+// Declaration for callback function that is called by cpu speed
+// monitoring when a cpu speed alert happens.
+extern void cpu_speed_callback(int speed);
 
 }  // namespace blaze_jni
 

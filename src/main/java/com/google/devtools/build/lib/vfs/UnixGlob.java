@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +58,9 @@ import java.util.regex.Pattern;
  * <p>Importantly, note that the glob matches are in an unspecified order.
  */
 public final class UnixGlob {
+  private static final UnixGlobPathDiscriminator DEFAULT_DISCRIMINATOR =
+      new UnixGlobPathDiscriminator() {};
+
   private UnixGlob() {}
 
   /** Indicates an invalid glob pattern. */
@@ -72,51 +73,46 @@ public final class UnixGlob {
   private static List<Path> globInternal(
       Path base,
       Collection<String> patterns,
-      boolean excludeDirectories,
-      Predicate<Path> dirPred,
+      UnixGlobPathDiscriminator pathDiscriminator,
       FilesystemCalls syscalls,
       Executor executor)
       throws IOException, InterruptedException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
-    return visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
+    return visitor.glob(base, patterns, pathDiscriminator, syscalls);
   }
 
   private static List<Path> globInternalUninterruptible(
       Path base,
       Collection<String> patterns,
-      boolean excludeDirectories,
-      Predicate<Path> dirPred,
+      UnixGlobPathDiscriminator pathDiscriminator,
       FilesystemCalls syscalls,
       Executor executor)
       throws IOException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
-    return visitor.globUninterruptible(base, patterns, excludeDirectories, dirPred, syscalls);
+    return visitor.globUninterruptible(base, patterns, pathDiscriminator, syscalls);
   }
 
   private static long globInternalAndReturnNumGlobTasksForTesting(
       Path base,
       Collection<String> patterns,
-      boolean excludeDirectories,
-      Predicate<Path> dirPred,
+      UnixGlobPathDiscriminator pathDiscriminator,
       FilesystemCalls syscalls,
       Executor executor)
       throws IOException, InterruptedException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
-    visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
+    visitor.glob(base, patterns, pathDiscriminator, syscalls);
     return visitor.getNumGlobTasksForTesting();
   }
 
   private static Future<List<Path>> globAsyncInternal(
       Path base,
       Collection<String> patterns,
-      boolean excludeDirectories,
-      Predicate<Path> dirPred,
+      UnixGlobPathDiscriminator pathDiscriminator,
       FilesystemCalls syscalls,
       Executor executor)
       throws BadPattern {
     Preconditions.checkNotNull(executor, "%s %s", base, patterns);
-    return new GlobVisitor(executor)
-        .globAsync(base, patterns, excludeDirectories, dirPred, syscalls);
+    return new GlobVisitor(executor).globAsync(base, patterns, pathDiscriminator, syscalls);
   }
 
   /**
@@ -345,8 +341,7 @@ public final class UnixGlob {
   public static class Builder {
     private Path base;
     private List<String> patterns;
-    private boolean excludeDirectories;
-    private Predicate<Path> pathFilter;
+    private UnixGlobPathDiscriminator pathDiscriminator = DEFAULT_DISCRIMINATOR;
     private Executor executor;
     private AtomicReference<? extends FilesystemCalls> syscalls =
         new AtomicReference<>(DEFAULT_SYSCALLS);
@@ -357,8 +352,6 @@ public final class UnixGlob {
     public Builder(Path base) {
       this.base = base;
       this.patterns = Lists.newArrayList();
-      this.excludeDirectories = false;
-      this.pathFilter = Predicates.alwaysTrue();
     }
 
     /**
@@ -402,14 +395,6 @@ public final class UnixGlob {
     }
 
     /**
-     * If set to true, directories are not returned in the glob result.
-     */
-    public Builder setExcludeDirectories(boolean excludeDirectories) {
-      this.excludeDirectories = excludeDirectories;
-      return this;
-    }
-
-    /**
      * Sets the executor to use for parallel glob evaluation. If unset, evaluation is done
      * in-thread.
      */
@@ -418,21 +403,27 @@ public final class UnixGlob {
       return this;
     }
 
-
     /**
-     * If set, the given predicate is called for every directory
-     * encountered. If it returns false, the corresponding item is not
-     * returned in the output and directories are not traversed either.
+     * Sets the UnixGlobPathDiscriminator which determines how to handle Path entries encountered
+     * during glob traversal. The interface determines if Paths should be added to the {@code
+     * List<Path>} results and whether to traverse a given directory during recursion.
+     *
+     * <p>The UnixGlobPathDiscriminator should only be called with Paths that have been resolved to
+     * a regular file or regular directory, it will not properly handle symlinks or special files.
+     *
+     * <p>This is used for handling the previous use case of 'excludeDirectories' where we wish to
+     * exclude files from the glob and decide which directories to traverse, like skipping sub-dirs
+     * containing BUILD files.
      */
-    public Builder setDirectoryFilter(Predicate<Path> pathFilter) {
-      this.pathFilter = pathFilter;
+    public Builder setPathDiscriminator(UnixGlobPathDiscriminator pathDiscriminator) {
+      this.pathDiscriminator = pathDiscriminator;
       return this;
     }
 
     /** Executes the glob. */
     public List<Path> glob() throws IOException, BadPattern {
       return globInternalUninterruptible(
-          base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
+          base, patterns, pathDiscriminator, syscalls.get(), executor);
     }
 
     /**
@@ -441,14 +432,14 @@ public final class UnixGlob {
      * @throws InterruptedException if the thread is interrupted.
      */
     public List<Path> globInterruptible() throws IOException, InterruptedException, BadPattern {
-      return globInternal(base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
+      return globInternal(base, patterns, pathDiscriminator, syscalls.get(), executor);
     }
 
     @VisibleForTesting
     public long globInterruptibleAndReturnNumGlobTasksForTesting()
         throws IOException, InterruptedException, BadPattern {
       return globInternalAndReturnNumGlobTasksForTesting(
-          base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
+          base, patterns, pathDiscriminator, syscalls.get(), executor);
     }
 
     /**
@@ -456,8 +447,7 @@ public final class UnixGlob {
      * non-null argument.
      */
     public Future<List<Path>> globAsync() throws BadPattern {
-      return globAsyncInternal(
-          base, patterns, excludeDirectories, pathFilter, syscalls.get(), executor);
+      return globAsyncInternal(base, patterns, pathDiscriminator, syscalls.get(), executor);
     }
   }
 
@@ -522,9 +512,11 @@ public final class UnixGlob {
 
     /**
      * Performs wildcard globbing: returns the list of filenames that match any of {@code patterns}
-     * relative to {@code base}. Directories are traversed if and only if they match {@code
-     * dirPred}. The predicate is also called for the root of the traversal. The order of the
-     * returned list is unspecified.
+     * relative to {@code base}. Directories are traversed if and only if they return true from
+     * {@code pathDiscriminator.shouldTraverseDirectory}. The predicate is also called for the root
+     * of the traversal. {@code pathDiscriminator.shouldIncludePathInResult} is called to determine
+     * if a directory result should be included in the output. The The order of the returned list is
+     * unspecified.
      *
      * <p>Patterns may include "*" and "?", but not "[a-z]".
      *
@@ -538,12 +530,11 @@ public final class UnixGlob {
     List<Path> glob(
         Path base,
         Collection<String> patterns,
-        boolean excludeDirectories,
-        Predicate<Path> dirPred,
+        UnixGlobPathDiscriminator pathDiscriminator,
         FilesystemCalls syscalls)
         throws IOException, InterruptedException, BadPattern {
       try {
-        return globAsync(base, patterns, excludeDirectories, dirPred, syscalls).get();
+        return globAsync(base, patterns, pathDiscriminator, syscalls).get();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         Throwables.propagateIfPossible(cause, IOException.class);
@@ -554,13 +545,12 @@ public final class UnixGlob {
     List<Path> globUninterruptible(
         Path base,
         Collection<String> patterns,
-        boolean excludeDirectories,
-        Predicate<Path> dirPred,
+        UnixGlobPathDiscriminator pathDiscriminator,
         FilesystemCalls syscalls)
         throws IOException, BadPattern {
       try {
         return Uninterruptibles.getUninterruptibly(
-            globAsync(base, patterns, excludeDirectories, dirPred, syscalls));
+            globAsync(base, patterns, pathDiscriminator, syscalls));
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         Throwables.propagateIfPossible(cause, IOException.class);
@@ -580,8 +570,7 @@ public final class UnixGlob {
     Future<List<Path>> globAsync(
         Path base,
         Collection<String> patterns,
-        boolean excludeDirectories,
-        Predicate<Path> dirPred,
+        UnixGlobPathDiscriminator pathDiscriminator,
         FilesystemCalls syscalls)
         throws BadPattern {
       FileStatus baseStat;
@@ -610,9 +599,10 @@ public final class UnixGlob {
               ++numRecursivePatterns;
             }
           }
-          GlobTaskContext context = numRecursivePatterns > 1
-              ? new RecursiveGlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls)
-              : new GlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls);
+          GlobTaskContext context =
+              numRecursivePatterns > 1
+                  ? new RecursiveGlobTaskContext(splitPattern, pathDiscriminator, syscalls)
+                  : new GlobTaskContext(splitPattern, pathDiscriminator, syscalls);
           context.queueGlob(base, baseStat.isDirectory(), 0);
         }
       } finally {
@@ -657,10 +647,9 @@ public final class UnixGlob {
             @Override
             public String toString() {
               return String.format(
-                  "%s glob(include=[%s], exclude_directories=%s)",
+                  "%s glob(include=[%s])",
                   base.getPathString(),
-                  "\"" + Joiner.on("\", \"").join(context.patternParts) + "\"",
-                  context.excludeDirectories);
+                  "\"" + Joiner.on("\", \"").join(context.patternParts) + "\"");
             }
           });
     }
@@ -720,18 +709,15 @@ public final class UnixGlob {
     /** A context for evaluating all the subtasks of a single top-level glob task. */
     private class GlobTaskContext {
       private final String[] patternParts;
-      private final boolean excludeDirectories;
-      private final Predicate<Path> dirPred;
+      private final UnixGlobPathDiscriminator pathDiscriminator;
       private final FilesystemCalls syscalls;
 
       GlobTaskContext(
           String[] patternParts,
-          boolean excludeDirectories,
-          Predicate<Path> dirPred,
+          UnixGlobPathDiscriminator pathDiscriminator,
           FilesystemCalls syscalls) {
         this.patternParts = patternParts;
-        this.excludeDirectories = excludeDirectories;
-        this.dirPred = dirPred;
+        this.pathDiscriminator = pathDiscriminator;
         this.syscalls = syscalls;
       }
 
@@ -779,10 +765,9 @@ public final class UnixGlob {
 
       private RecursiveGlobTaskContext(
           String[] patternParts,
-          boolean excludeDirectories,
-          Predicate<Path> dirPred,
+          UnixGlobPathDiscriminator pathDiscriminator,
           FilesystemCalls syscalls) {
-        super(patternParts, excludeDirectories, dirPred, syscalls);
+        super(patternParts, pathDiscriminator, syscalls);
       }
 
       @Override
@@ -811,14 +796,14 @@ public final class UnixGlob {
      */
     private void reallyGlob(Path base, boolean baseIsDir, int idx, GlobTaskContext context)
         throws IOException {
-      if (baseIsDir && !context.dirPred.apply(base)) {
+
+      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+        maybeAddResult(context, base, baseIsDir);
         return;
       }
 
       if (idx == context.patternParts.length) { // Base case.
-        if (!(context.excludeDirectories && baseIsDir)) {
-          results.add(base);
-        }
+        maybeAddResult(context, base, baseIsDir);
 
         return;
       }
@@ -868,6 +853,12 @@ public final class UnixGlob {
       }
     }
 
+    private void maybeAddResult(GlobTaskContext context, Path base, boolean isDirectory) {
+      if (context.pathDiscriminator.shouldIncludePathInResult(base, isDirectory)) {
+        results.add(base);
+      }
+    }
+
     /**
      * Process symlinks asynchronously. If we should used readdir(..., Symlinks.FOLLOW), that would
      * result in a sequential symlink resolution with many file system implementations. If the
@@ -894,7 +885,7 @@ public final class UnixGlob {
       if (isDir) {
         context.queueGlob(path, /* baseIsDir= */ true, idx + (isRecursivePattern ? 0 : 1));
       } else if (idx + 1 == context.patternParts.length) {
-        results.add(path);
+        maybeAddResult(context, path, /* isDirectory= */ false);
       }
     }
   }

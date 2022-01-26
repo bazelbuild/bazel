@@ -39,7 +39,7 @@ public class WorkerFactoryTest {
 
   @After
   public void tearDown() {
-    WorkerMultiplexerManager.reset();
+    WorkerMultiplexerManager.resetForTesting();
   }
 
   /**

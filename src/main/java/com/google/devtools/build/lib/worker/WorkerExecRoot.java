@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -59,30 +58,19 @@ final class WorkerExecRoot {
     SandboxHelpers.cleanExisting(
         workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate, workDir);
 
-    // Finally, create anything that is still missing.
-    createDirectories(dirsToCreate);
-    createInputs(inputsToCreate, inputs);
+    // Finally, create anything that is still missing. This is non-strict only for historical
+    // reasons,
+    // we haven't seen what would break if we make it strict.
+    SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
+    createInputs(inputsToCreate, inputs, workDir);
 
     inputs.materializeVirtualInputs(workDir);
   }
 
-  private void createDirectories(Iterable<PathFragment> dirsToCreate) throws IOException {
-    Set<Path> knownDirectories = new HashSet<>();
-    // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
-    // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
-    // createDirectoryAndParentsInSandboxRoot.
-    knownDirectories.add(workDir);
-    knownDirectories.add(workDir.getParentDirectory());
-    for (PathFragment fragment : dirsToCreate) {
-      SandboxHelpers.createDirectoryAndParentsInSandboxRoot(
-          workDir.getRelative(fragment), knownDirectories, workDir);
-    }
-  }
-
-  private void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs)
+  static void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs, Path dir)
       throws IOException {
     for (PathFragment fragment : inputsToCreate) {
-      Path key = workDir.getRelative(fragment);
+      Path key = dir.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {

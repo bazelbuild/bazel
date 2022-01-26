@@ -16,7 +16,10 @@ filegroup(
 
 java_library(
     name = "repository",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        include = ["*.java"],
+        exclude = ["RepositoryOptions.java"],
+    ),
     resources = [
         "local_config_platform.WORKSPACE",
     ],
@@ -45,11 +48,22 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:apache_commons_compress",
-        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:java-diff-utils",
         "//third_party:jsr305",
         "//third_party:xz",
+    ],
+)
+
+java_library(
+    name = "repository_options",
+    srcs = ["RepositoryOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:auto_value",
     ],
 )

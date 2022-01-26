@@ -20,6 +20,8 @@ int foo() {
   bar();
   baz();
   qux();
+#ifdef IS_LINUX
   preloaded_dep();
+#endif
   return 42;
 }

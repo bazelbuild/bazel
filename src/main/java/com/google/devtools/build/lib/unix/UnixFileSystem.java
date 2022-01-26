@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.FileInputStream;
@@ -384,7 +385,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    if (newTime == -1L) { // "now"
+    if (newTime == Path.NOW_SENTINEL_TIME) {
       NativePosixFiles.utime(path.toString(), true, 0);
     } else {
       // newTime > MAX_INT => -ve unixTime

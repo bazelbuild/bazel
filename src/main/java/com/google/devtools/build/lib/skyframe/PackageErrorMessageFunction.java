@@ -44,10 +44,4 @@ public class PackageErrorMessageFunction implements SkyFunction {
         ? PackageErrorMessageValue.ofPackageWithErrors()
         : PackageErrorMessageValue.ofPackageWithNoErrors();
   }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

@@ -24,6 +24,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -81,6 +82,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -163,6 +165,14 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   private void afterBuildCommand() throws Exception {
     runtimeWrapper.newCommand();
+  }
+
+  @Override
+  @Nullable
+  protected UncaughtExceptionHandler createUncaughtExceptionHandler() {
+    // Disable the crash handler since this test leaves runaway threads e.g. accessing shut down
+    // fakeServer.
+    return null;
   }
 
   @Before
@@ -308,8 +318,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_backend=inprocess",
         "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
         "--bes_timeout=5s");
+    ImmutableSet<BuildEventTransport> bepTransports = besModule.getBepTransports();
+    assertThat(bepTransports).hasSize(1);
     afterBuildCommand();
     assertContainsError("The Build Event Protocol upload timed out");
+    for (BuildEventTransport bepTransport : bepTransports) {
+      assertThat(bepTransport.close().isDone()).isTrue();
+    }
   }
 
   @Test
@@ -705,7 +720,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     write("foo/BUILD", "genrule(name = 'gen', outs = ['gen.out'], cmd = 'touch $@')");
     AtomicBoolean threwOom = new AtomicBoolean(false);
     getSkyframeExecutor()
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
@@ -896,8 +911,14 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     @Nullable
     private String errorMessage = null;
 
+    /**
+     * Synchronizing this method can lead to deadlocks -- it calls into {@link
+     * io.grpc.inprocess.InProcessTransport} which takes a locks on itself. Opposite order of locks
+     * happens for {@link #publishBuildToolEventStream} called while holding the lock on {@link
+     * io.grpc.inprocess.InProcessTransport}.
+     */
     @Override
-    public synchronized void publishLifecycleEvent(
+    public void publishLifecycleEvent(
         PublishLifecycleEventRequest request, StreamObserver<Empty> responseObserver) {
       responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();

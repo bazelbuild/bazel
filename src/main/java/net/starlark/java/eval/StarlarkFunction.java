@@ -177,11 +177,8 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     // Compute the effective parameter values
     // and update the corresponding variables.
-    Object[] arguments = processArgs(thread.mutability(), positional, named);
-
     StarlarkThread.Frame fr = thread.frame(0);
-    fr.locals = new Object[rfn.getLocals().size()];
-    System.arraycopy(arguments, 0, fr.locals, 0, rfn.getParameterNames().size());
+    fr.locals = processArgs(thread.mutability(), positional, named);
 
     // Spill indicated locals to cells.
     for (int index : rfn.getCellIndices()) {
@@ -208,8 +205,9 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   // Checks the positional and named arguments to ensure they match the signature. It returns a new
-  // array of effective parameter values corresponding to the parameters of the signature. Newly
-  // allocated values (e.g. a **kwargs dict) use the Mutability mu.
+  // array of effective parameter values corresponding to the parameters of the signature. The
+  // returned array has size of locals and is directly pushed to the stack.
+  // Newly allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
   // If the function has optional parameters, their default values are supplied by getDefaultValue.
   private Object[] processArgs(Mutability mu, Object[] positional, Object[] named)
@@ -236,9 +234,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     ImmutableList<String> names = rfn.getParameterNames();
 
-    // TODO(adonovan): when we have flat frames, pass in the locals array here instead of
-    // allocating.
-    Object[] arguments = new Object[names.size()];
+    Object[] locals = new Object[rfn.getLocals().size()];
 
     // nparams is the number of ordinary parameters.
     int nparams =
@@ -266,12 +262,12 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     // Bind positional arguments to non-kwonly parameters.
     for (int i = 0; i < n; i++) {
-      arguments[i] = positional[i];
+      locals[i] = positional[i];
     }
 
     // Bind surplus positional arguments to *args parameter.
     if (rfn.hasVarargs()) {
-      arguments[nparams] = Tuple.wrap(Arrays.copyOfRange(positional, n, positional.length));
+      locals[nparams] = Tuple.wrap(Arrays.copyOfRange(positional, n, positional.length));
     }
 
     List<String> unexpected = null;
@@ -280,7 +276,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     Dict<String, Object> kwargs = null;
     if (rfn.hasKwargs()) {
       kwargs = Dict.of(mu);
-      arguments[rfn.getParameters().size() - 1] = kwargs;
+      locals[rfn.getParameters().size() - 1] = kwargs;
     }
     for (int i = 0; i < named.length; i += 2) {
       String keyword = (String) named[i]; // safe
@@ -288,10 +284,10 @@ public final class StarlarkFunction implements StarlarkCallable {
       int pos = names.indexOf(keyword); // the list should be short, so linear scan is OK.
       if (0 <= pos && pos < nparams) {
         // keyword is the name of a named parameter
-        if (arguments[pos] != null) {
+        if (locals[pos] != null) {
           throw Starlark.errorf("%s() got multiple values for parameter '%s'", getName(), keyword);
         }
-        arguments[pos] = value;
+        locals[pos] = value;
 
       } else if (kwargs != null) {
         // residual keyword argument
@@ -329,7 +325,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     List<String> missingKwonly = null;
     for (int i = n; i < nparams; i++) {
       // provided?
-      if (arguments[i] != null) {
+      if (locals[i] != null) {
         continue;
       }
 
@@ -337,7 +333,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       if (i >= m) {
         Object dflt = defaultValues.get(i - m);
         if (dflt != MANDATORY) {
-          arguments[i] = dflt;
+          locals[i] = dflt;
           continue;
         }
       }
@@ -372,7 +368,7 @@ public final class StarlarkFunction implements StarlarkCallable {
           Joiner.on(", ").join(missingKwonly));
     }
 
-    return arguments;
+    return locals;
   }
 
   private static String plural(int n) {

@@ -35,12 +35,15 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
@@ -471,6 +474,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
+  public void testConfig_exprArgumentFailure() throws Exception {
+    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+
+    EvalThrowsResult evalThrowsResult =
+        evalThrows(
+            "config(filter(\"??not-a-valid-regex\", //test:foo.java), null)",
+            /*unconditionallyThrows=*/ true);
+    assertThat(evalThrowsResult.getMessage())
+        .startsWith("illegal 'filter' pattern regexp '??not-a-valid-regex'");
+    assertThat(evalThrowsResult.getFailureDetail().hasQuery()).isTrue();
+    assertThat(evalThrowsResult.getFailureDetail().getQuery().getCode())
+        .isEqualTo(Code.SYNTAX_ERROR);
+  }
+
+  @Test
   public void testExecTransitionNotFilteredByNoHostDeps() throws Exception {
     createConfigRulesAndBuild();
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
@@ -495,10 +513,16 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     helper.setKeepGoing(false);
     getHelper().turnOffFailFast();
-    assertThat(evalThrows("//parent/...", true).getMessage())
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> eval("//parent/..."));
+    assertThat(e)
+        .hasMessageThat()
         .isEqualTo(
-            "no such package 'parent/child': Symlink cycle detected while trying to "
-                + "find BUILD file /workspace/parent/child/BUILD");
+            "error loading package under directory 'parent': no such package 'parent/child':"
+                + " Symlink cycle detected while trying to find BUILD file"
+                + " /workspace/parent/child/BUILD");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
   }
 
   // Regression test for b/175739699
