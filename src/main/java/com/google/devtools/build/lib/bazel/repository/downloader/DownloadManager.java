@@ -123,7 +123,7 @@ public class DownloadManager {
     Map<URI, Map<String, String>> rewrittenAuthHeaders = authHeaders;
 
     if (rewriter != null) {
-      List<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
+      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = ImmutableList.copyOf(rewriter.amend(originalUrls));
       rewrittenUrls = rewrittenUrlMappings.stream().map(url -> url.url()).collect(toImmutableList());
       rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders);
     }

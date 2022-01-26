@@ -358,7 +358,7 @@ public class UrlRewriterTest {
     scratch.file(home + "/.netrc", "mach foo.example.org log foouser password foopass");
 
     try {
-      Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+      UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
       fail();
     } catch (UrlRewriterParseException e) {
       assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/home/foo/.netrc", 0, 0));

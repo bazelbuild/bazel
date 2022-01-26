@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import net.starlark.java.syntax.Location;
@@ -51,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -283,19 +285,24 @@ public class UrlRewriter {
    * </ol>
    *
    * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
-   * @throws IOException in case the credentials can't be constructed.
+   * @throws UrlRewriterParseException in case the credentials can't be constructed.
    */
   //TODO : consider re-using RemoteModule.newCredentialsFromNetrc
   @VisibleForTesting
   static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
           throws UrlRewriterParseException {
+    final Optional<String> homeDir;
+    if (OS.getCurrent() == OS.WINDOWS) {
+      homeDir = Optional.ofNullable(clientEnv.get("USERPROFILE"));
+    } else {
+      homeDir = Optional.ofNullable(clientEnv.get("HOME"));
+    }
     String netrcFileString =
-            java.util.Optional.ofNullable(clientEnv.get("NETRC"))
+            Optional.ofNullable(clientEnv.get("NETRC"))
                     .orElseGet(
-                            () ->
-                                    java.util.Optional.ofNullable(clientEnv.get("HOME"))
-                                            .map(home -> home + "/.netrc")
-                                            .orElse(null));
+                            () -> homeDir
+                                  .map(home -> home + "/.netrc")
+                                  .orElse(null));
     if (netrcFileString == null) {
       return null;
     }
@@ -321,6 +328,7 @@ public class UrlRewriter {
     return config.getAllBlockedMessage();
   }
 
+  /** Holds the URL along with meta-info, such as whether URL was re-written or not. */
   @AutoValue
   public abstract static class RewrittenURL {
     static RewrittenURL create(URL url, boolean rewritten) {
