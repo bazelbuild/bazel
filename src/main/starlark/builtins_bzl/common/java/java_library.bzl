@@ -25,7 +25,7 @@ JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 CcInfo = _builtins.toplevel.CcInfo
 
-def java_library_rule(
+def bazel_java_library_rule(
         ctx,
         srcs = [],
         deps = [],
@@ -62,15 +62,10 @@ def java_library_rule(
     if not srcs and deps:
         fail("deps not allowed without srcs; move to runtime_deps?")
 
-    semantics.check_rule(ctx)
-    semantics.check_dependency_rule_kinds(ctx, "java_library")
-
-    extra_resources = semantics.preprocess(ctx)
-
     base_info = JAVA_COMMON_DEP.call(
         ctx,
         srcs = srcs,
-        resources = resources + extra_resources,
+        resources = resources,
         plugins = plugins,
         deps = deps,
         runtime_deps = runtime_deps,
@@ -88,8 +83,6 @@ def java_library_rule(
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
 
-    java_info = semantics.postprocess(ctx, base_info)
-
     default_info = construct_defaultinfo(
         ctx,
         base_info.files_to_build,
@@ -101,13 +94,13 @@ def java_library_rule(
 
     return dict({
         "DefaultInfo": default_info,
-        "JavaInfo": java_info,
+        "JavaInfo": base_info.java_info,
         "InstrumentedFilesInfo": base_info.instrumented_files_info,
         "OutputGroupInfo": OutputGroupInfo(**base_info.output_groups),
     }, **base_info.extra_providers)
 
 def _proxy(ctx):
-    return java_library_rule(
+    return bazel_java_library_rule(
         ctx,
         srcs = ctx.files.srcs,
         deps = ctx.attr.deps,
@@ -129,7 +122,7 @@ java_library = create_rule(
         },
         **semantics.EXTRA_ATTRIBUTES
     ),
-    deps = [JAVA_COMMON_DEP, VALIDATE_PROGUARD_SPECS] + semantics.EXTRA_DEPS,
+    deps = [JAVA_COMMON_DEP, VALIDATE_PROGUARD_SPECS],
     provides = [JavaInfo],
     outputs = {
         "classjar": "lib%{name}.jar",

@@ -20,18 +20,6 @@ java_common = _builtins.toplevel.java_common
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 JavaInfo = _builtins.toplevel.JavaInfo
 
-def _macro_preprocess(kwargs):
-    pass
-
-def _check_rule(ctx):
-    pass
-
-def _check_dependency_rule_kinds(ctx, rule_class = ""):
-    pass
-
-def _preprocess(ctx):
-    return []
-
 def _postprocess(ctx, base_info):
     return base_info.java_info
 
@@ -62,8 +50,6 @@ semantics = struct(
     EXTRA_PLUGIN_ATTRIBUTES = {
         "resource_strip_prefix": attr.string(),
     },
-    EXTRA_DEPS = [],
-    EXTRA_PLUGIN_DEPS = [],
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1
         "cc_library",
@@ -79,11 +65,6 @@ semantics = struct(
     ],
     ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
     LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
-    macro_preprocess = _macro_preprocess,
-    check_rule = _check_rule,
-    check_dependency_rule_kinds = _check_dependency_rule_kinds,
-    preprocess = _preprocess,
-    postprocess = _postprocess,
     postprocess_plugin = _postprocess_plugin,
     check_proto_registry_collision = _check_proto_registry_collision,
     get_coverage_runner = _get_coverage_runner,

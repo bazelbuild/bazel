@@ -23,7 +23,7 @@ load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
 
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
-def java_plugin_rule(
+def bazel_java_plugin_rule(
         ctx,
         srcs = [],
         data = [],
@@ -57,15 +57,10 @@ def java_plugin_rule(
       (list[provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
     """
-    semantics.check_rule(ctx)
-    semantics.check_dependency_rule_kinds(ctx, "java_plugin")
-
-    extra_resources = semantics.preprocess(ctx)
-
     base_info = JAVA_COMMON_DEP.call(
         ctx,
         srcs = srcs,
-        resources = resources + extra_resources,
+        resources = resources,
         plugins = plugins,
         deps = deps,
         javacopts = javacopts,
@@ -100,7 +95,7 @@ def java_plugin_rule(
     }, **base_info.extra_providers)
 
 def _proxy(ctx):
-    return java_plugin_rule(
+    return bazel_java_plugin_rule(
         ctx,
         srcs = ctx.files.srcs,
         data = ctx.files.data,
@@ -128,7 +123,7 @@ java_plugin = create_rule(
     deps = [
         JAVA_COMMON_DEP,
         VALIDATE_PROGUARD_SPECS,
-    ] + semantics.EXTRA_PLUGIN_DEPS,
+    ],
     provides = [JavaPluginInfo],
     outputs = {
         "classjar": "lib%{name}.jar",
