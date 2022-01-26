@@ -142,6 +142,7 @@ import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -164,6 +165,7 @@ public class RemoteExecutionService {
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
   private final Set<String> reportedErrors = new HashSet<>();
+  private final Phaser backgroundTaskPhaser = new Phaser(1);
 
   private final Scheduler scheduler;
 
@@ -1162,13 +1164,18 @@ public class RemoteExecutionService {
             .subscribe(
                 new SingleObserver<ActionResult>() {
                   @Override
-                  public void onSubscribe(@NonNull Disposable d) {}
+                  public void onSubscribe(@NonNull Disposable d) {
+                    backgroundTaskPhaser.register();
+                  }
 
                   @Override
-                  public void onSuccess(@NonNull ActionResult actionResult) {}
+                  public void onSuccess(@NonNull ActionResult actionResult) {
+                    backgroundTaskPhaser.arriveAndDeregister();
+                  }
 
                   @Override
                   public void onError(@NonNull Throwable e) {
+                    backgroundTaskPhaser.arriveAndDeregister();
                     reportUploadError(e);
                   }
                 });
@@ -1302,7 +1309,7 @@ public class RemoteExecutionService {
       remoteCache.release();
 
       try {
-        remoteCache.awaitTermination();
+        backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
       } catch (InterruptedException e) {
         buildInterrupted.set(true);
         remoteCache.shutdownNow();
