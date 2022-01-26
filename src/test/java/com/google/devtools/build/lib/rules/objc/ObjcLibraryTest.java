@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -494,6 +494,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
+    addAppleBinaryStarlarkRule(scratch);
     addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
@@ -896,9 +897,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//lib1:lib1")
         .setList("defines", "C=bar", "D")
         .write();
-    createBinaryTargetWriter("//bin:bin")
-        .setList("deps", "//lib2:lib2")
-        .write();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//lib2:lib2'],",
+        ")");
 
     assertThat(compileAction("//lib1:lib1", "a.o").getArguments())
         .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
@@ -1019,10 +1026,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
     ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
 
-    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList())
-        .containsExactly(new SdkFramework("foo"));
-    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList())
-        .containsExactly(new SdkFramework("foo"), new SdkFramework("bar"));
+    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo");
+    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
   }
 
   @Test
@@ -1374,9 +1379,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
     ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
 
-    Set<SdkFramework> baseFrameworks = ImmutableSet.of(new SdkFramework("foo"));
-    Set<SdkFramework> dependerFrameworks =
-        ImmutableSet.of(new SdkFramework("foo"), new SdkFramework("bar"));
+    Set<String> baseFrameworks = ImmutableSet.of("foo");
+    Set<String> dependerFrameworks = ImmutableSet.of("foo", "bar");
     assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactlyElementsIn(baseFrameworks);
     assertThat(dependerProvider.get(SDK_FRAMEWORK).toList())
         .containsExactlyElementsIn(dependerFrameworks);
@@ -1516,7 +1520,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .write();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
-    BuildConfiguration config = getAppleCrosstoolConfiguration();
+    BuildConfigurationValue config = getAppleCrosstoolConfiguration();
     assertContainsSublist(
         removeConfigFragment(compileAction.getArguments()),
         ImmutableList.of(
@@ -1653,15 +1657,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
     useConfiguration("--cpu=ios_i386");
+    addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(
         "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "cc_library(",
         "    name = 'cc_lib',",
         "    srcs = ['a.cc'],",
         ")",
         "",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'objc_bin',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -1872,8 +1878,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider dependerProvider = providerForTarget("//x:bar");
-    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.HEADER)))
-        .containsExactly("bar.h", "bar.inc");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
 
@@ -2382,5 +2386,26 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 cc.get(OutputGroupInfo.STARLARK_CONSTRUCTOR)
                     .getOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES)))
         .contains("src bin/cc.h");
+  }
+
+  @Test
+  public void testCoptsLocationIsExpanded() throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    copts = ['$(rootpath lib1.m) $(location lib2.m) $(location data.data) $(execpath"
+            + " header.h)'],",
+        "    srcs = ['lib1.m'],",
+        "    non_arc_srcs = ['lib2.m'],",
+        "    data = ['data.data', 'lib2.m'],",
+        "    hdrs = ['header.h'],",
+        ")");
+
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//bin:lib", "lib1.o");
+    assertThat(compileA.compileCommandLine.getCopts())
+        .containsAtLeast("bin/lib1.m", "bin/lib2.m", "bin/data.data", "bin/header.h");
   }
 }

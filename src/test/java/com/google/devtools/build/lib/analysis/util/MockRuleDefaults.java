@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -63,7 +63,7 @@ public class MockRuleDefaults {
           attr("tags", STRING_LIST).nonconfigurable("test"),
           attr("visibility", NODEP_LABEL_LIST)
               .orderIndependent()
-              .cfg(HostTransition.createFactory())
+              .cfg(ExecutionTransitionFactory.create())
               .nonconfigurable("test"),
           attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
               .allowedFileTypes(FileTypeSet.NO_FILE)

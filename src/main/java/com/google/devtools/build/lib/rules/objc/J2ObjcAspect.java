@@ -34,14 +34,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
@@ -110,14 +111,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private static final String J2OBJC_PROTO_TOOLCHAIN_ATTR = ":j2objc_proto_toolchain";
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final LabelLateBoundDefault<?> DEAD_CODE_REPORT =
       LabelLateBoundDefault.fromTargetConfiguration(
           J2ObjcConfiguration.class,
           null,
           (rule, attributes, j2objcConfig) -> j2objcConfig.deadCodeReport());
 
-  private final String toolsRepository;
+  private final RepositoryName toolsRepository;
   private final Label ccToolchainType;
   private final LabelLateBoundDefault<CppConfiguration> ccToolchain;
   private final Label javaToolchain;
@@ -155,11 +156,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .useToolchainTransition(true)
         .add(
             attr("$grep_includes", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:grep-includes")))
         .add(
             attr("$j2objc", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(
                     Label.parseAbsoluteUnchecked(
@@ -167,7 +168,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(
             attr("$j2objc_wrapper", LABEL)
                 .allowedFileTypes(FileType.of(".py"))
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .singleArtifact()
                 .value(
@@ -176,7 +177,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(
             attr("$j2objc_header_map", LABEL)
                 .allowedFileTypes(FileType.of(".py"))
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .singleArtifact()
                 .value(
@@ -184,19 +185,19 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_header_map")))
         .add(
             attr("$jre_emul_jar", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(
                     Label.parseAbsoluteUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
         .add(
             attr("$jre_emul_module", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(
                     Label.parseAbsoluteUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul_module")))
         .add(
             attr(":dead_code_report", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(DEAD_CODE_REPORT))
         .add(
             attr("$jre_lib", LABEL)
@@ -205,7 +206,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//third_party/java/j2objc:jre_core_lib")))
         .add(
             attr("$xcrunwrapper", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:xcrunwrapper")))
         .add(
@@ -216,7 +217,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(AppleToolchain.getXcodeConfigLabel(toolsRepository)))
         .add(
             attr("$zipper", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .exec()
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/zip:zipper")))
         .add(
@@ -239,7 +240,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredTarget base = ctadBase.getConfiguredTarget();
     if (isProtoRule(base)) {
@@ -322,9 +323,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addNativeDeclaredProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addNativeDeclaredProvider(common.getObjcProvider())
-        .addProvider(
-            J2ObjcCcInfo.build(
-                CcInfo.builder().setCcCompilationContext(ccCompilationContext).build()))
+        .addNativeDeclaredProvider(
+            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
         .build();
   }
 
@@ -403,9 +403,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     if (j2ObjcSource.getObjcSrcs().isEmpty()) {
       directJ2ObjcMappingFileProvider = new J2ObjcMappingFileProvider.Builder().build();
     } else {
-      directJ2ObjcMappingFileProvider =
-          createJ2ObjcProtoCompileActions(
-              base, protoToolchain, ruleContext, filteredProtoSources, j2ObjcSource);
+      try {
+        directJ2ObjcMappingFileProvider =
+            createJ2ObjcProtoCompileActions(
+                base, protoToolchain, ruleContext, filteredProtoSources, j2ObjcSource);
+      } catch (RuleErrorException e) {
+        ruleContext.ruleError(e.getMessage());
+        return null;
+      }
     }
 
     return buildAspect(
@@ -640,7 +645,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
-      J2ObjcSource j2ObjcSource) {
+      J2ObjcSource j2ObjcSource)
+      throws RuleErrorException, InterruptedException {
     ImmutableList<Artifact> outputHeaderMappingFiles =
         ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
@@ -666,9 +672,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ruleContext,
         invocations.build(),
         protoInfo,
-        ruleContext.getLabel(),
         outputs,
-        "j2objc",
+        "Generating j2objc proto_library %{label}",
         Exports.DO_NOT_USE,
         shouldAllowProtoServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
 
@@ -689,7 +694,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static void addJ2ObjCMappingsForAttribute(
-      ImmutableList.Builder<J2ObjcMappingFileProvider> builder, RuleContext context,
+      ImmutableList.Builder<J2ObjcMappingFileProvider> builder,
+      RuleContext context,
       String attributeName) {
     if (context.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection dependencyInfoDatum : context.getPrerequisites(attributeName)) {
@@ -716,16 +722,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static Artifact j2ObjcSourceJarTranslatedSourceTreeArtifact(RuleContext ruleContext) {
-    PathFragment rootRelativePath = ruleContext
-        .getUniqueDirectory("_j2objc/src_jar_files")
-        .getRelative("source_files");
+    PathFragment rootRelativePath =
+        ruleContext.getUniqueDirectory("_j2objc/src_jar_files").getRelative("source_files");
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
   /**
-   * Returns a unique path fragment for j2objc headers. The slightly shorter path is
-   * useful for very large app builds, which otherwise may have command lines that are
-   * too long to be executable.
+   * Returns a unique path fragment for j2objc headers. The slightly shorter path is useful for very
+   * large app builds, which otherwise may have command lines that are too long to be executable.
    */
   private static String j2objcHeaderBase(RuleContext ruleContext) {
     boolean shorterPath =
@@ -750,9 +754,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ImmutableList<Artifact> javaSourceJarFiles) {
     PathFragment objcFileRootRelativePath =
         ruleContext.getUniqueDirectory(j2objcHeaderBase(ruleContext));
-    PathFragment objcFileRootExecPath = ruleContext
-        .getBinFragment()
-        .getRelative(objcFileRootRelativePath);
+    PathFragment objcFileRootExecPath =
+        ruleContext.getBinFragment().getRelative(objcFileRootRelativePath);
 
     // Note that these are mutable lists so that we can add the translated file info below.
     List<Artifact> objcSrcs =
@@ -817,8 +820,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       String suffix) {
     List<Artifact> objcSources = new ArrayList<>();
     for (Artifact javaSrc : javaSrcs) {
-      objcSources.add(ruleContext.getRelatedArtifact(
-          objcFileRootRelativePath.getRelative(javaSrc.getExecPath()), suffix));
+      objcSources.add(
+          ruleContext.getRelatedArtifact(
+              objcFileRootRelativePath.getRelative(javaSrc.getExecPath()), suffix));
     }
     return objcSources;
   }
@@ -881,13 +885,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
         ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attrName)) {
-          J2ObjcCcInfo j2objcCcInfo = dep.getProvider(J2ObjcCcInfo.class);
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
-          // If a dep has both a J2ObjcCcInfo and a CcInfo, skip the CcInfo.  This can only happen
-          // for a proto_library, whose CcInfo we don't use and may have poisoned defines.
-          if (j2objcCcInfo != null) {
-            ccInfoList.add(j2objcCcInfo.getCcInfo());
-          } else if (ccInfo != null) {
+          if (ccInfo != null) {
             ccInfoList.add(ccInfo);
           }
         }
@@ -908,25 +907,5 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addIncludes(headerSearchPaths)
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
-  }
-
-  /**
-   * A wrapper for {@link CcInfo}. The aspect generates this instead of a raw CcInfo, because it may
-   * visit a proto_library rule which already has a CcInfo.
-   */
-  public static final class J2ObjcCcInfo implements TransitiveInfoProvider {
-    private final CcInfo ccInfo;
-
-    public J2ObjcCcInfo(CcInfo ccInfo) {
-      this.ccInfo = ccInfo;
-    }
-
-    public CcInfo getCcInfo() {
-      return ccInfo;
-    }
-
-    public static J2ObjcCcInfo build(CcInfo ccInfo) {
-      return new J2ObjcCcInfo(ccInfo);
-    }
   }
 }

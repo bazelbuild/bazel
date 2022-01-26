@@ -102,8 +102,20 @@ public class RemoteExecutionCache extends RemoteCache {
       uploadFutures.add(RxFutures.toListenableFuture(upload));
     }
 
-    ImmutableSet<Digest> missingDigests =
-        getFromFuture(findMissingDigests(context, missingDigestSubjects.keySet()));
+    ImmutableSet<Digest> missingDigests;
+    try {
+      missingDigests = getFromFuture(findMissingDigests(context, missingDigestSubjects.keySet()));
+    } catch (IOException | InterruptedException e) {
+      for (Map.Entry<Digest, AsyncSubject<Boolean>> entry : missingDigestSubjects.entrySet()) {
+        entry.getValue().onError(e);
+      }
+
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      throw e;
+    }
+
     for (Map.Entry<Digest, AsyncSubject<Boolean>> entry : missingDigestSubjects.entrySet()) {
       AsyncSubject<Boolean> missingSubject = entry.getValue();
       if (missingDigests.contains(entry.getKey())) {

@@ -11,9 +11,9 @@ filegroup(
 
 distrib_java_import(
     name = "jaxb",
+    enable_distributions = ["debian"],
     jars = ["jaxb-api-2.3.1-patched.jar"],
     srcjar = "jaxb-api-2.3.1-sources.jar",
-    enable_distributions = ["debian"],
 )
 
 # Android databinding processing requires api, core, and impl, however
@@ -22,13 +22,13 @@ distrib_java_import(
 # does not actually have any jars. So, use 2.3.0 instead, which works.
 java_library(
     name = "jaxb-2.3.0",
-    exports = [
-      ":jaxb-api-2.3.0",
-      ":jaxb-core-2.3.0",
-      ":jaxb-impl-2.3.0",
-      "//third_party:javax_activation",
-    ],
     visibility = ["//third_party/java/android_databinding/v3_4_0:__pkg__"],
+    exports = [
+        ":jaxb-api-2.3.0",
+        ":jaxb-core-2.3.0",
+        ":jaxb-impl-2.3.0",
+        "//third_party:javax_activation",
+    ],
 )
 
 java_import(

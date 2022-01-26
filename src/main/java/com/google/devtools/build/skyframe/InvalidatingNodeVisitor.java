@@ -63,8 +63,6 @@ import javax.annotation.Nullable;
  * internally it spawns many worker threads to process the graph. The thread-safety of the workers
  * on the graph can be delicate, and is documented below. Moreover, no other modifications to the
  * graph can take place while invalidation occurs.
- *
- * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -128,7 +126,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   /** Initiates visitation and waits for completion. */
   final void run() throws InterruptedException {
     try (AutoProfiler ignored =
-        GoogleAutoProfilerUtils.logged("invalidation", MIN_TIME_FOR_LOGGING)) {
+        GoogleAutoProfilerUtils.logged(
+            "invalidation of " + pendingVisitations.size() + " nodes", MIN_TIME_FOR_LOGGING)) {
       // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
       // the caller, and which are added by other threads during the run. Since no tasks have been
       // started yet, this is thread-safe.

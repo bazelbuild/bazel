@@ -430,6 +430,22 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRegisterToolchainsInvalidPattern() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    // //external:bar:baz is not a legal package.
+    String[] lines = {"register_toolchains('/:invalid:label:syntax')"};
+    createWorkspaceFile(lines);
+
+    SkyKey key = ExternalPackageFunction.key();
+    EvaluationResult<PackageValue> evaluationResult = eval(key);
+    Package pkg = evaluationResult.get(key).getPackage();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("not a valid absolute pattern");
+  }
+
+  @Test
   public void testNoWorkspaceFile() throws Exception {
     // Create and immediately delete to make sure we got the right file.
     RootedPath workspacePath = createWorkspaceFile();

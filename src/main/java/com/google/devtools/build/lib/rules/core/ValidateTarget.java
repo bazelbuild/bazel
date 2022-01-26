@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -47,7 +48,7 @@ class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactor
       ConfiguredTargetAndData ctadBase,
       RuleContext context,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws ActionConflictException, InterruptedException {
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(ctadBase.getConfiguredTarget());
     if (outputGroupInfo != null) {

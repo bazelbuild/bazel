@@ -320,6 +320,7 @@ java_test(
     srcs = [
         "DesugarCoreLibraryFunctionalTest.java",
     ],
+    javacopts = ["-source 8 -target 8"],
     jvm_flags = [
         # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
         "-XX:+IgnoreUnrecognizedVMOptions",
@@ -376,8 +377,8 @@ java_test(
     tags = ["no_windows"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
-        "//src/tools/android/java/com/google/devtools/build/android/desugar:deps_collector_api",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:deps_collector_api",
         "//third_party:asm",
         "//third_party:asm-tree",
         "//third_party:guava",
@@ -558,7 +559,7 @@ sh_test(
     data = [
         "testdata_desugared.jar",
         "testdata_desugared_jar_toc_golden.txt",  # Golden file
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -577,7 +578,7 @@ sh_test(
     data = [
         "testdata_desugared_jar_toc_golden.txt",
         "testdata_desugared_twice.jar",
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -595,7 +596,7 @@ sh_test(
     data = [
         "testdata_desugared_java8.jar",
         "testdata_desugared_java8_jar_toc_golden.txt",  # Golden file
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -615,7 +616,7 @@ sh_test(
     data = [
         "testdata_desugared_core_library.jar",
         "testdata_desugared_core_library_jar_toc_golden.txt",  # Golden file
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -633,7 +634,7 @@ sh_test(
     data = [
         "testdata_desugared_for_try_with_resources.jar",
         "testdata_desugared_for_try_with_resources_jar_toc_golden.txt",  # Golden file
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -651,7 +652,7 @@ sh_test(
     data = [
         "testdata_desugared_for_try_with_resources_jar_toc_golden.txt",  # Golden file
         "testdata_desugared_for_try_with_resources_twice.jar",
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -670,7 +671,7 @@ sh_test(
     data = [
         "testdata_desugared_for_NO_desugaring_try_with_resources.jar",
         "testdata_desugared_for_disabling_twr_with_large_minsdkversion_jar_toc_golden.txt",  # Golden file
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -693,7 +694,10 @@ sh_test(
 java_library(
     name = "testdata",
     srcs = glob(["testdata/*.java"]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":separate",
@@ -707,7 +711,10 @@ java_library(
         "testdata/*.java",
         "testdata/java8/**/*.java",
     ]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":separate",
@@ -721,6 +728,7 @@ java_library(
     srcs = glob([
         "testdata/core_library/**/*.java",
     ]),
+    javacopts = ["-source 8 -target 8"],
     resources = ["testdata/testresource.txt"],
     deps = [
         "//third_party:error_prone",
@@ -741,7 +749,10 @@ java_library(
 java_library(
     name = "testdata_like_in_android_studio",
     srcs = glob(["testdata/*.java"]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
@@ -755,7 +766,10 @@ java_library(
         "testdata/*.java",
         "testdata/java8/**/*.java",
     ]),
-    javacopts = ["-Xep:SelfAssignment:OFF"],
+    javacopts = [
+        "-Xep:SelfAssignment:OFF",
+        "-source 8 -target 8",
+    ],
     resources = ["testdata/testresource.txt"],
     deps = [
         ":libseparate.jar",  # puts full Jar instead of header Jar on the classpath
@@ -789,7 +803,7 @@ sh_test(
     data = [
         "testdata_desugared_without_lambda_desugared.jar",
         "testdata_desugared_without_lambda_desugared_jar_toc_golden.txt",  # Golden file
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -1628,7 +1642,7 @@ $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.te
 """,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -1656,7 +1670,7 @@ $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.te
 """,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -1683,7 +1697,7 @@ $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.te
 """,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -1712,7 +1726,7 @@ $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testd
 """,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -1741,7 +1755,7 @@ $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testd
 """,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -1770,7 +1784,7 @@ $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testd
 """,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -1859,7 +1873,7 @@ $(JAVABASE)/bin/javap  -p -cp $< com.google.devtools.build.android.desugar.testd
 grep lambda $(location baseclass_disassembled.txt) > $(location baseclass_lambda_signature.txt)""",
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 genrule(
@@ -1875,7 +1889,7 @@ grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_s
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
 )
 
@@ -1888,7 +1902,7 @@ _SINGLEJAR_IMPLS = {
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
         "$(location %s)" % singlejar,
-        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(JAVABASE)/bin/jar",
         "$(location :testdata_desugared_default_methods.jar)",
         "$(location :separate_java8_desugared_default_methods.jar)",
         "$(location :guava_at_head_desugared.jar)",
@@ -1898,9 +1912,10 @@ _SINGLEJAR_IMPLS = {
         ":separate_java8_desugared_default_methods.jar",
         ":testdata_desugared_default_methods.jar",
         singlejar,
-        "@bazel_tools//tools/jdk:jar",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 ) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 # Tests that deps checking fails due to missing default method: libseparate_java8.jar defines
@@ -1910,7 +1925,7 @@ _SINGLEJAR_IMPLS = {
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
         "$(location %s)" % singlejar,
-        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(JAVABASE)/bin/jar",
         "$(location :testdata_desugared_default_methods.jar)",
         "$(location :libseparate_java8.jar)",
         "$(location :guava_at_head_desugared.jar)",
@@ -1920,9 +1935,10 @@ _SINGLEJAR_IMPLS = {
         ":libseparate_java8.jar",
         ":testdata_desugared_default_methods.jar",
         singlejar,
-        "@bazel_tools//tools/jdk:jar",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 ) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 # Regression test for b/68049457 with deps checking failing due to missing static method:
@@ -1933,15 +1949,16 @@ _SINGLEJAR_IMPLS = {
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
         "$(location %s)" % singlejar,
-        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(JAVABASE)/bin/jar",
         "$(location :b68049457_caller_desugared.jar)",
     ],
     data = [
         ":b68049457_caller_desugared.jar",
         singlejar,
-        "@bazel_tools//tools/jdk:jar",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 ) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 [sh_test(
@@ -1949,7 +1966,7 @@ _SINGLEJAR_IMPLS = {
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
         "$(location %s)" % singlejar,
-        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(JAVABASE)/bin/jar",
         "$(location :testdata_desugared_with_missing_dep.jar)",
         "$(location :separate_java8_desugared_default_methods.jar)",
         "$(location :guava_at_head_desugared.jar)",
@@ -1959,9 +1976,10 @@ _SINGLEJAR_IMPLS = {
         ":separate_java8_desugared_default_methods.jar",
         ":testdata_desugared_with_missing_dep.jar",
         singlejar,
-        "@bazel_tools//tools/jdk:jar",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 ) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 # Tests that any Jar entry starting with j$/ causes singlejar to fail when run
@@ -1972,15 +1990,16 @@ _SINGLEJAR_IMPLS = {
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
         "$(location %s)" % singlejar,
-        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(JAVABASE)/bin/jar",
         "$(location :mock_bad_entry_jar)",
     ],
     data = [
         ":mock_bad_entry_jar",
         singlejar,
-        "@bazel_tools//tools/jdk:jar",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     tags = ["no_windows"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 ) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 genrule(
@@ -2066,7 +2085,7 @@ genrule(
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
-        "@bazel_tools//tools/jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
 )
 

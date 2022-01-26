@@ -28,12 +28,14 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -238,8 +240,8 @@ public class Package {
 
   private ImmutableSet<String> features;
 
-  private ImmutableList<String> registeredExecutionPlatforms;
-  private ImmutableList<String> registeredToolchains;
+  private ImmutableList<TargetPattern> registeredExecutionPlatforms;
+  private ImmutableList<TargetPattern> registeredToolchains;
 
   private long computationSteps;
 
@@ -801,11 +803,11 @@ public class Package {
     return defaultRestrictedTo;
   }
 
-  public ImmutableList<String> getRegisteredExecutionPlatforms() {
+  public ImmutableList<TargetPattern> getRegisteredExecutionPlatforms() {
     return registeredExecutionPlatforms;
   }
 
-  public ImmutableList<String> getRegisteredToolchains() {
+  public ImmutableList<TargetPattern> getRegisteredToolchains() {
     return registeredToolchains;
   }
 
@@ -867,9 +869,7 @@ public class Package {
    */
   public static Event error(Location location, String message, Code code) {
     Event error = Event.error(location, message);
-    // The DetailedExitCode's message is the base event's toString because that string nicely
-    // includes the location value.
-    return error.withProperty(DetailedExitCode.class, createDetailedCode(error.toString(), code));
+    return error.withProperty(DetailedExitCode.class, createDetailedCode(message, code));
   }
 
   private static DetailedExitCode createDetailedCode(String errorMessage, Code code) {
@@ -994,8 +994,8 @@ public class Package {
 
     private ImmutableList<Label> starlarkFileDependencies = ImmutableList.of();
 
-    private final List<String> registeredExecutionPlatforms = new ArrayList<>();
-    private final List<String> registeredToolchains = new ArrayList<>();
+    private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
+    private final List<TargetPattern> registeredToolchains = new ArrayList<>();
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
@@ -1305,7 +1305,9 @@ public class Package {
     }
 
     /**
-     * Declares that errors were encountering while loading this package.
+     * Declares that errors were encountering while loading this package. If called, {@link
+     * #addEvent} or {@link #addEvents} should already have been called with an {@link Event} of
+     * type {@link EventKind#ERROR} that includes a {@link FailureDetail}.
      */
     public Builder setContainsErrors() {
       containsErrors = true;
@@ -1345,6 +1347,7 @@ public class Package {
         return failureDetailOverride;
       }
 
+      List<Event> undetailedEvents = null;
       for (Event event : this.events) {
         if (event.getKind() != EventKind.ERROR) {
           continue;
@@ -1353,11 +1356,21 @@ public class Package {
         if (detailedExitCode != null && detailedExitCode.getFailureDetail() != null) {
           return detailedExitCode.getFailureDetail();
         }
+        if (containsErrors) {
+          if (undetailedEvents == null) {
+            undetailedEvents = new ArrayList<>();
+          }
+          undetailedEvents.add(event);
+        }
+      }
+      if (undetailedEvents != null) {
+        BugReport.sendBugReport(
+            new IllegalStateException("Package has undetailed error from " + undetailedEvents));
       }
       return null;
     }
 
-    Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
+    public Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
       this.starlarkFileDependencies = starlarkFileDependencies;
       return this;
     }
@@ -1730,11 +1743,11 @@ public class Package {
       ruleLabels.put(rule, labels);
     }
 
-    void addRegisteredExecutionPlatforms(List<String> platforms) {
+    void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
       this.registeredExecutionPlatforms.addAll(platforms);
     }
 
-    void addRegisteredToolchains(List<String> toolchains) {
+    void addRegisteredToolchains(List<TargetPattern> toolchains) {
       this.registeredToolchains.addAll(toolchains);
     }
 

@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -59,8 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -466,13 +464,11 @@ public final class CcCommon implements StarlarkValue {
   }
 
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
-  @AutoCodec
-  public static class CoptsFilter implements StarlarkValue {
+  public static final class CoptsFilter implements StarlarkValue {
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 
-    @VisibleForSerialization
-    CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
+    private CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
       this.noCoptsPattern = noCoptsPattern;
       this.allPasses = allPasses;
     }
@@ -766,6 +762,11 @@ public final class CcCommon implements StarlarkValue {
         /* prefixConsumer= */ true);
   }
 
+  @StarlarkMethod(name = "linker_scripts", structField = true, documented = false)
+  public Sequence<Artifact> getLinkerScriptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getLinkerScripts());
+  }
+
   /** Returns any linker scripts found in the "deps" attribute of the rule. */
   List<Artifact> getLinkerScripts() {
     return ruleContext.getPrerequisiteArtifacts("deps").filter(CppFileTypes.LINKER_SCRIPT).list();
@@ -805,6 +806,37 @@ public final class CcCommon implements StarlarkValue {
     try {
       return getInstrumentedFilesProvider(
           Sequence.cast(files, Artifact.class, "files"), withBaselineCoverage);
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "instrumented_files_info_from_compilation_context",
+      documented = false,
+      parameters = {
+        @Param(name = "files", positional = false, named = true),
+        @Param(name = "with_base_line_coverage", positional = false, named = true),
+        @Param(name = "compilation_context", positional = false, named = true),
+        @Param(name = "additional_metadata", positional = false, named = true),
+      })
+  public InstrumentedFilesInfo getInstrumentedFilesProviderFromCompilationContextForStarlark(
+      Sequence<?> files,
+      boolean withBaselineCoverage,
+      Object compilationContext,
+      Sequence<?> additionalMetadata)
+      throws EvalException {
+    try {
+      CcCompilationContext ccCompilationContext = (CcCompilationContext) compilationContext;
+      Sequence<Artifact> metadata =
+          additionalMetadata == null
+              ? null
+              : Sequence.cast(additionalMetadata, Artifact.class, "files");
+      return getInstrumentedFilesProvider(
+          Sequence.cast(files, Artifact.class, "files"),
+          withBaselineCoverage,
+          ccCompilationContext.getVirtualToOriginalHeaders(),
+          metadata);
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
@@ -896,7 +928,7 @@ public final class CcCommon implements StarlarkValue {
 
   public static FeatureConfiguration configureFeaturesOrReportRuleError(
       RuleContext ruleContext,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
       CcToolchainProvider toolchain,

@@ -57,4 +57,16 @@ public class CppFileTypesTest {
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("libA.so.if.exp")).isFalse();
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("libA.so.if.lib")).isFalse();
   }
+
+  @Test
+  public void testCaseSensitiveAssemblyFiles() {
+    assertThat(CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches("foo.S")).isTrue();
+    assertThat(CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches("foo.s")).isFalse();
+    assertThat(CppFileTypes.PIC_ASSEMBLER.matches("foo.pic.s")).isTrue();
+    assertThat(CppFileTypes.PIC_ASSEMBLER.matches("foo.pic.S")).isFalse();
+    assertThat(CppFileTypes.ASSEMBLER.matches("foo.s")).isTrue();
+    assertThat(CppFileTypes.ASSEMBLER.matches("foo.asm")).isTrue();
+    assertThat(CppFileTypes.ASSEMBLER.matches("foo.pic.s")).isFalse();
+    assertThat(CppFileTypes.ASSEMBLER.matches("foo.S")).isFalse();
+  }
 }

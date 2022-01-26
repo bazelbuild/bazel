@@ -68,11 +68,16 @@ public class ThreadUtils {
         .forEach(
             e -> {
               StackTraceAndState stackTraceAndState = e.getKey();
-              // Store longest trace but omit "Unsafe.park" calls: they are interruptible, so can't
-              // be the cause of the slow interrupt.
+              // Store longest trace but omit "Unsafe#park" and "Object#wait" calls: they are
+              // interruptible, so can't be the cause of the slow interrupt. In some cases, we
+              // do these calls in a loop on interrupt (see
+              // AbstractQueueVisitor#reallyAwaitTermination) but unless there's a bug, there should
+              // still be another thread waiting for interrupt somewhere.
               if (firstTrace.get() == null
                   && (!stackTraceAndState.trace[0].getClassName().endsWith("misc.Unsafe")
-                      || !stackTraceAndState.trace[0].getMethodName().equals("park"))) {
+                      || !stackTraceAndState.trace[0].getMethodName().equals("park"))
+                  && (!stackTraceAndState.trace[0].getClassName().endsWith("java.lang.Object")
+                      || !stackTraceAndState.trace[0].getMethodName().equals("wait"))) {
                 firstTrace.compareAndSet(null, stackTraceAndState);
               }
               logger.atWarning().log(

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 
@@ -61,5 +62,5 @@ public interface PackageProvider extends TargetProvider {
    * @param packageName the name of the package.
    */
   boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
-      throws InterruptedException;
+      throws InconsistentFilesystemException, InterruptedException;
 }

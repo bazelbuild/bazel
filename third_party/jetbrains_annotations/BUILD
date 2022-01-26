@@ -10,6 +10,6 @@ filegroup(
 )
 
 java_import(
-  name = "jetbrains_annotations",
-  jars = glob(["*.jar"]),
+    name = "jetbrains_annotations",
+    jars = glob(["*.jar"]),
 )

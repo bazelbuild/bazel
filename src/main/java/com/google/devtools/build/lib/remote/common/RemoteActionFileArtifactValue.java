@@ -46,18 +46,12 @@ public class RemoteActionFileArtifactValue extends RemoteFileArtifactValue {
         && getSize() == that.getSize()
         && getLocationIndex() == that.getLocationIndex()
         && Objects.equals(getActionId(), that.getActionId())
-        && isExecutable == that.isExecutable
-        && dataIsShareable() == that.dataIsShareable();
+        && isExecutable == that.isExecutable;
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        Arrays.hashCode(getDigest()),
-        getSize(),
-        getLocationIndex(),
-        getActionId(),
-        isExecutable,
-        dataIsShareable());
+        Arrays.hashCode(getDigest()), getSize(), getLocationIndex(), getActionId(), isExecutable);
   }
 }

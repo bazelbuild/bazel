@@ -68,6 +68,7 @@ Find [the plugin on the Visual Studio
 marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel).
 The plugin is [open source](https://github.com/bazelbuild/vscode-bazel).
 
+See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
 
 ### Atom
 
@@ -91,6 +92,12 @@ generating Visual Studio projects that use Bazel for building.
 ### Eclipse
 
 [Bazel Eclipse Feature](https://github.com/salesforce/bazel-eclipse) is a set of plugins for importing Bazel packages into an Eclipse workspace as Eclipse projects.
+
+## Autocomplete for Source Code
+
+### C Language Family (C++, C, Objective-C, and Objective-C++)
+
+[`hedronvision/bazel-compile-commands-extractor`](https://github.com/hedronvision/bazel-compile-commands-extractor) enables autocomplete in a wide variety of editors. It lets language servers, like clangd and other tooling, draw upon Bazel's understanding of how `cc` and `objc` code will be compiled, including, e.g., how it will configure cross compilation for other platforms.
 
 ## Automatically run build and test on file change
 

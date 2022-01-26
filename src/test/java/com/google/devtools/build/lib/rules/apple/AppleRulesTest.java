@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -127,11 +127,9 @@ public class AppleRulesTest extends AnalysisTestCase {
 
     for (ActionAnalysisMetadata action : actions) {
       assertThat(action).isInstanceOf(AbstractAction.class);
-      if (action.getExecutionInfo() != null
-          && action.getExecutionInfo().containsKey("requires-darwin")) {
-        assertThat(((AbstractAction) action).getExecutionInfo())
-            .containsKey("supports-xcode-requirements-set");
-        assertThat(((AbstractAction) action).getExecutionInfo()).containsKey("no-remote");
+      if (action.getExecutionInfo().containsKey("requires-darwin")) {
+        assertThat(action.getExecutionInfo()).containsKey("supports-xcode-requirements-set");
+        assertThat(action.getExecutionInfo()).containsKey("no-remote");
       }
     }
   }
@@ -181,7 +179,7 @@ public class AppleRulesTest extends AnalysisTestCase {
 
     useConfiguration("--ios_minimum_os=10.0");
     AnalysisResult result = update("//transition:xxx");
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs()).getConfiguration();
     AppleCommandLineOptions appleOptions =
         configuration.getOptions().get(AppleCommandLineOptions.class);

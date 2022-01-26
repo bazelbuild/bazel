@@ -31,7 +31,8 @@ class BazelModuleTest(test_base.TestBase):
     self.main_registry.createCcModule('A', '1.0') \
         .createCcModule('A', '1.1') \
         .createCcModule('B', '1.0', {'A': '1.0'}, {'A': 'com_foo_bar_a'}) \
-        .createCcModule('B', '1.1', {'A': '1.1'})
+        .createCcModule('B', '1.1', {'A': '1.1'}) \
+        .createCcModule('C', '1.1', {'A': '1.1', 'B': '1.1'})
     self.ScratchFile(
         '.bazelrc',
         [
@@ -299,6 +300,37 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('main function => A@1.0', stdout)
     self.assertIn('main function => B@1.0', stdout)
     self.assertIn('B@1.0 => A@1.0', stdout)
+
+  def testCheckDirectDependencies(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "A", version = "1.0")',
+        'bazel_dep(name = "B", version = "1.0")',
+        'bazel_dep(name = "C", version = "1.1")',
+    ])
+    _, stdout, stderr = self.RunBazel(
+        ['run', '//:main', '--check_direct_dependencies=warning'],
+        allow_failure=False)
+    self.assertIn(
+        'WARNING: For repository \'A\', the root module requires module version A@1.0, but got A@1.1 in the resolved dependency graph.',
+        stderr)
+    self.assertIn(
+        'WARNING: For repository \'B\', the root module requires module version B@1.0, but got B@1.1 in the resolved dependency graph.',
+        stderr)
+    self.assertIn('main function => A@1.1', stdout)
+    self.assertIn('main function => B@1.1', stdout)
+    self.assertIn('B@1.1 => A@1.1', stdout)
+
+    exit_code, _, stderr = self.RunBazel(
+        ['run', '//:main', '--check_direct_dependencies=error'],
+        allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'ERROR: For repository \'A\', the root module requires module version A@1.0, but got A@1.1 in the resolved dependency graph.',
+        stderr)
+    self.assertIn(
+        'ERROR: For repository \'B\', the root module requires module version B@1.0, but got B@1.1 in the resolved dependency graph.',
+        stderr)
 
 
 if __name__ == '__main__':

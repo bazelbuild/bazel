@@ -134,12 +134,13 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h3 id="aquery-options">Aquery options</h3>
 
-<h4><code class='flag'>--output=(text|proto|textproto|jsonproto), default=text</code></h4>
+<h4><code class='flag'>--output=(text|summary|proto|jsonproto|textproto), default=text</code></h4>
 
 <p>
-  The default output format (<code>text</code>) is human-readable,
-  use <code>proto</code>, <code>textproto</code>, or <code>jsonproto</code> for machine-readable format.
-  The proto message is <code>analysis.ActionGraphContainer</code>.
+  The <code>text</code> (default) and summary output formats are human-readable,
+  select <code>proto</code>, <code>textproto</code>, or <code>jsonproto</code> for a
+  machine-readable format.
+  The proto message for the machine-readable formats is <code>analysis.ActionGraphContainer</code>.
 </p>
 
 <h4><code class='flag'>--include_commandline, default=true</code></h4>
@@ -449,8 +450,4 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <p>
   For any issues/feature requests, please file an issue <a href="https://github.com/bazelbuild/bazel/issues/new">here</a>.
-</p>
-<!-- begin-block:internal
-<p>
-  For any issues/feature requests, please file an issue <a href="https://b.corp.google.com/issues/new?component=516956&template=1189955">here</a>.
 </p>

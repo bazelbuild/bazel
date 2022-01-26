@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
@@ -65,9 +64,8 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    *
    * @param thread StarlarkThread in which to store the context.
    * @param label the label of the .bzl file
-   * @param repoMapping map of RepositoryNames to be remapped
    */
-  void setStarlarkThreadContext(StarlarkThread thread, Label label, RepositoryMapping repoMapping);
+  void setStarlarkThreadContext(StarlarkThread thread, Label label);
 
   /**
    * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,

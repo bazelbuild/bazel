@@ -638,4 +638,28 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.");
   }
+
+  @Test
+  public void testDwpFilesIsBlocked() throws Exception {
+    scratch.file(
+        "test/dwp_files_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain.dwp_files()",
+        "  return []",
+        "dwp_files_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//test:alias'))},",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':dwp_files_rule.bzl', 'dwp_files_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "dwp_files_rule(name = 'target')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//test:target");
+
+    assertContainsEvent("Rule in 'test' cannot use private API");
+  }
 }

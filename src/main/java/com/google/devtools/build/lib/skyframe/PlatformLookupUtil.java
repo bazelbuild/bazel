@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -161,16 +161,18 @@ public class PlatformLookupUtil {
   }
 
   static boolean hasPlatformInfo(Target target) {
+    Rule rule = target.getAssociatedRule();
     // If the rule uses toolchain resolution, it can't be used as a target or exec platform.
-    if (target.getAssociatedRule() == null) {
+    if (rule == null) {
       return false;
     }
-    RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
-    if (ruleClass == null || ruleClass.useToolchainResolution()) {
+    if (rule.useToolchainResolution()) {
       return false;
     }
 
-    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.PROVIDER.id());
+    return rule.getRuleClassObject()
+        .getAdvertisedProviders()
+        .advertises(PlatformInfo.PROVIDER.id());
   }
 
   /** Exception used when a platform label is not a valid platform. */

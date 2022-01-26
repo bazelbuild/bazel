@@ -21,17 +21,17 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the
  * compilation of proto_library rules.
  */
 @Immutable
-@AutoCodec
 public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact> {
   /** Provider class for {@link ProtoInfo} objects. */
   public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
@@ -68,7 +68,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   private final NestedSet<ProtoSource> strictImportableSources;
   private final NestedSet<ProtoSource> publicImportSources;
 
-  @AutoCodec.Instantiator
   public ProtoInfo(
       ImmutableList<ProtoSource> directSources,
       PathFragment directProtoSourceRoot,
@@ -108,9 +107,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return PROVIDER;
   }
 
-  /**
-   * The proto source files that are used in compiling this {@code proto_library}.
-   */
+  /** The proto source files that are used in compiling this {@code proto_library}. */
   @Override
   public ImmutableList<Artifact> getDirectProtoSources() {
     return directProtoSources;
@@ -131,6 +128,12 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   @Override
   public Depset /*<Artifact>*/ getTransitiveProtoSourcesForStarlark() {
     return Depset.of(Artifact.TYPE, getTransitiveProtoSources());
+  }
+
+  @Override
+  public Depset getTransitiveSourcesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(ProtoSource.TYPE, transitiveSources);
   }
 
   /**
@@ -206,6 +209,12 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     return transitiveDescriptorSets;
   }
 
+  @Override
+  public Depset getExportedSourcesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(ProtoSource.TYPE, getExportedSources());
+  }
+
   /**
    * Returns a set of {@code .proto} sources that may be imported by {@code proto_library} targets
    * directly depending on this {@code ProtoInfo}.
@@ -220,6 +229,18 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    */
   public NestedSet<ProtoSource> getStrictImportableSources() {
     return strictImportableSources;
+  }
+
+  @Override
+  public Depset getStrictImportableSourcesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(ProtoSource.TYPE, strictImportableSources);
+  }
+
+  @Override
+  public Depset getPublicImportSourcesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(ProtoSource.TYPE, publicImportSources);
   }
 
   /**

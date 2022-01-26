@@ -33,6 +33,12 @@ public final class SpawnMetricsTest {
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setInputBytesLimit(20)
+            .setInputFilesLimit(40)
+            .setOutputBytesLimit(50)
+            .setOutputFilesLimit(60)
+            .setMemoryBytesLimit(70)
+            .setTimeLimit(Duration.ofSeconds(80))
             .build();
     SpawnMetrics metrics2 =
         SpawnMetrics.Builder.forRemoteExec()
@@ -41,6 +47,12 @@ public final class SpawnMetricsTest {
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setInputBytesLimit(200)
+            .setInputFilesLimit(400)
+            .setOutputBytesLimit(500)
+            .setOutputFilesLimit(600)
+            .setMemoryBytesLimit(700)
+            .setTimeLimit(Duration.ofSeconds(800))
             .build();
 
     SpawnMetrics result =
@@ -56,6 +68,12 @@ public final class SpawnMetricsTest {
     assertThat(result.inputBytes()).isEqualTo(110);
     assertThat(result.inputFiles()).isEqualTo(220);
     assertThat(result.memoryEstimate()).isEqualTo(330);
+    assertThat(result.inputBytesLimit()).isEqualTo(220);
+    assertThat(result.inputFilesLimit()).isEqualTo(440);
+    assertThat(result.outputBytesLimit()).isEqualTo(550);
+    assertThat(result.outputFilesLimit()).isEqualTo(660);
+    assertThat(result.memoryLimit()).isEqualTo(770);
+    assertThat(result.timeLimit()).isEqualTo(Duration.ofSeconds(880));
   }
 
   @Test
@@ -67,6 +85,12 @@ public final class SpawnMetricsTest {
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setInputBytesLimit(20)
+            .setInputFilesLimit(40)
+            .setOutputBytesLimit(50)
+            .setOutputFilesLimit(60)
+            .setMemoryBytesLimit(70)
+            .setTimeLimit(Duration.ofSeconds(80))
             .build();
     SpawnMetrics metrics2 =
         SpawnMetrics.Builder.forRemoteExec()
@@ -75,6 +99,12 @@ public final class SpawnMetricsTest {
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setInputBytesLimit(200)
+            .setInputFilesLimit(400)
+            .setOutputBytesLimit(500)
+            .setOutputFilesLimit(600)
+            .setMemoryBytesLimit(700)
+            .setTimeLimit(Duration.ofSeconds(800))
             .build();
 
     SpawnMetrics result =
@@ -90,5 +120,11 @@ public final class SpawnMetricsTest {
     assertThat(result.inputBytes()).isEqualTo(100);
     assertThat(result.inputFiles()).isEqualTo(200);
     assertThat(result.memoryEstimate()).isEqualTo(300);
+    assertThat(result.inputBytesLimit()).isEqualTo(200);
+    assertThat(result.inputFilesLimit()).isEqualTo(400);
+    assertThat(result.outputBytesLimit()).isEqualTo(500);
+    assertThat(result.outputFilesLimit()).isEqualTo(600);
+    assertThat(result.memoryLimit()).isEqualTo(700);
+    assertThat(result.timeLimit()).isEqualTo(Duration.ofSeconds(800));
   }
 }

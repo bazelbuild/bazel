@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.io.FieldInfo;
+import com.google.devtools.build.android.r8.DependencyCollector;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import javax.annotation.Nullable;

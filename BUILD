@@ -27,6 +27,7 @@ filegroup(
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",
+        "//src/main/starlark/tests/builtins_bzl:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -81,6 +82,7 @@ pkg_tar(
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
+        "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
     strip_prefix = "external",
@@ -202,7 +204,7 @@ platform(
     parents = ["@local_config_platform//:host"],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
+REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
 
 [
     platform(

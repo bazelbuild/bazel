@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
-import com.google.common.base.Strings;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
@@ -93,7 +92,7 @@ public final class CrashFailureDetailsTest {
 
   @Test
   public void testMessageLimit() {
-    TestException exception = new TestException(Strings.repeat("x", 5000));
+    TestException exception = new TestException("x".repeat(5000));
 
     String crashMessage =
         CrashFailureDetails.forThrowable(exception).getCrash().getCauses(0).getMessage();

@@ -129,7 +129,7 @@ public class RemoteSpawnCacheTest {
         public void prefetchInputs() {}
 
         @Override
-        public void lockOutputFiles() {}
+        public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr) {}
 
         @Override
         public boolean speculating() {
@@ -147,6 +147,11 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
+        public SpawnInputExpander getSpawnInputExpander() {
+          return new SpawnInputExpander(execRoot, /*strict*/ false);
+        }
+
+        @Override
         public Duration getTimeout() {
           return Duration.ZERO;
         }
@@ -159,7 +164,7 @@ public class RemoteSpawnCacheTest {
         @Override
         public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
             throws IOException, ForbiddenActionInputException {
-          return new SpawnInputExpander(execRoot, /*strict*/ false)
+          return getSpawnInputExpander()
               .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory, fakeFileCache);
         }
 
@@ -221,7 +226,7 @@ public class RemoteSpawnCacheTest {
                 null,
                 ImmutableSet.of(),
                 /* captureCorruptedOutputsDir= */ null));
-    return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, reporter, service);
+    return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, service);
   }
 
   @Before

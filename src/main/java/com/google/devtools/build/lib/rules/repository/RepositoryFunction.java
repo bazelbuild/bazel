@@ -264,14 +264,6 @@ public abstract class RepositoryFunction {
 
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
       throws InterruptedException, EvalException {
-    // Look for package.
-    if (label.getRepository().isDefault()) {
-      try {
-        label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
-      } catch (LabelSyntaxException e) {
-        throw new AssertionError(e); // Can't happen because the input label is valid
-      }
-    }
     SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
     if (pkgLookupValue == null) {
@@ -391,7 +383,7 @@ public abstract class RepositoryFunction {
   protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
       throws RepositoryFunctionException {
     try {
-      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
+      repositoryDirectory.createDirectoryAndParents();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -472,7 +464,7 @@ public abstract class RepositoryFunction {
       Path repositoryDirectory, Path targetDirectory, String userDefinedPath)
       throws RepositoryFunctionException {
     try {
-      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
+      repositoryDirectory.createDirectoryAndParents();
       for (Path target : targetDirectory.getDirectoryEntries()) {
         Path symlinkPath = repositoryDirectory.getRelative(target.getBaseName());
         createSymbolicLink(symlinkPath, target);

@@ -16,24 +16,27 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -43,7 +46,7 @@ import javax.annotation.Nullable;
  * should only be accessed on a single thread for serializing one object (that may involve
  * serializing other objects contained in it).
  */
-public class SerializationContext {
+public class SerializationContext implements SerializationDependencyProvider {
   private final ObjectCodecRegistry registry;
   private final ImmutableClassToInstanceMap<Object> dependencies;
   @Nullable private final Memoizer.Serializer serializer;
@@ -108,6 +111,7 @@ public class SerializationContext {
     }
   }
 
+  @Override
   public <T> T getDependency(Class<T> type) {
     return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);
   }
@@ -130,8 +134,13 @@ public class SerializationContext {
     return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ false);
   }
 
+  /**
+   * Returns a {@link SerializationContext} that will memoize values as described in {@link
+   * #getMemoizingContext} and additionally permits attaching futures through {@link
+   * #addFutureToBlockWritingOn}.
+   */
   @CheckReturnValue
-  SerializationContext getMemoizingAndBlockingOnWriteContext() {
+  public SerializationContext getMemoizingAndBlockingOnWriteContext() {
     checkState(serializer == null, "Should only be called on base serializationContext");
     checkState(!allowFuturesToBlockWritingOn, "Should only be called on base serializationContext");
     return getNewMemoizingContext(/*allowFuturesToBlockWritingOn=*/ true);
@@ -147,27 +156,57 @@ public class SerializationContext {
 
   private SerializationContext getNewMemoizingContext(boolean allowFuturesToBlockWritingOn) {
     return new SerializationContext(
-        this.registry, this.dependencies, new Memoizer.Serializer(), allowFuturesToBlockWritingOn);
-  }
-
-  public SerializationContext getNewNonMemoizingContext() {
-    return new SerializationContext(
-        this.registry, this.dependencies, null, this.allowFuturesToBlockWritingOn);
+        registry, dependencies, new Memoizer.Serializer(), allowFuturesToBlockWritingOn);
   }
 
   /**
-   * Register a {@link ListenableFuture} that must complete successfully before the serialized bytes
-   * generated using this context can be written remotely. Failure of the future implies a bug or
-   * other unrecoverable error that should crash this JVM, which is done by invoking {@link
-   * FutureCallback#onFailure} on the given {@code crashTerminatingCallback}.
+   * Returns a new {@link SerializationContext} mostly identical to this one, but with a dependency
+   * map composed by applying overrides to this context's dependencies.
+   *
+   * <p>The given {@code dependencyOverrides} may contain keys already present (in which case the
+   * dependency will be replaced) or new keys (in which case the dependency will be added).
+   *
+   * <p>Must only be called on a base context (no memoization state), since changing dependencies
+   * may change deserialization semantics.
    */
-  public void addFutureToBlockWritingOn(
-      ListenableFuture<Void> future, FutureCallback<Void> crashTerminatingCallback) {
+  @CheckReturnValue
+  public SerializationContext withDependencyOverrides(ClassToInstanceMap<?> dependencyOverrides) {
+    checkState(serializer == null, "Must only be called on base SerializationContext");
+    return new SerializationContext(
+        registry,
+        ImmutableClassToInstanceMap.builder()
+            .putAll(Maps.filterKeys(dependencies, k -> !dependencyOverrides.containsKey(k)))
+            .putAll(dependencyOverrides)
+            .build(),
+        /*serializer=*/ null,
+        allowFuturesToBlockWritingOn);
+  }
+
+  private static final FutureCallback<Object> CRASH_TERMINATING_CALLBACK =
+      new FutureCallback<Object>() {
+        @Override
+        public void onSuccess(@Nullable Object result) {}
+
+        @Override
+        public void onFailure(Throwable t) {
+          BugReport.handleCrash(t);
+        }
+      };
+
+  /**
+   * Registers a {@link ListenableFuture} that must complete successfully before the serialized
+   * bytes generated using this context can be written remotely.
+   *
+   * <p>Failure of the given future implies a bug or other unrecoverable error that crashes this
+   * JVM, which this method configures by attaching a callback that calls {@link
+   * BugReport#handleCrash(Throwable, String...)} in {@link FutureCallback#onFailure}.
+   */
+  public void addFutureToBlockWritingOn(ListenableFuture<Void> future) {
     checkState(allowFuturesToBlockWritingOn, "This context cannot block on a future");
     if (futuresToBlockWritingOn == null) {
       futuresToBlockWritingOn = new ArrayList<>();
     }
-    Futures.addCallback(future, crashTerminatingCallback, MoreExecutors.directExecutor());
+    Futures.addCallback(future, CRASH_TERMINATING_CALLBACK, directExecutor());
     futuresToBlockWritingOn.add(future);
   }
 
@@ -178,8 +217,7 @@ public class SerializationContext {
   @Nullable
   public ListenableFuture<Void> createFutureToBlockWritingOn() {
     return futuresToBlockWritingOn != null
-        ? Futures.whenAllSucceed(futuresToBlockWritingOn)
-            .call(() -> null, MoreExecutors.directExecutor())
+        ? Futures.whenAllSucceed(futuresToBlockWritingOn).call(() -> null, directExecutor())
         : null;
   }
 

@@ -52,7 +52,7 @@ java_library(
         ":common_prerequisite_validator",
         ":config/auto_cpu_converter",
         ":config/build_configuration",
-        ":config/build_configuration_option_details",
+        ":config/build_option_details",
         ":config/build_options",
         ":config/build_options_cache",
         ":config/compilation_mode",
@@ -64,7 +64,6 @@ java_library(
         ":config/execution_transition_factory",
         ":config/fragment",
         ":config/fragment_options",
-        ":config/fragment_provider",
         ":config/host_transition",
         ":config/invalid_configuration_exception",
         ":config/per_label_options",
@@ -80,7 +79,6 @@ java_library(
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
-        ":config/transitive_option_details",
         ":configurations_collector",
         ":configured_object_value",
         ":configured_target",
@@ -285,6 +283,7 @@ java_library(
         ":buildinfo/build_info_collection",
         ":buildinfo/build_info_key",
         ":config/build_configuration",
+        ":config/build_option_details",
         ":config/build_options",
         ":config/config_conditions",
         ":config/config_matching_provider",
@@ -293,7 +292,7 @@ java_library(
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_options",
-        ":config/fragment_provider",
+        ":config/fragment_registry",
         ":config/host_transition",
         ":config/invalid_configuration_exception",
         ":config/per_label_options",
@@ -375,6 +374,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
@@ -401,6 +401,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:test_xml_output_parser_exception",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -409,14 +410,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_info_collection_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -445,6 +445,7 @@ java_library(
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
         "//third_party:caffeine",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
@@ -537,7 +538,6 @@ java_library(
         ":server_directories",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
@@ -617,7 +617,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
@@ -686,7 +686,7 @@ java_library(
         ":config/config_matching_provider",
         ":transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -712,7 +712,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -727,7 +726,6 @@ java_library(
         ":config/transitions/configuration_transition",
         ":dependency",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//third_party:auto_value",
         "//third_party:jsr305",
     ],
@@ -777,6 +775,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
     ],
 )
 
@@ -788,7 +787,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
     ],
 )
@@ -799,6 +797,7 @@ java_library(
     deps = [
         ":configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
@@ -824,7 +823,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
     ],
@@ -850,7 +848,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
 )
@@ -879,7 +876,6 @@ java_library(
         ":blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/util:process",
         "//third_party:guava",
     ],
 )
@@ -906,7 +902,6 @@ java_library(
     name = "package_specification_provider",
     srcs = ["PackageSpecificationProvider.java"],
     deps = [
-        ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
     ],
@@ -970,13 +965,13 @@ java_library(
     srcs = ["RequiredConfigFragmentsProvider.java"],
     deps = [
         ":config/fragment",
-        ":config/fragment_class_set",
         ":config/fragment_options",
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -1025,8 +1020,8 @@ java_library(
     name = "statically_linked_marker_provider",
     srcs = ["StaticallyLinkedMarkerProvider.java"],
     deps = [
-        ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
@@ -1063,6 +1058,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -1099,7 +1095,6 @@ java_library(
     srcs = ["TopLevelArtifactContext.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
 )
@@ -1197,7 +1192,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
     ],
 )
 
@@ -1239,7 +1233,6 @@ java_library(
         ":actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1287,6 +1280,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
@@ -1416,7 +1410,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
@@ -1429,7 +1422,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1446,7 +1438,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
@@ -1469,7 +1460,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/net/starlark/java/eval",
@@ -1486,7 +1476,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
 )
@@ -1513,7 +1502,6 @@ java_library(
     deps = [
         ":config/fragment",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",
@@ -1524,21 +1512,23 @@ java_library(
 java_library(
     name = "config/build_configuration",
     srcs = [
-        "config/BuildConfiguration.java",
+        "config/BuildConfigurationValue.java",
         "config/OutputDirectories.java",
     ],
     deps = [
         ":blaze_directories",
+        ":config/build_option_details",
         ":config/build_options",
         ":config/compilation_mode",
         ":config/core_options",
         ":config/fragment",
         ":config/fragment_class_set",
-        ":config/fragment_options",
-        ":config/fragment_provider",
+        ":config/fragment_factory",
+        ":config/fragment_registry",
         ":config/invalid_configuration_exception",
         ":config/run_under",
-        ":config/transitive_option_details",
+        ":platform_options",
+        ":starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -1547,24 +1537,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "config/build_configuration_option_details",
-    srcs = ["config/BuildConfigurationOptionDetails.java"],
-    deps = [
-        ":config/build_configuration",
-        ":config/transitive_option_details",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1578,6 +1563,7 @@ java_library(
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
@@ -1591,6 +1577,7 @@ java_library(
     srcs = ["config/BuildOptionsCache.java"],
     deps = [
         ":config/build_options",
+        "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",
     ],
@@ -1623,7 +1610,6 @@ java_library(
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -1720,6 +1706,34 @@ java_library(
 )
 
 java_library(
+    name = "config/fragment_factory",
+    srcs = ["config/FragmentFactory.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_options",
+        ":config/fragment",
+        ":config/fragment_options",
+        ":config/invalid_configuration_exception",
+        "//third_party:auto_value",
+        "//third_party:caffeine",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/fragment_registry",
+    srcs = ["config/FragmentRegistry.java"],
+    deps = [
+        ":config/build_options",
+        ":config/fragment",
+        ":config/fragment_class_set",
+        ":config/fragment_options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "config/fragment_options",
     srcs = [
         "config/FragmentOptions.java",
@@ -1729,17 +1743,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "config/fragment_provider",
-    srcs = [
-        "config/FragmentProvider.java",
-    ],
-    deps = [
-        ":config/fragment_class_set",
-        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
@@ -1754,6 +1757,7 @@ java_library(
         ":config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -1777,7 +1781,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
@@ -1797,7 +1800,6 @@ java_library(
         ":config/run_under",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
@@ -1835,8 +1837,8 @@ java_library(
 )
 
 java_library(
-    name = "config/transitive_option_details",
-    srcs = ["config/TransitiveOptionDetails.java"],
+    name = "config/build_option_details",
+    srcs = ["config/BuildOptionDetails.java"],
     deps = [
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1851,6 +1853,7 @@ java_library(
     name = "config/transitions/composing_transition",
     srcs = ["config/transitions/ComposingTransition.java"],
     deps = [
+        ":config/build_option_details",
         ":config/build_options",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
@@ -1882,6 +1885,7 @@ java_library(
         "config/transitions/TransitionUtil.java",
     ],
     deps = [
+        ":config/build_option_details",
         ":config/build_options",
         ":config/fragment_options",
         ":required_config_fragments_provider",
@@ -1900,6 +1904,7 @@ java_library(
         ":config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:auto_value",
     ],
 )
@@ -1914,6 +1919,7 @@ java_library(
         ":config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:auto_value",
     ],
 )
@@ -2007,6 +2013,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -2034,7 +2041,6 @@ java_library(
         ":constraints/environment_collection",
         ":constraints/supported_environments_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
 )
@@ -2047,7 +2053,6 @@ java_library(
         ":label_and_location",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
     ],
 )
@@ -2083,7 +2088,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -2104,7 +2109,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
@@ -2237,7 +2241,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
@@ -2350,7 +2353,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/util",
     ],
@@ -2396,6 +2398,7 @@ java_library(
     name = "test/test_trimming_transition_factory",
     srcs = ["test/TestTrimmingTransitionFactory.java"],
     deps = [
+        ":analysis_cluster",
         ":config/build_options",
         ":config/build_options_cache",
         ":config/core_options",

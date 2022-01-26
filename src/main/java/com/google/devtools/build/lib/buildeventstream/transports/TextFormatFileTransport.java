@@ -46,7 +46,7 @@ public final class TextFormatFileTransport extends FileTransport {
 
   @Override
   protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
-    String protoTextRepresentation = TextFormat.printToString(buildEvent);
+    String protoTextRepresentation = TextFormat.printer().printToString(buildEvent);
     return ("event {\n" + protoTextRepresentation + "}\n\n").getBytes(UTF_8);
   }
 }

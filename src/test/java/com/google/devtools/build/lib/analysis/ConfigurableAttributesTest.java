@@ -427,7 +427,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'int_key',",
         "    srcs = select({123: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:int_key", "select: got int for dict key, want a label string");
+    assertTargetError(
+        "//java/foo:int_key", "select: got int for dict key, want a Label or label string");
   }
 
   @Test
@@ -439,7 +440,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'bool_key',",
         "    srcs = select({True: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:bool_key", "select: got bool for dict key, want a label string");
+    assertTargetError(
+        "//java/foo:bool_key", "select: got bool for dict key, want a Label or label string");
   }
 
   @Test
@@ -452,7 +454,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    srcs = select({None: ['a.java']})",
         ")");
     assertTargetError(
-        "//java/foo:none_key", "select: got NoneType for dict key, want a label string");
+        "//java/foo:none_key", "select: got NoneType for dict key, want a Label or label string");
   }
 
   @Test
@@ -1291,6 +1293,49 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void selectOnlyToolchainResolvingTargetsCanSelectDirectlyOnConstraints() throws Exception {
+    // Tests select()ing directly on a constraint_value when the rule uses toolchain resolution
+    // *only if it has a select()*. As of this test, alias() is the only rule that supports that
+    // (see Alias#useToolchainResolution(ToolchainResolutionMode.HAS_SELECT).
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'fruit')",
+        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
+        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
+        "platform(",
+        "    name = 'apple_platform',",
+        "    constraint_values = [':apple'],",
+        ")");
+    scratch.file(
+        "check/defs.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {}",
+        ")");
+    scratch.file(
+        "check/BUILD",
+        "load('//check:defs.bzl', 'simple_rule')",
+        "filegroup(name = 'bdep', srcs = ['bfile'])",
+        "simple_rule(name = 'hello')",
+        "simple_rule(name = 'tere')",
+        "alias(",
+        "    name = 'selectable_alias',",
+        "    actual = select({",
+        "        '//conditions:apple': ':hello',",
+        "        '//conditions:banana': ':tere',",
+        "    }))");
+    useConfiguration("--platforms=//conditions:apple_platform");
+    assertThat(
+            getConfiguredTarget("//check:selectable_alias")
+                .getActual()
+                .getLabel()
+                .getCanonicalForm())
+        .isEqualTo("//check:hello");
+  }
+
+  @Test
   public void multipleMatchErrorWhenAliasResolvesToSameSetting() throws Exception {
     scratch.file(
         "a/BUILD",
@@ -1525,5 +1570,50 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
+  }
+
+  @Test
+  public void selectWithLabelKeysInMacro() throws Exception {
+    writeConfigRules();
+    scratch.file("java/BUILD");
+    scratch.file(
+        "java/macros.bzl",
+        "def my_java_binary(name, deps = [], **kwargs):",
+        "    native.java_binary(",
+        "        name = name,",
+        "        deps = select({",
+        "            Label('//conditions:a'): [Label('//java/foo:a')],",
+        "            '//conditions:b': [Label('//java/foo:b')],",
+        "        }) + select({",
+        "            '//conditions:a': [Label('//java/foo:a2')],",
+        "            Label('//conditions:b'): [Label('//java/foo:b2')],",
+        "        }),",
+        "        **kwargs,",
+        "    )");
+    scratch.file(
+        "java/foo/BUILD",
+        "load('//java:macros.bzl', 'my_java_binary')",
+        "my_java_binary(",
+        "    name = 'binary',",
+        "    srcs = ['binary.java'],",
+        ")",
+        "java_library(",
+        "    name = 'a',",
+        "    srcs = ['a.java'])",
+        "java_library(",
+        "    name = 'b',",
+        "    srcs = ['b.java'])",
+        "java_library(",
+        "    name = 'a2',",
+        "    srcs = ['a2.java'])",
+        "java_library(",
+        "    name = 'b2',",
+        "    srcs = ['b2.java'])");
+
+    checkRule(
+        "//java/foo:binary",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
   }
 }

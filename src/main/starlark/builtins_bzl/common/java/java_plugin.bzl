@@ -16,60 +16,126 @@
 Definition of java_plugin rule.
 """
 
-load(":common/java/java_common.bzl", "JAVA_COMMON_DEP")
-load(":common/rule_util.bzl", "create_rule")
+load(":common/java/java_common.bzl", "basic_java_library", "construct_defaultinfo")
+load(":common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "JAVA_LIBRARY_IMPLICIT_ATTRS")
+load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
+load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
-def _java_plugin_rule_impl(ctx):
-    semantics.check_rule(ctx)
-    semantics.check_dependency_rule_kinds(ctx)
+def bazel_java_plugin_rule(
+        ctx,
+        srcs = [],
+        data = [],
+        generates_api = False,
+        processor_class = "",
+        deps = [],
+        plugins = [],
+        resources = [],
+        javacopts = [],
+        neverlink = False,
+        proguard_specs = []):
+    """Implements java_plugin rule.
 
-    extra_resources = semantics.preprocess(ctx)
+    Use this call when you need to produce a fully fledged java_plugin from
+    another rule's implementation.
 
-    base_info = JAVA_COMMON_DEP.call(ctx, extra_resources = extra_resources, output_prefix = "lib")
+    Args:
+      ctx: (RuleContext) Used to register the actions.
+      srcs: (list[File]) The list of source files that are processed to create the target.
+      data: (list[File]) The list of files needed by this plugin at runtime.
+      generates_api: (bool) This attribute marks annotation processors that generate API code.
+      processor_class: (str) The processor class is the fully qualified type of
+        the class that the Java compiler should use as entry point to the annotation processor.
+      deps: (list[Target]) The list of other libraries to be linked in to the target.
+      plugins: (list[Target]) Java compiler plugins to run at compile-time.
+      resources: (list[File]) A list of data files to include in a Java jar.
+      javacopts: (list[str]) Extra compiler options for this library.
+      neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
+      proguard_specs: (list[File]) Files to be used as Proguard specification.
+    Returns:
+      (list[provider]) A list containing DefaultInfo, JavaInfo,
+        InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
+    """
+    base_info = basic_java_library(
+        ctx,
+        srcs,
+        deps,
+        [],  # runtime_deps
+        plugins,
+        [],  # exports
+        [],  # exported_plugins
+        resources,
+        [],  # classpath_resources
+        javacopts,
+        neverlink,
+    )
 
-    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx)
+    proguard_specs_provider = validate_proguard_specs(ctx, proguard_specs, [deps, plugins])
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
-    base_info.extra_providers.append(proguard_specs_provider)
+    base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
 
-    java_info, default_info = semantics.postprocess_plugin(ctx, base_info)
+    java_info, extra_files = semantics.postprocess_plugin(ctx, base_info)
 
     java_plugin_info = JavaPluginInfo(
         runtime_deps = [java_info],
-        processor_class = ctx.attr.processor_class if ctx.attr.processor_class else None,  # ignore empty string (default)
-        data = ctx.files.data,
-        generates_api = ctx.attr.generates_api,
+        processor_class = processor_class if processor_class else None,  # ignore empty string (default)
+        data = data,
+        generates_api = generates_api,
     )
 
-    return [
-        default_info,
-        java_plugin_info,
-        base_info.instrumented_files_info,
-        OutputGroupInfo(**base_info.output_groups),
-    ] + base_info.extra_providers
+    default_info = construct_defaultinfo(
+        ctx,
+        base_info.files_to_build + extra_files,
+        neverlink,
+        base_info.has_sources_or_resources,
+    )
 
-java_plugin = create_rule(
-    _java_plugin_rule_impl,
-    attrs = dict(
-        {
-            "generates_api": attr.bool(),
-            "processor_class": attr.string(),
-            "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-            "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        },
-        **semantics.EXTRA_PLUGIN_ATTRIBUTES
+    return dict({
+        "DefaultInfo": default_info,
+        "JavaPluginInfo": java_plugin_info,
+        "InstrumentedFilesInfo": base_info.instrumented_files_info,
+        "OutputGroupInfo": OutputGroupInfo(**base_info.output_groups),
+    }, **base_info.extra_providers)
+
+def _proxy(ctx):
+    return bazel_java_plugin_rule(
+        ctx,
+        ctx.files.srcs,
+        ctx.files.data,
+        ctx.attr.generates_api,
+        ctx.attr.processor_class,
+        ctx.attr.deps,
+        ctx.attr.plugins,
+        ctx.files.resources,
+        ctx.attr.javacopts,
+        ctx.attr.neverlink,
+        ctx.files.proguard_specs,
+    ).values()
+
+JAVA_PLUGIN_ATTRS = merge_attrs(
+    JAVA_LIBRARY_ATTRS,
+    {
+        "generates_api": attr.bool(),
+        "processor_class": attr.string(),
+        "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+    },
+    remove_attrs = ["runtime_deps", "exports", "exported_plugins"],
+)
+
+JAVA_PLUGIN_IMPLICIT_ATTRS = JAVA_LIBRARY_IMPLICIT_ATTRS
+
+java_plugin = rule(
+    _proxy,
+    attrs = merge_attrs(
+        JAVA_PLUGIN_ATTRS,
+        JAVA_PLUGIN_IMPLICIT_ATTRS,
     ),
-    deps = [
-        JAVA_COMMON_DEP,
-        VALIDATE_PROGUARD_SPECS,
-    ] + semantics.EXTRA_PLUGIN_DEPS,
     provides = [JavaPluginInfo],
-    outputs = {} if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY else {
+    outputs = {
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },
-    remove_attrs = ["runtime_deps", "exports", "exported_plugins"],
+    fragments = ["java", "cpp"],
 )

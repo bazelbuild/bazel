@@ -25,12 +25,10 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.common.testing.GcFinalization;
@@ -63,6 +61,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -70,12 +69,9 @@ import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
-import com.google.devtools.build.lib.analysis.AnalysisProtos;
-import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -93,12 +89,8 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -132,15 +124,8 @@ import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.InMemoryGraph;
-import com.google.devtools.build.skyframe.InMemoryGraphImpl;
-import com.google.devtools.build.skyframe.InMemoryNodeEntry;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.GraphTransformerForTesting;
-import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
-import com.google.devtools.build.skyframe.ProcessableGraph;
-import com.google.devtools.build.skyframe.QueryableGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.TaggedEvents;
@@ -165,9 +150,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -193,7 +175,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   private OptionsParser options;
 
   @Before
-  public final void createSkyframeExecutorAndVisitor() throws Exception {
+  public void createSkyframeExecutorAndVisitor() throws Exception {
     skyframeExecutor = getSkyframeExecutor();
     visitor = skyframeExecutor.getPackageManager().transitiveLoader();
     options =
@@ -300,109 +282,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         Root.fromPath(rootDirectory));
     sync("//python/hello:hello");
     assertThat(dirtyValues()).isEmpty();
-  }
-
-  @Test
-  public void getDiff_changedFileStillExists_returnsFile() throws Exception {
-    Root root = Root.fromPath(scratch.dir("/"));
-    Path file = scratch.file("/foo/foo.txt");
-    RootedPath fileRootedPath = RootedPath.toRootedPath(root, file);
-    FileStateValue.Key key = FileStateValue.key(fileRootedPath);
-    FileStateValue oldValue = FileStateValue.create(fileRootedPath, /*tsgm=*/ null);
-    skyframeExecutor.memoizingEvaluator.injectGraphTransformerForTesting(
-        inMemoryGraphWithValues(ImmutableMap.of(key, oldValue)));
-    scratch.overwriteFile(file.getPathString(), "new contents");
-
-    Diff diff =
-        skyframeExecutor.getDiff(
-            /*tsgm=*/ null,
-            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
-            root,
-            /*fsvcThreads=*/ 1);
-
-    assertThat(diff.changedKeysWithNewValues())
-        .containsExactly(key, FileStateValue.create(fileRootedPath, /*tsgm=*/ null));
-    assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
-  }
-
-  @Test
-  public void getDiff_newFile_returnsFileAndParentDirectoryListing() throws Exception {
-    Root root = Root.fromPath(scratch.dir("/"));
-    Path file = scratch.file("/foo/foo.txt");
-
-    Diff diff =
-        skyframeExecutor.getDiff(
-            /*tsgm=*/ null,
-            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
-            root,
-            /*fsvcThreads=*/ 1);
-
-    RootedPath fileRootedPath = RootedPath.toRootedPath(root, file);
-    assertThat(diff.changedKeysWithNewValues())
-        .containsExactly(
-            FileStateValue.key(fileRootedPath),
-            FileStateValue.create(fileRootedPath, /*tsgm=*/ null));
-    assertThat(diff.changedKeysWithoutNewValues())
-        .containsExactly(DirectoryListingStateValue.key(fileRootedPath.getParentDirectory()));
-  }
-
-  @Test
-  public void getDiff_newFileFailsToStat_returnsFileAndParentDirectoryListing() throws Exception {
-    Root root = Root.fromPath(scratch.dir("/"));
-    Path file = scratch.file("/foo/foo.txt");
-    // This makes InMemoryFileSystem throw IOException when we try to stat /foo/foo.txt.
-    file.getParentDirectory().setExecutable(false);
-
-    Diff diff =
-        skyframeExecutor.getDiff(
-            /*tsgm=*/ null,
-            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
-            root,
-            /*fsvcThreads=*/ 1);
-
-    assertThat(diff.changedKeysWithNewValues()).isEmpty();
-    assertThat(diff.changedKeysWithoutNewValues())
-        .containsExactly(
-            FileStateValue.key(RootedPath.toRootedPath(root, file)),
-            DirectoryListingStateValue.key(
-                RootedPath.toRootedPath(root, file.getParentDirectory())));
-  }
-
-  private static GraphTransformerForTesting inMemoryGraphWithValues(
-      ImmutableMap<SkyKey, SkyValue> values) {
-
-    return new GraphTransformerForTesting() {
-      @Override
-      public InMemoryGraph transform(InMemoryGraph graph) {
-        return new InMemoryGraphImpl() {
-          {
-            nodeMap.putAll(Maps.transformValues(values, v -> createNodeEntry(v)));
-          }
-        };
-      }
-
-      @Override
-      public QueryableGraph transform(QueryableGraph graph) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public ProcessableGraph transform(ProcessableGraph graph) {
-        throw new UnsupportedOperationException();
-      }
-
-      private NodeEntry createNodeEntry(SkyValue value) {
-        InMemoryNodeEntry nodeEntry = new InMemoryNodeEntry();
-        nodeEntry.addReverseDepAndCheckIfDone(null);
-        nodeEntry.markRebuilding();
-        try {
-          nodeEntry.setValue(value, ignored -> false);
-        } catch (InterruptedException e) {
-          throw new RuntimeException();
-        }
-        return nodeEntry;
-      }
-    };
   }
 
   @Test
@@ -582,8 +461,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 /* lastExecutionTimeRange= */ null,
                 /* numThreads= */ 20)
             .getDirtyKeys(
-                skyframeExecutor.getEvaluatorForTesting().getValues(),
-                new BasicFilesystemDirtinessChecker());
+                skyframeExecutor.getEvaluator().getValues(), new BasicFilesystemDirtinessChecker());
     return ImmutableList.<SkyKey>builder()
         .addAll(diff.changedKeysWithoutNewValues())
         .addAll(diff.changedKeysWithNewValues().keySet())
@@ -687,7 +565,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       ActionResult actionResult = super.execute(actionExecutionContext);
       try {
         getPrimaryOutput().getPath().deleteTree();
@@ -704,8 +582,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           new ActionsTestUtil.FakeArtifactResolverBase(),
           new ActionKeyContext(),
           Predicates.alwaysTrue(),
-          null,
-          PathFragment.create("bazel-out"));
+          /*cacheConfig=*/ null);
 
   private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER = new ProgressSupplier() {
     @Override
@@ -731,7 +608,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
-    return skyframeExecutor.getDriver().evaluate(roots, evaluationContext);
+    return skyframeExecutor.getEvaluator().evaluate(roots, evaluationContext);
   }
 
   /**
@@ -780,12 +657,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     reporter.removeHandler(failFastHandler); // Expect errors.
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result = evaluate(ImmutableList.of(output1, output2));
     assertWithMessage(result.toString()).that(result.keyNames()).isEmpty();
     assertThat(result.hasError()).isTrue();
@@ -801,7 +677,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Path root = getExecRoot();
     PathFragment execPath = PathFragment.create("out").getRelative("file");
     Path sourcePath = rootDirectory.getRelative("foo/src");
-    FileSystemUtils.createDirectoryAndParents(sourcePath.getParentDirectory());
+    sourcePath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(sourcePath);
 
     // We create two "configured targets" and two copies of the same artifact, each generated by
@@ -839,7 +715,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // the action cache post-build.
     final CountDownLatch inputsRequested = new CountDownLatch(2);
     skyframeExecutor
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
@@ -878,11 +754,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result =
         evaluate(Artifact.keys(ImmutableList.of(output1, output2)));
     assertThat(result.hasError()).isFalse();
@@ -958,7 +833,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Thread mainThread = Thread.currentThread();
     CountDownLatch cStarted = new CountDownLatch(1);
     skyframeExecutor
-        .getEvaluatorForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
@@ -1022,11 +897,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     reporter.removeHandler(failFastHandler);
     try {
       evaluate(Artifact.keys(ImmutableList.of(outputA, outputB, outputC)));
@@ -1107,11 +981,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
 
     EvaluationResult<TreeArtifactValue> result = evaluate(ImmutableList.of(output1, output2));
 
@@ -1215,11 +1088,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     evaluate(ImmutableList.of(sharedOutput1, sharedOutput2));
   }
 
@@ -1350,7 +1222,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     PathFragment relativeOut = PathFragment.create("out");
     PathFragment execPath = relativeOut.getRelative("file");
     Path sourcePath = rootDirectory.getRelative("foo/src");
-    FileSystemUtils.createDirectoryAndParents(sourcePath.getParentDirectory());
+    sourcePath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(sourcePath);
 
     // We create two "configured targets" and two copies of the same artifact, each generated by
@@ -1427,20 +1299,110 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     // NULL_CHECKER here means action cache, which would be our savior, is not in play.
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result = evaluate(Artifact.keys(ImmutableList.of(output1)));
     assertThat(result.hasError()).isFalse();
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     EvaluationResult<FileArtifactValue> result2 =
         evaluate(Artifact.keys(ImmutableList.of(top, output2)));
     assertThat(result2.hasError()).isFalse();
     TrackingAwaiter.INSTANCE.assertNoErrors();
+  }
+
+  @Test
+  public void interruptDoesntSuppressErrorOutput() throws Exception {
+    Path root = getExecRoot();
+    PathFragment execPath = PathFragment.create("out").getRelative("dir");
+    PathFragment cyclesourceFragment = PathFragment.create("cyclesource");
+    Artifact.SourceArtifact cycleArtifact =
+        new Artifact.SourceArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)),
+            cyclesourceFragment,
+            ArtifactOwner.NULL_OWNER);
+    rootDirectory.getRelative(cyclesourceFragment).createSymbolicLink(cyclesourceFragment);
+    ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
+    Artifact output =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            execPath.getRelative("cycleOutput"),
+            lc1);
+    Action action1 = new DummyAction(cycleArtifact, output);
+    SkyValue ctValue1 =
+        ValueWithMetadata.normal(
+            createActionLookupValue(action1, lc1),
+            null,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
+    Artifact output2 =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            execPath.getRelative("bar"),
+            lc2);
+    CountDownLatch startedSleep = new CountDownLatch(1);
+    @SuppressWarnings("ThreadSleepMillis")
+    Action slowAction =
+        new TestAction(
+            (Callable<Void> & Serializable)
+                () -> {
+                  startedSleep.countDown();
+                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                  throw new IllegalStateException("Should have been interrupted");
+                },
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(output2));
+    SkyValue ctValue2 =
+        ValueWithMetadata.normal(
+            createActionLookupValue(slowAction, lc2),
+            null,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    skyframeExecutor
+        .getEvaluator()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (EventType.IS_READY.equals(type)
+                      && key instanceof ActionLookupData
+                      && lc1.equals(((ActionLookupData) key).getActionLookupKey())) {
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(startedSleep, "No sleep");
+                  }
+                }));
+    skyframeExecutor
+        .getDifferencerForTesting()
+        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+    // Do a null build, so that the skyframe executor initializes the action executor properly.
+    skyframeExecutor.setActionOutputRoot(getOutputPath());
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        EMPTY_PROGRESS_SUPPLIER,
+        EMPTY_COMPLETION_RECEIVER,
+        ActionExecutionStatusReporter.create(reporter));
+    skyframeExecutor.buildArtifacts(
+        reporter,
+        ResourceManager.instanceForTestingOnly(),
+        new DummyExecutor(fileSystem, rootDirectory),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        options,
+        NULL_CHECKER,
+        null,
+        null);
+
+    skyframeExecutor.prepareBuildingForTestingOnly(
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    evaluate(Artifact.keys(ImmutableList.of(output, output2)));
+    assertContainsEvent(
+        "Test dir/cycleOutput failed: error reading file 'cyclesource': Symlink cycle");
+    assertContainsEvent("Test dir/cycleOutput failed: 1 input file(s) are in error");
   }
 
   /**
@@ -1507,11 +1469,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         NULL_CHECKER,
         null,
-        null,
         null);
 
     skyframeExecutor.prepareBuildingForTestingOnly(
-        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
+        reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
     evaluate(ImmutableList.of(Artifact.key(output2)));
     assertContainsEvent("action 1");
     assertContainsEvent("action 2");
@@ -1522,16 +1483,18 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThat(
             ValueWithMetadata.getEvents(
                     skyframeExecutor
-                        .getDriver()
-                        .getEntryForTesting(ActionLookupData.create(lc1, 0))
+                        .getEvaluator()
+                        .getExistingEntryAtCurrentlyEvaluatingVersion(
+                            ActionLookupData.create(lc1, 0))
                         .getValueMaybeWithMetadata())
                 .toList())
         .isEmpty();
     assertThat(
             ValueWithMetadata.getEvents(
                     skyframeExecutor
-                        .getDriver()
-                        .getEntryForTesting(ActionLookupData.create(lc2, 0))
+                        .getEvaluator()
+                        .getExistingEntryAtCurrentlyEvaluatingVersion(
+                            ActionLookupData.create(lc2, 0))
                         .getValueMaybeWithMetadata())
                 .toList())
         .isEmpty();
@@ -1612,21 +1575,20 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       ActionResult actionResult = super.execute(actionExecutionContext);
       assertThat(executed.getAndSet(true)).isFalse();
       return actionResult;
     }
   }
 
-  private BinTools setupEmbeddedArtifacts() throws IOException {
+  private void setupEmbeddedArtifacts() throws IOException {
     List<String> embeddedTools = analysisMock.getEmbeddedTools();
     directories.getEmbeddedBinariesRoot().createDirectoryAndParents();
     for (String embeddedToolName : embeddedTools) {
       Path toolPath = directories.getEmbeddedBinariesRoot().getRelative(embeddedToolName);
       FileSystemUtils.touchFile(toolPath);
     }
-    return BinTools.forIntegrationTesting(directories, embeddedTools);
   }
 
   /** Test appropriate behavior when an action halts the build with a catastrophic failure. */
@@ -1667,7 +1629,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -1705,9 +1666,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private static ActionLookupValue createActionLookupValue(
-      ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey) {
+      ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey)
+      throws ActionConflictException, InterruptedException,
+          Actions.ArtifactGeneratedByOtherRuleException {
     return new BasicActionLookupValue(
-        Actions.GeneratingActions.fromSingleAction(generatingAction, actionLookupKey));
+        Actions.assignOwnersAndFindAndThrowActionConflict(
+            new ActionKeyContext(), ImmutableList.of(generatingAction), actionLookupKey));
   }
 
   @Test
@@ -1778,8 +1742,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 failureCTK, failureALV,
                 topCTK, topALV));
     skyframeExecutor
-        .getDriver()
-        .getGraphForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             DeterministicHelper.makeTransformer(
                 (key, type, order, context) -> {
@@ -1802,7 +1765,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,
@@ -1899,8 +1861,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(configuredTargetKey, nonRuleActionLookupValue));
     skyframeExecutor
-        .getDriver()
-        .getGraphForTesting()
+        .getEvaluator()
         .injectGraphTransformerForTesting(
             DeterministicHelper.makeTransformer(
                 (key, type, order, context) -> {
@@ -1927,7 +1888,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,
@@ -2046,7 +2006,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2154,7 +2113,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2252,7 +2210,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2336,7 +2293,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
-            null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,
@@ -2360,424 +2316,5 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         eventCollector, Pattern.compile(".*during scanning.*\n.*Scanning.*\n.*Test dir/top.*"));
     MoreAsserts.assertNotContainsEvent(
         eventCollector, Pattern.compile(".*after scanning.*\n.*Scanning.*\n.*Test dir/top.*"));
-  }
-
-  private static AnalysisProtos.Artifact getArtifact(
-      String execPath, ActionGraphContainer actionGraphContainer) {
-    for (AnalysisProtos.Artifact artifact : actionGraphContainer.getArtifactsList()) {
-      if (execPath.equals(artifact.getExecPath())) {
-        return artifact;
-      }
-    }
-    return null;
-  }
-
-  private AnalysisProtos.Artifact getArtifactFromBinDir(
-      String workspaceRelativePath, ActionGraphContainer actionGraphContainer) {
-    return getArtifact(
-        getTargetConfiguration()
-            .getBinDir()
-            .getExecPath()
-            .getRelative(workspaceRelativePath)
-            .getPathString(),
-        actionGraphContainer);
-  }
-
-  private static AnalysisProtos.Action getGeneratingAction(
-      String outputArtifactId, ActionGraphContainer actionGraphContainer) {
-    for (AnalysisProtos.Action action : actionGraphContainer.getActionsList()) {
-      for (String outputId : action.getOutputIdsList()) {
-        if (outputArtifactId.equals(outputId)) {
-          return action;
-        }
-      }
-    }
-    return null;
-  }
-
-  private static AnalysisProtos.Target getTarget(
-      String label, ActionGraphContainer actionGraphContainer) {
-    for (AnalysisProtos.Target target : actionGraphContainer.getTargetsList()) {
-      if (label.equals(target.getLabel())) {
-        return target;
-      }
-    }
-    return null;
-  }
-
-  private static AnalysisProtos.AspectDescriptor getAspectDescriptor(
-      String aspectDescriptorId, ActionGraphContainer actionGraphContainer) {
-    for (AnalysisProtos.AspectDescriptor aspectDescriptor :
-        actionGraphContainer.getAspectDescriptorsList()) {
-      if (aspectDescriptorId.equals(aspectDescriptor.getId())) {
-        return aspectDescriptor;
-      }
-    }
-    return null;
-  }
-
-  private static AnalysisProtos.RuleClass getRuleClass(
-      String ruleClassId, ActionGraphContainer actionGraphContainer) {
-    for (AnalysisProtos.RuleClass ruleClass : actionGraphContainer.getRuleClassesList()) {
-      if (ruleClassId.equals(ruleClass.getId())) {
-        return ruleClass;
-      }
-    }
-    return null;
-  }
-
-  public static final ImmutableList<String> ACTION_GRAPH_DEFAULT_TARGETS = ImmutableList.of("...");
-
-  @Test
-  public void testActionGraphDumpWithoutInputArtifacts() throws Exception {
-    scratch.file("x/BUILD", "genrule(name='x', srcs=['input'], outs=['out'], cmd='false')");
-    scratch.file("x/input", "foo");
-
-    ConfiguredTarget ct =
-        skyframeExecutor.getConfiguredTargetForTesting(
-            reporter, Label.parseAbsolute("@//x", ImmutableMap.of()), getTargetConfiguration());
-    assertThat(ct).isNotNull();
-    ActionGraphContainer actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ACTION_GRAPH_DEFAULT_TARGETS,
-            /* includeActionCmdLine= */ false,
-            /* includeArtifacts= */ false);
-
-    assertThat(actionGraphContainer.getActionsList()).isNotEmpty();
-    assertThat(actionGraphContainer.getArtifactsList()).isEmpty();
-    assertThat(actionGraphContainer.getDepSetOfFilesList()).isEmpty();
-    assertThat(actionGraphContainer.getActionsList().get(0).getInputDepSetIdsList()).isEmpty();
-    assertThat(actionGraphContainer.getActionsList().get(0).getOutputIdsList()).isEmpty();
-  }
-
-  @Test
-  public void testActionGraphDumpBrokenAnalysis() throws Exception {
-    scratch.file("x/BUILD", "java_library(name='x', exports=[':doesnotexist'])");
-
-    reporter.removeHandler(failFastHandler);
-    assertThat(
-            skyframeExecutor.getConfiguredTargetForTesting(
-                reporter, Label.parseAbsolute("@//x", ImmutableMap.of()), getTargetConfiguration()))
-        .isNull();
-    assertContainsEvent(
-        "in exports attribute of java_library rule //x:x: rule '//x:doesnotexist' does not exist");
-    ActionGraphContainer actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ACTION_GRAPH_DEFAULT_TARGETS,
-            /* includeActionCmdLine= */ false,
-            /* includeArtifacts= */ true);
-    assertThat(actionGraphContainer).isNotNull();
-  }
-
-
-  @Test
-  public void testActionGraphDumpWithTreeArtifact() throws Exception {
-    scratch.file(
-        "x/def.bzl",
-        "def _tree_impl(ctx):",
-        "  tree_artifact = ctx.actions.declare_directory(ctx.attr.name + '_dir')",
-        "  ctx.actions.run_shell(",
-        "      inputs = [ctx.file.dummy],",
-        "      outputs = [tree_artifact],",
-        "      mnemonic = 'Treemove',",
-        "      use_default_shell_env = True,",
-        "      command = 'cp $1 $2',",
-        "      arguments = [",
-        "          ctx.file.dummy.path,",
-        "          tree_artifact.path,",
-        "      ],",
-        "  )",
-        "  return [",
-        "      DefaultInfo(files=depset([tree_artifact])),",
-        "  ]",
-        "",
-        "tree = rule(",
-        "    implementation = _tree_impl,",
-        "    attrs = {",
-        "        'dummy': attr.label(allow_single_file = True),",
-        "    },",
-        ")");
-    scratch.file(
-        "x/BUILD",
-        "load('//x:def.bzl', 'tree')",
-        "tree(",
-        "    name = 'tree',",
-        "    dummy = 'foo.txt',",
-        ")");
-    scratch.file("x/foo.txt", "hello world");
-
-    ConfiguredTarget ct =
-        skyframeExecutor.getConfiguredTargetForTesting(
-            reporter,
-            Label.parseAbsolute("@//x:tree", ImmutableMap.of()),
-            getTargetConfiguration());
-    assertThat(ct).isNotNull();
-    ActionGraphContainer actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ACTION_GRAPH_DEFAULT_TARGETS,
-            /* includeActionCmdLine= */ false,
-            /* includeArtifacts= */ true);
-
-    AnalysisProtos.Artifact inputArtifact = getArtifact("x/foo.txt", actionGraphContainer);
-    assertThat(inputArtifact).isNotNull();
-    assertThat(inputArtifact.getIsTreeArtifact()).isFalse();
-    AnalysisProtos.Artifact outputArtifact =
-        getArtifactFromBinDir("x/tree_dir", actionGraphContainer);
-    assertThat(outputArtifact).isNotNull();
-    assertThat(outputArtifact.getIsTreeArtifact()).isTrue();
-    AnalysisProtos.Action action =
-        getGeneratingAction(outputArtifact.getId(), actionGraphContainer);
-    assertThat(action).isNotNull();
-    assertThat(action.getMnemonic()).isEqualTo("Treemove");
-  }
-
-  @Test
-  public void testActionGraphDumpWithAspect() throws Exception {
-    scratch.file(
-        "x/def.bzl",
-        "Count = provider(",
-        "    fields = {",
-        "        'count' : 'count',",
-        "        'out' : 'outputfile'",
-        "    }",
-        ")",
-        "",
-        "def _count_aspect_impl(target, ctx):",
-        "    count = int(ctx.attr.default_count)",
-        "    for dep in ctx.rule.attr.deps:",
-        "        count = count + dep[Count].count",
-        "    output = ctx.actions.declare_file('count')",
-        "    ctx.actions.write(content = 'count = %s' % (count), output = output)",
-        "    return [",
-        "        Count(count = count, out = output),",
-        "        OutputGroupInfo(all_files = [output]),",
-        "    ]",
-        "",
-        "count_aspect = aspect(implementation = _count_aspect_impl,",
-        "    attr_aspects = ['deps'],",
-        "    attrs = {",
-        "        'default_count' : attr.string(values = ['0', '1', '42']),",
-        "    }",
-        ")",
-        "",
-        "def _count_rule_impl(ctx):",
-        "  outs = []",
-        "  for dep in ctx.attr.deps:",
-        "    outs += [dep[Count].out]",
-        "  return DefaultInfo(files=depset(outs))",
-        "",
-        "count_rule = rule(",
-        "  implementation = _count_rule_impl,",
-        "  attrs = {",
-        "      'deps' : attr.label_list(aspects = [count_aspect]),",
-        "      'default_count' : attr.string(default = '1'),",
-        "  },",
-        ")");
-    scratch.file(
-        "x/BUILD",
-        "load('//x:def.bzl', 'count_rule')",
-        "",
-        "count_rule(",
-        "    name = 'bar',",
-        ")",
-        "",
-        "count_rule(",
-        "    name = 'foo',",
-        "    deps = ['bar'],",
-        ")");
-
-    ConfiguredTarget ct =
-        skyframeExecutor.getConfiguredTargetForTesting(
-            reporter, Label.parseAbsolute("@//x:foo", ImmutableMap.of()), getTargetConfiguration());
-    assertThat(ct).isNotNull();
-    ActionGraphContainer actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ACTION_GRAPH_DEFAULT_TARGETS,
-            /* includeActionCmdLine= */ false,
-            /* includeArtifacts= */ true);
-
-    AnalysisProtos.Artifact countArtifact = getArtifactFromBinDir("x/count", actionGraphContainer);
-    assertThat(countArtifact).isNotNull();
-    AnalysisProtos.Target target = getTarget("//x:bar", actionGraphContainer);
-    assertThat(target).isNotNull();
-    AnalysisProtos.RuleClass ruleClass =
-        getRuleClass(target.getRuleClassId(), actionGraphContainer);
-    assertThat(ruleClass.getName()).isEqualTo("count_rule");
-    AnalysisProtos.Action action = getGeneratingAction(countArtifact.getId(), actionGraphContainer);
-    assertThat(action).isNotNull();
-    assertThat(action.getTargetId()).isEqualTo(target.getId());
-    String aspectDescriptorId = Iterables.getOnlyElement(action.getAspectDescriptorIdsList());
-    AnalysisProtos.AspectDescriptor aspectDescriptor =
-        getAspectDescriptor(aspectDescriptorId, actionGraphContainer);
-    assertThat(aspectDescriptor.getName()).isEqualTo("//x:def.bzl%count_aspect");
-    AnalysisProtos.KeyValuePair aspectParameter =
-        Iterables.getOnlyElement(aspectDescriptor.getParametersList());
-    assertThat(aspectParameter.getKey()).isEqualTo("default_count");
-    assertThat(aspectParameter.getValue()).isEqualTo("1");
-  }
-
-  @Test
-  public void testActionGraphDumpFilter() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "genrule(name='x', srcs=['input'], outs=['intermediate1'], cmd='false')",
-        "genrule(name='y', srcs=['intermediate1'], outs=['intermediate2'], cmd='false')",
-        "genrule(name='z', srcs=['intermediate2'], outs=['output'], cmd='false')");
-    scratch.file("x/input", "foo");
-
-    ConfiguredTarget ct =
-        skyframeExecutor.getConfiguredTargetForTesting(
-            reporter, Label.parseAbsolute("@//x:z", ImmutableMap.of()), getTargetConfiguration());
-    assertThat(ct).isNotNull();
-
-    // Check unfiltered case first, all three targets should be there.
-    ActionGraphContainer actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ACTION_GRAPH_DEFAULT_TARGETS,
-            /* includeActionCmdLine= */ false,
-            /* includeArtifacts= */ true);
-    for (String targetString : ImmutableList.of("//x:x", "//x:y", "//x:z")) {
-      AnalysisProtos.Target target = getTarget(targetString, actionGraphContainer);
-      assertThat(target).isNotNull();
-    }
-
-    // Now check filtered case, only the requested target should exist.
-    actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ImmutableList.of("//x:y"),
-            /* includeActionCmdLine= */ false,
-            /* includeArtifacts= */ true);
-    for (String targetString : ImmutableList.of("//x:x", "//x:z")) {
-      AnalysisProtos.Target target = getTarget(targetString, actionGraphContainer);
-      assertThat(target).isNull();
-    }
-    AnalysisProtos.Target target = getTarget("//x:y", actionGraphContainer);
-    assertThat(target).isNotNull();
-    // Make sure that we also don't include actions for other targets.
-    AnalysisProtos.Action action = Iterables.getOnlyElement(actionGraphContainer.getActionsList());
-    assertThat(action.getTargetId()).isEqualTo(target.getId());
-  }
-
-  @Test
-  public void testActionGraphCmdLineDump() throws Exception {
-    scratch.file(
-        "x/def.bzl",
-        "def _impl(ctx):",
-        "    output = ctx.outputs.out",
-        "    input = ctx.file.file",
-        "    # The command may only access files declared in inputs.",
-        "    ctx.actions.run_shell(",
-        "        inputs=[input],",
-        "        outputs=[output],",
-        "        progress_message='Getting size of %s' % input.short_path,",
-        "        command='stat -L -c%%s %s > %s' % (input.path, output.path))",
-        "",
-        "size = rule(",
-        "    implementation=_impl,",
-        "    attrs={'file': attr.label(mandatory=True, allow_single_file=True)},",
-        "    outputs={'out': '%{name}.size'},",
-        ")");
-    scratch.file("x/BUILD",
-        "load('//x:def.bzl', 'size')",
-        "size(name = 'x', file = 'foo.txt')");
-    scratch.file("x/foo.txt",
-        "foo");
-
-    ConfiguredTarget ct =
-        skyframeExecutor.getConfiguredTargetForTesting(
-            reporter, Label.parseAbsolute("@//x", ImmutableMap.of()), getTargetConfiguration());
-    assertThat(ct).isNotNull();
-
-    // Check case without command line first.
-    ActionGraphContainer actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ACTION_GRAPH_DEFAULT_TARGETS,
-            /* includeActionCmdLine= */ false,
-            /* includeArtifacts= */ true);
-    AnalysisProtos.Action action = Iterables.getOnlyElement(actionGraphContainer.getActionsList());
-    assertThat(action.getArgumentsCount()).isEqualTo(0);
-
-    // Now check with command line.
-    actionGraphContainer =
-        skyframeExecutor.getActionGraphContainer(
-            ACTION_GRAPH_DEFAULT_TARGETS,
-            /* includeActionCmdLine= */ true,
-            /* includeArtifacts= */ true);
-    action = Iterables.getOnlyElement(actionGraphContainer.getActionsList());
-
-    List<String> args = action.getArgumentsList();
-    assertThat(args).hasSize(3);
-    assertThat(args.get(0)).matches("^.*(/bash|/bash.exe)$");
-    assertThat(args.get(1)).isEqualTo("-c");
-    assertThat(args.get(2)).startsWith("stat -L -c%s x/foo.txt > ");
-    assertThat(args.get(2)).endsWith("bin/x/x.size");
-  }
-
-  /** Use custom class instead of mock to make sure that the dynamic codecs lookup is correct. */
-  static class SerializableConfiguredTarget implements ConfiguredTarget {
-
-    @Override
-    public ImmutableCollection<String> getFieldNames() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public String getErrorMessageForUnknownField(String field) {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Object getValue(String name) {
-      return null;
-    }
-
-    @Override
-    public Label getLabel() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public BuildConfigurationValue.Key getConfigurationKey() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Object get(String providerKey) {
-      return null;
-    }
-
-    @Override
-    public <T extends Info> T get(BuiltinProvider<T> provider) {
-      return provider.getValueClass().cast(get(provider.getKey()));
-    }
-
-    @Nullable
-    @Override
-    public Info get(Provider.Key providerKey) {
-      return null;
-    }
-
-    @Override
-    public void repr(Printer printer) {}
-
-    @Override
-    public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-      return null;
-    }
-
-    @Override
-    public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-      return false;
-    }
   }
 }

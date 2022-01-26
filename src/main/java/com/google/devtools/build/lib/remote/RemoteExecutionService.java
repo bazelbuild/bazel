@@ -53,6 +53,8 @@ import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -71,8 +73,10 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -82,6 +86,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -127,13 +132,17 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -154,6 +163,9 @@ public class RemoteExecutionService {
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final ImmutableSet<PathFragment> filesToDownload;
   @Nullable private final Path captureCorruptedOutputsDir;
+  private final Cache<Object, MerkleTree> merkleTreeCache;
+  private final Set<String> reportedErrors = new HashSet<>();
+  private final Phaser backgroundTaskPhaser = new Phaser(1);
 
   private final Scheduler scheduler;
 
@@ -184,6 +196,14 @@ public class RemoteExecutionService {
     this.remoteOptions = remoteOptions;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
+
+    Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
+    // remoteMerkleTreesCacheSize = 0 means limitless.
+    if (remoteOptions.remoteMerkleTreeCacheSize != 0) {
+      merkleTreeCacheBuilder.maximumSize(remoteOptions.remoteMerkleTreeCacheSize);
+    }
+    this.merkleTreeCache = merkleTreeCacheBuilder.build();
+
     ImmutableSet.Builder<PathFragment> filesToDownloadBuilder = ImmutableSet.builder();
     for (ActionInput actionInput : filesToDownload) {
       filesToDownloadBuilder.add(actionInput.getExecPath());
@@ -238,7 +258,7 @@ public class RemoteExecutionService {
     private final Spawn spawn;
     private final SpawnExecutionContext spawnExecutionContext;
     private final RemoteActionExecutionContext remoteActionExecutionContext;
-    private final SortedMap<PathFragment, ActionInput> inputMap;
+    private final RemotePathResolver remotePathResolver;
     private final MerkleTree merkleTree;
     private final Digest commandHash;
     private final Command command;
@@ -249,7 +269,7 @@ public class RemoteExecutionService {
         Spawn spawn,
         SpawnExecutionContext spawnExecutionContext,
         RemoteActionExecutionContext remoteActionExecutionContext,
-        SortedMap<PathFragment, ActionInput> inputMap,
+        RemotePathResolver remotePathResolver,
         MerkleTree merkleTree,
         Digest commandHash,
         Command command,
@@ -258,7 +278,7 @@ public class RemoteExecutionService {
       this.spawn = spawn;
       this.spawnExecutionContext = spawnExecutionContext;
       this.remoteActionExecutionContext = remoteActionExecutionContext;
-      this.inputMap = inputMap;
+      this.remotePathResolver = remotePathResolver;
       this.merkleTree = merkleTree;
       this.commandHash = commandHash;
       this.command = command;
@@ -293,12 +313,18 @@ public class RemoteExecutionService {
       return actionKey.getDigest().getHash();
     }
 
+    /** Returns underlying {@link Action} of this remote action. */
+    public Action getAction() {
+      return action;
+    }
+
     /**
      * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
      * ActionInput}.
      */
-    public SortedMap<PathFragment, ActionInput> getInputMap() {
-      return inputMap;
+    public SortedMap<PathFragment, ActionInput> getInputMap()
+        throws IOException, ForbiddenActionInputException {
+      return remotePathResolver.getInputMapping(spawnExecutionContext);
     }
 
     /**
@@ -362,12 +388,69 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  private MerkleTree buildInputMerkleTree(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ForbiddenActionInputException {
+    if (remoteOptions.remoteMerkleTreeCache) {
+      MetadataProvider metadataProvider = context.getMetadataProvider();
+      ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
+      remotePathResolver.walkInputs(
+          spawn,
+          context,
+          (Object nodeKey, InputWalker walker) -> {
+            subMerkleTrees.add(buildMerkleTreeVisitor(nodeKey, walker, metadataProvider));
+          });
+      return MerkleTree.merge(subMerkleTrees, digestUtil);
+    } else {
+      SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
+      return MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+    }
+  }
+
+  private MerkleTree buildMerkleTreeVisitor(
+      Object nodeKey, InputWalker walker, MetadataProvider metadataProvider)
+      throws IOException, ForbiddenActionInputException {
+    MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
+    if (result == null) {
+      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider);
+      merkleTreeCache.put(nodeKey, result);
+    }
+    return result;
+  }
+
+  @VisibleForTesting
+  public MerkleTree uncachedBuildMerkleTreeVisitor(
+      InputWalker walker, MetadataProvider metadataProvider)
+      throws IOException, ForbiddenActionInputException {
+    ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
+    subMerkleTrees.add(
+        MerkleTree.build(walker.getLeavesInputMapping(), metadataProvider, execRoot, digestUtil));
+    walker.visitNonLeaves(
+        (Object subNodeKey, InputWalker subWalker) -> {
+          subMerkleTrees.add(buildMerkleTreeVisitor(subNodeKey, subWalker, metadataProvider));
+        });
+    return MerkleTree.merge(subMerkleTrees, digestUtil);
+  }
+
+  @Nullable
+  private static ByteString buildSalt(Spawn spawn) {
+    String workspace =
+        spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
+    if (workspace != null) {
+      Platform platform =
+          Platform.newBuilder()
+              .addProperties(
+                  Platform.Property.newBuilder().setName("workspace").setValue(workspace).build())
+              .build();
+      return platform.toByteString();
+    }
+
+    return null;
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, UserExecException, ForbiddenActionInputException {
-    SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
-    final MerkleTree merkleTree =
-        MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+    final MerkleTree merkleTree = buildInputMerkleTree(spawn, context);
 
     // Get the remote platform properties.
     Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
@@ -386,7 +469,8 @@ public class RemoteExecutionService {
             merkleTree.getRootDigest(),
             platform,
             context.getTimeout(),
-            Spawns.mayBeCachedRemotely(spawn));
+            Spawns.mayBeCachedRemotely(spawn),
+            buildSalt(spawn));
 
     ActionKey actionKey = digestUtil.computeActionKey(action);
 
@@ -400,7 +484,7 @@ public class RemoteExecutionService {
         spawn,
         context,
         remoteActionExecutionContext,
-        inputMap,
+        remotePathResolver,
         merkleTree,
         commandHash,
         command,
@@ -976,12 +1060,14 @@ public class RemoteExecutionService {
     }
 
     FileOutErr.dump(tmpOutErr, outErr);
-    tmpOutErr.clearOut();
-    tmpOutErr.clearErr();
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
     // strategy.
-    action.spawnExecutionContext.lockOutputFiles();
+    action.spawnExecutionContext.lockOutputFiles(
+        result.getExitCode(), result.getMessage(), tmpOutErr);
+    // Will these be properly garbage-collected if the above throws an exception?
+    tmpOutErr.clearOut();
+    tmpOutErr.clearErr();
 
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads);
@@ -1078,13 +1164,18 @@ public class RemoteExecutionService {
             .subscribe(
                 new SingleObserver<ActionResult>() {
                   @Override
-                  public void onSubscribe(@NonNull Disposable d) {}
+                  public void onSubscribe(@NonNull Disposable d) {
+                    backgroundTaskPhaser.register();
+                  }
 
                   @Override
-                  public void onSuccess(@NonNull ActionResult actionResult) {}
+                  public void onSuccess(@NonNull ActionResult actionResult) {
+                    backgroundTaskPhaser.arriveAndDeregister();
+                  }
 
                   @Override
                   public void onError(@NonNull Throwable e) {
+                    backgroundTaskPhaser.arriveAndDeregister();
                     reportUploadError(e);
                   }
                 });
@@ -1105,10 +1196,9 @@ public class RemoteExecutionService {
       return;
     }
 
-    String errorMessage =
-        "Writing to Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
+    String errorMessage = "Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
 
-    reporter.handle(Event.warn(errorMessage));
+    report(Event.warn(errorMessage));
   }
 
   /**
@@ -1219,7 +1309,7 @@ public class RemoteExecutionService {
       remoteCache.release();
 
       try {
-        remoteCache.awaitTermination();
+        backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
       } catch (InterruptedException e) {
         buildInterrupted.set(true);
         remoteCache.shutdownNow();
@@ -1229,6 +1319,17 @@ public class RemoteExecutionService {
 
     if (remoteExecutor != null) {
       remoteExecutor.close();
+    }
+  }
+
+  void report(Event evt) {
+
+    synchronized (this) {
+      if (reportedErrors.contains(evt.getMessage())) {
+        return;
+      }
+      reportedErrors.add(evt.getMessage());
+      reporter.handle(evt);
     }
   }
 }

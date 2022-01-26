@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.Arrays;
 import java.util.List;
@@ -284,22 +283,16 @@ public final class StarlarkLibrary {
                 + "depset(direct = ['a', 'b'], transitive = [...])\n" //
                 + "</pre>",
         parameters = {
-          @Param(
-              name = "x",
-              defaultValue = "None",
-              positional = true,
-              named = false,
-              doc =
-                  "A positional parameter distinct from other parameters for legacy support. "
-                      + "\n" //
-                      + "<p>If <code>--incompatible_disable_depset_items</code> is false, this "
-                      + "parameter serves as the value of <code>items</code>.</p> "
-                      + "\n" //
-                      + "<p>If <code>--incompatible_disable_depset_items</code> is true, this "
-                      + "parameter serves as the value of <code>direct</code>.</p> "
-                      + "\n" //
-                      + "<p>See the documentation for these parameters for more details."),
           // TODO(cparsons): Make 'order' keyword-only.
+          @Param(
+              name = "direct",
+              defaultValue = "None",
+              named = true,
+              allowedTypes = {
+                @ParamType(type = Sequence.class),
+                @ParamType(type = NoneType.class),
+              },
+              doc = "A list of <i>direct</i> elements of a depset. "),
           @Param(
               name = "order",
               defaultValue = "\"default\"",
@@ -307,12 +300,6 @@ public final class StarlarkLibrary {
                   "The traversal strategy for the new depset. See "
                       + "<a href=\"depset.html\">here</a> for the possible values.",
               named = true),
-          @Param(
-              name = "direct",
-              defaultValue = "None",
-              positional = false,
-              named = true,
-              doc = "A list of <i>direct</i> elements of a depset. "),
           @Param(
               name = "transitive",
               named = true,
@@ -323,29 +310,12 @@ public final class StarlarkLibrary {
               },
               doc = "A list of depsets whose elements will become indirect elements of the depset.",
               defaultValue = "None"),
-          @Param(
-              name = "items",
-              defaultValue = "[]",
-              positional = false,
-              doc =
-                  "Deprecated: Either an iterable whose items become the direct elements of "
-                      + "the new depset, in left-to-right order, or else a depset that becomes "
-                      + "a transitive element of the new depset. In the latter case, "
-                      + "<code>transitive</code> cannot be specified.",
-              disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_DISABLE_DEPSET_ITEMS,
-              valueWhenDisabled = "[]",
-              named = true),
         },
         useStarlarkThread = true)
     public Depset depset(
-        Object x,
-        String orderString,
-        Object direct,
-        Object transitive,
-        Object items,
-        StarlarkThread thread)
+        Object direct, String orderString, Object transitive, StarlarkThread thread)
         throws EvalException {
-      return Depset.depset(x, orderString, direct, transitive, items, thread.getSemantics());
+      return Depset.depset(orderString, direct, transitive, thread.getSemantics());
     }
 
     @StarlarkMethod(
@@ -360,8 +330,11 @@ public final class StarlarkLibrary {
               name = "x",
               positional = true,
               doc =
-                  "A dict that maps configuration conditions to values. Each key is a label string"
-                      + " that identifies a config_setting instance."),
+                  "A dict that maps configuration conditions to values. Each key is a "
+                      + "<a href=\"$BE_ROOT/../skylark/lib/Label.html\">Label</a> or a label string"
+                      + " that identifies a config_setting or constraint_value instance. See the"
+                      + " <a href=\"$BE_ROOT/../skylark/macros.html#label-resolution-in-macros\">"
+                      + "documentation on macros</a> for when to use a Label instead of a string."),
           @Param(
               name = "no_match_error",
               defaultValue = "''",

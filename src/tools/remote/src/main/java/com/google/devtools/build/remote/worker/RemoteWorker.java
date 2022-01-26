@@ -38,12 +38,10 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -139,7 +137,7 @@ public final class RemoteWorker {
     if (workerOptions.workPath != null) {
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
           new ConcurrentHashMap<>();
-      FileSystemUtils.createDirectoryAndParents(workPath);
+      workPath.createDirectoryAndParents();
       execServer =
           new ExecutionServer(
               workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
@@ -191,10 +189,10 @@ public final class RemoteWorker {
       return;
     }
 
-    final Path pidFile = getFileSystem().getPath(workerOptions.pidFile);
+    Path pidFile = getFileSystem().getPath(workerOptions.pidFile);
     try (Writer writer =
         new OutputStreamWriter(pidFile.getOutputStream(), StandardCharsets.UTF_8)) {
-      writer.write(Integer.toString(ProcessUtils.getpid()));
+      writer.write(Long.toString(ProcessHandle.current().pid()));
       writer.write("\n");
     }
 

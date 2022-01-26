@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
@@ -122,7 +123,6 @@ import net.starlark.java.syntax.Location;
  */
 // Non-final only for mocking in tests. Do not subclass!
 @Immutable
-@AutoCodec
 public class RuleClass {
 
   /**
@@ -139,15 +139,15 @@ public class RuleClass {
    */
   private static final int MAX_ATTRIBUTE_NAME_LENGTH = 128;
 
-  @AutoCodec
+  @SerializationConstant
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
       Functions.constant(ImmutableMap.of());
 
-  @AutoCodec
+  @SerializationConstant
   static final Function<? super Rule, List<String>> NO_TOOLCHAINS_TO_REGISTER =
       Functions.constant(ImmutableList.of());
 
-  @AutoCodec
+  @SerializationConstant
   static final Function<? super Rule, Set<String>> NO_OPTION_REFERENCE =
       Functions.constant(ImmutableSet.of());
 
@@ -221,6 +221,22 @@ public class RuleClass {
     ENABLED,
     /** The rule should not use toolchain resolution. */
     DISABLED,
+    /**
+     * The rule instance uses toolchain resolution if it has a select().
+     *
+     * <p>This is for rules that don't intrinsically use toolchains but have select()s on {@link
+     * com.google.devtools.build.lib.rules.platform.ConstraintValue}, which are part of the build's
+     * platform. Such instances need to know what platform the build is targeting, which Bazel won't
+     * provide unless toolchain resolution is enabled.
+     *
+     * <p>This is set statically in rule definitions on an opt-in basis. Bazel doesn't automatically
+     * infer this for any target with a select().
+     *
+     * <p>Ultimately, we should remove this when <a
+     * href="https://github.com/bazelbuild/bazel/issues/12899#issuecomment-767759147}#12899</a>is
+     * addressed, so platforms are unconditionally provided for all rules.
+     */
+    HAS_SELECT,
     /** The rule should inherit the value from its parent rules. */
     INHERIT;
 
@@ -245,6 +261,7 @@ public class RuleClass {
         case ENABLED:
           return true;
         case DISABLED:
+        case HAS_SELECT: // Not true for RuleClass, but Rule may enable it.
           return false;
         default:
       }
@@ -380,7 +397,7 @@ public class RuleClass {
    * normal dependency resolution because they're needed to determine other dependencies. So there's
    * no intrinsic reason why we need an extra attribute to store them.
    *
-   * <p>There are three reasons why we still create this attribute:
+   * <p>There are four reasons why we still create this attribute:
    *
    * <ol>
    *   <li>Collecting them once in {@link #populateRuleAttributeValues} instead of multiple times in
@@ -390,6 +407,9 @@ public class RuleClass {
    *       we need to make sure its coverage remains complete.
    *   <li>Manual configuration trimming uses the normal dependency resolution process to work
    *       correctly and config_setting keys are subject to this trimming.
+   *   <li>{@link Rule#useToolchainResolution() supports conditional toolchain resolution for
+   *      targets with non-empty select()s. This requirement would go away if platform info was
+   *      prepared for all rules regardless of toolchain needs.
    * </ol>
    *
    * <p>It should be possible to clean up these issues if we decide we don't want an artificial
@@ -1260,8 +1280,8 @@ public class RuleClass {
     }
 
     /**
-     * Set if the rule can have any provider. This is true for "alias" rules like
-     * <code>bind</code> .
+     * Set if the rule can have any provider. This is called for the {@code alias} rule and other
+     * alias-like rules such as {@code bind}.
      */
     public Builder canHaveAnyProvider() {
       advertisedProviders.canHaveAnyProvider();
@@ -2753,8 +2773,12 @@ public class RuleClass {
     return requiredToolchains;
   }
 
-  public boolean useToolchainResolution() {
-    return this.useToolchainResolution.isActive();
+  /**
+   * Public callers should use {@link Rule#useToolchainResolution()}, which also takes into account
+   * target-specific information.
+   */
+  ToolchainResolutionMode useToolchainResolution() {
+    return this.useToolchainResolution;
   }
 
   public boolean useToolchainTransition() {

@@ -96,4 +96,11 @@ public class RemoteOptionsTest {
       fail(e.getMessage());
     }
   }
+
+  @Test
+  public void testRemoteMaximumOpenFilesDefault() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    int defaultMax = options.maximumOpenFiles;
+    assertThat(defaultMax).isEqualTo(-1);
+  }
 }

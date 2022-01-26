@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -38,8 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
@@ -59,7 +55,6 @@ import net.starlark.java.syntax.Location;
 
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
-@AutoCodec
 public final class JavaInfo extends NativeInfo
     implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData> {
 
@@ -80,7 +75,6 @@ public final class JavaInfo extends NativeInfo
           JavaSourceJarsProvider.class,
           JavaRuleOutputJarsProvider.class,
           JavaGenJarsProvider.class,
-          JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
           JavaCcInfoProvider.class);
 
@@ -126,7 +120,7 @@ public final class JavaInfo extends NativeInfo
    * Merges the given providers into one {@link JavaInfo}. All the providers with the same type in
    * the given list are merged into one provider that is added to the resulting {@link JavaInfo}.
    */
-  public static JavaInfo merge(List<JavaInfo> providers, boolean withExportsProvider) {
+  public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
@@ -159,19 +153,12 @@ public final class JavaInfo extends NativeInfo
             .addProvider(
                 JavaRuleOutputJarsProvider.class,
                 JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-            .javaPluginInfo(JavaPluginInfo.merge(javaPluginInfos))
+            .javaPluginInfo(JavaPluginInfo.mergeWithoutJavaOutputs(javaPluginInfos))
             .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
             // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
             // TODO(iirina): merge or remove JavaCompilationInfoProvider
             .setRuntimeJars(runtimeJars.build())
             .setJavaConstraints(javaConstraints.build());
-
-    if (withExportsProvider) {
-      List<JavaExportsProvider> javaExportsProviders =
-          JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
-      javaInfoBuilder.addProvider(
-          JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders));
-    }
 
     return javaInfoBuilder.build();
   }
@@ -256,9 +243,7 @@ public final class JavaInfo extends NativeInfo
     return providersList;
   }
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  JavaInfo(
+  private JavaInfo(
       TransitiveInfoProviderMap providers,
       ImmutableList<Artifact> directRuntimeJars,
       NestedSet<Artifact> transitiveOnlyRuntimeJars,
@@ -378,14 +363,6 @@ public final class JavaInfo extends NativeInfo
         Artifact.TYPE,
         getProviderAsNestedSet(
             JavaSourceJarsProvider.class, JavaSourceJarsProvider::getTransitiveSourceJars));
-  }
-
-  @Override
-  public Depset /*<Label>*/ getTransitiveExports() {
-    return Depset.of(
-        Depset.ElementType.of(Label.class),
-        getProviderAsNestedSet(
-            JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
   }
 
   /** Returns the transitive set of CC native libraries required by the target. */
@@ -519,8 +496,7 @@ public final class JavaInfo extends NativeInfo
               Sequence.cast(exports, JavaInfo.class, "exports"),
               Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins"),
               Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-              thread.getCallerLocation(),
-              thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER));
+              thread.getCallerLocation());
     }
   }
 

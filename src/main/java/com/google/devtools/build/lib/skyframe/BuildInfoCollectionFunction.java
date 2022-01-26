@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -36,6 +36,9 @@ import java.util.Map;
 /**
  * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique {@link
  * WorkspaceStatusValue} and the constant {@link #BUILD_INFO_FACTORIES} injected value.
+ *
+ * <p>For more information, see {@link
+ * com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory}.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
 
@@ -57,7 +60,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
         ImmutableSet.of(
             WorkspaceStatusValue.BUILD_INFO_KEY,
             WorkspaceNameValue.key(),
-            keyAndConfig.getConfigKey());
+            keyAndConfig.getConfigurationKey());
     Map<SkyKey, SkyValue> result = env.getValues(keysToRequest);
     if (env.valuesMissing()) {
       return null;
@@ -65,8 +68,8 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     WorkspaceStatusValue infoArtifactValue =
         (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
 
-    BuildConfiguration config =
-        ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey())).getConfiguration();
+    BuildConfigurationValue config =
+        (BuildConfigurationValue) result.get(keyAndConfig.getConfigurationKey());
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories = BUILD_INFO_FACTORIES.get(env);
     BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
     Preconditions.checkState(buildInfoFactory.isEnabled(config));
@@ -90,14 +93,9 @@ public class BuildInfoCollectionFunction implements SkyFunction {
               collection.getActions(),
               keyAndConfig,
               /*outputFiles=*/ null);
-    } catch (ActionConflictException e) {
-      throw new IllegalStateException("Action conflicts not expected in build info: " + skyKey, e);
+    } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      throw new IllegalStateException("Errors not expected in build info: " + skyKey, e);
     }
     return new BuildInfoCollectionValue(collection, generatingActions);
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

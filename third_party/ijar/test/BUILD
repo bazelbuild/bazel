@@ -34,6 +34,8 @@ sh_test(
         # This is a precompiled .jar file because it needs to be compiled with JDK 11.
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
+        "records/records.jar",
+        "sealed/sealed.jar",
         ":source_debug_extension.jar",
         ":keep_for_compile_lib.jar",
         ":largest_regular.jar",
@@ -207,6 +209,7 @@ genrule(
 java_library(
     name = "local_and_anonymous_lib",
     srcs = ["LocalAndAnonymous.java"],
+    javacopts = ["-source 8 -target 8"],
 )
 
 genrule(

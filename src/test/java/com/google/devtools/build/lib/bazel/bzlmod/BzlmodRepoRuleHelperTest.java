@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -48,7 +48,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -70,7 +69,7 @@ import org.junit.runners.JUnit4;
 public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
 
   private Path workspaceRoot;
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
   private FakeRegistry.Factory registryFactory;
@@ -100,14 +99,14 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
 
-    MemoizingEvaluator evaluator =
+    evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileValue.FILE, new FileFunction(packageLocator))
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(
@@ -120,9 +119,11 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .build(),
             differencer);
-    driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
+        differencer, CheckDirectDepsMode.WARNING);
   }
 
   @Test
@@ -141,7 +142,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.2.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.2.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -172,19 +173,19 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.override")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.override")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
                     ImmutableMap.of(
-                        "name", "C",
+                        "name", "C.override",
                         "path", "/foo/bar/C"))
                 .build());
   }
@@ -208,7 +209,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.3.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.3.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -256,7 +257,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("D.2.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("D.2.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -283,7 +284,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -306,10 +307,9 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   }
 
   private static final class GetRepoSpecByNameFunction implements SkyFunction {
-
     private final BzlmodRepoRuleHelper bzlmodRepoRuleHelper;
 
-    public GetRepoSpecByNameFunction(BzlmodRepoRuleHelper bzlmodRepoRuleHelper) {
+    GetRepoSpecByNameFunction(BzlmodRepoRuleHelper bzlmodRepoRuleHelper) {
       this.bzlmodRepoRuleHelper = bzlmodRepoRuleHelper;
     }
 
@@ -328,12 +328,6 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         throw new GetRepoSpecByNameFunctionException(e, Transience.PERSISTENT);
       }
       return GetRepoSpecByNameValue.create(result);
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

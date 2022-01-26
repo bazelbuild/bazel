@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -34,7 +34,7 @@ public interface CppSemantics extends StarlarkValue {
    * minute.
    */
   void finalizeCompileActionBuilder(
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer);
@@ -54,7 +54,7 @@ public interface CppSemantics extends StarlarkValue {
   boolean allowIncludeScanning();
 
   /** Returns true iff this build should perform .d input pruning. */
-  boolean needsDotdInputPruning(BuildConfiguration configuration);
+  boolean needsDotdInputPruning(BuildConfigurationValue configuration);
 
   void validateAttributes(RuleContext ruleContext);
 

@@ -19,8 +19,8 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -56,7 +56,7 @@ public final class AnalysisUtils {
    * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
    * -1.
    */
-  public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfiguration config) {
+  public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfigurationValue config) {
     if (config.isToolConfiguration()) {
       return false;
     }
@@ -180,7 +180,7 @@ public final class AnalysisUtils {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
-    for (BuildConfiguration config : configurations.getTargetConfigurations()) {
+    for (BuildConfigurationValue config : configurations.getTargetConfigurations()) {
       for (Target target : targets) {
         nodes.add(new TargetAndConfiguration(target, config));
       }
@@ -188,16 +188,17 @@ public final class AnalysisUtils {
 
     // We'll get the configs from ConfigurationsCollector#getConfigurations, which gets
     // configurations for deps including transitions.
-    Multimap<BuildConfiguration, DependencyKey> asDeps = targetsToDeps(nodes, ruleClassProvider);
+    Multimap<BuildConfigurationValue, DependencyKey> asDeps =
+        targetsToDeps(nodes, ruleClassProvider);
 
     return ConfigurationResolver.getConfigurationsFromExecutor(
         nodes, asDeps, eventHandler, configurationsCollector);
   }
 
   @VisibleForTesting
-  public static Multimap<BuildConfiguration, DependencyKey> targetsToDeps(
+  public static Multimap<BuildConfigurationValue, DependencyKey> targetsToDeps(
       Collection<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
-    Multimap<BuildConfiguration, DependencyKey> asDeps = ArrayListMultimap.create();
+    Multimap<BuildConfigurationValue, DependencyKey> asDeps = ArrayListMultimap.create();
     for (TargetAndConfiguration targetAndConfig : nodes) {
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(

@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,11 +60,13 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
         .addFlagPoliciesBuilder()
         .setFlagName("i_do_not_exist")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE);
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
         .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
         .addFlagValue(TEST_STRING_POLICY_VALUE_2);
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);

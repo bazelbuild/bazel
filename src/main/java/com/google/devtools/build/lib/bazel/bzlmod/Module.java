@@ -74,6 +74,19 @@ public abstract class Module {
   public abstract int getCompatibilityLevel();
 
   /**
+   * Target patterns identifying execution platforms to register when this module is selected. Note
+   * that these are what was written in module files verbatim, and don't contain canonical repo
+   * names.
+   */
+  public abstract ImmutableList<String> getExecutionPlatformsToRegister();
+
+  /**
+   * Target patterns identifying toolchains to register when this module is selected. Note that
+   * these are what was written in module files verbatim, and don't contain canonical repo names.
+   */
+  public abstract ImmutableList<String> getToolchainsToRegister();
+
+  /**
    * The direct dependencies of this module. The key type is the repo name of the dep, and the value
    * type is the ModuleKey (name+version) of the dep.
    */
@@ -125,7 +138,9 @@ public abstract class Module {
         .setName("")
         .setVersion(Version.EMPTY)
         .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0);
+        .setCompatibilityLevel(0)
+        .setExecutionPlatformsToRegister(ImmutableList.of())
+        .setToolchainsToRegister(ImmutableList.of());
   }
 
   /**
@@ -152,6 +167,12 @@ public abstract class Module {
 
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);
+
+    /** Optional; defaults to an empty list. */
+    public abstract Builder setExecutionPlatformsToRegister(ImmutableList<String> value);
+
+    /** Optional; defaults to an empty list. */
+    public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
     public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 

@@ -24,7 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
@@ -80,11 +81,11 @@ import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -132,6 +133,8 @@ public class BazelRepositoryModule extends BlazeModule {
   // on WorkspaceFileValue is not registered for each FileStateValue.
   private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
   private final AtomicBoolean enableBzlmod = new AtomicBoolean(false);
+  private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
+  private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
   public BazelRepositoryModule() {
@@ -184,7 +187,8 @@ public class BazelRepositoryModule extends BlazeModule {
     }
 
     @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+    public byte[] get(
+        Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException, InterruptedException {
       return print(repositoryCache.getRootPath());
     }
@@ -200,12 +204,15 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.setManagedDirectoriesKnowledge(managedDirectoriesKnowledge);
+    // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
+    if ("bazel".equals(runtime.getProductName())) {
+      builder.setSkyframeExecutorRepositoryHelpersHolder(
+          SkyframeExecutorRepositoryHelpersHolder.create(
+              managedDirectoriesKnowledge,
+              new RepositoryDirectoryDirtinessChecker(
+                  directories.getWorkspace(), managedDirectoriesKnowledge)));
+    }
 
-    RepositoryDirectoryDirtinessChecker customDirtinessChecker =
-        new RepositoryDirectoryDirtinessChecker(
-            directories.getWorkspace(), managedDirectoriesKnowledge);
-    builder.addCustomDirtinessChecker(customDirtinessChecker);
     // Create the repository function everything flows through.
     RepositoryDelegatorFunction repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
@@ -271,6 +278,7 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
+      downloadManager.setUrlsAsDefaultCanonicalId(repoOptions.urlsAsDefaultCanonicalId);
 
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
@@ -306,7 +314,7 @@ public class BazelRepositoryModule extends BlazeModule {
                 .getOutputUserRoot()
                 .getRelative(DEFAULT_CACHE_LOCATION);
         try {
-          FileSystemUtils.createDirectoryAndParents(repositoryCachePath);
+          repositoryCachePath.createDirectoryAndParents();
           repositoryCache.setRepositoryCachePath(repositoryCachePath);
         } catch (IOException e) {
           env.getReporter()
@@ -375,6 +383,8 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       enableBzlmod.set(repoOptions.enableBzlmod);
+      ignoreDevDeps.set(repoOptions.ignoreDevDependency);
+      checkDirectDepsMode = repoOptions.checkDirectDependencies;
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
@@ -444,7 +454,10 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
         PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod.get()),
-        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries));
+        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode));
   }
 
   @Override

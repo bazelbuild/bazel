@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -211,11 +211,11 @@ public final class AndroidRuleClasses {
         (rule, attributes, configuration) -> configuration.getSdk());
   }
 
-  @AutoCodec
+  @SerializationConstant
   public static final AndroidSplitTransition ANDROID_SPLIT_TRANSITION =
       new AndroidSplitTransition();
 
-  @AutoCodec
+  @SerializationConstant
   static final LabelLateBoundDefault<AndroidConfiguration> LEGACY_MAIN_DEX_LIST_GENERATOR =
       LabelLateBoundDefault.fromTargetConfiguration(
           AndroidConfiguration.class,
@@ -683,6 +683,10 @@ public final class AndroidRuleClasses {
           .add(
               attr("$desugared_java8_legacy_apis", LABEL)
                   .value(env.getToolsLabel("//tools/android:desugared_java8_legacy_apis")))
+          .add(
+              attr("$merge_proguard_maps", LABEL)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:merge_proguard_maps")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and

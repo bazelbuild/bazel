@@ -21,7 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.platform.MemoryPressureCounter;
+import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor;
+import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor.Level;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import io.grpc.Server;
@@ -85,30 +86,16 @@ class ServerWatcherRunnable implements Runnable {
   }
 
   /**
-   * A low memory conditions checker that relies on memory pressure notifications.
+   * A low memory conditions checker that relies on memory pressure state.
    *
-   * <p>This checker will report a low memory condition when it detects a memory pressure
-   * notification between the point when {@link #reset(long)} was called and {@link
-   * #shouldShutdown()} is called.
-   *
-   * <p>Memory pressure notifications are provided by the platform-agnostic {@link
-   * MemoryPressureCounter} class, which may be a no-op for the current platform.
+   * <p>Memory pressure state is provided by the platform-agnostic {@link
+   * SystemMemoryPressureMonitor} class, which may be a no-op for the current platform.
    */
   private static class MemoryPressureLowMemoryChecker extends LowMemoryChecker {
-    private int warningCountAtIdleStart = MemoryPressureCounter.warningCount();
-    private int criticalCountAtIdleStart = MemoryPressureCounter.criticalCount();
 
     @Override
     boolean check() {
-      return MemoryPressureCounter.warningCount() > warningCountAtIdleStart
-          || MemoryPressureCounter.criticalCount() > criticalCountAtIdleStart;
-    }
-
-    @Override
-    void reset(long lastIdleTimeNanos) {
-      super.reset(lastIdleTimeNanos);
-      warningCountAtIdleStart = MemoryPressureCounter.warningCount();
-      criticalCountAtIdleStart = MemoryPressureCounter.criticalCount();
+      return SystemMemoryPressureMonitor.getInstance().level() != Level.NORMAL;
     }
   }
 

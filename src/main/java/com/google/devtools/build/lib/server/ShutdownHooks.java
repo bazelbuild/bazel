@@ -84,6 +84,6 @@ public class ShutdownHooks {
     printErr.println("=======[BAZEL SERVER: ENCOUNTERED IO EXCEPTION]=======");
     e.printStackTrace(printErr);
     printErr.println("=====================================================");
-    logger.atSevere().log(err.toString());
+    logger.atSevere().log("%s", err);
   }
 }

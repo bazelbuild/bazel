@@ -532,7 +532,7 @@ public class FileSystemUtilsTest {
     createTestDirectoryTree();
     Path copyDir = fileSystem.getPath("/my-dir");
     Path copySubDir = fileSystem.getPath("/my-dir/subdir");
-    FileSystemUtils.createDirectoryAndParents(copySubDir);
+    copySubDir.createDirectoryAndParents();
     IOException expected =
         assertThrows(
             IOException.class,
@@ -702,28 +702,28 @@ public class FileSystemUtilsTest {
         "/dev/foobar /foobar dummy_foobar blah 0 0",
         "proc proc proc rw,noexec,nosuid,nodev 0 0");
     Path path = fileSystem.getPath("/usr/local/google/_blaze");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("ext3");
 
     // Should match the root "/"
     path = fileSystem.getPath("/usr/local/tmp");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("ext2");
 
     // Make sure we don't consider /foobar matches /foo
     path = fileSystem.getPath("/foo");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("dummy_foo");
     path = fileSystem.getPath("/foobar");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("dummy_foobar");
 
     path = fileSystem.getPath("/dev/shm/blaze");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("tmpfs");
 
     Path fusePath = fileSystem.getPath("/fuse/mnt/tmp");
-    FileSystemUtils.createDirectoryAndParents(fusePath);
+    fusePath.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(fusePath)).isEqualTo("fuse");
 
     // Create a symlink and make sure it gives the file system of the symlink target.
@@ -799,7 +799,7 @@ public class FileSystemUtilsTest {
     Path originalDir = workingDir.getRelative("originalDir");
     Path linkPath = workingDir.getRelative("link");
 
-    FileSystemUtils.createDirectoryAndParents(originalDir);
+    originalDir.createDirectoryAndParents();
 
     /* Original directory is empty, no link to be created. */
     FileSystemUtils.createHardLink(linkPath, originalDir);
@@ -819,7 +819,7 @@ public class FileSystemUtilsTest {
     Path linkPath2 = linkPath.getRelative("original2");
     Path linkPath3 = linkPath.getRelative("original3");
 
-    FileSystemUtils.createDirectoryAndParents(originalDir);
+    originalDir.createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(originalPath1);
     FileSystemUtils.createEmptyFile(originalPath2);
     FileSystemUtils.createEmptyFile(originalPath3);

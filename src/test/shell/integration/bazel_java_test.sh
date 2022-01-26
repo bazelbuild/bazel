@@ -107,8 +107,8 @@ EOF
   bazel aquery --output=text --java_language_version=11  //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
 
-  bazel aquery --output=text  --java_language_version=15 //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk15_.*/bin/java"
+  bazel aquery --output=text  --java_language_version=17 //java:javalib >& $TEST_log
+  expect_log "exec external/remotejdk17_.*/bin/java"
 }
 
 # Javabuilder shall be executed using JDK defined in java_toolchain's java_runtime attribute, not tool_java_runtime.
@@ -168,8 +168,8 @@ EOF
   expect_log "exec external/remotejdk11_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
-  bazel aquery --output=text --tool_java_language_version=15 --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk15_.*/bin/java"
+  bazel aquery --output=text --tool_java_language_version=17 --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
+  expect_log "exec external/remotejdk17_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 }
 

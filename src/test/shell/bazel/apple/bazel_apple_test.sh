@@ -27,6 +27,9 @@ if [ "${PLATFORM}" != "darwin" ]; then
   exit 0
 fi
 
+source "${CURRENT_DIR}/apple_common.sh" \
+  || { echo "apple_common.sh not found!" >&2; exit 1; }
+
 function set_up() {
   copy_examples
   setup_objc_test_support
@@ -38,8 +41,12 @@ function set_up() {
 }
 
 function test_fat_binary_no_srcs() {
+  rm -rf package
   mkdir -p package
+  make_starlark_apple_binary_rule_in package
+
   cat > package/BUILD <<EOF
+load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
 objc_library(
     name = "lib_a",
     srcs = ["a.m"],
@@ -48,7 +55,7 @@ objc_library(
     name = "lib_b",
     srcs = ["b.m"],
 )
-apple_binary(
+starlark_apple_binary(
     name = "main_binary",
     deps = [":lib_a", ":lib_b"],
     platform_type = "ios",
@@ -73,15 +80,19 @@ EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //package:lipo_out --ios_multi_cpus=i386,x86_64 \
-      || fail "should build apple_binary and obtain info via lipo"
+      || fail "should build starlark_apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
     || fail "expected output binary to contain 2 architectures"
 }
 
 function test_additive_cpus_flag() {
+  rm -rf package
   mkdir -p package
+  make_starlark_apple_binary_rule_in package
+
   cat > package/BUILD <<EOF
+load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
 objc_library(
     name = "lib_a",
     srcs = ["a.m"],
@@ -90,7 +101,7 @@ objc_library(
     name = "lib_b",
     srcs = ["b.m"],
 )
-apple_binary(
+starlark_apple_binary(
     name = "main_binary",
     deps = [":lib_a", ":lib_b"],
     platform_type = "ios",
@@ -116,7 +127,7 @@ EOF
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //package:lipo_out \
       --ios_multi_cpus=i386 --ios_multi_cpus=x86_64 \
-      || fail "should build apple_binary and obtain info via lipo"
+      || fail "should build starlark_apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
     || fail "expected output binary to contain 2 architectures"
@@ -194,7 +205,10 @@ function test_host_available_xcodes() {
 function test_apple_binary_crosstool_ios() {
   rm -rf package
   mkdir -p package
+  make_starlark_apple_binary_rule_in package
+
   cat > package/BUILD <<EOF
+load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
 objc_library(
     name = "lib_a",
     srcs = ["a.m"],
@@ -208,7 +222,7 @@ cc_library(
     name = "cc_lib",
     srcs = ["cc_lib.cc"],
 )
-apple_binary(
+starlark_apple_binary(
     name = "main_binary",
     deps = [":main_lib"],
     platform_type = "ios",
@@ -245,7 +259,7 @@ EOF
   bazel build --verbose_failures //package:lipo_out \
     --ios_multi_cpus=i386,x86_64 \
     --xcode_version=$XCODE_VERSION \
-    || fail "should build apple_binary and obtain info via lipo"
+    || fail "should build starlark_apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
     || fail "expected output binary to be for x86_64 architecture"
@@ -254,7 +268,10 @@ EOF
 function test_apple_binary_crosstool_watchos() {
   rm -rf package
   mkdir -p package
+  make_starlark_apple_binary_rule_in package
+
   cat > package/BUILD <<EOF
+load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
 genrule(
   name = "lipo_run",
   srcs = [":main_binary_lipobin"],
@@ -265,7 +282,7 @@ genrule(
   tags = ["requires-darwin"],
 )
 
-apple_binary(
+starlark_apple_binary(
     name = "main_binary",
     deps = [":main_lib"],
     platform_type = "watchos",
@@ -279,9 +296,9 @@ cc_library(
     name = "cc_lib",
     srcs = ["cc_lib.cc"],
 )
-# By depending on a library which requires it is built for watchos,
-# this test verifies that dependencies of apple_binary are compiled
-# for the specified platform_type.
+# By depending on a library which requires it is built for watchos, this test
+# verifies that dependencies of starlark_apple_binary are compiled for the
+# specified platform_type.
 objc_library(
     name = "lib_a",
     srcs = ["a.m"],
@@ -430,8 +447,11 @@ EOF
 function test_apple_binary_dsym_builds() {
   rm -rf package
   mkdir -p package
+  make_starlark_apple_binary_rule_in package
+
   cat > package/BUILD <<EOF
-apple_binary(
+load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
+starlark_apple_binary(
     name = "main_binary",
     deps = [":main_lib"],
     platform_type = "ios",
@@ -452,14 +472,17 @@ EOF
       --ios_multi_cpus=i386,x86_64 \
       --xcode_version=$XCODE_VERSION \
       --apple_generate_dsym=true \
-      || fail "should build apple_binary with dSYMs"
+      || fail "should build starlark_apple_binary with dSYMs"
 }
 
 function test_apple_binary_spaces() {
   rm -rf package
   mkdir -p package
+  make_starlark_apple_binary_rule_in package
+
   cat > package/BUILD <<EOF
-apple_binary(
+load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
+starlark_apple_binary(
     name = "main_binary",
     deps = [":main_lib"],
     platform_type = "ios",
@@ -480,7 +503,7 @@ EOF
       --ios_multi_cpus=i386,x86_64 \
       --xcode_version=$XCODE_VERSION \
       --apple_generate_dsym=true \
-      || fail "should build apple_binary with dSYMs"
+      || fail "should build starlark_apple_binary with dSYMs"
 }
 
 function test_apple_static_library() {

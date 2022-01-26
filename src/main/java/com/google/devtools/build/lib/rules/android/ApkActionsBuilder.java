@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import java.util.List;
 
@@ -391,20 +389,10 @@ public class ApkActionsBuilder {
         actionBuilder.addCommandLine(commandLine.build()).build(ruleContext));
   }
 
-  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static void setSingleJarAsExecutable(
       RuleContext ruleContext, SpawnAction.Builder builder) {
     Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
-              singleJar,
-              JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs());
-    } else {
-      builder.setExecutable(singleJar);
-    }
+    builder.setExecutable(singleJar);
   }
 
   private Artifact getApkArtifact(RuleContext ruleContext, String baseName) {

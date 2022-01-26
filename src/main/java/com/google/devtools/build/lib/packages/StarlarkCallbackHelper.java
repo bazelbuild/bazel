@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -34,8 +33,7 @@ import net.starlark.java.eval.Structure;
  * <p>TODO(adonovan): eliminate the need for this class by making the Starlark calls in the same
  * Starlark thread that instantiated the rule.
  */
-@AutoCodec
-public class StarlarkCallbackHelper {
+public final class StarlarkCallbackHelper {
 
   private final StarlarkFunction callback;
 

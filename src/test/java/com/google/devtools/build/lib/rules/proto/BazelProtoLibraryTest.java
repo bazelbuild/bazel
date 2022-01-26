@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -102,6 +103,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
    * deps, would break.
    */
   @Test
+  @Ignore("b/204266604 Remove if the testing shows it's not needed.")
   public void descriptorSetsDependOnChildren() throws Exception {
     scratch.file(
         "x/BUILD",
@@ -349,7 +351,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
             ".");
   }
 
-  private void testExternalRepoWithGeneratedProto(boolean siblingRepoLayout) throws Exception {
+  private void testExternalRepoWithGeneratedProto(
+      boolean siblingRepoLayout, boolean useVirtualImports) throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -359,6 +362,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
+    if (!useVirtualImports) {
+      useConfiguration("--noincompatible_generated_protos_in_virtual_imports");
+    }
     invalidatePackages();
 
     scratch.file("/foo/WORKSPACE");
@@ -367,7 +373,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='x', srcs=['generated.proto'])",
         "genrule(name='g', srcs=[], outs=['generated.proto'], cmd='')");
-
     scratch.file(
         "a/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -378,27 +383,42 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
             .getGenfilesFragment(
                 siblingRepoLayout ? RepositoryName.create("@foo") : RepositoryName.MAIN)
             .toString();
+    String fooProtoRoot;
+    if (useVirtualImports) {
+      fooProtoRoot =
+          genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x";
+    } else {
+      fooProtoRoot = (siblingRepoLayout ? "../foo" : "external/foo");
+    }
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
-    assertThat(aInfo.getTransitiveProtoSourceRoots().toList())
-        .containsExactly(
-            ".", genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x");
+    assertThat(aInfo.getTransitiveProtoSourceRoots().toList()).containsExactly(".", fooProtoRoot);
 
     ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
     ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
-    assertThat(xInfo.getTransitiveProtoSourceRoots().toList())
-        .containsExactly(
-            genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x");
+    assertThat(xInfo.getTransitiveProtoSourceRoots().toList()).containsExactly(fooProtoRoot);
   }
 
   @Test
   public void testExternalRepoWithGeneratedProto_withSubdirRepoLayout() throws Exception {
-    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ false);
+    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ false, true);
   }
 
   @Test
   public void test_siblingRepoLayout_externalRepoWithGeneratedProto() throws Exception {
-    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ true);
+    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ true, true);
+  }
+
+  @Test
+  public void testExternalRepoWithGeneratedProto_withSubdirRepoLayoutAndNoVritualImports()
+      throws Exception {
+    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ false, false);
+  }
+
+  @Test
+  public void test_siblingRepoLayout_externalRepoWithGeneratedProtoAndNoVritualImports()
+      throws Exception {
+    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ true, false);
   }
 
   @Test

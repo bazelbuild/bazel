@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -78,7 +78,7 @@ public class CppLinkActionBuilder {
         public Artifact create(
             ActionConstructionContext actionConstructionContext,
             RepositoryName repositoryName,
-            BuildConfiguration configuration,
+            BuildConfigurationValue configuration,
             PathFragment rootRelativePath) {
           return actionConstructionContext.getShareableArtifact(
               rootRelativePath, configuration.getBinDirectory(repositoryName));
@@ -98,7 +98,7 @@ public class CppLinkActionBuilder {
   /** Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...) */
   private PathFragment toolchainLibrariesSolibDir;
 
-  protected final BuildConfiguration configuration;
+  protected final BuildConfigurationValue configuration;
   private final CppConfiguration cppConfiguration;
   private FeatureConfiguration featureConfiguration;
 
@@ -164,7 +164,7 @@ public class CppLinkActionBuilder {
       ActionConstructionContext actionConstructionContext,
       Label label,
       Artifact output,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CcToolchainProvider toolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
@@ -1114,7 +1114,7 @@ public class CppLinkActionBuilder {
       ImmutableSet<Linkstamp> linkstamps,
       ActionConstructionContext actionConstructionContext,
       RepositoryName repositoryName,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Artifact outputBinary,
       LinkArtifactFactory linkArtifactFactory) {
     ImmutableMap.Builder<Linkstamp, Artifact> mapBuilder = ImmutableMap.builder();

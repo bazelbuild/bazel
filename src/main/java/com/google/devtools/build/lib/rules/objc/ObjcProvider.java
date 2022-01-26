@@ -127,11 +127,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       new Key<>(LINK_ORDER, "force_load_library", Artifact.class);
 
   /**
-   * Contains all header files. These may be either public or private headers.
-   */
-  public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER, "header", Artifact.class);
-
-  /**
    * Contains all source files.
    */
   public static final Key<Artifact> SOURCE = new Key<>(STABLE_ORDER, "source", Artifact.class);
@@ -144,10 +139,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       new Key<>(LINK_ORDER, "strict_include", PathFragment.class);
 
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER, "sdk_dylib", String.class);
-  public static final Key<SdkFramework> SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "sdk_framework", SdkFramework.class);
-  public static final Key<SdkFramework> WEAK_SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "weak_sdk_framework", SdkFramework.class);
+  public static final Key<String> SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "sdk_framework", String.class);
+  public static final Key<String> WEAK_SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "weak_sdk_framework", String.class);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
@@ -234,7 +229,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       ImmutableList.<Key<?>>of(
           DYNAMIC_FRAMEWORK_FILE,
           FORCE_LOAD_LIBRARY,
-          HEADER,
           IMPORTED_LIBRARY,
           J2OBJC_LIBRARY,
           LIBRARY,
@@ -256,16 +250,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * <p>Keys:
    *
    * <ul>
-   *   <li>HEADER: To expose all header files, including generated proto header files, to IDEs.
    *   <li>SOURCE: To expose all source files, including generated J2Objc source files, to IDEs.
    *   <li>MODULE_MAP: To expose generated module maps to IDEs (only one is expected per target).
    * </ul>
    */
-  static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT =
-      ImmutableSet.<Key<?>>of(HEADER, MODULE_MAP, SOURCE);
-
-  /** Keys that are only used for direct fields, and nothing else. */
-  static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT_ONLY = ImmutableSet.<Key<?>>of(HEADER);
+  static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT = ImmutableSet.<Key<?>>of(MODULE_MAP, SOURCE);
 
   public ImmutableList<PathFragment> getStrictDependencyIncludes() {
     return strictDependencyIncludes;
@@ -283,11 +272,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset /*<Artifact>*/ forceLoadLibrary() {
     return Depset.of(Artifact.TYPE, get(FORCE_LOAD_LIBRARY));
-  }
-
-  @Override
-  public Sequence<Artifact> directHeaders() {
-    return getDirect(HEADER);
   }
 
   @Override
@@ -343,8 +327,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset sdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(SDK_FRAMEWORK, get(SDK_FRAMEWORK));
+    return Depset.of(Depset.ElementType.STRING, get(SDK_FRAMEWORK));
   }
 
   @Override
@@ -377,9 +360,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset weakSdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(
-            WEAK_SDK_FRAMEWORK, get(WEAK_SDK_FRAMEWORK));
+    return Depset.of(Depset.ElementType.STRING, get(WEAK_SDK_FRAMEWORK));
   }
 
   /**
@@ -933,9 +914,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      */
     void addElementsFromStarlark(Key<?> key, Object starlarkToAdd) throws EvalException {
       NestedSet<?> toAdd = ObjcProviderStarlarkConverters.convertToJava(key, starlarkToAdd);
-      if (!KEYS_FOR_DIRECT_ONLY.contains(key)) {
-        uncheckedAddTransitive(key, toAdd);
-      }
+      uncheckedAddTransitive(key, toAdd);
 
       if (KEYS_FOR_DIRECT.contains(key)) {
         uncheckedAddAllDirect(key, toAdd.toList());

@@ -272,14 +272,30 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private void addFailureToErrorList(List<String> list, String failureDescription, int count) {
-    addToErrorList(list, "fails", "fail", failureDescription, count);
+    addToList(list, AnsiTerminalPrinter.Mode.ERROR, "fails", "fail", failureDescription, count);
   }
 
-  private void addToErrorList(
+  private void addToWarningList(
       List<String> list, String singularPrefix, String pluralPrefix, String message, int count) {
+    addToList(list, AnsiTerminalPrinter.Mode.WARNING, singularPrefix, pluralPrefix, message, count);
+  }
+
+  private void addToList(
+      List<String> list,
+      AnsiTerminalPrinter.Mode mode,
+      String singularPrefix,
+      String pluralPrefix,
+      String message,
+      int count) {
     if (count > 0) {
-      list.add(String.format("%s%d %s %s%s", AnsiTerminalPrinter.Mode.ERROR, count,
-          count == 1 ? singularPrefix : pluralPrefix, message, AnsiTerminalPrinter.Mode.DEFAULT));
+      list.add(
+          String.format(
+              "%s%d %s %s%s",
+              mode,
+              count,
+              count == 1 ? singularPrefix : pluralPrefix,
+              message,
+              AnsiTerminalPrinter.Mode.DEFAULT));
     }
   }
 
@@ -316,7 +332,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       addFailureToErrorList(results, "to build", stats.failedToBuildCount);
       addFailureToErrorList(results, "locally", stats.failedLocallyCount);
       addFailureToErrorList(results, "remotely", stats.failedRemotelyCount);
-      addToErrorList(results, "was", "were", "skipped", stats.noStatusCount);
+      addToWarningList(results, "was", "were", "skipped", stats.noStatusCount);
       printer.print(
           String.format(
               "\nExecuted %d out of %d %s: %s.\n",

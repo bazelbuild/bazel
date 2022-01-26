@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -60,7 +61,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -75,6 +76,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
@@ -83,7 +85,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -318,7 +319,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
+      throw ActionExecutionException.fromExecException(e, this);
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
     }
@@ -353,10 +354,16 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getSpawn(getInputs());
   }
 
+  @VisibleForTesting
+  public ResourceSetOrBuilder getResourceSetOrBuilder() {
+    return resourceSetOrBuilder;
+  }
+
   final Spawn getSpawn(NestedSet<Artifact> inputs)
       throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
         commandLines.allArguments(),
+        this,
         /*env=*/ ImmutableMap.of(),
         /*envResolved=*/ false,
         inputs,
@@ -395,6 +402,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
+        this,
         env,
         envResolved,
         getInputs(),
@@ -545,16 +553,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return env.getFixedEnv().toMap();
   }
 
-  /**
-   * Returns the out-of-band execution data for this action.
-   */
+  /** Returns the out-of-band execution data for this action. */
   @Override
-  public Map<String, String> getExecutionInfo() {
-    return executionInfo;
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
-  private class ActionSpawn extends BaseSpawn {
+  private static class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
@@ -567,6 +573,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     private ActionSpawn(
         ImmutableList<String> arguments,
+        SpawnAction parent,
         Map<String, String> env,
         boolean envResolved,
         NestedSet<Artifact> inputs,
@@ -576,11 +583,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       super(
           arguments,
           ImmutableMap.<String, String>of(),
-          executionInfo,
-          SpawnAction.this.getRunfilesSupplier(),
-          SpawnAction.this,
-          SpawnAction.this.resourceSetOrBuilder.buildResourceSet(inputs));
-
+          parent.getExecutionInfo(),
+          parent.getRunfilesSupplier(),
+          parent,
+          parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs.toList()) {
@@ -600,7 +606,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       if (envResolved) {
         effectiveEnvironment = ImmutableMap.copyOf(env);
       } else {
-        effectiveEnvironment = SpawnAction.this.getEffectiveEnvironment(env);
+        effectiveEnvironment = parent.getEffectiveEnvironment(env);
       }
     }
 
@@ -696,7 +702,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     @VisibleForTesting
     @CheckReturnValue
-    public SpawnAction build(ActionOwner owner, BuildConfiguration configuration) {
+    public SpawnAction build(ActionOwner owner, BuildConfigurationValue configuration) {
       CommandLines.Builder result = CommandLines.builder();
       if (executableArg != null) {
         result.addSingleArgument(executableArg);
@@ -746,7 +752,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ActionOwner owner,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
-        @Nullable BuildConfiguration configuration,
+        @Nullable BuildConfigurationValue configuration,
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
@@ -796,7 +802,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
         ActionEnvironment env,
-        @Nullable BuildConfiguration configuration,
+        @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -983,7 +989,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * action and its value will be "baz", or whatever the corresponding {@code --client_env} flag
      * specified, respectively.
      *
-     * @see {@link BuildConfiguration#getLocalShellEnvironment}
+     * @see {@link BuildConfigurationValue#getLocalShellEnvironment}
      */
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
@@ -1413,7 +1419,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (ExecException e) {
-        throw e.toActionExecutionException(SpawnAction.this);
+        throw ActionExecutionException.fromExecException(e, SpawnAction.this);
       }
     }
   }

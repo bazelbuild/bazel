@@ -80,8 +80,7 @@ public class ActionRewindStrategy {
   private static final int MAX_LOST_INPUTS_RECORDED = 5;
 
   // Note that these references are mutated only outside of Skyframe evaluations, and accessed only
-  // inside of them. Their visibility piggybacks on Skyframe evaluation synchronizations, like
-  // ActionExecutionFunction's stateMap does.
+  // inside of them. Their visibility piggybacks on Skyframe evaluation synchronizations.
   private ConcurrentHashMultiset<LostInputRecord> lostInputRecords =
       ConcurrentHashMultiset.create();
   private ConcurrentLinkedQueue<RewindPlanStats> rewindPlansStats = new ConcurrentLinkedQueue<>();

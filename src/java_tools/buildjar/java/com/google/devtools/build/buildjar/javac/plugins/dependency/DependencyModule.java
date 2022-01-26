@@ -68,7 +68,9 @@ public final class DependencyModule {
   private static final ImmutableSet<String> SJD_EXEMPT_PROCESSORS =
       ImmutableSet.of(
           // Relax strict deps for dagger-generated code (b/17979436).
-          "dagger.internal.codegen.ComponentProcessor");
+          "dagger.internal.codegen.ComponentProcessor",
+          // Relax strict deps for Hilt-generated code (b/21307381).
+          "dagger.hilt.processor.internal.root.RootProcessor");
 
   private final StrictJavaDeps strictJavaDeps;
   private final FixTool fixDepsTool;

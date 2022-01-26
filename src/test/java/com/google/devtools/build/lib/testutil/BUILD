@@ -99,6 +99,17 @@ java_library(
 )
 
 java_library(
+    name = "test_interrupting_bug_reporter",
+    srcs = ["TestInterruptingBugReporter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_library(
     name = "TestRunnableWrapper",
     srcs = ["TestRunnableWrapper.java"],
     deps = [
@@ -171,6 +182,7 @@ java_library(
         ":TestConstants",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -184,6 +196,7 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//third_party:guava",
     ],
@@ -227,10 +240,14 @@ java_library(
     srcs = [
         "ManualSleeperTest.java",
         "MoreAssertsTest.java",
+        "TestInterruptingBugReporterTest.java",
     ],
     deps = [
         ":JunitUtils",
+        ":test_interrupting_bug_reporter",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

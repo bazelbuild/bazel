@@ -113,6 +113,96 @@ EOF
   expect_log "A failure message!"
 }
 
+function test_failing_test_shell_escape_in_message() {
+  mkdir -p package
+  cat > package/test.bzl <<'EOF'
+def _rule_test_impl(ctx):
+  return [AnalysisTestResultInfo(success = False,
+                                 message = 'Command is not "$1 copy $2"')]
+
+my_rule_test = rule(
+  implementation = _rule_test_impl,
+  analysis_test = True,
+)
+EOF
+
+  cat > package/BUILD <<EOF
+load(":test.bzl", "my_rule_test")
+
+my_rule_test(name = "r")
+EOF
+
+  ! bazel test package:r >& "$TEST_log" || fail "Unexpected success"
+
+  expect_log "FAILED"
+
+  cat "${PRODUCT_NAME}-testlogs/package/r/test.log" > "$TEST_log"
+
+  expect_log 'Command is not "$1 copy $2"'
+}
+
+function test_failing_test_cmd_escape_in_message() {
+  mkdir -p package
+  cat > package/test.bzl <<'EOF'
+def _rule_test_impl(ctx):
+  return [
+      AnalysisTestResultInfo(
+          success = False,
+          message = 'Command should contain "\\ & < > | ^ ! %FOO%"',
+      ),
+  ]
+
+my_rule_test = rule(
+  implementation = _rule_test_impl,
+  analysis_test = True,
+)
+EOF
+
+  cat > package/BUILD <<EOF
+load(":test.bzl", "my_rule_test")
+
+my_rule_test(name = "r")
+EOF
+
+  ! bazel test package:r >& "$TEST_log" || fail "Unexpected success"
+
+  expect_log "FAILED"
+
+  cat "${PRODUCT_NAME}-testlogs/package/r/test.log" > "$TEST_log"
+
+  expect_log 'Command should contain "\\ & < > \| ^ ! %FOO%"'
+}
+
+function test_failing_test_eof_string_in_message() {
+  mkdir -p package
+  cat > package/test.bzl <<'EOF'
+def _rule_test_impl(ctx):
+  return [AnalysisTestResultInfo(success = False,
+                                 message = '"\nEOF\n" not in command')]
+
+my_rule_test = rule(
+  implementation = _rule_test_impl,
+  analysis_test = True,
+)
+EOF
+
+  cat > package/BUILD <<EOF
+load(":test.bzl", "my_rule_test")
+
+my_rule_test(name = "r")
+EOF
+
+  ! bazel test package:r >& "$TEST_log" || fail "Unexpected success"
+
+  expect_log "FAILED"
+
+  cat "${PRODUCT_NAME}-testlogs/package/r/test.log" > "$TEST_log"
+
+  # expect_log uses grep and looks at individual lines, but we can make sure
+  # the part after \nEOF\n isn't cut off, as it was previously.
+  expect_log "\" not in command"
+}
+
 function test_expected_failure_test() {
   mkdir -p package
   cat > package/test.bzl <<EOF

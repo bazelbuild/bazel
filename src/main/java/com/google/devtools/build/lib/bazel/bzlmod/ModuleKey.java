@@ -34,7 +34,8 @@ public abstract class ModuleKey {
    * situation.
    */
   private static final ImmutableMap<String, String> WELL_KNOWN_MODULES =
-      ImmutableMap.of("com_google_protobuf", "com_google_protobuf");
+      ImmutableMap.of(
+          "com_google_protobuf", "com_google_protobuf", "protobuf", "com_google_protobuf");
 
   public static final ModuleKey ROOT = create("", Version.EMPTY);
 
@@ -61,8 +62,11 @@ public abstract class ModuleKey {
     if (WELL_KNOWN_MODULES.containsKey(getName())) {
       return WELL_KNOWN_MODULES.get(getName());
     }
+    if (ROOT.equals(this)) {
+      return "";
+    }
     if (getVersion().isEmpty()) {
-      return getName();
+      return getName() + ".override";
     }
     return getName() + "." + getVersion();
   }

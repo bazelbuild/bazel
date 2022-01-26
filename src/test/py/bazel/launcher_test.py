@@ -398,6 +398,33 @@ class LauncherTest(test_base.TestBase):
 
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
+  def testPyBinaryLauncherWithDifferentArgv0(self):
+    """Test for https://github.com/bazelbuild/bazel/issues/14343."""
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'py_binary(',
+        '  name = "bin",',
+        '  srcs = ["bin.py"],',
+        ')',
+    ])
+    self.ScratchFile('foo/bin.py', ['print("Hello world")'])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    # Verify that the build of our py_binary succeeds.
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    # Try to run the built py_binary.
+    binary_suffix = '.exe' if self.IsWindows() else ''
+    foo_bin = os.path.join(bazel_bin, 'foo', 'bin%s' % binary_suffix)
+    args = [r'C:\Invalid.exe' if self.IsWindows() else '/invalid']
+    exit_code, stdout, stderr = self.RunProgram(args, executable=foo_bin)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual(stdout[0], 'Hello world')
+
   def testWindowsJavaExeLauncher(self):
     # Skip this test on non-Windows platforms
     if not self.IsWindows():

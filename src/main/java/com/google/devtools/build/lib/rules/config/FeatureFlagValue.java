@@ -165,7 +165,7 @@ public interface FeatureFlagValue {
     if (!unknownFlags.isEmpty()) {
       throw new UnknownValueException(unknownFlags);
     }
-    return knownValues.build();
+    return knownValues.buildOrThrow();
   }
 
   /** Exception class for when getFlagValues runs into UNKNOWN_VALUE. */

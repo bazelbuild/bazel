@@ -20,6 +20,7 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.OutputMode;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +41,8 @@ public class CompatDexBuilderTest {
   @Rule public TemporaryFolder temp = new TemporaryFolder();
 
   @Test
-  public void compileManyClasses() throws IOException, InterruptedException, ExecutionException {
+  public void compileManyClasses()
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
     // Random set of classes from the R8 example test directory naming001.
     final String inputJar = System.getProperty("CompatDexBuilderTests.naming001");
     final List<String> classNames =

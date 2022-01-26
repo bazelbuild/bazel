@@ -155,7 +155,11 @@ class SingleplexWorker extends Worker {
       workerProtocol = null;
     }
     if (shutdownHook != null) {
-      Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      try {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      } catch (IllegalStateException e) {
+        // Can only happen if we're already in shutdown, in which case we don't care.
+      }
     }
     if (process != null) {
       wasDestroyed = true;
@@ -185,5 +189,14 @@ class SingleplexWorker extends Worker {
   @Override
   public String toString() {
     return workerKey.getMnemonic() + " worker #" + workerId;
+  }
+
+  @Override
+  public long getProcessId() {
+    if (process == null) {
+      return -1;
+    }
+
+    return process.getProcessId();
   }
 }

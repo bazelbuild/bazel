@@ -267,7 +267,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       ExecutionResult result =
           remoteExecutor.execute(
               arguments,
-              inputsBuilder.build(),
+              inputsBuilder.buildOrThrow(),
               getRemoteExecProperties(),
               ImmutableMap.copyOf(environment),
               workingDirectory,

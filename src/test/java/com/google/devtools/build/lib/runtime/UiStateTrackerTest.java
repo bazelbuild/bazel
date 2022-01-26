@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1295,7 +1294,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // Verify that the progress bar contains useful information on a 60-character terminal.
     //   - Too long names should be shortened to reasonably long prefixes of the name.
     ManualClock clock = new ManualClock();
-    BuildEventTransport transport1 = newBepTransport(Strings.repeat("A", 61));
+    BuildEventTransport transport1 = newBepTransport("A".repeat(61));
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
@@ -1310,7 +1309,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     String output = terminalWriter.getTranscript();
     assertThat(longestLine(output)).isAtMost(60);
     assertThat(output, containsString("1s"));
-    assertThat(output, containsString(Strings.repeat("A", 30) + "..."));
+    assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, containsString("BuildEventTransport"));
     assertThat(output, containsString("success"));
     assertThat(output, containsString("complete"));
@@ -1322,7 +1321,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     output = terminalWriter.getTranscript();
     assertThat(longestLine(output)).isAtMost(60);
     assertThat(output, containsString("2s"));
-    assertThat(output, containsString(Strings.repeat("A", 30) + "..."));
+    assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, not(containsString("BuildEventTransport")));
     assertThat(output, containsString("success"));
     assertThat(output, containsString("complete"));

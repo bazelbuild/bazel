@@ -23,15 +23,15 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Builder class to create a {@link BlazeWorkspace} instance. This class is part of the module API,
@@ -49,11 +49,12 @@ public final class WorkspaceBuilder {
   // is inserted.
   private final ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions =
       ImmutableMap.builder();
-  private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
-      ImmutableList.builder();
   private AllocationTracker allocationTracker;
-  private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
-  private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
+
+  @Nullable
+  private SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder = null;
+
+  @Nullable private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -78,8 +79,7 @@ public final class WorkspaceBuilder {
             workspaceStatusActionFactory,
             diffAwarenessFactories.build(),
             skyFunctions.build(),
-            customDirtinessCheckers.build(),
-            managedDirectoriesKnowledge,
+            skyframeExecutorRepositoryHelpersHolder,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
                 : skyKeyStateReceiver,
@@ -152,15 +152,9 @@ public final class WorkspaceBuilder {
     return this;
   }
 
-  public WorkspaceBuilder addCustomDirtinessChecker(
-      SkyValueDirtinessChecker customDirtinessChecker) {
-    this.customDirtinessCheckers.add(Preconditions.checkNotNull(customDirtinessChecker));
-    return this;
-  }
-
-  public WorkspaceBuilder setManagedDirectoriesKnowledge(
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
-    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+  public WorkspaceBuilder setSkyframeExecutorRepositoryHelpersHolder(
+      SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder) {
+    this.skyframeExecutorRepositoryHelpersHolder = skyframeExecutorRepositoryHelpersHolder;
     return this;
   }
 

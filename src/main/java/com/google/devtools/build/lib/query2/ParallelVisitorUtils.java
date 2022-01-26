@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.cmdline.ParallelVisitor;
+import com.google.devtools.build.lib.cmdline.ParallelVisitor.Factory;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.Factory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;

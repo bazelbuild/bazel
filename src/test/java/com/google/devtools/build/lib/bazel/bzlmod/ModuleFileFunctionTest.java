@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -59,7 +58,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -78,7 +76,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ModuleFileFunctionTest extends FoundationTestCase {
 
-  private SequentialBuildDriver driver;
+  private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
   private FakeRegistry.Factory registryFactory;
@@ -120,14 +118,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
-    MemoizingEvaluator evaluator =
+    evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileValue.FILE, new FileFunction(packageLocator))
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
+                        new AtomicReference<>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
                 .put(
@@ -153,7 +151,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         new BzlmodRepoRuleHelperImpl()))
                 .build(),
             differencer);
-    driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -167,13 +164,20 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
   }
 
   @Test
   public void testRootModule() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1',compatibility_level=4)",
+        "module(",
+        "    name='A',",
+        "    version='0.1',",
+        "    compatibility_level=4,",
+        "    toolchains_to_register=['//my:toolchain', '//my:toolchain2'],",
+        "    execution_platforms_to_register=['//my:platform', '//my:platform2'],",
+        ")",
         "bazel_dep(name='B',version='1.0')",
         "bazel_dep(name='C',version='2.0',repo_name='see')",
         "single_version_override(module_name='D',version='18')",
@@ -184,7 +188,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -196,6 +201,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setVersion(Version.parse("0.1"))
                 .setKey(ModuleKey.ROOT)
                 .setCompatibilityLevel(4)
+                .setExecutionPlatformsToRegister(
+                    ImmutableList.of("//my:platform", "//my:platform2"))
+                .setToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("B", createModuleKey("B", "1.0"))
                 .addDep("see", createModuleKey("C", "2.0"))
                 .build());
@@ -214,7 +222,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     "",
                     0));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
-        .containsExactly("E", "E", "G", "G");
+        .containsExactly("E.override", "E", "G.override", "G");
   }
 
   @Test
@@ -226,7 +234,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -251,7 +260,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("invalid override for the root module");
   }
@@ -278,7 +288,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("B", "1.0"), null);
     EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -319,7 +329,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     SkyKey skyKey =
         ModuleFileValue.key(createModuleKey("B", ""), LocalPathOverride.create("code_for_b"));
     EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -358,7 +368,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             createModuleKey("B", "1.0"),
             SingleVersionOverride.create(Version.EMPTY, registry2.getUrl(), ImmutableList.of(), 0));
     EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
@@ -400,7 +410,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
     EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -501,11 +511,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains("this extension is already being used at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent("this extension is already being used at");
   }
 
   @Test
@@ -521,11 +529,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains("The repo name 'mymod' is already being used as the current module name at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertContainsEvent(
+        "The repo name 'mymod' is already being used as the current module name at");
   }
 
   @Test
@@ -541,12 +549,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
-    EvaluationResult<ModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException().getCause().toString())
-        .contains(
-            "The repo exported as 'some_repo' by module extension 'myext' is already imported at");
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertContainsEvent(
+        "The repo exported as 'some_repo' by module extension 'myext' is already imported at");
   }
 
   @Test
@@ -557,7 +564,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "foo()");
 
     reporter.removeHandler(failFastHandler); // expect failures
-    driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertContainsEvent("name 'foo' is not defined");
   }
 
@@ -567,11 +574,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='A',version='0.1',compatibility_level=\"4\")");
 
-    EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .contains("parameter 'compatibility_level' got value of type 'string', want 'int'");
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int'");
   }
 }

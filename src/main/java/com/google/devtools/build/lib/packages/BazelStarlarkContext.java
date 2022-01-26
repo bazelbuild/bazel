@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.HashMap;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -60,10 +62,9 @@ public final class BazelStarlarkContext
 
   private final Phase phase;
   // Only necessary for loading phase threads.
-  @Nullable private final String toolsRepository;
+  @Nullable private final RepositoryName toolsRepository;
   // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
-  private final RepositoryMapping repoMapping;
   private final HashMap<String, Label> convertedLabelsInPackage;
   private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
@@ -77,7 +78,6 @@ public final class BazelStarlarkContext
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class for loading phase threads, null for
    *     other threads.
-   * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
    * @param convertedLabelsInPackage a mutable map from String to Label, used during package loading
    *     of a single package.
    * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
@@ -90,14 +90,12 @@ public final class BazelStarlarkContext
   // separate structs, exactly one of which is populated (plus the common fields). And eliminate
   // StarlarkUtils.Phase.
   // TODO(adonovan): move PackageFactory.PackageContext in here, for loading-phase threads.
-  // TODO(adonovan): add a PackageIdentifier here, for use by the Starlark Label function.
   // TODO(adonovan): is there any reason not to put the entire RuleContext in this thread, for
   // analysis threads?
   public BazelStarlarkContext(
       Phase phase,
-      @Nullable String toolsRepository,
+      @Nullable RepositoryName toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
-      RepositoryMapping repoMapping,
       HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
       @Nullable Label analysisRuleLabel,
@@ -105,7 +103,6 @@ public final class BazelStarlarkContext
     this.phase = Preconditions.checkNotNull(phase);
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
-    this.repoMapping = repoMapping;
     this.convertedLabelsInPackage = convertedLabelsInPackage;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
@@ -115,7 +112,7 @@ public final class BazelStarlarkContext
   /** Returns the name of the tools repository, such as "@bazel_tools". */
   @Nullable
   @Override
-  public String getToolsRepository() {
+  public RepositoryName getToolsRepository() {
     return toolsRepository;
   }
 
@@ -130,8 +127,11 @@ public final class BazelStarlarkContext
    * in the BUILD files and the values are new repository names chosen by the main repository.
    */
   @Override
-  public RepositoryMapping getRepoMapping() {
-    return repoMapping;
+  public RepositoryMapping getRepoMappingForCurrentBzlFile(StarlarkThread thread) {
+    // TODO(b/200024947): Find a better place for this. We don't want Label to have to depend on
+    //   StarlarkModuleContext, but having the logic in BazelStarlarkContext is purely a historical
+    //   misstep.
+    return BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping();
   }
 
   /**

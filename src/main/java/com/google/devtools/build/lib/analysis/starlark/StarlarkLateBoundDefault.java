@@ -20,11 +20,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute.AbstractLabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -46,7 +46,6 @@ import net.starlark.java.eval.Printer;
  * target configuration.
  */
 @Immutable
-@AutoCodec
 public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT>
     implements LateBoundDefaultApi {
 
@@ -67,7 +66,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
 
   /** Returns the {@link StarlarkConfigurationField} annotation corresponding to this method. */
   private static Label getDefaultLabel(
-      StarlarkConfigurationField annotation, String toolsRepository) {
+      StarlarkConfigurationField annotation, RepositoryName toolsRepository) {
     if (annotation.defaultLabel().isEmpty()) {
       return null;
     }
@@ -82,7 +81,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
       Class<FragmentT> fragmentClass,
       String fragmentName,
       Method method,
-      String toolsRepository) {
+      RepositoryName toolsRepository) {
     this(
         getDefaultLabel(annotation, toolsRepository),
         fragmentClass,
@@ -91,15 +90,13 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
         annotation.name());
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  StarlarkLateBoundDefault(
+  private StarlarkLateBoundDefault(
       Label defaultVal,
       Class<FragmentT> fragmentClass,
       Method method,
       String fragmentName,
       String fragmentFieldName) {
-    super(/*useHostConfiguration=*/ false, fragmentClass, defaultVal);
+    super(fragmentClass, defaultVal);
     this.method = method;
     this.fragmentName = fragmentName;
     this.fragmentFieldName = fragmentFieldName;
@@ -125,12 +122,6 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
     printer.append("<late-bound default>");
   }
 
-  /** For use by @AutoCodec since the {@link #defaultValue} field is hard for it to process. */
-  @AutoCodec.VisibleForSerialization
-  Label getDefaultVal() {
-    return getDefault();
-  }
-
   /**
    * An exception thrown if a user specifies an invalid configuration field identifier.
    *
@@ -145,10 +136,9 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
 
   private static class CacheKey {
     private final Class<?> fragmentClass;
-    private final String toolsRepository;
+    private final RepositoryName toolsRepository;
 
-    private CacheKey(Class<?> fragmentClass,
-        String toolsRepository) {
+    private CacheKey(Class<?> fragmentClass, RepositoryName toolsRepository) {
       this.fragmentClass = fragmentClass;
       this.toolsRepository = toolsRepository;
     }
@@ -235,7 +225,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
    */
   @SuppressWarnings("unchecked")
   public static <FragmentT> StarlarkLateBoundDefault<FragmentT> forConfigurationField(
-      Class<FragmentT> fragmentClass, String fragmentFieldName, String toolsRepository)
+      Class<FragmentT> fragmentClass, String fragmentFieldName, RepositoryName toolsRepository)
       throws InvalidConfigurationFieldException {
       CacheKey cacheKey = new CacheKey(fragmentClass, toolsRepository);
       StarlarkLateBoundDefault<?> resolver = fieldCache.get(cacheKey).get(fragmentFieldName);

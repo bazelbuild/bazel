@@ -8,8 +8,24 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/rules/java/proto:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
+)
+
+java_test(
+    name = "JavaCompilationArgsTest",
+    srcs = ["JavaCompilationArgsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
 )
 
 java_test(
@@ -51,9 +67,21 @@ java_test(
     name = "JavaInfoTest",
     srcs = ["JavaInfoTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "JavaOptionsTest",
+    srcs = ["JavaOptionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -74,6 +102,7 @@ java_test(
 
 java_test(
     name = "JavaStarlarkApiTest",
+    timeout = "long",
     srcs = ["JavaStarlarkApiTest.java"],
     deps = [
         ":java_compile_action_test_helper",
@@ -83,6 +112,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

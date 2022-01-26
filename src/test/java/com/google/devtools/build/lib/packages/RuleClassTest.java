@@ -33,7 +33,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1150,7 +1149,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
                 new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
                     .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
                     .add(attr("tags", STRING_LIST))
-                    .add(attr(Strings.repeat("x", 150), STRING))
+                    .add(attr("x".repeat(150), STRING))
                     .build());
 
     assertThat(expected)

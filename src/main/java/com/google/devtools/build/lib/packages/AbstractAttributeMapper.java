@@ -148,6 +148,11 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public boolean isPackageDefaultHdrsCheckSet() {
+    return rule.getPackage().isDefaultHdrsCheckSet();
+  }
+
+  @Override
   public Boolean getPackageDefaultTestOnly() {
     return rule.getPackage().getDefaultTestOnly();
   }
@@ -185,8 +190,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Type.LabelVisitor visitor =
         (label, attribute) -> {
           if (label != null) {
-            Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
-            consumer.accept(attribute, absoluteLabel);
+            consumer.accept(attribute, label);
           }
         };
     for (Attribute attribute : attributes) {

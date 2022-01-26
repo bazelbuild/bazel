@@ -59,7 +59,6 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Supports ctx.actions.args() from Starlark. */
-@AutoCodec
 public class StarlarkCustomCommandLine extends CommandLine {
 
   protected final ImmutableList<Object> arguments;
@@ -680,9 +679,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  StarlarkCustomCommandLine(ImmutableList<Object> arguments) {
+  private StarlarkCustomCommandLine(ImmutableList<Object> arguments) {
     this.arguments = arguments;
   }
 
@@ -718,9 +715,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
      */
     private final ImmutableList<Integer> argStartIndexes;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    public StarlarkCustomCommandLineWithIndexes(
+    StarlarkCustomCommandLineWithIndexes(
         ImmutableList<Object> arguments, ImmutableList<Integer> argStartIndexes) {
       super(arguments);
       this.argStartIndexes = argStartIndexes;

@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.vfs.Path;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,11 +29,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SymlinkDependencyAnalysisTest extends BuildIntegrationTestCase {
 
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
-  }
-
   private String buildAndReturnOutput() throws Exception {
     buildTarget("//symlink");
     return readContentAsLatin1String(getOnlyElement(getArtifacts("//symlink:out")));
@@ -44,8 +36,6 @@ public class SymlinkDependencyAnalysisTest extends BuildIntegrationTestCase {
 
   @Test
   public void testSymlinkTargetChangeCausesRebuild() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-
     Path buildFile =
         write("symlink/BUILD",
               "genrule(name = 'symlink',",

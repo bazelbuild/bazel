@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
+import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -50,16 +51,18 @@ import net.starlark.java.eval.StarlarkValue;
 @Immutable
 @RequiresOptions(options = {AppleCommandLineOptions.class})
 public class AppleConfiguration extends Fragment implements AppleConfigurationApi<PlatformType> {
+  /** Environment variable name for the developer dir of the selected Xcode. */
+  public static final String DEVELOPER_DIR_ENV_NAME = "DEVELOPER_DIR";
   /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
    * toolkit in action execution.
-   **/
+   */
   public static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
   /**
    * Environment variable name for the apple SDK version. If unset, uses the system default of the
    * host for the platform in the value of {@link #APPLE_SDK_PLATFORM_ENV_NAME}.
-   **/
+   */
   public static final String APPLE_SDK_VERSION_ENV_NAME = "APPLE_SDK_VERSION_OVERRIDE";
   /**
    * Environment variable name for the apple SDK platform. This should be set for all actions that
@@ -75,7 +78,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public static final String IOS_FORCED_SIMULATOR_CPU_PREFIX = "sim_";
 
   /** Default cpu for iOS builds. */
-  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
+  @VisibleForTesting
+  static final String DEFAULT_IOS_CPU = CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
 
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;
@@ -190,16 +194,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   }
 
   /**
-   * Returns the value of {@code ios_cpu} for this configuration. This is not necessarily the
-   * platform or cpu for all actions spawned in this configuration; it is appropriate for
-   * identifying the target cpu of iOS compile and link actions within this configuration.
-   */
-  @Override
-  public String getIosCpu() {
-    return appleCpus.iosCpu();
-  }
-
-  /**
    * Gets the single "effective" architecture for this configuration's {@link PlatformType} (for
    * example, "i386" or "arm64"). Prefer this over {@link #getMultiArchitectures(PlatformType)} only
    * if in the context of rule logic which is only concerned with a single architecture (such as in
@@ -287,10 +281,11 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     }
     switch (platformType) {
       case IOS:
-        if (getIosMultiCpus().isEmpty()) {
-          return ImmutableList.of(getIosCpu());
+        ImmutableList<String> cpus = appleCpus.iosMultiCpus();
+        if (cpus.isEmpty()) {
+          return ImmutableList.of(appleCpus.iosCpu());
         } else {
-          return getIosMultiCpus();
+          return cpus;
         }
       case WATCHOS:
         return appleCpus.watchosCpus();
@@ -358,44 +353,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       default:
         throw new IllegalArgumentException("Unsupported platform type " + platformType);
     }
-  }
-
-  /**
-   * Returns the {@link ApplePlatform} represented by {@code ios_cpu} (see {@link #getIosCpu}. (For
-   * example, {@code i386} maps to {@link ApplePlatform#IOS_SIMULATOR}.) Note that this is not
-   * necessarily the effective platform for all ios actions in the current context: This is
-   * typically the correct platform for implicityly-ios compile and link actions in the current
-   * context. For effective platform for bundling actions, see {@link
-   * #getMultiArchPlatform(PlatformType)}.
-   */
-  // TODO(b/28754442): Deprecate for more general Starlark-exposed platform retrieval.
-  @Override
-  public ApplePlatform getIosCpuPlatform() {
-    return ApplePlatform.forTarget(PlatformType.IOS, getIosCpu());
-  }
-
-  /**
-   * Returns the architecture for which we keep dependencies that should be present only once (in a
-   * single architecture).
-   *
-   * <p>When building with multiple architectures there are some dependencies we want to avoid
-   * duplicating: they would show up more than once in the same location in the final application
-   * bundle which is illegal. Instead we pick one architecture for which to keep all dependencies
-   * and discard any others.
-   */
-  public String getDependencySingleArchitecture() {
-    if (!getIosMultiCpus().isEmpty()) {
-      return getIosMultiCpus().get(0);
-    }
-    return getIosCpu();
-  }
-
-  /**
-   * List of all CPUs that this invocation is being built for. Different from {@link #getIosCpu()}
-   * which is the specific CPU <b>this target</b> is being built for.
-   */
-  public ImmutableList<String> getIosMultiCpus() {
-    return appleCpus.iosMultiCpus();
   }
 
   /**

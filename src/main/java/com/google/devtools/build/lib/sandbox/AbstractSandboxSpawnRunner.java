@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -85,7 +86,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(SpawnSchedulingEvent.create(getName()));
     try (ResourceHandle ignored =
-        resourceManager.acquireResources(owner, spawn.getLocalResources())) {
+        resourceManager.acquireResources(
+            owner,
+            spawn.getLocalResources(),
+            context.speculating() ? ResourcePriority.DYNAMIC_STANDALONE : ResourcePriority.LOCAL)) {
       context.report(SpawnExecutingEvent.create(getName()));
       SandboxedSpawn sandbox = prepareSpawn(spawn, context);
       return runSpawn(spawn, sandbox, context);
@@ -135,7 +139,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         verifyPostCondition(originalSpawn, sandbox, context);
       }
 
-      context.lockOutputFiles();
+      context.lockOutputFiles(
+          result.exitCode(),
+          result.failureDetail() != null ? result.failureDetail().getMessage() : "",
+          outErr);
       try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);

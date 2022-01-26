@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
@@ -45,7 +46,7 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -56,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.server.FailureDetails.CppLink;
 import com.google.devtools.build.lib.server.FailureDetails.CppLink.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -73,7 +73,6 @@ import net.starlark.java.eval.StarlarkList;
 
 /** Action that represents a linking step. */
 @ThreadCompatible
-@AutoCodec
 public final class CppLinkAction extends AbstractAction implements CommandAction {
 
   /**
@@ -89,7 +88,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     Artifact create(
         ActionConstructionContext actionConstructionContext,
         RepositoryName repositoryName,
-        BuildConfiguration configuration,
+        BuildConfigurationValue configuration,
         PathFragment rootRelativePath);
   }
 
@@ -103,7 +102,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         public Artifact create(
             ActionConstructionContext actionConstructionContext,
             RepositoryName repositoryName,
-            BuildConfiguration configuration,
+            BuildConfigurationValue configuration,
             PathFragment rootRelativePath) {
           return actionConstructionContext.getDerivedArtifact(
               rootRelativePath, configuration.getBinDirectory(repositoryName));
@@ -111,7 +110,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       };
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
-  
+
   @Nullable private final String mnemonic;
   private final LibraryToLink outputLibrary;
   private final Artifact linkOutput;
@@ -222,7 +221,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return executionRequirements;
+    return mergeMaps(super.getExecutionInfo(), executionRequirements);
   }
 
   @Override
@@ -453,8 +452,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            CppLinkAction.this);
+        throw ActionExecutionException.fromExecException(e, CppLinkAction.this);
       }
     }
   }

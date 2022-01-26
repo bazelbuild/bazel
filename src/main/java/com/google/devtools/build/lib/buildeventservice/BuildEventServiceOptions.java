@@ -88,13 +88,15 @@ public class BuildEventServiceOptions extends OptionsBase {
   public boolean besLifecycleEvents;
 
   @Option(
-    name = "project_id",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Specifies the BES project identifier. Defaults to null."
-  )
-  public String projectId;
+      name = "bes_instance_name",
+      oldName = "project_id",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Specifies the instance name under which the BES will persist uploaded BEP. Defaults "
+              + "to null.")
+  public String instanceName;
 
   @Option(
       name = "bes_keywords",

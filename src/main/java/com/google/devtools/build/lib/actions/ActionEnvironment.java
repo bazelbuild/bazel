@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,7 +43,6 @@ import java.util.TreeSet;
  * action cache), such that Bazel knows exactly which actions it needs to rerun, and does not have
  * to reanalyze the entire dependency graph.
  */
-@AutoCodec
 public final class ActionEnvironment {
 
   /** A map of environment variables. */
@@ -163,8 +161,7 @@ public final class ActionEnvironment {
    * undefined, so callers need to take care that the key set of the {@code fixedEnv} map and the
    * set of {@code inheritedEnv} elements are disjoint.
    */
-  @AutoCodec.Instantiator
-  public static ActionEnvironment create(
+  private static ActionEnvironment create(
       EnvironmentVariables fixedEnv, ImmutableSet<String> inheritedEnv) {
     if (fixedEnv.isEmpty() && inheritedEnv.isEmpty()) {
       return EMPTY;

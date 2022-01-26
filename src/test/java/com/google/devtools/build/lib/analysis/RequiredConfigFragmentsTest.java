@@ -18,7 +18,9 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -31,12 +33,13 @@ import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link RequiredConfigFragmentsProvider}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
   @Test
@@ -94,7 +97,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
   @Test
   public void starlarkExpandMakeVariables() throws Exception {
-    useConfiguration("--include_config_fragments_provider=direct", "--define", "myvar=myval");
+    useConfiguration("--include_config_fragments_provider=direct", "--define=myvar=myval");
     scratch.file(
         "a/defs.bzl",
         "def _impl(ctx):",
@@ -102,12 +105,39 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         "",
         "simple_rule = rule(",
         "  implementation = _impl,",
-        "   attrs = {}",
+        "  attrs = {}",
         ")");
     scratch.file("a/BUILD", "load('//a:defs.bzl', 'simple_rule')", "simple_rule(name = 'simple')");
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:simple").getProvider(RequiredConfigFragmentsProvider.class);
     assertThat(requiredFragments.getDefines()).containsExactly("myvar");
+  }
+
+  @Test
+  public void starlarkCtxVar() throws Exception {
+    useConfiguration(
+        "--include_config_fragments_provider=direct", "--define=required_var=1,irrelevant_var=1");
+    scratch.file(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        // Defined, so reported as required.
+        "  if 'required_var' not in ctx.var:",
+        "    fail('Missing required_var')",
+        // Not defined, so not reported as required.
+        "  if 'prohibited_var' in ctx.var:",
+        "    fail('Not allowed to set prohibited_var')",
+        // Present but not a define variable, so not reported as required.
+        "  if 'COMPILATION_MODE' not in ctx.var:",
+        "    fail('Missing COMPILATION_MODE')",
+        "",
+        "simple_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {}",
+        ")");
+    scratch.file("a/BUILD", "load('//a:defs.bzl', 'simple_rule')", "simple_rule(name = 'simple')");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:simple").getProvider(RequiredConfigFragmentsProvider.class);
+    assertThat(requiredFragments.getDefines()).containsExactly("required_var");
   }
 
   /**
@@ -131,7 +161,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         ConfiguredTargetAndData ctadBase,
         RuleContext ruleContext,
         AspectParameters params,
-        String toolsRepository)
+        RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       return new ConfiguredAspect.Builder(ruleContext).build();
     }
@@ -322,5 +352,111 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     assertThat(requiredFragments.getOptionsClasses()).contains(JavaOptions.class);
     // But not the child's rule transition.
     assertThat(requiredFragments.getOptionsClasses()).doesNotContain(CppOptions.class);
+  }
+
+  @Test
+  public void aspectInheritsTransitiveFragmentsFromBaseCT(
+      @TestParameter({"DIRECT", "TRANSITIVE"}) IncludeConfigFragmentsEnum setting)
+      throws Exception {
+    writeStarlarkTransitionsAndAllowList();
+    scratch.file(
+        "a/defs.bzl",
+        "",
+        "A1Info = provider()",
+        "def _a1_impl(target, ctx):",
+        "  return []",
+        "a1 = aspect(implementation = _a1_impl)",
+        "",
+        "def _java_depender_impl(ctx):",
+        "  return []",
+        "java_depender = rule(",
+        "  implementation = _java_depender_impl,",
+        "  fragments = ['java'],",
+        "  attrs = {})",
+        "",
+        "def _r_impl(ctx):",
+        "  return []",
+        "r = rule(",
+        "  implementation = _r_impl,",
+        "  attrs = {'dep': attr.label(aspects = [a1])})");
+    scratch.file(
+        "a/BUILD",
+        "load(':defs.bzl', 'java_depender', 'r')",
+        "java_depender(name = 'lib')",
+        "r(name = 'r', dep = ':lib')");
+
+    useConfiguration("--include_config_fragments_provider=" + setting);
+    getConfiguredTarget("//a:r");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getAspect("//a:defs.bzl%a1").getProvider(RequiredConfigFragmentsProvider.class);
+
+    if (setting == IncludeConfigFragmentsEnum.TRANSITIVE) {
+      assertThat(requiredFragments.getFragmentClasses()).contains(JavaConfiguration.class);
+    } else {
+      assertThat(requiredFragments.getFragmentClasses()).doesNotContain(JavaConfiguration.class);
+    }
+  }
+
+  @Test
+  public void aspectInheritsTransitiveFragmentsFromRequiredAspect(
+      @TestParameter({"DIRECT", "TRANSITIVE"}) IncludeConfigFragmentsEnum setting)
+      throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "",
+        "A1Info = provider()",
+        "def _a1_impl(target, ctx):",
+        "  return A1Info(var = ctx.var.get('my_var', '0'))",
+        "a1 = aspect(implementation = _a1_impl, provides = [A1Info])",
+        "",
+        "A2Info = provider()",
+        "def _a2_impl(target, ctx):",
+        "  return A2Info()",
+        "a2 = aspect(implementation = _a2_impl, required_aspect_providers = [A1Info])",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  return []",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {})",
+        "",
+        "def _r_impl(ctx):",
+        "  return []",
+        "r = rule(",
+        "  implementation = _r_impl,",
+        "  attrs = {'dep': attr.label(aspects = [a1, a2])})");
+    scratch.file(
+        "a/BUILD",
+        "load(':defs.bzl', 'r', 'simple_rule')",
+        "simple_rule(name = 'lib')",
+        "r(name = 'r', dep = ':lib')");
+
+    useConfiguration("--include_config_fragments_provider=" + setting, "--define", "my_var=1");
+    getConfiguredTarget("//a:r");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getAspect("//a:defs.bzl%a2").getProvider(RequiredConfigFragmentsProvider.class);
+
+    if (setting == IncludeConfigFragmentsEnum.TRANSITIVE) {
+      assertThat(requiredFragments.getDefines()).contains("my_var");
+    } else {
+      assertThat(requiredFragments.getDefines()).doesNotContain("my_var");
+    }
+  }
+
+  @Test
+  public void invalidStarlarkFragmentsFiltered() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "",
+        "my_rule = rule(implementation = _my_rule_impl, fragments = ['java', 'doesnotexist'])");
+    scratch.file("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'example')");
+
+    useConfiguration("--include_config_fragments_provider=direct");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:example").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getFragmentClasses()).contains(JavaConfiguration.class);
   }
 }

@@ -50,14 +50,16 @@ import net.starlark.java.syntax.Location;
 @DocumentMethods
 public class ModuleFileGlobals {
   private boolean moduleCalled = false;
+  private final boolean ignoreDevDeps;
   private final Module.Builder module;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionProxy> extensionProxies = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
-  public ModuleFileGlobals(ModuleKey key, @Nullable Registry registry) {
+  public ModuleFileGlobals(ModuleKey key, @Nullable Registry registry, boolean ignoreDevDeps) {
     module = Module.builder().setKey(key).setRegistry(registry);
+    this.ignoreDevDeps = ignoreDevDeps;
   }
 
   @AutoValue
@@ -120,12 +122,38 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "0"),
+        @Param(
+            name = "execution_platforms_to_register",
+            doc =
+                "A list of already-defined execution platforms to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
+        @Param(
+            name = "toolchains_to_register",
+            doc =
+                "A list of already-defined toolchains to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
       },
       useStarlarkThread = true)
   public void module(
       String name,
       String version,
       StarlarkInt compatibilityLevel,
+      Iterable<?> executionPlatformsToRegister,
+      Iterable<?> toolchainsToRegister,
       StarlarkThread thread)
       throws EvalException {
     if (moduleCalled) {
@@ -142,8 +170,27 @@ public class ModuleFileGlobals {
     module
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"));
+        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
+        .setExecutionPlatformsToRegister(
+            checkAllAbsolutePatterns(
+                executionPlatformsToRegister, "execution_platforms_to_register"))
+        .setToolchainsToRegister(
+            checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
     addRepoNameUsage(name, "as the current module name", thread.getCallerLocation());
+  }
+
+  private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)
+      throws EvalException {
+    Sequence<String> list = Sequence.cast(iterable, String.class, where);
+    for (String item : list) {
+      if (!item.startsWith("//") && !item.startsWith("@")) {
+        throw Starlark.errorf(
+            "Expected absolute target patterns (must begin with '//' or '@') for '%s' argument, but"
+                + " got '%s' as an argument",
+            where, item);
+      }
+    }
+    return list.getImmutableList();
   }
 
   @StarlarkMethod(
@@ -168,9 +215,18 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "''"),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this dependency will be ignored if the current module is not the root"
+                    + " module or `--ignore_dev_dependency` is enabled.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
-  public void bazelDep(String name, String version, String repoName, StarlarkThread thread)
+  public void bazelDep(
+      String name, String version, String repoName, boolean devDependency, StarlarkThread thread)
       throws EvalException {
     if (repoName.isEmpty()) {
       repoName = name;
@@ -182,7 +238,11 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
-    deps.put(repoName, ModuleKey.create(name, parsedVersion));
+
+    if (!(ignoreDevDeps && devDependency)) {
+      deps.put(repoName, ModuleKey.create(name, parsedVersion));
+    }
+
     addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
   }
 
@@ -200,10 +260,19 @@ public class ModuleFileGlobals {
             doc =
                 "The name of the module extension to use. A symbol with this name must be exported"
                     + " by the Starlark file."),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this usage of the module extension will be ignored if the current module"
+                    + " is not the root module or `--ignore_dev_dependency` is enabled.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
-      String extensionBzlFile, String extensionName, StarlarkThread thread) throws EvalException {
+      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread)
+      throws EvalException {
     for (ModuleExtensionProxy proxy : extensionProxies) {
       if (proxy.extensionBzlFile.equals(extensionBzlFile)
           && proxy.extensionName.equals(extensionName)) {
@@ -212,7 +281,11 @@ public class ModuleFileGlobals {
     }
     ModuleExtensionProxy proxy =
         new ModuleExtensionProxy(extensionBzlFile, extensionName, thread.getCallerLocation());
-    extensionProxies.add(proxy);
+
+    if (!(ignoreDevDeps && devDependency)) {
+      extensionProxies.add(proxy);
+    }
+
     return proxy;
   }
 

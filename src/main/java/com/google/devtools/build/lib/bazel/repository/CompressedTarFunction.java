@@ -72,9 +72,9 @@ public abstract class CompressedTarFunction implements Decompressor {
         }
 
         Path filePath = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
-        FileSystemUtils.createDirectoryAndParents(filePath.getParentDirectory());
+        filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
-          FileSystemUtils.createDirectoryAndParents(filePath);
+          filePath.createDirectoryAndParents();
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
             PathFragment targetName = PathFragment.create(entry.getLinkName());

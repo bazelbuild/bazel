@@ -532,7 +532,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     # We need to undef it as some distributions now have it enabled by default.
                     "-U_FORTIFY_SOURCE",
                     "-fstack-protector",
-                    # All warnings are enabled. Maybe enable -Werror as well?
+                    # All warnings are enabled.
                     "-Wall",
                     # Enable a few more warnings that aren't part of -Wall.
                 ] + ((

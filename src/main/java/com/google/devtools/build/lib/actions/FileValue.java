@@ -258,12 +258,12 @@ public abstract class FileValue implements SkyValue {
    * 'foo/bar' nor 'foo/bar/baz' are symlinks.
    */
   @VisibleForTesting
-  @AutoCodec
   public static final class RegularFileValue extends FileValue {
 
     private final RootedPath rootedPath;
     private final FileStateValue fileStateValue;
 
+    @VisibleForTesting
     public RegularFileValue(RootedPath rootedPath, FileStateValue fileStateValue) {
       this.rootedPath = Preconditions.checkNotNull(rootedPath);
       this.fileStateValue = Preconditions.checkNotNull(fileStateValue);
@@ -321,16 +321,14 @@ public abstract class FileValue implements SkyValue {
    * A {@link FileValue} whose resolution required traversing a symlink chain caused by a symlink
    * pointing to its own ancestor but which eventually points to a real file.
    */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  public static class DifferentRealPathFileValueWithSymlinkCycle
+  private static class DifferentRealPathFileValueWithSymlinkCycle
       extends DifferentRealPathFileValueWithStoredChain {
     // We can't store an exception here because this needs to be serialized, AutoCodec chokes on
     // object cycles and FilesystemInfiniteSymlinkCycleException somehow sets its cause to itself
     protected final ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain;
     protected final ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain;
 
-    public DifferentRealPathFileValueWithSymlinkCycle(
+    DifferentRealPathFileValueWithSymlinkCycle(
         RootedPath realRootedPath,
         FileStateValue realFileStateValue,
         ImmutableList<RootedPath> logicalChainDuringResolution,
@@ -400,13 +398,13 @@ public abstract class FileValue implements SkyValue {
    * requested path, but the path itself is not a symlink. For example, this is the case for the
    * path "foo/bar/baz" if at least one of {'foo', 'foo/bar'} is a symlink but 'foo/bar/baz' not.
    */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
+  @VisibleForTesting
   public static class DifferentRealPathFileValueWithStoredChain extends FileValue {
     protected final RootedPath realRootedPath;
     protected final FileStateValue realFileStateValue;
     protected final ImmutableList<RootedPath> logicalChainDuringResolution;
 
+    @VisibleForTesting
     public DifferentRealPathFileValueWithStoredChain(
         RootedPath realRootedPath,
         FileStateValue realFileStateValue,
@@ -474,12 +472,12 @@ public abstract class FileValue implements SkyValue {
    * Same as {@link DifferentRealPathFileValueWithStoredChain}, except without {@link
    * #logicalChainDuringResolution}.
    */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
+  @VisibleForTesting
   public static class DifferentRealPathFileValueWithoutStoredChain extends FileValue {
     protected final RootedPath realRootedPath;
     protected final FileStateValue realFileStateValue;
 
+    @VisibleForTesting
     public DifferentRealPathFileValueWithoutStoredChain(
         RootedPath realRootedPath, FileStateValue realFileStateValue) {
       this.realRootedPath = Preconditions.checkNotNull(realRootedPath);
@@ -542,16 +540,14 @@ public abstract class FileValue implements SkyValue {
    * A {@link FileValue} whose resolution required traversing a symlink chain caused by a symlink
    * pointing to its own ancestor and which eventually points to a symlink.
    */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  public static final class SymlinkFileValueWithSymlinkCycle
+  private static final class SymlinkFileValueWithSymlinkCycle
       extends SymlinkFileValueWithStoredChain {
     // We can't store an exception here because this needs to be serialized, AutoCodec chokes on
     // object cycles and FilesystemInfiniteSymlinkCycleException somehow sets its cause to itself
     private final ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain;
     private final ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain;
 
-    public SymlinkFileValueWithSymlinkCycle(
+    SymlinkFileValueWithSymlinkCycle(
         RootedPath realRootedPath,
         FileStateValue realFileStateValue,
         ImmutableList<RootedPath> logicalChainDuringResolution,
@@ -620,8 +616,7 @@ public abstract class FileValue implements SkyValue {
   }
 
   /** Implementation of {@link FileValue} for paths that are themselves symlinks. */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
+  @VisibleForTesting
   public static class SymlinkFileValueWithStoredChain
       extends DifferentRealPathFileValueWithStoredChain {
     protected final PathFragment linkTarget;
@@ -680,7 +675,6 @@ public abstract class FileValue implements SkyValue {
    * #logicalChainDuringResolution}.
    */
   @VisibleForTesting
-  @AutoCodec
   public static final class SymlinkFileValueWithoutStoredChain
       extends DifferentRealPathFileValueWithoutStoredChain {
     private final PathFragment linkTarget;

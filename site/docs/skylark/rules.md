@@ -570,6 +570,89 @@ def _example_library_impl(ctx):
   ]
 ```
 
+##### Custom initialization of providers
+
+It's possible to guard the instantiation of a provider with custom
+preprocessing and validation logic. This can be used to ensure that all
+provider instances obey certain invariants, or to give users a cleaner API for
+obtaining an instance.
+
+This is done by passing an `init` callback to the
+[`provider`](lib/globals.html#provider) function. If this callback is given, the
+return type of `provider()` changes to be a tuple of two values: the provider
+symbol that is the ordinary return value when `init` is not used, and a "raw
+constructor".
+
+In this case, when the provider symbol is called, instead of directly returning
+a new instance, it will forward the arguments along to the `init` callback. The
+callback's return value must be a dict mapping field names (strings) to values;
+this is used to initialize the fields of the new instance. Note that the
+callback may have any signature, and if the arguments do not match the signature
+an error is reported as if the callback were invoked directly.
+
+The raw constructor, by contrast, will bypass the `init` callback.
+
+The following example uses `init` to preprocess and validate its arguments:
+
+```python
+# //pkg:exampleinfo.bzl
+
+_core_headers = [...]  # private constant representing standard library files
+
+# It's possible to define an init accepting positional arguments, but
+# keyword-only arguments are preferred.
+def _exampleinfo_init(*, files_to_link, headers = None, allow_empty_files_to_link = False):
+    if not files_to_link and not allow_empty_files_to_link:
+        fail("files_to_link may not be empty")
+    all_headers = depset(_core_headers, transitive = headers)
+    return {'files_to_link': files_to_link, 'headers': all_headers}
+
+ExampleInfo, _new_exampleinfo = provider(
+    ...
+    init = _exampleinfo_init)
+
+export ExampleInfo
+```
+
+A rule implementation may then instantiate the provider as follows:
+
+```python
+    ExampleInfo(
+        files_to_link=my_files_to_link,  # may not be empty
+        headers = my_headers,  # will automatically include the core headers
+    )
+```
+
+The raw constructor can be used to define alternative public factory functions
+that do not go through the `init` logic. For example, in exampleinfo.bzl we
+could define:
+
+```python
+def make_barebones_exampleinfo(headers):
+    """Returns an ExampleInfo with no files_to_link and only the specified headers."""
+    return _new_exampleinfo(files_to_link = depset(), headers = all_headers)
+```
+
+Typically, the raw constructor is bound to a variable whose name begins with an
+underscore (`_new_exampleinfo` above), so that user code cannot load it and
+generate arbitrary provider instances.
+
+Another use for `init` is to simply prevent the user from calling the provider
+symbol altogether, and force them to use a factory function instead:
+
+```python
+def _exampleinfo_init_banned(*args, **kwargs):
+    fail("Do not call ExampleInfo(). Use make_exampleinfo() instead.")
+
+ExampleInfo, _new_exampleinfo = provider(
+    ...
+    init = _exampleinfo_init_banned)
+
+def make_exampleinfo(...):
+    ...
+    return _new_exampleinfo(...)
+```
+
 <a name="executable-rules"></a>
 
 ## Executable rules and test rules
@@ -902,6 +985,158 @@ if (ctx.configuration.coverage_enabled and
      any([ctx.coverage_instrumented(dep) for dep in ctx.attr.deps]))):
     # Do something to turn on coverage for this compile action
 ```
+
+### Validation Actions
+
+Sometimes you need to validate something about the build, and the
+information required to do that validation is available only in artifacts
+(source files or generated files). Because this information is in artifacts,
+rules cannot do this validation at analysis time because rules cannot read
+files. Instead, actions must do this validation at execution time. When
+validation fails, the action will fail, and hence so will the build.
+
+Examples of validations that might be run are static analysis, linting,
+dependency and consistency checks, and style checks.
+
+Validation actions can also help to improve build performance by moving parts
+of actions that are not required for building artifacts into separate actions.
+For example, if a single action that does compilation and linting can be
+separated into a compilation action and a linting action, then the linting
+action can be run as a validation action and run in parallel with other actions.
+
+These "validation actions" often don't produce anything that is used elsewhere
+in the build, since they only need to assert things about their inputs. This
+presents a problem though: If a validation action does not produce anything that
+is used elsewhere in the build, how does a rule get the action to run?
+Historically, the approach was to have the validation action output an empty
+file, and artificially add that output to the inputs of some other important
+action in the build:
+
+<img src="../images/validation_action_historical.svg" width="35%" />
+
+This works, because Bazel will always run the validation action when the compile
+action is run, but this has significant drawbacks:
+
+1. The validation action is in the critical path of the build. Because Bazel
+thinks the empty output is required to run the compile action, it will run the
+validation action first, even though the compile action will ignore the input.
+This reduces parallelism and slows down builds.
+
+2. If other actions in the build might run instead of the
+compile action, then the empty outputs of validation actions need to be added to
+those actions as well (`java_library`'s source jar output, for example). This is
+also a problem if new actions that might run instead of the compile action are
+added later, and the empty validation output is accidentally left off.
+
+The solution to these problems is to use the Validations Output Group.
+
+#### Validations Output Group
+
+The Validations Output Group is an output group designed to hold the otherwise
+unused outputs of validation actions, so that they don't need to be artificially
+added to the inputs of other actions.
+
+This group is special in that its outputs are always requested, regardless of
+the value of the `--output_groups` flag, and regardless of how the target is
+depended upon (for example, on the command line, as a dependency, or through
+implicit outputs of the target). Note that normal caching and incrementality
+still apply: if the inputs to the validation action have not changed and the
+validation action previously succeeded, then the validation action will not be
+run.
+
+<img src="../images/validation_action.svg" width="35%" />
+
+Using this output group still requires that validation actions output some file,
+even an empty one. This might require wrapping some tools that normally don't
+create outputs so that a file is created.
+
+A target's validation actions are not run in three cases:
+
+*    When the target is depended upon as a tool
+*    When the target is depended upon as an implicit dependency (for example, an
+     attribute that starts with "_")
+*    When the target is built in the host or exec configuration.
+
+It is assumed that these targets have their own
+separate builds and tests that would uncover any validation failures.
+
+#### Using the Validations Output Group
+
+The Validations Output Group is named `_validation` and is used like any other
+output group:
+
+```python
+def _rule_with_validation_impl(ctx):
+
+  ctx.actions.write(ctx.outputs.main, "main output\n")
+
+  ctx.actions.write(ctx.outputs.implicit, "implicit output\n")
+
+  validation_output = ctx.actions.declare_file(ctx.attr.name + ".validation")
+  ctx.actions.run(
+      outputs = [validation_output],
+      executable = ctx.executable._validation_tool,
+      arguments = [validation_output.path])
+
+  return [
+    DefaultInfo(files = depset([ctx.outputs.main])),
+    OutputGroupInfo(_validation = depset([validation_output])),
+  ]
+
+
+rule_with_validation = rule(
+  implementation = _rule_with_validation_impl,
+  outputs = {
+    "main": "%{name}.main",
+    "implicit": "%{name}.implicit",
+  },
+  attrs = {
+    "_validation_tool": attr.label(
+        default = Label("//validation_actions:validation_tool"),
+        executable = True,
+        cfg = "exec"),
+  }
+)
+```
+
+Notice that the validation output file is not added to the `DefaultInfo` or the
+inputs to any other action. The validation action for a target of this rule kind
+will still run if the target is depended upon by label, or any of the target's
+implicit outputs are directly or indirectly depended upon.
+
+It is usually important that the outputs of validation actions only go into the
+validation output group, and are not added to the inputs of other actions, as
+this could defeat parallelism gains. Note however that Bazel does not currently
+have any special checking to enforce this. Therefore, you should test
+that validation action outputs are not added to the inputs of any actions in the
+tests for Starlark rules. For example:
+
+```python
+load("@bazel_skylib//lib:unittest.bzl", "analysistest")
+
+def _validation_outputs_test_impl(ctx):
+  env = analysistest.begin(ctx)
+
+  actions = analysistest.target_actions(env)
+  target = analysistest.target_under_test(env)
+  validation_outputs = target.output_groups._validation.to_list()
+  for action in actions:
+    for validation_output in validation_outputs:
+      if validation_output in action.inputs.to_list():
+        analysistest.fail(env,
+            "%s is a validation action output, but is an input to action %s" % (
+                validation_output, action))
+
+  return analysistest.end(env)
+
+validation_outputs_test = analysistest.make(_validation_outputs_test_impl)
+```
+
+#### Validation Actions Flag
+
+Running validation actions is controlled by the `--run_validations` command line
+flag, which defaults to true.
+
 
 ## Deprecated features
 

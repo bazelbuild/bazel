@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
@@ -47,15 +46,13 @@ import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -66,7 +63,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -131,10 +127,6 @@ import net.starlark.java.syntax.Location;
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
 
-  public boolean isAllowTagsPropagation() {
-    return starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
-  }
-
   /** Custom dependency validation logic. */
   public interface PrerequisiteValidator {
     /**
@@ -148,7 +140,7 @@ public final class RuleContext extends TargetContext
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
   }
 
-  private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
+  private static final String TOOL_CONFIGURATION_PROGRESS_TAG = "for tool";
 
   private final Rule rule;
   /**
@@ -166,13 +158,12 @@ public final class RuleContext extends TargetContext
   private final ImmutableSet<String> enabledFeatures;
   private final ImmutableSet<String> disabledFeatures;
   private final String ruleClassNameForLogging;
-  private final BuildConfiguration hostConfiguration;
+  private final BuildConfigurationValue hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-  private final FragmentClassSet universalFragments;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
   private final RuleErrorConsumer reporter;
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
-  private final ConstraintSemantics<RuleContext> constraintSemantics;
   @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
@@ -183,13 +174,6 @@ public final class RuleContext extends TargetContext
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
-
-  /**
-   * The StarlarkSemantics to use for rule analysis. Should be the same as what's reported by the
-   * AnalysisEnvironment, but saving it here is more convenient since {@link
-   * AnalysisEnvironment#getStarlarkSemantics()} can throw InterruptedException.
-   */
-  private final StarlarkSemantics starlarkSemantics;
 
   /**
    * Thread used for any Starlark evaluation during analysis, e.g. rule implementation function for
@@ -211,18 +195,7 @@ public final class RuleContext extends TargetContext
       Builder builder,
       AttributeMap attributes,
       ListMultimap<String, ConfiguredTargetAndData> targetMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      FragmentClassSet universalFragments,
-      String ruleClassNameForLogging,
-      ActionLookupKey actionLookupKey,
-      ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      ExecGroupCollection execGroupCollection,
-      ConstraintSemantics<RuleContext> constraintSemantics,
-      @Nullable RequiredConfigFragmentsProvider requiredConfigFragments,
-      String toolsRepository,
-      StarlarkSemantics starlarkSemantics,
-      Mutability mutability) {
+      ExecGroupCollection execGroupCollection) {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -231,28 +204,25 @@ public final class RuleContext extends TargetContext
         builder.visibility);
     this.rule = builder.target.getAssociatedRule();
     this.aspects = builder.aspects;
-    this.aspectDescriptors =
-        builder.aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
+    this.aspectDescriptors = aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
-    this.universalFragments = universalFragments;
+    this.ruleClassProvider = builder.ruleClassProvider;
     this.targetMap = targetMap;
-    this.configConditions = configConditions;
-    this.attributes = new AspectAwareAttributeMapper(attributes, aspectAttributes);
+    this.configConditions = builder.configConditions.asProviders();
+    this.attributes = new AspectAwareAttributeMapper(attributes, builder.aspectAttributes);
     Set<String> allEnabledFeatures = new HashSet<>();
     Set<String> allDisabledFeatures = new HashSet<>();
     getAllFeatures(allEnabledFeatures, allDisabledFeatures);
     this.enabledFeatures = ImmutableSortedSet.copyOf(allEnabledFeatures);
     this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
-    this.ruleClassNameForLogging = ruleClassNameForLogging;
+    this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
     this.hostConfiguration = builder.hostConfiguration;
-    this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
-    reporter = builder.reporter;
-    this.toolchainContexts = toolchainContexts;
+    this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
+    this.reporter = builder.reporter;
+    this.toolchainContexts = builder.toolchainContexts;
     this.execGroupCollection = execGroupCollection;
-    this.constraintSemantics = constraintSemantics;
-    this.requiredConfigFragments = requiredConfigFragments;
-    this.starlarkSemantics = starlarkSemantics;
-    this.starlarkThread = createStarlarkThread(toolsRepository, mutability); // uses above state
+    this.requiredConfigFragments = builder.requiredConfigFragments;
+    this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -292,6 +262,12 @@ public final class RuleContext extends TargetContext
         enabled.add(feature);
       }
     }
+  }
+
+  public boolean isAllowTagsPropagation() {
+    return getAnalysisEnvironment()
+        .getStarlarkSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
   }
 
   public RepositoryName getRepository() {
@@ -386,7 +362,7 @@ public final class RuleContext extends TargetContext
   }
 
   /** Returns the host configuration for this rule. */
-  public BuildConfiguration getHostConfiguration() {
+  public BuildConfigurationValue getHostConfiguration() {
     return hostConfiguration;
   }
 
@@ -480,8 +456,8 @@ public final class RuleContext extends TargetContext
       String name,
       String additionalErrorMessage,
       ConfigurationTransition transition) {
-    // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
-    // Can we lock that down somehow?
+    // TODO(bazel-team): The fragments can also be accessed directly through
+    // BuildConfigurationValue. Can we lock that down somehow?
     Preconditions.checkArgument(
         isLegalFragment(fragment, transition),
         "%s has to declare '%s' as a required fragment in %s configuration in order to access"
@@ -527,7 +503,7 @@ public final class RuleContext extends TargetContext
 
   public <T extends Fragment> boolean isLegalFragment(
       Class<T> fragment, ConfigurationTransition transition) {
-    return universalFragments.contains(fragment)
+    return ruleClassProvider.getFragmentRegistry().getUniversalFragments().contains(fragment)
         || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, transition);
   }
 
@@ -536,7 +512,7 @@ public final class RuleContext extends TargetContext
     return isLegalFragment(fragment, NoTransition.INSTANCE);
   }
 
-  private BuildConfiguration getConfiguration(ConfigurationTransition transition) {
+  private BuildConfigurationValue getConfiguration(ConfigurationTransition transition) {
     return transition.isHostTransition() ? hostConfiguration : getConfiguration();
   }
 
@@ -555,7 +531,7 @@ public final class RuleContext extends TargetContext
   public static ActionOwner createActionOwner(
       Rule rule,
       ImmutableList<AspectDescriptor> aspectDescriptors,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       ImmutableMap<String, String> execProperties,
       @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
@@ -566,7 +542,7 @@ public final class RuleContext extends TargetContext
         rule.getTargetKind(),
         configuration.checksum(),
         configuration.toBuildEvent(),
-        configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null,
+        configuration.isToolConfiguration() ? TOOL_CONFIGURATION_PROGRESS_TAG : null,
         execProperties,
         executionPlatform);
   }
@@ -738,7 +714,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getPackageRelativeArtifact(PathFragment, ArtifactRoot)} but includes the option
    * option to use a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   private Artifact.DerivedArtifact getPackageRelativeArtifact(
       PathFragment relative, ArtifactRoot root, boolean contentBasedPath) {
@@ -756,7 +732,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getPackageRelativeArtifact(String, ArtifactRoot)} but includes the option to
    * use a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   private Artifact getPackageRelativeArtifact(
       String relative, ArtifactRoot root, boolean contentBasedPath) {
@@ -786,7 +762,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot)} but includes the option to use
    * a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
@@ -947,15 +923,16 @@ public final class RuleContext extends TargetContext
 
   /**
    * For a given attribute, returns all declared provider provided by targets of that attribute.
-   * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
-   * created.
+   * Each declared provider is keyed by the {@link BuildConfigurationValue} under which the provider
+   * was created.
    */
   public <C extends Info>
-      ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+      ImmutableListMultimap<BuildConfigurationValue, C> getPrerequisitesByConfiguration(
           String attributeName, BuiltinProvider<C> provider) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, C> result = ImmutableListMultimap.builder();
+    ImmutableListMultimap.Builder<BuildConfigurationValue, C> result =
+        ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
       if (prerequisiteProvider != null) {
@@ -968,13 +945,13 @@ public final class RuleContext extends TargetContext
   /**
    * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets of
    * that attribute. Each {@link TransitiveInfoCollection} is keyed by the {@link
-   * BuildConfiguration} under which the collection was created.
+   * BuildConfigurationValue} under which the collection was created.
    */
-  public ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection>
+  public ImmutableListMultimap<BuildConfigurationValue, TransitiveInfoCollection>
       getPrerequisitesByConfiguration(String attributeName) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, TransitiveInfoCollection> result =
+    ImmutableListMultimap.Builder<BuildConfigurationValue, TransitiveInfoCollection> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       result.put(prerequisite.getConfiguration(), prerequisite.getConfiguredTarget());
@@ -1143,19 +1120,14 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
-  public StarlarkSemantics getStarlarkSemantics() {
-    return starlarkSemantics;
-  }
-
-  private StarlarkThread createStarlarkThread(String toolsRepository, Mutability mutability) {
+  private StarlarkThread createStarlarkThread(Mutability mutability) {
     AnalysisEnvironment env = getAnalysisEnvironment();
-    StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+    StarlarkThread thread = new StarlarkThread(mutability, env.getStarlarkSemantics());
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.ANALYSIS,
-            toolsRepository,
+            ruleClassProvider.getToolsRepository(),
             /*fragmentNameToClass=*/ null,
-            getTarget().getPackage().getRepositoryMapping(),
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             getSymbolGenerator(),
             getLabel(),
@@ -1169,15 +1141,16 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Initializes the StarlarkRuleContext for use and returns it.
+   * Initializes the StarlarkRuleContext for use and returns it. No-op if already initialized.
    *
    * <p>Throws RuleErrorException on failure.
    */
   public StarlarkRuleContext initStarlarkRuleContext() throws RuleErrorException {
-    Preconditions.checkState(starlarkRuleContext == null);
-    AspectDescriptor descriptor =
-        aspects.isEmpty() ? null : Iterables.getLast(aspects).getDescriptor();
-    this.starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
+    if (starlarkRuleContext == null) {
+      AspectDescriptor descriptor =
+          aspects.isEmpty() ? null : Iterables.getLast(aspects).getDescriptor();
+      this.starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
+    }
     return starlarkRuleContext;
   }
 
@@ -1235,6 +1208,18 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
+  public Label targetPlatform() {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    PlatformInfo targetPlatform = toolchainContexts.getTargetPlatform();
+    if (targetPlatform == null) {
+      return null;
+    }
+    return targetPlatform.label();
+  }
+
+  @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
   }
@@ -1265,20 +1250,18 @@ public final class RuleContext extends TargetContext
     return toolchainContexts.getTargetPlatform().constraints().hasConstraintValue(constraintValue);
   }
 
-  public ConstraintSemantics<RuleContext> getConstraintSemantics() {
-    return constraintSemantics;
+  public ConfiguredRuleClassProvider getRuleClassProvider() {
+    return ruleClassProvider;
   }
 
   /** Returns the configuration fragments this rule uses. */
   public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
     RequiredConfigFragmentsProvider.Builder merged = null;
-    for (Expander makeVariableExpander : makeVariableExpanders) {
-      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
-        // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
-        // rule's package. Both are equivalent for these purposes, since in both cases setting
-        // "--define foo=bar" impacts the rule's output.
-        if (rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
-            || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable)) {
+
+    // Add variables accessed through ctx.var, if this is a Starlark rule.
+    if (starlarkRuleContext != null) {
+      for (String makeVariable : starlarkRuleContext.lookedUpVariables()) {
+        if (isUserDefinedMakeVariable(makeVariable)) {
           if (merged == null) {
             merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
           }
@@ -1286,7 +1269,28 @@ public final class RuleContext extends TargetContext
         }
       }
     }
+
+    // Add variables accessed through Make variable substitution.
+    for (Expander makeVariableExpander : makeVariableExpanders) {
+      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
+        if (isUserDefinedMakeVariable(makeVariable)) {
+          if (merged == null) {
+            merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
+          }
+          merged.addDefine(makeVariable);
+        }
+      }
+    }
+
     return merged == null ? requiredConfigFragments : merged.build();
+  }
+
+  private boolean isUserDefinedMakeVariable(String makeVariable) {
+    // User-defined make values may be set either in "--define foo=bar" or in a vardef in the rule's
+    // package. Both are equivalent for these purposes, since in both cases setting
+    // "--define foo=bar" impacts the rule's output.
+    return rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
+        || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable);
   }
 
   private void checkAttributeIsDependency(String attributeName) {
@@ -1470,7 +1474,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getImplicitOutputArtifact(ImplicitOutputsFunction)} but includes the option to
    * use a content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   public Artifact getImplicitOutputArtifact(
       ImplicitOutputsFunction function, boolean contentBasedPath) throws InterruptedException {
@@ -1494,7 +1498,7 @@ public final class RuleContext extends TargetContext
   /**
    * Same as {@link #getImplicitOutputArtifact(String)} but includes the option to use a a
    * content-based path for this artifact (see {@link
-   * BuildConfiguration#useContentBasedOutputPaths()}).
+   * BuildConfigurationValue#useContentBasedOutputPaths()}).
    */
   // TODO(bazel-team): Consider removing contentBasedPath stuff, which is unused as of 18 months
   // after its introduction in cl/252148134.
@@ -1624,30 +1628,24 @@ public final class RuleContext extends TargetContext
   }
 
   /** Builder class for a RuleContext. */
-  // TODO(bazel-team): I get the feeling we could delete much of the boilerplate by replacing some
-  // of these fields with a RuleClassProvider -- both in the builder and in the RuleContext itself.
   public static final class Builder implements RuleErrorConsumer {
     private final AnalysisEnvironment env;
     private final Target target;
-    private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private FragmentClassSet universalFragments;
-    private final BuildConfiguration configuration;
-    private final BuildConfiguration hostConfiguration;
-    private final ActionLookupKey actionOwnerSymbol;
-    private final PrerequisiteValidator prerequisiteValidator;
+    private final ImmutableList<Aspect> aspects;
+    private final BuildConfigurationValue configuration;
     private final RuleErrorConsumer reporter;
+    private ConfiguredRuleClassProvider ruleClassProvider;
+    private BuildConfigurationValue hostConfiguration;
+    private ConfigurationFragmentPolicy configurationFragmentPolicy;
+    private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
-    private String toolsRepository;
-    private StarlarkSemantics starlarkSemantics;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
-    private ImmutableMap<String, Attribute> aspectAttributes;
-    private final ImmutableList<Aspect> aspects;
+    private ImmutableMap<String, Attribute> aspectAttributes = ImmutableMap.of();
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
-    private ConstraintSemantics<RuleContext> constraintSemantics;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
 
     @VisibleForTesting
@@ -1655,19 +1653,11 @@ public final class RuleContext extends TargetContext
         AnalysisEnvironment env,
         Target target,
         ImmutableList<Aspect> aspects,
-        BuildConfiguration configuration,
-        BuildConfiguration hostConfiguration,
-        PrerequisiteValidator prerequisiteValidator,
-        ConfigurationFragmentPolicy configurationFragmentPolicy,
-        ActionLookupKey actionOwnerSymbol) {
+        BuildConfigurationValue configuration) {
       this.env = Preconditions.checkNotNull(env);
       this.target = Preconditions.checkNotNull(target);
-      this.aspects = aspects;
-      this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
+      this.aspects = Preconditions.checkNotNull(aspects);
       this.configuration = Preconditions.checkNotNull(configuration);
-      this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
-      this.prerequisiteValidator = prerequisiteValidator;
-      this.actionOwnerSymbol = Preconditions.checkNotNull(actionOwnerSymbol);
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
@@ -1679,16 +1669,17 @@ public final class RuleContext extends TargetContext
 
     @VisibleForTesting
     public RuleContext build() throws InvalidExecGroupException {
+      Preconditions.checkNotNull(ruleClassProvider);
+      Preconditions.checkNotNull(hostConfiguration);
+      Preconditions.checkNotNull(configurationFragmentPolicy);
+      Preconditions.checkNotNull(actionOwnerSymbol);
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
-      Preconditions.checkNotNull(toolsRepository);
-      Preconditions.checkNotNull(starlarkSemantics);
       Preconditions.checkNotNull(mutability);
       Preconditions.checkNotNull(visibility);
-      Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
           ConfiguredAttributeMapper.of(
-              target.getAssociatedRule(), configConditions.asProviders(), configuration.checksum());
+              target.getAssociatedRule(), configConditions.asProviders(), configuration);
       checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       // This conditionally checks visibility on config_setting rules based on
@@ -1706,18 +1697,7 @@ public final class RuleContext extends TargetContext
           this,
           attributes,
           targetMap,
-          configConditions.asProviders(),
-          universalFragments,
-          getRuleClassNameForLogging(),
-          actionOwnerSymbol,
-          firstNonNull(aspectAttributes, ImmutableMap.of()),
-          toolchainContexts,
-          createExecGroupCollection(execGroupCollectionBuilder, attributes),
-          constraintSemantics,
-          requiredConfigFragments,
-          toolsRepository,
-          starlarkSemantics,
-          mutability);
+          createExecGroupCollection(execGroupCollectionBuilder, attributes));
     }
 
     private ExecGroupCollection createExecGroupCollection(
@@ -1756,15 +1736,23 @@ public final class RuleContext extends TargetContext
       }
     }
 
-    // TODO(bazel-team): This field is only used by BazelStarlarkContext. Investigate whether that's
-    // even needed in the analysis phase, and delete it if not.
-    public Builder setToolsRepository(String toolsRepository) {
-      this.toolsRepository = toolsRepository;
+    public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
+      this.ruleClassProvider = ruleClassProvider;
       return this;
     }
 
-    public Builder setStarlarkSemantics(StarlarkSemantics starlarkSemantics) {
-      this.starlarkSemantics = starlarkSemantics;
+    public Builder setHostConfiguration(BuildConfigurationValue hostConfiguration) {
+      this.hostConfiguration = hostConfiguration;
+      return this;
+    }
+
+    public Builder setConfigurationFragmentPolicy(ConfigurationFragmentPolicy policy) {
+      this.configurationFragmentPolicy = policy;
+      return this;
+    }
+
+    public Builder setActionOwnerSymbol(ActionLookupKey actionOwnerSymbol) {
+      this.actionOwnerSymbol = actionOwnerSymbol;
       return this;
     }
 
@@ -1803,16 +1791,6 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /** Sets the fragment that can be legally accessed even when not explicitly declared. */
-    public Builder setUniversalFragments(FragmentClassSet fragments) {
-      // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
-      // don't need separate logic specifically for checking this fragment. The challenge is
-      // that we need RuleClassProvider to figure out what this fragment is, and not every
-      // call state that creates ConfigurationFragmentPolicy has access to that.
-      this.universalFragments = fragments;
-      return this;
-    }
-
     /** Sets the {@link ResolvedToolchainContext} used to access toolchains used by this rule. */
     public Builder setToolchainContext(ResolvedToolchainContext toolchainContext) {
       Preconditions.checkState(
@@ -1848,11 +1826,6 @@ public final class RuleContext extends TargetContext
      */
     public Builder setExecProperties(ImmutableMap<String, String> execProperties) {
       this.rawExecProperties = execProperties;
-      return this;
-    }
-
-    public Builder setConstraintSemantics(ConstraintSemantics<RuleContext> constraintSemantics) {
-      this.constraintSemantics = constraintSemantics;
       return this;
     }
 
@@ -1898,15 +1871,6 @@ public final class RuleContext extends TargetContext
         }
       }
       return mapBuilder.build();
-    }
-
-    /**
-     * Post a raw event to the analysis environment's event handler. This circumvents normal error
-     * and warning reporting functionality to post events, and should only be used in rare cases
-     * where a custom event needs to be handled.
-     */
-    public void post(Postable event) {
-      env.getEventHandler().post(event);
     }
 
     @Override
@@ -2020,17 +1984,17 @@ public final class RuleContext extends TargetContext
     }
 
     /**
-     * Expose the Starlark semantics that governs the building of this rule (and the rest of the
-     * build)
+     * Returns the {@link StarlarkSemantics} governs the building of this rule (and the rest of the
+     * build).
      */
-    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() {
       return env.getStarlarkSemantics();
     }
 
     /**
      * Returns a rule class name suitable for log messages, including an aspect name if applicable.
      */
-    public String getRuleClassNameForLogging() {
+    private String getRuleClassNameForLogging() {
       if (aspects.isEmpty()) {
         return target.getAssociatedRule().getRuleClass();
       }
@@ -2041,7 +2005,7 @@ public final class RuleContext extends TargetContext
           + target.getAssociatedRule().getRuleClass();
     }
 
-    public BuildConfiguration getConfiguration() {
+    public BuildConfigurationValue getConfiguration() {
       return configuration;
     }
 
@@ -2221,7 +2185,7 @@ public final class RuleContext extends TargetContext
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {
-        prerequisiteValidator.validate(this, prerequisite, attribute);
+        ruleClassProvider.getPrerequisiteValidator().validate(this, prerequisite, attribute);
       }
     }
   }
@@ -2230,12 +2194,12 @@ public final class RuleContext extends TargetContext
   private static final class ErrorReporter extends EventHandlingErrorReporter
       implements RuleErrorConsumer {
     private final Rule rule;
-    private final BuildConfiguration configuration;
+    private final BuildConfigurationValue configuration;
 
     ErrorReporter(
         AnalysisEnvironment env,
         Rule rule,
-        BuildConfiguration configuration,
+        BuildConfigurationValue configuration,
         String ruleClassNameForLogging) {
       super(ruleClassNameForLogging, env);
       this.rule = rule;
@@ -2267,7 +2231,7 @@ public final class RuleContext extends TargetContext
     }
 
     @Override
-    protected BuildConfiguration getConfiguration() {
+    protected BuildConfigurationValue getConfiguration() {
       return configuration;
     }
 

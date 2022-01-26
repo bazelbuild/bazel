@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
@@ -235,7 +235,7 @@ public final class BuildOptionsTest {
                 OptionsChecksumCache.class, new MapBackedChecksumCache()));
     Exception e =
         assertThrows(
-            RuntimeException.class, () -> TestUtils.fromBytes(deserializationContext, bytes));
+            SerializationException.class, () -> TestUtils.fromBytes(deserializationContext, bytes));
     assertThat(e).hasMessageThat().contains(options.checksum());
   }
 
@@ -438,27 +438,5 @@ public final class BuildOptionsTest {
     parser.parse("--platform_suffix=foo"); // Note: platform_suffix is null by default.
 
     assertThat(original.matches(parser)).isFalse();
-  }
-
-  @Test
-  public void trim() throws Exception {
-    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class));
-    BuildOptions trimmed = original.trim(ImmutableSet.of(CppOptions.class));
-    assertThat(trimmed.getFragmentClasses()).containsExactly(CppOptions.class);
-  }
-
-  @Test
-  public void trim_retainsBuildConfigurationOptions() throws Exception {
-    BuildOptions original =
-        BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class, CoreOptions.class));
-    BuildOptions trimmed = original.trim(ImmutableSet.of());
-    assertThat(trimmed.getFragmentClasses()).containsExactly(CoreOptions.class);
-  }
-
-  @Test
-  public void trim_nothingTrimmed_returnsSameInstance() throws Exception {
-    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class));
-    BuildOptions trimmed = original.trim(ImmutableSet.of(CppOptions.class, JavaOptions.class));
-    assertThat(trimmed).isSameInstanceAs(original);
   }
 }

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.ClassName;
 import java.util.AbstractSet;
@@ -35,7 +34,6 @@ import javax.annotation.concurrent.Immutable;
  * objects allows us to do cheap reference equality checks when these sets are in frequently used
  * keys.
  */
-@AutoCodec
 @Immutable
 public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment>> {
 
@@ -49,20 +47,10 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
 
   private static final Interner<FragmentClassSet> interner = BlazeInterners.newWeakInterner();
 
-  @AutoCodec.Instantiator
   public static FragmentClassSet of(Collection<Class<? extends Fragment>> fragments) {
     ImmutableSortedSet<Class<? extends Fragment>> sortedFragments =
         ImmutableSortedSet.copyOf(LEXICAL_FRAGMENT_SORTER, fragments);
     return interner.intern(new FragmentClassSet(sortedFragments, sortedFragments.hashCode()));
-  }
-
-  public static FragmentClassSet union(
-      FragmentClassSet firstFragments, FragmentClassSet secondFragments) {
-    return of(
-        ImmutableSortedSet.orderedBy(LEXICAL_FRAGMENT_SORTER)
-            .addAll(firstFragments)
-            .addAll(secondFragments)
-            .build());
   }
 
   private final ImmutableSortedSet<Class<? extends Fragment>> fragments;

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.testutil;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMu
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper.ResultAndTargets;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
@@ -75,11 +78,6 @@ public abstract class AbstractQueryTest<T> {
 
   private static final String DEFAULT_UNIVERSE = "//...:*";
 
-  protected static final String BAD_PACKAGE_NAME =
-      "package names may contain "
-          + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
-          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
-
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
   protected AnalysisMock analysisMock;
@@ -96,8 +94,13 @@ public abstract class AbstractQueryTest<T> {
 
   @Before
   public final void initializeQueryHelper() throws Exception {
-    helper = createQueryHelper();
+    QueryHelper<T> helper = createQueryHelper();
     helper.setUp();
+    setUpWithQueryHelper(helper);
+  }
+
+  protected final void setUpWithQueryHelper(QueryHelper<T> helper) throws Exception {
+    this.helper = helper;
     mockToolsConfig = new MockToolsConfig(helper.getRootDirectory());
     analysisMock = AnalysisMock.get();
     helper.setUniverseScope(getDefaultUniverseScope());
@@ -258,13 +261,6 @@ public abstract class AbstractQueryTest<T> {
     assertThat(failureDetail.getPackageLoading().getCode()).isEqualTo(code);
   }
 
-  protected static void assertQueryCode(ResultAndTargets<Target> result, Query.Code code) {
-    FailureDetail failureDetail =
-        result.getQueryEvalResult().getDetailedExitCode().getFailureDetail();
-    assertThat(failureDetail).isNotNull();
-    assertQueryCode(failureDetail, code);
-  }
-
   protected static void assertQueryCode(FailureDetail failureDetail, Query.Code code) {
     assertThat(failureDetail.getQuery().getCode()).isEqualTo(code);
   }
@@ -272,12 +268,21 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testTargetLiteralWithMissingTargets() throws Exception {
     writeFile("a/BUILD");
-    assertThat(evalThrows("//a:b", false).getMessage())
+    EvalThrowsResult evalThrowsResult = evalThrows("//a:b", false);
+    checkResultOfTargetLiteralWithMissingTargets(
+        evalThrowsResult.getMessage(), evalThrowsResult.getFailureDetail());
+  }
+
+  protected final void checkResultOfTargetLiteralWithMissingTargets(
+      String message, FailureDetail failureDetail) {
+    assertThat(message)
         .isEqualTo(
             "no such target '//a:b': target 'b' not declared in package 'a' "
                 + "defined by "
                 + helper.getRootDirectory().getPathString()
                 + "/a/BUILD");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
 
   protected void writeBuildFiles1() throws Exception {
@@ -302,16 +307,18 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testBadTargetLiterals() throws Exception {
-    runBadTargetLiteralsTest(true);
+    EvalThrowsResult result = evalThrows("bad:*:*", false);
+    checkResultofBadTargetLiterals(result.getMessage(), result.getFailureDetail());
   }
 
-  protected void runBadTargetLiteralsTest(boolean checkDetailedCode) throws Exception {
-    EvalThrowsResult result = evalThrows("bad:*:*", false);
-    if (checkDetailedCode) {
-      assertThat(result.getFailureDetail().getTargetPatterns().getCode())
-          .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-    }
-    assertThat(result.getMessage()).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
+  protected final void checkResultofBadTargetLiterals(String message, FailureDetail failureDetail) {
+    assertThat(failureDetail.getTargetPatterns().getCode())
+        .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
+    // TODO(bazel-team): This error message could use some improvement. It's verbose (duplicate
+    //   message) and shows an extra "@" that wasn't in the input.
+    assertThat(message)
+        .isEqualTo(
+            "Invalid package name 'bad:*': invalid package identifier '@//bad:*': contains ':'");
   }
 
   @Test
@@ -621,13 +628,7 @@ public abstract class AbstractQueryTest<T> {
     if (testConfigurableAttributes()) {
       String implicitDeps = "";
       if (analysisMock.isThisBazel()) {
-        implicitDeps =
-            " + "
-                + helper.getToolsRepository()
-                + "//tools/def_parser:def_parser"
-                + " + "
-                + helper.getToolsRepository()
-                + "//tools/cpp:grep-includes";
+        implicitDeps = " + " + helper.getToolsRepository() + "//tools/def_parser:def_parser";
       }
       assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
           .containsExactlyElementsIn(
@@ -967,10 +968,7 @@ public abstract class AbstractQueryTest<T> {
               + "//tools/def_parser:def_parser"
               + " + "
               + helper.getToolsRepository()
-              + "//tools/def_parser:def_parser.exe"
-              + " + "
-              + helper.getToolsRepository()
-              + "//tools/cpp:grep-includes";
+              + "//tools/def_parser:def_parser.exe";
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";
@@ -1067,9 +1065,9 @@ public abstract class AbstractQueryTest<T> {
 
     // Works for implicit edges too.  This is for consistency with --output
     // xml, which exposes them too.
-    String toolsRepository = helper.getToolsRepository();
-    assertThat(eval("labels(\"$python2to3\", //k)"))
-        .isEqualTo(eval(toolsRepository + "//tools/python:2to3"));
+    RepositoryName toolsRepository = helper.getToolsRepository();
+    assertThat(eval("labels(\"$py_toolchain_type\", //k)"))
+        .isEqualTo(eval(toolsRepository + "//tools/python:toolchain_type"));
 
     // Configurable deps:
     if (testConfigurableAttributes()) {
@@ -1803,6 +1801,28 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void badRuleInDeps() throws Exception {
+    runBadRuleInDeps(Code.STARLARK_EVAL_ERROR);
+  }
+
+  protected final void runBadRuleInDeps(Object code) throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:bar'])");
+    writeFile("bar/BUILD", "sh_library(name = 'bar', srcs = 'bad_single_file')");
+    EvalThrowsResult evalThrowsResult =
+        evalThrows("deps(//foo:foo)", /*unconditionallyThrows=*/ false);
+    FailureDetail.Builder failureDetailBuilder = FailureDetail.newBuilder();
+    if (code instanceof FailureDetails.PackageLoading.Code) {
+      failureDetailBuilder.setPackageLoading(
+          FailureDetails.PackageLoading.newBuilder().setCode((Code) code));
+    } else if (code instanceof Query.Code) {
+      failureDetailBuilder.setQuery(FailureDetails.Query.newBuilder().setCode((Query.Code) code));
+    }
+    assertThat(evalThrowsResult.getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(failureDetailBuilder.build());
+  }
+
+  @Test
   public void buildfilesBazel() throws Exception {
     writeFile("bar/BUILD.bazel");
     writeFile("bar/bar.bzl", "sym = 0");
@@ -2095,14 +2115,14 @@ public abstract class AbstractQueryTest<T> {
     QueryEnvironment<T> getQueryEnvironment();
 
     /** Evaluates the given query and returns the result. Query is expected to have valid syntax. */
-    ResultAndTargets<T> evaluateQuery(String query) throws QueryException, InterruptedException;
+    ResultAndTargets<T> evaluateQuery(String query) throws Exception;
 
-    default Set<T> evaluateQueryRaw(String query) throws QueryException, InterruptedException {
+    default Set<T> evaluateQueryRaw(String query) throws Exception {
       return evaluateQuery(query).results;
     }
 
-    default String getToolsRepository() {
-      return "";
+    default RepositoryName getToolsRepository() {
+      return RepositoryName.MAIN;
     }
 
     /**

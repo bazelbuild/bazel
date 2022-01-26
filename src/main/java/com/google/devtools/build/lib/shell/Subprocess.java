@@ -18,14 +18,10 @@ import java.io.Closeable;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/**
- * A process started by Bazel.
- */
+/** A process started by Bazel. */
 public interface Subprocess extends Closeable {
 
-  /**
-   * Kill the process.
-   */
+  /** Kill the process. */
   boolean destroy();
 
   /**
@@ -45,30 +41,23 @@ public interface Subprocess extends Closeable {
   /** Returns true if the process is still alive. Does not block or cause any side effects. */
   boolean isAlive();
 
-  /**
-   * Returns if the process timed out.
-   */
+  /** Returns if the process timed out. */
   boolean timedout();
 
-  /**
-   * Waits for the process to finish.
-   */
+  /** Waits for the process to finish. */
   void waitFor() throws InterruptedException;
 
-  /**
-   * Returns a stream into which data can be written that the process will get on its stdin.
-   */
+  /** Returns a stream into which data can be written that the process will get on its stdin. */
   OutputStream getOutputStream();
 
-  /**
-   * Returns a stream from which the stdout of the process can be read.
-   */
+  /** Returns a stream from which the stdout of the process can be read. */
   InputStream getInputStream();
 
-  /**
-   * Returns a stream from which the stderr of the process can be read.
-   */
+  /** Returns a stream from which the stderr of the process can be read. */
   InputStream getErrorStream();
+
+  /** Returns the PID of the current process. */
+  long getProcessId();
 
   /*
    * Terminates the process as thoroughly as the underlying implementation allows and releases

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -91,7 +92,7 @@ import javax.annotation.Nullable;
  * Module responsible for the Build Event Transport (BEP) and Build Event Service (BES)
  * functionality.
  */
-public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServiceOptions>
+public abstract class BuildEventServiceModule<OptionsT extends BuildEventServiceOptions>
     extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -140,7 +141,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Nullable private ConnectivityStatusProvider connectivityProvider;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
-  protected BESOptionsT besOptions;
+  protected OptionsT besOptions;
 
   protected void reportCommandLineError(EventHandler commandLineReporter, Exception exception) {
     // Don't hide unchecked exceptions as part of the error reporting.
@@ -163,7 +164,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     // Don't hide unchecked exceptions as part of the error reporting.
     Throwables.throwIfUnchecked(exception);
 
-    logger.atSevere().withCause(exception).log(msg);
+    logger.atSevere().withCause(exception).log("%s", msg);
     reportCommandLineError(commandLineReporter, exception);
     moduleEnvironment.exit(createAbruptExitException(exception, msg, besCode));
   }
@@ -254,7 +255,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   + "Cancelling and starting a new invocation...",
               waitedMillis / 1000, waitedMillis % 1000);
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(exception).log(msg);
+      logger.atWarning().withCause(exception).log("%s", msg);
       cancelCloseFutures = true;
     } catch (ExecutionException e) {
       String msg;
@@ -274,7 +275,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 e.getMessage());
       }
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(e).log(msg);
+      logger.atWarning().withCause(e).log("%s", msg);
       cancelCloseFutures = true;
     } finally {
       if (cancelCloseFutures) {
@@ -533,14 +534,26 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
             final ListenableFuture<Void> enclosingFuture =
                 Futures.nonCancellationPropagating(closeFuture);
 
-            closeFutureWithTimeout =
+            ListenableFuture<Void> timeoutFuture =
                 Futures.withTimeout(
                     enclosingFuture,
                     bepTransport.getTimeout().toMillis(),
                     TimeUnit.MILLISECONDS,
                     timeoutExecutor);
-            closeFutureWithTimeout.addListener(
-                timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+            timeoutFuture.addListener(timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+
+            // Cancellation is not propagated to the `closeFuture` for the reasons above. But in
+            // order to cancel the returned future by our explicit mechanism elsewhere in this
+            // class, we need to delegate the `cancel` to `closeFuture` so that cancellation
+            // from Futures.withTimeout is ignored and cancellation from our mechanism is properly
+            // handled.
+            closeFutureWithTimeout =
+                new SimpleForwardingListenableFuture<>(timeoutFuture) {
+                  @Override
+                  public boolean cancel(boolean mayInterruptIfRunning) {
+                    return closeFuture.cancel(mayInterruptIfRunning);
+                  }
+                };
           }
           builder.put(bepTransport, closeFutureWithTimeout);
         });
@@ -671,7 +684,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           String.format(
               "Build Event Service uploads disabled due to a connectivity problem: %s", status);
       reporter.handle(Event.warn(message));
-      logger.atWarning().log(message);
+      logger.atWarning().log("%s", message);
       return null;
     }
 
@@ -692,7 +705,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         new BuildEventServiceProtoUtil.Builder()
             .buildRequestId(buildRequestId)
             .invocationId(invocationId)
-            .projectId(besOptions.projectId)
+            .projectId(besOptions.instanceName)
             .commandName(cmdEnv.getCommandName())
             .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
             .build();
@@ -819,18 +832,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         e);
   }
 
-  protected abstract Class<BESOptionsT> optionsClass();
+  protected abstract Class<OptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      BESOptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();
 
-  protected abstract Set<String> allowedCommands(BESOptionsT besOptions);
+  protected abstract Set<String> allowedCommands(OptionsT besOptions);
 
   protected Set<String> getBesKeywords(
-      BESOptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
+      OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
     return besOptions.besKeywords.stream()
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());

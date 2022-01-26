@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -138,7 +138,6 @@ public class WorkspaceFactory {
               BazelStarlarkContext.Phase.WORKSPACE,
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*repoMapping=*/ RepositoryMapping.ALWAYS_FALLBACK,
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
               /*analysisRuleLabel=*/ null,
@@ -148,8 +147,9 @@ public class WorkspaceFactory {
       List<String> globs = new ArrayList<>(); // unused
       if (PackageFactory.checkBuildSyntax(
           file,
-          globs,
-          globs,
+          /*globs=*/ globs,
+          /*globsWithDirs=*/ globs,
+          /*subpackages=*/ globs,
           new HashMap<>(),
           error ->
               localReporter.handle(
@@ -173,6 +173,13 @@ public class WorkspaceFactory {
     } catch (SyntaxError.Exception ex) {
       // compilation failed
       Event.replayEventsOn(localReporter, ex.errors());
+      builder.setFailureDetailOverride(
+          FailureDetails.FailureDetail.newBuilder()
+              .setMessage(ex.getMessage())
+              .setPackageLoading(
+                  FailureDetails.PackageLoading.newBuilder()
+                      .setCode(PackageLoading.Code.SYNTAX_ERROR))
+              .build());
     }
 
     // cleanup (success or failure)

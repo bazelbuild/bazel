@@ -101,4 +101,26 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
         .hasMessageThat()
         .contains("command succeeded, but there were errors parsing the target pattern");
   }
+
+  @Test
+  public void sourcefilePrintsWarning() throws Exception {
+    write(
+        "file/BUILD", "genrule(name = 'x', srcs = ['src'], cmd = 'touch $@', outs =" + " ['out'])");
+    write("file/src");
+
+    buildTarget("file/src");
+
+    events.assertContainsWarning(
+        "//file:src is a source file, nothing will be built for it. If you want to build a target"
+            + " that consumes this file, try --compile_one_dependency");
+  }
+
+  @Test
+  public void nonSourceFileNoWarning() throws Exception {
+    write("file/BUILD", "genrule(name = 'x', cmd = 'touch $@', outs = ['out'])");
+
+    buildTarget("file/out");
+
+    events.assertNoWarningsOrErrors();
+  }
 }

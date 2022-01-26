@@ -18,32 +18,26 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.Serializable;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** The name of an external repository. */
-@AutoCodec
-public final class RepositoryName implements Serializable {
-
-  static final String DEFAULT_REPOSITORY = "";
-
-  static final String BAZEL_TOOLS_REPO_NAME = "@bazel_tools";
+public final class RepositoryName {
 
   @SerializationConstant
-  public static final RepositoryName DEFAULT = new RepositoryName(DEFAULT_REPOSITORY);
+  public static final RepositoryName BAZEL_TOOLS = new RepositoryName("@bazel_tools");
 
   @SerializationConstant
-  public static final RepositoryName BAZEL_TOOLS = new RepositoryName(BAZEL_TOOLS_REPO_NAME);
+  public static final RepositoryName LOCAL_CONFIG_PLATFORM =
+      new RepositoryName("@local_config_platform");
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("@");
 
@@ -71,12 +65,9 @@ public final class RepositoryName implements Serializable {
    *
    * @throws LabelSyntaxException if the name is invalid
    */
-  @AutoCodec.Instantiator
   public static RepositoryName create(String name) throws LabelSyntaxException {
-    if (name.isEmpty()) {
-      return DEFAULT;
-    }
-    if (name.equals("@")) {
+    // TODO(b/200024947): Get rid of the '@'.
+    if (name.isEmpty() || name.equals("@")) {
       return MAIN;
     }
     try {
@@ -92,6 +83,12 @@ public final class RepositoryName implements Serializable {
    * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
    */
   public static RepositoryName createFromValidStrippedName(String name) {
+    if (name.isEmpty()) {
+      // NOTE(wyv): Without this `if` clause, a lot of Google-internal integration tests would start
+      //   failing. This suggests to me that something is comparing RepositoryName objects using
+      //   reference equality instead of #equals().
+      return MAIN;
+    }
     return repositoryNameCache.get("@" + name);
   }
 
@@ -233,6 +230,7 @@ public final class RepositoryName implements Serializable {
    * Returns the repository name, except that the main repo is conflated with the default repo
    * ({@code "@"} becomes the empty string).
    */
+  // TODO(bazel-team): Consider renaming to "getDefaultForm".
   public String getCanonicalForm() {
     return isMain() ? "" : name;
   }
@@ -245,7 +243,7 @@ public final class RepositoryName implements Serializable {
    * __main__), instead of "$execroot/external/repo".
    */
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
-    if (isDefault() || isMain()) {
+    if (isMain()) {
       return PathFragment.EMPTY_FRAGMENT;
     }
     PathFragment prefix =
@@ -260,8 +258,9 @@ public final class RepositoryName implements Serializable {
    */
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create("..").getRelative(strippedName());
+    return isMain()
+        ? PathFragment.EMPTY_FRAGMENT
+        : PathFragment.create("..").getRelative(strippedName());
   }
 
   /**

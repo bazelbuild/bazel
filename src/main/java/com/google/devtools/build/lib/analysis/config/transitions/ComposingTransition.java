@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -49,15 +50,15 @@ public final class ComposingTransition implements ConfigurationTransition {
 
   @Override
   public void addRequiredFragments(
-      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptions options) {
+      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptionDetails optionDetails) {
     // At first glance this code looks wrong. A composing transition applies transition2 over
     // transition1's outputs, not the original options. We don't have to worry about that here
     // because the reason we pass the options is so Starlark transitions can map individual flags
     // like "//command_line_option:copts" to the fragments that own them. This doesn't depend on the
     // flags' values. This is fortunate, because it producers simpler, faster code and cleaner
     // interfaces.
-    transition1.addRequiredFragments(requiredFragments, options);
-    transition2.addRequiredFragments(requiredFragments, options);
+    transition1.addRequiredFragments(requiredFragments, optionDetails);
+    transition2.addRequiredFragments(requiredFragments, optionDetails);
   }
 
   @Override

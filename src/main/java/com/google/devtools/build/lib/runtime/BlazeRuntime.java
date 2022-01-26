@@ -191,7 +191,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
   private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
-  private final RetainedHeapLimiter retainedHeapLimiter;
   @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
   private final Supplier<Downloader> downloaderSupplier;
 
@@ -243,7 +242,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.queryOutputFormatters = queryOutputFormatters;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
     this.bugReporter = bugReporter;
-    retainedHeapLimiter = RetainedHeapLimiter.create(bugReporter);
 
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(commandMap));
@@ -331,22 +329,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     UploadContext streamingContext = null;
     try {
       if (tracerEnabled) {
-        if (options.enableTracerCompression == TriState.YES
-            || (options.enableTracerCompression == TriState.AUTO
-                && (options.profilePath == null
-                    || options.profilePath.toString().endsWith(".gz")))) {
+        if (options.profilePath == null) {
+          profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
-        } else {
-          format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
-        }
-        if (options.profilePath != null) {
-          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
-        } else {
-          profileName = "command.profile";
-          if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
-            profileName = "command.profile.gz";
-          }
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
                 newUploader(env, bepOptions.buildEventUploadStrategy);
@@ -356,6 +341,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profilePath = workspace.getOutputBase().getRelative(profileName);
             out = profilePath.getOutputStream();
           }
+        } else {
+          format =
+              options.profilePath.toString().endsWith(".gz")
+                  ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
+                  : Format.JSON_TRACE_FILE_FORMAT;
+          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
         }
         if (profilePath != null && options.announceProfilePath) {
           eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
@@ -400,7 +392,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             recordFullProfilerData,
             clock,
             execStartTimeNanos,
-            options.enableCpuUsageProfiling,
             options.slimProfile,
             options.includePrimaryOutput,
             options.profileIncludeTargetLabel,
@@ -529,10 +520,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return queryRuntimeHelperFactory;
   }
 
-  RetainedHeapLimiter getRetainedHeapLimiter() {
-    return retainedHeapLimiter;
-  }
-
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
@@ -564,6 +551,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
+      if (workspace == null) {
+        return; // A crash during server startup.
+      }
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
       if (eventBus != null) {
         workspace
@@ -750,9 +740,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
+  /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
-    return ruleClassProvider.createBuildOptions(optionsProvider);
+    return BuildOptions.of(
+        ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsProvider);
   }
 
   /**
@@ -953,7 +944,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     try {
       logger.atInfo().log(
-          SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
+          "%s", SafeRequestLogging.getRequestLogString(commandLineOptions.getOtherArgs()));
       BlazeCommandResult result =
           dispatcher.exec(
               policy,
@@ -1240,7 +1231,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     SubscriberExceptionHandler subscriberExceptionHandler = currentHandlerValue;
     Thread.setDefaultUncaughtExceptionHandler(
         (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
-    Path.setFileSystemForSerialization(fs);
 
     // Set the hook used to display Starlark source lines in a stack trace.
     EvalException.setSourceReaderSupplier(

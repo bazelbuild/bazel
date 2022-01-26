@@ -17,12 +17,12 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** A {@link PatchTransition} to a null configuration. */
 public class NullTransition implements PatchTransition {
 
-  @AutoCodec public static final NullTransition INSTANCE = new NullTransition();
+  @SerializationConstant public static final NullTransition INSTANCE = new NullTransition();
 
   private NullTransition() {
   }

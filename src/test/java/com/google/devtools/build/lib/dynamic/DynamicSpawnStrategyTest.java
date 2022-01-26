@@ -164,7 +164,7 @@ public class DynamicSpawnStrategyTest {
 
       doExecBeforeStop.run(this, spawn, actionExecutionContext);
       if (stopConcurrentSpawns != null) {
-        stopConcurrentSpawns.stop();
+        stopConcurrentSpawns.stop(0, "", outErr);
         doExecAfterStop.run(this, spawn, actionExecutionContext);
       }
 
@@ -328,7 +328,7 @@ public class DynamicSpawnStrategyTest {
     }
 
     DynamicExecutionModule dynamicExecutionModule = new DynamicExecutionModule(executorService);
-    dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options);
+    dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options, 10, 10);
 
     SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
 

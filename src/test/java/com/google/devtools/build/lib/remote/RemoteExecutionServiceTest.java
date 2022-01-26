@@ -40,6 +40,7 @@ import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
+import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -76,6 +78,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -162,6 +165,24 @@ public class RemoteExecutionServiceTest {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+  }
+
+  @Test
+  public void buildRemoteAction_differentiateWorkspace_generateActionSalt() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withExecutionInfo(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE, "aa")
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    Platform expected =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("workspace").setValue("aa"))
+            .build();
+    assertThat(remoteAction.getAction().getSalt()).isEqualTo(expected.toByteString());
   }
 
   @Test
@@ -1384,6 +1405,97 @@ public class RemoteExecutionServiceTest {
     for (Integer num : cache.getNumFindMissingDigests().values()) {
       assertThat(num).isEqualTo(1);
     }
+  }
+
+  @Test
+  public void buildMerkleTree_withMemoization_works() throws Exception {
+    // Test that Merkle tree building can be memoized.
+
+    // TODO: Would like to check that NestedSet.getNonLeaves() is only called once per node, but
+    //       cannot Mockito.spy on NestedSet as it is final.
+
+    // arrange
+    /*
+     * First:
+     *   /bar/file
+     *   /foo1/file
+     * Second:
+     *   /bar/file
+     *   /foo2/file
+     */
+
+    // arrange
+    // Single node NestedSets are folded, so always add a dummy file everywhere.
+    ActionInput dummyFile = ActionInputHelper.fromPath("dummy");
+    fakeFileCache.createScratchInput(dummyFile, "dummy");
+
+    ActionInput barFile = ActionInputHelper.fromPath("bar/file");
+    NestedSet<ActionInput> nodeBar =
+        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, barFile);
+    fakeFileCache.createScratchInput(barFile, "bar");
+
+    ActionInput foo1File = ActionInputHelper.fromPath("foo1/file");
+    NestedSet<ActionInput> nodeFoo1 =
+        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo1File);
+    fakeFileCache.createScratchInput(foo1File, "foo1");
+
+    ActionInput foo2File = ActionInputHelper.fromPath("foo2/file");
+    NestedSet<ActionInput> nodeFoo2 =
+        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
+    fakeFileCache.createScratchInput(foo2File, "foo2");
+
+    NestedSet<ActionInput> nodeRoot1 =
+        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+            .add(dummyFile)
+            .addTransitive(nodeBar)
+            .addTransitive(nodeFoo1)
+            .build();
+    NestedSet<ActionInput> nodeRoot2 =
+        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+            .add(dummyFile)
+            .addTransitive(nodeBar)
+            .addTransitive(nodeFoo2)
+            .build();
+
+    Spawn spawn1 =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(),
+            /*inputs=*/ nodeRoot1,
+            /*outputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
+    Spawn spawn2 =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(),
+            /*inputs=*/ nodeRoot2,
+            /*outputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
+
+    FakeSpawnExecutionContext context1 = newSpawnExecutionContext(spawn1);
+    FakeSpawnExecutionContext context2 = newSpawnExecutionContext(spawn2);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteMerkleTreeCache = true;
+    remoteOptions.remoteMerkleTreeCacheSize = 0;
+    RemoteExecutionService service = spy(newRemoteExecutionService(remoteOptions));
+
+    // act first time
+    service.buildRemoteAction(spawn1, context1);
+
+    // assert first time
+    // Called for: manifests, runfiles, nodeRoot1, nodeFoo1 and nodeBar.
+    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any());
+
+    // act second time
+    service.buildRemoteAction(spawn2, context2);
+
+    // assert second time
+    // Called again for: manifests, runfiles, nodeRoot2 and nodeFoo2 but not nodeBar (cached).
+    verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any());
   }
 
   private Spawn newSpawnFromResult(RemoteActionResult result) {

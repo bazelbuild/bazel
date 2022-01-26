@@ -79,7 +79,6 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -112,14 +111,13 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private RecordingEvaluationProgressReceiver progressReceiver;
   private MemoizingEvaluator evaluator;
-  private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private AtomicReference<PathPackageLocator> pkgLocator;
   private NonHermeticArtifactFakeFunction artifactFunction;
   private List<Artifact.DerivedArtifact> artifacts;
 
   @Before
-  public final void setUp() {
+  public void setUp() {
     artifacts = new ArrayList<>();
     AnalysisMock analysisMock = AnalysisMock.get();
     pkgLocator =
@@ -129,7 +127,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+        new AtomicReference<>(ImmutableSet.of());
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
@@ -174,8 +172,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             null,
             null,
             null,
-            null,
-            null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             PackageFunction.IncrementalityIntent.INCREMENTAL,
@@ -211,7 +207,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     progressReceiver = new RecordingEvaluationProgressReceiver();
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer, progressReceiver);
-    driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
@@ -331,7 +326,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
-    return driver.evaluate(ImmutableList.of(key), evaluationContext);
+    return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
   }
 
   private RecursiveFilesystemTraversalValue evalTraversalRequest(TraversalRequest params)
@@ -344,11 +339,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   /**
    * Asserts that the requested SkyValue can be built and results in the expected set of files.
    *
-   * <p>The metadata of files is ignored in comparing the actual results with the expected ones.
-   * The returned object however contains the actual metadata.
+   * <p>The metadata of files is ignored in comparing the actual results with the expected ones. The
+   * returned object however contains the actual metadata.
    */
-  @SafeVarargs
-  private final RecursiveFilesystemTraversalValue traverseAndAssertFiles(
+  private RecursiveFilesystemTraversalValue traverseAndAssertFiles(
       TraversalRequest params, ResolvedFile... expectedFilesIgnoringMetadata) throws Exception {
     RecursiveFilesystemTraversalValue result = evalTraversalRequest(params);
     Map<PathFragment, ResolvedFile> nameToActualResolvedFiles = new HashMap<>();
@@ -361,8 +355,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     return result;
   }
 
-  @SafeVarargs
-  private static final void assertExpectedResolvedFilesPresent(
+  private static void assertExpectedResolvedFilesPresent(
       Map<PathFragment, ResolvedFile> nameToActualResolvedFiles,
       ResolvedFile... expectedFilesIgnoringMetadata)
       throws Exception {
@@ -462,8 +455,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static void assertTraversalRootHashesAre(
-      boolean equal, RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b)
-      throws Exception {
+      boolean equal, RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) {
     if (equal) {
       assertThat(a.getResolvedRoot().get().hashCode())
           .isEqualTo(b.getResolvedRoot().get().hashCode());
@@ -474,12 +466,12 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static void assertTraversalRootHashesAreEqual(
-      RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
+      RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) {
     assertTraversalRootHashesAre(true, a, b);
   }
 
   private static void assertTraversalRootHashesAreNotEqual(
-      RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
+      RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) {
     assertTraversalRootHashesAre(false, a, b);
   }
 
@@ -819,8 +811,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         traverseAndAssertFiles(traversalRoot, expected1);
         break;
       case REPORT_ERROR:
-        SkyKey key = traversalRoot;
-        EvaluationResult<SkyValue> result = eval(key);
+        EvaluationResult<SkyValue> result = eval(traversalRoot);
         assertThat(result.hasError()).isTrue();
         assertThat(result.getError().getException())
             .hasMessageThat()
@@ -1042,12 +1033,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       }
     }
 
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
-
     void addNewTreeFileArtifact(TreeFileArtifact input) throws IOException {
       if (tree == null) {
         tree = TreeArtifactValue.newBuilder(input.getParent());
@@ -1061,12 +1046,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       return env.getValue(new NonHermeticArtifactSkyKey(skyKey));
     }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
-    }
   }
 
   private final class ActionFakeFunction implements SkyFunction {
@@ -1077,12 +1056,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
           new NonHermeticArtifactSkyKey(
               Preconditions.checkNotNull(
                   artifacts.get(((ActionLookupData) skyKey).getActionIndex()), skyKey)));
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

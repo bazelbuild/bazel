@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,22 +53,6 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
         new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
-  }
-
-  @Test
-  public void testProtoCommon() throws Exception {
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(proto_common=proto_common)",
-        "test = rule(implementation = _impl, attrs = {})");
-
-    scratch.file("foo/BUILD", "load(':test.bzl', 'test')", "test(name='test')");
-
-    ConfiguredTarget test = getConfiguredTarget("//foo:test");
-    Object protoCommon = getMyInfoFromTarget(test).getValue("proto_common");
-    assertThat(protoCommon).isInstanceOf(ProtoCommonApi.class);
   }
 
   @Test

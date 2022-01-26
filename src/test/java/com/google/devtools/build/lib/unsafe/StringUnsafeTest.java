@@ -24,13 +24,10 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link StringUnsafe}. */
 @RunWith(JUnit4.class)
-public class StringUnsafeTest {
+public final class StringUnsafeTest {
 
   @Test
   public void testGetCoder() {
-    if (!StringUnsafe.canUse()) {
-      return;
-    }
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     assertThat(stringUnsafe.getCoder("")).isEqualTo(StringUnsafe.LATIN1);
     assertThat(stringUnsafe.getCoder("hello")).isEqualTo(StringUnsafe.LATIN1);
@@ -39,9 +36,6 @@ public class StringUnsafeTest {
 
   @Test
   public void testGetBytes() {
-    if (!StringUnsafe.canUse()) {
-      return;
-    }
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("hello")))
         .isEqualTo(StandardCharsets.ISO_8859_1.encode("hello"));
@@ -57,9 +51,6 @@ public class StringUnsafeTest {
 
   @Test
   public void testNewInstance() throws Exception {
-    if (!StringUnsafe.canUse()) {
-      return;
-    }
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     String s = "hello";
     assertThat(stringUnsafe.newInstance(stringUnsafe.getByteArray(s), stringUnsafe.getCoder(s)))

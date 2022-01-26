@@ -49,6 +49,7 @@ public class ToolchainRule implements RuleDefinition {
                 .nonconfigurable("low-level attribute, used in platform configuration"))
         .removeAttribute("deps")
         .removeAttribute("data")
+        .removeAttribute(":action_listener")
         .exemptFromConstraintChecking("this rule *defines* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
 

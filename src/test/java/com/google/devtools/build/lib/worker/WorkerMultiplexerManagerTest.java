@@ -43,12 +43,12 @@ public class WorkerMultiplexerManagerTest {
   @Before
   public void setUp() {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-    WorkerMultiplexerManager.reset();
+    WorkerMultiplexerManager.resetForTesting();
   }
 
   @After
   public void tearDown() {
-    WorkerMultiplexerManager.reset();
+    WorkerMultiplexerManager.resetForTesting();
   }
 
   @Test

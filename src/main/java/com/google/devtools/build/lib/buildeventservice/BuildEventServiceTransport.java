@@ -110,7 +110,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     private ArtifactGroupNamer artifactGroupNamer;
     private BuildEventServiceProtoUtil besProtoUtil;
     private EventBus eventBus;
-    private @Nullable Sleeper sleeper;
+    @Nullable private Sleeper sleeper;
     private Timestamp commandStartTime;
 
     public Builder besClient(BuildEventServiceClient value) {

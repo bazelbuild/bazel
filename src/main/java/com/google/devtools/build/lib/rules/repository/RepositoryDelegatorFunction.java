@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -47,7 +48,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -332,13 +332,17 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           return RepositoryDirectoryValue.builder()
               .setPath(repoRoot)
               .setDigest(markerHash)
-              .setManagedDirectories(managedDirectories)
               .build();
         }
       }
     }
 
     if (isFetch.get()) {
+      // Fetching a repository is a long-running operation that can easily be interrupted. If it is
+      // and the marker file exists on disk, a new call of this method may treat this repository as
+      // valid even though it is in an inconsistent state. Clear the marker file and only recreate
+      // it after fetching is done to prevent this scenario.
+      DigestWriter.clearMarkerFile(directories, repositoryName);
       // Fetching enabled, go ahead.
       RepositoryDirectoryValue.Builder builder =
           fetchRepository(skyKey, repoRoot, env, digestWriter.getMarkerData(), handler, rule);
@@ -351,7 +355,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
       byte[] digest = digestWriter.writeMarkerFile();
-      return builder.setDigest(digest).setManagedDirectories(managedDirectories).build();
+      return builder.setDigest(digest).build();
     }
 
     if (!repoRoot.exists()) {
@@ -373,7 +377,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return RepositoryDirectoryValue.builder()
         .setPath(repoRoot)
         .setFetchingDelayed()
-        .setManagedDirectories(managedDirectories)
+        .setDigest(
+            new Fingerprint()
+                .addIterableStrings(
+                    Iterables.transform(managedDirectories, PathFragment::getPathString))
+                .digestAndReset())
         .build();
   }
 

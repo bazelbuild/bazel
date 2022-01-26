@@ -25,6 +25,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -67,9 +68,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -432,7 +435,8 @@ public final class Utils {
       Digest inputRoot,
       @Nullable Platform platform,
       java.time.Duration timeout,
-      boolean cacheable) {
+      boolean cacheable,
+      @Nullable ByteString salt) {
     Action.Builder action = Action.newBuilder();
     action.setCommandDigest(command);
     action.setInputRootDigest(inputRoot);
@@ -444,6 +448,9 @@ public final class Utils {
     }
     if (platform != null) {
       action.setPlatform(platform);
+    }
+    if (salt != null) {
+      action.setSalt(salt);
     }
     return action.build();
   }
@@ -537,6 +544,9 @@ public final class Utils {
   }
 
   private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
+  // Format as single digit decimal number, but skipping the trailing .0.
+  private static final DecimalFormat BYTE_COUNT_FORMAT =
+      new DecimalFormat("0.#", new DecimalFormatSymbols(Locale.US));
 
   /**
    * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.
@@ -557,9 +567,7 @@ public final class Utils {
       unitIndex++;
     }
 
-    // Format as single digit decimal number, but skipping the trailing .0.
-    DecimalFormat fmt = new DecimalFormat("0.#");
-    return String.format("%s %s", fmt.format(value / 1024.0), UNITS.get(unitIndex));
+    return String.format("%s %s", BYTE_COUNT_FORMAT.format(value / 1024.0), UNITS.get(unitIndex));
   }
 
   public static boolean shouldAcceptCachedResultFromRemoteCache(
@@ -590,31 +598,57 @@ public final class Utils {
   }
 
   public static boolean shouldUploadLocalResultsToRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
-        && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+        && Spawns.mayBeCachedRemotely(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
+  }
+
+  public static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    ImmutableMap<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
+  }
+
+  public static boolean shouldUploadLocalResultsToDiskCache(
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return Spawns.mayBeCached(executionInfo);
+    } else {
+      return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(executionInfo);
+    }
   }
 
   public static boolean shouldUploadLocalResultsToDiskCache(
       RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    ImmutableMap<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
+  }
+
+  public static boolean shouldUploadLocalResultsToCombinedDisk(
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
     if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      return spawn == null || Spawns.mayBeCached(spawn);
+      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
+      // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
     } else {
-      return remoteOptions.remoteUploadLocalResults && (spawn == null || Spawns.mayBeCached(spawn));
+      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
+      return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
     }
   }
 
   public static boolean shouldUploadLocalResultsToCombinedDisk(
       RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
-      // cache. Actions
-      // which are tagged with `no-remote-cache` can still hit the disk cache.
-      return spawn == null || Spawns.mayBeCached(spawn);
-    } else {
-      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
-      return remoteOptions.remoteUploadLocalResults
-          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+    ImmutableMap<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
     }
+    return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
   }
 }

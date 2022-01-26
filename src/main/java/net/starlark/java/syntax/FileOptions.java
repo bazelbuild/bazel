@@ -41,15 +41,6 @@ public abstract class FileOptions {
   /** The default options for Starlark static processing. New clients should use these defaults. */
   public static final FileOptions DEFAULT = builder().build();
 
-  // Options are presented in phase order: scanner, parser, resolver, compiler.
-
-  // --- scanner options ---
-
-  /** Disallow ineffective escape sequences such as {@code \a} when scanning string literals. */
-  public abstract boolean restrictStringEscapes();
-
-  // --- resolver options ---
-
   /**
    * During resolution, permit load statements to access private names such as {@code _x}. <br>
    * (Required for continued support of Bazel "WORKSPACE.resolved" files.)
@@ -82,7 +73,6 @@ public abstract class FileOptions {
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
-        .restrictStringEscapes(true)
         .allowLoadPrivateSymbols(false)
         .allowToplevelRebinding(false)
         .loadBindsGlobally(false)
@@ -95,8 +85,6 @@ public abstract class FileOptions {
   @AutoValue.Builder
   public abstract static class Builder {
     // AutoValue why u make me say it 3 times?
-    public abstract Builder restrictStringEscapes(boolean value);
-
     public abstract Builder allowLoadPrivateSymbols(boolean value);
 
     public abstract Builder allowToplevelRebinding(boolean value);

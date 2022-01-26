@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -305,20 +306,33 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help =
-          "Comma-separated list of aspects to be applied to top-level targets. All aspects are"
-              + " applied independently to all top-level targets except if"
-              + " <code>incompatible_top_level_aspects_dependency</code> is used. In this case, if"
+          "Comma-separated list of aspects to be applied to top-level targets. In the list, if"
               + " aspect <code>some_aspect</code> specifies required aspect providers via"
               + " <code>required_aspect_providers</code>, <code>some_aspect</code> will run after"
               + " every aspect that was mentioned before it in the aspects list whose advertised"
               + " providers satisfy <code>some_aspect</code> required aspect providers. Moreover,"
               + " <code>some_aspect</code> will run after all its required aspects specified by"
-              + " <code>requires</code> attribute which otherwise will be ignored."
+              + " <code>requires</code> attribute."
               + " <code>some_aspect</code> will then have access to the values of those aspects'"
               + " providers."
               + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
               + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
   public List<String> aspects;
+
+  @Option(
+      name = "aspects_parameters",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      allowMultiple = true,
+      help =
+          "Specifies the values of the command-line aspects parameters. Each parameter value is"
+              + " specified via <param_name>=<param_value>, for example 'my_param=my_val' where"
+              + " 'my_param' is a parameter of some aspect in --aspects list or required by an"
+              + " aspect in the list. This option can be used multiple times. However, it is not"
+              + " allowed to assign values to the same parameter more than once.")
+  public List<Map.Entry<String, String>> aspectsParameters;
 
   public BuildRequestOptions() throws OptionsParsingException {}
 

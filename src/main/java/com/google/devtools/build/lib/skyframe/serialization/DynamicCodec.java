@@ -29,12 +29,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import sun.reflect.ReflectionFactory;
 
-/**
- * A codec that serializes arbitrary types.
- *
- * <p>TODO(shahan): replace Unsafe with VarHandle once it's available.
- */
-public class DynamicCodec implements ObjectCodec<Object> {
+/** A codec that serializes arbitrary types. */
+public final class DynamicCodec implements ObjectCodec<Object> {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Class<?> type;
@@ -167,6 +164,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
    * @param fieldType class of the field to deserialize
    * @param offset unsafe offset into obj where the field should be written
    */
+  @SuppressWarnings("LogAndThrow") // Want the full stack trace of deserialization attempts.
   private void deserializeField(
       DeserializationContext context,
       CodedInputStream codedIn,
@@ -224,7 +222,16 @@ public class DynamicCodec implements ObjectCodec<Object> {
         deserializeField(context, codedIn, arr, fieldType.getComponentType(), base + scale * i);
       }
     } else {
-      Object fieldValue = context.deserialize(codedIn);
+      Object fieldValue;
+      try {
+        fieldValue = context.deserialize(codedIn);
+      } catch (SerializationException e) {
+        logger.atSevere().withCause(e).log(
+            "Failed to deserialize object with superclass: %s %s",
+            obj, obj.getClass().getSuperclass());
+        e.addTrail(this.type);
+        throw e;
+      }
       if (fieldValue != null && !fieldType.isInstance(fieldValue)) {
         throw new SerializationException(
             "Field "
@@ -261,11 +268,11 @@ public class DynamicCodec implements ObjectCodec<Object> {
     return offsetsArr;
   }
 
-  private static class TypeAndOffset {
+  private static final class TypeAndOffset {
     public final Class<?> type;
     public final long offset;
 
-    public TypeAndOffset(Class<?> type, long offset) {
+    TypeAndOffset(Class<?> type, long offset) {
       this.type = type;
       this.offset = offset;
     }
@@ -279,7 +286,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
     return constructor;
   }
 
-  private static class FieldComparator implements Comparator<Field> {
+  private static final class FieldComparator implements Comparator<Field> {
 
     @Override
     public int compare(Field f1, Field f2) {

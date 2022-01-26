@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -191,13 +193,11 @@ public class ActionGraphDump {
       }
     }
     Map<String, String> executionInfo = action.getExecutionInfo();
-    if (executionInfo != null) {
-      for (Map.Entry<String, String> info : executionInfo.entrySet()) {
-        actionBuilder.addExecutionInfo(
-            AnalysisProtosV2.KeyValuePair.newBuilder()
-                .setKey(info.getKey())
-                .setValue(info.getValue()));
-      }
+    for (Map.Entry<String, String> info : executionInfo.entrySet()) {
+      actionBuilder.addExecutionInfo(
+          AnalysisProtosV2.KeyValuePair.newBuilder()
+              .setKey(info.getKey())
+              .setValue(info.getValue()));
     }
 
     ActionOwner actionOwner = action.getOwner();
@@ -233,6 +233,16 @@ public class ActionGraphDump {
 
       actionBuilder.setPrimaryOutputId(
           knownArtifacts.dataToIdAndStreamOutputProto(action.getPrimaryOutput()));
+    }
+
+    if (action instanceof TemplateExpansionAction) {
+      actionBuilder.setTemplateContent(((TemplateExpansionAction) action).getTemplate().toString());
+      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+        actionBuilder.addSubstitutions(
+            AnalysisProtosV2.KeyValuePair.newBuilder()
+                .setKey(substitution.getKey())
+                .setValue(substitution.getValue()));
+      }
     }
 
     aqueryOutputHandler.outputAction(actionBuilder.build());

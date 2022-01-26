@@ -73,7 +73,10 @@ public class EvaluationResult<T extends SkyValue> {
     return catastrophe != null || !errorMap.isEmpty();
   }
 
-  /** @return catastrophic error encountered during evaluation, if any */
+  /**
+   * Catastrophic error encountered during evaluation, if any. If the evaluation failed with a
+   * catastrophe, this will be non-null.
+   */
   @Nullable
   public Exception getCatastrophe() {
     return catastrophe;
@@ -196,8 +199,21 @@ public class EvaluationResult<T extends SkyValue> {
       return this;
     }
 
-    boolean hasCatastrophe() {
-      return this.catastrophe != null;
+    void maybeEnsureCatastrophe(boolean hasCatastrophe) {
+      if (!hasCatastrophe || catastrophe != null) {
+        return;
+      }
+      for (ErrorInfo errorInfo : errors.values()) {
+        if (errorInfo.getException() != null) {
+          catastrophe = errorInfo.getException();
+          return;
+        }
+      }
+      throw new IllegalStateException("Should have found exception in catastrophe: " + errors);
+    }
+
+    boolean isEmpty() {
+      return this.result.isEmpty() && this.errors.isEmpty();
     }
   }
 }

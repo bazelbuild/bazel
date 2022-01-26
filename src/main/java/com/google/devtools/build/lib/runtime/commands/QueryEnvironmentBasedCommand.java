@@ -277,7 +277,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
             /*blockUniverseEvaluationErrors=*/ false,
-            useGraphlessQuery);
+            useGraphlessQuery,
+            env.getCommandId().toString());
   }
 
   private static BlazeCommandResult reportAndCreateInterruptResult(

@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -462,7 +462,7 @@ public class CppHelper {
   public static Artifact getLinkedArtifact(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType)
       throws RuleErrorException {
     return getLinkedArtifact(
@@ -473,7 +473,7 @@ public class CppHelper {
   public static Artifact getLinkedArtifact(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix)
       throws RuleErrorException {
@@ -482,7 +482,6 @@ public class CppHelper {
       name =
           name.replaceName(
               getArtifactNameForCategory(
-                  ruleContext,
                   ccToolchain,
                   linkType.getLinkerOutput(),
                   name.getBaseName()
@@ -506,7 +505,7 @@ public class CppHelper {
       Label label,
       ActionConstructionContext actionConstructionContext,
       ArtifactRoot artifactRoot,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix,
       PathFragment name) {
@@ -535,7 +534,7 @@ public class CppHelper {
   private static Artifact getLinuxLinkedArtifact(
       Label label,
       ActionConstructionContext actionConstructionContext,
-      BuildConfiguration config,
+      BuildConfigurationValue config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
     PathFragment name = PathFragment.create(label.getName());
@@ -591,7 +590,7 @@ public class CppHelper {
    */
   public static CppModuleMap createDefaultCppModuleMap(
       ActionConstructionContext actionConstructionContext,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Label label) {
     // Create the module map artifact as a genfile.
     Artifact mapFile =
@@ -714,7 +713,7 @@ public class CppHelper {
   public static void maybeAddStaticLinkMarkerProvider(
       RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
     if (ruleContext.getFeatures().contains("fully_static_link")) {
-      builder.add(StaticallyLinkedMarkerProvider.class, new StaticallyLinkedMarkerProvider(true));
+      builder.addNativeDeclaredProvider(new StaticallyLinkedMarkerProvider(true));
     }
   }
 
@@ -722,7 +721,7 @@ public class CppHelper {
       ActionConstructionContext actionConstructionContext,
       Label label,
       String outputName,
-      BuildConfiguration config) {
+      BuildConfigurationValue config) {
     PathFragment objectDir = getObjDirectory(label, config.isSiblingRepositoryLayout());
     return actionConstructionContext.getDerivedArtifact(
         objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));
@@ -761,21 +760,14 @@ public class CppHelper {
   }
 
   public static String getArtifactNameForCategory(
-      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory category,
       String outputName)
       throws RuleErrorException {
-    try {
-      return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
-    } catch (EvalException e) {
-      ruleErrorConsumer.throwWithRuleError(e);
-      throw new IllegalStateException("Should not be reached");
-    }
+    return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
   }
 
   static String getDotdFileName(
-      RuleErrorConsumer ruleErrorConsumer,
       CcToolchainProvider toolchain,
       ArtifactCategory outputCategory,
       String outputName)
@@ -784,10 +776,9 @@ public class CppHelper {
         outputCategory == ArtifactCategory.OBJECT_FILE
                 || outputCategory == ArtifactCategory.PROCESSED_HEADER
             ? outputName
-            : getArtifactNameForCategory(ruleErrorConsumer, toolchain, outputCategory, outputName);
+            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
 
-    return getArtifactNameForCategory(
-        ruleErrorConsumer, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+    return getArtifactNameForCategory(toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
   }
 
   /**

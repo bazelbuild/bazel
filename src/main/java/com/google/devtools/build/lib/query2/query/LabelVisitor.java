@@ -67,6 +67,7 @@ import java.util.concurrent.Executors;
  */
 final class LabelVisitor {
   private static final VisitationAttributes NONE = new VisitationAttributes(ImmutableSet.of(), 0);
+  private final String debugString;
 
   /** Attributes of a visitation which determine whether it is up-to-date or not. */
   private static class VisitationAttributes {
@@ -152,10 +153,12 @@ final class LabelVisitor {
    * @param targetProvider how to resolve labels to targets
    * @param edgeFilter which edges may be traversed
    */
-  public LabelVisitor(TargetProvider targetProvider, DependencyFilter edgeFilter) {
+  public LabelVisitor(
+      TargetProvider targetProvider, DependencyFilter edgeFilter, String debugString) {
     this.targetProvider = targetProvider;
     this.lastVisitation = NONE;
     this.edgeFilter = edgeFilter;
+    this.debugString = debugString;
   }
 
   void syncWithVisitor(
@@ -202,7 +205,8 @@ final class LabelVisitor {
       throws InterruptedException {
     visitedTargets.clear();
 
-    Visitor visitor = new Visitor(eventHandler, keepGoing, parallelThreads, maxDepth, observer);
+    Visitor visitor =
+        new Visitor(eventHandler, keepGoing, parallelThreads, maxDepth, observer, debugString);
 
     Throwable uncaught = null;
     boolean result;
@@ -224,7 +228,7 @@ final class LabelVisitor {
   }
 
   private class Visitor {
-    private static final String THREAD_NAME = "LabelVisitor";
+    private static final String THREAD_NAME = "LabelVisitor-";
 
     private final ExecutorService executorService;
     private final QuiescingExecutor executor;
@@ -240,15 +244,19 @@ final class LabelVisitor {
         boolean keepGoing,
         int parallelThreads,
         int maxDepth,
-        TargetEdgeObserver observer) {
+        TargetEdgeObserver observer,
+        String debugString) {
       if (parallelThreads > 1) {
-        this.executorService = NamedForkJoinPool.newNamedPool(THREAD_NAME, parallelThreads);
+        this.executorService =
+            NamedForkJoinPool.newNamedPool(THREAD_NAME + debugString, parallelThreads);
       } else {
         // ForkJoinPool has a bug where it deadlocks with parallelism=1, so use a
         // SingleThreadExecutor instead.
         this.executorService =
             Executors.newSingleThreadExecutor(
-                new ThreadFactoryBuilder().setNameFormat(THREAD_NAME + " %d").build());
+                new ThreadFactoryBuilder()
+                    .setNameFormat(THREAD_NAME + debugString + " %d")
+                    .build());
       }
       this.executor =
           AbstractQueueVisitor.createWithExecutorService(

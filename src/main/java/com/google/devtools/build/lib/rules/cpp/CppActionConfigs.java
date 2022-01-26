@@ -175,6 +175,7 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'per_object_debug_info_file'",
                         "      flag: '-gsplit-dwarf'",
+                        "      flag: '-g'",
                         "    }",
                         "  }")));
       }
@@ -380,6 +381,10 @@ public class CppActionConfigs {
                         "      flag: '-fprofile-correction'",
                         "    }",
                         "  }")));
+      }
+      if (!existingFeatureNames.contains(
+          CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS)) {
+        featureBuilder.add(getFeature("name: 'propeller_optimize_thinlto_compile_actions'"));
       }
       if (!existingFeatureNames.contains(CppRuleClasses.PROPELLER_OPTIMIZE)) {
         featureBuilder.add(

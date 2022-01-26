@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import java.io.Serializable;
 import java.util.List;
 
-/** Components of --run_under option. */
-public interface RunUnder extends Serializable {
+/** Components of the {@code --run_under} option. */
+public interface RunUnder {
   /**
    * @return the whole value passed to --run_under option.
    */

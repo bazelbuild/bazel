@@ -72,7 +72,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        CcToolchainConfigInfo.fromToolchainForTestingOnly(toolchainBuilder.buildPartial()),
         /* ccToolchainPath= */ PathFragment.EMPTY_FRAGMENT);
   }
 

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.assertThrows;
 
@@ -23,16 +24,24 @@ import com.google.common.testing.EqualsTester;
 import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,6 +52,9 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase {
+
+  private Path moduleRoot;
+  private FakeRegistry registry;
 
   protected EvaluationResult<RegisteredExecutionPlatformsValue>
       requestExecutionPlatformsFromSkyframe(SkyKey executionPlatformsKey)
@@ -77,6 +89,32 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         .map(ConfiguredTargetKey::getLabel)
         .filter(label -> filterLabel(packageRoot, label))
         .collect(Collectors.toList());
+  }
+
+  @Override
+  protected boolean enableBzlmod() {
+    return true;
+  }
+
+  @Override
+  protected ImmutableList<Injected> extraPrecomputedValues() {
+    try {
+      moduleRoot = scratch.dir("modules");
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
+    return ImmutableList.of(
+        PrecomputedValue.injected(
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
+  }
+
+  @Before
+  public void setUpForBzlmod() throws Exception {
+    scratch.file("MODULE.bazel");
   }
 
   @Test
@@ -193,12 +231,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            // We would expect:
-            // Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_1"),
-            // Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_2"))
-            // but this is actually:
-            Label.parseAbsoluteUnchecked("//platforms:linux"),
-            Label.parseAbsoluteUnchecked("//platforms:mac"))
+            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_2"))
         .inOrder();
   }
 
@@ -301,6 +335,77 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertThatEvaluationResult(result).hasNoError();
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .contains(Label.parseAbsoluteUnchecked("//platform:execution_platform_2"));
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_bzlmod() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(execution_platforms_to_register=['//:plat'])",
+        "bazel_dep(name='B',version='1.0')",
+        "bazel_dep(name='C',version='1.1')");
+    registry
+        .addModule(
+            createModuleKey("B", "1.0"),
+            "module(",
+            "    name='B',",
+            "    version='1.0',",
+            "    execution_platforms_to_register=['//:plat'],",
+            ")",
+            "bazel_dep(name='D',version='1.0')")
+        .addModule(
+            createModuleKey("C", "1.1"),
+            "module(",
+            "    name='C',",
+            "    version='1.1',",
+            "    execution_platforms_to_register=['//:plat'],",
+            ")",
+            "bazel_dep(name='D',version='1.1')")
+        // D@1.0 is not selected
+        .addModule(
+            createModuleKey("D", "1.0"),
+            "module(",
+            "    name='D',",
+            "    version='1.0',",
+            "    execution_platforms_to_register=['//:plat'],",
+            ")")
+        .addModule(
+            createModuleKey("D", "1.1"),
+            "module(",
+            "    name='D',",
+            "    version='1.1',",
+            "    execution_platforms_to_register=['@E//:plat', '//:plat'],",
+            ")",
+            "bazel_dep(name='E',version='1.0')")
+        .addModule(createModuleKey("E", "1.0"), "module(name='E', version='1.0')");
+    for (String repo : ImmutableList.of("B.1.0", "C.1.1", "D.1.0", "D.1.1", "E.1.0")) {
+      scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
+      scratch.file(
+          moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
+          "platform(name='plat')");
+    }
+    scratch.overwriteFile("BUILD", "platform(name='plat');platform(name='wsplat')");
+    rewriteWorkspace("register_execution_platforms('//:wsplat')");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the execution platforms registered with bzlmod come in the BFS order and before
+    // WORKSPACE registrations.
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsExactly(
+            Label.parseAbsoluteUnchecked("//:plat"),
+            Label.parseAbsoluteUnchecked("@B.1.0//:plat"),
+            Label.parseAbsoluteUnchecked("@C.1.1//:plat"),
+            Label.parseAbsoluteUnchecked("@E.1.0//:plat"),
+            Label.parseAbsoluteUnchecked("@D.1.1//:plat"),
+            Label.parseAbsoluteUnchecked("//:wsplat"))
+        .inOrder();
   }
 
   @Test

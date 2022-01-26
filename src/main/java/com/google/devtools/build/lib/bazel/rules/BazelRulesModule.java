@@ -40,6 +40,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 
 /** Module implementing the rule set of Bazel. */
@@ -300,6 +301,14 @@ public final class BazelRulesModule extends BlazeModule {
             "The --legacy_spawn_scheduler flag is a no-op and will be removed soon.",
         help = "Was used to enable the old spawn scheduler. Now a no-op.")
     public boolean legacySpawnScheduler;
+
+    @Option(
+        name = "experimental_multi_threaded_digest",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op")
+    public boolean experimentalMultiThreadedDigest;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -443,6 +452,15 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     // Historically passed to all Bazel commands by certain tools.
     @Option(
+        name = "experimental_allow_top_level_aspects_parameters",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean experimentalAllowTopLevelAspectsParameters;
+
+    @Option(
         name = "experimental_required_aspects",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -459,6 +477,34 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
         help = "No-op")
     public boolean shadowedAction;
+
+    @Option(
+        name = "json_trace_compression",
+        oldName = "experimental_json_trace_compression",
+        defaultValue = "auto",
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        help = "No-op")
+    public TriState enableTracerCompression;
+
+    @Option(
+        name = "experimental_profile_cpu_usage",
+        defaultValue = "true",
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        help = "No-op")
+    public boolean enableCpuUsageProfiling;
+
+    @Option(
+        name = "incompatible_applicable_licenses",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean incompatibleApplicableLicenses;
   }
 
   @Override

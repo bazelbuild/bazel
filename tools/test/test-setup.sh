@@ -333,15 +333,9 @@ fi
 childPid=$!
 
 # Cleanup helper
-( if ! (ps -p $$ &> /dev/null || [ "`pgrep -a -g $$ 2> /dev/null`" != "" ] ); then
-   # `ps` is known to be unrunnable in the darwin sandbox-exec environment due
-   # to being a set-uid root program. pgrep exists in most environments, but not
-   # universally. In the event that we find ourselves running in an environment
-   # where *neither* exists, we have no reliable way to check if our parent is
-   # still alive - so simply disable this cleanup routine entirely.
-   exit 0
- fi
- while ps -p $$ &> /dev/null || [ "`pgrep -a -g $$ 2> /dev/null`" != "" ]; do
+# Assume that we don't have drastically reduced abilities to communicate signals
+# to our parent process. kill()ability means existence.
+( while kill -0 $PPID &> /dev/null; do  # magic 0 sigspec tests deliverability only
     sleep 10
  done
  # Parent process not found - we've been abandoned! Clean up test processes.

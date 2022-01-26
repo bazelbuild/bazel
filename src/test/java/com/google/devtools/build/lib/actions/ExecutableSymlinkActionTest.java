@@ -103,7 +103,7 @@ public class ExecutableSymlinkActionTest {
   @Test
   public void testFailIfInputIsNotAFile() throws Exception {
     Path dir = inputRoot.getRoot().getRelative("some-dir");
-    FileSystemUtils.createDirectoryAndParents(dir);
+    dir.createDirectoryAndParents();
     Artifact input = ActionsTestUtil.createArtifact(inputRoot, dir);
     Artifact output =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));

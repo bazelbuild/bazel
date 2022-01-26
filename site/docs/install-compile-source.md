@@ -194,7 +194,7 @@ You can also build Bazel from scratch, without using an existing Bazel binary.
 
 *   **C++ build toolchain**
 
-*   **JDK.** Versions 8 and 11 are supported.
+*   **JDK.** Version 11 is required.
 
 *   **Python**. Versions 2 and 3 are supported, installing one of them is
     enough.

@@ -52,8 +52,8 @@ public interface SymlinkDefinition {
    */
   ImmutableSet<Path> getLinkPaths(
       BuildRequestOptions buildRequestOptions,
-      Set<BuildConfiguration> targetConfigs,
-      Function<BuildOptions, BuildConfiguration> configGetter,
+      Set<BuildConfigurationValue> targetConfigs,
+      Function<BuildOptions, BuildConfigurationValue> configGetter,
       RepositoryName repositoryName,
       Path outputPath,
       Path execRoot);

@@ -27,18 +27,18 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
   private final PackageGroupContents directPackages;
   private final List<Label> declaredLabels;
 
-  private PackageGroupsRuleVisibility(Label ruleLabel, List<Label> labels) {
+  // TODO(b/200024947): Remove the unused argument.
+  private PackageGroupsRuleVisibility(Label unusedRuleLabel, List<Label> labels) {
     declaredLabels = ImmutableList.copyOf(labels);
     ImmutableList.Builder<PackageSpecification> directPackageBuilder = ImmutableList.builder();
     ImmutableList.Builder<Label> packageGroupBuilder = ImmutableList.builder();
 
     for (Label label : labels) {
-      Label resolved = ruleLabel.resolveRepositoryRelative(label);
-      PackageSpecification specification = PackageSpecification.fromLabel(resolved);
+      PackageSpecification specification = PackageSpecification.fromLabel(label);
       if (specification != null) {
         directPackageBuilder.add(specification);
       } else {
-        packageGroupBuilder.add(resolved);
+        packageGroupBuilder.add(label);
       }
     }
 

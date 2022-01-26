@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -61,7 +61,7 @@ public abstract class ConfiguredTargetQueryTest
   }
 
   @Override
-  protected final BuildConfiguration getConfiguration(KeyedConfiguredTarget kct) {
+  protected final BuildConfigurationValue getConfiguration(KeyedConfiguredTarget kct) {
     return getHelper()
         .getSkyframeExecutor()
         .getConfiguration(getHelper().getReporter(), kct.getConfigurationKey());

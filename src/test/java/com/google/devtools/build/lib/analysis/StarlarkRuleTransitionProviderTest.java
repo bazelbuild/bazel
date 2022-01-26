@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -30,6 +30,9 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
@@ -39,7 +42,8 @@ import org.junit.runner.RunWith;
 
 /** Tests for StarlarkRuleTransitionProvider. */
 @RunWith(TestParameterInjector.class)
-public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
+public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -114,7 +118,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -151,7 +155,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("pre-transition->post-transition");
   }
@@ -332,7 +336,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -387,7 +391,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -411,7 +415,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -538,7 +542,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().getStarlarkOptions())
         .doesNotContainKey(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
   }
@@ -556,7 +560,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -580,7 +584,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -713,7 +717,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "rats are ticklish"));
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(
             configuration
                 .getOptions()
@@ -982,7 +986,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     useConfiguration("--nullable_option=", "--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -1015,7 +1019,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file("test/BUILD");
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//neverland:test"));
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//neverland:test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -1050,7 +1055,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file("neverland/BUILD");
     useConfiguration("--foo=pre-transition");
 
-    BuildConfiguration configuration = getConfiguration(getConfiguredTarget("//test"));
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
         .isEqualTo("post-transition");
   }
@@ -1416,7 +1421,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
             .create(RuleTransitionData.create(testTarget));
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
-    ruleTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
+    ruleTransition.addRequiredFragments(
+        requiredFragments, ct.getConfiguration().getBuildOptionDetails());
     assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 
@@ -1455,9 +1461,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "genrule(name = 'test', srcs = [':bottom'], outs = ['out'], cmd = 'touch $@')");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:test")).isNull();
-    assertContainsEvent(
-        "Output directory name '//bad:cpu' specified by CppConfiguration is invalid as part of a "
-            + "path: must not contain /");
+    assertContainsEvent("CPU name '//bad:cpu' is invalid as part of a path: must not contain /");
   }
 
   @Test
@@ -1692,5 +1696,68 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
                 .get(PlatformOptions.class)
                 .platforms)
         .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
+  }
+
+  @Test
+  public void testTransitionsStillTriggerWhenOnlyRuleAttributesChange() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//command_line_option:foo': attr.my_attr,",
+        "  }",
+        "_my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = [",
+        "    '//command_line_option:foo',",
+        "  ]",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = _my_transition,",
+        "  attrs = {",
+        "    'my_attr': attr.string(),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  },",
+        ")");
+    writeAllowlistFile();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'buildme',",
+        "  my_attr = 'first build',",
+        ")");
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:buildme"))
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .foo)
+        .isEqualTo("first build");
+
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'buildme',",
+        "  my_attr = 'second build',",
+        ")");
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
+        ModifiedFileSet.builder().modify(PathFragment.create("test/BUILD")).build(),
+        Root.fromPath(rootDirectory));
+
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:buildme"))
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .foo)
+        .isEqualTo("second build");
   }
 }

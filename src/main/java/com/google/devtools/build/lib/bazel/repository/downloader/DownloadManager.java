@@ -36,6 +36,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -52,6 +53,7 @@ public class DownloadManager {
   private final Downloader downloader;
   private boolean disableDownload = false;
   private int retries = 0;
+  private boolean urlsAsDefaultCanonicalId;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -73,6 +75,10 @@ public class DownloadManager {
   public void setRetries(int retries) {
     checkArgument(retries >= 0, "Invalid retries");
     this.retries = retries;
+  }
+
+  public void setUrlsAsDefaultCanonicalId(boolean urlsAsDefaultCanonicalId) {
+    this.urlsAsDefaultCanonicalId = urlsAsDefaultCanonicalId;
   }
 
   /**
@@ -107,6 +113,10 @@ public class DownloadManager {
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
+    }
+
+    if (Strings.isNullOrEmpty(canonicalId) && urlsAsDefaultCanonicalId) {
+      canonicalId = originalUrls.stream().map(URL::toExternalForm).collect(Collectors.joining(" "));
     }
 
     List<URL> rewrittenUrls = originalUrls;
@@ -210,7 +220,7 @@ public class DownloadManager {
                       Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
                 }
               }
-              FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
+              destination.getParentDirectory().createDirectoryAndParents();
               FileSystemUtils.copyFile(candidate, destination);
               return destination;
             }

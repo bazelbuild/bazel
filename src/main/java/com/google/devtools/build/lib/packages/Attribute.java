@@ -40,6 +40,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePre
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -187,7 +189,7 @@ public final class Attribute implements Comparable<Attribute> {
     String checkValid(Rule from, Rule to);
   }
 
-  @AutoCodec public static final ValidityPredicate ANY_EDGE = (from, to) -> null;
+  @SerializationConstant public static final ValidityPredicate ANY_EDGE = (from, to) -> null;
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
@@ -223,14 +225,6 @@ public final class Attribute implements Comparable<Attribute> {
     public Collection<Object> getAllowedValues() {
       return allowedValues;
     }
-  }
-
-  public ImmutableMap<String, ImmutableSet<String>> getRequiredAspectParameters() {
-    ImmutableMap.Builder<String, ImmutableSet<String>> paramBuilder = ImmutableMap.builder();
-    for (AspectDetails<?> aspect : aspects) {
-      paramBuilder.put(aspect.getName(), aspect.getRequiredParameters());
-    }
-    return paramBuilder.build();
   }
 
   /**
@@ -553,34 +547,6 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * See value(TYPE) above. This method is only meant for Starlark usage.
-     *
-     * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
-     * case, {@code context} must point to the parent Label in order to be able to convert the
-     * default value string to a proper Label.
-     *
-     * @param parameterName The name of the attribute to use in error messages
-     */
-    public Builder<TYPE> defaultValue(
-        Object defaultValue, Object context, @Nullable String parameterName)
-        throws ConversionException {
-      Preconditions.checkState(!valueSet, "the default value is already set");
-      value =
-          type.convert(
-              defaultValue,
-              ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
-                  + String.format("attribute '%s'", name),
-              context);
-      valueSet = true;
-      return this;
-    }
-
-    /** See value(TYPE) above. This method is only meant for Starlark usage. */
-    public Builder<TYPE> defaultValue(Object defaultValue) throws ConversionException {
-      return defaultValue(defaultValue, null, null);
-    }
-
-    /**
      * Sets the attribute default value to a computed default value - use this when the default
      * value is a function of other attributes of the Rule. The type of the computed default value
      * for a mandatory attribute must match the type parameter: (e.g. list=[], integer=0, string="",
@@ -594,6 +560,15 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
       valueSource = AttributeValueSource.COMPUTED_DEFAULT;
+      valueSet = true;
+      return this;
+    }
+
+    /** Used for b/200065655#comment3. */
+    public Builder<TYPE> value(NativeComputedDefaultApi defaultValue) {
+      Preconditions.checkState(!valueSet, "the default value is already set");
+      value = defaultValue;
+      valueSource = AttributeValueSource.NATIVE_COMPUTED_DEFAULT;
       valueSet = true;
       return this;
     }
@@ -630,6 +605,34 @@ public final class Attribute implements Comparable<Attribute> {
       valueSource = AttributeValueSource.LATE_BOUND;
       valueSet = true;
       return this;
+    }
+
+    /**
+     * See value(TYPE) above. This method is only meant for Starlark usage.
+     *
+     * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
+     * case, {@code context} must point to the parent Label in order to be able to convert the
+     * default value string to a proper Label.
+     *
+     * @param parameterName The name of the attribute to use in error messages
+     */
+    public Builder<TYPE> defaultValue(
+        Object defaultValue, Object context, @Nullable String parameterName)
+        throws ConversionException {
+      Preconditions.checkState(!valueSet, "the default value is already set");
+      value =
+          type.convert(
+              defaultValue,
+              ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
+                  + String.format("attribute '%s'", name),
+              context);
+      valueSet = true;
+      return this;
+    }
+
+    /** See value(TYPE) above. This method is only meant for Starlark usage. */
+    public Builder<TYPE> defaultValue(Object defaultValue) throws ConversionException {
+      return defaultValue(defaultValue, null, null);
     }
 
     /** Returns where the value of this attribute comes from. Useful only for Starlark. */
@@ -1456,11 +1459,8 @@ public final class Attribute implements Comparable<Attribute> {
     private final Resolver<FragmentT, ValueT> resolver;
 
     private SimpleLateBoundDefault(
-        boolean useHostConfiguration,
-        Class<FragmentT> fragmentClass,
-        ValueT defaultValue,
-        Resolver<FragmentT, ValueT> resolver) {
-      super(useHostConfiguration, fragmentClass, defaultValue);
+        Class<FragmentT> fragmentClass, ValueT defaultValue, Resolver<FragmentT, ValueT> resolver) {
+      super(fragmentClass, defaultValue);
 
       this.resolver = resolver;
     }
@@ -1471,7 +1471,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
-  // TODO(b/65746853): Remove documentation about accepting BuildConfiguration when uses are cleaned
+  // TODO(b/65746853): Remove documentation about accepting BuildConfigurationValue when uses are
+  // cleaned
   // up.
   /**
    * Provider of values for late-bound attributes. See {@link Attribute#value(LateBoundDefault<?, ?
@@ -1481,8 +1482,8 @@ public final class Attribute implements Comparable<Attribute> {
    * confuse users.
    *
    * @param <FragmentT> The type of value that is used to compute this value. This is usually a
-   *     subclass of BuildConfiguration.Fragment. It may also be Void to receive null, or
-   *     BuildConfiguration itself to receive the entire configuration.
+   *     subclass of BuildConfigurationValue.Fragment. It may also be Void to receive null, or
+   *     BuildConfigurationValue itself to receive the entire configuration.
    * @param <ValueT> The type of value returned by this class. Must be either {@link Void}, a {@link
    *     Label}, or a {@link List} of {@link Label} objects.
    */
@@ -1498,7 +1499,6 @@ public final class Attribute implements Comparable<Attribute> {
       ValueT resolve(Rule rule, AttributeMap attributeMap, FragmentT input);
     }
 
-    private final boolean useHostConfiguration;
     private final ValueT defaultValue;
     private final Class<FragmentT> fragmentClass;
 
@@ -1511,7 +1511,6 @@ public final class Attribute implements Comparable<Attribute> {
     @VisibleForTesting
     public static LabelLateBoundDefault<Void> fromConstantForTesting(Label defaultValue) {
       return new LabelLateBoundDefault<Void>(
-          false,
           Void.class,
           Preconditions.checkNotNull(defaultValue),
           (rule, attributes, unused) -> defaultValue) {};
@@ -1528,19 +1527,9 @@ public final class Attribute implements Comparable<Attribute> {
       return (LateBoundDefault<Void, ValueT>) AlwaysNullLateBoundDefault.INSTANCE;
     }
 
-    LateBoundDefault(
-        boolean useHostConfiguration, Class<FragmentT> fragmentClass, ValueT defaultValue) {
-      this.useHostConfiguration = useHostConfiguration;
+    LateBoundDefault(Class<FragmentT> fragmentClass, ValueT defaultValue) {
       this.defaultValue = defaultValue;
       this.fragmentClass = fragmentClass;
-    }
-
-    /**
-     * Whether to look up the label in the host configuration. This is only here for host
-     * compilation tools - we usually need to look up labels in the target configuration.
-     */
-    public final boolean useHostConfiguration() {
-      return useHostConfiguration;
     }
 
     /**
@@ -1550,8 +1539,9 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>It may also be {@link Void} to receive null. This is rarely necessary, but can be used,
      * e.g., if the attribute is named to match an attribute in another rule which is late-bound.
      *
-     * <p>It may also be BuildConfiguration to receive the entire configuration. This is deprecated,
-     * and only necessary when the default is computed from methods of BuildConfiguration itself.
+     * <p>It may also be BuildConfigurationValue to receive the entire configuration. This is
+     * deprecated, and only necessary when the default is computed from methods of
+     * BuildConfigurationValue itself.
      */
     public final Class<FragmentT> getFragmentClass() {
       return fragmentClass;
@@ -1581,19 +1571,18 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public abstract static class AbstractLabelLateBoundDefault<FragmentT>
       extends LateBoundDefault<FragmentT, Label> {
-    protected AbstractLabelLateBoundDefault(
-        boolean useHostConfiguration, Class<FragmentT> fragmentClass, Label defaultValue) {
-      super(useHostConfiguration, fragmentClass, defaultValue);
+    protected AbstractLabelLateBoundDefault(Class<FragmentT> fragmentClass, Label defaultValue) {
+      super(fragmentClass, defaultValue);
     }
   }
 
   @AutoCodec.VisibleForSerialization
   static class AlwaysNullLateBoundDefault extends SimpleLateBoundDefault<Void, Void> {
-    @AutoCodec @AutoCodec.VisibleForSerialization
+    @SerializationConstant @AutoCodec.VisibleForSerialization
     static final AlwaysNullLateBoundDefault INSTANCE = new AlwaysNullLateBoundDefault();
 
     private AlwaysNullLateBoundDefault() {
-      super(false, Void.class, null, (rule, attributes, unused) -> null);
+      super(Void.class, null, (rule, attributes, unused) -> null);
     }
   }
 
@@ -1602,11 +1591,8 @@ public final class Attribute implements Comparable<Attribute> {
       extends SimpleLateBoundDefault<FragmentT, Label> {
     @VisibleForTesting
     protected LabelLateBoundDefault(
-        boolean useHostConfiguration,
-        Class<FragmentT> fragmentClass,
-        Label defaultValue,
-        Resolver<FragmentT, Label> resolver) {
-      super(useHostConfiguration, fragmentClass, defaultValue, resolver);
+        Class<FragmentT> fragmentClass, Label defaultValue, Resolver<FragmentT, Label> resolver) {
+      super(fragmentClass, defaultValue, resolver);
     }
 
     /**
@@ -1621,12 +1607,6 @@ public final class Attribute implements Comparable<Attribute> {
      * LabelListLateBoundDefault#fromTargetConfiguration}. There are few situations where it isn't
      * the appropriate option.
      *
-     * <p>If you want a late-bound dependency which is configured in the host configuration, just
-     * use this method with {@link com.google.devtools.build.lib.analysis.config.HostTransition}. If
-     * you also need to decide the label of the dependency with information gained from the host
-     * configuration - and it's very unlikely that you do - you can use {@link
-     * LabelLateBoundDefault#fromHostConfiguration} as well.
-     *
      * <p>If you want to decide an attribute's value based on the value of its other attributes, use
      * a subclass of {@link ComputedDefault}. The only time you should need {@link
      * LabelListLateBoundDefault#fromRuleAndAttributesOnly} is if you need access to three or more
@@ -1637,8 +1617,9 @@ public final class Attribute implements Comparable<Attribute> {
      * attribute on another rule which is late-bound, use {@link #alwaysNull}.
      *
      * @param fragmentClass The fragment to receive from the target configuration. May also be
-     *     BuildConfiguration.class to receive the entire configuration (deprecated) - in this case,
-     *     you must only use methods of BuildConfiguration itself, and not use any fragments.
+     *     BuildConfigurationValue.class to receive the entire configuration (deprecated) - in this
+     *     case, you must only use methods of BuildConfigurationValue itself, and not use any
+     *     fragments.
      * @param defaultValue The default {@link Label} to return at loading time, when the
      *     configuration is not available.
      * @param resolver A function which will compute the actual value with the configuration.
@@ -1649,37 +1630,7 @@ public final class Attribute implements Comparable<Attribute> {
           !fragmentClass.equals(Void.class),
           "Use fromRuleAndAttributesOnly to specify a LateBoundDefault which does not use "
               + "configuration.");
-      return new LabelLateBoundDefault<>(false, fragmentClass, defaultValue, resolver);
-    }
-
-    /**
-     * Creates a new LateBoundDefault which uses the rule, its configured attributes, and a fragment
-     * of the host configuration.
-     *
-     * <p>This should only be necessary in very specialized cases. In almost all cases, you don't
-     * need this method, just {@link #fromTargetConfiguration} and {@link
-     * com.google.devtools.build.lib.analysis.config.HostTransition}.
-     *
-     * <p>This method only affects the configuration fragment passed to {@link #resolve}. You must
-     * also use {@link com.google.devtools.build.lib.analysis.config.HostTransition}, so that the
-     * dependency will be analyzed in the host configuration.
-     *
-     * @param fragmentClass The fragment to receive from the host configuration. May also be
-     *     BuildConfiguration.class to receive the entire configuration (deprecated) - in this case,
-     *     you must only use methods of BuildConfiguration itself, and not use any fragments. It is
-     *     very rare that a LateBoundDefault should need a host configuration fragment; use {@link
-     *     #fromTargetConfiguration} in most cases.
-     * @param defaultValue The default {@link Label} to return at loading time, when the
-     *     configuration is not available.
-     * @param resolver A function which will compute the actual value with the configuration.
-     */
-    public static <FragmentT> LabelLateBoundDefault<FragmentT> fromHostConfiguration(
-        Class<FragmentT> fragmentClass, Label defaultValue, Resolver<FragmentT, Label> resolver) {
-      Preconditions.checkArgument(
-          !fragmentClass.equals(Void.class),
-          "Use fromRuleAndAttributesOnly to specify a LateBoundDefault which does not use "
-              + "configuration.");
-      return new LabelLateBoundDefault<>(true, fragmentClass, defaultValue, resolver);
+      return new LabelLateBoundDefault<>(fragmentClass, defaultValue, resolver);
     }
   }
 
@@ -1687,9 +1638,8 @@ public final class Attribute implements Comparable<Attribute> {
   public static class LabelListLateBoundDefault<FragmentT>
       extends SimpleLateBoundDefault<FragmentT, List<Label>> {
     private LabelListLateBoundDefault(
-        Class<FragmentT> fragmentClass,
-        Resolver<FragmentT, List<Label>> resolver) {
-      super(/*useHostConfiguration=*/ false, fragmentClass, ImmutableList.of(), resolver);
+        Class<FragmentT> fragmentClass, Resolver<FragmentT, List<Label>> resolver) {
+      super(fragmentClass, ImmutableList.of(), resolver);
     }
 
     public static <FragmentT> LabelListLateBoundDefault<FragmentT> fromTargetConfiguration(
@@ -1811,13 +1761,6 @@ public final class Attribute implements Comparable<Attribute> {
         isLateBound(name) == (defaultValue instanceof LateBoundDefault),
         "late bound attributes require a default value that is late bound (and vice versa): %s",
         name);
-    if (isLateBound(name)) {
-      LateBoundDefault<?, ?> lateBoundDefault = (LateBoundDefault<?, ?>) defaultValue;
-      Preconditions.checkArgument(
-          !lateBoundDefault.useHostConfiguration() || transitionFactory.isHost(),
-          "a late bound default value using the host configuration must use the host transition");
-    }
-
     this.name = name;
     this.doc = doc;
     this.type = type;
@@ -2082,6 +2025,10 @@ public final class Attribute implements Comparable<Attribute> {
       result.add(aspect.getAspectClass());
     }
     return result.build();
+  }
+
+  public ImmutableList<AspectDetails<?>> getAspectsDetails() {
+    return aspects;
   }
 
   /**

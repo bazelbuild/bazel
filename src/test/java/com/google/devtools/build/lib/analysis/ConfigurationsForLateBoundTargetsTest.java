@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -69,16 +70,15 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
           () ->
               MockRule.define(
                   "rule_with_latebound_attr",
-                  (builder, env) -> {
-                    builder
-                        .add(
-                            attr(":latebound_attr", LABEL)
-                                .value(
-                                    Attribute.LateBoundDefault.fromConstantForTesting(
-                                        Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
-                                .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
-                        .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class);
-                  });
+                  (builder, env) ->
+                      builder
+                          .add(
+                              attr(":latebound_attr", LABEL)
+                                  .value(
+                                      Attribute.LateBoundDefault.fromConstantForTesting(
+                                          Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
+                                  .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
+                          .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class));
 
   @Before
   public void setupCustomLateBoundRules() throws Exception {
@@ -86,7 +86,6 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(LateBoundSplitUtil.RULE_WITH_TEST_FRAGMENT);
     builder.addConfigurationFragment(LateBoundSplitUtil.TestFragment.class);
-    builder.addConfigurationOptions(LateBoundSplitUtil.TestOptions.class);
     builder.addRuleDefinition(LATE_BOUND_DEP_RULE);
     useRuleClassProvider(builder.build());
   }
@@ -123,11 +122,17 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "    name = 'latebound_dep')");
     update("//foo:gen");
     assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
-    ConfiguredTarget dep =
-        Iterables.getOnlyElement(
+    // TODO(b/203203933) Fix LateboundDefault-s to return exec configuration
+    ImmutableList<ConfiguredTarget> deps =
+        ImmutableList.copyOf(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
-    assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
+    assertThat(deps).hasSize(2);
+    ConfiguredTarget dep =
+        deps.stream()
+            .filter(d -> getConfiguration(d).equals(getHostConfiguration()))
+            .findFirst()
+            .get();
     // This is technically redundant, but slightly stronger in checking that the host configuration
     // doesn't happen to match what the patch would have done.
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();

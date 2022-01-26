@@ -204,6 +204,12 @@ public interface JavaCommonApi<
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]"),
+        @Param(
+            name = "classpath_resources",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "[]"),
         @Param(name = "neverlink", positional = false, named = true, defaultValue = "False"),
         @Param(
             name = "enable_annotation_processing",
@@ -246,6 +252,7 @@ public interface JavaCommonApi<
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
+      Sequence<?> classpathResources, // <FileT> expected.
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
@@ -611,4 +618,12 @@ public interface JavaCommonApi<
       },
       useStarlarkThread = true)
   JavaInfoT toJavaBinaryInfo(JavaInfoT javaInfo, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_build_info",
+      documented = false,
+      parameters = {@Param(name = "ctx", doc = "The rule context")},
+      useStarlarkThread = true)
+  Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException;
 }

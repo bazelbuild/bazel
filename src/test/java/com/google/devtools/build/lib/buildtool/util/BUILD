@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
     ],
 )
+
 java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
@@ -60,7 +61,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
-        "//src/main/java/com/google/devtools/build/lib/includescanning",
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -99,6 +99,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:guava",
+        "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",

@@ -178,7 +178,7 @@ public class BlazeRuntimeWrapper {
       Iterables.addAll(
           options, module.getCommandOptions(DummyBuildCommand.class.getAnnotation(Command.class)));
     }
-    options.addAll(runtime.getRuleClassProvider().getConfigurationOptions());
+    options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
     return OptionsParser.builder().optionsClasses(options).build();
   }
 
@@ -319,7 +319,6 @@ public class BlazeRuntimeWrapper {
               /*recordAllDurations=*/ false,
               new JavaClock(),
               /*execStartTimeNanos=*/ 42,
-              /*enabledCpuUsageProfiling=*/ false,
               /*slimProfile=*/ false,
               /*includePrimaryOutput=*/ false,
               /*includeTargetLabel=*/ false,
@@ -371,10 +370,7 @@ public class BlazeRuntimeWrapper {
         this.configurations = lastResult.getBuildConfigurationCollection();
         finalizeBuildResult(lastResult);
         buildTool.stopRequest(
-            lastResult,
-            crash != null ? crash.getThrowable() : null,
-            detailedExitCode,
-            /*startSuspendCount=*/ 0);
+            lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
         getSkyframeExecutor().notifyCommandComplete(reporter);
         if (crash != null) {
           runtime

@@ -16,9 +16,6 @@
 
 set -euo pipefail
 
-# Assumes integration_test_setup.sh was loaded elsewhere (can't load it twice)
-enable_errexit
-
 readonly CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATS_PROTO_PATH="${CURRENT_DIR}/../../../main/protobuf/execution_statistics.proto"
 readonly STATS_PROTO_DIR="$(cd "$(dirname "${STATS_PROTO_PATH}")" && pwd)"

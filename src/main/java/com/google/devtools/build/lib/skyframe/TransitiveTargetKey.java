@@ -31,7 +31,6 @@ public final class TransitiveTargetKey implements SkyKey {
   public static final SkyFunctionName NAME = SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
 
   public static TransitiveTargetKey of(Label label) {
-    Preconditions.checkArgument(!label.getRepository().isDefault());
     return new TransitiveTargetKey(label);
   }
 

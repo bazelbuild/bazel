@@ -57,7 +57,6 @@ public class PackageValue implements NotComparableSkyValue {
   }
 
   public static Key key(PackageIdentifier pkgIdentifier) {
-    Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
     return Key.create(pkgIdentifier);
   }
 

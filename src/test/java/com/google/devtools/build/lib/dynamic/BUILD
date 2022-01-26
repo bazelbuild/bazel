@@ -20,6 +20,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_policy",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -30,6 +31,17 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ShrinkableSemaphoreTest",
+    size = "small",
+    srcs = ["ShrinkableSemaphoreTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//third_party:junit4",
         "//third_party:truth",
     ],
 )

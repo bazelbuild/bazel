@@ -8,13 +8,15 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-PATH_FRAGMENT_SOURCES = [
-    "PathFragment.java",
-    "PathFragmentSerializationProxy.java",
-    "PathSegmentIterator.java",
+OS_PATH_POLICY_SOURCES = [
     "OsPathPolicy.java",
     "UnixOsPathPolicy.java",
     "WindowsOsPathPolicy.java",
+]
+
+PATH_FRAGMENT_SOURCES = [
+    "PathFragment.java",
+    "PathSegmentIterator.java",
 ]
 
 OUTPUT_SERVICE_SOURCES = [
@@ -22,16 +24,25 @@ OUTPUT_SERVICE_SOURCES = [
 ]
 
 java_library(
+    name = "ospathpolicy",
+    srcs = OS_PATH_POLICY_SOURCES,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/windows:file",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "pathfragment",
     srcs = PATH_FRAGMENT_SOURCES,
     deps = [
+        ":ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/windows:file",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -45,7 +56,7 @@ java_library(
         [
             "*.java",
         ],
-        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES,
+        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES + OS_PATH_POLICY_SOURCES,
     ),
     deps = [
         ":pathfragment",

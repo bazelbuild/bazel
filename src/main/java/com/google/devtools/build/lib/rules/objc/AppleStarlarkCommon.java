@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -278,9 +278,8 @@ public class AppleStarlarkCommon
               avoidDepsList,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
-              isStampingEnabled,
-              shouldLipo);
-      return createStarlarkLinkingOutputs(linkingOutputs, thread, shouldLipo);
+              isStampingEnabled);
+      return createStarlarkLinkingOutputs(linkingOutputs, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(exception);
     }
@@ -311,7 +310,7 @@ public class AppleStarlarkCommon
    * function.
    */
   private StructImpl createStarlarkLinkingOutputs(
-      AppleLinkingOutputs linkingOutputs, StarlarkThread thread, boolean shouldLipo) {
+      AppleLinkingOutputs linkingOutputs, StarlarkThread thread) {
     Provider linkingOutputConstructor =
         new BuiltinProvider<StructImpl>("apple_linking_output", StructImpl.class) {};
     ImmutableList.Builder<StarlarkInfo> outputStructs = ImmutableList.builder();
@@ -347,17 +346,12 @@ public class AppleStarlarkCommon
     // defined in Starlark and propagated by rules_apple instead.
     fields.put("debug_outputs_provider", linkingOutputs.getLegacyDebugOutputsProvider());
 
-    if (shouldLipo) {
-      fields.put("binary", linkingOutputs.getLegacyBinaryArtifact());
-      fields.put("binary_provider", linkingOutputs.getLegacyBinaryInfoProvider());
-    }
-
     Provider linkingOutputsConstructor =
         new BuiltinProvider<StructImpl>("apple_linking_outputs", StructImpl.class) {};
     return StarlarkInfo.create(linkingOutputsConstructor, fields.build(), Location.BUILTIN);
   }
 
-  private static boolean isStampingEnabled(int stamp, BuildConfiguration config)
+  private static boolean isStampingEnabled(int stamp, BuildConfigurationValue config)
       throws EvalException {
     if (stamp == 0) {
       return false;

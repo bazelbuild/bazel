@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -37,6 +38,7 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
       ImmutableSet<ConfiguredTarget> targetsToSkip,
+      @Nullable FailureDetail failureDetail,
       ImmutableSet<Artifact> artifactsToBuild,
       ImmutableSet<ConfiguredTarget> parallelTests,
       ImmutableSet<ConfiguredTarget> exclusiveTests,
@@ -50,7 +52,7 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
         aspects,
         targetsToTest,
         targetsToSkip,
-        /*failureDetail=*/ null,
+        failureDetail,
         /*actionGraph=*/ null,
         artifactsToBuild,
         parallelTests,

@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -35,7 +33,6 @@ import net.starlark.java.eval.EvalException;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
-@AutoCodec
 public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
 
   public static final BuiltinProvider<JavaRuntimeInfo> PROVIDER =
@@ -102,9 +99,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   private final PathFragment javaHomeRunfilesPath;
   private final PathFragment javaBinaryRunfilesPath;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  JavaRuntimeInfo(
+  private JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -64,7 +64,7 @@ public final class TestTargetExecutionSettings {
       throws InterruptedException { // due to CommandLine.arguments
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
-    BuildConfiguration config = ruleContext.getConfiguration();
+    BuildConfigurationValue config = ruleContext.getConfiguration();
     TestConfiguration testConfig = config.getFragment(TestConfiguration.class);
 
     CommandLine targetArgs = runfilesSupport.getArgs();

@@ -210,7 +210,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     @Nullable
     @Override
-    public BuildConfigurationValue.Key getConfigurationKey() {
+    public BuildConfigurationKey getConfigurationKey() {
       return null;
     }
 

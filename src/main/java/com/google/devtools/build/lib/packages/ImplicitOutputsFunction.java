@@ -26,8 +26,7 @@ import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -75,7 +74,6 @@ public abstract class ImplicitOutputsFunction {
   }
 
   /** Implicit output functions executing Starlark code. */
-  @AutoCodec
   public static final class StarlarkImplicitOutputsFunctionWithCallback
       extends StarlarkImplicitOutputsFunction {
 
@@ -132,7 +130,6 @@ public abstract class ImplicitOutputsFunction {
   }
 
   /** Implicit output functions using a simple an output map. */
-  @AutoCodec
   public static final class StarlarkImplicitOutputsFunctionWithMap
       extends StarlarkImplicitOutputsFunction {
 
@@ -192,7 +189,7 @@ public abstract class ImplicitOutputsFunction {
       throws EvalException, InterruptedException;
 
   /** The implicit output function that returns no files. */
-  @AutoCodec
+  @SerializationConstant
   public static final SafeImplicitOutputsFunction NONE =
       new SafeImplicitOutputsFunction() {
         @Override
@@ -223,13 +220,10 @@ public abstract class ImplicitOutputsFunction {
     return new TemplateImplicitOutputsFunction(templates);
   }
 
-  @VisibleForSerialization
-  @AutoCodec
-  static class TemplateImplicitOutputsFunction extends SafeImplicitOutputsFunction {
+  private static class TemplateImplicitOutputsFunction extends SafeImplicitOutputsFunction {
 
     private final Iterable<String> templates;
 
-    @VisibleForSerialization
     TemplateImplicitOutputsFunction(Iterable<String> templates) {
       this.templates = templates;
     }
@@ -255,13 +249,10 @@ public abstract class ImplicitOutputsFunction {
       }
   }
 
-  @AutoCodec
-  @VisibleForSerialization
-  static class UnsafeTemplatesImplicitOutputsFunction extends ImplicitOutputsFunction {
+  private static class UnsafeTemplatesImplicitOutputsFunction extends ImplicitOutputsFunction {
 
     private final Iterable<String> templates;
 
-    @VisibleForSerialization
     UnsafeTemplatesImplicitOutputsFunction(Iterable<String> templates) {
       this.templates = templates;
     }
@@ -313,13 +304,11 @@ public abstract class ImplicitOutputsFunction {
     return fromFunctions(Arrays.asList(functions));
   }
 
-  @AutoCodec
-  @VisibleForSerialization
-  static class FunctionCombinationImplicitOutputsFunction extends SafeImplicitOutputsFunction {
+  private static class FunctionCombinationImplicitOutputsFunction
+      extends SafeImplicitOutputsFunction {
 
     private final Iterable<SafeImplicitOutputsFunction> functions;
 
-    @VisibleForSerialization
     FunctionCombinationImplicitOutputsFunction(Iterable<SafeImplicitOutputsFunction> functions) {
       this.functions = functions;
     }

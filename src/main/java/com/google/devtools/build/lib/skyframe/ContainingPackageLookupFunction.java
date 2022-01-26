@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /**
  * SkyFunction for {@link ContainingPackageLookupValue}s.
@@ -59,11 +58,5 @@ public class ContainingPackageLookupFunction implements SkyFunction {
     }
     PackageIdentifier parentId = PackageIdentifier.create(dir.getRepository(), parentDir);
     return env.getValue(ContainingPackageLookupValue.key(parentId));
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

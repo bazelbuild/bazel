@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -361,8 +362,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
-              /*transitivePackageLoader=*/ null,
-              /* graphFactory= */ null,
+              /*queryTransitivePackagePreloader=*/ null,
+              /*graphFactory=*/ null,
               packageProvider,
               packageProvider,
               preloader,
@@ -381,7 +382,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*extraFunctions=*/ ImmutableList.of(),
               /*packagePath=*/ null,
               /*blockUniverseEvaluationErrors=*/ false,
-              /*useGraphlessQuery=*/ graphlessQuery);
+              /*useGraphlessQuery=*/ graphlessQuery,
+              "genquery for " + ruleContext.getLabel());
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
@@ -490,7 +492,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         checkValidPatternType(pattern);
         patternKeys.put(
             TargetPatternValue.key(
-                pattern, FilteringPolicies.NO_FILTER, PathFragment.EMPTY_FRAGMENT),
+                SignedTargetPattern.parse(pattern, TargetPattern.defaultParser()),
+                FilteringPolicies.NO_FILTER),
             pattern);
       }
       Set<SkyKey> packageKeys = new HashSet<>();
@@ -553,8 +556,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     private void checkValidPatternType(String pattern) throws TargetParsingException {
-      TargetPattern.Type type =
-          new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT).parse(pattern).getType();
+      TargetPattern.Type type = TargetPattern.defaultParser().parse(pattern).getType();
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
         throw new TargetParsingException(
             String.format("couldn't determine target from filename '%s'", pattern),

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.util.concurrent.AbstractFuture;
@@ -31,7 +30,7 @@ import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.core.SingleOnSubscribe;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.exceptions.Exceptions;
-import java.util.concurrent.Callable;
+import io.reactivex.rxjava3.functions.Supplier;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,7 +47,7 @@ public class RxFutures {
    * completed.
    *
    * <p>A {@link ListenableFuture} represents some computation that is already in progress. We use
-   * {@link Callable} here to defer the execution of the thing that produces ListenableFuture until
+   * {@link Supplier} here to defer the execution of the thing that produces ListenableFuture until
    * there is subscriber.
    *
    * <p>Errors are also propagated except for certain "fatal" exceptions defined by rxjava. Multiple
@@ -57,19 +56,19 @@ public class RxFutures {
    * <p>Disposes the Completable to cancel the underlying ListenableFuture.
    */
   public static Completable toCompletable(
-      Callable<ListenableFuture<Void>> callable, Executor executor) {
-    return Completable.create(new OnceCompletableOnSubscribe(callable, executor));
+      Supplier<ListenableFuture<Void>> supplier, Executor executor) {
+    return Completable.create(new OnceCompletableOnSubscribe(supplier, executor));
   }
 
   private static class OnceCompletableOnSubscribe implements CompletableOnSubscribe {
     private final AtomicBoolean subscribed = new AtomicBoolean(false);
 
-    private final Callable<ListenableFuture<Void>> callable;
+    private final Supplier<ListenableFuture<Void>> supplier;
     private final Executor executor;
 
     private OnceCompletableOnSubscribe(
-        Callable<ListenableFuture<Void>> callable, Executor executor) {
-      this.callable = callable;
+        Supplier<ListenableFuture<Void>> supplier, Executor executor) {
+      this.supplier = supplier;
       this.executor = executor;
     }
 
@@ -77,7 +76,7 @@ public class RxFutures {
     public void subscribe(@NonNull CompletableEmitter emitter) throws Throwable {
       try {
         checkState(!subscribed.getAndSet(true), "This completable cannot be subscribed to twice");
-        ListenableFuture<Void> future = callable.call();
+        ListenableFuture<Void> future = supplier.get();
         Futures.addCallback(
             future,
             new FutureCallback<Void>() {
@@ -120,7 +119,7 @@ public class RxFutures {
    * completed.
    *
    * <p>A {@link ListenableFuture} represents some computation that is already in progress. We use
-   * {@link Callable} here to defer the execution of the thing that produces ListenableFuture until
+   * {@link Supplier} here to defer the execution of the thing that produces ListenableFuture until
    * there is subscriber.
    *
    * <p>Errors are also propagated except for certain "fatal" exceptions defined by rxjava. Multiple
@@ -128,18 +127,18 @@ public class RxFutures {
    *
    * <p>Disposes the Single to cancel the underlying ListenableFuture.
    */
-  public static <T> Single<T> toSingle(Callable<ListenableFuture<T>> callable, Executor executor) {
-    return Single.create(new OnceSingleOnSubscribe<>(callable, executor));
+  public static <T> Single<T> toSingle(Supplier<ListenableFuture<T>> supplier, Executor executor) {
+    return Single.create(new OnceSingleOnSubscribe<>(supplier, executor));
   }
 
   private static class OnceSingleOnSubscribe<T> implements SingleOnSubscribe<T> {
     private final AtomicBoolean subscribed = new AtomicBoolean(false);
 
-    private final Callable<ListenableFuture<T>> callable;
+    private final Supplier<ListenableFuture<T>> supplier;
     private final Executor executor;
 
-    private OnceSingleOnSubscribe(Callable<ListenableFuture<T>> callable, Executor executor) {
-      this.callable = callable;
+    private OnceSingleOnSubscribe(Supplier<ListenableFuture<T>> supplier, Executor executor) {
+      this.supplier = supplier;
       this.executor = executor;
     }
 
@@ -147,13 +146,12 @@ public class RxFutures {
     public void subscribe(@NonNull SingleEmitter<T> emitter) throws Throwable {
       try {
         checkState(!subscribed.getAndSet(true), "This single cannot be subscribed to twice");
-        ListenableFuture<T> future = callable.call();
+        ListenableFuture<T> future = supplier.get();
         Futures.addCallback(
             future,
             new FutureCallback<T>() {
               @Override
               public void onSuccess(@Nullable T t) {
-                checkNotNull(t, "value in future onSuccess callback is null");
                 emitter.onSuccess(t);
               }
 

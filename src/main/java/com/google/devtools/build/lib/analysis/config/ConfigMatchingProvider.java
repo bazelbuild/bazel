@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 
 /**
@@ -33,7 +32,6 @@ import java.util.Map;
  * build behavior.
  */
 @Immutable
-@AutoCodec
 @AutoValue
 public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
 
@@ -47,7 +45,6 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * @param matches whether or not this matcher matches the configuration associated with its
    *     configured target
    */
-  @AutoCodec.Instantiator
   public static ConfigMatchingProvider create(
       Label label,
       ImmutableMultimap<String, String> settingsMap,

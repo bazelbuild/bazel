@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -812,7 +814,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   void reportError(String message, EventHandler eventHandler) {
-    eventHandler.handle(Event.error(location, message));
+    eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
     this.containsErrors = true;
   }
 
@@ -940,6 +942,31 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       }
     }
     return labels.values();
+  }
+
+  /**
+   * Should this rule instance resolve toolchains?
+   *
+   * <p>This may happen for two reasons:
+   *
+   * <ol>
+   *   <li>The rule uses toolchains by definition ({@link
+   *       RuleClass.Builder#useToolchainResolution(ToolchainResolutionMode)}
+   *   <li>The rule instance has a select(), which means it may depend on target platform properties
+   *       that are only provided when toolchain resolution is enabled.
+   * </ol>
+   */
+  public boolean useToolchainResolution() {
+    ToolchainResolutionMode mode = ruleClass.useToolchainResolution();
+    if (mode.isActive()) {
+      return true;
+    } else if (mode == ToolchainResolutionMode.HAS_SELECT) {
+      RawAttributeMapper attr = RawAttributeMapper.of(this);
+      return (attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
+          && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty());
+    } else {
+      return false;
+    }
   }
 
   /**

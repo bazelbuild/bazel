@@ -57,8 +57,9 @@ Next, download the Bazel binary installer named
 `bazel-<version>-installer-darwin-x86_64.sh` from the
 [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
-Note: **on macOS Catalina**, due to Apple's new app notarization requirements,
-you need to download the installer from the terminal using `curl`:
+Note: **on macOS Catalina or newer (macOS >= 11)**, due to Apple's new app
+signing requirements, you need to download the installer from the terminal
+using `curl`:
 
 ```shell
 # Example installing version `3.2.0`. Replace the version below as appropriate.
@@ -67,7 +68,7 @@ curl -fLO "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION
 ```
 
 This is a temporary workaround until the macOS release flow supports
-notarization ([#9304](https://github.com/bazelbuild/bazel/issues/9304)).
+signing ([#9304](https://github.com/bazelbuild/bazel/issues/9304)).
 
 ### Step 3: Run the installer
 
@@ -82,9 +83,10 @@ The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
 sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help` command to see
 additional installation options.
 
-If you are **on macOS Catalina** and get an error that _**“bazel-real” cannot be
-opened because the developer cannot be verified**_, you need to re-download
-the installer from the terminal using `curl` as a workaround; see Step 2 above.
+If you are **on macOS Catalina or newer (macOS >= 11)** and get an error that
+_**“bazel-real” cannot be opened because the developer cannot be verified**_,
+you need to re-download the installer from the terminal using `curl` as a
+workaround; see Step 2 above.
 
 ### Step 4: Set up your environment
 

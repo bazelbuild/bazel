@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
-import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -81,7 +80,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
    */
   private ConfiguredTarget getConfiguredTargetInAppleBinaryTransition(String label)
       throws Exception {
-    BuildConfiguration childConfig =
+    BuildConfigurationValue childConfig =
         Iterables.getOnlyElement(
             getSplitConfigurations(
                 targetConfig,
@@ -120,7 +119,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcAspectTarget =
         getJ2ObjCAspectConfiguredTarget("//java/com/google/dummy/test:test");
     CcCompilationContext ccCompilationContext =
-        j2objcAspectTarget.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        j2objcAspectTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     assertThat(baseArtifactNames(ccCompilationContext.getHeaderTokens().toList()))
         .doesNotContain("test.h.processed");
@@ -311,7 +310,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
-        target.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
     Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test, getJ2ObjcAspect());
     Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test, getJ2ObjcAspect());
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList()).contains(headerFile);
@@ -361,7 +360,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
-        target.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     Artifact headerFile =
         getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test, getJ2ObjcAspect());
@@ -424,6 +423,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testNoJ2ObjcDeadCodeRemovalActionWithoutOptFlag() throws Exception {
     useConfiguration("--noj2objc_dead_code_removal");
     addSimpleJ2ObjcLibraryWithEntryClasses();
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
     Artifact expectedPrunedSource = getBinArtifact(
@@ -461,7 +461,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
-        target.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
     Artifact srcJarSources = getFirstArtifactEndingWith(
         provider.get(ObjcProvider.SOURCE), "source_files");
     Artifact srcJarHeaders =
@@ -564,12 +564,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("app/Info.plist");
     scratch.file(
         "app/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "package(default_visibility=['//visibility:public'])",
         "objc_library(",
         "    name = 'lib',",
         "    deps = ['" + j2objcLibraryTargetDep + "'])",
         "",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'app',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -706,8 +707,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcAppearsInLinkArgs() throws Exception {
     scratch.file(
         "java/c/y/BUILD", "java_library(", "    name = 'ylib',", "    srcs = ['lib.java'],", ")");
+    addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "j2objc_library(",
         "    name = 'j2',",
         "    deps = [ '//java/c/y:ylib' ],",
@@ -715,7 +718,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             + TestConstants.TOOLS_REPOSITORY
             + "//third_party/java/j2objc:jre_io_lib' ],",
         ")",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'test',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -912,6 +915,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcSourcesCompilationAndLinking() throws Exception {
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/dummy/test:transpile");
 
     checkObjcArchiveAndLinkActions(
@@ -938,6 +942,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "        ':dummy',",
         "        '//java/com/google/dummy/test:transpile',",
         "    ])");
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/dummy:transpile");
 
     checkObjcArchiveAndLinkActions(
@@ -1056,6 +1061,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "proto_lang_toolchain(",
         "    name = 'alt_j2objc_proto_toolchain',",
         "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
+        "    plugin_format_flag = '--plugin=protoc-gen-PLUGIN_j2objc=%s', ",
         "    plugin = ':alt_proto_plugin',",
         "    runtime = ':alt_proto_runtime',",
         "    blacklisted_protos = [':excluded_protos'],",
@@ -1117,6 +1123,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcDeadCodeRemovalActionWithOptFlag() throws Exception {
     useConfiguration("--j2objc_dead_code_removal");
     addSimpleJ2ObjcLibraryWithEntryClasses();
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
     ConfiguredTarget appTarget = getConfiguredTargetInAppleBinaryTransition("//app:app");
@@ -1168,8 +1175,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   /** Returns the actions created by the action template corresponding to given artifact. */
   protected ImmutableList<CppCompileAction> getActionsForInputsOfGeneratingActionTemplate(
-      Artifact artifact, TreeFileArtifact treeFileArtifact)
-      throws ActionTemplateExpansionException {
+      Artifact artifact, TreeFileArtifact treeFileArtifact) throws ActionExecutionException {
     CppCompileActionTemplate template =
         (CppCompileActionTemplate) getActionGraph().getGeneratingAction(artifact);
     return template.generateActionsForInputArtifacts(

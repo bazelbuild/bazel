@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -59,7 +58,6 @@ import net.starlark.java.syntax.Location;
  * not mentioned on the output.
  */
 @Immutable
-@AutoCodec
 public final class OutputGroupInfo extends StructImpl
     implements StarlarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
   public static final String STARLARK_NAME = "output_groups";

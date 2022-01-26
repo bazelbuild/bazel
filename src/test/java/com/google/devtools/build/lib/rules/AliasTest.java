@@ -27,9 +27,10 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Provider;
@@ -189,8 +190,8 @@ public class AliasTest extends BuildViewTestCase {
     assertThat(actualKey.getBaseConfiguredTargetKey().getConfigurationKey())
         .isEqualTo(actualTarget.getConfigurationKey());
     assertThat(getMyInfoFromTarget(aspect).getValue("origin")).isEqualTo("aspect");
-    BuildConfiguration actualConfig =
-        (BuildConfiguration) getMyInfoFromTarget(aspect).getValue("config");
+    BuildConfigurationValue actualConfig =
+        (BuildConfigurationValue) getMyInfoFromTarget(aspect).getValue("config");
     assertThat(actualKey.getBaseConfiguredTargetKey().getConfigurationKey().getOptions().checksum())
         .isEqualTo(actualConfig.checksum());
 
@@ -411,7 +412,7 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void testRedirectChasing() throws Exception {
-    String toolsRepository = ruleClassProvider.getToolsRepository();
+    RepositoryName toolsRepository = ruleClassProvider.getToolsRepository();
     scratch.file("a/BUILD",
         "alias(name='cc', actual='" + toolsRepository + "//tools/cpp:toolchain')",
         "cc_library(name='a', srcs=['a.cc'])");

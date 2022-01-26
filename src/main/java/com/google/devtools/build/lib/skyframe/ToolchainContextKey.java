@@ -42,7 +42,7 @@ public abstract class ToolchainContextKey implements SkyKey {
     return SkyFunctions.TOOLCHAIN_RESOLUTION;
   }
 
-  abstract BuildConfigurationValue.Key configurationKey();
+  abstract BuildConfigurationKey configurationKey();
 
   abstract ImmutableSet<Label> requiredToolchainTypeLabels();
 
@@ -55,7 +55,7 @@ public abstract class ToolchainContextKey implements SkyKey {
   /** Builder for {@link ToolchainContextKey}. */
   @AutoValue.Builder
   public interface Builder {
-    Builder configurationKey(BuildConfigurationValue.Key key);
+    Builder configurationKey(BuildConfigurationKey key);
 
     Builder requiredToolchainTypeLabels(ImmutableSet<Label> requiredToolchainTypeLabels);
 

@@ -17,13 +17,13 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Starlark;
 
 /** A natively-defined aspect that is may be referenced by Starlark attribute definitions. */
 public abstract class StarlarkNativeAspect extends NativeAspectClass implements StarlarkAspect {
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
   @Override
@@ -32,14 +32,8 @@ public abstract class StarlarkNativeAspect extends NativeAspectClass implements 
   }
 
   @Override
-  public void attachToAspectsList(
-      String baseAspectName, AspectsListBuilder aspectsList, boolean allowAspectsParameters)
+  public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
       throws EvalException {
-
-    if (!allowAspectsParameters && !this.getParamAttributes().isEmpty()) {
-      throw Starlark.errorf("Cannot use parameterized aspect %s at the top level.", this.getName());
-    }
-
     aspectsList.addAspect(this, baseAspectName);
   }
 

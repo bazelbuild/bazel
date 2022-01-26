@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.Strict
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoConfigurationApi;
@@ -30,6 +31,9 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Configuration for Protocol Buffer Libraries. */
 @Immutable
@@ -37,6 +41,7 @@ import java.util.List;
 // configuration fragment in aspect definitions.
 @RequiresOptions(options = {ProtoConfiguration.Options.class})
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
+
   /** Command line options. */
   public static class Options extends FragmentOptions {
     @Option(
@@ -80,7 +85,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_compiler",
-        defaultValue = "@com_google_protobuf//:protoc",
+        defaultValue = ProtoConstants.DEFAULT_PROTOC_LABEL,
         converter = CoreOptionConverters.LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -201,8 +206,24 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.options = options;
   }
 
+  @StarlarkMethod(name = "protoc_opts", useStarlarkThread = true, documented = false)
+  public ImmutableList<String> protocOptsForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return protocOpts();
+  }
+
   public ImmutableList<String> protocOpts() {
     return protocOpts;
+  }
+
+  @StarlarkMethod(
+      name = "experimental_proto_descriptorsets_include_source_info",
+      useStarlarkThread = true,
+      documented = false)
+  public boolean experimentalProtoDescriptorSetsIncludeSourceInfoForStarlark(StarlarkThread thread)
+      throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalProtoDescriptorSetsIncludeSourceInfo();
   }
 
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfo() {
@@ -218,6 +239,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.experimentalProtoExtraActions;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_compiler",
+      doc = "Label for the proto compiler.",
+      defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
   public Label protoCompiler() {
     return options.protoCompiler;
   }
@@ -230,12 +255,22 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.protoToolchainForJ2objc;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_toolchain_for_java_lite",
+      doc = "Label for the java lite proto toolchains.",
+      defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
   public Label protoToolchainForJavaLite() {
     return options.protoToolchainForJavaLite;
   }
 
   public Label protoToolchainForCc() {
     return options.protoToolchainForCc;
+  }
+
+  @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)
+  public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return strictProtoDeps().toString();
   }
 
   public StrictDepsMode strictProtoDeps() {
@@ -252,6 +287,16 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean strictPublicImports() {
     return options.experimentalJavaProtoAddAllowedPublicImports;
+  }
+
+  @StarlarkMethod(
+      name = "generated_protos_in_virtual_imports",
+      useStarlarkThread = true,
+      documented = false)
+  public boolean generatedProtosInVirtualImportsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return generatedProtosInVirtualImports();
   }
 
   public boolean generatedProtosInVirtualImports() {

@@ -17,8 +17,13 @@ package com.google.devtools.build.lib.worker;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -28,6 +33,7 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -35,6 +41,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.buildtool.CollectMetricsEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
@@ -51,26 +58,36 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.InterruptedIOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * A spawn runner that launches Spawns the first time they are used in a persistent mode and then
  * shards work over all the processes.
  */
 final class WorkerSpawnRunner implements SpawnRunner {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_TOOLS = "because the action has no tools";
@@ -90,6 +107,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
+  private final Runtime runtime;
+
+  /** Mapping of worker ids to their metrics. */
+  private Map<Integer, WorkerMetric> workerIdToWorkerMetric = new ConcurrentHashMap<>();
 
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
@@ -100,7 +121,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       BinTools binTools,
       ResourceManager resourceManager,
       RunfilesTreeUpdater runfilesTreeUpdater,
-      WorkerOptions workerOptions) {
+      WorkerOptions workerOptions,
+      EventBus eventBus,
+      Runtime runtime) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
@@ -110,6 +133,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.runfilesTreeUpdater = runfilesTreeUpdater;
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
+    this.runtime = runtime;
+    eventBus.register(this);
   }
 
   @Override
@@ -366,7 +391,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try (ResourceHandle handle =
-          resourceManager.acquireResources(owner, spawn.getLocalResources())) {
+          resourceManager.acquireResources(
+              owner,
+              spawn.getLocalResources(),
+              context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
         // We acquired a worker and resources -- mark that as queuing time.
         spawnMetrics.setQueueTime(queueStopwatch.elapsed());
 
@@ -379,6 +407,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           // We consider `prepareExecution` to be also part of setup.
           Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
+          initializeMetricsSet(key, worker);
           spawnMetrics.setSetupTime(setupInputsTime.plus(prepareExecutionStopwatch.elapsed()));
         } catch (IOException e) {
           restoreInterrupt(e);
@@ -469,7 +498,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                   ProfilerTask.WORKER_COPYING_OUTPUTS,
                   String.format("Worker #%d copying output files", worker.getWorkerId()))) {
         Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
-        context.lockOutputFiles();
+        context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
         worker.finishExecution(execRoot, outputs);
         spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
       } catch (IOException e) {
@@ -503,6 +532,86 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     return response;
+  }
+
+  /**
+   * Initializes metricsSet for workers. If worker metrics already exists for this worker, does
+   * nothing
+   */
+  private void initializeMetricsSet(WorkerKey workerKey, Worker worker) {
+
+    if (workerIdToWorkerMetric.containsKey(worker.getWorkerId())) {
+      return;
+    }
+    long processId = worker.getProcessId();
+
+    WorkerMetric workerMetric =
+        new WorkerMetric(
+            worker.getWorkerId(),
+            processId,
+            workerKey.getMnemonic(),
+            workerKey.isMultiplex(),
+            workerKey.isSandboxed());
+
+    workerIdToWorkerMetric.put(worker.getWorkerId(), workerMetric);
+  }
+
+  // Collects process stats for each worker
+  @VisibleForTesting
+  public Map<Long, WorkerMetric.WorkerStat> collectStats(OS os, List<Long> processIds) {
+    Map<Long, WorkerMetric.WorkerStat> pidResults = new HashMap<>();
+
+    if (os != OS.LINUX && os != OS.DARWIN) {
+      return pidResults;
+    }
+
+    List<Long> filteredProcessIds =
+        processIds.stream().filter(p -> p > 0).collect(Collectors.toList());
+    String pids = Joiner.on(",").join(filteredProcessIds);
+    BufferedReader psOutput;
+
+    try {
+      String command = "ps -o pid,rss -p " + pids;
+      psOutput =
+          new BufferedReader(
+              new InputStreamReader(
+                  runtime.exec(new String[] {"bash", "-c", command}).getInputStream(), "UTF-8"));
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Error while executing command for pids: %s", pids);
+      return pidResults;
+    }
+
+    try {
+      // The output of the above ps command looks similar to this:
+      // PID RSS
+      // 211706 222972
+      // 2612333 6180
+      // We skip over the first line (the header) and then parse the PID and the resident memory
+      // size in kilobytes.
+      Instant now = Instant.now();
+      String output = null;
+      boolean isFirst = true;
+      while ((output = psOutput.readLine()) != null) {
+        if (isFirst) {
+          isFirst = false;
+          continue;
+        }
+
+        List<String> line = Splitter.on(" ").trimResults().omitEmptyStrings().splitToList(output);
+        if (line.size() != 2) {
+          logger.atWarning().log("Unexpected length of split line %s %d", output, line.size());
+          continue;
+        }
+
+        long pid = Long.parseLong(line.get(0));
+        int memoryInKb = Integer.parseInt(line.get(1)) / 1000;
+
+        pidResults.put(pid, new WorkerMetric.WorkerStat(memoryInKb, now));
+      }
+    } catch (IllegalArgumentException | IOException e) {
+      logger.atWarning().withCause(e).log("Error while parsing psOutput: %s", psOutput);
+    }
+    return pidResults;
   }
 
   /**
@@ -542,7 +651,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 }
               } finally {
                 if (w != null) {
-                  workers.returnObject(key, w);
+                  try {
+                    workers.returnObject(key, w);
+                  } catch (IllegalStateException e3) {
+                    // The worker already not part of the pool
+                  }
                 }
               }
             },
@@ -574,5 +687,39 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setMessage(message)
             .setWorker(FailureDetails.Worker.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
+  public void onCollectMetricsEvent(CollectMetricsEvent event) {
+    Map<Long, WorkerMetric.WorkerStat> workerStats =
+        collectStats(
+            OS.getCurrent(),
+            this.workerIdToWorkerMetric.values().stream()
+                .map(WorkerMetric::getProcessId)
+                .collect(Collectors.toList()));
+
+    for (WorkerMetric workerMetric : this.workerIdToWorkerMetric.values()) {
+      WorkerMetric.WorkerStat workerStat = workerStats.get(workerMetric.getProcessId());
+      if (workerStat == null) {
+        workerMetric.setIsMeasurable(false);
+        continue;
+      }
+      workerMetric.addWorkerStat(workerStat);
+    }
+
+    this.reporter.post(
+        new WorkerMetricsEvent(new ArrayList<>(this.workerIdToWorkerMetric.values())));
+    this.workerIdToWorkerMetric.clear();
+
+    // remove dead workers from metrics list
+    Map<Integer, WorkerMetric> measurableWorkerMetrics = new HashMap<>();
+    for (WorkerMetric workerMetric : workerIdToWorkerMetric.values()) {
+      if (workerMetric.getIsMeasurable()) {
+        measurableWorkerMetrics.put(workerMetric.getWorkerId(), workerMetric);
+      }
+    }
+
+    this.workerIdToWorkerMetric = measurableWorkerMetrics;
   }
 }

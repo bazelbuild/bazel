@@ -38,7 +38,7 @@ import org.junit.runners.JUnit4;
  * Tests for {@code native.existing_rule} and {@code native.existing_rules} functions.
  *
  * <p>This class covers the legacy behavior where the {@code
- * --experimental_existing_rules_immutable_view} flag is disabled. The enabled case is covered by
+ * --incompatible_existing_rules_immutable_view} flag is disabled. The enabled case is covered by
  * the subclass, {@link WithImmutableView}.
  */
 @RunWith(JUnit4.class)
@@ -48,8 +48,8 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   // Intended to be overridden by this test case's subclasses. Note that overriding of JUnit's
   // @Before methods is not recommended.
   protected void setupOptions() throws Exception {
-    // --noexperimental_existing_rules_immutable_view is the default; set it explicitly for clarity.
-    setBuildLanguageOptions("--noexperimental_existing_rules_immutable_view");
+    // --noincompatible_existing_rules_immutable_view is the default; set it explicitly for clarity.
+    setBuildLanguageOptions("--noincompatible_existing_rules_immutable_view");
   }
 
   @Before
@@ -383,14 +383,14 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
 
   /**
    * Tests for {@code native.existing_rule} and {@code native.existing_rules} Starlark functions
-   * with the {@code --experimental_existing_rules_immutable_view} flag set.
+   * with the {@code --incompatible_existing_rules_immutable_view} flag set.
    */
   @RunWith(JUnit4.class)
   public static final class WithImmutableView extends NativeExistingRulesTest {
 
     @Override
     protected void setupOptions() throws Exception {
-      setBuildLanguageOptions("--experimental_existing_rules_immutable_view");
+      setBuildLanguageOptions("--incompatible_existing_rules_immutable_view");
     }
 
     @Test

@@ -42,13 +42,21 @@ public interface JavaPluginInfoApi<
         JavaPluginDataT extends JavaPluginDataApi,
         JavaOutputT extends JavaOutputApi<FileT>>
     extends StructApi {
-  @StarlarkMethod(name = "plugins", doc = "Returns data about all plugins.", structField = true)
+  @StarlarkMethod(
+      name = "plugins",
+      doc =
+          "Returns data about all plugins that a consuming target should apply."
+              + "<p>This is typically either a <code>java_plugin</code> itself or a "
+              + "<code>java_library</code> exporting one or more plugins. "
+              + "<p>A <code>java_library</code> runs annotation processing with all plugins from "
+              + "this field appearing in <code>deps</code> and <code>plugins</code> attributes.",
+      structField = true)
   JavaPluginDataT plugins();
 
   @StarlarkMethod(
       name = "api_generating_plugins",
       doc =
-          "Returns data about API generating plugins. "
+          "Returns data about API generating plugins defined or exported by this target. "
               + "<p>Those annotation processors are applied to a Java target before producing "
               + "its header jars (which contain method signatures). When no API plugins are "
               + "present, header jars are generated from the sources, reducing critical path. "

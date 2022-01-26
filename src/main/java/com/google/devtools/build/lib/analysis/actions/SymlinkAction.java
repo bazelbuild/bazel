@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +38,6 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** Action to create a symbolic link. */
-@AutoCodec
 public final class SymlinkAction extends AbstractAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
@@ -48,7 +45,6 @@ public final class SymlinkAction extends AbstractAction {
   @Nullable private final PathFragment inputPath;
   @Nullable private final String progressMessage;
 
-  @VisibleForSerialization
   enum TargetType {
     /**
      * The symlink points into a Fileset.
@@ -92,9 +88,7 @@ public final class SymlinkAction extends AbstractAction {
     return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.EXECUTABLE);
   }
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  SymlinkAction(
+  private SymlinkAction(
       ActionOwner owner,
       PathFragment inputPath,
       Artifact primaryInput,
@@ -252,8 +246,7 @@ public final class SymlinkAction extends AbstractAction {
       // Note that utime() on a symlink actually changes the mtime of its target.
       Path linkPath = getOutputPath(actionExecutionContext);
       if (linkPath.exists()) {
-        // -1L means "use the current time".
-        linkPath.setLastModifiedTime(-1L);
+        linkPath.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
       } else {
         // Should only happen if the Fileset included no links.
         actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();

@@ -71,6 +71,7 @@ import com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesug
 import com.google.devtools.build.android.desugar.typeannotation.LocalTypeAnnotationUse;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchyScavenger;
+import com.google.devtools.build.android.r8.DependencyCollector;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOError;
@@ -416,7 +417,7 @@ public class Desugar {
                 .getConstructor(Boolean.TYPE)
                 .newInstance(options.tolerateMissingDependencies);
       } catch (ReflectiveOperationException | SecurityException e) {
-        throw new IllegalStateException("Can't emit desugaring metadata as requested");
+        throw new IllegalStateException("Can't emit desugaring metadata as requested", e);
       }
     } else if (options.tolerateMissingDependencies) {
       return DependencyCollector.NoWriteCollectors.NOOP;

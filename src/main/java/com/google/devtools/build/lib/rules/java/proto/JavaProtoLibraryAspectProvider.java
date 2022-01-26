@@ -18,11 +18,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A provider used to communicate information between java_proto_library and its aspect. */
-@AutoCodec
-public class JavaProtoLibraryAspectProvider implements TransitiveInfoProvider {
+public final class JavaProtoLibraryAspectProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> jars;
 
   /**

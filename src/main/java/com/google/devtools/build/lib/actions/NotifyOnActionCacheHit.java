@@ -45,9 +45,10 @@ public interface NotifyOnActionCacheHit extends Action {
   }
 
   /**
-   * Called when action has "cache hit", and therefore need not be executed.
+   * Called when action has "cache hit", and therefore need not be executed. Returns false if there
+   * was a failure to record the action cache hit, and so the action must be executed.
    *
    * @param context the action context for a cache hit
    */
-  void actionCacheHit(ActionCachedContext context);
+  boolean actionCacheHit(ActionCachedContext context);
 }

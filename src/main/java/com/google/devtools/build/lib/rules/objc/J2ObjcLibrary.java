@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import java.util.List;
 
 /**
@@ -50,14 +48,12 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       ImmutableList.of("java_import", "java_library", "java_proto_library", "proto_library");
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
-    List<J2ObjcCcInfo> j2objcCcInfos = ruleContext.getPrerequisites("deps", J2ObjcCcInfo.class);
     return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .addDeps(ruleContext.getPrerequisites("deps"))
         .addDeps(ruleContext.getPrerequisites("jre_deps"))
-        .addDirectCcCompilationContexts(
-            j2objcCcInfos.stream().map(J2ObjcCcInfo::getCcInfo).collect(toList()))
+        .addDirectCcCompilationContexts(ruleContext.getPrerequisites("deps", CcInfo.PROVIDER))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
   }

@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil;
@@ -174,8 +174,8 @@ public final class ConfiguredTargetFactory {
       AnalysisEnvironment analysisEnvironment,
       ArtifactFactory artifactFactory,
       Target target,
-      BuildConfiguration config,
-      BuildConfiguration hostConfig,
+      BuildConfigurationValue config,
+      BuildConfigurationValue hostConfig,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
@@ -275,8 +275,8 @@ public final class ConfiguredTargetFactory {
   private ConfiguredTarget createRule(
       AnalysisEnvironment env,
       Rule rule,
-      BuildConfiguration configuration,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue configuration,
+      BuildConfigurationValue hostConfiguration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
@@ -288,30 +288,22 @@ public final class ConfiguredTargetFactory {
         ruleClass.getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
-        new RuleContext.Builder(
-                env,
-                rule,
-                ImmutableList.of(),
-                configuration,
-                hostConfiguration,
-                ruleClassProvider.getPrerequisiteValidator(),
-                configurationFragmentPolicy,
-                configuredTargetKey)
-            .setToolsRepository(ruleClassProvider.getToolsRepository())
-            .setStarlarkSemantics(env.getStarlarkSemantics())
+        new RuleContext.Builder(env, rule, /*aspects=*/ ImmutableList.of(), configuration)
+            .setRuleClassProvider(ruleClassProvider)
+            .setHostConfiguration(hostConfiguration)
+            .setConfigurationFragmentPolicy(configurationFragmentPolicy)
+            .setActionOwnerSymbol(configuredTargetKey)
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContexts(toolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
-            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(
                     rule,
                     configuration,
-                    ruleClassProvider.getUniversalFragments(),
+                    ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();
@@ -359,9 +351,7 @@ public final class ConfiguredTargetFactory {
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
           ConfiguredTarget target =
               StarlarkRuleConfiguredTargetUtil.buildRule(
-                  ruleContext,
-                  ruleClass.getAdvertisedProviders(),
-                  ruleClassProvider.getToolsRepository());
+                  ruleContext, ruleClass.getAdvertisedProviders());
 
           return target != null ? target : erroredConfiguredTarget(ruleContext);
         }
@@ -492,51 +482,37 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ResolvedToolchainContext toolchainContext,
-      BuildConfiguration aspectConfiguration,
-      BuildConfiguration hostConfiguration,
+      BuildConfigurationValue aspectConfiguration,
+      BuildConfigurationValue hostConfiguration,
       AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
-
-    RuleContext.Builder builder =
-        new RuleContext.Builder(
-            env,
-            associatedTarget.getTarget(),
-            aspectPath,
-            aspectConfiguration,
-            hostConfiguration,
-            ruleClassProvider.getPrerequisiteValidator(),
-            aspect.getDefinition().getConfigurationFragmentPolicy(),
-            aspectKey);
-
-    Map<String, Attribute> aspectAttributes = mergeAspectAttributes(aspectPath);
-
     RuleContext ruleContext =
-        builder
-            .setToolsRepository(ruleClassProvider.getToolsRepository())
-            .setStarlarkSemantics(env.getStarlarkSemantics())
+        new RuleContext.Builder(env, associatedTarget.getTarget(), aspectPath, aspectConfiguration)
+            .setRuleClassProvider(ruleClassProvider)
+            .setHostConfiguration(hostConfiguration)
+            .setConfigurationFragmentPolicy(aspect.getDefinition().getConfigurationFragmentPolicy())
+            .setActionOwnerSymbol(aspectKey)
             .setMutability(Mutability.create("aspect"))
             .setVisibility(
                 convertVisibility(
                     prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget()))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
-            .setAspectAttributes(aspectAttributes)
+            .setAspectAttributes(mergeAspectAttributes(aspectPath))
             .setConfigConditions(configConditions)
-            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
             // TODO(b/161222568): Implement the exec_properties attr for aspects and read its value
             // here.
             .setExecGroupCollectionBuilder(ExecGroupCollection.emptyBuilder())
             .setExecProperties(ImmutableMap.of())
-            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
                     aspect,
                     aspectFactory,
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
-                    ruleClassProvider.getUniversalFragments(),
+                    ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions.asProviders(),
-                    prerequisiteMap.values()))
+                    Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors

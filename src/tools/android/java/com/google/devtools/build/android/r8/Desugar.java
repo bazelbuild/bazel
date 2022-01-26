@@ -30,7 +30,6 @@ import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.desugar.DependencyCollector;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
 import com.google.devtools.common.options.Option;
@@ -479,23 +478,6 @@ public class Desugar {
     }
   }
 
-  private boolean isProgramClassForShard(int numberOfShards, int currentShard, String name) {
-    return getShardNumberForString(numberOfShards, name) == currentShard;
-  }
-
-  private int getShardCount(Path input) throws IOException {
-    return max(1, ZipUtils.getNumberOfEntries(input) / NUMBER_OF_ENTRIES_PER_SHARD);
-  }
-
-  private int getShardNumberForString(int numberOfShards, String string) {
-    // We group classes and inner classes to ensure that inner class annotations and nests are
-    // correctly handled.
-    if (string.contains("$")) {
-      string = string.substring(0, string.indexOf("$"));
-    }
-    return Math.floorMod(string.hashCode(), numberOfShards);
-  }
-
   private void desugar() throws CompilationFailedException, IOException {
     // Prepare bootclasspath and classpath. Some jars on the classpath are considered to be
     // bootclasspath, and are moved there.
@@ -530,6 +512,23 @@ public class Desugar {
           options.outputJars.get(i),
           options.desugarCoreLibs ? options.desugaredLibConfig.get(0) : null);
     }
+  }
+
+  private boolean isProgramClassForShard(int numberOfShards, int currentShard, String name) {
+    return getShardNumberForString(numberOfShards, name) == currentShard;
+  }
+
+  private int getShardCount(Path input) throws IOException {
+    return max(1, ZipUtils.getNumberOfEntries(input) / NUMBER_OF_ENTRIES_PER_SHARD);
+  }
+
+  private int getShardNumberForString(int numberOfShards, String string) {
+    // We group classes and inner classes to ensure that inner class annotations and nests are
+    // correctly handled.
+    if (string.contains("$")) {
+      string = string.substring(0, string.indexOf("$"));
+    }
+    return Math.floorMod(string.hashCode(), numberOfShards);
   }
 
   private static boolean isPlatform(ClassFileResourceProvider provider) {

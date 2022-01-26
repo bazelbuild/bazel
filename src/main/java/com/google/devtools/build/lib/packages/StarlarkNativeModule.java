@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -42,6 +43,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -97,8 +99,9 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
     List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
+    Globber.Operation op =
+        excludeDirs.signum() != 0 ? Globber.Operation.FILES : Globber.Operation.FILES_AND_DIRS;
 
-    List<String> matches;
     boolean allowEmpty;
     if (allowEmptyArgument == Starlark.UNBOUND) {
       allowEmpty =
@@ -110,36 +113,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
           "expected boolean for argument `allow_empty`, got `%s`", allowEmptyArgument);
     }
 
-    try {
-      Globber.Token globToken =
-          context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
-      matches = context.globber.fetchUnsorted(globToken);
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log(
-          "Exception processing includes=%s, excludes=%s)", includes, excludes);
-      String errorMessage =
-          String.format(
-              "error globbing [%s]%s: %s",
-              Joiner.on(", ").join(includes),
-              excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
-              e.getMessage());
-      Location loc = thread.getCallerLocation();
-      Event error =
-          Package.error(
-              loc,
-              errorMessage,
-              // If there are other IOExceptions that can result from user error, they should be
-              // tested for here. Currently FileNotFoundException is not one of those, because globs
-              // only encounter that error in the presence of an inconsistent filesystem.
-              e instanceof FileSymlinkException
-                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
-                  : Code.GLOB_IO_EXCEPTION);
-      context.eventHandler.handle(error);
-      context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
-      matches = ImmutableList.of();
-    } catch (BadGlobException e) {
-      throw new EvalException(e);
-    }
+    List<String> matches = runGlobOperation(context, thread, includes, excludes, op, allowEmpty);
 
     ArrayList<String> result = new ArrayList<>(matches.size());
     for (String match : matches) {
@@ -153,6 +127,17 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     return StarlarkList.copyOf(thread.mutability(), result);
   }
+
+  /**
+   * WARNING -- HACK: We're using this marker type to signify that we're in module extension eval,
+   * and native.existing_rule[s] should just return nothing. We can't check for
+   * ModuleExtensionEvalStarlarkThreadContext because that would cause a cyclic dependency. The
+   * proper way to implement this would be to create a distinct no-op "StarlarkNativeModule" object
+   * that's only used for bzlmod, but that requires a big refactor that we're not going to have time
+   * for before Bazel 5.0.
+   */
+  // TODO(wyv): Do the proper fix described above.
+  public static class ExistingRulesShouldBeNoOp {}
 
   // TODO(https://github.com/bazelbuild/bazel/issues/13605): implement StarlarkMapping (after we've
   // added such an interface) to allow `dict(native.existing_rule(x))`.
@@ -265,22 +250,55 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     public Iterator<String> iterator() {
       return Iterators.concat(
           ImmutableList.of("name", "kind").iterator(),
-          rule.getAttributes().stream()
-              .map(Attribute::getName)
-              .filter(
-                  attributeName -> {
-                    switch (attributeName) {
-                      case "name":
-                      case "kind":
-                        // handled specially
-                        return false;
-                      default:
-                        return isPotentiallyExportableAttribute(
-                                rule.getRuleClassObject(), attributeName)
-                            && isPotentiallyStarlarkifiableValue(rule.getAttr(attributeName));
-                    }
-                  })
-              .iterator());
+          // Compared to using stream().map(...).filter(...).iterator(), this bespoke iterator
+          // reduces loading time by 15% for a 4000-target package making heavy use of
+          // `native.existing_rules`.
+          new UnmodifiableIterator<String>() {
+            private final Iterator<Attribute> attributes = rule.getAttributes().iterator();
+            @Nullable private String nextRelevantAttributeName;
+
+            private boolean isRelevant(String attributeName) {
+              switch (attributeName) {
+                case "name":
+                case "kind":
+                  // pseudo-names handled specially
+                  return false;
+                default:
+                  return isPotentiallyExportableAttribute(rule.getRuleClassObject(), attributeName)
+                      && isPotentiallyStarlarkifiableValue(rule.getAttr(attributeName));
+              }
+            }
+
+            private void findNextRelevantName() {
+              if (nextRelevantAttributeName == null) {
+                while (attributes.hasNext()) {
+                  String attributeName = attributes.next().getName();
+                  if (isRelevant(attributeName)) {
+                    nextRelevantAttributeName = attributeName;
+                    break;
+                  }
+                }
+              }
+            }
+
+            @Override
+            public boolean hasNext() {
+              findNextRelevantName();
+              return nextRelevantAttributeName != null;
+            }
+
+            @Override
+            public String next() {
+              findNextRelevantName();
+              if (nextRelevantAttributeName != null) {
+                String attributeName = nextRelevantAttributeName;
+                nextRelevantAttributeName = null;
+                return attributeName;
+              } else {
+                throw new NoSuchElementException();
+              }
+            }
+          });
     }
 
     @Override
@@ -311,6 +329,9 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public Object existingRule(String name, StarlarkThread thread) throws EvalException {
+    if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
+      return Starlark.NONE;
+    }
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rule");
     PackageContext context = getContext(thread);
     Target target = context.pkgBuilder.getTarget(name);
@@ -318,7 +339,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Rule rule = (Rule) target;
       if (thread
           .getSemantics()
-          .getBool(BuildLanguageOptions.EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW)) {
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
         return new ExistingRuleView(rule);
       } else {
         return getRuleDict(rule, thread.mutability());
@@ -385,11 +406,14 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   */
   @Override
   public Object existingRules(StarlarkThread thread) throws EvalException {
+    if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
+      return Dict.empty();
+    }
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rules");
     PackageContext context = getContext(thread);
     if (thread
         .getSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_EXISTING_RULES_IMMUTABLE_VIEW)) {
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
       return new ExistingRulesView(context.pkgBuilder.getRulesSnapshotView());
     } else {
       Collection<Target> targets = context.pkgBuilder.getTargets();
@@ -696,6 +720,64 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   private static class NotRepresentableException extends EvalException {
     NotRepresentableException(String msg) {
       super(msg);
+    }
+  }
+
+  @Override
+  public Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.subpackages");
+    PackageContext context = getContext(thread);
+
+    List<String> includes = Type.STRING_LIST.convert(include, "'subpackages' argument");
+    List<String> excludes = Type.STRING_LIST.convert(exclude, "'subpackages' argument");
+
+    List<String> matches =
+        runGlobOperation(
+            context, thread, includes, excludes, Globber.Operation.SUBPACKAGES, allowEmpty);
+    matches.sort(naturalOrder());
+
+    return StarlarkList.copyOf(thread.mutability(), matches);
+  }
+
+  private List<String> runGlobOperation(
+      PackageContext context,
+      StarlarkThread thread,
+      List<String> includes,
+      List<String> excludes,
+      Globber.Operation operation,
+      boolean allowEmpty)
+      throws EvalException, InterruptedException {
+    try {
+      Globber.Token globToken = context.globber.runAsync(includes, excludes, operation, allowEmpty);
+      return context.globber.fetchUnsorted(globToken);
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log(
+          "Exception processing includes=%s, excludes=%s)", includes, excludes);
+      String errorMessage =
+          String.format(
+              "error globbing [%s]%s op=%s: %s",
+              Joiner.on(", ").join(includes),
+              excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
+              operation,
+              e.getMessage());
+      Location loc = thread.getCallerLocation();
+      Event error =
+          Package.error(
+              loc,
+              errorMessage,
+              // If there are other IOExceptions that can result from user error, they should be
+              // tested for here. Currently FileNotFoundException is not one of those, because globs
+              // only encounter that error in the presence of an inconsistent filesystem.
+              e instanceof FileSymlinkException
+                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
+                  : Code.GLOB_IO_EXCEPTION);
+      context.eventHandler.handle(error);
+      context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
+      return ImmutableList.of();
+    } catch (BadGlobException e) {
+      throw new EvalException(e);
     }
   }
 }

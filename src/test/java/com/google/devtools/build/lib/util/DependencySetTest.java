@@ -249,7 +249,7 @@ public class DependencySetTest {
 
     Path outfile = scratch.resolve(filename);
     Path dotd = scratch.resolve("/usr/local/blah/blah/genhello/hello.d");
-    FileSystemUtils.createDirectoryAndParents(dotd.getParentDirectory());
+    dotd.getParentDirectory().createDirectoryAndParents();
     depSet1.write(outfile, ".d");
 
     String dotdContents = new String(FileSystemUtils.readContentAsLatin1(dotd));
@@ -273,7 +273,7 @@ public class DependencySetTest {
     depSet1.setOutputFileName(filename);
 
     Path dotd = scratch.resolve(filename);
-    FileSystemUtils.createDirectoryAndParents(dotd.getParentDirectory());
+    dotd.getParentDirectory().createDirectoryAndParents();
     depSet1.write(dotd, ".d");
 
     DependencySet depSet2 = newDependencySet().read(dotd);

@@ -38,7 +38,8 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       name = "defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
-              + " These values are propagated to the target's transitive dependencies.",
+              + " These values are propagated to the target's transitive dependents, that is, "
+              + "any rules that depend on this target.",
       structField = true)
   Depset getStarlarkDefines();
 
@@ -46,7 +47,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       name = "local_defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
-              + " These values are not propagated to the target's transitive dependencies.",
+              + " These values are not propagated to the target's transitive dependents.",
       structField = true)
   Depset getStarlarkNonTransitiveDefines();
 

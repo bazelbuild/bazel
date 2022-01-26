@@ -15,13 +15,17 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import javax.annotation.Nullable;
 
 /**
  * Something executable that can be described by {@link CommandFailureUtils#describeCommandFailure}.
  */
 public interface DescribableExecutionUnit {
+
+  @Nullable
+  default String getTargetLabel() {
+    return null;
+  }
 
   /** Returns the command (the first element) and its arguments. */
   ImmutableList<String> getArguments();
@@ -32,9 +36,9 @@ public interface DescribableExecutionUnit {
    */
   ImmutableMap<String, String> getEnvironment();
 
-  /** Returns the execution platform for the command, if any. */
+  /** Returns the Label of the execution platform for the command, if any, as a String. */
   @Nullable
-  default PlatformInfo getExecutionPlatform() {
+  default String getExecutionPlatformLabelString() {
     return null;
   }
 

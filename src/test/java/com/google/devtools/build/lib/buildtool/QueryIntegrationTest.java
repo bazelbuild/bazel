@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -31,6 +33,9 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -38,8 +43,13 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ExtensionRegistry;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,6 +60,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathConstants;
@@ -58,16 +69,13 @@ import javax.xml.xpath.XPathFactory;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-/**
- * Integration tests for 'blaze query'.
- */
-@RunWith(JUnit4.class)
+/** Integration tests for 'blaze query'. */
+@RunWith(TestParameterInjector.class)
 public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private final CustomFileSystem fs = new CustomFileSystem();
   private final List<String> options = new ArrayList<>();
@@ -272,7 +280,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testInputFileElementContainsPackageGroups() throws Exception {
-    write("fruit/BUILD",
+    write(
+        "fruit/BUILD",
         "package_group(name='coconut', packages=['//fruit/walnut'])",
         "exports_files(['chestnut'], visibility=[':coconut'])");
 
@@ -287,7 +296,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testNonStrictTests() throws Exception {
-    write("donut/BUILD",
+    write(
+        "donut/BUILD",
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
         "cc_test(name = 'shop', srcs = ['shop.cc'])",
         "test_suite(name = 'cop', tests = [':thief', ':shop'])");
@@ -302,7 +312,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void testStrictTests() throws Exception {
     options.add("--strict_test_suite=true");
-    write("donut/BUILD",
+    write(
+        "donut/BUILD",
         "sh_binary(name = 'thief', srcs = ['thief.sh'])",
         "test_suite(name = 'cop', tests = [':thief'])");
 
@@ -369,9 +380,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       options.add("--keep_going");
     }
     QueryOutput result = getQueryResult("deps(//bar:baz)");
-    ExitCode expectedExitcode =
-        keepGoing ? ExitCode.PARTIAL_ANALYSIS_FAILURE : ExitCode.ANALYSIS_FAILURE;
-    assertExitCode(result, expectedExitcode);
+    assertExitCode(result, ExitCode.ANALYSIS_FAILURE);
     events.assertContainsError("Inconsistent filesystem operations");
     assertThat(events.errors()).hasSize(1);
   }
@@ -416,46 +425,12 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testBinaries() throws Exception {
-    write(
-        "package/BUILD",
-        "sh_library(name='no1')",
-        "sh_binary(name='yes1', srcs = ['dummy.sh'])",
-        "cc_library(name='no2')",
-        "java_library(name='no3')",
-        "go_library(name='no4', srcs = ['dummy.go'])",
-        "py_library(name='no5')",
-        "cc_binary(name='yes2')",
-        "objc_library(name='no6')");
-
-    QueryOutput result = getQueryResult("binaries('package/...')");
-    assertSuccessfulExitCode(result);
-
-    assertQueryOutputContains(result, "//package:yes1", "//package:yes2");
-    assertQueryOutputDoesNotContain(result, "//package:no.");
-  }
-
-  @Test
   public void invalidQueryFailsParsing() throws Exception {
     QueryOutput result = getQueryResult("deps(\"--bad_target_name_from_bad_script\")");
 
     assertCommandLineErrorExitCode(result);
     assertThat(result.getStdout()).isEmpty();
     events.assertContainsError("target literal must not begin with (-)");
-  }
-
-  @Test
-  public void testLanguageDepsDoesNotFailHorribly() throws Exception {
-    write(
-        "peach/BUILD",
-        "cc_library(name='cc_lib')",
-        "java_library(name='java_lib')",
-        "go_library(name='go_lib', srcs = ['go_lib.go'])",
-        "py_library(name='py_lib')");
-
-    QueryOutput result = getQueryResult("deps(//peach:all)");
-    assertSuccessfulExitCode(result);
-    assertThat(result.getStdout()).isNotEmpty();
   }
 
   @Test
@@ -692,7 +667,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     assertThat(out).isEqualTo(expectedOut);
   }
 
-  private void assertDepthBoundedQuery(boolean orderResults) throws Exception {
+  @Test
+  public void depthBoundedQuery(@TestParameter boolean orderResults) throws Exception {
     if (orderResults) {
       options.add("--order_output=auto");
     } else {
@@ -720,8 +696,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write("depth2/three.sh", "");
 
     QueryOutput oneDep = getQueryResult("deps(//depth:one, 1)");
-    assertQueryOutputContains(
-        oneDep, "//depth:one.sh", "//depth:two", "//tools/sh:sh_stub_template.txt");
+    assertQueryOutputContains(oneDep, "//depth:one.sh", "//depth:two", TestConstants.LAUNCHER_PATH);
     assertQueryOutputDoesNotContain(oneDep, "//depth2");
 
     // Ensure that the whole transitive closure wasn't pulled in earlier if not pre-loading.
@@ -744,7 +719,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:four",
         "//depth2:three",
         "//depth2:three.sh",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
 
     QueryOutput oneDepNonExperimental = getQueryResult("deps(//depth:one, 3)");
 
@@ -765,7 +740,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:four",
         "//depth2:three",
         "//depth2:three.sh",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
 
     QueryOutput twoDep =
         getQueryResult("deps(//depth:one, 2)", "--experimental_ui_debug_all_events");
@@ -783,7 +758,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:three",
         "//depth:div2",
         "//depth2:three",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
 
     // Same as above
     QueryOutput twoDepNonExperimental = getQueryResult("deps(//depth:one, 2)");
@@ -797,17 +772,46 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:three",
         "//depth:div2",
         "//depth2:three",
-        "//tools/sh:sh_stub_template.txt");
+        TestConstants.LAUNCHER_PATH);
   }
 
   @Test
-  public void depthBoundedQueryUnordered() throws Exception {
-    assertDepthBoundedQuery(false);
-  }
-
-  @Test
-  public void depthBoundedQueryOrdered() throws Exception {
-    assertDepthBoundedQuery(true);
+  public void inconsistentSkyQueryIncremental() throws Exception {
+    write("foo/BUILD");
+    PathFragment barFile = PathFragment.create("bar/BUILD");
+    PathFragment bar = barFile.getParentDirectory();
+    Path badFile = write(barFile.getPathString());
+    fs.stubStat(badFile, null);
+    CountDownLatch directoryListingLatch = new CountDownLatch(1);
+    getSkyframeExecutor()
+        .getEvaluator()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (NotifyingHelper.EventType.IS_READY.equals(type)
+                      && FileStateValue.FILE_STATE.equals(key.functionName())
+                      && barFile.equals(((RootedPath) key.argument()).getRootRelativePath())) {
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                        directoryListingLatch, "Directory never listed");
+                  } else if (NotifyingHelper.EventType.SET_VALUE.equals(type)
+                      && NotifyingHelper.Order.AFTER.equals(order)
+                      && SkyFunctions.DIRECTORY_LISTING_STATE.equals(key.functionName())
+                      && bar.equals(((RootedPath) key.argument()).getRootRelativePath())) {
+                    directoryListingLatch.countDown();
+                  }
+                }));
+    QueryOutput queryResult =
+        getQueryResult("set()", "--universe_scope=//bar/...", "-k", "--order_output=no");
+    assertThat(
+            queryResult
+                .getBlazeCommandResult()
+                .getDetailedExitCode()
+                .getFailureDetail()
+                .getPackageLoading()
+                .getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
+    assertThat(directoryListingLatch.await(0, SECONDS)).isTrue();
+    TrackingAwaiter.INSTANCE.assertNoErrors();
   }
 
   private void assertExitCode(QueryOutput result, ExitCode expected) {
@@ -886,7 +890,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private Document getXmlQueryResult(String queryString) throws Exception {
     options.add("--output=xml");
     byte[] queryResult = getQueryResult(queryString).getStdout();
-    return DocumentBuilderFactory.newInstance().newDocumentBuilder()
+    return DocumentBuilderFactory.newInstance()
+        .newDocumentBuilder()
         .parse(new ByteArrayInputStream(queryResult));
   }
 
@@ -917,7 +922,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   Element getResultNode(Document xml, String ruleName) throws Exception {
-    return (Element) Iterables.getOnlyElement(xpathSelect(xml,
-        String.format("/query/*[@name='%s']", ruleName)));
+    return (Element)
+        Iterables.getOnlyElement(xpathSelect(xml, String.format("/query/*[@name='%s']", ruleName)));
   }
 }

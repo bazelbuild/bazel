@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -51,7 +51,6 @@ import net.starlark.java.syntax.TokenKind;
     name = "select",
     doc = "A selector between configuration-dependent entities.",
     documented = false)
-@AutoCodec
 public final class SelectorList implements StarlarkValue, HasBinary {
 
   // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
@@ -60,8 +59,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   private final Class<?> type;
   private final List<Object> elements;
 
-  @AutoCodec.VisibleForSerialization
-  SelectorList(Class<?> type, List<Object> elements) {
+  private SelectorList(Class<?> type, List<Object> elements) {
     this.type = type;
     this.elements = elements;
   }
@@ -87,9 +85,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
               + " to match");
     }
     for (Object key : dict.keySet()) {
-      if (!(key instanceof String)) {
+      if (!(key instanceof String || key instanceof Label)) {
         throw Starlark.errorf(
-            "select: got %s for dict key, want a label string", Starlark.type(key));
+            "select: got %s for dict key, want a Label or label string", Starlark.type(key));
       }
     }
     return SelectorList.of(new SelectorValue(dict, noMatchError));

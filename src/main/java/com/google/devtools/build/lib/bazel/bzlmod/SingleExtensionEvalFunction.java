@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -179,10 +180,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         }
         return null;
       } catch (EvalException e) {
+        env.getListener().handle(Event.error(e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
-            ExternalDepsException.withCauseAndMessage(
+            ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
-                e,
                 "error evaluating module extension %s in %s",
                 extensionId.getExtensionName(),
                 extensionId.getBzlFileLabel()),
@@ -231,11 +232,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         starlarkSemantics,
         repositoryRemoteExecutor,
         StarlarkList.immutableCopyOf(modules));
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   static final class SingleExtensionEvalFunctionException extends SkyFunctionException {

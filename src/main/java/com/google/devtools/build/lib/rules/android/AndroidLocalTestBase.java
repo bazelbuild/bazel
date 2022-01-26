@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -412,7 +412,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   public final void addRuleImplSpecificRequiredConfigFragments(
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       AttributeMap attributes,
-      BuildConfiguration configuration) {
+      BuildConfigurationValue configuration) {
     requiredFragments.addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(attributes));
   }
 

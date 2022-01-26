@@ -40,10 +40,11 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.Runfiles.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -89,6 +91,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Dict.ImmutableKeyTrackingDict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -596,13 +599,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public BuildConfiguration getConfiguration() throws EvalException {
+  public BuildConfigurationValue getConfiguration() throws EvalException {
     checkMutable("configuration");
     return ruleContext.getConfiguration();
   }
 
   @Override
-  public BuildConfiguration getHostConfiguration() throws EvalException {
+  public BuildConfigurationValue getHostConfiguration() throws EvalException {
     checkMutable("host_configuration");
     return ruleContext.getHostConfiguration();
   }
@@ -633,7 +636,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   @Override
   public boolean instrumentCoverage(Object targetUnchecked) throws EvalException {
     checkMutable("coverage_instrumented");
-    BuildConfiguration config = ruleContext.getConfiguration();
+    BuildConfigurationValue config = ruleContext.getConfiguration();
     if (!config.isCodeCoverageEnabled()) {
       return false;
     }
@@ -706,14 +709,28 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public Dict<String, String> var() throws EvalException {
     checkMutable("var");
     if (cachedMakeVariables == null) {
+      Dict.Builder<String, String> vars;
       try {
-        cachedMakeVariables =
-            ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+        vars = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
       } catch (ExpansionException e) {
-        throw Starlark.errorf("%s", e.getMessage());
+        throw new EvalException(e.getMessage());
       }
+
+      // When tracking required fragments, use a key-tracking dict to support lookedUpVariables().
+      cachedMakeVariables =
+          ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+              ? vars.buildImmutableWithKeyTracking()
+              : vars.buildImmutable();
     }
     return cachedMakeVariables;
+  }
+
+  /** Returns the set of variables accessed through {@code ctx.var}. */
+  public ImmutableSet<String> lookedUpVariables() {
+    Preconditions.checkState(ruleContext.shouldIncludeRequiredConfigFragmentsProvider(), this);
+    return cachedMakeVariables == null
+        ? ImmutableSet.of()
+        : ((ImmutableKeyTrackingDict<String, String>) cachedMakeVariables).getAccessedKeys();
   }
 
   @Override
@@ -897,9 +914,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
-      Dict<?, ?> symlinks,
-      Dict<?, ?> rootSymlinks)
-      throws EvalException {
+      Object symlinks,
+      Object rootSymlinks)
+      throws EvalException, TypeException {
     checkMutable("runfiles");
     Runfiles.Builder builder =
         new Runfiles.Builder(
@@ -926,7 +943,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
-    if (!symlinks.isEmpty()) {
+    if (isDepset(symlinks)) {
+      builder.addSymlinks(((Depset) symlinks).getSet(SymlinkEntry.class));
+    } else if (isNonEmptyDict(symlinks)) {
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
@@ -934,7 +953,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         builder.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
       }
     }
-    if (!rootSymlinks.isEmpty()) {
+    if (isDepset(rootSymlinks)) {
+      builder.addRootSymlinks(((Depset) rootSymlinks).getSet(SymlinkEntry.class));
+    } else if (isNonEmptyDict(rootSymlinks)) {
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
           Dict.cast(rootSymlinks, String.class, Artifact.class, "root_symlinks").entrySet()) {
@@ -946,6 +967,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
+  }
+
+  private static boolean isNonEmptyDict(Object o) {
+    return o instanceof Dict && !((Dict<?, ?>) o).isEmpty();
+  }
+
+  private static boolean isDepset(Object o) {
+    return o instanceof Depset;
   }
 
   @Override
@@ -1017,7 +1046,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   public StarlarkSemantics getStarlarkSemantics() {
-    return ruleContext.getStarlarkSemantics();
+    return ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
   }
 
   /**
@@ -1074,7 +1103,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
    * @param knownLabels List of known labels
    * @return Immutable map with immutable collections as values
    */
-  private static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
+  public static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
       Iterable<TransitiveInfoCollection> knownLabels) {
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 

@@ -258,8 +258,8 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           phonyTargetsBuilder,
           symlinkOutputsBuilder,
           outputRootInputsBuilder);
-      targetsMap = targetsMapBuilder.build();
-      phonyTargetsMap = NinjaPhonyTargetsUtil.getPhonyPathsMap(phonyTargetsBuilder.build());
+      targetsMap = targetsMapBuilder.buildOrThrow();
+      phonyTargetsMap = NinjaPhonyTargetsUtil.getPhonyPathsMap(phonyTargetsBuilder.buildOrThrow());
       symlinkOutputs = symlinkOutputsBuilder.build();
       confirmedOutputRootInputs = outputRootInputsBuilder.build();
     }

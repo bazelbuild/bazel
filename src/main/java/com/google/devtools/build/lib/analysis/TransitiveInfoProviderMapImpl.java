@@ -31,8 +31,8 @@ import javax.annotation.Nullable;
 class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object>
     implements TransitiveInfoProviderMap {
 
-  @VisibleForSerialization
   @AutoCodec.Instantiator
+  @VisibleForSerialization
   TransitiveInfoProviderMapImpl(Object[] keys, Object[] values) {
     super(keys, values);
   }

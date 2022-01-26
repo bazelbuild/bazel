@@ -63,12 +63,13 @@ import javax.annotation.Nullable;
  * action's outputs for purposes of creating the final {@link ActionExecutionValue}.
  *
  * <p>The handler can be in one of two modes. After construction, it acts as a cache for input and
- * output metadata while {@link ActionCacheChecker} determines whether the action needs to be
- * executed. If the action needs to be executed (i.e. no action cache hit), {@link
- * #prepareForActionExecution} is called. This call switches the handler to a mode where it accepts
- * {@linkplain MetadataInjector injected output data}, or otherwise obtains metadata from the
- * filesystem. Freshly created output files are set read-only and executable <em>before</em>
- * statting them to ensure that the stat's ctime is up to date.
+ * output metadata while {@link com.google.devtools.build.lib.actions.ActionCacheChecker} determines
+ * whether the action needs to be executed. If the action needs to be executed (i.e. no action cache
+ * hit), {@link #prepareForActionExecution} is called. This call switches the handler to a mode
+ * where it accepts {@linkplain com.google.devtools.build.lib.actions.cache.MetadataInjector
+ * injected output data}, or otherwise obtains metadata from the filesystem. Freshly created output
+ * files are set read-only and executable <em>before</em> statting them to ensure that the stat's
+ * ctime is up to date.
  *
  * <p>After action execution, {@link #getMetadata} should be called on each of the action's outputs
  * (except those that were {@linkplain #artifactOmitted omitted}) to ensure that declared outputs
@@ -358,8 +359,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         });
 
     if (archivedTreeArtifactsEnabled) {
-      ArchivedTreeArtifact archivedTreeArtifact =
-          ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
+      ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(parent);
       FileStatus statNoFollow =
           artifactPathResolver.toPath(archivedTreeArtifact).statIfFound(Symlinks.NOFOLLOW);
       if (statNoFollow != null) {
@@ -556,8 +556,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       injectedDigest =
           DigestUtils.manuallyComputeDigest(artifactPathResolver.toPath(artifact), value.getSize());
     }
-    return FileArtifactValue.createFromInjectedDigest(
-        value, injectedDigest, /*isShareable=*/ !artifact.isConstantMetadata());
+    return FileArtifactValue.createFromInjectedDigest(value, injectedDigest);
   }
 
   /**
@@ -608,7 +607,6 @@ final class ActionMetadataHandler implements MetadataHandler {
           rootedPathNoFollow,
           statNoFollow,
           digestWillBeInjected,
-          artifact.isConstantMetadata(),
           tsgm);
     }
 
@@ -637,7 +635,6 @@ final class ActionMetadataHandler implements MetadataHandler {
         realRootedPath,
         realStatWithDigest,
         digestWillBeInjected,
-        artifact.isConstantMetadata(),
         tsgm);
   }
 
@@ -645,7 +642,6 @@ final class ActionMetadataHandler implements MetadataHandler {
       RootedPath rootedPath,
       FileStatusWithDigest stat,
       boolean digestWillBeInjected,
-      boolean isConstantMetadata,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     if (stat == null) {
@@ -658,10 +654,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     return stat.isDirectory()
         ? FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime())
         : FileArtifactValue.createForNormalFile(
-            fileStateValue.getDigest(),
-            fileStateValue.getContentsProxy(),
-            stat.getSize(),
-            /*isShareable=*/ !isConstantMetadata);
+            fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
   }
 
   private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {

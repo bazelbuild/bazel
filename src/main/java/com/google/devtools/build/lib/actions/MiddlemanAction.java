@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -33,15 +31,12 @@ import javax.annotation.Nullable;
  * the action graph; for example generated header files.
  */
 @Immutable
-@AutoCodec
 public final class MiddlemanAction extends AbstractAction {
   public static final String MIDDLEMAN_MNEMONIC = "Middleman";
   private final String description;
   private final MiddlemanType middlemanType;
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  MiddlemanAction(
+  private MiddlemanAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs,

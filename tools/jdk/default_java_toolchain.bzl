@@ -24,7 +24,6 @@ BASE_JDK9_JVM_OPTS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.resources=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
@@ -32,6 +31,7 @@ BASE_JDK9_JVM_OPTS = [
     "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
 
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
@@ -74,6 +74,9 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "8",
     target_version = "8",
+    reduced_classpath_incompatible_processors = [
+        "dagger.hilt.processor.internal.root.RootProcessor",  # see b/21307381
+    ],
 )
 
 JVM8_TOOLCHAIN_CONFIGURATION = dict(

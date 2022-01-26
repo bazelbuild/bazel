@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -133,16 +134,17 @@ public class NativePathTest {
 
     Collection<Path> onlyFiles =
         UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
-        .addPattern("*")
-        .setExcludeDirectories(true)
-        .globInterruptible();
+            .addPattern("*")
+            .setPathDiscriminator(
+                new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> !isDir))
+            .globInterruptible();
     assertPathSet(onlyFiles, aFile.getPath());
 
     Collection<Path> directoriesToo =
         UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
-        .addPattern("*")
-        .setExcludeDirectories(false)
-        .globInterruptible();
+            .addPattern("*")
+            .setPathDiscriminator(new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> true))
+            .globInterruptible();
     assertPathSet(directoriesToo, aFile.getPath(), aDirectory.getPath());
   }
 

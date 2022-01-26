@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -45,7 +48,7 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** Output callback for aquery, prints human readable output. */
@@ -231,24 +234,22 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                     .collect(Collectors.joining(", ")))
             .append("]\n");
       }
-      if (abstractAction.getExecutionInfo() != null) {
-        Set<Entry<String, String>> executionInfoSpecifiers =
-            abstractAction.getExecutionInfo().entrySet();
-        if (!executionInfoSpecifiers.isEmpty()) {
-          stringBuilder
-              .append("  ExecutionInfo: {")
-              .append(
-                  executionInfoSpecifiers.stream()
-                      .sorted(Map.Entry.comparingByKey())
-                      .map(
-                          e ->
-                              String.format(
-                                  "%s: %s",
-                                  ShellEscaper.escapeString(e.getKey()),
-                                  ShellEscaper.escapeString(e.getValue())))
-                      .collect(Collectors.joining(", ")))
-              .append("}\n");
-        }
+      ImmutableSet<Entry<String, String>> executionInfoSpecifiers =
+          abstractAction.getExecutionInfo().entrySet();
+      if (!executionInfoSpecifiers.isEmpty()) {
+        stringBuilder
+            .append("  ExecutionInfo: {")
+            .append(
+                executionInfoSpecifiers.stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(
+                        e ->
+                            String.format(
+                                "%s: %s",
+                                ShellEscaper.escapeString(e.getKey()),
+                                ShellEscaper.escapeString(e.getValue())))
+                    .collect(Collectors.joining(", ")))
+            .append("}\n");
       }
     }
     if (options.includeCommandline && action instanceof CommandAction) {
@@ -262,7 +263,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* environment= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
-                  action.getExecutionPlatform()))
+                  action.getExecutionPlatform() == null
+                      ? null
+                      : Objects.toString(action.getExecutionPlatform().label())))
           .append("\n");
     }
 
@@ -282,7 +285,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       }
     }
     Map<String, String> executionInfo = action.getExecutionInfo();
-    if (executionInfo != null && !executionInfo.isEmpty()) {
+    if (!executionInfo.isEmpty()) {
       stringBuilder
           .append("  ExecutionInfo: {")
           .append(
@@ -296,6 +299,23 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                               ShellEscaper.escapeString(e.getValue())))
                   .collect(Collectors.joining(", ")))
           .append("}\n");
+    }
+
+    if (action instanceof TemplateExpansionAction) {
+      stringBuilder
+          .append("  Template: ")
+          .append(((TemplateExpansionAction) action).getTemplate())
+          .append("\n");
+      stringBuilder.append("  Substitutions: [\n");
+      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+        stringBuilder
+            .append("    {")
+            .append(substitution.getKey())
+            .append(": ")
+            .append(substitution.getValue())
+            .append("}\n");
+      }
+      stringBuilder.append("  ]\n");
     }
 
     stringBuilder.append('\n');

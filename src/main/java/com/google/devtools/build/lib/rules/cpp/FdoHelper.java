@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -40,7 +40,7 @@ public class FdoHelper {
   public static FdoContext getFdoContext(
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CppConfiguration cppConfiguration,
       ImmutableMap<String, PathFragment> toolPaths)
       throws InterruptedException, RuleErrorException {

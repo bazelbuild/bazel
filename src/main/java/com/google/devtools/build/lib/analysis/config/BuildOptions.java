@@ -19,23 +19,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.common.options.OptionDefinition;
@@ -48,7 +46,6 @@ import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -66,10 +63,11 @@ import javax.annotation.Nullable;
 /** Stores the command-line options from a set of configuration fragments. */
 // TODO(janakr): If overhead of FragmentOptions class names is too high, add constructor that just
 // takes fragments and gets names from them.
-public final class BuildOptions implements Cloneable, Serializable {
-  private static final Comparator<Class<? extends FragmentOptions>>
-      lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
-  private static final Comparator<Label> starlarkOptionsComparator = Ordering.natural();
+public final class BuildOptions implements Cloneable {
+
+  @SerializationConstant
+  static final Comparator<Class<? extends FragmentOptions>> LEXICAL_FRAGMENT_OPTIONS_COMPARATOR =
+      Comparator.comparing(Class::getName);
 
   public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
     return starlarkOptions.entrySet().stream()
@@ -78,7 +76,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   public static BuildOptions getDefaultBuildOptionsForFragments(
-      List<Class<? extends FragmentOptions>> fragmentClasses) {
+      Iterable<Class<? extends FragmentOptions>> fragmentClasses) {
     try {
       return BuildOptions.of(fragmentClasses);
     } catch (OptionsParsingException e) {
@@ -91,33 +89,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
       builder.addFragmentOptions(options.getHost());
-    }
-    return builder.addStarlarkOptions(starlarkOptionsMap).build();
-  }
-
-  /**
-   * Returns {@code BuildOptions} that are otherwise identical to this one, but contain only options
-   * from the given {@link FragmentOptions} classes (plus build configuration options).
-   *
-   * <p>If nothing needs to be trimmed, this instance is returned.
-   */
-  public BuildOptions trim(Set<Class<? extends FragmentOptions>> optionsClasses) {
-    List<FragmentOptions> retainedOptions =
-        Lists.newArrayListWithExpectedSize(optionsClasses.size() + 1);
-    for (FragmentOptions options : fragmentOptionsMap.values()) {
-      if (optionsClasses.contains(options.getClass())
-          // TODO(bazel-team): make this non-hacky while not requiring CoreOptions access
-          // to BuildOptions.
-          || options.getClass().getName().endsWith("CoreOptions")) {
-        retainedOptions.add(options);
-      }
-    }
-    if (retainedOptions.size() == fragmentOptionsMap.size()) {
-      return this; // Nothing to trim.
-    }
-    Builder builder = builder();
-    for (FragmentOptions options : retainedOptions) {
-      builder.addFragmentOptions(options);
     }
     return builder.addStarlarkOptions(starlarkOptionsMap).build();
   }
@@ -142,11 +113,11 @@ public final class BuildOptions implements Cloneable, Serializable {
    * BuildOptions class that only has native options.
    */
   @VisibleForTesting
-  public static BuildOptions of(List<Class<? extends FragmentOptions>> optionsList, String... args)
+  public static BuildOptions of(
+      Iterable<Class<? extends FragmentOptions>> optionsList, String... args)
       throws OptionsParsingException {
     Builder builder = builder();
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(ImmutableList.copyOf(optionsList)).build();
+    OptionsParser parser = OptionsParser.builder().optionsClasses(optionsList).build();
     parser.parse(args);
     for (Class<? extends FragmentOptions> optionsClass : optionsList) {
       builder.addFragmentOptions(parser.getOptions(optionsClass));
@@ -180,7 +151,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       synchronized (this) {
         if (checksum == null) {
           if (fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty()) {
-            checksum = Strings.repeat("0", 64); // Make empty build options easy to distinguish.
+            checksum = "0".repeat(64); // Make empty build options easy to distinguish.
           } else {
             Fingerprint fingerprint = new Fingerprint();
             for (FragmentOptions options : fragmentOptionsMap.values()) {
@@ -454,17 +425,15 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     public BuildOptions build() {
       return new BuildOptions(
-          ImmutableSortedMap.copyOf(fragmentOptions, lexicalFragmentOptionsComparator),
-          ImmutableSortedMap.copyOf(starlarkOptions, starlarkOptionsComparator));
+          ImmutableSortedMap.copyOf(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
+          ImmutableSortedMap.copyOf(starlarkOptions));
     }
 
-    private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions;
-    private final Map<Label, Object> starlarkOptions;
+    private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions =
+        new HashMap<>();
+    private final Map<Label, Object> starlarkOptions = new HashMap<>();
 
-    private Builder() {
-      fragmentOptions = new HashMap<>();
-      starlarkOptions = new HashMap<>();
-    }
+    private Builder() {}
   }
 
   /** Returns the difference between two BuildOptions in a new {@link BuildOptions.OptionsDiff}. */
@@ -530,8 +499,8 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     // Compare Starlark options for the two classes.
-    Map<Label, Object> starlarkFirst = first.getStarlarkOptions();
-    Map<Label, Object> starlarkSecond = second.getStarlarkOptions();
+    Map<Label, Object> starlarkFirst = first.starlarkOptionsMap;
+    Map<Label, Object> starlarkSecond = second.starlarkOptionsMap;
     for (Label buildSetting : Sets.union(starlarkFirst.keySet(), starlarkSecond.keySet())) {
       if (starlarkFirst.get(buildSetting) == null) {
         diff.addExtraSecondStarlarkOption(buildSetting, starlarkSecond.get(buildSetting));
@@ -711,12 +680,13 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     @Override
     public BuildOptions deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException {
-        String checksum = codedIn.readString();
-      return checkNotNull(
-          context.getDependency(OptionsChecksumCache.class).getOptions(checksum),
-          "No options instance for %s",
-          checksum);
+        throws SerializationException, IOException {
+      String checksum = codedIn.readString();
+      BuildOptions result = context.getDependency(OptionsChecksumCache.class).getOptions(checksum);
+      if (result == null) {
+        throw new SerializationException("No options instance for " + checksum);
+      }
+      return result;
     }
   }
 

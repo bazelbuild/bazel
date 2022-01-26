@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -1922,41 +1923,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar", "foo/libmy_java_lib_c.jar");
   }
 
-  @Test
-  public void testJavaInfoGetTransitiveExports() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_enable_exports_provider",
-        "--experimental_builtins_injection_override=-java_library");
-    scratch.file(
-        "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_exports)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
-        "             deps = [':my_java_lib_b', ':my_java_lib_c'], ",
-        "             exports = [':my_java_lib_b']) ",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
-
-    Depset exports = (Depset) info.getValue("property");
-
-    assertThat(exports.getSet(Label.class).toList())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
-  }
-
   /** Tests that JavaInfo provides information about transitive native libraries in Starlark. */
   @Test
   public void javaInfo_getTransitiveNativeLibraries() throws Exception {
@@ -3117,6 +3083,84 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:custom");
 
     assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testCompileWithClasspathResourcesIsPrivateApi() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file("foo/resource.txt", "Totally real resource content");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  java_common.compile(",
+        "    ctx,",
+        "    output = ctx.actions.declare_file('output.jar'),",
+        "    classpath_resources = ctx.files.classpath_resources,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "  )",
+        "  return []",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(),",
+        "    'classpath_resources': attr.label_list(allow_files = True),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'custom', classpath_resources = ['resource.txt'])");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = java_common.get_build_info(ctx)",
+        "  return [DefaultInfo(files = depset(artifacts))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetBuildInfoArtifacts() throws Exception {
+    scratch.file(
+        "bazel_internal/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = java_common.get_build_info(ctx)",
+        "  return [DefaultInfo(files = depset(artifacts))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "bazel_internal/test/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+
+    NestedSet<Artifact> artifacts =
+        getConfiguredTarget("//bazel_internal/test:custom")
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+
+    assertThat(prettyArtifactNames(artifacts)).containsExactly("build-info-redacted.properties");
   }
 
   private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {

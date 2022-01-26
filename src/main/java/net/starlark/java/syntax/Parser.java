@@ -171,9 +171,9 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInput input, FileOptions options) {
+  static ParseResult parseFile(ParserInput input) {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, options, errors);
+    Lexer lexer = new Lexer(input, errors);
     Parser parser = new Parser(lexer, errors);
 
     StarlarkFile.ParseProfiler profiler = Parser.profiler;
@@ -207,10 +207,9 @@ final class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  static Expression parseExpression(ParserInput input, FileOptions options)
-      throws SyntaxError.Exception {
+  static Expression parseExpression(ParserInput input) throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, options, errors);
+    Lexer lexer = new Lexer(input, errors);
     Parser parser = new Parser(lexer, errors);
     Expression result = null;
     try {
@@ -971,7 +970,7 @@ final class Parser {
     return new LambdaExpression(locs, lambdaOffset, params, body);
   }
 
-  // parseTestNoCond parses a a single-component expression without
+  // parseTestNoCond parses a single-component expression without
   // consuming a trailing 'if expr else expr'.
   private Expression parseTestNoCond() {
     if (token.kind == TokenKind.LAMBDA) {

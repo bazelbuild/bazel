@@ -29,7 +29,7 @@ class CcToolchainTestHelper {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        CcToolchainConfigInfo.fromToolchainForTestingOnly(toolchainBuilder.buildPartial()),
         PathFragment.create("crosstool/"));
   }
 
@@ -38,7 +38,7 @@ class CcToolchainTestHelper {
       ImmutableList<Feature> features, ImmutableList<CToolchain.ActionConfig> actionConfigs)
       throws Exception {
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(
+        CcToolchainConfigInfo.fromToolchainForTestingOnly(
             CToolchain.newBuilder()
                 .addAllFeature(features)
                 .addAllActionConfig(actionConfigs)

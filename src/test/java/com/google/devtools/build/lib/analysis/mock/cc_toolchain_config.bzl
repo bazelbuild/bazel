@@ -32,6 +32,7 @@ load(
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
 _FEATURE_NAMES = struct(
+    generate_pdb_file = "generate_pdb_file",
     no_legacy_features = "no_legacy_features",
     do_not_split_linking_cmdline = "do_not_split_linking_cmdline",
     supports_dynamic_linker = "supports_dynamic_linker",
@@ -766,6 +767,10 @@ _copy_dynamic_libraries_to_binary_feature = feature(
     name = _FEATURE_NAMES.copy_dynamic_libraries_to_binary,
 )
 
+_generate_pdb_file_feature = feature(
+    name = _FEATURE_NAMES.generate_pdb_file,
+)
+
 _supports_start_end_lib_feature = feature(
     name = _FEATURE_NAMES.supports_start_end_lib,
     enabled = True,
@@ -1317,6 +1322,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
     _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
     _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
+    _FEATURE_NAMES.generate_pdb_file: _generate_pdb_file_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,

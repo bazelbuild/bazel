@@ -168,8 +168,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(config).isNotNull();
     // Verify config metadata:
     assertThat(config.configHash).isEqualTo(configHash1);
-    assertThat(config.skyKey)
-        .isEqualTo(String.format("BuildConfigurationValue.Key[%s]", configHash1));
+    assertThat(config.skyKey).isEqualTo(String.format("BuildConfigurationKey[%s]", configHash1));
     // Verify the existence of a couple of expected fragments:
     assertThat(
             config.fragments.stream()

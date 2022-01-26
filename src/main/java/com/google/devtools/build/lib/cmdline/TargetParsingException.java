@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.DetailedException;
@@ -38,6 +40,25 @@ public class TargetParsingException extends Exception implements DetailedExcepti
       String message, Throwable cause, DetailedExitCode detailedExitCode) {
     super(Preconditions.checkNotNull(message), cause);
     this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
+  }
+
+  public TargetParsingException(String message, DetailedExitCode detailedExitCode) {
+    super(Preconditions.checkNotNull(message));
+    this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
+  }
+
+  public TargetParsingException(InconsistentFilesystemException cause) {
+    super(cause.getMessage(), cause);
+    this.detailedExitCode =
+        DetailedExitCode.of(
+            FailureDetails.FailureDetail.newBuilder()
+                .setPackageLoading(
+                    FailureDetails.PackageLoading.newBuilder()
+                        .setCode(
+                            FailureDetails.PackageLoading.Code
+                                .TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR))
+                .setMessage(getMessage())
+                .build());
   }
 
   private static FailureDetail createFailureDetail(String message, TargetPatterns.Code code) {

@@ -19,12 +19,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -37,14 +35,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class PlatformMappingValueTest {
 
-  // We don't actually care about the contents of this set other than that it is passed intact
-  // through the mapping logic. The platform fragment in it is purely an example, it could be any
-  // set of fragments.
-  private static final FragmentClassSet PLATFORM_FRAGMENT_CLASS =
-      FragmentClassSet.of(ImmutableSet.of(PlatformConfiguration.class));
-
-  private static final ImmutableList<Class<? extends FragmentOptions>>
-      BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableList.of(CoreOptions.class, PlatformOptions.class);
+  private static final ImmutableSet<Class<? extends FragmentOptions>>
+      BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
 
   private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
   private static final Label PLATFORM2 = Label.parseAbsoluteUnchecked("//platforms:two");
@@ -60,11 +52,10 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             ImmutableMap.of(), ImmutableMap.of(), BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key key =
-        BuildConfigurationValue.keyWithoutPlatformMapping(
-            PLATFORM_FRAGMENT_CLASS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationKey key =
+        BuildConfigurationKey.withoutPlatformMapping(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(key);
+    BuildConfigurationKey mapped = mappingValue.map(key);
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -82,9 +73,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
-
-    assertThat(mapped.getFragments()).isEqualTo(PLATFORM_FRAGMENT_CLASS);
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -102,9 +91,7 @@ public final class PlatformMappingValueTest {
     modifiedOptions.get(CoreOptions.class).cpu = "one";
     modifiedOptions.get(CoreOptions.class).compilationMode = CompilationMode.DBG;
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
-
-    assertThat(mapped.getFragments()).isEqualTo(PLATFORM_FRAGMENT_CLASS);
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }
@@ -123,7 +110,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "foo";
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms).containsExactly(PLATFORM2);
   }
@@ -140,7 +127,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "bar";
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -174,7 +161,7 @@ public final class PlatformMappingValueTest {
     PlatformMappingValue mappingValue =
         new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(keyForOptions(modifiedOptions)).isEqualTo(mapped);
   }
@@ -192,7 +179,7 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             ImmutableMap.of(), flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationValue.Key mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(keyForOptions(modifiedOptions)).isEqualTo(mapped);
   }
@@ -214,8 +201,7 @@ public final class PlatformMappingValueTest {
     assertThat(key.wasExplicitlySetByUser()).isTrue();
   }
 
-  private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
-    return BuildConfigurationValue.keyWithoutPlatformMapping(
-        PLATFORM_FRAGMENT_CLASS, modifiedOptions);
+  private static BuildConfigurationKey keyForOptions(BuildOptions modifiedOptions) {
+    return BuildConfigurationKey.withoutPlatformMapping(modifiedOptions);
   }
 }
