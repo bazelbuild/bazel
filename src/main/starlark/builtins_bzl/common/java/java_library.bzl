@@ -16,7 +16,7 @@
 Definition of java_library rule.
 """
 
-load(":common/java/java_common.bzl", "JAVA_COMMON_DEP", "collect_resources", "construct_defaultinfo")
+load(":common/java/java_common.bzl", "JAVA_COMMON_DEP", "construct_defaultinfo")
 load(":common/rule_util.bzl", "create_rule")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
@@ -108,7 +108,7 @@ def _proxy(ctx):
         plugins = ctx.attr.plugins,
         exports = ctx.attr.exports,
         exported_plugins = ctx.attr.exported_plugins,
-        resources = collect_resources(ctx),
+        resources = ctx.files.resources,
         javacopts = ctx.attr.javacopts,
         neverlink = ctx.attr.neverlink,
         proguard_specs = ctx.files.proguard_specs,

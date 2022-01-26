@@ -19,7 +19,6 @@ Common code for reuse across java_* rules
 load(":common/rule_util.bzl", "create_composite_dep")
 load(":common/java/android_lint.bzl", "android_lint_action")
 load(":common/java/compile_action.bzl", "COMPILE_ACTION")
-load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
@@ -169,34 +168,6 @@ def basic_java_library(
         output_groups = output_groups,
         extra_providers = {},
     )
-
-def collect_resources(ctx, extra_resources = []):
-    """Collects resources files from different attributes defined by Java rules.
-
-    The default location to specify resources is resources attribute.
-
-    .properties files may be also specified in srcs attribute.
-
-    Depending on semantics proto_library targets in resources attribute may be
-    expanded to .proto files or to a descriptor set.
-
-    Args:
-      ctx: (RuleContext) Uses ctx.attr.resources, ctx.files.resources, ctx.files.srcs.
-      extra_resources: (list[File]) Additional resource files.
-    Returns:
-      (list[File]) List of resource files.
-    """
-    resources = []
-    if semantics.COLLECT_SRCS_FROM_PROTO_LIBRARY:
-        for resource in ctx.attr.resources:
-            if ProtoInfo in resource:
-                resources.extend(resource[ProtoInfo].transitive_sources.to_list())
-            else:
-                resources.extend(resource[DefaultInfo].files.to_list())
-    else:
-        resources.extend(ctx.files.resources)
-    resources.extend(extra_resources)
-    return resources
 
 def _collect_plugins(plugins):
     """Collects plugins from an attribute.
