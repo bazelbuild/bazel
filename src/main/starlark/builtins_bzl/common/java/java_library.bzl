@@ -25,8 +25,41 @@ JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 CcInfo = _builtins.toplevel.CcInfo
 
-def _java_library_rule_impl(ctx):
-    if not ctx.attr.srcs and ctx.attr.deps:
+def java_library_rule(
+        ctx,
+        srcs = [],
+        deps = [],
+        runtime_deps = [],
+        plugins = [],
+        exports = [],
+        exported_plugins = [],
+        resources = [],
+        javacopts = [],
+        neverlink = False,
+        proguard_specs = []):
+    """Implements java_library.
+
+    Use this call when you need to produce a fully fledged java_library from
+    another rule's implementation.
+
+    Args:
+      ctx: (RuleContext) Used to register the actions.
+      srcs: (list[File]) The list of source files that are processed to create the target.
+      deps: (list[Target]) The list of other libraries to be linked in to the target.
+      runtime_deps: (list[Target]) Libraries to make available to the final binary or test at runtime only.
+      plugins: (list[Target]) Java compiler plugins to run at compile-time.
+      exports: (list[Target]) Exported libraries.
+      exported_plugins: (list[Target]) The list of `java_plugin`s (e.g. annotation
+        processors) to export to libraries that directly depend on this library.
+      resources: (list[File]) A list of data files to include in a Java jar.
+      javacopts: (list[str]) Extra compiler options for this library.
+      neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
+      proguard_specs: (list[File]) Files to be used as Proguard specification.
+    Returns:
+      (list[provider]) A list containing DefaultInfo, JavaInfo,
+        InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
+    """
+    if not srcs and deps:
         fail("deps not allowed without srcs; move to runtime_deps?")
 
     semantics.check_rule(ctx)
@@ -36,21 +69,21 @@ def _java_library_rule_impl(ctx):
 
     base_info = JAVA_COMMON_DEP.call(
         ctx,
-        srcs = ctx.files.srcs,
-        deps = ctx.attr.deps,
-        runtime_deps = ctx.attr.runtime_deps,
-        exports = ctx.attr.exports,
-        exported_plugins = ctx.attr.exported_plugins,
-        resources = collect_resources(ctx, extra_resources),
-        plugins = ctx.attr.plugins,
-        javacopts = ctx.attr.javacopts,
-        neverlink = ctx.attr.neverlink,
+        srcs = srcs,
+        resources = resources + extra_resources,
+        plugins = plugins,
+        deps = deps,
+        runtime_deps = runtime_deps,
+        exports = exports,
+        exported_plugins = exported_plugins,
+        javacopts = javacopts,
+        neverlink = neverlink,
     )
 
     proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(
         ctx,
-        proguard_specs = ctx.files.proguard_specs,
-        transitive_attrs = [ctx.attr.deps, ctx.attr.runtime_deps, ctx.attr.exports, ctx.attr.plugins, ctx.attr.exported_plugins],
+        proguard_specs = proguard_specs,
+        transitive_attrs = [deps, runtime_deps, exports, plugins, exported_plugins],
     )
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers.append(proguard_specs_provider)
@@ -60,10 +93,10 @@ def _java_library_rule_impl(ctx):
     default_info = construct_defaultinfo(
         ctx,
         base_info.files_to_build,
-        ctx.attr.neverlink,
+        neverlink,
         base_info.has_sources_or_resources,
-        ctx.attr.exports,
-        ctx.attr.runtime_deps,
+        exports,
+        runtime_deps,
     )
 
     return [
@@ -73,8 +106,23 @@ def _java_library_rule_impl(ctx):
         OutputGroupInfo(**base_info.output_groups),
     ] + base_info.extra_providers
 
+def _proxy(ctx):
+    return java_library_rule(
+        ctx,
+        srcs = ctx.files.srcs,
+        deps = ctx.attr.deps,
+        runtime_deps = ctx.attr.runtime_deps,
+        plugins = ctx.attr.plugins,
+        exports = ctx.attr.exports,
+        exported_plugins = ctx.attr.exported_plugins,
+        resources = collect_resources(ctx),
+        javacopts = ctx.attr.javacopts,
+        neverlink = ctx.attr.neverlink,
+        proguard_specs = ctx.files.proguard_specs,
+    )
+
 java_library = create_rule(
-    _java_library_rule_impl,
+    _proxy,
     attrs = dict(
         {
             "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
