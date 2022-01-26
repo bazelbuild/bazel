@@ -34,7 +34,7 @@ def _java_library_rule_impl(ctx):
 
     extra_resources = semantics.preprocess(ctx)
 
-    base_info = JAVA_COMMON_DEP.call(ctx, extra_resources = extra_resources, output_prefix = "lib")
+    base_info = JAVA_COMMON_DEP.call(ctx, extra_resources = extra_resources)
 
     proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx)
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
