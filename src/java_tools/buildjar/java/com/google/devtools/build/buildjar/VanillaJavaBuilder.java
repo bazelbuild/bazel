@@ -370,7 +370,7 @@ public class VanillaJavaBuilder implements Closeable {
 
     @Override
     public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
-      return new String(Files.readAllBytes(path), UTF_8);
+      return Files.readString(path);
     }
   }
 
