@@ -116,6 +116,7 @@ java_lite_proto_aspect = aspect(
         ),
     },
     fragments = ["proto", "java"],
+    provides = [JavaInfo],
 )
 
 java_lite_proto_library = rule(
