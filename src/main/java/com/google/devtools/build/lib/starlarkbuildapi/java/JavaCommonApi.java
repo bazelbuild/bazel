@@ -229,7 +229,17 @@ public interface JavaCommonApi<
                 "Enables header compilation or ijar creation. If set to False, it forces use of the"
                     + " full class jar in the compilation classpaths of any dependants. Doing so is"
                     + " intended for use by non-library targets such as binaries that do not have"
-                    + " dependants.")
+                    + " dependants."),
+        @Param(
+            name = "injecting_rule_kind",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -256,6 +266,7 @@ public interface JavaCommonApi<
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -304,10 +315,7 @@ public interface JavaCommonApi<
               + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">run_ijar</a></code> "
               + "when possible.",
       parameters = {
-        @Param(
-            name = "actions",
-            named = true,
-            doc = "ctx.actions"),
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
         @Param(
             name = "jar",
             positional = false,

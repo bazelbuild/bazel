@@ -88,6 +88,7 @@ public class JavaStarlarkCommon
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -125,7 +126,9 @@ public class JavaStarlarkCommon
               .getImmutableList();
     }
     // checks for private API access
-    if (!enableCompileJarAction || !classpathResources.isEmpty()) {
+    if (!enableCompileJarAction
+        || !classpathResources.isEmpty()
+        || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
     return JavaInfoBuildHelper.getInstance()
@@ -159,6 +162,7 @@ public class JavaStarlarkCommon
             enableAnnotationProcessing,
             enableCompileJarAction,
             javaSemantics,
+            injectingRuleKind,
             thread);
   }
 

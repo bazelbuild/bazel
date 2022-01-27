@@ -96,6 +96,7 @@ def _aspect_impl(target, ctx):
 
         java_info = java_common.compile(
             ctx,
+            injecting_rule_kind = "java_lite_proto_library",
             source_jars = [source_jar],
             output = output_jar,
             deps = deps + [toolchain_deps],
