@@ -683,9 +683,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "exec_group",
       doc =
-          "<i>experimental</i> Creates an <a href='../../exec-groups.html'>execution group</a> "
-              + "which can be used to create actions for a specific execution platform during rule "
-              + "implementation.",
+          "Creates an <a href='../../exec-groups.html'>execution group</a> which can be used to"
+              + " create actions for a specific execution platform during rule implementation.",
       parameters = {
         @Param(
             name = TOOLCHAINS_PARAM,
@@ -693,23 +692,23 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             positional = false,
             defaultValue = "[]",
-            doc = "<i>Experimental</i> The set of toolchains this execution group requires."),
+            doc = "The set of toolchains this execution group requires."),
         @Param(
             name = EXEC_COMPATIBLE_WITH_PARAM,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
             positional = false,
             defaultValue = "[]",
-            doc = "<i>Experimental</i> A list of constraints on the execution platform."),
+            doc = "A list of constraints on the execution platform."),
         @Param(
             name = "copy_from_rule",
             defaultValue = "False",
             named = true,
             positional = false,
             doc =
-                "<i>Experimental</i> If set to true, this exec group inherits the toolchains and "
-                    + "constraints of the rule to which this group is attached. If set to any "
-                    + "other string this will throw an error.")
+                "If set to true, this exec group inherits the toolchains and constraints of the"
+                    + " rule to which this group is attached. If set to any other string this will"
+                    + " throw an error.")
       },
       useStarlarkThread = true)
   ExecGroupApi execGroup(
