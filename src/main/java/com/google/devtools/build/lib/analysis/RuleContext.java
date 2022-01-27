@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.cmdline.RepositoryMapping.ALWAYS_FALLBACK;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -54,11 +55,13 @@ import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -1241,6 +1244,24 @@ public final class RuleContext extends TargetContext
 
   public ExecGroupCollection getExecGroups() {
     return execGroupCollection;
+  }
+
+  private final static ConstraintSettingInfo osConstraintSetting;
+  private final static ConstraintValueInfo windowsConstraintValue;
+
+  static {
+    try {
+      Label osConstraintSettingLabel = Label.parseAbsolute("@platforms//os:os", ALWAYS_FALLBACK);
+      Label windowsConstraintValueLabel = Label.parseAbsolute("@platforms//os:windows", ALWAYS_FALLBACK);
+      osConstraintSetting = ConstraintSettingInfo.create(osConstraintSettingLabel);
+      windowsConstraintValue = ConstraintValueInfo.create(osConstraintSetting, windowsConstraintValueLabel);
+    } catch (LabelSyntaxException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public boolean isTargetOsWindows() {
+    return targetPlatformHasConstraint(windowsConstraintValue);
   }
 
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {

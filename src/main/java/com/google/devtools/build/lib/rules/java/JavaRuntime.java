@@ -32,15 +32,16 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /** Implementation for the {@code java_runtime} rule. */
 public class JavaRuntime implements RuleConfiguredTargetFactory {
-  // TODO(lberki): This is incorrect but that what the Jvm configuration fragment did. We'd have the
-  // the ability to do better if we knew what OS the BuildConfigurationValue refers to.
-  private static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
+  private static String getBinJava(boolean isWindows) {
+    return "bin/java" + OsUtils.executableExtension(isWindows);
+  }
 
   @Override
   @Nullable
@@ -65,9 +66,11 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
       javaHome = javaHome.getRelative(javaHomeAttribute);
     }
 
-    PathFragment javaBinaryExecPath = javaHome.getRelative(BIN_JAVA);
+    boolean isWindows = ruleContext.isTargetOsWindows();
+
+    PathFragment javaBinaryExecPath = javaHome.getRelative(getBinJava(isWindows));
     PathFragment javaBinaryRunfilesPath =
-        getRunfilesJavaExecutable(javaHome, ruleContext.getLabel());
+        getRunfilesJavaExecutable(javaHome, ruleContext.getLabel(), isWindows);
 
     Artifact java = ruleContext.getPrerequisiteArtifact("java");
     if (java != null) {
@@ -143,14 +146,14 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     return javabase.getPackageIdentifier().getExecPath(siblingRepositoryLayout);
   }
 
-  private static PathFragment getRunfilesJavaExecutable(PathFragment javaHome, Label javabase) {
+  private static PathFragment getRunfilesJavaExecutable(PathFragment javaHome, Label javabase, boolean isWindows) {
     if (javaHome.isAbsolute() || javabase.getRepository().isMain()) {
-      return javaHome.getRelative(BIN_JAVA);
+      return javaHome.getRelative(getBinJava(isWindows));
     } else {
       return javabase
           .getRepository()
           .getRunfilesPath()
-          .getRelative(BIN_JAVA);
+          .getRelative(getBinJava(isWindows));
     }
   }
 }

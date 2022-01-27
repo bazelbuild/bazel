@@ -223,7 +223,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     // never used so we skip it.
     if (!buildPythonZip) {
       Artifact stubOutput =
-          OS.getCurrent() == OS.WINDOWS
+          ruleContext.isTargetOsWindows()
               ? common.getPythonStubArtifactForWindows(executable)
               : executable;
       createStubFile(ruleContext, stubOutput, common, /* isForZipFile= */ false);
@@ -235,7 +235,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       Artifact zipFile = common.getPythonZipArtifact(executable);
 
       // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
-      if (OS.getCurrent() != OS.WINDOWS) {
+      if (!ruleContext.isTargetOsWindows()) {
         PathFragment shExecutable = ShToolchain.getPathForHost(ruleContext.getConfiguration());
         String pythonExecutableName = "python3";
         // NOTE: keep the following line intact to support nix builds
@@ -259,7 +259,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
 
     // On Windows, create the launcher.
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.isTargetOsWindows()) {
       createWindowsExeLauncher(
           ruleContext,
           // In the case where the second-stage interpreter is in runfiles, the launcher is passed

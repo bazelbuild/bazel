@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.Clas
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -217,7 +216,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     if (createExecutable) {
       // This artifact is named as the rule itself, e.g. //foo:bar_bin -> bazel-bin/foo/bar_bin
       // On Windows, it's going to be bazel-bin/foo/bar_bin.exe
-      if (OS.getCurrent() == OS.WINDOWS) {
+      if (ruleContext.isTargetOsWindows()) {
         executableForRunfiles =
             ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
       } else {

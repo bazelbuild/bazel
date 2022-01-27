@@ -192,11 +192,8 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
 
-    // TODO(laszlocsomor), TODO(ulfjack): `isExecutedOnWindows` should use the execution platform,
-    // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
-    // initialization.
-    final boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
-    final boolean isUsingTestWrapperInsteadOfTestSetupScript = isExecutedOnWindows;
+    final boolean isTargetOsWindows = ruleContext.isTargetOsWindows();
+    final boolean isUsingTestWrapperInsteadOfTestSetupScript = isTargetOsWindows;
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
@@ -428,7 +425,7 @@ public final class TestActionBuilder {
                 config,
                 ruleContext.getWorkspaceName(),
                 (!isUsingTestWrapperInsteadOfTestSetupScript
-                        || executionSettings.needsShell(isExecutedOnWindows))
+                        || executionSettings.needsShell(isTargetOsWindows))
                     ? ShToolchain.getPathOrError(ruleContext.getExecutionPlatform())
                     : null,
                 cancelConcurrentTests,

@@ -26,7 +26,11 @@ public final class OsUtils {
   }
 
   public static String executableExtension(OS os) {
-    return os == OS.WINDOWS ? ".exe" : "";
+    return executableExtension(os == OS.WINDOWS);
+  }
+
+  public static String executableExtension(boolean isWindows) {
+    return isWindows ? ".exe" : "";
   }
 
   /**

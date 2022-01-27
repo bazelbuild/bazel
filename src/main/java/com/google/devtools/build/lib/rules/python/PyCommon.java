@@ -650,7 +650,7 @@ public final class PyCommon {
   public void initBinary(List<Artifact> srcs) {
     Preconditions.checkNotNull(version);
 
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.isTargetOsWindows()) {
       executable =
           ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
     } else {
@@ -662,8 +662,7 @@ public final class PyCommon {
 
     if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       filesToBuildBuilder.add(getPythonZipArtifact(executable));
-    } else if (OS.getCurrent() == OS.WINDOWS) {
-      // TODO(bazel-team): Here we should check target platform instead of using OS.getCurrent().
+    } else if (ruleContext.isTargetOsWindows()) {
       // On Windows, add the python stub launcher in the set of files to build.
       filesToBuildBuilder.add(getPythonStubArtifactForWindows(executable));
     }
@@ -689,7 +688,7 @@ public final class PyCommon {
         executable.getOutputDirRelativePath(
             ruleContext.getConfiguration().isSiblingRepositoryLayout());
     String fileName = executable.getFilename();
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.isTargetOsWindows()) {
       Preconditions.checkArgument(fileName.endsWith(".exe"));
       fileName = fileName.substring(0, fileName.length() - 4) + extension;
     } else {

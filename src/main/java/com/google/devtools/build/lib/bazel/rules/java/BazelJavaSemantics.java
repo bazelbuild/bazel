@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistry
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -350,7 +349,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     ImmutableList<String> jvmFlagsList = ImmutableList.copyOf(jvmFlags);
     arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", jvmFlagsList));
 
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.isTargetOsWindows()) {
       List<String> jvmFlagsForLauncher = jvmFlagsList;
       try {
         jvmFlagsForLauncher = new ArrayList<>(jvmFlagsList.size());

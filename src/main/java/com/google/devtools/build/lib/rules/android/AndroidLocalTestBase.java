@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -217,7 +216,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
 
     Artifact executable; // the artifact for the rule itself
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.isTargetOsWindows()) {
       executable =
           ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
     } else {
