@@ -2069,8 +2069,8 @@ public abstract class AbstractQueryTest<T> {
    */
   public interface QueryHelper<T> {
 
-    @Before
     /** Basic set-up; this is called once at the beginning of a test, before anything else. */
+    @Before
     void setUp() throws Exception;
 
     void setKeepGoing(boolean keepGoing);
