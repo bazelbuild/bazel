@@ -18,12 +18,12 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * A {@link SkyFunction} for {@link FileStateValue}s.
@@ -33,13 +33,13 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class FileStateFunction implements SkyFunction {
 
-  private final AtomicReference<TimestampGranularityMonitor> tsgm;
-  private final AtomicReference<FilesystemCalls> syscallCache;
+  private final Supplier<TimestampGranularityMonitor> tsgm;
+  private final Supplier<SyscallCache> syscallCache;
   private final ExternalFilesHelper externalFilesHelper;
 
   public FileStateFunction(
-      AtomicReference<TimestampGranularityMonitor> tsgm,
-      AtomicReference<FilesystemCalls> syscallCache,
+      Supplier<TimestampGranularityMonitor> tsgm,
+      Supplier<SyscallCache> syscallCache,
       ExternalFilesHelper externalFilesHelper) {
     this.tsgm = tsgm;
     this.syscallCache = syscallCache;

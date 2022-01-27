@@ -52,8 +52,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -67,7 +67,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -77,6 +76,9 @@ import javax.annotation.Nullable;
  * Scans a source file and extracts the literal inclusions it specifies. Does not store results --
  * repeated requests to the same file will result in repeated scans. Clients should implement a
  * caching layer in order to avoid unnecessary disk access when requesting an already scanned file.
+ *
+ * <p>Both this class and the static inner class {@link Hints} have lifetime of a single build (or a
+ * single include scanning operation in the case of the {@link SwigIncludeParser}).
  */
 @VisibleForTesting
 class IncludeParser {
@@ -188,7 +190,8 @@ class IncludeParser {
     private final ImmutableList<Rule> rules;
     private final ArtifactFactory artifactFactory;
 
-    private final AtomicReference<FilesystemCalls> syscallCache = new AtomicReference<>();
+    private final SyscallCache syscallCache =
+        PerBuildSyscallCache.newBuilder().setInitialCapacity(HINTS_CACHE_CONCURRENCY).build();
 
     private final LoadingCache<Artifact, ImmutableList<Artifact>> fileLevelHintsCache =
         Caffeine.newBuilder()
@@ -203,7 +206,6 @@ class IncludeParser {
     Hints(HintsRules hintsRules, ArtifactFactory artifactFactory) {
       this.artifactFactory = artifactFactory;
       this.rules = hintsRules.rules;
-      clearCachedLegacyHints();
     }
 
     static HintsRules getRules(Path hintsFile) throws IOException {
@@ -240,16 +242,6 @@ class IncludeParser {
         }
       }
       return new HintsRules(rules.build());
-    }
-
-    /**
-     * Clears legacy inclusions cache to maintain inter-build correctness, since filesystem changes
-     * are not tracked by cache.
-     */
-    void clearCachedLegacyHints() {
-      fileLevelHintsCache.invalidateAll();
-      syscallCache.set(
-          PerBuildSyscallCache.newBuilder().setInitialCapacity(HINTS_CACHE_CONCURRENCY).build());
     }
 
     /** Returns the "file" type hinted inclusions for a given path, caching results by path. */

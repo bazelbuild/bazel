@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -811,7 +811,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -871,7 +871,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();

@@ -51,17 +51,16 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
  * C include scanner. Scans C/C++ source files using spawns to determine the bounding set of
- * transitively referenced include files.
+ * transitively referenced include files. Has lifetime of a single build.
  */
 public class SpawnIncludeScanner {
   /** The grep-includes tool is very lightweight, so don't use the default from AbstractAction. */
@@ -72,11 +71,11 @@ public class SpawnIncludeScanner {
   private OutputService outputService;
   private boolean inMemoryOutput;
   private final int remoteExtractionThreshold;
-  private final AtomicReference<FilesystemCalls> syscallCache;
+  private final SyscallCache syscallCache;
 
   /** Constructs a new SpawnIncludeScanner. */
   public SpawnIncludeScanner(
-      Path execRoot, int remoteExtractionThreshold, AtomicReference<FilesystemCalls> syscallCache) {
+      Path execRoot, int remoteExtractionThreshold, SyscallCache syscallCache) {
     this.execRoot = execRoot;
     this.remoteExtractionThreshold = remoteExtractionThreshold;
     this.syscallCache = syscallCache;
@@ -126,7 +125,7 @@ public class SpawnIncludeScanner {
     if (remoteExtractionThreshold == 0 || (outputService != null && !file.isSourceArtifact())) {
       return true;
     }
-    FileStatus status = syscallCache.get().statIfFound(file.getPath(), Symlinks.FOLLOW);
+    FileStatus status = syscallCache.statIfFound(file.getPath(), Symlinks.FOLLOW);
     return status == null || status.getSize() > remoteExtractionThreshold;
   }
 

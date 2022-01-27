@@ -1117,7 +1117,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             // TODO(b/187366935): Consider globbing everything eagerly instead.
             fileStatus =
                 actionExecutionContext
-                    .getSyscalls()
+                    .getSyscallCache()
                     .statIfFound(dirOrPackage.getRelative(BUILD_PATH_FRAGMENT), Symlinks.FOLLOW);
           } catch (IOException e) {
             // Previously, we used Path.exists() to check whether the BUILD file exists. This did

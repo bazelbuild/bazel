@@ -131,10 +131,5 @@ public class IncludeScannerSupplier {
     Preconditions.checkState(includeParseCache.isEmpty(), includeParseCache);
     Preconditions.checkState(scanners.asMap().isEmpty(), scanners);
     this.includeParser = Preconditions.checkNotNull(includeParser);
-    if (this.includeParser.getHints() != null) {
-      // The Hints object lives across the lifetime of the Blaze server, but its cached hints may
-      // be stale.
-      this.includeParser.getHints().clearCachedLegacyHints();
-    }
   }
 }

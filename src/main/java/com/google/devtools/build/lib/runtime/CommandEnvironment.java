@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.Any;
@@ -98,6 +99,7 @@ public class CommandEnvironment {
   private final PathPackageLocator packageLocator;
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
+  private final SyscallCache syscallCache;
   private final Duration waitTime;
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
@@ -218,6 +220,7 @@ public class CommandEnvironment {
     } else {
       this.packageLocator = null;
     }
+    this.syscallCache = workspace.getSkyframeExecutor().getCurrentSyscallCache();
     workspace.getSkyframeExecutor().setEventBus(eventBus);
 
     ClientOptions clientOptions =
@@ -792,6 +795,10 @@ public class CommandEnvironment {
       }
       return fileCache;
     }
+  }
+
+  public SyscallCache getSyscallCache() {
+    return syscallCache;
   }
 
   /**

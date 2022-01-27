@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.UnixGlobPathDiscriminator;
 import java.io.IOException;
@@ -42,9 +43,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
-/** Caches the results of glob expansion for a package. */
+/** Caches the results of glob expansion for a package. Has lifetime of a single build. */
 @ThreadSafety.ThreadCompatible
 public class GlobCache {
   /**
@@ -65,7 +65,7 @@ public class GlobCache {
   private final PackageIdentifier packageId;
 
   /** System call caching layer. */
-  private final AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
+  private final SyscallCache syscallCache;
 
   private final int maxDirectoriesToEagerlyVisit;
 
@@ -95,7 +95,7 @@ public class GlobCache {
       final PackageIdentifier packageId,
       final ImmutableSet<PathFragment> ignoredGlobPrefixes,
       final CachingPackageLocator locator,
-      AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
+      SyscallCache syscallCache,
       Executor globExecutor,
       int maxDirectoriesToEagerlyVisit,
       ThreadStateReceiver threadStateReceiverForMetrics) {
@@ -110,7 +110,7 @@ public class GlobCache {
                     command.run();
                   }
                 });
-    this.syscalls = syscalls == null ? new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS) : syscalls;
+    this.syscallCache = syscallCache;
     this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
 
     Preconditions.checkNotNull(locator);
@@ -223,7 +223,7 @@ public class GlobCache {
           .addPattern(pattern)
           .setPathDiscriminator(new GlobUnixPathDiscriminator(globberOperation))
           .setExecutor(globExecutor)
-          .setFilesystemCalls(syscalls)
+          .setFilesystemCalls(syscallCache)
           .globAsync();
     } catch (UnixGlob.BadPattern ex) {
       throw new BadGlobException(ex.getMessage());

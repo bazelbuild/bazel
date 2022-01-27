@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -74,7 +75,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -283,8 +284,8 @@ public final class FilesystemValueCheckerTest {
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
+            () -> SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(

@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Optional;
@@ -117,7 +117,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(
                   SkyFunctions.DIRECTORY_LISTING_STATE,
                   new DirectoryListingStateFunction(
-                      externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)))
+                      externalFilesHelper, () -> SyscallCache.NO_CACHE))
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
               .put(

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -1262,7 +1263,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                   return null;
                 }
               },
-              null,
+              SyscallCache.NO_CACHE,
               executorService,
               -1,
               ThreadStateReceiver.NULL_INSTANCE);

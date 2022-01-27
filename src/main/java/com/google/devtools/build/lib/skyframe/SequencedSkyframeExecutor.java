@@ -771,6 +771,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     Differencer.Diff diff;
+    syscallCacheRef.set(getPerBuildSyscallCache(/*globbingThreads=*/ 42));
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
           new FilesystemValueChecker(tsgm, /*lastExecutionTimeRange=*/ null, /*numThreads=*/ 200)
@@ -778,7 +779,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     } else {
       diff = getDiff(tsgm, modifiedFileSet, pathEntry, /* fsvcThreads= */ 200);
     }
-    syscalls.set(getPerBuildSyscallCache(/*globbingThreads=*/ 42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
     recordingDiffer.inject(diff.changedKeysWithNewValues());
     // Blaze invalidates transient errors on every build.

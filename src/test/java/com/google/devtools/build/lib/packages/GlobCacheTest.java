@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -128,7 +129,7 @@ public class GlobCacheTest {
                 return buildFileForPackage == null ? null : buildFileForPackage.getBaseName();
               }
             },
-            null,
+            SyscallCache.NO_CACHE,
             cacheThreadPool,
             -1,
             ThreadStateReceiver.NULL_INSTANCE);

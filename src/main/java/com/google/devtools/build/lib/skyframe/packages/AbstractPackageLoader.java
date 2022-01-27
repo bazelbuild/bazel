@@ -86,7 +86,6 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -435,14 +434,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
 
   private ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
-    AtomicReference<TimestampGranularityMonitor> tsgm =
-        new AtomicReference<>(new TimestampGranularityMonitor(BlazeClock.instance()));
-    AtomicReference<FilesystemCalls> syscallCacheRef =
-        new AtomicReference<>(
-            PerBuildSyscallCache.newBuilder()
-                .setInitialCapacity(nonSkyframeGlobbingThreads)
-                .build());
-    pkgFactory.setSyscalls(syscallCacheRef);
+    TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
+    PerBuildSyscallCache syscallCache =
+        PerBuildSyscallCache.newBuilder().setInitialCapacity(nonSkyframeGlobbingThreads).build();
+    pkgFactory.setSyscallCache(() -> syscallCache);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING);
     CachingPackageLocator cachingPackageLocator =
@@ -450,7 +445,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
           @Override
           @Nullable
           public Path getBuildFileForPackage(PackageIdentifier packageName) {
-            return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCacheRef);
+            return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCache);
           }
 
           @Override
@@ -464,7 +459,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
         .put(
             FileStateValue.FILE_STATE,
-            new FileStateFunction(tsgm, syscallCacheRef, externalFilesHelper))
+            new FileStateFunction(() -> tsgm, () -> syscallCache, externalFilesHelper))
         .put(FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction())
         .put(
             FileSymlinkInfiniteExpansionUniquenessFunction.NAME,

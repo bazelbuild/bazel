@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.Collection;
 import org.junit.Before;
 
@@ -82,7 +82,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
   }
 

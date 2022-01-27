@@ -184,7 +184,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer;
@@ -294,8 +294,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
-  protected final AtomicReference<UnixGlob.FilesystemCalls> syscalls =
-      new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
+  protected final AtomicReference<SyscallCache> syscallCacheRef =
+      new AtomicReference<>(SyscallCache.NO_CACHE);
   protected final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
   protected final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
       new AtomicReference<>(ImmutableSet.of());
@@ -422,15 +422,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.skyKeyStateReceiver = skyKeyStateReceiver;
     this.bugReporter = bugReporter;
-    this.pkgFactory.setSyscalls(syscalls);
+    this.pkgFactory.setSyscallCache(syscallCacheRef::get);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager =
         new SkyframePackageManager(
             new SkyframePackageLoader(),
             new QueryTransitivePackagePreloader(
                 () -> memoizingEvaluator, this::newEvaluationContextBuilder),
-            syscalls,
-            pkgLocator,
+            syscallCacheRef::get,
+            pkgLocator::get,
             numPackagesLoaded);
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
@@ -446,7 +446,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             outputArtifactsFromActionCache,
             statusReporterRef,
             this::getPathEntries,
-            syscalls,
+            syscallCacheRef::get,
             skyKeyStateReceiver::makeThreadStateReceiver);
     this.artifactFactory =
         new ArtifactFactory(
@@ -606,7 +606,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     ActionExecutionFunction actionExecutionFunction =
-        new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm, bugReporter);
+        new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm::get, bugReporter);
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
     this.actionExecutionFunction = actionExecutionFunction;
     map.put(
@@ -651,11 +651,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   protected SkyFunction newFileStateFunction() {
-    return new FileStateFunction(tsgm, syscalls, externalFilesHelper);
+    return new FileStateFunction(tsgm::get, syscallCacheRef::get, externalFilesHelper);
   }
 
   protected SkyFunction newDirectoryListingStateFunction() {
-    return new DirectoryListingStateFunction(externalFilesHelper, syscalls);
+    return new DirectoryListingStateFunction(externalFilesHelper, syscallCacheRef::get);
   }
 
   protected GlobFunction newGlobFunction() {
@@ -700,8 +700,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return perBuildSyscallCache;
   }
 
-  public AtomicReference<UnixGlob.FilesystemCalls> getSyscalls() {
-    return syscalls;
+  public final SyscallCache getCurrentSyscallCache() {
+    return syscallCacheRef.get();
   }
 
   @ThreadCompatible
@@ -1364,7 +1364,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
 
-    syscalls.set(getPerBuildSyscallCache(packageOptions.globbingThreads));
+    syscallCacheRef.set(getPerBuildSyscallCache(packageOptions.globbingThreads));
     this.pkgFactory.setGlobbingThreads(packageOptions.globbingThreads);
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
@@ -2245,7 +2245,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   @VisibleForTesting
   public final void turnOffSyscallCacheForTesting() {
-    syscalls.set(UnixGlob.DEFAULT_SYSCALLS);
+    syscallCacheRef.set(SyscallCache.NO_CACHE);
   }
 
   protected abstract void invalidateFilesUnderPathForTestingImpl(

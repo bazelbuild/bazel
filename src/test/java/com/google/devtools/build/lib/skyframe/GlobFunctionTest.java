@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Functions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
@@ -42,6 +44,7 @@ import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternExcept
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -50,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -158,8 +162,7 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(SkyFunctions.GLOB, new GlobFunction(alwaysUseDirListing()));
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(
-            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
+        new DirectoryListingStateFunction(externalFilesHelper, () -> SyscallCache.NO_CACHE));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
@@ -174,8 +177,8 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
+            () -> SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
 
@@ -679,7 +682,8 @@ public abstract class GlobFunctionTest {
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
     fs.stubStat(pkgPath, null);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(Root.fromPath(root), pkgPath);
-    FileStateValue pkgDirFileStateValue = FileStateValue.create(pkgRootedPath, null);
+    FileStateValue pkgDirFileStateValue =
+        FileStateValue.create(pkgRootedPath, SyscallCache.NO_CACHE, /*tsgm=*/ null);
     FileValue pkgDirValue =
         FileValue.value(
             ImmutableList.of(pkgRootedPath),

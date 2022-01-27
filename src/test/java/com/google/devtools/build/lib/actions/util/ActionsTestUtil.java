@@ -91,7 +91,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -177,7 +177,7 @@ public final class ActionsTestUtil {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         DiscoveredModulesPruner.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 
@@ -203,7 +203,7 @@ public final class ActionsTestUtil {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         DiscoveredModulesPruner.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 
@@ -230,7 +230,7 @@ public final class ActionsTestUtil {
         new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
         /*actionFileSystem=*/ null,
         discoveredModulesPruner,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 

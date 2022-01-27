@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingStateValue}s.
@@ -37,10 +37,10 @@ public class DirectoryListingStateFunction implements SkyFunction {
    * re-use the results of expensive readdir() operations, that are likely already executed for
    * evaluating globs.
    */
-  private final AtomicReference<FilesystemCalls> syscallCache;
+  private final Supplier<SyscallCache> syscallCache;
 
   public DirectoryListingStateFunction(
-      ExternalFilesHelper externalFilesHelper, AtomicReference<FilesystemCalls> syscallCache) {
+      ExternalFilesHelper externalFilesHelper, Supplier<SyscallCache> syscallCache) {
     this.externalFilesHelper = externalFilesHelper;
     this.syscallCache = syscallCache;
   }

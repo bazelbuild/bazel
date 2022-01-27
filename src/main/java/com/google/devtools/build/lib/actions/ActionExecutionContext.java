@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
@@ -76,7 +76,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   private final ArtifactPathResolver pathResolver;
   private final DiscoveredModulesPruner discoveredModulesPruner;
-  private final FilesystemCalls syscalls;
+  private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
 
   private ActionExecutionContext(
@@ -96,7 +96,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
-      FilesystemCalls syscalls,
+      SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     this.actionInputFileCache = actionInputFileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
@@ -118,7 +118,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
     this.discoveredModulesPruner = discoveredModulesPruner;
-    this.syscalls = syscalls;
+    this.syscallCache = syscallCache;
   }
 
   public ActionExecutionContext(
@@ -137,7 +137,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
-      FilesystemCalls syscalls,
+      SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     this(
         executor,
@@ -156,7 +156,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         skyframeDepsResult,
         discoveredModulesPruner,
-        syscalls,
+        syscallCache,
         threadStateReceiverForMetrics);
   }
 
@@ -174,7 +174,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       Environment env,
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
-      FilesystemCalls syscalls,
+      SyscallCache syscalls,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     return new ActionExecutionContext(
         executor,
@@ -382,12 +382,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /**
-   * This only exists for loose header checking (and shouldn't be exist at all).
+   * This only exists for loose header checking (and shouldn't exist at all).
    *
    * <p>Do NOT use from any other place.
    */
-  public FilesystemCalls getSyscalls() {
-    return syscalls;
+  public SyscallCache getSyscallCache() {
+    return syscallCache;
   }
 
   public ThreadStateReceiver getThreadStateReceiverForMetrics() {
@@ -428,7 +428,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         skyframeDepsResult,
         discoveredModulesPruner,
-        syscalls,
+        syscallCache,
         threadStateReceiverForMetrics);
   }
 
@@ -451,7 +451,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         skyframeDepsResult,
         discoveredModulesPruner,
-        syscalls,
+        syscallCache,
         threadStateReceiverForMetrics);
   }
 

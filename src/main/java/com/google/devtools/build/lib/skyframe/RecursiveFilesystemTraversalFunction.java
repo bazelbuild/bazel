@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.vfs.UnixGlob.DEFAULT_SYSCALLS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -339,7 +339,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         // remove some of the filesystem operations we're doing here.
         Path path = traversal.root.asRootedPath().asPath();
         FileStateValue fileState =
-            FileStateValue.create(traversal.root.asRootedPath(), DEFAULT_SYSCALLS, null);
+            FileStateValue.create(traversal.root.asRootedPath(), SyscallCache.NO_CACHE, null);
         if (fileState.getType() == FileStateType.NONEXISTENT) {
           throw new IOException("Missing file: " + path);
         }

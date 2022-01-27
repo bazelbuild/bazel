@@ -101,7 +101,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
@@ -146,7 +146,7 @@ public final class SkyframeActionExecutor {
   private final ActionKeyContext actionKeyContext;
   private final MetadataConsumerForMetrics outputArtifactsSeen;
   private final MetadataConsumerForMetrics outputArtifactsFromActionCache;
-  private final AtomicReference<FilesystemCalls> syscalls;
+  private final Supplier<SyscallCache> syscallCache;
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
   private Reporter reporter;
   private Map<String, String> clientEnv = ImmutableMap.of();
@@ -218,14 +218,14 @@ public final class SkyframeActionExecutor {
       MetadataConsumerForMetrics outputArtifactsFromActionCache,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
-      AtomicReference<FilesystemCalls> syscalls,
+      Supplier<SyscallCache> syscallCache,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.syscalls = syscalls;
+    this.syscallCache = syscallCache;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
   }
 
@@ -546,7 +546,7 @@ public final class SkyframeActionExecutor {
         actionFileSystem,
         skyframeDepsResult,
         discoveredModulesPruner,
-        syscalls.get(),
+        syscallCache.get(),
         threadStateReceiverFactory.apply(actionLookupData));
   }
 
@@ -767,7 +767,7 @@ public final class SkyframeActionExecutor {
             env,
             actionFileSystem,
             discoveredModulesPruner,
-            syscalls.get(),
+            syscallCache.get(),
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(

@@ -32,12 +32,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A mapping from the name of a package to the location of its BUILD file. The implementation
@@ -77,7 +76,7 @@ public final class PathPackageLocator {
    * first path that matches always wins.
    */
   public Path getPackageBuildFile(PackageIdentifier packageName) throws NoSuchPackageException {
-    Path buildFile  = getPackageBuildFileNullable(packageName, UnixGlob.DEFAULT_SYSCALLS_REF);
+    Path buildFile = getPackageBuildFileNullable(packageName, SyscallCache.NO_CACHE);
     if (buildFile == null) {
       String message = "BUILD file not found on package path";
       throw new BuildFileNotFoundException(
@@ -102,9 +101,7 @@ public final class PathPackageLocator {
    * @param cache a filesystem-level cache of stat() calls.
    * @return the {@link Path} to the correct build file, or {@code null} if none was found
    */
-  public Path getPackageBuildFileNullable(
-      PackageIdentifier packageIdentifier,
-      AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
+  public Path getPackageBuildFileNullable(PackageIdentifier packageIdentifier, SyscallCache cache) {
     if (packageIdentifier.getRepository().isMain()) {
       for (BuildFileName buildFileName : buildFilesByPriority) {
         Path buildFilePath =
@@ -133,7 +130,7 @@ public final class PathPackageLocator {
                 .getRelative(packageIdentifier.getSourceRoot())
                 .getRelative(buildFileName.getFilenameFragment());
         try {
-          FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
+          FileStatus stat = cache.statIfFound(buildFile, Symlinks.FOLLOW);
           if (stat != null && stat.isFile()) {
             return buildFile;
           }
@@ -257,22 +254,21 @@ public final class PathPackageLocator {
    * wins.
    */
   public Path getWorkspaceFile() {
-    AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
     // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
     // file.
-    Path workspaceFile = getFilePath(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME, cache);
+    Path workspaceFile =
+        getFilePath(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME, SyscallCache.NO_CACHE);
     if (workspaceFile != null) {
       return workspaceFile;
     }
-    return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, cache);
+    return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, SyscallCache.NO_CACHE);
   }
 
-  private Path getFilePath(PathFragment suffix,
-      AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
+  private Path getFilePath(PathFragment suffix, SyscallCache cache) {
     for (Root pathEntry : pathEntries) {
       Path buildFile = pathEntry.getRelative(suffix);
       try {
-        Dirent.Type type = cache.get().getType(buildFile, Symlinks.FOLLOW);
+        Dirent.Type type = cache.getType(buildFile, Symlinks.FOLLOW);
         if (type == Dirent.Type.FILE || type == Dirent.Type.UNKNOWN) {
           return buildFile;
         }

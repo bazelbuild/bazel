@@ -99,7 +99,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -215,7 +215,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    AtomicReference<TimestampGranularityMonitor> tsgmRef = new AtomicReference<>(tsgm);
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
@@ -238,7 +237,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             MetadataConsumerForMetrics.NO_OP,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ ImmutableList::of,
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            () -> SyscallCache.NO_CACHE,
             k -> ThreadStateReceiver.NULL_INSTANCE);
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
@@ -256,9 +255,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        tsgmRef,
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
-                        externalFilesHelper))
+                        () -> tsgm, () -> SyscallCache.NO_CACHE, externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(
                     Artifact.ARTIFACT,
@@ -268,7 +265,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     new ActionExecutionFunction(
                         skyframeActionExecutor,
                         directories,
-                        tsgmRef,
+                        () -> tsgm,
                         BugReporter.defaultInstance()))
                 .put(
                     SkyFunctions.PACKAGE,

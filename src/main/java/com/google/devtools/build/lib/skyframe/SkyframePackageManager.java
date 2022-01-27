@@ -32,28 +32,28 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   private final SkyframePackageLoader packageLoader;
   private final QueryTransitivePackagePreloader transitiveLoader;
-  private final AtomicReference<UnixGlob.FilesystemCalls> syscalls;
-  private final AtomicReference<PathPackageLocator> pkgLocator;
+  private final Supplier<SyscallCache> syscallCache;
+  private final Supplier<PathPackageLocator> pkgLocator;
   private final AtomicInteger numPackagesLoaded;
 
   public SkyframePackageManager(
       SkyframePackageLoader packageLoader,
       QueryTransitivePackagePreloader transitiveLoader,
-      AtomicReference<UnixGlob.FilesystemCalls> syscalls,
-      AtomicReference<PathPackageLocator> pkgLocator,
+      Supplier<SyscallCache> syscallCache,
+      Supplier<PathPackageLocator> pkgLocator,
       AtomicInteger numPackagesLoaded) {
     this.packageLoader = packageLoader;
     this.transitiveLoader = transitiveLoader;
     this.pkgLocator = pkgLocator;
-    this.syscalls = syscalls;
+    this.syscallCache = syscallCache;
     this.numPackagesLoaded = numPackagesLoaded;
   }
 
@@ -99,7 +99,7 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     // TODO(bazel-team): Use a PackageLookupValue here [skyframe-loading]
     // TODO(bazel-team): The implementation in PackageCache also checks for duplicate packages, see
     // BuildFileCache#getBuildFile [skyframe-loading]
-    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscalls);
+    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscallCache.get());
   }
 
   @Override

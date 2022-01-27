@@ -112,7 +112,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
@@ -143,13 +142,13 @@ public class ActionExecutionFunction implements SkyFunction {
   private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
-  private final AtomicReference<TimestampGranularityMonitor> tsgm;
+  private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
 
   public ActionExecutionFunction(
       SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
-      AtomicReference<TimestampGranularityMonitor> tsgm,
+      Supplier<TimestampGranularityMonitor> tsgm,
       BugReporter bugReporter) {
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.directories = directories;

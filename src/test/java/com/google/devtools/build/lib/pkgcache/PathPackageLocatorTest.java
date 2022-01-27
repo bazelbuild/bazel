@@ -25,11 +25,10 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -195,40 +194,49 @@ public class PathPackageLocatorTest extends FoundationTestCase {
 
   @Test
   public void testGetPackageBuildFile() throws Exception {
-    AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
     assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("A")))
         .isEqualTo(buildBazelFile1A);
-    assertThat(locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("A"), cache))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("A"), SyscallCache.NO_CACHE))
         .isEqualTo(buildBazelFile1A);
     assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("B")))
         .isEqualTo(buildFile1B);
-    assertThat(locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("B"), cache))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("B"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile1B);
     assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("C")))
         .isEqualTo(buildFile2C);
-    assertThat(locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("C"), cache))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2C);
     assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("C/D")))
         .isEqualTo(buildFile2CD);
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("C/D"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C/D"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2CD);
     checkFails("C/E",
                "no such package 'C/E': BUILD file not found on package path");
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("C/E"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C/E"), SyscallCache.NO_CACHE))
         .isNull();
     assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("F")))
         .isEqualTo(buildFile2F);
     checkFails("F/G",
                "no such package 'F/G': BUILD file not found on package path");
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("F/G"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("F/G"), SyscallCache.NO_CACHE))
         .isNull();
     assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("F/G/H")))
         .isEqualTo(buildFile2FGH);
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("F/G/H"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("F/G/H"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2FGH);
     checkFails("I", "no such package 'I': BUILD file not found on package path");
   }

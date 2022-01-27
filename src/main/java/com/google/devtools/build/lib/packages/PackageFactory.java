@@ -46,15 +46,15 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -114,7 +114,7 @@ public final class PackageFactory {
   private final RuleFactory ruleFactory;
   private final RuleClassProvider ruleClassProvider;
 
-  private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
+  private Supplier<? extends SyscallCache> syscalls;
 
   private ForkJoinPool executor;
 
@@ -211,7 +211,7 @@ public final class PackageFactory {
   }
 
   /** Sets the syscalls cache used in globbing. */
-  public void setSyscalls(AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls) {
+  public void setSyscallCache(Supplier<? extends SyscallCache> syscalls) {
     this.syscalls = Preconditions.checkNotNull(syscalls);
   }
 
@@ -481,7 +481,7 @@ public final class PackageFactory {
             packageId,
             ignoredGlobPrefixes,
             locator,
-            syscalls,
+            syscalls.get(),
             executor,
             maxDirectoriesToEagerlyVisitInGlobbing,
             threadStateReceiverForMetrics));

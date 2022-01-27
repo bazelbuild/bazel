@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import static org.junit.Assert.fail;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -38,9 +40,10 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -106,8 +109,9 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                 .put(
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<>(),
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        Suppliers.ofInstance(
+                            new TimestampGranularityMonitor(BlazeClock.instance())),
+                        () -> SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,

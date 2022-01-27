@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -76,9 +76,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   private FileStateValue() {}
 
   public static FileStateValue create(
-      RootedPath rootedPath,
-      FilesystemCalls syscallCache,
-      @Nullable TimestampGranularityMonitor tsgm)
+      RootedPath rootedPath, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Path path = rootedPath.asPath();
     Dirent.Type type = syscallCache.getType(path, Symlinks.NOFOLLOW);

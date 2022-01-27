@@ -36,7 +36,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.junit.After;
 import org.junit.Before;
@@ -276,8 +275,8 @@ public class GlobTest {
 
   @Test
   public void testIOFailureOnStat() throws Exception {
-    UnixGlob.FilesystemCalls syscalls =
-        new UnixGlob.FilesystemCalls() {
+    SyscallCache syscalls =
+        new SyscallCache() {
           @Override
           public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
             throw new IOException("EIO");
@@ -300,18 +299,18 @@ public class GlobTest {
             () ->
                 new UnixGlob.Builder(tmpPath)
                     .addPattern("foo/bar/wiz/file")
-                    .setFilesystemCalls(new AtomicReference<>(syscalls))
+                    .setFilesystemCalls(syscalls)
                     .glob());
     assertThat(e).hasMessageThat().isEqualTo("EIO");
   }
 
   @Test
   public void testGlobWithoutWildcardsDoesNotCallReaddir() throws Exception {
-    UnixGlob.FilesystemCalls syscalls =
-        new UnixGlob.FilesystemCalls() {
+    SyscallCache syscallCache =
+        new SyscallCache() {
           @Override
           public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
-            return UnixGlob.DEFAULT_SYSCALLS.statIfFound(path, symlinks);
+            return SyscallCache.NO_CACHE.statIfFound(path, symlinks);
           }
 
           @Override
@@ -328,7 +327,7 @@ public class GlobTest {
     assertThat(
             new UnixGlob.Builder(tmpPath)
                 .addPattern("foo/bar/wiz/file")
-                .setFilesystemCalls(new AtomicReference<>(syscalls))
+                .setFilesystemCalls(syscallCache)
                 .glob())
         .containsExactly(tmpPath.getRelative("foo/bar/wiz/file"));
   }
