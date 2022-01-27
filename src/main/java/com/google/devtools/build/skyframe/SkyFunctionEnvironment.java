@@ -662,6 +662,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         errorMightHaveBeenFound = true;
         childErrorInfos.add(errorInfo);
         if (bubbleErrorInfo != null) {
+          encounteredErrorDuringBubbling = true;
           // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
           // fancy after this. SkyFunctions executed during error bubbling are supposed to
           // (quickly) rethrow errors or return a value/null (but there's currently no way to
