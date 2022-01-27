@@ -35,9 +35,6 @@ def _rule_impl(ctx):
     # Merging the retrieved list of aspect providers from the dependencies.
     java_info = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
 
-    if not ctx.attr.strict_deps:
-        java_info = java_common.make_non_strict(java_info)
-
     # Collect the aspect output files.
     files_to_build = depset(transitive = [dep[_JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
 
@@ -102,7 +99,6 @@ def _aspect_impl(target, ctx):
             source_jars = [source_jar],
             output = output_jar,
             deps = deps + [toolchain_deps],
-            strict_deps = "OFF",
             java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
         )
     else:
@@ -133,7 +129,6 @@ java_lite_proto_library = rule(
     implementation = _rule_impl,
     attrs = {
         "deps": attr.label_list(aspects = [java_lite_proto_aspect]),
-        "strict_deps": attr.bool(default = True),
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),

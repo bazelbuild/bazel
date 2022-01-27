@@ -437,6 +437,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
    * java_library/java_binary and similar rules.
    */
   @Test
+  @Ignore("TODO(b/216484418): Systematize this test with its new version.")
   public void jplCorrectlyDefinesDirectJars_strictDepsDisabled() throws Exception {
     scratch.file(
         "x/BUILD",
