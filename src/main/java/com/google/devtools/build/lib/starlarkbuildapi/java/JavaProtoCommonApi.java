@@ -77,4 +77,14 @@ public interface JavaProtoCommonApi<
       })
   JavaInfoApi<FileT, ?, ?> getRuntimeToolchainProvider(
       StarlarkRuleContextT starlarkRuleContext, String protoToolchainAttr) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_runtime",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = true, named = false, doc = "The rule context."),
+        @Param(name = "proto_toolchain_attr", positional = false, named = true)
+      })
+  TransitiveInfoCollectionApi getRuntime(
+      StarlarkRuleContextT starlarkRuleContext, String protoToolchainAttr) throws EvalException;
 }

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Expor
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaProtoCommonApi;
 import net.starlark.java.eval.EvalException;
 
@@ -79,6 +80,12 @@ public class JavaProtoStarlarkCommon
             JavaCompilationArgsProvider.class,
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
         .build();
+  }
+
+  @Override
+  public TransitiveInfoCollectionApi getRuntime(
+      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
+    return getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr).runtime();
   }
 
   private static ProtoLangToolchainProvider getProtoToolchainProvider(

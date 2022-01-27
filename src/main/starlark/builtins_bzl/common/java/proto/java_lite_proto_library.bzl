@@ -27,6 +27,7 @@ JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 java_common = _builtins.toplevel.java_common
 java_proto_common = _builtins.toplevel.java_proto_common
 JavaInfo = _builtins.toplevel.JavaInfo
+proguard_spec_provider = _builtins.toplevel.ProguardSpecProvider
 
 _JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
 
@@ -40,6 +41,12 @@ def _rule_impl(ctx):
     # Collect the aspect output files.
     files_to_build = depset(transitive = [dep[_JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
 
+    runtime_deps = java_proto_common.get_runtime(
+        ctx,
+        proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
+    )
+    progard_provider = runtime_deps[proguard_spec_provider]
+
     return [
         DefaultInfo(
             files = files_to_build,  # files to build
@@ -49,6 +56,9 @@ def _rule_impl(ctx):
         ),
         java_info,
         OutputGroupInfo(default = depset()),
+        proguard_spec_provider(
+            depset(transitive = [progard_provider.specs]),
+        ),
     ]
 
 def _aspect_impl(target, ctx):
@@ -124,5 +134,8 @@ java_lite_proto_library = rule(
     attrs = {
         "deps": attr.label_list(aspects = [java_lite_proto_aspect]),
         "strict_deps": attr.bool(default = True),
+        PROTO_TOOLCHAIN_ATTR: attr.label(
+            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
+        ),
     },
 )
