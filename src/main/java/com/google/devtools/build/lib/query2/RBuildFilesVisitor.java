@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,6 +48,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */
 public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIdentifier, Target> {
@@ -180,77 +183,85 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
   private static Collection<SkyKey> getSkyKeysForFileFragments(
       WalkableGraph graph, Iterable<PathFragment> pathFragments) throws InterruptedException {
     Set<SkyKey> result = new HashSet<>();
-    Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
+    ListMultimap<PathFragment, PathFragment> currentAncestorToOriginalPath =
+        ArrayListMultimap.create();
     for (PathFragment pathFragment : pathFragments) {
-      currentToOriginal.put(pathFragment, pathFragment);
-    }
-    while (!currentToOriginal.isEmpty()) {
-      Multimap<SkyKey, PathFragment> packageLookupKeysToOriginal = ArrayListMultimap.create();
-      Multimap<SkyKey, PathFragment> packageLookupKeysToCurrent = ArrayListMultimap.create();
-      for (Map.Entry<PathFragment, PathFragment> entry : currentToOriginal.entries()) {
-        PathFragment current = entry.getKey();
-        PathFragment original = entry.getValue();
-        for (SkyKey packageLookupKey : getPkgLookupKeysForFile(current)) {
-          packageLookupKeysToOriginal.put(packageLookupKey, original);
-          packageLookupKeysToCurrent.put(packageLookupKey, current);
-        }
-
-        // The WORKSPACE file is a transitive dependency of every package. Unfortunately, there is
-        // no specific SkyValue that we can use to figure out under which package path entries it
-        // lives so we add a dependency on the WorkspaceNameValue key.
-        if (original.equals(current) && WorkspaceFileHelper.matchWorkspaceFileName(original)) {
-          // TODO(mschaller): this should not be checked at runtime. These are constants!
-          Preconditions.checkState(
-              LabelConstants.WORKSPACE_FILE_NAME
-                  .getParentDirectory()
-                  .equals(PathFragment.EMPTY_FRAGMENT),
-              LabelConstants.WORKSPACE_FILE_NAME);
-          result.add(WorkspaceNameValue.key());
-        }
+      checkWorkspaceFile(result, pathFragment);
+      PathFragment parentPathFragment = pathFragment.getParentDirectory();
+      if (parentPathFragment != null) {
+        currentAncestorToOriginalPath.put(parentPathFragment, pathFragment);
       }
-      Map<SkyKey, SkyValue> lookupValues =
-          graph.getSuccessfulValues(packageLookupKeysToOriginal.keySet());
+    }
+
+    // We look at each ancestor directory of every file, and use the currentAncestorToOriginalPath
+    // map to avoid doing unnecessary work with common ancestors. If we don't find a package
+    // with the first level of ancestors, we go up a level, until we find the first package
+    // for every file. If a file doesn't have a parent package, the file is ignored.
+    while (!currentAncestorToOriginalPath.isEmpty()) {
+      ImmutableSet<SkyKey> pkgLookupKeys =
+          currentAncestorToOriginalPath.keySet().stream()
+              .map(RBuildFilesVisitor::getPkgLookupKeyForDirectory)
+              .collect(toImmutableSet());
+      Map<SkyKey, SkyValue> lookupValues = graph.getSuccessfulValues(pkgLookupKeys);
       for (Map.Entry<SkyKey, SkyValue> entry : lookupValues.entrySet()) {
-        SkyKey packageLookupKey = entry.getKey();
         PackageLookupValue packageLookupValue = (PackageLookupValue) entry.getValue();
         if (packageLookupValue.packageExists()) {
+          SkyKey packageLookupKey = entry.getKey();
+          PathFragment currentFragment =
+              ((PackageIdentifier) packageLookupKey.argument()).getPackageFragment();
           Collection<PathFragment> originalFiles =
-              packageLookupKeysToOriginal.get(packageLookupKey);
+              currentAncestorToOriginalPath.get(currentFragment);
           Preconditions.checkState(!originalFiles.isEmpty(), entry);
           for (PathFragment fileName : originalFiles) {
             result.add(
                 FileStateValue.key(
                     RootedPath.toRootedPath(packageLookupValue.getRoot(), fileName)));
           }
-          for (PathFragment current : packageLookupKeysToCurrent.get(packageLookupKey)) {
-            currentToOriginal.removeAll(current);
-          }
+          currentAncestorToOriginalPath.removeAll(currentFragment);
         }
       }
-      Multimap<PathFragment, PathFragment> newCurrentToOriginal = ArrayListMultimap.create();
-      for (PathFragment pathFragment : currentToOriginal.keySet()) {
-        PathFragment parent = pathFragment.getParentDirectory();
-        if (parent != null) {
-          newCurrentToOriginal.putAll(parent, currentToOriginal.get(pathFragment));
-        }
-      }
-      currentToOriginal = newCurrentToOriginal;
+      currentAncestorToOriginalPath = goUpOneDirectory(currentAncestorToOriginalPath);
     }
     return result;
   }
 
+  private static ListMultimap<PathFragment, PathFragment> goUpOneDirectory(
+      Multimap<PathFragment, PathFragment> currentToOriginal) {
+    ListMultimap<PathFragment, PathFragment> newCurrentToOriginal = ArrayListMultimap.create();
+    for (PathFragment pathFragment : currentToOriginal.keySet()) {
+      PathFragment parent = pathFragment.getParentDirectory();
+      if (parent != null) {
+        newCurrentToOriginal.putAll(parent, currentToOriginal.get(pathFragment));
+      }
+    }
+    return newCurrentToOriginal;
+  }
+
+  private static void checkWorkspaceFile(Set<SkyKey> result, PathFragment file) {
+    // The WORKSPACE file is a transitive dependency of every package. Unfortunately, there is
+    // no specific SkyValue that we can use to figure out under which package path entries it
+    // lives so we add a dependency on the WorkspaceNameValue key.
+    if (WorkspaceFileHelper.matchWorkspaceFileName(file)) {
+      // TODO(mschaller): this should not be checked at runtime. These are constants!
+      Preconditions.checkState(
+          LabelConstants.WORKSPACE_FILE_NAME
+              .getParentDirectory()
+              .equals(PathFragment.EMPTY_FRAGMENT),
+          LabelConstants.WORKSPACE_FILE_NAME);
+      result.add(WorkspaceNameValue.key());
+    }
+  }
+
   /**
-   * Returns package lookup keys for looking up the package root for which there may be a relevant
+   * Returns package lookup key for looking up the package root for which there may be a relevant
    * {@link FileStateValue} node in the graph for {@code originalFileFragment}, which is assumed to
    * be a file path.
    *
    * <p>This is a helper function for {@link #getSkyKeysForFileFragments}.
    */
-  private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment currentPathFragment) {
-    PathFragment parentPathFragment = currentPathFragment.getParentDirectory();
-    return parentPathFragment == null
-        ? ImmutableList.of()
-        : ImmutableList.of(
-            PackageLookupValue.key(PackageIdentifier.createInMainRepo(parentPathFragment)));
+  @Nullable
+  private static SkyKey getPkgLookupKeyForDirectory(PathFragment pathFragment) {
+    return PackageLookupValue.key(
+        PackageIdentifier.createInMainRepo(Preconditions.checkNotNull(pathFragment)));
   }
 }
