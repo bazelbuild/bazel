@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -453,6 +452,7 @@ public final class SandboxModule extends BlazeModule {
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
         // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+        env.getSyscallCache(),
         RunfilesTreeUpdater.INSTANCE);
   }
 

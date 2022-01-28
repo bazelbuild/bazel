@@ -117,7 +117,10 @@ public final class SpawnLogModule extends BlazeModule {
 
     spawnLogContext =
         new SpawnLogContext(
-            env.getExecRoot(), outStream, env.getOptions().getOptions(RemoteOptions.class));
+            env.getExecRoot(),
+            outStream,
+            env.getOptions().getOptions(RemoteOptions.class),
+            env.getSyscallCache());
   }
 
   @Override

@@ -245,7 +245,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new ActionLogBufferPathGenerator(actionOutputBase, actionOutputBase));
 
     MetadataProvider cache =
-        new SingleBuildFileCache(rootDirectory.getPathString(), scratch.getFileSystem());
+        new SingleBuildFileCache(
+            rootDirectory.getPathString(), scratch.getFileSystem(), SyscallCache.NO_CACHE);
     skyframeActionExecutor.configure(
         cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
@@ -259,7 +260,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(
                     Artifact.ARTIFACT,
-                    new ArtifactFunction(() -> true, MetadataConsumerForMetrics.NO_OP))
+                    new ArtifactFunction(
+                        () -> true, MetadataConsumerForMetrics.NO_OP, () -> SyscallCache.NO_CACHE))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(

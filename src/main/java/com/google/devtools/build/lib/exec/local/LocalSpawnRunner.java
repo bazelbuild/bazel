@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.io.File;
@@ -91,6 +92,7 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final String hostName;
 
   private final LocalExecutionOptions localExecutionOptions;
+  private final SyscallCache syscallCache;
 
   @Nullable private final ProcessWrapper processWrapper;
 
@@ -106,10 +108,12 @@ public class LocalSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ProcessWrapper processWrapper,
+      SyscallCache syscallCache,
       RunfilesTreeUpdater runfilesTreeUpdater) {
     this.execRoot = execRoot;
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
+    this.syscallCache = syscallCache;
     this.hostName = NetUtil.getCachedShortHostName();
     this.resourceManager = resourceManager;
     this.localEnvProvider = localEnvProvider;
@@ -134,7 +138,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         spawn.getRunfilesSupplier(),
         binTools,
         spawn.getEnvironment(),
-        context.getFileOutErr());
+        context.getFileOutErr(),
+        syscallCache);
     spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
 
     try (SilentCloseable c =

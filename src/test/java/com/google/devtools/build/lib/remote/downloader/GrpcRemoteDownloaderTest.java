@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.grpc.CallCredentials;
@@ -78,7 +79,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class GrpcRemoteDownloaderTest {
 
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();

@@ -381,11 +381,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return discoveredModulesPruner;
   }
 
-  /**
-   * This only exists for loose header checking (and shouldn't exist at all).
-   *
-   * <p>Do NOT use from any other place.
-   */
+  /** This only exists for loose header checking and as a helper for digest computations. */
   public SyscallCache getSyscallCache() {
     return syscallCache;
   }

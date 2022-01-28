@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -124,7 +125,8 @@ import org.junit.runners.JUnit4;
 public class RemoteExecutionServiceTest {
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
-  private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+  private final DigestUtil digestUtil =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private final Reporter reporter = new Reporter(new EventBus());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
 

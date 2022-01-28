@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -73,12 +74,12 @@ import org.mockito.MockitoAnnotations;
 /** Tests for {@link RemoteCache}. */
 @RunWith(JUnit4.class)
 public class RemoteCacheTest {
-
   private RemoteActionExecutionContext context;
   private FileSystem fs;
   private Path execRoot;
   ArtifactRoot artifactRoot;
-  private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+  private final DigestUtil digestUtil =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;

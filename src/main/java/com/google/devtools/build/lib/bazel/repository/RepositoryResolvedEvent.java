@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -164,13 +165,13 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    * Ensure that the {@code resolvedInformation} and the {@code directoryDigest} fields are
    * initialized properly. Does nothing, if the values are computed already.
    */
-  private synchronized void finalizeResolvedInformation() {
+  private synchronized void finalizeResolvedInformation(SyscallCache syscallCache) {
     if (resolvedInformation != null) {
       return;
     }
     String digest = "[unavailable]";
     try {
-      digest = outputDirectory.getDirectoryDigest();
+      digest = outputDirectory.getDirectoryDigest(syscallCache);
       repositoryBuilder.put(OUTPUT_TREE_HASH, digest);
     } catch (IOException e) {
       // Digest not available, but we still have to report that a repository rule
@@ -190,8 +191,8 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    * Returns the entry for the given rule invocation in a format suitable for WORKSPACE.resolved.
    */
   @Override
-  public Object getResolvedInformation() {
-    finalizeResolvedInformation();
+  public Object getResolvedInformation(SyscallCache syscallCache) {
+    finalizeResolvedInformation(syscallCache);
     return resolvedInformation;
   }
 
@@ -201,8 +202,8 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     return name;
   }
 
-  public String getDirectoryDigest() {
-    finalizeResolvedInformation();
+  public String getDirectoryDigest(SyscallCache syscallCache) {
+    finalizeResolvedInformation(syscallCache);
     return directoryDigest;
   }
 

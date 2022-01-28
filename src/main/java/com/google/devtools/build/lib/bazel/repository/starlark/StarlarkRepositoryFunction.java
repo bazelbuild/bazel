@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -66,6 +67,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
+  @Nullable private SyscallCache syscallCache;
 
   public StarlarkRepositoryFunction(DownloadManager downloadManager) {
     this.downloadManager = downloadManager;
@@ -77,6 +79,10 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
 
   public void setProcessWrapper(@Nullable ProcessWrapper processWrapper) {
     this.processWrapper = processWrapper;
+  }
+
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.syscallCache = syscallCache;
   }
 
   static String describeSemantics(StarlarkSemantics semantics) {
@@ -236,7 +242,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       if (verificationRules.contains(ruleClass)) {
         String expectedHash = resolvedHashes.get(rule.getName());
         if (expectedHash != null) {
-          String actualHash = resolved.getDirectoryDigest();
+          String actualHash = resolved.getDirectoryDigest(syscallCache);
           if (!expectedHash.equals(actualHash)) {
             throw new RepositoryFunctionException(
                 new IOException(

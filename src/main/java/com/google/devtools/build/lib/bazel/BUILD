@@ -166,6 +166,7 @@ java_library(
     srcs = ["ResolvedEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
 

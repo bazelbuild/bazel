@@ -599,7 +599,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         Artifact.ARTIFACT,
         new ArtifactFunction(
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
-            sourceArtifactsSeen));
+            sourceArtifactsSeen,
+            syscallCacheRef::get));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
@@ -610,7 +611,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
     this.actionExecutionFunction = actionExecutionFunction;
     map.put(
-        SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
+        SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
+        new RecursiveFilesystemTraversalFunction(syscallCacheRef::get));
     map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(directories::getExecRoot));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,

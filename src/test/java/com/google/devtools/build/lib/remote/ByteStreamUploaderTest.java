@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.protobuf.ByteString;
 import io.grpc.BindableService;
 import io.grpc.CallCredentials;
@@ -97,7 +98,8 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 public class ByteStreamUploaderTest {
 
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   private static final int CHUNK_SIZE = 10;
   private static final String INSTANCE_NAME = "foo";

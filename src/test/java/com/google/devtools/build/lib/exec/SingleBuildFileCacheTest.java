@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,7 +71,7 @@ public class SingleBuildFileCacheTest {
             return null;
           }
         };
-    underTest = new SingleBuildFileCache("/", fs);
+    underTest = new SingleBuildFileCache("/", fs, SyscallCache.NO_CACHE);
     FileSystemUtils.createEmptyFile(fs.getPath("/empty"));
   }
 

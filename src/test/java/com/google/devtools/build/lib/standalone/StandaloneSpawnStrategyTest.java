@@ -155,6 +155,7 @@ public class StandaloneSpawnStrategyTest {
                 (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
                 binTools,
                 /*processWrapper=*/ null,
+                SyscallCache.NO_CACHE,
                 Mockito.mock(RunfilesTreeUpdater.class)),
             /*verboseFailures=*/ false);
     this.executor =
@@ -203,7 +204,8 @@ public class StandaloneSpawnStrategyTest {
     Path execRoot = executor.getExecRoot();
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
         /*metadataHandler=*/ null,

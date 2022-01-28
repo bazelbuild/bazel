@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -85,7 +86,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
               }
 
               @Override
-              public Object getResolvedInformation() {
+              public Object getResolvedInformation(SyscallCache syscallCache) {
                 String repr = String.format("local_config_platform(name = '%s')", name);
                 return ImmutableMap.<String, Object>builder()
                     .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, LocalConfigPlatformRule.NAME)

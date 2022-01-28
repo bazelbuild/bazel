@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.protobuf.util.Durations;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -57,17 +58,22 @@ import javax.annotation.Nullable;
  * A logging utility for spawns.
  */
 public class SpawnLogContext implements ActionContext {
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final Path execRoot;
   private final MessageOutputStream executionLog;
   @Nullable private final RemoteOptions remoteOptions;
+  private final SyscallCache syscallCache;
 
   public SpawnLogContext(
-      Path execRoot, MessageOutputStream executionLog, @Nullable RemoteOptions remoteOptions) {
+      Path execRoot,
+      MessageOutputStream executionLog,
+      @Nullable RemoteOptions remoteOptions,
+      SyscallCache syscallCache) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
     this.remoteOptions = remoteOptions;
+    this.syscallCache = syscallCache;
   }
 
   /** Log the executed spawn to the output stream. */
@@ -99,7 +105,7 @@ public class SpawnLogContext implements ActionContext {
         if (inputPath.isDirectory()) {
           listDirectoryContents(inputPath, builder::addInputs, metadataProvider);
         } else {
-          Digest digest = computeDigest(input, null, metadataProvider);
+          Digest digest = computeDigest(input, null, metadataProvider, syscallCache);
           builder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
         }
       }
@@ -120,7 +126,8 @@ public class SpawnLogContext implements ActionContext {
         File.Builder outputBuilder = builder.addActualOutputsBuilder();
         outputBuilder.setPath(path.relativeTo(execRoot).toString());
         try {
-          outputBuilder.setDigest(computeDigest(e.getValue(), path, metadataProvider));
+          outputBuilder.setDigest(
+              computeDigest(e.getValue(), path, metadataProvider, syscallCache));
         } catch (IOException ex) {
           logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
         }
@@ -191,7 +198,7 @@ public class SpawnLogContext implements ActionContext {
           addFile.accept(
               File.newBuilder()
                   .setPath(child.relativeTo(execRoot).toString())
-                  .setDigest(computeDigest(null, child, metadataProvider))
+                  .setDigest(computeDigest(null, child, metadataProvider, syscallCache))
                   .build());
         }
       }
@@ -205,7 +212,10 @@ public class SpawnLogContext implements ActionContext {
    * Metadata cache first, if it is available, and fall back to digesting the contents manually.
    */
   private Digest computeDigest(
-      @Nullable ActionInput input, @Nullable Path path, MetadataProvider metadataProvider)
+      @Nullable ActionInput input,
+      @Nullable Path path,
+      MetadataProvider metadataProvider,
+      SyscallCache syscallCache)
       throws IOException {
     Preconditions.checkArgument(input != null || path != null);
     DigestHashFunction hashFunction = execRoot.getFileSystem().getDigestFunction();
@@ -243,7 +253,9 @@ public class SpawnLogContext implements ActionContext {
     long fileSize = path.getFileSize();
     return digest
         .setHash(
-            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, fileSize)).toString())
+            HashCode.fromBytes(
+                    DigestUtils.getDigestWithManualFallback(path, fileSize, syscallCache))
+                .toString())
         .setSizeBytes(fileSize)
         .build();
   }

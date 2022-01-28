@@ -163,7 +163,8 @@ public final class ActionsTestUtil {
       Map<String, String> clientEnv) {
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
@@ -218,7 +219,8 @@ public final class ActionsTestUtil {
       DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,

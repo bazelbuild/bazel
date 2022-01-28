@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -81,7 +82,7 @@ public class RemoteActionInputFetcherTest {
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     options = Options.getDefaults(RemoteOptions.class);
-    digestUtil = new DigestUtil(HASH_FUNCTION);
+    digestUtil = new DigestUtil(SyscallCache.NO_CACHE, HASH_FUNCTION);
   }
 
   @Test

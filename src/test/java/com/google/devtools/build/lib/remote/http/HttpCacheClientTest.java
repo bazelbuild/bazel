@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -103,8 +104,8 @@ import org.mockito.Mockito;
 @RunWith(Parameterized.class)
 @SuppressWarnings("FutureReturnValueIgnored")
 public class HttpCacheClientTest {
-
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("File Contents");
 
   private RemoteActionExecutionContext remoteActionExecutionContext;

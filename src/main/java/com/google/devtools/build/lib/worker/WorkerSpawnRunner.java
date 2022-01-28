@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
@@ -108,6 +109,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
   private final Runtime runtime;
+  private final SyscallCache syscallCache;
 
   /** Mapping of worker ids to their metrics. */
   private Map<Integer, WorkerMetric> workerIdToWorkerMetric = new ConcurrentHashMap<>();
@@ -123,7 +125,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
       EventBus eventBus,
-      Runtime runtime) {
+      Runtime runtime,
+      SyscallCache syscallCache) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
@@ -131,6 +134,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
+    this.syscallCache = syscallCache;
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
     this.runtime = runtime;
@@ -186,7 +190,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
           spawn.getRunfilesSupplier(),
           binTools,
           spawn.getEnvironment(),
-          context.getFileOutErr());
+          context.getFileOutErr(),
+          syscallCache);
 
       MetadataProvider inputFileCache = context.getMetadataProvider();
 

@@ -791,7 +791,8 @@ public class CommandEnvironment {
     synchronized (fileCacheLock) {
       if (fileCache == null) {
         fileCache =
-            new SingleBuildFileCache(getExecRoot().getPathString(), getRuntime().getFileSystem());
+            new SingleBuildFileCache(
+                getExecRoot().getPathString(), getRuntime().getFileSystem(), syscallCache);
       }
       return fileCache;
     }

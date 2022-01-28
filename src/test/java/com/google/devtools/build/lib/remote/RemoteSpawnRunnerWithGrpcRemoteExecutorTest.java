@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.longrunning.Operation;
@@ -124,10 +125,10 @@ import org.mockito.stubbing.Answer;
 /** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   private final Reporter reporter = new Reporter(new EventBus());
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
-
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
   private Path execRoot;

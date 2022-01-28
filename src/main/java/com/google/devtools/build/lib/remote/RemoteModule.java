@@ -260,7 +260,7 @@ public final class RemoteModule extends BlazeModule {
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
-    DigestUtil digestUtil = new DigestUtil(hashFn);
+    DigestUtil digestUtil = new DigestUtil(env.getSyscallCache(), hashFn);
 
     boolean verboseFailures = false;
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);

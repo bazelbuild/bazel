@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import io.grpc.Server;
@@ -90,9 +91,10 @@ import org.mockito.MockitoAnnotations;
 /** Test for {@link ByteStreamBuildEventArtifactUploader}. */
 @RunWith(JUnit4.class)
 public class ByteStreamBuildEventArtifactUploaderTest {
-  @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   private final Reporter reporter = new Reporter(new EventBus());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
@@ -491,7 +493,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         remoteCache,
         /*remoteServerInstanceName=*/ "localhost/instance",
         /*buildRequestId=*/ "none",
-        /*commandId=*/ "none");
+        /*commandId=*/ "none",
+        SyscallCache.NO_CACHE);
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {

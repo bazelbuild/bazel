@@ -53,6 +53,14 @@ public interface SyscallCache {
    */
   Dirent.Type getType(Path path, Symlinks symlinks) throws IOException;
 
+  default byte[] getFastDigest(Path path) throws IOException {
+    return path.getFastDigest();
+  }
+
+  default byte[] getDigest(Path path) throws IOException {
+    return path.getDigest();
+  }
+
   static Dirent.Type statusToDirentType(FileStatus status) {
     if (status == null) {
       return null;

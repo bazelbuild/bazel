@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -124,7 +125,8 @@ import org.mockito.stubbing.Answer;
 @RunWith(JUnit4.class)
 public class GrpcCacheClientTest {
 
-  protected static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  protected static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   private FileSystem fs;
   private Path execRoot;

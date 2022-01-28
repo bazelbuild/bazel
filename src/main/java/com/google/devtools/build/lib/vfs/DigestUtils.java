@@ -156,8 +156,9 @@ public class DigestUtils {
    *     serially or in parallel. Files larger than a certain threshold will be read serially, in
    *     order to avoid excessive disk seeks.
    */
-  public static byte[] getDigestWithManualFallback(Path path, long fileSize) throws IOException {
-    byte[] digest = path.getFastDigest();
+  public static byte[] getDigestWithManualFallback(Path path, long fileSize, SyscallCache syscalls)
+      throws IOException {
+    byte[] digest = syscalls.getFastDigest(path);
     return digest != null ? digest : manuallyComputeDigest(path, fileSize);
   }
 
@@ -171,8 +172,9 @@ public class DigestUtils {
    *
    * @param path Path of the file.
    */
-  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(Path path) throws IOException {
-    return getDigestWithManualFallback(path, -1);
+  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(Path path, SyscallCache syscalls)
+      throws IOException {
+    return getDigestWithManualFallback(path, -1, syscalls);
   }
 
   /**

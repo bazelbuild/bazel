@@ -114,7 +114,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, () -> SyscallCache.NO_CACHE));
     skyFunctions.put(
-        SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
+        SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
+        new RecursiveFilesystemTraversalFunction(() -> SyscallCache.NO_CACHE));
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(

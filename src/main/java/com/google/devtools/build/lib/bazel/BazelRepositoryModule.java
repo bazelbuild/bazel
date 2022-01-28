@@ -270,6 +270,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     ProcessWrapper processWrapper = ProcessWrapper.fromCommandEnvironment(env);
     starlarkRepositoryFunction.setProcessWrapper(processWrapper);
+    starlarkRepositoryFunction.setSyscallCache(env.getSyscallCache());
     singleExtensionEvalFunction.setProcessWrapper(processWrapper);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);

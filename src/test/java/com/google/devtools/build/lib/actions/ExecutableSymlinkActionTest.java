@@ -68,7 +68,8 @@ public class ExecutableSymlinkActionTest {
     Path execRoot = executor.getExecRoot();
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         /*metadataHandler=*/ null,

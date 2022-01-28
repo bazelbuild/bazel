@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -263,7 +264,7 @@ public final class SyncCommand implements BlazeCommand {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(SyscallCache syscallCache) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "bind")
             .put(
@@ -295,7 +296,7 @@ public final class SyncCommand implements BlazeCommand {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(SyscallCache syscallCache) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, ruleName)
             .put(

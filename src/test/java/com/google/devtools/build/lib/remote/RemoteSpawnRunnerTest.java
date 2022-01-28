@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.longrunning.Operation;
@@ -156,7 +157,7 @@ public class RemoteSpawnRunnerTest {
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+    digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     logDir = fs.getPath("/server-logs");

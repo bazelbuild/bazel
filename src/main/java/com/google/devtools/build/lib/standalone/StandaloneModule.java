@@ -82,6 +82,7 @@ public class StandaloneModule extends BlazeModule {
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
             env.getBlazeWorkspace().getBinTools(),
             ProcessWrapper.fromCommandEnvironment(env),
+            env.getSyscallCache(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE);
 

@@ -110,7 +110,8 @@ abstract class ArtifactFunctionTestCase {
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(
                     Artifact.ARTIFACT,
-                    new ArtifactFunction(() -> true, MetadataConsumerForMetrics.NO_OP))
+                    new ArtifactFunction(
+                        () -> true, MetadataConsumerForMetrics.NO_OP, () -> SyscallCache.NO_CACHE))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(
                     SkyFunctions.PACKAGE,
