@@ -330,7 +330,7 @@ public class StarlarkOptionsParser {
       String potentialStarlarkFlag = name.substring(2);
       // Check if the string uses the "no" prefix for setting boolean flags to false, trim
       // off "no" if so.
-      if (name.startsWith("no")) {
+      if (potentialStarlarkFlag.startsWith("no")) {
         potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
       }
       // Check if the string contains a value, trim off the value if so.
