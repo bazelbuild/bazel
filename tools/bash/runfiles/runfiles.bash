@@ -89,6 +89,27 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+function _runfiles_manifest_lookup() {
+  local -r csv_quoted_file="$(echo "$1" | sed 's/[\\"]/\\\\&/g')"
+  local -r whitespace="[[:space:]]*"
+  sed "
+    \\^\\^\\[${whitespace}\"${csv_quoted_file}\"${whitespace},${whitespace}\".*\"${whitespace}\\]${whitespace}\$^ {
+      # JSON format. Extract target and remove escaping.
+      s^\\^\\[${whitespace}\"${csv_quoted_file}\"${whitespace},${whitespace}\"\\(.*\\)\"${whitespace}\\]${whitespace}\$^\\1^
+      s/\\\\\\(.\\)/\\1/g
+      q
+    }
+    \\^\\^$1 ^ {
+      # Legacy format, where paths are separated with a space.
+      s/[^ ]* //
+      q
+    }
+    # Non-matching entry.
+    d
+  " "${RUNFILES_MANIFEST_FILE}"
+}
+export -f _runfiles_manifest_lookup
+
 # Prints to stdout the runtime location of a data-dependency.
 function rlocation() {
   if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
@@ -121,7 +142,7 @@ function rlocation() {
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
       fi
-      local -r result=$(grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+      local -r result=$(_runfiles_manifest_lookup "$1")
       if [[ -z "$result" ]]; then
         # If path references a runfile that lies under a directory that itself
         # is a runfile, then only the directory is listed in the manifest. Look
@@ -134,7 +155,7 @@ function rlocation() {
           new_prefix="${prefix%/*}"
           [[ "$new_prefix" == "$prefix" ]] && break
           prefix="$new_prefix"
-          prefix_result=$(grep -m1 "^$prefix " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+          prefix_result=$(_runfiles_manifest_lookup "$prefix")
           [[ -z "$prefix_result" ]] && continue
           local -r candidate="${prefix_result}${1#"${prefix}"}"
           if [[ -e "$candidate" ]]; then
@@ -157,7 +178,7 @@ function rlocation() {
           break
         done
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-          echo >&2 "INFO[runfiles.bash]: rlocation($1): not found in manifest"
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): not found in manifest as ($result)"
         fi
         echo ""
       else

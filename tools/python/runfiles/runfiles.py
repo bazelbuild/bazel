@@ -58,6 +58,7 @@ USAGE:
       p = subprocess.Popen([r.Rlocation("path/to/binary")], env, ...)
 """
 
+import json
 import os
 import posixpath
 
@@ -199,7 +200,12 @@ class _ManifestBased(object):
       for line in f:
         line = line.strip()
         if line:
-          tokens = line.split(" ", 1)
+          if line.startswith("["):
+            # New JSON based format.
+            tokens = json.loads(line)
+          else:
+            # Legacy space separated format.
+            tokens = line.split(" ", 1)
           if len(tokens) == 1:
             result[line] = line
           else:

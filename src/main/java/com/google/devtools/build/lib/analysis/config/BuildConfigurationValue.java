@@ -795,6 +795,10 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.remotableSourceManifestActions;
   }
 
+  public boolean jsonSourceManifests() {
+    return options.jsonSourceManifests;
+  }
+
   /**
    * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
    * the given {@code mnemonic}. Otherwise returns {@code executionInfo} unchanged.

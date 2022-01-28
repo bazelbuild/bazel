@@ -122,7 +122,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     @Override
     public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath,
-        @Nullable Artifact symlink) throws IOException {
+        @Nullable Artifact symlink, boolean useJson) throws IOException {
       assertWithMessage("Expected manifest input to be exhausted").that(expectedSequence)
           .isNotEmpty();
       Map.Entry<PathFragment, Artifact> expectedEntry = expectedSequence.remove(0);

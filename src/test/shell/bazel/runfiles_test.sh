@@ -180,4 +180,74 @@ EOF
   [[ -f bazel-bin/world.runfiles/MANIFEST ]] || fail "expected output manifest world to exist"
 }
 
+# The *.runfiles_manifest file traditionally stores the source and
+# target paths separated with a space. This means pathnames containing
+# spaces could not be encoded.
+#
+# This is being addressed by switching to newline delimited JSON.
+# Because not all runfiles libraries support this yet, we only use this
+# format for entries that cannot be represented otherwise. Only if
+# --incompatible_json_source_manifests is set, we enable it for all
+# entries.
+function test_runfiles_json_source_manifests() {
+  touch \
+      "with space" \
+      "with,comma" \
+      "with\"quotes" \
+      "with all,special\"characters"
+  create_workspace_with_default_repos WORKSPACE foo
+
+cat > hello.sh <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+  chmod 755 hello.sh
+  cat > BUILD <<'EOF'
+sh_binary(
+  name = "hello",
+  srcs = ["hello.sh"],
+  data = [
+    "with space",
+    "with,comma",
+    "with\"quotes",
+    "with all,special\"characters",
+  ],
+)
+EOF
+
+  bazel build --spawn_strategy=local //:hello \
+    || fail "Building //:hello failed"
+
+  [[ -f "bazel-bin/hello.runfiles/foo/with space" ]] || fail "expected runfile \"with space\" to exist"
+  [[ -f "bazel-bin/hello.runfiles/foo/with,comma" ]] || fail "expected runfile \"with,comma\" to exist"
+  [[ -f "bazel-bin/hello.runfiles/foo/with\"quotes" ]] || fail "expected runfile \"with,quotes\" to exist"
+  [[ -f "bazel-bin/hello.runfiles/foo/with all,special\"characters" ]] || fail "expected runfile \"with all,special\"characters\" to exist"
+  [[ -f "bazel-bin/hello.runfiles/MANIFEST" ]] || fail "expected output manifest to exist"
+
+  bindir="$(cd bazel-bin && pwd -P)"
+  srcdir="$(pwd -P)"
+  cat > expected_runfiles_manifest << EOF
+foo/hello ${bindir}/hello
+foo/hello.sh ${srcdir}/hello.sh
+["foo/with all,special\\"characters","${srcdir}/with all,special\\"characters"]
+["foo/with space","${srcdir}/with space"]
+foo/with"quotes ${srcdir}/with"quotes
+foo/with,comma ${srcdir}/with,comma
+EOF
+  diff -w expected_runfiles_manifest bazel-bin/hello.runfiles_manifest || fail "runfiles manifest does not match expected contents"
+
+  bazel build --spawn_strategy=local --incompatible_json_source_manifests //:hello \
+    || fail "Building //:hello failed"
+
+  cat > expected_runfiles_manifest << EOF
+["foo/hello","${bindir}/hello"]
+["foo/hello.sh","${srcdir}/hello.sh"]
+["foo/with all,special\\"characters","${srcdir}/with all,special\\"characters"]
+["foo/with space","${srcdir}/with space"]
+["foo/with\\"quotes","${srcdir}/with\\"quotes"]
+["foo/with,comma","${srcdir}/with,comma"]
+EOF
+  diff -w expected_runfiles_manifest bazel-bin/hello.runfiles_manifest || fail "runfiles manifest does not match expected contents"
+}
+
 run_suite "runfiles tests"

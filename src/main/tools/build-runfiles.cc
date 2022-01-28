@@ -115,6 +115,39 @@ class RunfilesCreator {
     }
   }
 
+  void ReadJSONWhitespace(const char **bufptr) {
+    *bufptr += strspn(*bufptr, " \n\r\t");
+  }
+
+  void ReadJSONSingleChar(const char **bufptr, char ch, int lineno,
+                          const char *buf) {
+    if (**bufptr != ch) {
+      DIE("expected '%c' at line %d: '%s'\n", ch, lineno, buf);
+    }
+    ++*bufptr;
+  }
+
+  std::string ReadJSONString(const char **bufptr, int lineno, const char *buf) {
+    ReadJSONWhitespace(bufptr);
+    ReadJSONSingleChar(bufptr, '\"', lineno, buf);
+    std::string unquoted_value;
+    while (**bufptr != '\"') {
+      if (**bufptr == '\0') {
+        DIE("missing string terminator at line %d: '%s'\n", lineno, buf);
+      } else if (**bufptr == '\\') {
+        ++*bufptr;
+        if (strchr("\"\\/", **bufptr) == nullptr) {
+          DIE("unsupported escape sequence at line %d: '%s'\n", lineno, buf);
+        }
+      }
+      unquoted_value += **bufptr;
+      ++*bufptr;
+    }
+    ReadJSONSingleChar(bufptr, '\"', lineno, buf);
+    ReadJSONWhitespace(bufptr);
+    return unquoted_value;
+  }
+
   void ReadManifest(const std::string &manifest_file, bool allow_relative,
                     bool use_metadata) {
     FILE *outfile = fopen(temp_filename_.c_str(), "w");
@@ -143,23 +176,40 @@ class RunfilesCreator {
       // dependency checking.
       if (use_metadata && lineno % 2 == 0) continue;
 
-      int n = strlen(buf)-1;
-      if (!n || buf[n] != '\n') {
-        DIE("missing terminator at line %d: '%s'\n", lineno, buf);
+      std::string link, target;
+      if (buf[0] == '[') {
+        // Entry in JSON format.
+        const char *bufptr = buf;
+        ReadJSONWhitespace(&bufptr);
+        ReadJSONSingleChar(&bufptr, '[', lineno, buf);
+        link = ReadJSONString(&bufptr, lineno, buf);
+        ReadJSONSingleChar(&bufptr, ',', lineno, buf);
+        target = ReadJSONString(&bufptr, lineno, buf);
+        ReadJSONSingleChar(&bufptr, ']', lineno, buf);
+        ReadJSONWhitespace(&bufptr);
+        if (*bufptr != '\0') {
+          DIE("trailing garbage at line %d: '%s'\n", lineno, buf);
+        }
+      } else {
+        // Entry in legacy format: two fields separated with a space character.
+        int n = strlen(buf)-1;
+        if (!n || buf[n] != '\n') {
+          DIE("missing terminator at line %d: '%s'\n", lineno, buf);
+        }
+        buf[n] = '\0';
+        if (buf[0] ==  '/') {
+          DIE("paths must not be absolute: line %d: '%s'\n", lineno, buf);
+        }
+        const char *s = strchr(buf, ' ');
+        if (!s) {
+          DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
+        } else if (strchr(s+1, ' ')) {
+          DIE("link or target filename contains space on line %d: '%s'\n",
+              lineno, buf);
+        }
+        link = std::string(buf, s-buf);
+        target = s+1;
       }
-      buf[n] = '\0';
-      if (buf[0] ==  '/') {
-        DIE("paths must not be absolute: line %d: '%s'\n", lineno, buf);
-      }
-      const char *s = strchr(buf, ' ');
-      if (!s) {
-        DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
-      } else if (strchr(s+1, ' ')) {
-        DIE("link or target filename contains space on line %d: '%s'\n",
-            lineno, buf);
-      }
-      std::string link(buf, s-buf);
-      const char *target = s+1;
       if (!allow_relative && target[0] != '\0' && target[0] != '/'
           && target[1] != ':') {  // Match Windows paths, e.g. C:\foo or C:/foo.
         DIE("expected absolute path at line %d: '%s'\n", lineno, buf);

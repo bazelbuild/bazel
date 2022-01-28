@@ -796,6 +796,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean remotableSourceManifestActions;
 
   @Option(
+      name = "incompatible_json_source_manifests",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, write source manifests in newline delimited JSON format. Regardless of whether "
+              + "this option is set, entries for pathnames containing spaces or leading square "
+              + "brackets are encoded in the JSON format, as the resulting output would be "
+              + "ambiguous or unrepresentable otherwise.")
+  public boolean jsonSourceManifests;
+
+  @Option(
       name = "flag_alias",
       converter = Converters.FlagAliasConverter.class,
       defaultValue = "null",

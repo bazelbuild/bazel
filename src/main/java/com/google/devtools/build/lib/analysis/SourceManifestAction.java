@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.gson.stream.JsonWriter;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -71,7 +73,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      * @param symlink (optional) symlink that resolves the above path
      */
     void writeEntry(Writer manifestWriter, PathFragment rootRelativePath,
-        @Nullable Artifact symlink) throws IOException;
+        @Nullable Artifact symlink, boolean useJson) throws IOException;
 
     /**
      * Fulfills {@link com.google.devtools.build.lib.actions.AbstractAction#getMnemonic()}
@@ -101,6 +103,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   private final Runfiles runfiles;
 
   private final boolean remotableSourceManifestActions;
+  private final boolean jsonSourceManifests;
 
   /**
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
@@ -114,7 +117,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
-    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ false);
+    this(
+        manifestWriter,
+        owner,
+        primaryOutput,
+        runfiles,
+        /*remotableSourceManifestActions=*/ false,
+        /*jsonSourceManifests=*/ false);
   }
 
   /**
@@ -131,11 +140,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       ActionOwner owner,
       Artifact primaryOutput,
       Runfiles runfiles,
-      boolean remotableSourceManifestActions) {
+      boolean remotableSourceManifestActions,
+      boolean jsonSourceManifests) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
+    this.jsonSourceManifests = jsonSourceManifests;
   }
 
   @VisibleForTesting
@@ -170,7 +181,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     Collections.sort(sortedManifest, ENTRY_COMPARATOR);
 
     for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
-      manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue());
+      manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue(), jsonSourceManifests);
     }
 
     manifestFile.flush();
@@ -193,8 +204,12 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
+    fp.addBoolean(jsonSourceManifests);
     runfiles.fingerprint(fp);
   }
+
+  private static final CharMatcher LEGACY_MANIFEST_UNSAFE_CHAR_MATCHER =
+      CharMatcher.anyOf(" \n").precomputed();
 
   /**
    * Supported manifest writing strategies.
@@ -212,13 +227,28 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      */
     SOURCE_SYMLINKS {
       @Override
-      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
-          throws IOException {
-        manifestWriter.append(rootRelativePath.getPathString());
-        // This trailing whitespace is REQUIRED to process the single entry line correctly.
-        manifestWriter.append(' ');
-        if (symlink != null) {
-          manifestWriter.append(symlink.getPath().getPathString());
+      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink,
+                             boolean useJson) throws IOException {
+        String source = rootRelativePath.getPathString();
+        String target = symlink == null ? "" : symlink.getPath().getPathString();
+
+        // Either emit the entry as newline delimited JSON or the legacy space separated format.
+        // Entries that cannot be represented safely in the legacy format are always emitted in JSON
+        // format, so that we're at least capable of building the associated target and
+        // instantiating its runfiles directory.
+        if (useJson || source.startsWith("[") ||
+            LEGACY_MANIFEST_UNSAFE_CHAR_MATCHER.matchesAnyOf(source) ||
+            LEGACY_MANIFEST_UNSAFE_CHAR_MATCHER.matchesAnyOf(target)) {
+          JsonWriter jsonWriter = new JsonWriter(manifestWriter);
+          jsonWriter.beginArray();
+          jsonWriter.value(source);
+          jsonWriter.value(target);
+          jsonWriter.endArray();
+        } else {
+          manifestWriter.append(source);
+          // This trailing whitespace is REQUIRED to process the single entry line correctly.
+          manifestWriter.append(' ');
+          manifestWriter.append(target);
         }
         manifestWriter.append('\n');
       }
@@ -251,8 +281,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      */
     SOURCES_ONLY {
       @Override
-      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
-          throws IOException {
+      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink,
+                             boolean useJson) throws IOException {
         manifestWriter.append(rootRelativePath.getPathString());
         manifestWriter.append('\n');
         manifestWriter.flush();

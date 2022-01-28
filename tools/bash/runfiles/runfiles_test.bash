@@ -140,6 +140,7 @@ a/b $tmpdir/c/d
 e/f $tmpdir/g h
 y $tmpdir/y
 c/dir $tmpdir/dir
+["Hello \\", world","$tmpdir/Hello \\", world"]
 EOF
   mkdir "${tmpdir}/c"
   mkdir "${tmpdir}/y"
@@ -147,6 +148,7 @@ EOF
   touch "${tmpdir}/c/d" "${tmpdir}/g h"
   touch "${tmpdir}/dir/file"
   touch "${tmpdir}/dir/deeply/nested/file"
+  touch "${tmpdir}/Hello \", world"
 
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
@@ -162,13 +164,16 @@ EOF
   [[ "$(rlocation c/dir)" == "$tmpdir/dir" ]] || fail
   [[ "$(rlocation c/dir/file)" == "$tmpdir/dir/file" ]] || fail
   [[ "$(rlocation c/dir/deeply/nested/file)" == "$tmpdir/dir/deeply/nested/file" ]] || fail
-  rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir"
+  [[ "$(rlocation "Hello \", world")" == "$tmpdir/Hello \", world" ]] || fail
+  rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir" \
+        "$tmpdir/Hello \", world"
   [[ -z "$(rlocation a/b)" ]] || fail
   [[ -z "$(rlocation e/f)" ]] || fail
   [[ -z "$(rlocation y)" ]] || fail
   [[ -z "$(rlocation c/dir)" ]] || fail
   [[ -z "$(rlocation c/dir/file)" ]] || fail
   [[ -z "$(rlocation c/dir/deeply/nested/file)" ]] || fail
+  [[ -z "$(rlocation "Hello \", world")" ]] || fail
 }
 
 function test_manifest_based_envvars() {

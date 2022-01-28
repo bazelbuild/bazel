@@ -144,6 +144,7 @@ class RunfilesTest(unittest.TestCase):
         "Foo/runfile2 C:/Actual Path\\runfile2",
         "Foo/Bar/runfile3 D:\\the path\\run file 3.txt",
         "Foo/Bar/Dir E:\\Actual Path\\Directory",
+        "[\"Foo/Hello \\\", world.txt\",\"C:\\\\Hello \\\", world.txt\"]",
     ]) as mf:
       r = runfiles.CreateManifestBased(mf.Path())
       self.assertEqual(r.Rlocation("Foo/runfile1"), "Foo/runfile1")
@@ -156,6 +157,8 @@ class RunfilesTest(unittest.TestCase):
       self.assertEqual(
           r.Rlocation("Foo/Bar/Dir/Deeply/Nested/runfile4"),
           "E:\\Actual Path\\Directory/Deeply/Nested/runfile4")
+      self.assertEqual(
+          r.Rlocation("Foo/Hello \", world.txt"), "C:\\Hello \", world.txt")
       self.assertIsNone(r.Rlocation("unknown"))
       if RunfilesTest.IsWindows():
         self.assertEqual(r.Rlocation("c:/foo"), "c:/foo")

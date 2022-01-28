@@ -348,7 +348,8 @@ public final class RunfilesSupport {
                 context.getActionOwner(),
                 inputManifest,
                 runfiles,
-                context.getConfiguration().remotableSourceManifestActions()));
+                context.getConfiguration().remotableSourceManifestActions(),
+                context.getConfiguration().jsonSourceManifests()));
 
     if (!createSymlinks) {
       // Just return the manifest if that's all the build calls for.
