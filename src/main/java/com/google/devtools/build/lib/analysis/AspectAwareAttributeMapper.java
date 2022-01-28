@@ -17,80 +17,78 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 /**
- * An {@link AttributeMap} that supports attribute type queries on both a rule and its aspects and
- * attribute value queries on the rule.
+ * An {@link AttributeMap} that supports queries on both a rule and its aspects.
  *
- * <p>An attribute type query is anything accessible from {@link Attribute} (i.e. anything about how
- * the attribute is integrated into the {@link com.google.devtools.build.lib.packages.RuleClass}).
- * An attribute value query is anything related to the actual value an attribute takes.
+ * <p>When both the rule and aspect declare the same attribute, the aspect's value takes precedence.
+ * This is because aspects expect access to the merged rule/attribute data (including possible
+ * aspect overrides) while rules evaluate before aspects are attached.
  *
- * <p>For example, given {@code deps = [":adep"]}, checking that {@code deps} exists or that it's
- * type is {@link com.google.devtools.build.lib.packages.BuildType#LABEL_LIST} are type queries.
- * Checking that its value is explicitly set in the BUILD File or that its value {@code [":adep"]}
- * are value queries..
- *
- * <p>Value queries on aspect attributes trigger {@link UnsupportedOperationException}.
+ * <p>Note that public aspect attributes must be strings that inherit the values of the equivalent
+ * rule attributes. Only private (implicit) attributes can have different values.
  */
-class AspectAwareAttributeMapper implements AttributeMap {
-  private final AttributeMap ruleAttributes;
+final class AspectAwareAttributeMapper extends AbstractAttributeMapper {
+  private final AbstractAttributeMapper ruleAttributes;
+  // Attribute name -> definition.
   private final ImmutableMap<String, Attribute> aspectAttributes;
+  // Attribute name -> value. null values (which are valid) are excluded from this map. Use
+  // aspectAttributes to check attribute existence.
+  private final ImmutableMap<String, Object> aspectAttributeValues;
 
-  public AspectAwareAttributeMapper(AttributeMap ruleAttributes,
+  public AspectAwareAttributeMapper(
+      Rule rule,
+      AbstractAttributeMapper ruleAttributes,
       ImmutableMap<String, Attribute> aspectAttributes) {
+    super(rule);
     this.ruleAttributes = ruleAttributes;
     this.aspectAttributes = aspectAttributes;
-  }
-
-  @Override
-  public String getName() {
-    return ruleAttributes.getName();
-  }
-
-  @Override
-  public String getRuleClassName() {
-    return ruleAttributes.getRuleClassName();
-  }
-
-  @Override
-  public Label getLabel() {
-    return ruleAttributes.getLabel();
+    ImmutableMap.Builder<String, Object> valueBuilder = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, Attribute> aspectAttribute : aspectAttributes.entrySet()) {
+      Attribute attribute = aspectAttribute.getValue();
+      Object defaultValue = attribute.getDefaultValue(rule);
+      Object attributeValue =
+          attribute
+              .getType()
+              .cast(
+                  defaultValue instanceof ComputedDefault
+                      ? ((ComputedDefault) defaultValue).getDefault(ruleAttributes)
+                      : defaultValue);
+      if (attributeValue != null) {
+        valueBuilder.put(aspectAttribute.getKey(), attributeValue);
+      }
+    }
+    this.aspectAttributeValues = valueBuilder.buildOrThrow();
   }
 
   @Override
   public <T> T get(String attributeName, Type<T> type) {
+    Attribute aspectAttribute = aspectAttributes.get(attributeName);
+    if (aspectAttribute != null) {
+      if (aspectAttribute.getType() != type) {
+        throw new IllegalArgumentException(
+            String.format(
+                "attribute %s has type %s, not expected type %s",
+                attributeName, aspectAttribute.getType(), type));
+      }
+      return type.cast(aspectAttributeValues.get(attributeName));
+    }
     if (ruleAttributes.has(attributeName, type)) {
       return ruleAttributes.get(attributeName, type);
-    } else {
-      Attribute attribute = aspectAttributes.get(attributeName);
-      if (attribute == null) {
-        throw new IllegalArgumentException(String.format(
+    }
+    throw new IllegalArgumentException(
+        String.format(
             "no attribute '%s' in either %s or its aspects",
             attributeName, ruleAttributes.getLabel()));
-      } else if (attribute.getType() != type) {
-        throw new IllegalArgumentException(String.format(
-            "attribute %s has type %s, not expected type %s",
-            attributeName, attribute.getType(), type));
-      } else {
-        throw new UnsupportedOperationException(
-            String.format(
-                "Attribute '%s' comes from an aspect. "
-                    + "Value retrieval for aspect attributes is not supported.",
-                attributeName));
-      }
-    }
-  }
-
-  @Override
-  public boolean isConfigurable(String attributeName) {
-    return ruleAttributes.isConfigurable(attributeName);
   }
 
   @Override
@@ -103,23 +101,20 @@ class AspectAwareAttributeMapper implements AttributeMap {
 
   @Override
   public Type<?> getAttributeType(String attrName) {
-    Type<?> type = ruleAttributes.getAttributeType(attrName);
-    if (type != null) {
-      return type;
-    } else {
-      Attribute attribute = aspectAttributes.get(attrName);
-      return attribute != null ? attribute.getType() : null;
+    Attribute aspectAttribute = aspectAttributes.get(attrName);
+    if (aspectAttribute != null) {
+      return aspectAttribute.getType();
     }
+    return ruleAttributes.getAttributeType(attrName);
   }
 
   @Override
   public Attribute getAttributeDefinition(String attrName) {
-    Attribute attribute = ruleAttributes.getAttributeDefinition(attrName);
-    if (attribute != null) {
-      return attribute;
-    } else {
-      return aspectAttributes.get(attrName);
+    Attribute aspectAttribute = aspectAttributes.get(attrName);
+    if (aspectAttribute != null) {
+      return aspectAttribute;
     }
+    return ruleAttributes.getAttributeDefinition(attrName);
   }
 
   @Override
@@ -128,43 +123,26 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitAllLabels(BiConsumer<Attribute, Label> consumer) {
-    throw new UnsupportedOperationException("rule + aspects label visition is not supported");
-  }
-
-  @Override
-  public void visitLabels(Attribute attribute, Consumer<Label> consumer) {
-    throw new UnsupportedOperationException("rule + aspects label visition is not supported");
-  }
-
-  @Override
   public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
-    throw new UnsupportedOperationException("rule + aspects label visition is not supported");
+    ImmutableList.Builder<Attribute> combined = ImmutableList.builder();
+    combined.addAll(rule.getAttributes());
+    aspectAttributes.values().forEach(combined::add);
+    visitLabels(combined.build(), filter, consumer);
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return ruleAttributes.getPackageDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return ruleAttributes.isPackageDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return ruleAttributes.getPackageDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return ruleAttributes.getPackageDefaultDeprecation();
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return ruleAttributes.getPackageDefaultCopts();
+  public <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
+    Attribute aspectAttr = aspectAttributes.get(attribute.getName());
+    if (aspectAttr != null) {
+      T value = type.cast(aspectAttributeValues.get(attribute.getName()));
+      if (value != null) { // null values are particularly possible for computed defaults.
+        type.visitLabels(visitor, value, attribute);
+      }
+      return; // If both the aspect and rule have this attribute, the aspect instance overrides.
+    }
+    if (ruleAttributes.has(attribute.getName(), type)) {
+      ruleAttributes.visitLabels(attribute, type, visitor);
+    }
   }
 
   @Override

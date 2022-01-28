@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.ArrayList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,12 +54,15 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
     RuleConfiguredTarget ct = (RuleConfiguredTarget) ctad.getConfiguredTarget();
     rule = (Rule) ctad.getTarget();
-    Attribute aspectAttr = new Attribute.Builder<Label>("fromaspect", BuildType.LABEL)
-        .allowedFileTypes(FileTypeSet.ANY_FILE)
-        .build();
+    Attribute aspectAttr =
+        new Attribute.Builder<Label>("$fromaspect", BuildType.LABEL)
+            .allowedFileTypes(FileTypeSet.ANY_FILE)
+            .defaultValue(Label.parseAbsoluteUnchecked("//:aspect_default_value"))
+            .build();
     aspectAttributes = ImmutableMap.<String, Attribute>of(aspectAttr.getName(), aspectAttr);
     mapper =
         new AspectAwareAttributeMapper(
+            rule,
             ConfiguredAttributeMapper.of(
                 rule,
                 ct.getConfigConditions(),
@@ -85,18 +89,18 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void getAspectAttributeValue() throws Exception {
-    assertThrows(
-        UnsupportedOperationException.class, () -> mapper.get("fromaspect", BuildType.LABEL));
+    assertThat(mapper.get("$fromaspect", BuildType.LABEL))
+        .isEqualTo(Label.parseAbsoluteUnchecked("//:aspect_default_value"));
   }
 
   @Test
   public void getAspectValueWrongType() throws Exception {
     IllegalArgumentException e =
         assertThrows(
-            IllegalArgumentException.class, () -> mapper.get("fromaspect", BuildType.LABEL_LIST));
+            IllegalArgumentException.class, () -> mapper.get("$fromaspect", BuildType.LABEL_LIST));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("attribute fromaspect has type label, not expected type list(label)");
+        .isEqualTo("attribute $fromaspect has type label, not expected type list(label)");
   }
 
   @Test
@@ -111,31 +115,43 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void isConfigurable() throws Exception {
     assertThat(mapper.isConfigurable("linkstatic")).isTrue();
-    assertThat(mapper.isConfigurable("fromaspect")).isFalse();
+    assertThat(mapper.isConfigurable("$fromaspect")).isFalse();
   }
 
   @Test
   public void getAttributeNames() throws Exception {
-    assertThat(mapper.getAttributeNames()).containsAtLeast("srcs", "linkstatic", "fromaspect");
+    assertThat(mapper.getAttributeNames()).containsAtLeast("srcs", "linkstatic", "$fromaspect");
   }
 
   @Test
   public void getAttributeType() throws Exception {
     assertThat(mapper.getAttributeType("srcs")).isEqualTo(BuildType.LABEL_LIST);
-    assertThat(mapper.getAttributeType("fromaspect")).isEqualTo(BuildType.LABEL);
+    assertThat(mapper.getAttributeType("$fromaspect")).isEqualTo(BuildType.LABEL);
   }
 
   @Test
   public void getAttributeDefinition() throws Exception {
     assertThat(mapper.getAttributeDefinition("srcs").getName()).isEqualTo("srcs");
-    assertThat(mapper.getAttributeDefinition("fromaspect").getName()).isEqualTo("fromaspect");
-
+    assertThat(mapper.getAttributeDefinition("$fromaspect").getName()).isEqualTo("$fromaspect");
   }
 
   @Test
   public void has() throws Exception {
     assertThat(mapper.has("srcs")).isTrue();
-    assertThat(mapper.has("fromaspect")).isTrue();
+    assertThat(mapper.has("$fromaspect")).isTrue();
+    assertThat(mapper.has("noexist")).isFalse();
+  }
+
+  @Test
+  public void visitLabels() throws Exception {
+    ArrayList<Label> actual = new ArrayList<>();
+    mapper.visitAllLabels((attr, label) -> actual.add(label));
+    // From the aspect:
+    assertThat(actual).contains(Label.parseAbsoluteUnchecked("//:aspect_default_value"));
+    // From the rule:
+    assertThat(actual).contains(Label.parseAbsoluteUnchecked("//foo:a.cc"));
+    // The rule also has implicit toolchain targets we don't care about here.
+    // TODO(bazel-team): use a Starlark rule instead of a cc_binary to eliminate that variation.
   }
 }
 

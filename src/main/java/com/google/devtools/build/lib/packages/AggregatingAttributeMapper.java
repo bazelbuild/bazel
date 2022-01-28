@@ -70,7 +70,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * {@link #visitAttribute}'s documentation. So we want to avoid that code path when possible.
    */
   @Override
-  <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
+  public <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
     visitLabels(attribute, type, /*includeSelectKeys=*/ true, visitor);
   }
 
