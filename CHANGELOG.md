@@ -1,3 +1,30 @@
+## Release 6.0.0-pre.20220123.2 (2022-01-28)
+
+```
+Baseline: e2abe2b519fe86b213d822c1fadd7a51d6d3a3f6
+```
+
+Incompatible changes:
+
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+
+Important changes:
+
+  - provider() has a new parameter: init, a callback for performing
+    pre-processing and validation of field values. Iff this parameter
+    is set,
+    provider() returns a tuple of 2 elements: the usual provider
+    symbol (which,
+    when called, invokes init) and a raw constructor (which bypasses
+    init).
+
+This release contains contributions from many people at Google, as well as Chad Miller, Christopher Sauer, dmaclach, floriographygoth, jheaff1, juanchoviedo, Keith Smiley, Oscar Bonilla, Paul Tarjan, Ulrik Falklof, Zhongpeng Lin.
+
 ## Release 6.0.0-pre.20220112.2 (2022-01-19)
 
 ```
