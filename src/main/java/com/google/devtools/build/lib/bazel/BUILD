@@ -161,6 +161,14 @@ java_library(
     ],
 )
 
+java_library(
+    name = "resolved_event",
+    srcs = ["ResolvedEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+    ],
+)
+
 java_binary(
     name = "BazelServer",
     javacopts = [

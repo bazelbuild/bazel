@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -45,19 +45,19 @@ public final class RepositoryResolvedModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return ImmutableSet.of("sync", "fetch", "build", "query").contains(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(RepositoryResolvedOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+        ? ImmutableList.of(RepositoryResolvedOptions.class)
+        : ImmutableList.of();
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    orderedNames = ImmutableList.<String>of();
+    orderedNames = ImmutableList.of();
     RepositoryResolvedOptions options =
         env.getOptions().getOptions(RepositoryResolvedOptions.class);
     if (options != null && !Strings.isNullOrEmpty(options.repositoryResolvedFile)) {
       this.resolvedFile = options.repositoryResolvedFile;
       env.getEventBus().register(this);
-      this.resolvedValues = new LinkedHashMap<String, Object>();
+      this.resolvedValues = new LinkedHashMap<>();
     } else {
       this.resolvedFile = null;
     }
