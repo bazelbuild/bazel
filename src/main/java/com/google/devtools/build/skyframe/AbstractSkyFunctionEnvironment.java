@@ -115,47 +115,42 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Class<E3> exceptionClass3,
           Class<E4> exceptionClass4)
           throws E1, E2, E3, E4, InterruptedException {
-    return getValuesOrThrow(
-            ImmutableSet.of(depKey),
-            exceptionClass1,
-            exceptionClass2,
-            exceptionClass3,
-            exceptionClass4)
-        .get(depKey)
-        .get();
-  }
-
-  @Override
-  public <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
-      SkyValue getValueOrThrow(
-          SkyKey depKey,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5)
-          throws E1, E2, E3, E4, E5, InterruptedException {
-    return getValuesOrThrow(
-            ImmutableSet.of(depKey),
-            exceptionClass1,
-            exceptionClass2,
-            exceptionClass3,
-            exceptionClass4,
-            exceptionClass5)
-        .get(depKey)
-        .get();
+    SkyFunctionException.validateExceptionType(exceptionClass1);
+    SkyFunctionException.validateExceptionType(exceptionClass2);
+    SkyFunctionException.validateExceptionType(exceptionClass3);
+    SkyFunctionException.validateExceptionType(exceptionClass4);
+    Map<SkyKey, ValueOrUntypedException> valuesOrExceptions =
+        getValueOrUntypedExceptions(ImmutableSet.of(depKey));
+    checkValuesMissingBecauseOfFilteredError(
+        valuesOrExceptions, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
+    ValueOrUntypedException voe = valuesOrExceptions.get(depKey);
+    SkyValue value = voe.getValue();
+    if (value != null) {
+      return value;
+    }
+    Exception e = voe.getException();
+    if (e != null) {
+      if (exceptionClass1.isInstance(e)) {
+        throw exceptionClass1.cast(e);
+      }
+      if (exceptionClass2.isInstance(e)) {
+        throw exceptionClass2.cast(e);
+      }
+      if (exceptionClass3.isInstance(e)) {
+        throw exceptionClass3.cast(e);
+      }
+      if (exceptionClass4.isInstance(e)) {
+        throw exceptionClass4.cast(e);
+      }
+    }
+    return null;
   }
 
   @Override
   public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, null, null, null, null, null);
+    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, null, null, null, null);
     return Collections.unmodifiableMap(
         Maps.transformValues(valuesOrExceptions, ValueOrUntypedException::getValue));
   }
@@ -165,8 +160,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
       Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException {
     SkyFunctionException.validateExceptionType(exceptionClass);
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions, exceptionClass, null, null, null, null);
+    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, exceptionClass, null, null, null);
     return Collections.unmodifiableMap(
         Maps.transformValues(
             valuesOrExceptions, voe -> ValueOrException.fromUntypedException(voe, exceptionClass)));
@@ -181,7 +175,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     SkyFunctionException.validateExceptionType(exceptionClass2);
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
     checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions, exceptionClass1, exceptionClass2, null, null, null);
+        valuesOrExceptions, exceptionClass1, exceptionClass2, null, null);
     return Collections.unmodifiableMap(
         Maps.transformValues(
             valuesOrExceptions,
@@ -201,7 +195,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     SkyFunctionException.validateExceptionType(exceptionClass3);
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
     checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions, exceptionClass1, exceptionClass2, exceptionClass3, null, null);
+        valuesOrExceptions, exceptionClass1, exceptionClass2, exceptionClass3, null);
     return Collections.unmodifiableMap(
         Maps.transformValues(
             valuesOrExceptions,
@@ -210,111 +204,24 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
                     voe, exceptionClass1, exceptionClass2, exceptionClass3)));
   }
 
-  @Override
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-      Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4)
-           throws InterruptedException {
-    SkyFunctionException.validateExceptionType(exceptionClass1);
-    SkyFunctionException.validateExceptionType(exceptionClass2);
-    SkyFunctionException.validateExceptionType(exceptionClass3);
-    SkyFunctionException.validateExceptionType(exceptionClass4);
-    Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions,
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        null);
-    return Collections.unmodifiableMap(
-        Maps.transformValues(
-            valuesOrExceptions,
-            voe ->
-                ValueOrException4.fromUntypedException(
-                    voe, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4)));
-  }
-
-  @Override
-  public <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
-      Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5)
-              throws InterruptedException {
-    SkyFunctionException.validateExceptionType(exceptionClass1);
-    SkyFunctionException.validateExceptionType(exceptionClass2);
-    SkyFunctionException.validateExceptionType(exceptionClass3);
-    SkyFunctionException.validateExceptionType(exceptionClass4);
-    SkyFunctionException.validateExceptionType(exceptionClass5);
-    Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions,
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        exceptionClass5);
-    return Collections.unmodifiableMap(
-        Maps.transformValues(
-            valuesOrExceptions,
-            voe ->
-                ValueOrException5.fromUntypedException(
-                    voe,
-                    exceptionClass1,
-                    exceptionClass2,
-                    exceptionClass3,
-                    exceptionClass4,
-                    exceptionClass5)));
-  }
-
-  private <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
+  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       void checkValuesMissingBecauseOfFilteredError(
           Map<SkyKey, ValueOrUntypedException> voes,
           @Nullable Class<E1> exceptionClass1,
           @Nullable Class<E2> exceptionClass2,
           @Nullable Class<E3> exceptionClass3,
-          @Nullable Class<E4> exceptionClass4,
-          @Nullable Class<E5> exceptionClass5) {
+          @Nullable Class<E4> exceptionClass4) {
     checkValuesMissingBecauseOfFilteredError(
-        voes.values(),
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        exceptionClass5);
+        voes.values(), exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
   }
 
-  private <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
+  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       void checkValuesMissingBecauseOfFilteredError(
           Collection<ValueOrUntypedException> voes,
           @Nullable Class<E1> exceptionClass1,
           @Nullable Class<E2> exceptionClass2,
           @Nullable Class<E3> exceptionClass3,
-          @Nullable Class<E4> exceptionClass4,
-          @Nullable Class<E5> exceptionClass5) {
+          @Nullable Class<E4> exceptionClass4) {
     if (!errorMightHaveBeenFound) {
       // Short-circuit in the common case of no errors.
       return;
@@ -327,18 +234,13 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
             || ((exceptionClass1 == null || !exceptionClass1.isInstance(e))
                 && (exceptionClass2 == null || !exceptionClass2.isInstance(e))
                 && (exceptionClass3 == null || !exceptionClass3.isInstance(e))
-                && (exceptionClass4 == null || !exceptionClass4.isInstance(e))
-                && (exceptionClass5 == null || !exceptionClass5.isInstance(e)))) {
+                && (exceptionClass4 == null || !exceptionClass4.isInstance(e)))) {
           valuesMissing = true;
           // TODO(b/166268889): Remove when debugged.
           if (e instanceof IOException) {
             logger.atInfo().withStackTrace(StackSize.SMALL).withCause(e).log(
-                "IOException suppressed by lack of Skyframe declaration (%s %s %s %s %s)",
-                exceptionClass1,
-                exceptionClass2,
-                exceptionClass3,
-                exceptionClass4,
-                exceptionClass5);
+                "IOException suppressed by lack of Skyframe declaration (%s %s %s %s)",
+                exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
           }
           return;
         }
@@ -350,7 +252,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   public List<SkyValue> getOrderedValues(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, null, null, null, null, null);
+    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, null, null, null, null);
     return Collections.unmodifiableList(
         Lists.transform(valuesOrExceptions, ValueOrUntypedException::getValue));
   }
@@ -360,8 +262,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
       Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException {
     SkyFunctionException.validateExceptionType(exceptionClass);
     List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions, exceptionClass, null, null, null, null);
+    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, exceptionClass, null, null, null);
     return Collections.unmodifiableList(
         Lists.transform(
             valuesOrExceptions, voe -> ValueOrException.fromUntypedException(voe, exceptionClass)));
@@ -376,7 +277,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     SkyFunctionException.validateExceptionType(exceptionClass2);
     List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
     checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions, exceptionClass1, exceptionClass2, null, null, null);
+        valuesOrExceptions, exceptionClass1, exceptionClass2, null, null);
     return Collections.unmodifiableList(
         Lists.transform(
             valuesOrExceptions,
@@ -396,83 +297,13 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     SkyFunctionException.validateExceptionType(exceptionClass3);
     List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
     checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions, exceptionClass1, exceptionClass2, exceptionClass3, null, null);
+        valuesOrExceptions, exceptionClass1, exceptionClass2, exceptionClass3, null);
     return Collections.unmodifiableList(
         Lists.transform(
             valuesOrExceptions,
             voe ->
                 ValueOrException3.fromUntypedException(
                     voe, exceptionClass1, exceptionClass2, exceptionClass3)));
-  }
-
-  @Override
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-      List<ValueOrException4<E1, E2, E3, E4>> getOrderedValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4)
-          throws InterruptedException {
-    SkyFunctionException.validateExceptionType(exceptionClass1);
-    SkyFunctionException.validateExceptionType(exceptionClass2);
-    SkyFunctionException.validateExceptionType(exceptionClass3);
-    SkyFunctionException.validateExceptionType(exceptionClass4);
-    List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions,
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        null);
-    return Collections.unmodifiableList(
-        Lists.transform(
-            valuesOrExceptions,
-            voe ->
-                ValueOrException4.fromUntypedException(
-                    voe, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4)));
-  }
-
-  @Override
-  public <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
-      List<ValueOrException5<E1, E2, E3, E4, E5>> getOrderedValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5)
-          throws InterruptedException {
-    SkyFunctionException.validateExceptionType(exceptionClass1);
-    SkyFunctionException.validateExceptionType(exceptionClass2);
-    SkyFunctionException.validateExceptionType(exceptionClass3);
-    SkyFunctionException.validateExceptionType(exceptionClass4);
-    SkyFunctionException.validateExceptionType(exceptionClass5);
-    List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(
-        valuesOrExceptions,
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        exceptionClass5);
-    return Collections.unmodifiableList(
-        Lists.transform(
-            valuesOrExceptions,
-            voe ->
-                ValueOrException5.fromUntypedException(
-                    voe,
-                    exceptionClass1,
-                    exceptionClass2,
-                    exceptionClass3,
-                    exceptionClass4,
-                    exceptionClass5)));
   }
 
   @Override

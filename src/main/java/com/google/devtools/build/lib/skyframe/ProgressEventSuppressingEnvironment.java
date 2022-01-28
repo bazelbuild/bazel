@@ -22,8 +22,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.ValueOrException3;
-import com.google.devtools.build.skyframe.ValueOrException4;
-import com.google.devtools.build.skyframe.ValueOrException5;
 import com.google.devtools.build.skyframe.Version;
 import java.util.List;
 import java.util.Map;
@@ -100,31 +98,6 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  @Nullable
-  public <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
-      SkyValue getValueOrThrow(
-          SkyKey depKey,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5)
-          throws E1, E2, E3, E4, E5, InterruptedException {
-    return delegate.getValueOrThrow(
-        depKey,
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        exceptionClass5);
-  }
-
-  @Override
   public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     return delegate.getValues(depKeys);
@@ -153,43 +126,6 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
           Class<E3> exceptionClass3)
           throws InterruptedException {
     return delegate.getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2, exceptionClass3);
-  }
-
-  @Override
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-      Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4)
-          throws InterruptedException {
-    return delegate.getValuesOrThrow(
-        depKeys, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
-  }
-
-  @Override
-  public <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
-      Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5)
-          throws InterruptedException {
-    return delegate.getValuesOrThrow(
-        depKeys,
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        exceptionClass5);
   }
 
   @Override
@@ -227,43 +163,6 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
           throws InterruptedException {
     return delegate.getOrderedValuesOrThrow(
         depKeys, exceptionClass1, exceptionClass2, exceptionClass3);
-  }
-
-  @Override
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-      List<ValueOrException4<E1, E2, E3, E4>> getOrderedValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4)
-          throws InterruptedException {
-    return delegate.getOrderedValuesOrThrow(
-        depKeys, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
-  }
-
-  @Override
-  public <
-          E1 extends Exception,
-          E2 extends Exception,
-          E3 extends Exception,
-          E4 extends Exception,
-          E5 extends Exception>
-      List<ValueOrException5<E1, E2, E3, E4, E5>> getOrderedValuesOrThrow(
-          Iterable<? extends SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5)
-          throws InterruptedException {
-    return delegate.getOrderedValuesOrThrow(
-        depKeys,
-        exceptionClass1,
-        exceptionClass2,
-        exceptionClass3,
-        exceptionClass4,
-        exceptionClass5);
   }
 
   @Override

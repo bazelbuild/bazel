@@ -178,22 +178,6 @@ public interface SkyFunction {
             Class<E4> exceptionClass4)
             throws E1, E2, E3, E4, InterruptedException;
 
-    @Nullable
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        SkyValue getValueOrThrow(
-            SkyKey depKey,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws E1, E2, E3, E4, E5, InterruptedException;
-
     /**
      * Requests {@code depKeys} "in parallel", independent of each others' values. These keys may be
      * thought of as a "dependency group" -- they are requested together by this value.
@@ -291,30 +275,6 @@ public interface SkyFunction {
             Class<E3> exceptionClass3)
             throws InterruptedException;
 
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-        Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4)
-            throws InterruptedException;
-
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
-            throws InterruptedException;
-
     /**
      * Similar to getValuesOrThrow, but instead of returning a {@code Map<SkyKey,
      * ValueOrException>}, returns a {@code List<SkyValue>} in the order of the input {@code
@@ -336,30 +296,6 @@ public interface SkyFunction {
             Class<E1> exceptionClass1,
             Class<E2> exceptionClass2,
             Class<E3> exceptionClass3)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-        List<ValueOrException4<E1, E2, E3, E4>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4)
-            throws InterruptedException;
-
-    <
-            E1 extends Exception,
-            E2 extends Exception,
-            E3 extends Exception,
-            E4 extends Exception,
-            E5 extends Exception>
-        List<ValueOrException5<E1, E2, E3, E4, E5>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3,
-            Class<E4> exceptionClass4,
-            Class<E5> exceptionClass5)
             throws InterruptedException;
 
     /**
