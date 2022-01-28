@@ -223,46 +223,51 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   @Override
   public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
-    return rule -> {
-      AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
-      AspectParameters.Builder builder = new AspectParameters.Builder();
-      for (Attribute aspectAttr : attributes) {
-        String param = aspectAttr.getName();
-        if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
-          // These attributes are the private matters of the aspect
-          continue;
-        }
+    // This is serialized along with AspectsListBuilder.StarlarkAspectDetail and should not be
+    // turned into a lambda.
+    return new Function<Rule, AspectParameters>() {
+      @Override
+      public AspectParameters apply(Rule rule) {
+        AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
+        AspectParameters.Builder builder = new AspectParameters.Builder();
+        for (Attribute aspectAttr : attributes) {
+          String param = aspectAttr.getName();
+          if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
+            // These attributes are the private matters of the aspect
+            continue;
+          }
 
-        Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-        if (paramAttributes.contains(aspectAttr.getName())) {
-          // These are preconditions because if they are false, RuleFunction.call() should
-          // already have generated an error.
-          Preconditions.checkArgument(
-              ruleAttr != null,
-              "Cannot apply aspect %s to %s that does not define attribute '%s'.",
-              getName(),
-              rule.getTargetKind(),
-              param);
-          Preconditions.checkArgument(
-              ruleAttr.getType() == Type.STRING
-                  || ruleAttr.getType() == Type.INTEGER
-                  || ruleAttr.getType() == Type.BOOLEAN,
-              "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
-                  + " string.",
-              getName(),
-              rule.getTargetKind(),
-              param);
-        }
+          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+          if (paramAttributes.contains(aspectAttr.getName())) {
+            // These are preconditions because if they are false, RuleFunction.call() should
+            // already have generated an error.
+            Preconditions.checkArgument(
+                ruleAttr != null,
+                "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+                getName(),
+                rule.getTargetKind(),
+                param);
+            Preconditions.checkArgument(
+                ruleAttr.getType() == Type.STRING
+                    || ruleAttr.getType() == Type.INTEGER
+                    || ruleAttr.getType() == Type.BOOLEAN,
+                "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
+                    + " string.",
+                getName(),
+                rule.getTargetKind(),
+                param);
+          }
 
-        if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-          // If the attribute has a select() (which aspect attributes don't yet support), the
-          // error gets reported in RuleClass.checkAspectAllowedValues.
-          if (!ruleAttrs.isConfigurable(param)) {
-            builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+            // If the attribute has a select() (which aspect attributes don't yet support), the
+            // error gets reported in RuleClass.checkAspectAllowedValues.
+            if (!ruleAttrs.isConfigurable(param)) {
+              builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+            }
           }
         }
+        return builder.build();
       }
-      return builder.build();
     };
   }
 

@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.HashMap;
@@ -111,7 +110,6 @@ public final class AspectsListBuilder {
   }
 
   /** Wraps the information necessary to construct an Aspect. */
-  @VisibleForSerialization
   public abstract static class AspectDetails<C extends AspectClass> {
     final C aspectClass;
     final Function<Rule, AspectParameters> parametersExtractor;
@@ -181,13 +179,10 @@ public final class AspectsListBuilder {
     }
   }
 
-  @VisibleForSerialization
-  @AutoCodec
-  static class StarlarkAspectDetails extends AspectDetails<StarlarkAspectClass> {
+  private static class StarlarkAspectDetails extends AspectDetails<StarlarkAspectClass> {
     private final StarlarkDefinedAspect aspect;
 
-    @VisibleForSerialization
-    StarlarkAspectDetails(StarlarkDefinedAspect aspect, String baseAspectName) {
+    private StarlarkAspectDetails(StarlarkDefinedAspect aspect, String baseAspectName) {
       super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor(), baseAspectName);
       this.aspect = aspect;
     }
@@ -237,7 +232,7 @@ public final class AspectsListBuilder {
     }
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
   /**
