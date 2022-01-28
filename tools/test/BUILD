@@ -120,7 +120,9 @@ filegroup(
             "tw",
             "xml",
         ],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "dummy.sh",
+        ],
     }),
     visibility = ["//tools:__pkg__"],
 )
