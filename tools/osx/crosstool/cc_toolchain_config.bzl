@@ -3036,7 +3036,6 @@ def _impl(ctx):
 
     tool_paths = {
         "ar": "libtool",
-        "compat-ld": "/usr/bin/ld",
         "cpp": "/usr/bin/cpp",
         "dwp": "/usr/bin/dwp",
         "gcc": "cc_wrapper.sh",

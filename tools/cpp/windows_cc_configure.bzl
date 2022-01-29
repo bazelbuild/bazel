@@ -93,7 +93,7 @@ def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False
     tool_bin_path = tool_path_prefix + "/bin"
     tool_path = {}
 
-    for tool in ["ar", "compat-ld", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
+    for tool in ["ar", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
         if msys_root:
             tool_path[tool] = tool_bin_path + "/" + tool
         else:

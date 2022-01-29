@@ -1247,10 +1247,6 @@ def _impl(ctx):
                 path = "C:/tools/msys64/mingw64/bin/ar",
             ),
             tool_path(
-                name = "compat-ld",
-                path = "C:/tools/msys64/mingw64/bin/ld",
-            ),
-            tool_path(
                 name = "cpp",
                 path = "C:/tools/msys64/mingw64/bin/cpp",
             ),
@@ -1290,7 +1286,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "armeabi-v7a"):
         tool_paths = [
             tool_path(name = "ar", path = "/bin/false"),
-            tool_path(name = "compat-ld", path = "/bin/false"),
             tool_path(name = "cpp", path = "/bin/false"),
             tool_path(name = "dwp", path = "/bin/false"),
             tool_path(name = "gcc", path = "/bin/false"),
@@ -1304,7 +1299,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "freebsd"):
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/ar"),
-            tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "gcc", path = "/usr/bin/clang"),
@@ -1318,7 +1312,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "openbsd"):
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/ar"),
-            tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
             tool_path(name = "dwp", path = "/usr/bin/false"),
             tool_path(name = "gcc", path = "/usr/bin/clang"),
@@ -1332,7 +1325,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "local"):
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/ar"),
-            tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "gcc", path = "/usr/bin/gcc"),
@@ -1346,7 +1338,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "darwin"):
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/libtool"),
-            tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "gcc", path = "osx_cc_wrapper.sh"),
@@ -1360,10 +1351,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "windows_clang"):
         tool_paths = [
             tool_path(name = "ar", path = "C:/mingw/bin/ar"),
-            tool_path(
-                name = "compat-ld",
-                path = "C:/Program Files (x86)/LLVM/bin/ld",
-            ),
             tool_path(
                 name = "cpp",
                 path = "C:/Program Files (x86)/LLVM/bin/cpp",
@@ -1404,7 +1391,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "windows_mingw"):
         tool_paths = [
             tool_path(name = "ar", path = "C:/mingw/bin/ar"),
-            tool_path(name = "compat-ld", path = "C:/mingw/bin/ld"),
             tool_path(name = "cpp", path = "C:/mingw/bin/cpp"),
             tool_path(name = "dwp", path = "C:/mingw/bin/dwp"),
             tool_path(name = "gcc", path = "C:/mingw/bin/gcc"),
@@ -1418,10 +1404,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "windows_msys64"):
         tool_paths = [
             tool_path(name = "ar", path = "C:/tools/msys64/usr/bin/ar"),
-            tool_path(
-                name = "compat-ld",
-                path = "C:/tools/msys64/usr/bin/ld",
-            ),
             tool_path(
                 name = "cpp",
                 path = "C:/tools/msys64/usr/bin/cpp",
