@@ -340,6 +340,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
 
     repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
     darwin = cpu_value.startswith("darwin")
+    bsd = cpu_value == "freebsd" or cpu_value == "openbsd"
 
     cc = find_cc(repository_ctx, overriden_tools)
     is_clang = _is_clang(repository_ctx, cc)
@@ -400,7 +401,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         False,
     ), ":")
 
-    bazel_linkopts = "-lc++:-lm" if darwin else "-lstdc++:-lm"
+    use_libcpp = darwin or bsd
+    bazel_linkopts = "-lc++:-lm" if use_libcpp else "-lstdc++:-lm"
     bazel_linklibs = ""
     if repository_ctx.flag_enabled("incompatible_linkopts_to_linklibs"):
         bazel_linkopts, bazel_linklibs = bazel_linklibs, bazel_linkopts
