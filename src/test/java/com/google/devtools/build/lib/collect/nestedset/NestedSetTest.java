@@ -25,8 +25,12 @@ import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
+import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.protobuf.ByteString;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
@@ -359,6 +363,25 @@ public final class NestedSetTest {
   private static void checkSize(NestedSet<?> set, int size) {
     assertThat(set.memoizedFlattenAndGetSize()).isEqualTo(size); // first call: flattens
     assertThat(set.memoizedFlattenAndGetSize()).isEqualTo(size); // second call: memoized
+  }
+
+  @Test
+  public void concurrentMemoizedFlattenAndGetSize() throws Exception {
+    NestedSet<String> deep = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    for (int i = 0; i < 200; ++i) {
+      deep = NestedSetBuilder.<String>stableOrder().addTransitive(deep).add("c").build();
+    }
+    NestedSet<String> underTest = deep;
+    List<TestThread> threads = new ArrayList<>(20);
+    for (int i = 0; i < 20; i++) {
+      threads.add(new TestThread(underTest::memoizedFlattenAndGetSize));
+    }
+    for (TestThread thread : threads) {
+      thread.start();
+    }
+    for (TestThread thread : threads) {
+      thread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    }
   }
 
   @Test

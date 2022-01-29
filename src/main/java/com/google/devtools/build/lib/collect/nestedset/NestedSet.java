@@ -500,16 +500,19 @@ public final class NestedSet<E> {
               : ((Object[]) children).length;
     }
 
-    // Read size from end of memo.
-    int size = 0;
-    for (int i = memo.length - 1; ; i--) {
-      size = (size << 7) | (memo[i] & 0x7f);
-      if (size < 0) {
-        throw new IllegalStateException(
-            "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
-      }
-      if ((memo[i] & 0x80) != 0) {
-        return size;
+    // Make sure we have a full view of memo from a possible concurrent lockedExpand call.
+    synchronized (this) {
+      // Read size from end of memo.
+      int size = 0;
+      for (int i = memo.length - 1; ; i--) {
+        size = (size << 7) | (memo[i] & 0x7f);
+        if (size < 0) {
+          throw new IllegalStateException(
+              "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
+        }
+        if ((memo[i] & 0x80) != 0) {
+          return size;
+        }
       }
     }
   }
