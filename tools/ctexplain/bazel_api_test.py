@@ -136,8 +136,8 @@ class BazelApiTest(test_base.TestBase):
     self.ScratchFile('testapp/defs.bzl', [
         'def _flag_impl(settings, attr):', '  pass', 'string_flag = rule(',
         '  implementation = _flag_impl,',
-        '  build_setting = config.string(flag = True)'
-        ')'
+        '  build_setting = config.string(flag = True)',
+        ')',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load(":defs.bzl", "string_flag")',
