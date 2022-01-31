@@ -27,11 +27,11 @@ public class ConcreteFunction implements SpecializedFunction<String, Long> {
   // SpecializedParser makes it so we have to search multiple extended interfaces for bridge methods
   // when desugaring the lambda returned by this method.
   public static SpecializedParser<Integer> toInt() {
-    return (s -> Integer.valueOf(s));
+    return s -> Integer.valueOf(s);
   }
 
   public static SeparateInterface<Long> isInt() {
-    return (l -> Integer.MIN_VALUE <= l && l <= Integer.MAX_VALUE);
+    return l -> Integer.MIN_VALUE <= l && l <= Integer.MAX_VALUE;
   }
 
   public static <T extends Number> List<T> parseAll(
