@@ -920,7 +920,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Computes statistics on heap-resident rules and aspects. */
-  public abstract List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler);
+  public abstract List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler)
+      throws InterruptedException;
 
   /**
    * Decides if graph edges should be stored during this evaluation and checks if the state from the

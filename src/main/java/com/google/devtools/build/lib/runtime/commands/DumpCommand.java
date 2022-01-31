@@ -216,8 +216,18 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (dumpOptions.dumpRules) {
-        dumpRuleStats(env.getReporter(), env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
-        out.println();
+        try {
+          dumpRuleStats(env.getReporter(), env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
+          out.println();
+        } catch (InterruptedException e) {
+          env.getReporter().error(null, "Interrupted", e);
+          return BlazeCommandResult.failureDetail(
+              FailureDetail.newBuilder()
+                  .setInterrupted(
+                      FailureDetails.Interrupted.newBuilder()
+                          .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
+                  .build());
+        }
       }
 
       if (dumpOptions.starlarkMemory != null) {
@@ -290,7 +300,8 @@ public class DumpCommand implements BlazeCommand {
       ExtendedEventHandler eventHandler,
       BlazeWorkspace workspace,
       SkyframeExecutor executor,
-      PrintStream out) {
+      PrintStream out)
+      throws InterruptedException {
     List<RuleStat> ruleStats = executor.getRuleStats(eventHandler);
     if (ruleStats.isEmpty()) {
       out.print("No rules in Bazel server, please run a build command first.");

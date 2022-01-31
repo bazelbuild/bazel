@@ -821,7 +821,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler) {
+  public List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
     Map<String, RuleStat> ruleStats = new HashMap<>();
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
         memoizingEvaluator.getDoneValues().entrySet()) {
@@ -836,7 +837,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           Rule rule;
           try {
             rule = (Rule) getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
-          } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+          } catch (NoSuchPackageException | NoSuchTargetException e) {
             throw new IllegalStateException(
                 "Failed to get Rule target from package when calculating stats.", e);
           }

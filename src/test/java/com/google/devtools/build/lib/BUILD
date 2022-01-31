@@ -110,7 +110,10 @@ java_test(
             "runtime/*.java",
             "runtime/commands/*.java",
         ],
-        exclude = ["runtime/commands/ConfigCommandTest.java"],
+        exclude = [
+            "runtime/commands/ConfigCommandTest.java",
+            "runtime/commands/DumpCommandTest.java",
+        ],
     ),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -186,6 +189,7 @@ java_test(
         "//src/main/protobuf:wrappers_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -212,6 +216,23 @@ java_test(
     srcs = ["runtime/commands/ConfigCommandTest.java"],
     # TODO(bazel-team) The test is currently broken due to BazelAnalysisMock not supporting integration tests.
     tags = ["manual"],
+)
+
+java_test(
+    name = "DumpCommandTest",
+    srcs = ["runtime/commands/DumpCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
 )
 
 TEST_SUITES = [
