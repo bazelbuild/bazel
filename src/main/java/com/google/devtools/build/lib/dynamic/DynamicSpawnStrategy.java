@@ -289,12 +289,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       while (!waitingLocalJobs.isEmpty() && threadLimiter.tryAcquire()) {
         LocalBranch job;
         // TODO(b/120910324): Prioritize jobs where the remote branch has already failed.
-        if (options.slowRemoteTime > 0
-            && waitingLocalJobs
-                    .peekFirst()
-                    .getAge()
-                    .compareTo(Duration.ofSeconds(options.slowRemoteTime))
-                > 0) {
+        if (options.slowRemoteTime != null
+            && options.slowRemoteTime.compareTo(Duration.ZERO) > 0
+            && waitingLocalJobs.peekFirst().getAge().compareTo(options.slowRemoteTime) > 0) {
           job = waitingLocalJobs.pollFirst();
         } else {
           job = waitingLocalJobs.pollLast();

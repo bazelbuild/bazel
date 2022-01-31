@@ -19,6 +19,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -153,11 +154,11 @@ public class DynamicExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "0",
       help =
-          "If >0, the number of seconds a dynamically run action must run remote-only before we"
+          "If >0, the time a dynamically run action must run remote-only before we"
               + " prioritize its local execution to avoid remote timeouts."
               + " This may hide some problems on the remote execution system. Do not turn this on"
               + " without monitoring of remote execution issues.")
-  public int slowRemoteTime;
+  public Duration slowRemoteTime;
 
   @Option(
       name = "experimental_dynamic_local_load_factor",
