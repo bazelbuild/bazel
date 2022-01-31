@@ -23,9 +23,6 @@ JavaInfo = _builtins.toplevel.JavaInfo
 def _postprocess(ctx, base_info):
     return base_info.java_info
 
-def _postprocess_plugin(ctx, base_info):
-    return base_info.java_info, []
-
 def _check_proto_registry_collision(ctx):
     pass
 
@@ -58,7 +55,6 @@ semantics = struct(
     ],
     ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
     LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
-    postprocess_plugin = _postprocess_plugin,
     check_proto_registry_collision = _check_proto_registry_collision,
     get_coverage_runner = _get_coverage_runner,
 )

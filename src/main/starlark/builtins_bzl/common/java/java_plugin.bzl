@@ -19,7 +19,6 @@ Definition of java_plugin rule.
 load(":common/java/java_common.bzl", "basic_java_library", "construct_defaultinfo")
 load(":common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "JAVA_LIBRARY_IMPLICIT_ATTRS")
 load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
@@ -76,10 +75,8 @@ def bazel_java_plugin_rule(
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
 
-    java_info, extra_files = semantics.postprocess_plugin(ctx, base_info)
-
     java_plugin_info = JavaPluginInfo(
-        runtime_deps = [java_info],
+        runtime_deps = [base_info.java_info],
         processor_class = processor_class if processor_class else None,  # ignore empty string (default)
         data = data,
         generates_api = generates_api,
@@ -87,7 +84,7 @@ def bazel_java_plugin_rule(
 
     default_info = construct_defaultinfo(
         ctx,
-        base_info.files_to_build + extra_files,
+        base_info.files_to_build,
         neverlink,
         base_info.has_sources_or_resources,
     )
