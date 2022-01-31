@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.merge
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ascii;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -675,11 +675,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return result.build();
   }
 
-  private static boolean startsWithIgnoreCase(String s, String prefix) {
-    return s.length() >= prefix.length()
-        && Ascii.equalsIgnoreCase(s.substring(0, prefix.length()), prefix);
-  }
-
   @Override
   public List<PathFragment> getIncludeDirs() {
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
@@ -691,7 +686,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         if (includeDir.isEmpty()) {
           continue;
         }
-        if (startsWithIgnoreCase(includeDir, "msvc")) {
+        if (matchesCaseInsensitiveMsvc(includeDir)) {
           // This is actually a "-imsvc", a system include dir.
           continue;
         }
@@ -711,6 +706,35 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return getSystemIncludeDirs(getCompilerOptions());
   }
 
+  private static final ImmutableList<CharMatcher> MSVC_CHARS =
+      ImmutableList.of(
+          CharMatcher.anyOf("mM"),
+          CharMatcher.anyOf("sS"),
+          CharMatcher.anyOf("vV"),
+          CharMatcher.anyOf("cC"));
+  private static final ImmutableList<CharMatcher> INCLUDE_PREFIX_CHARS =
+      ImmutableList.of(CharMatcher.anyOf("-/"), CharMatcher.anyOf("iI"));
+
+  private static boolean substrMatchesChars(
+      String s, int startPos, ImmutableList<CharMatcher> substr) {
+    for (int i = 0; i < substr.size(); i++) {
+      if (!substr.get(i).matches(s.charAt(startPos + i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean matchesCaseInsensitiveMsvc(String s) {
+    return s.length() >= 4 && substrMatchesChars(s, 0, MSVC_CHARS);
+  }
+
+  private static boolean matchesIncludeCaseInsensitiveMsvc(String s) {
+    return s.length() >= 6
+        && substrMatchesChars(s, 0, INCLUDE_PREFIX_CHARS)
+        && substrMatchesChars(s, 2, MSVC_CHARS);
+  }
+
   private List<PathFragment> getSystemIncludeDirs(List<String> compilerOptions) {
     // TODO(bazel-team): parsing the command line flags here couples us to gcc- and clang-cl-style
     // compiler command lines; use a different way to specify system includes (for example through a
@@ -724,7 +748,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       String systemIncludeFlag = null;
       if (opt.startsWith("-isystem")) {
         systemIncludeFlag = "-isystem";
-      } else if (startsWithIgnoreCase(opt, "-imsvc") || startsWithIgnoreCase(opt, "/imsvc")) {
+      } else if (matchesIncludeCaseInsensitiveMsvc(opt)) {
         systemIncludeFlag = opt.substring(0, 6);
       }
       if (systemIncludeFlag == null) {
