@@ -37,6 +37,7 @@ public class BaseSpawn implements Spawn {
   private final RunfilesSupplier runfilesSupplier;
   private final ActionExecutionMetadata action;
   private final ResourceSetOrBuilder localResources;
+  private ResourceSet localResourcesCached = null;
 
   public BaseSpawn(
       List<String> arguments,
@@ -125,8 +126,13 @@ public class BaseSpawn implements Spawn {
 
   @Override
   public ResourceSet getLocalResources() throws ExecException {
-    return localResources.buildResourceSet(
-        OS.getCurrent(), action.getInputs().memoizedFlattenAndGetSize());
+    if (localResourcesCached == null) {
+      // Not expected to be called concurrently, and an idempotent computation if it is.
+      localResourcesCached =
+          localResources.buildResourceSet(
+              OS.getCurrent(), action.getInputs().memoizedFlattenAndGetSize());
+    }
+    return localResourcesCached;
   }
 
   @Override

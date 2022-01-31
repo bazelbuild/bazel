@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
@@ -132,11 +131,12 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
     }
 
-    ResourceSet localResourceUsage =
-        action
-            .getTestProperties()
-            .getLocalResourceUsage(
-                action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
+    SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
+        () ->
+            action
+                .getTestProperties()
+                .getLocalResourceUsage(
+                    action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
 
     Spawn spawn =
         new SimpleSpawn(
@@ -151,7 +151,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 ? action.getTools()
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createSpawnOutputs(action),
-            localResourceUsage);
+            localResourcesSupplier);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());

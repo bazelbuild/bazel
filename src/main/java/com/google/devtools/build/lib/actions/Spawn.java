@@ -115,7 +115,10 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   ActionExecutionMetadata getResourceOwner();
 
-  /** Returns the amount of resources needed for local fallback. */
+  /**
+   * Returns the amount of resources needed for local execution. Calling this may trigger an
+   * expensive computation: do not call unless actually needed!
+   */
   ResourceSet getLocalResources() throws ExecException;
 
   /**

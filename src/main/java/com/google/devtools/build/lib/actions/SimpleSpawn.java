@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,7 +42,44 @@ public final class SimpleSpawn implements Spawn {
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
   private final ImmutableList<? extends ActionInput> outputs;
-  private final ResourceSet localResources;
+  private final LocalResourcesSupplier localResourcesSupplier;
+  private ResourceSet localResourcesCached;
+
+  private SimpleSpawn(
+      ActionExecutionMetadata owner,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
+      RunfilesSupplier runfilesSupplier,
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+      NestedSet<? extends ActionInput> inputs,
+      NestedSet<? extends ActionInput> tools,
+      ImmutableSet<? extends ActionInput> outputs,
+      @Nullable ResourceSet localResources,
+      @Nullable LocalResourcesSupplier localResourcesSupplier) {
+    this.owner = Preconditions.checkNotNull(owner);
+    this.arguments = Preconditions.checkNotNull(arguments);
+    this.environment = Preconditions.checkNotNull(environment);
+    this.executionInfo = Preconditions.checkNotNull(executionInfo);
+    this.inputs = Preconditions.checkNotNull(inputs);
+    this.tools = Preconditions.checkNotNull(tools);
+    this.runfilesSupplier =
+        runfilesSupplier == null ? EmptyRunfilesSupplier.INSTANCE : runfilesSupplier;
+    this.filesetMappings = filesetMappings;
+    this.outputs = Preconditions.checkNotNull(outputs).asList();
+    checkState(
+        (localResourcesSupplier == null) != (localResources == null),
+        "Exactly one must be null: %s %s",
+        localResources,
+        localResourcesSupplier);
+    if (localResources != null) {
+      this.localResourcesCached = localResources;
+      this.localResourcesSupplier = null;
+    } else {
+      this.localResourcesSupplier = localResourcesSupplier;
+      this.localResourcesCached = null;
+    }
+  }
 
   public SimpleSpawn(
       ActionExecutionMetadata owner,
@@ -53,17 +92,44 @@ public final class SimpleSpawn implements Spawn {
       NestedSet<? extends ActionInput> tools,
       ImmutableSet<? extends ActionInput> outputs,
       ResourceSet localResources) {
-    this.owner = Preconditions.checkNotNull(owner);
-    this.arguments = Preconditions.checkNotNull(arguments);
-    this.environment = Preconditions.checkNotNull(environment);
-    this.executionInfo = Preconditions.checkNotNull(executionInfo);
-    this.inputs = Preconditions.checkNotNull(inputs);
-    this.tools = Preconditions.checkNotNull(tools);
-    this.runfilesSupplier =
-        runfilesSupplier == null ? EmptyRunfilesSupplier.INSTANCE : runfilesSupplier;
-    this.filesetMappings = filesetMappings;
-    this.outputs = Preconditions.checkNotNull(outputs).asList();
-    this.localResources = Preconditions.checkNotNull(localResources);
+    this(
+        owner,
+        arguments,
+        environment,
+        executionInfo,
+        runfilesSupplier,
+        filesetMappings,
+        inputs,
+        tools,
+        outputs,
+        localResources,
+        /*localResourcesSupplier=*/ null);
+  }
+
+  @SuppressWarnings("TooManyParameters")
+  public SimpleSpawn(
+      ActionExecutionMetadata owner,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
+      RunfilesSupplier runfilesSupplier,
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+      NestedSet<? extends ActionInput> inputs,
+      NestedSet<? extends ActionInput> tools,
+      ImmutableSet<? extends ActionInput> outputs,
+      LocalResourcesSupplier localResourcesSupplier) {
+    this(
+        owner,
+        arguments,
+        environment,
+        executionInfo,
+        runfilesSupplier,
+        filesetMappings,
+        inputs,
+        tools,
+        outputs,
+        /*localResources=*/ null,
+        localResourcesSupplier);
   }
 
   public SimpleSpawn(
@@ -73,7 +139,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableMap<String, String> executionInfo,
       NestedSet<? extends ActionInput> inputs,
       ImmutableSet<? extends ActionInput> outputs,
-      ResourceSet localResources) {
+      LocalResourcesSupplier localResourcesSupplier) {
     this(
         owner,
         arguments,
@@ -84,7 +150,28 @@ public final class SimpleSpawn implements Spawn {
         inputs,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
-        localResources);
+        localResourcesSupplier);
+  }
+
+  public SimpleSpawn(
+      ActionExecutionMetadata owner,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
+      NestedSet<? extends ActionInput> inputs,
+      ImmutableSet<? extends ActionInput> outputs,
+      ResourceSet resourceSet) {
+    this(
+        owner,
+        arguments,
+        environment,
+        executionInfo,
+        null,
+        ImmutableMap.of(),
+        inputs,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        outputs,
+        resourceSet);
   }
 
   @Override
@@ -133,8 +220,12 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
-  public ResourceSet getLocalResources() {
-    return localResources;
+  public ResourceSet getLocalResources() throws ExecException {
+    if (localResourcesCached == null) {
+      // Not expected to be called concurrently, and an idempotent computation if it is.
+      localResourcesCached = localResourcesSupplier.get();
+    }
+    return localResourcesCached;
   }
 
   @Override
@@ -156,5 +247,10 @@ public final class SimpleSpawn implements Spawn {
   @Override
   public String toString() {
     return Spawns.prettyPrint(this);
+  }
+
+  /** Supplies resources needed for local execution. Result will be cached. */
+  public interface LocalResourcesSupplier {
+    ResourceSet get() throws ExecException;
   }
 }

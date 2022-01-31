@@ -1536,11 +1536,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           executionInfo.build(),
           inputs,
           getOutputs(),
-          estimateResourceConsumptionLocal(
-              enabledCppCompileResourcesEstimation(),
-              getMnemonic(),
-              OS.getCurrent(),
-              inputs.memoizedFlattenAndGetSize()));
+          () ->
+              estimateResourceConsumptionLocal(
+                  enabledCppCompileResourcesEstimation(),
+                  getMnemonic(),
+                  OS.getCurrent(),
+                  inputs.memoizedFlattenAndGetSize()));
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
