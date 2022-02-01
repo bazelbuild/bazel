@@ -243,7 +243,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 expandedTargets.getTargets(),
                 ImmutableList.copyOf(failedPatterns),
                 mapOriginalPatternsToLabels(expandedPatterns, targets.getTargets()),
-                testSuiteExpansions.build()));
+                testSuiteExpansions.buildOrThrow()));
     env.getListener()
         .post(new LoadingPhaseCompleteEvent(result.getTargetLabels(), removedTargetLabels));
     return result;

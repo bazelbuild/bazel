@@ -197,7 +197,7 @@ public class ActionExecutionFunction implements SkyFunction {
           builder.put((String) entry.getKey().argument(), envValue.getValue());
         }
       }
-      clientEnv = builder.build();
+      clientEnv = builder.buildOrThrow();
     } else {
       clientEnv = ImmutableMap.of();
     }

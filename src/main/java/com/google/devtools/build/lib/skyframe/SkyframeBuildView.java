@@ -1263,7 +1263,7 @@ public final class SkyframeBuildView {
         packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
       }
     }
-    return packageRoots.build();
+    return packageRoots.buildOrThrow();
   }
 
   @Nullable

@@ -207,6 +207,6 @@ public abstract class RecursiveDirectoryTraversalFunction<
     return ImmutableMap.<SkyKey, SkyValue>builder()
         .putAll(subdirectorySkyValuesFromDeps)
         .putAll(additionalValuesToAggregate)
-        .build();
+        .buildOrThrow();
   }
 }

@@ -135,7 +135,7 @@ public final class EnvironmentBackedRecursivePackageProvider
     for (PackageIdentifier pkgId : pkgIds) {
       builder.put(pkgId, getPackage(env.getListener(), pkgId));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   @SuppressWarnings("ThrowsUncheckedException") // Good for callers to know about MissingDep.

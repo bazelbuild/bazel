@@ -91,7 +91,7 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
 
         builder.put(recursivePkgKey.getRootedPath(), packagesOrErrorsInSubdirectory);
       }
-      ImmutableMap<RootedPath, Boolean> subdirectories = builder.build();
+      ImmutableMap<RootedPath, Boolean> subdirectories = builder.buildOrThrow();
       String errorMessage = consumer.getErrorMessage();
       if (errorMessage != null) {
         return CollectPackagesUnderDirectoryValue.ofError(errorMessage, subdirectories);

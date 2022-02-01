@@ -257,7 +257,7 @@ public final class ActionExecutionValue implements SkyValue {
               action);
       result.put(newArtifact, transform.apply(newArtifact, entry.getValue()));
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /** Transforms the children of a {@link TreeArtifactValue} so that owners are consistent. */

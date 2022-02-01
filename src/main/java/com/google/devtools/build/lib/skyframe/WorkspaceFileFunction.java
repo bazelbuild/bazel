@@ -447,7 +447,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         }
       }
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {

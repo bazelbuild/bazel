@@ -205,7 +205,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       }
     }
 
-    ImmutableMap<ConfiguredTargetKey, Label> resolvedToolchainLabels = builder.build();
+    ImmutableMap<ConfiguredTargetKey, Label> resolvedToolchainLabels = builder.buildOrThrow();
     if (toolchainType == null || resolvedToolchainLabels.isEmpty()) {
       debugMessage(
           eventHandler,

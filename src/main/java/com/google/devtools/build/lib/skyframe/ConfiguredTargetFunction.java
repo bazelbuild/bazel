@@ -941,7 +941,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
 
-    return ConfigConditions.create(asConfiguredTargets.build(), asConfigConditions.build());
+    return ConfigConditions.create(
+        asConfiguredTargets.buildOrThrow(), asConfigConditions.buildOrThrow());
   }
 
   /**
