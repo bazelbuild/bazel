@@ -59,7 +59,7 @@ public class VanillaJavaBuilderTest {
         result.put(je.getName(), ByteStreams.toByteArray(jf.getInputStream(je)));
       }
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   @Test

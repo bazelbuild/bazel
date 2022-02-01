@@ -83,7 +83,8 @@ class BootClassPathCachingFileManager extends JavacFileManager {
         bootClasspathsBuilder.put(
             bootClassPath, arguments.inputsAndDigest().get(bootClassPath.toString()));
       }
-      return new AutoValue_BootClassPathCachingFileManager_Key(bootClasspathsBuilder.build());
+      return new AutoValue_BootClassPathCachingFileManager_Key(
+          bootClasspathsBuilder.buildOrThrow());
     }
 
     abstract ImmutableMap<Path, ByteString> bootJarsAndDigest();

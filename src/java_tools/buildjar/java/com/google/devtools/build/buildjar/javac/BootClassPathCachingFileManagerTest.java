@@ -96,7 +96,7 @@ public class BootClassPathCachingFileManagerTest {
             .put(
                 bootClassPaths.get(1).toString(),
                 ByteString.copyFromUtf8(bootClassPaths.get(1).toString()))
-            .build();
+            .buildOrThrow();
 
     BlazeJavacArguments arguments =
         BlazeJavacArguments.builder()
@@ -170,7 +170,7 @@ public class BootClassPathCachingFileManagerTest {
 
     return BlazeJavacArguments.builder()
         .bootClassPath(bootClassPaths)
-        .inputsAndDigest(inputsAndDigest.build())
+        .inputsAndDigest(inputsAndDigest.buildOrThrow())
         .classOutput(temporaryFolder.newFolder().toPath().resolve(classOutput))
         .build();
   }
