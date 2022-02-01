@@ -29,7 +29,7 @@ def create_windows_host_config():
 
     conditions = select({
         "host_windows_arm64_constraint" : "host_windows_arm64_constraint", 
-        "//conditions:default": "host_windows_arm64_constraint"
+        "//conditions:default": "host_windows_x64_constraint"
     });
 
     native.alias(name = "host_windows", actual = conditions, visibility = ["//visibility:public"])
