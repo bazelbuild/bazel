@@ -306,8 +306,8 @@ public final class GroupedList<T> implements Iterable<List<T>> {
     return false;
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization @Compressed
-  static final Object EMPTY_LIST = new Object();
+  @SerializationConstant @AutoCodec.VisibleForSerialization
+  static final @Compressed Object EMPTY_LIST = new Object();
 
   public @Compressed Object compress() {
     switch (numElements()) {
