@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.registerActions;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -32,12 +31,10 @@ import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -404,29 +401,30 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testProtoCommandLineArgv() throws Exception {
+  public void testProtoCommandLineArgv_noImportable() throws Exception {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ null))
-        .containsExactly("-Ifoo.proto=out/foo.proto");
+        .containsAtLeast("-Ifoo.proto=out/foo.proto", "--direct_dependencies=")
+        .inOrder();
+  }
 
-    assertThat(
-            protoArgv(
-                /* transitiveSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
-                /* importableProtoSources */ ImmutableList.of()))
-        .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
-
+  @Test
+  public void testProtoCommandLineArgv_singleImportable() throws Exception {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()))))
-        .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto");
+        .containsAtLeast("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto")
+        .inOrder();
+  }
 
+  @Test
+  public void testProtoCommandLineArgv_doubleImportable() throws Exception {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
@@ -434,8 +432,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()),
                     protoSource(derivedArtifact("bar.proto"), derivedRoot.getExecPath()))))
-        .containsExactly(
-            "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto");
+        .containsAtLeast(
+            "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto")
+        .inOrder();
   }
 
   /**
@@ -453,7 +452,8 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         artifact("@bla//foo:bar", "external/bla/foo/bar.proto"),
                         PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of()))
-        .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies=");
+        .containsAtLeast("-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies=")
+        .inOrder();
   }
 
   @Test
@@ -465,8 +465,9 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                     protoSource(protoSource, PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(protoSource, PathFragment.create("external/bla")))))
-        .containsExactly(
-            "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto");
+        .containsAtLeast(
+            "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto")
+        .inOrder();
   }
 
   private Artifact artifact(String ownerLabel, String path) {
@@ -487,20 +488,32 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
     return derivedArtifact;
   }
 
-  private static Iterable<String> protoArgv(
+  private Iterable<String> protoArgv(
       Iterable<ProtoSource> transitiveSources,
       @Nullable Iterable<ProtoSource> importableProtoSources)
       throws Exception {
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    NestedSet<ProtoSource> importableProtoSourceSet =
-        importableProtoSources != null
-            ? NestedSetBuilder.wrap(STABLE_ORDER, importableProtoSources)
-            : null;
-    ProtoCompileActionBuilder.addIncludeMapArguments(
-        commandLine,
-        importableProtoSourceSet,
-        NestedSetBuilder.wrap(STABLE_ORDER, transitiveSources));
-    return commandLine.build().arguments();
+    RuleContext ruleContext =
+        getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);
+    registerActions(
+        ruleContext,
+        ImmutableList.of(),
+        protoInfo(
+            /* directProtoSources */ ImmutableList.of(),
+            /* transitiveProtoSources */ ImmutableList.copyOf(transitiveSources),
+            /* publicImportProtoSources */ ImmutableList.of(),
+            /* strictImportableSources */ importableProtoSources == null
+                ? ImmutableList.of()
+                : ImmutableList.copyOf(importableProtoSources)),
+        ImmutableList.of(out),
+        "dontcare",
+        Exports.DO_NOT_USE,
+        Services.DISALLOW);
+
+    CommandLine cmdLine =
+        paramFileCommandLineForAction(
+            (SpawnAction) collectingAnalysisEnvironment.getRegisteredActions().get(0));
+
+    return cmdLine.arguments();
   }
 
   @Test
