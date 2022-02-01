@@ -17,17 +17,19 @@
 
 def create_windows_host_config():
 
-    host_x64 = "host_windows_x64_constraint"
-    host_arm64 = "host_windows_arm64_constraint"
-
     native.config_setting(
-        name = host_x64,
+        name = "host_windows_x64_constraint",
         values = {"host_cpu": "x64_windows" },
     )
 
     native.config_setting(
-        name = host_arm64,
+        name = "host_windows_arm64_constraint",
         values = {"host_cpu": "arm64_windows" },
     )
 
-    native.alias(name = "host_windows", actual = select({host_x64 : host_x64, host_arm64 : host_arm64}), visibility = ["//visibility:public"])
+    conditions = select({
+        "host_windows_arm64_constraint" : "host_windows_arm64_constraint", 
+        "//conditions:default": "host_windows_arm64_constraint"
+    });
+
+    native.alias(name = "host_windows", actual = conditions, visibility = ["//visibility:public"])
