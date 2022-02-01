@@ -367,7 +367,7 @@ public final class LocationExpander {
             "execpaths",
             new LocationFunction(
                 root, locationMap, USE_EXEC_PATHS, legacyExternalRunfiles, ALLOW_MULTIPLE))
-        .build();
+        .buildOrThrow();
   }
 
   /**

@@ -80,8 +80,8 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
         });
 
     return ModuleExtensionResolutionValue.create(
-        canonicalRepoNameToPackage.build(),
-        canonicalRepoNameToExtensionId.build(),
+        canonicalRepoNameToPackage.buildOrThrow(),
+        canonicalRepoNameToExtensionId.buildOrThrow(),
         extensionIdToRepoInternalNames.build());
   }
 }

@@ -216,7 +216,7 @@ public final class ConfiguredAspect implements ProviderCollection {
           throw new IllegalStateException(
               "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(new OutputGroupInfo(outputGroups.build()));
+        addDeclaredProvider(new OutputGroupInfo(outputGroups.buildOrThrow()));
       }
 
       addProvider(

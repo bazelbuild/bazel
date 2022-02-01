@@ -556,8 +556,8 @@ public /*final*/ class ConfiguredRuleClassProvider
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
-          starlarkAccessibleTopLevels.build(),
-          starlarkBuiltinsInternals.build(),
+          starlarkAccessibleTopLevels.buildOrThrow(),
+          starlarkBuiltinsInternals.buildOrThrow(),
           starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
@@ -771,7 +771,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
-    return factoryMapBuilder.build();
+    return factoryMapBuilder.buildOrThrow();
   }
 
   /**
@@ -815,7 +815,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(bindings);
     }
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   private static ImmutableMap<String, Object> createEnvironment(
@@ -825,7 +825,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     StarlarkModules.addPredeclared(envBuilder);
     // Add all the extensions registered with the rule class provider.
     envBuilder.putAll(nativeRuleSpecificBindings);
-    return envBuilder.build();
+    return envBuilder.buildOrThrow();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -837,7 +837,7 @@ public /*final*/ class ConfiguredRuleClassProvider
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
     }
-    return mapBuilder.build();
+    return mapBuilder.buildOrThrow();
   }
 
   @Override

@@ -193,7 +193,7 @@ public final class RuleConfiguredTargetBuilder {
         outputGroups.put(entry.getKey(), entry.getValue().build());
       }
 
-      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.build());
+      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.buildOrThrow());
       addNativeDeclaredProvider(outputGroupInfo);
     }
 

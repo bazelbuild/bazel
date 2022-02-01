@@ -35,7 +35,7 @@ public class ShellConfiguration extends Fragment {
           .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
           .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
-          .build();
+          .buildOrThrow();
 
   private static Function<BuildOptions, PathFragment> shellExecutableFinder;
 
