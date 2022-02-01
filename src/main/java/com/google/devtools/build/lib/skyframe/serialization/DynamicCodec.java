@@ -14,18 +14,20 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
-
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.TreeMap;
+import sun.reflect.ReflectionFactory;
 
 /** A codec that serializes arbitrary types. */
 public final class DynamicCodec implements ObjectCodec<Object> {
@@ -33,10 +35,12 @@ public final class DynamicCodec implements ObjectCodec<Object> {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Class<?> type;
+  private final Constructor<?> constructor;
   private final TypeAndOffset[] offsets;
 
-  public DynamicCodec(Class<?> type) {
+  public DynamicCodec(Class<?> type) throws ReflectiveOperationException {
     this.type = type;
+    this.constructor = getConstructor(type);
     this.offsets = getOffsets(type);
   }
 
@@ -53,8 +57,8 @@ public final class DynamicCodec implements ObjectCodec<Object> {
   @Override
   public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    for (TypeAndOffset fieldInfo : offsets) {
-      serializeField(context, codedOut, obj, fieldInfo.type, fieldInfo.offset);
+    for (int i = 0; i < offsets.length; ++i) {
+      serializeField(context, codedOut, obj, offsets[i].type, offsets[i].offset);
     }
   }
 
@@ -75,30 +79,32 @@ public final class DynamicCodec implements ObjectCodec<Object> {
       throws SerializationException, IOException {
     if (type.isPrimitive()) {
       if (type.equals(boolean.class)) {
-        codedOut.writeBoolNoTag(unsafe().getBoolean(obj, offset));
+        codedOut.writeBoolNoTag(UnsafeProvider.getInstance().getBoolean(obj, offset));
       } else if (type.equals(byte.class)) {
-        codedOut.writeRawByte(unsafe().getByte(obj, offset));
+        codedOut.writeRawByte(UnsafeProvider.getInstance().getByte(obj, offset));
       } else if (type.equals(short.class)) {
-        ByteBuffer buffer = ByteBuffer.allocate(2).putShort(unsafe().getShort(obj, offset));
+        ByteBuffer buffer =
+            ByteBuffer.allocate(2).putShort(UnsafeProvider.getInstance().getShort(obj, offset));
         codedOut.writeRawBytes(buffer);
       } else if (type.equals(char.class)) {
-        ByteBuffer buffer = ByteBuffer.allocate(2).putChar(unsafe().getChar(obj, offset));
+        ByteBuffer buffer =
+            ByteBuffer.allocate(2).putChar(UnsafeProvider.getInstance().getChar(obj, offset));
         codedOut.writeRawBytes(buffer);
       } else if (type.equals(int.class)) {
-        codedOut.writeInt32NoTag(unsafe().getInt(obj, offset));
+        codedOut.writeInt32NoTag(UnsafeProvider.getInstance().getInt(obj, offset));
       } else if (type.equals(long.class)) {
-        codedOut.writeInt64NoTag(unsafe().getLong(obj, offset));
+        codedOut.writeInt64NoTag(UnsafeProvider.getInstance().getLong(obj, offset));
       } else if (type.equals(float.class)) {
-        codedOut.writeFloatNoTag(unsafe().getFloat(obj, offset));
+        codedOut.writeFloatNoTag(UnsafeProvider.getInstance().getFloat(obj, offset));
       } else if (type.equals(double.class)) {
-        codedOut.writeDoubleNoTag(unsafe().getDouble(obj, offset));
+        codedOut.writeDoubleNoTag(UnsafeProvider.getInstance().getDouble(obj, offset));
       } else if (type.equals(void.class)) {
         // Does nothing for void type.
       } else {
         throw new UnsupportedOperationException("Unknown primitive type: " + type);
       }
     } else if (type.isArray()) {
-      Object arr = unsafe().getObject(obj, offset);
+      Object arr = UnsafeProvider.getInstance().getObject(obj, offset);
       if (type.getComponentType().equals(byte.class)) {
         if (arr == null) {
           codedOut.writeBoolNoTag(false);
@@ -114,8 +120,8 @@ public final class DynamicCodec implements ObjectCodec<Object> {
       }
       int length = Array.getLength(arr);
       codedOut.writeInt32NoTag(length);
-      int base = unsafe().arrayBaseOffset(type);
-      int scale = unsafe().arrayIndexScale(type);
+      int base = UnsafeProvider.getInstance().arrayBaseOffset(type);
+      int scale = UnsafeProvider.getInstance().arrayIndexScale(type);
       if (scale == 0) {
         throw new SerializationException("Failed to get index scale for type: " + type);
       }
@@ -125,7 +131,7 @@ public final class DynamicCodec implements ObjectCodec<Object> {
       }
     } else {
       try {
-        context.serialize(unsafe().getObject(obj, offset), codedOut);
+        context.serialize(UnsafeProvider.getInstance().getObject(obj, offset), codedOut);
       } catch (SerializationException e) {
         logger.atSevere().withCause(e).log(
             "Unserializable object and superclass: %s %s", obj, obj.getClass().getSuperclass());
@@ -140,13 +146,13 @@ public final class DynamicCodec implements ObjectCodec<Object> {
       throws SerializationException, IOException {
     Object instance;
     try {
-      instance = unsafe().allocateInstance(type);
+      instance = constructor.newInstance();
     } catch (ReflectiveOperationException e) {
       throw new SerializationException("Could not instantiate object of type: " + type, e);
     }
     context.registerInitialValue(instance);
-    for (TypeAndOffset fieldInfo : offsets) {
-      deserializeField(context, codedIn, instance, fieldInfo.type, fieldInfo.offset);
+    for (int i = 0; i < offsets.length; ++i) {
+      deserializeField(context, codedIn, instance, offsets[i].type, offsets[i].offset);
     }
     return instance;
   }
@@ -168,23 +174,23 @@ public final class DynamicCodec implements ObjectCodec<Object> {
       throws SerializationException, IOException {
     if (fieldType.isPrimitive()) {
       if (fieldType.equals(boolean.class)) {
-        unsafe().putBoolean(obj, offset, codedIn.readBool());
+        UnsafeProvider.getInstance().putBoolean(obj, offset, codedIn.readBool());
       } else if (fieldType.equals(byte.class)) {
-        unsafe().putByte(obj, offset, codedIn.readRawByte());
+        UnsafeProvider.getInstance().putByte(obj, offset, codedIn.readRawByte());
       } else if (fieldType.equals(short.class)) {
         ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
-        unsafe().putShort(obj, offset, buffer.getShort(0));
+        UnsafeProvider.getInstance().putShort(obj, offset, buffer.getShort(0));
       } else if (fieldType.equals(char.class)) {
         ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
-        unsafe().putChar(obj, offset, buffer.getChar(0));
+        UnsafeProvider.getInstance().putChar(obj, offset, buffer.getChar(0));
       } else if (fieldType.equals(int.class)) {
-        unsafe().putInt(obj, offset, codedIn.readInt32());
+        UnsafeProvider.getInstance().putInt(obj, offset, codedIn.readInt32());
       } else if (fieldType.equals(long.class)) {
-        unsafe().putLong(obj, offset, codedIn.readInt64());
+        UnsafeProvider.getInstance().putLong(obj, offset, codedIn.readInt64());
       } else if (fieldType.equals(float.class)) {
-        unsafe().putFloat(obj, offset, codedIn.readFloat());
+        UnsafeProvider.getInstance().putFloat(obj, offset, codedIn.readFloat());
       } else if (fieldType.equals(double.class)) {
-        unsafe().putDouble(obj, offset, codedIn.readDouble());
+        UnsafeProvider.getInstance().putDouble(obj, offset, codedIn.readDouble());
       } else if (fieldType.equals(void.class)) {
         // Does nothing for void type.
       } else {
@@ -193,19 +199,20 @@ public final class DynamicCodec implements ObjectCodec<Object> {
       }
     } else if (fieldType.isArray()) {
       if (fieldType.getComponentType().equals(byte.class)) {
-        if (codedIn.readBool()) {
-          unsafe().putObject(obj, offset, codedIn.readByteArray());
-        } // Otherwise, it was null.
+        boolean isNonNull = codedIn.readBool();
+        UnsafeProvider.getInstance()
+            .putObject(obj, offset, isNonNull ? codedIn.readByteArray() : null);
         return;
       }
       int length = codedIn.readInt32();
       if (length < 0) {
+        UnsafeProvider.getInstance().putObject(obj, offset, null);
         return;
       }
       Object arr = Array.newInstance(fieldType.getComponentType(), length);
-      unsafe().putObject(obj, offset, arr);
-      int base = unsafe().arrayBaseOffset(fieldType);
-      int scale = unsafe().arrayIndexScale(fieldType);
+      UnsafeProvider.getInstance().putObject(obj, offset, arr);
+      int base = UnsafeProvider.getInstance().arrayBaseOffset(fieldType);
+      int scale = UnsafeProvider.getInstance().arrayIndexScale(fieldType);
       if (scale == 0) {
         throw new SerializationException(
             "Failed to get index scale for field type " + fieldType + " for " + type);
@@ -225,10 +232,7 @@ public final class DynamicCodec implements ObjectCodec<Object> {
         e.addTrail(this.type);
         throw e;
       }
-      if (fieldValue == null) {
-        return;
-      }
-      if (!fieldType.isInstance(fieldValue)) {
+      if (fieldValue != null && !fieldType.isInstance(fieldValue)) {
         throw new SerializationException(
             "Field "
                 + fieldValue
@@ -239,38 +243,59 @@ public final class DynamicCodec implements ObjectCodec<Object> {
                 + ") for "
                 + type);
       }
-      unsafe().putObject(obj, offset, fieldValue);
+      UnsafeProvider.getInstance().putObject(obj, offset, fieldValue);
     }
   }
 
   private static <T> TypeAndOffset[] getOffsets(Class<T> type) {
-    TreeMap<Long, Class<?>> offsets = new TreeMap<>();
+    TreeMap<Field, Long> offsets = new TreeMap<>(new FieldComparator());
     for (Class<? super T> next = type; next != null; next = next.getSuperclass()) {
       for (Field field : next.getDeclaredFields()) {
         if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) != 0) {
           continue; // Skips static or transient fields.
         }
-        if (offsets.put(unsafe().objectFieldOffset(field), field.getType()) != null) {
-          throw new IllegalStateException("Field number collision in: " + type);
-        }
+        field.setAccessible(true);
+        offsets.put(field, UnsafeProvider.getInstance().objectFieldOffset(field));
       }
     }
-    // Converts to an array to avoid iterator allocation when iterating.
+    // Converts to an array to make it easy to avoid the use of iterators.
     TypeAndOffset[] offsetsArr = new TypeAndOffset[offsets.size()];
     int i = 0;
-    for (Map.Entry<Long, Class<?>> entry : offsets.entrySet()) {
-      offsetsArr[i++] = new TypeAndOffset(entry.getValue(), entry.getKey());
+    for (Map.Entry<Field, Long> entry : offsets.entrySet()) {
+      offsetsArr[i] = new TypeAndOffset(entry.getKey().getType(), entry.getValue());
+      ++i;
     }
     return offsetsArr;
   }
 
   private static final class TypeAndOffset {
-    private final Class<?> type;
-    private final long offset;
+    public final Class<?> type;
+    public final long offset;
 
-    private TypeAndOffset(Class<?> type, long offset) {
+    TypeAndOffset(Class<?> type, long offset) {
       this.type = type;
       this.offset = offset;
+    }
+  }
+
+  private static Constructor<?> getConstructor(Class<?> type) throws ReflectiveOperationException {
+    Constructor<?> constructor =
+        ReflectionFactory.getReflectionFactory()
+            .newConstructorForSerialization(type, Object.class.getDeclaredConstructor());
+    constructor.setAccessible(true);
+    return constructor;
+  }
+
+  private static final class FieldComparator implements Comparator<Field> {
+
+    @Override
+    public int compare(Field f1, Field f2) {
+      int classCompare =
+          f1.getDeclaringClass().getName().compareTo(f2.getDeclaringClass().getName());
+      if (classCompare != 0) {
+        return classCompare;
+      }
+      return f1.getName().compareTo(f2.getName());
     }
   }
 }
