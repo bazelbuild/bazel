@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -650,5 +651,47 @@ public final class Utils {
       executionInfo = spawn.getExecutionInfo();
     }
     return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
+  }
+
+  public static void waitForBulkTransfer(
+      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
+      throws BulkTransferException, InterruptedException {
+    BulkTransferException bulkTransferException = null;
+    InterruptedException interruptedException = null;
+    boolean interrupted = Thread.currentThread().isInterrupted();
+    for (ListenableFuture<?> transfer : transfers) {
+      try {
+        if (interruptedException == null) {
+          // Wait for all transfers to finish.
+          getFromFuture(transfer, cancelRemainingOnInterrupt);
+        } else {
+          transfer.cancel(true);
+        }
+      } catch (IOException e) {
+        if (bulkTransferException == null) {
+          bulkTransferException = new BulkTransferException();
+        }
+        bulkTransferException.add(e);
+      } catch (InterruptedException e) {
+        interrupted = Thread.interrupted() || interrupted;
+        interruptedException = e;
+        if (!cancelRemainingOnInterrupt) {
+          // leave the rest of the transfers alone
+          break;
+        }
+      }
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
+    if (interruptedException != null) {
+      if (bulkTransferException != null) {
+        interruptedException.addSuppressed(bulkTransferException);
+      }
+      throw interruptedException;
+    }
+    if (bulkTransferException != null) {
+      throw bulkTransferException;
+    }
   }
 }
