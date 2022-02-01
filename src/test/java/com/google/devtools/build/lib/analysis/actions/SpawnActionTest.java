@@ -218,7 +218,8 @@ public class SpawnActionTest extends BuildViewTestCase {
             (artifact, outputs) -> outputs.add(artifact),
             ImmutableMap.of(),
             /*envResolved=*/ false,
-            ImmutableMap.of());
+            ImmutableMap.of(),
+            /*reportOutputs=*/ true);
     String paramFileName = output.getExecPathString() + "-0.params";
     // The spawn's primary arguments should reference the param file
     assertThat(spawn.getArguments())

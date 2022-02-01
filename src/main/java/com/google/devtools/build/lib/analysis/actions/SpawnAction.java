@@ -341,6 +341,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
   }
 
+  @VisibleForTesting
+  public ResourceSetOrBuilder getResourceSetOrBuilder() {
+    return resourceSetOrBuilder;
+  }
+
   /**
    * Returns a Spawn that is representative of the command that this Action will execute. This
    * function must not modify any state.
@@ -354,11 +359,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getSpawn(getInputs());
   }
 
-  @VisibleForTesting
-  public ResourceSetOrBuilder getResourceSetOrBuilder() {
-    return resourceSetOrBuilder;
-  }
-
   final Spawn getSpawn(NestedSet<Artifact> inputs)
       throws CommandLineExpansionException, InterruptedException {
     return new ActionSpawn(
@@ -368,12 +368,13 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         /*envResolved=*/ false,
         inputs,
         /*additionalInputs=*/ ImmutableList.of(),
-        /*filesetMappings=*/ ImmutableMap.of());
+        /*filesetMappings=*/ ImmutableMap.of(),
+        /*reportOutputs=*/ true);
   }
 
   /**
-   * Return a spawn that is representative of the command that this Action will execute in the given
-   * client environment.
+   * Returns a spawn that is representative of the command that this Action will execute in the
+   * given client environment.
    */
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
@@ -381,7 +382,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         actionExecutionContext.getArtifactExpander(),
         actionExecutionContext.getClientEnv(),
         /*envResolved=*/ false,
-        actionExecutionContext.getTopLevelFilesets());
+        actionExecutionContext.getTopLevelFilesets(),
+        /*reportOutputs=*/ true);
   }
 
   /**
@@ -392,11 +394,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *     effective environment. Otherwise they will be used as client environment to resolve the
    *     action env.
    */
-  Spawn getSpawn(
+  protected Spawn getSpawn(
       ArtifactExpander artifactExpander,
       Map<String, String> env,
       boolean envResolved,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings)
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+      boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
@@ -407,7 +410,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         envResolved,
         getInputs(),
         expandedCommandLines.getParamFiles(),
-        filesetMappings);
+        filesetMappings,
+        reportOutputs);
   }
 
   Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
@@ -560,10 +564,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
-  private static class ActionSpawn extends BaseSpawn {
+  private static final class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
+    private final boolean reportOutputs;
 
     /**
      * Creates an ActionSpawn with the given environment variables.
@@ -578,7 +583,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         boolean envResolved,
         NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings)
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+        boolean reportOutputs)
         throws CommandLineExpansionException {
       super(
           arguments,
@@ -598,16 +604,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
 
-      /**
-       * If the action environment is already resolved using the client environment, the given
-       * environment variables are used as they are. Otherwise, they are used as clientEnv to
-       * resolve the action environment variables
-       */
+      // If the action environment is already resolved using the client environment, the given
+      // environment variables are used as they are. Otherwise, they are used as clientEnv to
+      // resolve the action environment variables.
       if (envResolved) {
         effectiveEnvironment = ImmutableMap.copyOf(env);
       } else {
         effectiveEnvironment = parent.getEffectiveEnvironment(env);
       }
+      this.reportOutputs = reportOutputs;
     }
 
     @Override
@@ -623,6 +628,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @Override
     public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
+    }
+
+    @Override
+    public ImmutableSet<Artifact> getOutputFiles() {
+      return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
     }
   }
 

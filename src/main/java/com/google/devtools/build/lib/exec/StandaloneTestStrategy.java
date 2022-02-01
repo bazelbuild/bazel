@@ -151,6 +151,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 ? action.getTools()
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createSpawnOutputs(action),
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
             localResourcesSupplier);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
@@ -558,13 +559,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*outputs=*/ ImmutableSet.of(createArtifactOutput(action, action.getXmlOutputPath())),
+        /*mandatoryOutputs=*/ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 
-  /**
-   * A spawn to generate a test.xml file from the test log. This is only used if the test does not
-   * generate a test.xml file itself.
-   */
   private static Spawn createCoveragePostProcessingSpawn(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
@@ -588,8 +586,8 @@ public class StandaloneTestStrategy extends TestStrategy {
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
         action.getLcovMergerRunfilesSupplier(),
-        /* filesetMappings= */ ImmutableMap.of(),
-        /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
+        /*filesetMappings=*/ ImmutableMap.of(),
+        /*inputs=*/ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
             .add(action.getCollectCoverageScript())
@@ -597,9 +595,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             .add(action.getCoverageManifest())
             .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*outputs=*/ ImmutableSet.of(
             ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /*mandatoryOutputs=*/ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 

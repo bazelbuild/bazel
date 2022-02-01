@@ -322,7 +322,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
         getExecutionInfo(),
-        inputs);
+        inputs,
+        /*onlyMandatoryOutput=*/ fallback ? null : outputDepsProto);
   }
 
   private JavaSpawn getFullSpawn(ActionExecutionContext actionExecutionContext)
@@ -349,7 +350,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             // .jdeps files, which have config prefixes in output paths, which compromise caching
             // possible by stripping prefixes on the executor.
             .addTransitive(dependencyArtifacts)
-            .build());
+            .build(),
+        /*onlyMandatoryOutput=*/ null);
   }
 
   @Override
@@ -483,12 +485,14 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private final class JavaSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
+    private final Artifact onlyMandatoryOutput;
 
     JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
         Map<String, String> executionInfo,
-        NestedSet<Artifact> inputs) {
+        NestedSet<Artifact> inputs,
+        @Nullable Artifact onlyMandatoryOutput) {
       super(
           ImmutableList.copyOf(expandedCommandLines.arguments()),
           environment,
@@ -496,6 +500,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           EmptyRunfilesSupplier.INSTANCE,
           JavaCompileAction.this,
           LOCAL_RESOURCES);
+      this.onlyMandatoryOutput = onlyMandatoryOutput;
       this.inputs =
           NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
               .addAll(expandedCommandLines.getParamFiles())
@@ -505,6 +510,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     @Override
     public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
+    }
+
+    @Override
+    public boolean isMandatoryOutput(ActionInput output) {
+      return onlyMandatoryOutput == null || onlyMandatoryOutput.equals(output);
     }
   }
 
