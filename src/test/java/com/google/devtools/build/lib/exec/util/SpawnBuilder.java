@@ -35,11 +35,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Builder class to create {@link Spawn} instances for testing.
- */
+/** Builder class to create {@link Spawn} instances for testing. */
 public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
@@ -52,6 +51,7 @@ public final class SpawnBuilder {
   private ImmutableMap<String, String> execProperties = ImmutableMap.of();
   private final NestedSetBuilder<ActionInput> inputs = NestedSetBuilder.stableOrder();
   private final List<ActionInput> outputs = new ArrayList<>();
+  @Nullable private Set<? extends ActionInput> mandatoryOutputs;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings =
       new HashMap<>();
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
@@ -77,6 +77,7 @@ public final class SpawnBuilder {
         inputs.build(),
         tools.build(),
         ImmutableSet.copyOf(outputs),
+        mandatoryOutputs,
         resourceSet);
   }
 
@@ -157,6 +158,11 @@ public final class SpawnBuilder {
     for (String name : names) {
       this.outputs.add(ActionInputHelper.fromPath(name));
     }
+    return this;
+  }
+
+  public SpawnBuilder withMandatoryOutputs(@Nullable Set<? extends ActionInput> mandatoryOutputs) {
+    this.mandatoryOutputs = mandatoryOutputs;
     return this;
   }
 

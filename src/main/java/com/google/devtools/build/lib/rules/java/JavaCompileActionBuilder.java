@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -288,7 +289,7 @@ public final class JavaCompileActionBuilder {
             .add(outputs.output())
             .addAll(additionalOutputs);
     Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
-        .filter(x -> x != null)
+        .filter(Objects::nonNull)
         .forEachOrdered(result::add);
     return result.build();
   }
