@@ -383,7 +383,7 @@ public class BlazeJavacMain {
     protected ClassLoader getClassLoader(URL[] urls) {
       return new URLClassLoader(
           urls,
-          new ClassLoader(getPlatformClassLoader()) {
+          new ClassLoader(ClassLoader.getPlatformClassLoader()) {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.google.errorprone.")
@@ -404,17 +404,6 @@ public class BlazeJavacMain {
               throw new ClassNotFoundException(name);
             }
           });
-    }
-  }
-
-  public static ClassLoader getPlatformClassLoader() {
-    try {
-      // In JDK 9+, all platform classes are visible to the platform class loader:
-      // https://docs.oracle.com/javase/9/docs/api/java/lang/ClassLoader.html#getPlatformClassLoader--
-      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
-    } catch (ReflectiveOperationException e) {
-      // In earlier releases, set 'null' as the parent to delegate to the boot class loader.
-      return null;
     }
   }
 
