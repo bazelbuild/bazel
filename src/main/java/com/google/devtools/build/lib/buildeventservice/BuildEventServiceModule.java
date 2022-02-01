@@ -479,7 +479,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                   },
                   executor));
 
-      try (AutoProfiler p = GoogleAutoProfilerUtils.logged("waiting for BES close")) {
+      try (AutoProfiler p =
+          GoogleAutoProfilerUtils.logged(
+              "waiting for BES close for invocation " + this.invocationId)) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (ExecutionException e) {
