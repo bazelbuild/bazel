@@ -599,7 +599,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
               targetAndConfiguration.getLabel(), targetAndConfiguration.getConfiguration());
         }
       }
-      nonNulls = nonNullsBuilder.build();
+      nonNulls = nonNullsBuilder.buildOrThrow();
       nonNullConfigs =
           ImmutableSortedSet.copyOf(
               Comparator.comparing(BuildConfigurationValue::checksum), nonNulls.values());

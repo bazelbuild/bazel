@@ -66,7 +66,7 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
           .put("F", Type.FLOAT_TYPE)
           .put("J", Type.LONG_TYPE)
           .put("D", Type.DOUBLE_TYPE)
-          .build();
+          .buildOrThrow();
   /**
    * The primitive type as specified at
    * https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-2.html#jvms-2.3
@@ -82,7 +82,7 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
           .put(ClassName.create(Type.FLOAT_TYPE), ClassName.create("java/lang/Float"))
           .put(ClassName.create(Type.LONG_TYPE), ClassName.create("java/lang/Long"))
           .put(ClassName.create(Type.DOUBLE_TYPE), ClassName.create("java/lang/Double"))
-          .build();
+          .buildOrThrow();
 
   private static final ImmutableBiMap<String, String> SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS =
       ImmutableBiMap.<String, String>builder()

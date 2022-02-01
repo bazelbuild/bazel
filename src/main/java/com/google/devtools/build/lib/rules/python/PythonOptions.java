@@ -268,7 +268,7 @@ public class PythonOptions extends FragmentOptions {
         new SelectRestriction(
             /*visibleWithinToolsPackage=*/ false,
             "Use @bazel_tools//python/tools:python_version instead."));
-    return restrictions.build();
+    return restrictions.buildOrThrow();
   }
 
   /**

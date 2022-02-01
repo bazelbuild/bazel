@@ -543,7 +543,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       }
       result.put(entry.getKey(), targets);
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   private Map<SkyKey, Collection<Target>> getRawReverseDeps(
@@ -1050,7 +1050,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           resultBuilder.put(label, target);
         }
       }
-      return resultBuilder.build();
+      return resultBuilder.buildOrThrow();
     } finally {
       packageSemaphore.releaseAll(packageIdToLabelMap.keySet());
     }
@@ -1067,7 +1067,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       PackageValue pkgValue = (PackageValue) pkgEntry.getValue();
       pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
     }
-    return pkgResults.build();
+    return pkgResults.buildOrThrow();
   }
 
   @Override
@@ -1240,7 +1240,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap) throws InterruptedException {
     ImmutableMap.Builder<SkyKey, Target> resultBuilder = ImmutableMap.builder();
     getTargetsForPackageKeyToTargetKeyMapHelper(packageKeyToTargetKeyMap, resultBuilder::put);
-    return resultBuilder.build();
+    return resultBuilder.buildOrThrow();
   }
 
   @ThreadSafe

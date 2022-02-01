@@ -165,7 +165,7 @@ public class FakeAttributeMapper implements AttributeMap {
     }
 
     public FakeAttributeMapper build() {
-      return new FakeAttributeMapper(mapBuilder.build());
+      return new FakeAttributeMapper(mapBuilder.buildOrThrow());
     }
   }
 

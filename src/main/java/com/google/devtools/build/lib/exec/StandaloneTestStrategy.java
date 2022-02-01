@@ -548,7 +548,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new SimpleSpawn(
         action,
         args,
-        envBuilder.build(),
+        envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         ImmutableMap.copyOf(executionInfo),

@@ -138,7 +138,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         ImmutableMap.builder());
-    Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
+    Map<String, RuleInfo> ruleInfos = ruleInfoMap.buildOrThrow();
     assertThat(ruleInfos).hasSize(1);
 
     RuleInfo ruleInfo = Iterables.getOnlyElement(ruleInfos.values());
@@ -217,7 +217,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
+    assertThat(ruleInfoMap.buildOrThrow().keySet()).containsExactly("rule_one", "rule_two");
   }
 
   @Test
@@ -245,7 +245,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
+    assertThat(ruleInfoMap.buildOrThrow().keySet()).containsExactly("rule_one", "rule_two");
   }
 
   @Test
@@ -272,7 +272,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one_exported_name");
+    assertThat(ruleInfoMap.buildOrThrow().keySet()).containsExactly("rule_one_exported_name");
   }
 
   @Test
@@ -299,7 +299,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    assertThat(ruleInfoMap.build().keySet()).isEmpty();
+    assertThat(ruleInfoMap.buildOrThrow().keySet()).isEmpty();
   }
 
   @Test
@@ -344,7 +344,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.buildOrThrow();
 
     assertThat(ruleInfoMap.keySet()).containsExactly("main_rule");
     assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
@@ -395,7 +395,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.buildOrThrow();
 
     assertThat(ruleInfoMap.keySet()).containsExactly("main_rule");
     assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
@@ -445,7 +445,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.buildOrThrow();
 
     assertThat(ruleInfoMap.keySet()).containsExactly("main_rule");
     assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
@@ -475,7 +475,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.buildOrThrow();
 
     assertThat(ruleInfoMap.keySet()).containsExactly("main_rule");
     assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
@@ -547,7 +547,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    StarlarkFunction checkSourcesFn = functionInfoBuilder.build().get("check_sources");
+    StarlarkFunction checkSourcesFn = functionInfoBuilder.buildOrThrow().get("check_sources");
     DocstringParseException expected =
         assertThrows(
             DocstringParseException.class,
@@ -593,7 +593,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    Map<String, StarlarkFunction> functions = funcInfoMap.build();
+    Map<String, StarlarkFunction> functions = funcInfoMap.buildOrThrow();
     assertThat(functions).hasSize(1);
 
     ModuleInfo moduleInfo =
@@ -633,7 +633,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder());
 
-    Map<String, ProviderInfo> providers = providerInfoMap.build();
+    Map<String, ProviderInfo> providers = providerInfoMap.buildOrThrow();
     assertThat(providers).hasSize(1);
 
     ModuleInfo moduleInfo =
@@ -687,7 +687,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         aspectInfoMap,
         ImmutableMap.builder());
-    Map<String, AspectInfo> aspectInfos = aspectInfoMap.build();
+    Map<String, AspectInfo> aspectInfos = aspectInfoMap.buildOrThrow();
     assertThat(aspectInfos).hasSize(1);
 
     ModuleInfo moduleInfo =
@@ -724,7 +724,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         moduleDocMap);
-    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Map<Label, String> moduleDocInfo = moduleDocMap.buildOrThrow();
     Label label = Label.parseAbsoluteUnchecked("//test:test.bzl");
     assertThat(moduleDocInfo).hasSize(1);
 
@@ -755,7 +755,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         moduleDocMap);
-    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Map<Label, String> moduleDocInfo = moduleDocMap.buildOrThrow();
     Label label = Label.parseAbsoluteUnchecked("//test:test.bzl");
 
     ModuleInfo moduleInfo =
@@ -787,7 +787,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         moduleDocMap);
-    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Map<Label, String> moduleDocInfo = moduleDocMap.buildOrThrow();
     Label label = Label.parseAbsoluteUnchecked("//test:test.bzl");
 
     ModuleInfo moduleInfo =
@@ -818,7 +818,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ImmutableMap.builder(),
         ImmutableMap.builder(),
         moduleDocMap);
-    Map<Label, String> moduleDocInfo = moduleDocMap.build();
+    Map<Label, String> moduleDocInfo = moduleDocMap.buildOrThrow();
     Label otherlabel = Label.parseAbsoluteUnchecked("//test:othertest.bzl");
 
     ModuleInfo moduleInfo =

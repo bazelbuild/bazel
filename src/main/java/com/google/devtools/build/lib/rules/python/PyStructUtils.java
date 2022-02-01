@@ -79,7 +79,7 @@ public class PyStructUtils {
             Depset.ElementType.STRING, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
     builder.put(HAS_PY2_ONLY_SOURCES, false);
     builder.put(HAS_PY3_ONLY_SOURCES, false);
-    DEFAULTS = builder.build();
+    DEFAULTS = builder.buildOrThrow();
   }
 
   private static Object getValue(StructImpl info, String fieldName) throws EvalException {
@@ -225,7 +225,7 @@ public class PyStructUtils {
       put(fields, IMPORTS, imports);
       put(fields, HAS_PY2_ONLY_SOURCES, hasPy2OnlySources);
       put(fields, HAS_PY3_ONLY_SOURCES, hasPy3OnlySources);
-      return StructProvider.STRUCT.create(fields.build(), "No such attribute '%s'");
+      return StructProvider.STRUCT.create(fields.buildOrThrow(), "No such attribute '%s'");
     }
   }
 }

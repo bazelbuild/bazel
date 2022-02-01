@@ -103,7 +103,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         // Do nothing, just ignore the value.
       }
     }
-    ImmutableMap<String, Object> origAttr = origAttrBuilder.build();
+    ImmutableMap<String, Object> origAttr = origAttrBuilder.buildOrThrow();
     resolvedInformationBuilder.put(ORIGINAL_ATTRIBUTES, origAttr);
 
     repositoryBuilder.put(RULE_CLASS, originalClass);
@@ -118,7 +118,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       // version of itself.
       repositoryBuilder.put(ATTRIBUTES, result);
       Pair<Map<String, Object>, List<String>> diff =
-          compare(origAttr, defaults.build(), (Map<?, ?>) result);
+          compare(origAttr, defaults.buildOrThrow(), (Map<?, ?>) result);
       if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
         this.informationReturned = false;
         this.message = "Repository rule '" + rule.getName() + "' finished.";
@@ -180,9 +180,9 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     this.directoryDigest = digest;
     if (repositoryBuilder != null) {
       resolvedInformationBuilder.put(
-          REPOSITORIES, ImmutableList.<Object>of(repositoryBuilder.build()));
+          REPOSITORIES, ImmutableList.<Object>of(repositoryBuilder.buildOrThrow()));
     }
-    this.resolvedInformation = resolvedInformationBuilder.build();
+    this.resolvedInformation = resolvedInformationBuilder.buildOrThrow();
     this.resolvedInformationBuilder = null;
     this.repositoryBuilder = null;
   }
@@ -298,7 +298,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         keysDropped.add(key);
       }
     }
-    return Pair.of(valuesChanged.build(), keysDropped.build());
+    return Pair.of(valuesChanged.buildOrThrow(), keysDropped.build());
   }
 
   static String representModifications(Map<String, Object> changes) {

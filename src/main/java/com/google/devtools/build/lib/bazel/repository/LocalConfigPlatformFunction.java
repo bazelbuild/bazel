@@ -92,9 +92,9 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
                     .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, LocalConfigPlatformRule.NAME)
                     .put(
                         ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
-                        ImmutableMap.<String, Object>builder().put("name", name).build())
+                        ImmutableMap.<String, Object>builder().put("name", name).buildOrThrow())
                     .put(ResolvedHashesFunction.NATIVE, repr)
-                    .build();
+                    .buildOrThrow();
               }
             });
 
