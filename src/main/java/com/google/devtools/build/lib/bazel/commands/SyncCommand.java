@@ -271,7 +271,7 @@ public final class SyncCommand implements BlazeCommand {
                 ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>of("name", name, "actual", actual))
             .put(ResolvedHashesFunction.NATIVE, nativeCommand)
-            .build();
+            .buildOrThrow();
       }
     };
   }

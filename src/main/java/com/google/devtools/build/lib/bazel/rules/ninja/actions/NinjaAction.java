@@ -105,7 +105,7 @@ public class NinjaAction extends SpawnAction implements ActionCacheAwareAction {
         allowedDerivedInputsBuilder.put(input.getExecPath(), input);
       }
     }
-    this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
+    this.allowedDerivedInputs = allowedDerivedInputsBuilder.buildOrThrow();
 
     this.derivedOutputRoot = derivedOutputRoot;
     this.originalInputs = inputs;

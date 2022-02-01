@@ -648,7 +648,7 @@ public class CompactPersistentActionCache implements ActionCache {
         }
 
         SerializableTreeArtifactValue value =
-            SerializableTreeArtifactValue.create(childValues.build(), archivedFileValue);
+            SerializableTreeArtifactValue.create(childValues.buildOrThrow(), archivedFileValue);
         outputTrees.put(treeKey, value);
       }
 

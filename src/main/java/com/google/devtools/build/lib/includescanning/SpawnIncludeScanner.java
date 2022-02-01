@@ -369,14 +369,15 @@ public class SpawnIncludeScanner {
     }
     execInfoBuilder.put(ExecutionRequirements.DO_NOT_REPORT, "");
 
-    Spawn spawn = new SimpleSpawn(
-        resourceOwner,
-        command,
-        ImmutableMap.of(),
-        execInfoBuilder.build(),
-        inputs,
-        outputs,
-        LOCAL_RESOURCES);
+    Spawn spawn =
+        new SimpleSpawn(
+            resourceOwner,
+            command,
+            ImmutableMap.of(),
+            execInfoBuilder.buildOrThrow(),
+            inputs,
+            outputs,
+            LOCAL_RESOURCES);
 
     actionExecutionContext.maybeReportSubcommand(spawn);
 

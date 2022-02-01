@@ -368,7 +368,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       }
       resultBuilder.put(label, target);
     }
-    return resultBuilder.build();
+    return resultBuilder.buildOrThrow();
   }
 
   protected void validateScopeOfTargets(Set<Target> targets) throws QueryException {

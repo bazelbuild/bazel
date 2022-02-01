@@ -984,7 +984,8 @@ public class RemoteExecutionService {
           localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
     }
 
-    return new ActionResultMetadata(files.build(), symlinks.build(), directories.build());
+    return new ActionResultMetadata(
+        files.buildOrThrow(), symlinks.buildOrThrow(), directories.buildOrThrow());
   }
 
   /**

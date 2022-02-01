@@ -277,7 +277,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           pkgEntry);
       packageMapBuilder.put(pkg.getPackage().getPackageIdentifier(), pkg.getPackage());
     }
-    ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.build();
+    ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.buildOrThrow();
     ImmutableMap.Builder<Label, Target> validTargetsMapBuilder = ImmutableMap.builder();
     for (Label label : validTargets.build().toList()) {
       try {
@@ -287,7 +287,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         throw new IllegalStateException(e);
       }
     }
-    return Pair.of(packageMap, validTargetsMapBuilder.build());
+    return Pair.of(packageMap, validTargetsMapBuilder.buildOrThrow());
   }
 
   @Nullable

@@ -142,7 +142,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             Attribute.getStarlarkName(name), Attribute.valueToStarlark(attrs.getObject(name)));
       }
     }
-    attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
+    attrObject = StructProvider.STRUCT.create(attrBuilder.buildOrThrow(), "No such attribute '%s'");
   }
 
   @Override
@@ -1083,7 +1083,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
-    return StarlarkInfo.create(StructProvider.STRUCT, out.build(), Location.BUILTIN);
+    return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
@@ -1249,7 +1249,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         throw new EvalException(e);
       }
     }
-    return headers.build();
+    return headers.buildOrThrow();
   }
 
   private static class ExtractProgress implements FetchProgress {

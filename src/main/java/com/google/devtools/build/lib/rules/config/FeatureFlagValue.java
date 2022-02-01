@@ -93,7 +93,7 @@ public interface FeatureFlagValue {
     for (Map.Entry<Label, String> entry : newValues.entrySet()) {
       newValueObjects.put(entry.getKey(), SetValue.of(entry.getValue()));
     }
-    result.addStarlarkOptions(newValueObjects.build());
+    result.addStarlarkOptions(newValueObjects.buildOrThrow());
     BuildOptions builtResult = result.build();
     if (builtResult.contains(ConfigFeatureFlagOptions.class)) {
       builtResult.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent = true;

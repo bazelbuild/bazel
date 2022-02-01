@@ -177,7 +177,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME,
             platform.getNameInPlist());
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**

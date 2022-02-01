@@ -558,7 +558,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
           builder.put(bepTransport, closeFutureWithTimeout);
         });
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private void closeBepTransports() throws AbruptExitException {
