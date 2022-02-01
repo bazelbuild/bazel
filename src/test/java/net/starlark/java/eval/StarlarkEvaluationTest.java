@@ -363,7 +363,7 @@ public final class StarlarkEvaluationTest {
         Object v = Starlark.getattr(thread.mutability(), thread.getSemantics(), this, name, null);
         builder.put(name, v);
       }
-      return new SimpleStruct(builder.build());
+      return new SimpleStruct(builder.buildOrThrow());
     }
 
     @StarlarkMethod(

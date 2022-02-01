@@ -158,7 +158,7 @@ public final class Benchmarks {
       ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
       predeclared.put("json", Json.INSTANCE);
 
-      Module module = Module.withPredeclared(semantics, predeclared.build());
+      Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
       try (Mutability mu = Mutability.create("test")) {
         StarlarkThread thread = new StarlarkThread(mu, semantics);
         Starlark.execFile(input, FileOptions.DEFAULT, module, thread);

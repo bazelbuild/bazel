@@ -237,7 +237,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         for (Map.Entry<String, Label> entry : ((Map<String, Label>) val).entrySet()) {
           attrValue.put(entry.getKey(), prereqsByLabel.get(entry.getValue()));
         }
-        attrBuilder.put(skyname, attrValue.build());
+        attrBuilder.put(skyname, attrValue.buildOrThrow());
       } else {
         throw new IllegalArgumentException(
             "Can't transform attribute "
@@ -256,7 +256,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
           executableBuilder,
           fileBuilder,
           filesBuilder,
-          executableRunfilesbuilder.build());
+          executableRunfilesbuilder.buildOrThrow());
     }
   }
 }

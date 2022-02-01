@@ -381,7 +381,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
                 canonicalizeTransitionOutputDict(rawDict, repoMapping, parentLabel, getOutputs());
             builder.put(entry.getKey(), canonicalizedDict);
           }
-          return builder.build();
+          return builder.buildOrThrow();
         } catch (ValidationException ex) {
           errorf(handler, "invalid result from transition function: %s", ex.getMessage());
           return null;
@@ -423,7 +423,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           errorf(handler, "invalid result from transition function: %s", ex.getMessage());
           return null;
         }
-        return builder.build();
+        return builder.buildOrThrow();
       } else {
         errorf(
             handler,

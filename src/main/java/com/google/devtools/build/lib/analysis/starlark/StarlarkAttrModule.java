@@ -367,10 +367,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   private static final Map<Type<?>, String> whyNotConfigurable =
       ImmutableMap.<Type<?>, String>builder()
-          .put(BuildType.LICENSE,
+          .put(
+              BuildType.LICENSE,
               "loading phase license checking logic assumes non-configurable values")
           .put(BuildType.OUTPUT, "output paths are part of the static graph structure")
-          .build();
+          .buildOrThrow();
 
   /**
    * If the given attribute type is non-configurable, returns the reason why. Otherwise, returns
@@ -755,6 +756,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         b.put(key, value);
       }
     }
-    return b.build();
+    return b.buildOrThrow();
   }
 }

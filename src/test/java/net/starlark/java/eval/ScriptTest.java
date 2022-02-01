@@ -229,7 +229,7 @@ public final class ScriptTest {
         predeclared.put("json", Json.INSTANCE);
 
         StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
-        Module module = Module.withPredeclared(semantics, predeclared.build());
+        Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
         try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
           StarlarkThread thread = new StarlarkThread(mu, semantics);
           thread.setThreadLocal(Reporter.class, ScriptTest::reportError);

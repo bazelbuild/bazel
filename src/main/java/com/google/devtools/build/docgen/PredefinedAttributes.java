@@ -97,7 +97,7 @@ public class PredefinedAttributes {
         throw new IllegalStateException("Exception while reading " + filename, e);
       }
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   public static final ImmutableMap<String, RuleDocumentationAttribute> TYPICAL_ATTRIBUTES =

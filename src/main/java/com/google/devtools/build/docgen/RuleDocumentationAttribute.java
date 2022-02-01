@@ -59,7 +59,7 @@ public class RuleDocumentationAttribute
           .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")
           .put(
               BuildType.OUTPUT_LIST, "List of <a href=\"../build-ref.html#filename\">filenames</a>")
-          .build();
+          .buildOrThrow();
 
   private final Class<? extends RuleDefinition> definitionClass;
   private final String attributeName;

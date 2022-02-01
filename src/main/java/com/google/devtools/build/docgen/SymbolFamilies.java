@@ -103,7 +103,7 @@ public class SymbolFamilies {
     return ImmutableMap.<String, Object>builder()
         .put("native", new FakeStarlarkNativeModuleApi())
         .putAll(provider.getEnvironment())
-        .build();
+        .buildOrThrow();
   }
 
   private ConfiguredRuleClassProvider createRuleClassProvider(String classProvider)

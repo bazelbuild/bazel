@@ -296,7 +296,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         builder.put(module.name(), fragmentClass);
       }
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**

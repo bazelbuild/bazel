@@ -208,7 +208,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
                     }
                   }
                 }
-                return lateBoundDefaultMap.build();
+                return lateBoundDefaultMap.buildOrThrow();
               });
 
   /**
