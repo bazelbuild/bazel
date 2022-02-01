@@ -32,6 +32,13 @@ exported_toplevels = {
     # "original value".
     "_builtins_dummy": "overridden value",
 }
+
+# A list of Starlarkified native rules.
+#
+# * leading `+` means the Starlark rule is used by default, but can be overridden
+#   on the Bazel command line
+# * no leading symbol means the Starlark rule is used and can't be overridden
+# * leading `-` means the Starlark rule exists, but is not used by default
 exported_rules = {
     "+cc_import": cc_import,
     "-java_lite_proto_library": java_lite_proto_library,
@@ -44,6 +51,8 @@ exported_rules = {
     "-cc_binary": cc_binary,
     "-cc_test": cc_test,
 }
+
+# A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
     "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
     "create_proto_compile_action": proto_common.create_proto_compile_action,
