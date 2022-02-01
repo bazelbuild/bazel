@@ -327,7 +327,7 @@ public class AppleStarlarkCommon
                   .put("bitcode_symbols", valueOrNone(linkingOutput.getBitcodeSymbols()))
                   .put("dsym_binary", valueOrNone(linkingOutput.getDsymBinary()))
                   .put("linkmap", valueOrNone(linkingOutput.getLinkmap()))
-                  .build(),
+                  .buildOrThrow(),
               Location.BUILTIN));
     }
 
@@ -348,7 +348,7 @@ public class AppleStarlarkCommon
 
     Provider linkingOutputsConstructor =
         new BuiltinProvider<StructImpl>("apple_linking_outputs", StructImpl.class) {};
-    return StarlarkInfo.create(linkingOutputsConstructor, fields.build(), Location.BUILTIN);
+    return StarlarkInfo.create(linkingOutputsConstructor, fields.buildOrThrow(), Location.BUILTIN);
   }
 
   private static boolean isStampingEnabled(int stamp, BuildConfigurationValue config)

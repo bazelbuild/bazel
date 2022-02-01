@@ -175,7 +175,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
           .put(
               ComputeUnloadedToolchainContextsFunction.SKYFUNCTION_NAME,
               new ComputeUnloadedToolchainContextsFunction(stateProvider))
-          .build();
+          .buildOrThrow();
     }
   }
 

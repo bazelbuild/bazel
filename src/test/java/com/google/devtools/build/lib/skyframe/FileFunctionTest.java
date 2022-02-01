@@ -1030,7 +1030,7 @@ public class FileFunctionTest {
             .put(
                 rootedPath("e/some/descendant"),
                 ImmutableList.of(rootedPath("e"), rootedPath("c"), rootedPath("d")))
-            .build();
+            .buildOrThrow();
     Map<RootedPath, ImmutableList<RootedPath>> startToPathToCycleMap =
         ImmutableMap.<RootedPath, ImmutableList<RootedPath>>builder()
             .put(rootedPath("a"), ImmutableList.of(rootedPath("a"), rootedPath("b")))
@@ -1042,7 +1042,7 @@ public class FileFunctionTest {
             .put(rootedPath("b/some/descendant"), ImmutableList.of(rootedPath("b")))
             .put(rootedPath("d/some/descendant"), ImmutableList.of())
             .put(rootedPath("e/some/descendant"), ImmutableList.of())
-            .build();
+            .buildOrThrow();
     ImmutableList<SkyKey> keys;
     if (ancestorCycle && startInCycle) {
       keys = ImmutableList.of(skyKey("d/some/descendant"), skyKey("e/some/descendant"));

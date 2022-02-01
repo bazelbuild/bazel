@@ -58,7 +58,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
       return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
           .putAll(super.getSkyFunctions(directories))
           .put(GET_CONSTRAINT_VALUE_INFO_FUNCTION, new GetConstraintValueInfoFunction())
-          .build();
+          .buildOrThrow();
     }
   }
 

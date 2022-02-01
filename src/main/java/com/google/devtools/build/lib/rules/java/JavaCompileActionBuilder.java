@@ -248,7 +248,7 @@ public final class JavaCompileActionBuilder {
                 .put(
                     ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
                     outputs.depsProto().getExecPathString())
-                .build();
+                .buildOrThrow();
       }
     }
 

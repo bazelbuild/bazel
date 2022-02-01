@@ -896,7 +896,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       }
       return new ObjcProvider(
           starlarkSemantics,
-          propagatedBuilder.build(),
+          propagatedBuilder.buildOrThrow(),
           strictDependencyIncludes.build(),
           directItems.build());
     }

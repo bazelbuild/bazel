@@ -381,11 +381,11 @@ public final class JavaCompilationHelper {
     }
     executionInfo.putAll(
         getConfiguration()
-            .modifiedExecutionInfo(workerInfo.build(), JavaCompileActionBuilder.MNEMONIC));
+            .modifiedExecutionInfo(workerInfo.buildOrThrow(), JavaCompileActionBuilder.MNEMONIC));
     executionInfo.putAll(
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
-    return executionInfo.build();
+    return executionInfo.buildOrThrow();
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */

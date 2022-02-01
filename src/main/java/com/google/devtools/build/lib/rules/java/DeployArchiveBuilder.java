@@ -382,7 +382,7 @@ public class DeployArchiveBuilder {
                 ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
             .setProgressMessage("Building deploy jar %{output}")
             .setMnemonic("JavaDeployJar")
-            .setExecutionInfo(executionInfo.build())
+            .setExecutionInfo(executionInfo.buildOrThrow())
             .build(ruleContext));
   }
 }

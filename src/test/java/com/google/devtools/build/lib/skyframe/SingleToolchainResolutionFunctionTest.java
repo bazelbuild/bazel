@@ -173,7 +173,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
                 ImmutableMap.<ConfiguredTargetKey, Label>builder()
                     .put(linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))
                     .put(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))
-                    .build()))
+                    .buildOrThrow()))
         .testEquals();
   }
 

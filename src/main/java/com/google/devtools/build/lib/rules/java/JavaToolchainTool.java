@@ -69,7 +69,10 @@ public abstract class JavaToolchainTool {
     NestedSet<String> jvmOpts =
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
-            ruleContext.getExpander().withExecLocations(locations.build()).list(jvmOptsAttribute));
+            ruleContext
+                .getExpander()
+                .withExecLocations(locations.buildOrThrow())
+                .list(jvmOptsAttribute));
     return create(tool, dataArtifacts.build(), jvmOpts);
   }
 

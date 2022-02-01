@@ -184,7 +184,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             semantics,
             javaRuntime);
     ToolchainInfo toolchainInfo =
-        new ToolchainInfo(ImmutableMap.<String, Object>builder().put("java", provider).build());
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder().put("java", provider).buildOrThrow());
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)

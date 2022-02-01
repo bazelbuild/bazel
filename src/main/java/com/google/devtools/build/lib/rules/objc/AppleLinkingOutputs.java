@@ -167,7 +167,7 @@ public class AppleLinkingOutputs {
       return new AppleLinkingOutputs(
           depsObjcProvider,
           outputs.build(),
-          outputGroups.build(),
+          outputGroups.buildOrThrow(),
           legacyDebugOutputsProvider);
     }
   }

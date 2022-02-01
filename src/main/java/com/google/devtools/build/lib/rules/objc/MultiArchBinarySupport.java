@@ -76,7 +76,7 @@ public class MultiArchBinarySupport {
       result.put(config, toolchain);
     }
 
-    return result.build();
+    return result.buildOrThrow();
   }
 
   static <V> ImmutableListMultimap<String, V> transformMap(
@@ -390,7 +390,7 @@ public class MultiArchBinarySupport {
       splitBuildOptions.put(platform.getCanonicalForm(), splitOptions.underlying());
     }
 
-    return splitBuildOptions.build();
+    return splitBuildOptions.buildOrThrow();
   }
 
   /**
@@ -496,7 +496,7 @@ public class MultiArchBinarySupport {
 
       splitBuildOptions.put(platformCpu, splitOptions.underlying());
     }
-    return splitBuildOptions.build();
+    return splitBuildOptions.buildOrThrow();
   }
 
   private static Iterable<ObjcProvider> getDylibObjcProviders(

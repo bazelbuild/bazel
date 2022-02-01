@@ -116,7 +116,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
             .getPrerequisite("$cc_toolchain", TemplateVariableInfo.PROVIDER)
             .getVariables();
     ImmutableMap<String, String> starlarkRuleContextMap =
-        ImmutableMap.<String, String>builder().putAll(starlarkRuleContext.var()).build();
+        ImmutableMap.<String, String>builder().putAll(starlarkRuleContext.var()).buildOrThrow();
     List<String> expandedFlags = new ArrayList<>();
     for (String flag : Sequence.cast(flags, String.class, "flags")) {
 

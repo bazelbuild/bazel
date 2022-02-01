@@ -131,7 +131,7 @@ public final class AppleDebugOutputsInfo extends NativeInfo
         builder.put(e.getKey(), Dict.immutableCopyOf(e.getValue()));
       }
 
-      return new AppleDebugOutputsInfo(builder.build());
+      return new AppleDebugOutputsInfo(builder.buildOrThrow());
     }
   }
 }

@@ -187,7 +187,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
           .put(
               ComputeDependenciesFunction.SKYFUNCTION_NAME,
               new ComputeDependenciesFunction(stateProvider))
-          .build();
+          .buildOrThrow();
     }
   }
 

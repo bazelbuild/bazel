@@ -882,7 +882,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                     FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
-            .build()) {
+            .buildOrThrow()) {
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
         return FilesetTraversalParamsFactory.fileTraversal(
@@ -911,7 +911,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                     FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
-            .build()) {
+            .buildOrThrow()) {
       @SuppressWarnings("unchecked")
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
@@ -941,7 +941,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                     FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
                     FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
             .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
-            .build()) {
+            .buildOrThrow()) {
       @SuppressWarnings("unchecked")
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
