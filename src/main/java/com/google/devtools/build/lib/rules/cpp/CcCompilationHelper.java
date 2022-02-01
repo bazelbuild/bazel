@@ -861,7 +861,7 @@ public final class CcCompilationHelper {
     outputGroupsBuilder.putAll(
         CcCommon.createSaveFeatureStateArtifacts(
             cppConfiguration, featureConfiguration, ruleContext));
-    return outputGroupsBuilder.build();
+    return outputGroupsBuilder.buildOrThrow();
   }
 
   private static NestedSet<Artifact> collectLibraryHiddenTopLevelArtifacts(
@@ -1352,7 +1352,7 @@ public final class CcCompilationHelper {
       builder.put(source, outputName);
     }
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**
@@ -1372,7 +1372,7 @@ public final class CcCompilationHelper {
     builder.putAll(
         calculateOutputNameMap(
             getSourceArtifactsByType(sources, CppSource.Type.CLIF_INPUT_PROTO), prefixDir));
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private NestedSet<Artifact> getSourceArtifactsByType(

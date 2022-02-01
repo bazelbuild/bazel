@@ -1404,7 +1404,7 @@ public class CcToolchainFeatures {
       for (Feature feature : enabledFeatures) {
         feature.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
       }
-      return envBuilder.build();
+      return envBuilder.buildOrThrow();
     }
 
     public String getToolPathForAction(String actionName) {
@@ -1569,7 +1569,7 @@ public class CcToolchainFeatures {
     checkForActionNameDups(ccToolchainConfigInfo.getActionConfigs());
     checkForActivatableDups(this.selectables);
 
-    this.actionConfigsByActionName = actionConfigsByActionName.build();
+    this.actionConfigsByActionName = actionConfigsByActionName.buildOrThrow();
 
     this.artifactNamePatterns = ccToolchainConfigInfo.getArtifactNamePatterns();
 

@@ -329,7 +329,7 @@ public class WorkspaceFactory {
       }
     }
 
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private ImmutableMap<String, Object> getDefaultEnvironment() {
@@ -346,7 +346,7 @@ public class WorkspaceFactory {
     for (EnvironmentExtension ext : environmentExtensions) {
       ext.updateWorkspace(env);
     }
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private String getDefaultSystemJavabase() {
@@ -390,7 +390,7 @@ public class WorkspaceFactory {
     }
     bindings.put("bazel_version", version);
 
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   public Map<String, Module> getLoadedModules() {

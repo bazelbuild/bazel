@@ -361,7 +361,7 @@ public final class CcToolchainProvider extends NativeInfo
       result.put("ABI", getAbi());
     }
 
-    globalMakeEnvBuilder.putAll(result.build());
+    globalMakeEnvBuilder.putAll(result.buildOrThrow());
   }
 
   /**

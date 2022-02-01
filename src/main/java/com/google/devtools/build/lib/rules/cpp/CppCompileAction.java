@@ -1533,7 +1533,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           this,
           ImmutableList.copyOf(getArguments()),
           getEffectiveEnvironment(clientEnv),
-          executionInfo.build(),
+          executionInfo.buildOrThrow(),
           inputs,
           getOutputs(),
           () ->
@@ -1800,7 +1800,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               module);
       transitivelyUsedModules.put(module, value.getDiscoveredModules());
     }
-    return transitivelyUsedModules.build();
+    return transitivelyUsedModules.buildOrThrow();
   }
 
   private final class CppCompileActionContinuation extends ActionContinuationOrResult {

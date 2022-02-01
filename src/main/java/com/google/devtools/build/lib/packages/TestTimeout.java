@@ -105,7 +105,7 @@ public enum TestTimeout {
       previousTimeout = timeout.timeout;
     }
     SUGGESTED_TIMEOUT = suggestedTimeoutBuilder.build();
-    TIMEOUT_FUZZY_RANGE = timeoutFuzzyRangeBuilder.build();
+    TIMEOUT_FUZZY_RANGE = timeoutFuzzyRangeBuilder.buildOrThrow();
   }
 
   private final int timeout;

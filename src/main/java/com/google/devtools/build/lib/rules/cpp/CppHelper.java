@@ -176,7 +176,7 @@ public class CppHelper {
       }
     }
 
-    Expander expander = ruleContext.getExpander(builder.build()).withDataExecLocations();
+    Expander expander = ruleContext.getExpander(builder.buildOrThrow()).withDataExecLocations();
     for (String value : values) {
       expander.tokenizeAndExpandMakeVars(result, attrName, value);
     }
@@ -676,7 +676,7 @@ public class CppHelper {
             .setExecutable(
                 PathFragment.create(
                     featureConfiguration.getToolPathForAction(CppActionNames.STRIP)))
-            .setExecutionInfo(executionInfoBuilder.build())
+            .setExecutionInfo(executionInfoBuilder.buildOrThrow())
             .setProgressMessage("Stripping %s for %s", output.prettyPrint(), ruleContext.getLabel())
             .setMnemonic("CcStrip")
             .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())

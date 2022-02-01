@@ -89,7 +89,7 @@ public final class LtoCompilationContext implements StarlarkValue {
     public Builder() {}
 
     public LtoCompilationContext build() {
-      ImmutableMap<Artifact, BitcodeInfo> map = ltoBitcodeFiles.build();
+      ImmutableMap<Artifact, BitcodeInfo> map = ltoBitcodeFiles.buildOrThrow();
       if (map.isEmpty()) {
         return LtoCompilationContext.EMPTY;
       }

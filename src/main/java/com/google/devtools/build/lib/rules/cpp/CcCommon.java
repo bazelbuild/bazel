@@ -591,7 +591,8 @@ public final class CcCommon implements StarlarkValue {
     }
 
     // tokenize defines and substitute make variables
-    for (String define : ruleContext.getExpander().withExecLocations(builder.build()).list(attr)) {
+    for (String define :
+        ruleContext.getExpander().withExecLocations(builder.buildOrThrow()).list(attr)) {
       List<String> tokens = new ArrayList<>();
       try {
         ShellUtils.tokenize(tokens, define);
@@ -1225,7 +1226,7 @@ public final class CcCommon implements StarlarkValue {
               .add(requestedFeaturesFile)
               .build());
     }
-    return outputGroupsBuilder.build();
+    return outputGroupsBuilder.buildOrThrow();
   }
 
   public static boolean isOldStarlarkApiWhiteListed(

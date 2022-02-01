@@ -479,7 +479,7 @@ public class Package {
     }
     builder.externalPackageRepositoryMappings.forEach((k, v) ->
         repositoryMappingsBuilder.put(k, ImmutableMap.copyOf(v)));
-    this.externalPackageRepositoryMappings = repositoryMappingsBuilder.build();
+    this.externalPackageRepositoryMappings = repositoryMappingsBuilder.buildOrThrow();
   }
 
   private static boolean isWorkspaceFile(String baseFileName) {

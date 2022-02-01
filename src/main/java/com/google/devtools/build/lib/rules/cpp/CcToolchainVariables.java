@@ -646,7 +646,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** Returns an immutable structure. */
     @Override
     public StructureValue build() {
-      return new StructureValue(fields.build());
+      return new StructureValue(fields.buildOrThrow());
     }
   }
 
@@ -1338,7 +1338,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         keyBuilder.put(key, index++);
         valuesBuilder.add(variablesMap.get(key));
       }
-      this.keyToIndex = KEY_INTERNER.intern(keyBuilder.build());
+      this.keyToIndex = KEY_INTERNER.intern(keyBuilder.buildOrThrow());
       this.values = valuesBuilder.build();
     }
 

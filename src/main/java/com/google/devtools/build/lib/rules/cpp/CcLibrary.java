@@ -137,7 +137,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
     ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
     ruleContext.initConfigurationMakeVariableContext(
-        new MapBackedMakeVariableSupplier(toolchainMakeVariables.build()),
+        new MapBackedMakeVariableSupplier(toolchainMakeVariables.buildOrThrow()),
         new CcFlagsSupplier(ruleContext));
 
     FdoContext fdoContext = common.getFdoContext();

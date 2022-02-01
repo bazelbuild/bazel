@@ -508,7 +508,7 @@ public class CppLinkActionBuilder {
       }
     }
 
-    return sharedNonLtoBackends.build();
+    return sharedNonLtoBackends.buildOrThrow();
   }
 
   @VisibleForTesting
@@ -1139,7 +1139,7 @@ public class CppLinkActionBuilder {
           linkArtifactFactory.create(
               actionConstructionContext, repositoryName, configuration, stampOutputPath));
     }
-    return mapBuilder.build();
+    return mapBuilder.buildOrThrow();
   }
 
   protected ActionOwner getOwner() {

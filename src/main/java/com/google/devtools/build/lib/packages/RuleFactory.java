@@ -293,7 +293,7 @@ public class RuleFactory {
     builder.put("generator_name", generatorName);
 
     try {
-      args = new BuildLangTypedAttributeValuesMap(builder.build());
+      args = new BuildLangTypedAttributeValuesMap(builder.buildOrThrow());
     } catch (IllegalArgumentException unused) {
       // We just fall back to the default case and swallow any messages.
     }

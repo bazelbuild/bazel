@@ -296,7 +296,7 @@ public final class PackageFactory {
     for (PackageArgument<?> argument : arguments.build()) {
       packageArguments.put(argument.getName(), argument);
     }
-    return packageArguments.build();
+    return packageArguments.buildOrThrow();
   }
 
   /** Returns a function-value implementing "package" in the specified package context. */
@@ -382,7 +382,7 @@ public final class PackageFactory {
         result.put(ruleClassName, new BuiltinRuleFunction(cl));
       }
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /** A callable Starlark value that creates Rules for native RuleClasses. */

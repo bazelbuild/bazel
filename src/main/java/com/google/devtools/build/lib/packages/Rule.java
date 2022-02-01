@@ -367,7 +367,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         result.put(key, (OutputFile) o);
       }
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   @Override

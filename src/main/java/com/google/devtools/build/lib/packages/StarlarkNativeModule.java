@@ -83,7 +83,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   private static ImmutableMap<String, Object> initializeBindings() {
     ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
     Starlark.addMethods(bindings, new StarlarkNativeModule());
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   @Override
