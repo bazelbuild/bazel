@@ -126,7 +126,7 @@ public class CcToolchainFeatures {
       for (StringChunk chunk : chunks) {
         flag.append(chunk.expand(variables));
       }
-      commandLine.add(flag.toString());
+      commandLine.add(flag.toString().intern());
     }
 
     @Override
