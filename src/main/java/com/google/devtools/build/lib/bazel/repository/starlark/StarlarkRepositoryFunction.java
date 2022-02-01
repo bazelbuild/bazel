@@ -214,7 +214,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       Object result;
       try (SilentCloseable c =
           Profiler.instance()
-              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, rule.getLabel().toString())) {
+              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> rule.getLabel().toString())) {
         result =
             Starlark.call(
                 thread,

@@ -263,7 +263,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     try (SilentCloseable c =
         Profiler.instance()
-            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, profileArgsDesc("remote", arguments))) {
+            .profile(
+                ProfilerTask.STARLARK_REPOSITORY_FN, () -> profileArgsDesc("remote", arguments))) {
       ExecutionResult result =
           remoteExecutor.execute(
               arguments,
@@ -426,9 +427,10 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     }
     createDirectory(workingDirectoryPath);
 
+    final List<String> fargs = args;
     try (SilentCloseable c =
         Profiler.instance()
-            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, profileArgsDesc("local", args))) {
+            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> profileArgsDesc("local", fargs))) {
       return StarlarkExecutionResult.builder(osObject.getEnvironmentVariables())
           .addArguments(args)
           .setDirectory(workingDirectoryPath.getPathFile())

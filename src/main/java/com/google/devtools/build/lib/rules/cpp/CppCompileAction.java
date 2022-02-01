@@ -1172,7 +1172,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
     Preconditions.checkState(
         discoversInputs(), "Can't call if not discovering inputs: %s %s", discoveredInputs, this);
-    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, this::describe)) {
       NestedSetBuilder<Artifact> inputsBuilder =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(mandatoryInputs)
