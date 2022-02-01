@@ -184,6 +184,8 @@ config_setting(
     ],
 )
 
+# TODO(https://github.com/bazelbuild/bazel/issues/7260)
+# Remove the flag after toolchain cc resolution is fixed
 config_setting(
     name = "windows_x64_arm64_flag",
     values = {"cpu": "x64_arm64_windows"},

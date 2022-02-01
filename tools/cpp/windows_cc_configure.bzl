@@ -323,9 +323,9 @@ def _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch):
         lib = msvc_vars_x64["%{msvc_env_lib_x64}"]
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         tools_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s" % (vc_path, full_version, target_arch)
-        # For native windows on arm64 builds host toolchain runs in an emulated x86 environment
+        # For native windows(10) on arm64 builds host toolchain runs in an emulated x86 environment
         if not repository_ctx.path(tools_path).exists:
-            tools_path = tools_path.replace("HostX64", "HostX86")
+            tools_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX86\\%s" % (vc_path, full_version, target_arch)
     else:
         lib = msvc_vars_x64["%{msvc_env_lib_x64}"].replace("amd64", _targets_lib_folder[target_arch])
         tools_path = vc_path + "\\bin\\" + _targets_archs[target_arch]
@@ -451,9 +451,9 @@ def find_msvc_tool(repository_ctx, vc_path, tool, target_arch = "x64"):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         if full_version:
             tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s\\%s" % (vc_path, full_version, target_arch, tool)
-            # For native windows on arm64 builds host toolchain runs in an emulated x86 environment
+            # For native windows(10) on arm64 builds host toolchain runs in an emulated x86 environment
             if not repository_ctx.path(tool_path).exists:
-                tool_path = tool_path.replace("HostX64", "HostX86")
+                tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX86\\%s\\%s" % (vc_path, full_version, target_arch, tool)
     else:
         # For VS 2015 and older version, the tools are under:
         # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64
@@ -724,17 +724,17 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars, target_arch):
     if error_script:
         write_builtin_include_directory_paths(repository_ctx, "clang-cl", [], file_suffix = "_clangcl")
         clang_cl_vars = {
-            "%{clang_cl_env_tmp}": "clang_cl_not_found",
-            "%{clang_cl_env_path}": "clang_cl_not_found",
-            "%{clang_cl_env_include}": "clang_cl_not_found",
-            "%{clang_cl_env_lib}": "clang_cl_not_found",
-            "%{clang_cl_cl_path}": error_script,
-            "%{clang_cl_link_path}": error_script,
-            "%{clang_cl_lib_path}": error_script,
-            "%{clang_cl_ml_path}": error_script,
-            "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
-            "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
-            "%{clang_cl_cxx_builtin_include_directories}": "",
+            "%{clang_cl_env_tmp_" + target_arch+ "}": "clang_cl_not_found",
+            "%{clang_cl_env_path_" + target_arch+ "}": "clang_cl_not_found",
+            "%{clang_cl_env_include_" + target_arch+ "}": "clang_cl_not_found",
+            "%{clang_cl_env_lib_" + target_arch+ "}": "clang_cl_not_found",
+            "%{clang_cl_cl_path_" + target_arch+ "}": error_script,
+            "%{clang_cl_link_path_" + target_arch+ "}": error_script,
+            "%{clang_cl_lib_path_" + target_arch+ "}": error_script,
+            "%{clang_cl_ml_path_" + target_arch+ "}": error_script,
+            "%{clang_cl_dbg_mode_debug_flag_" + target_arch+ "}": "/DEBUG",
+            "%{clang_cl_fastbuild_mode_debug_flag_" + target_arch+ "}": "/DEBUG",
+            "%{clang_cl_cxx_builtin_include_directories_" + target_arch+ "}": "",
         }
         return clang_cl_vars
 
@@ -750,18 +750,18 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars, target_arch):
     clang_cl_include_directories = msvc_vars["%{msvc_cxx_builtin_include_directories_"+target_arch+"}"] + (",\n        \"%s\"" % clang_include_path)
     write_builtin_include_directory_paths(repository_ctx, "clang-cl", [clang_cl_include_directories], file_suffix = "_clangcl")
     clang_cl_vars = {
-        "%{clang_cl_env_tmp}": msvc_vars["%{msvc_env_tmp_"+target_arch+"}"],
-        "%{clang_cl_env_path}": msvc_vars["%{msvc_env_path_"+target_arch+"}"],
-        "%{clang_cl_env_include}": msvc_vars["%{msvc_env_include_"+target_arch+"}"] + ";" + clang_include_path,
-        "%{clang_cl_env_lib}": msvc_vars["%{msvc_env_lib_"+target_arch+"}"] + ";" + clang_lib_path,
-        "%{clang_cl_cxx_builtin_include_directories}": clang_cl_include_directories,
-        "%{clang_cl_cl_path}": clang_cl_path,
-        "%{clang_cl_link_path}": lld_link_path,
-        "%{clang_cl_lib_path}": llvm_lib_path,
-        "%{clang_cl_ml_path}": clang_cl_path,
+        "%{clang_cl_env_tmp_" + target_arch+ "}": msvc_vars["%{msvc_env_tmp_"+target_arch+"}"],
+        "%{clang_cl_env_path_" + target_arch+ "}": msvc_vars["%{msvc_env_path_"+target_arch+"}"],
+        "%{clang_cl_env_include_" + target_arch+ "}": msvc_vars["%{msvc_env_include_"+target_arch+"}"] + ";" + clang_include_path,
+        "%{clang_cl_env_lib_" + target_arch+ "}": msvc_vars["%{msvc_env_lib_"+target_arch+"}"] + ";" + clang_lib_path,
+        "%{clang_cl_cxx_builtin_include_directories_" + target_arch+ "}": clang_cl_include_directories,
+        "%{clang_cl_cl_path_" + target_arch+ "}": clang_cl_path,
+        "%{clang_cl_link_path_" + target_arch+ "}": lld_link_path,
+        "%{clang_cl_lib_path_" + target_arch+ "}": llvm_lib_path,
+        "%{clang_cl_ml_path_" + target_arch+ "}": clang_cl_path,
         # LLVM's lld-link.exe doesn't support /DEBUG:FASTLINK.
-        "%{clang_cl_dbg_mode_debug_flag}": "/DEBUG",
-        "%{clang_cl_fastbuild_mode_debug_flag}": "/DEBUG",
+        "%{clang_cl_dbg_mode_debug_flag_" + target_arch+ "}": "/DEBUG",
+        "%{clang_cl_fastbuild_mode_debug_flag_" + target_arch+ "}": "/DEBUG",
     }
     return clang_cl_vars
 

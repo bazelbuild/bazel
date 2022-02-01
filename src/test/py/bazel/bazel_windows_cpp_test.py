@@ -1049,7 +1049,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--cpu=arm64_windows', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('arm64/cl.exe', ''.join(stderr))
+    self.assertIn('arm64\\cl.exe', ''.join(stderr))
 
 
 if __name__ == '__main__':
