@@ -109,7 +109,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         message.writeTo(outputStream);
         break;
       case TEXT:
-        TextFormat.print(message, printStream);
+        TextFormat.printer().print(message, printStream);
         break;
       case JSON:
         jsonPrinter.appendTo(message, printStream);
