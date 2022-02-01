@@ -88,7 +88,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
   private final boolean mandatoryMinimumVersion;
-  private final boolean objcProviderFromLinked;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
@@ -101,7 +100,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
-    this.objcProviderFromLinked = options.objcProviderFromLinked;
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
@@ -435,14 +433,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
 
   public boolean isMandatoryMinimumVersion() {
     return mandatoryMinimumVersion;
-  }
-
-  /**
-   * Returns true if rules which manage link actions should propagate {@link ObjcProvider} at the
-   * top level.
-   **/
-  public boolean shouldLinkingRulesPropagateObjc() {
-    return objcProviderFromLinked;
   }
 
   @Override

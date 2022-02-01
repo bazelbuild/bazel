@@ -45,7 +45,7 @@ exported_rules = {
     "objc_import": objc_import,
     "objc_library": objc_library,
     "+proto_library": proto_library,
-    "+apple_static_library": apple_static_library,
+    "apple_static_library": apple_static_library,
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
     "-cc_binary": cc_binary,
