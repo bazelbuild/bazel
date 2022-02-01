@@ -24,6 +24,7 @@ filegroup(
         "//tools/objc:srcs",
         "//tools/osx:srcs",
         "//tools/osx/crosstool:srcs",
+        "//tools/windows:srcs",
         "//tools/test:srcs",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:srcs",
         "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:srcs",
