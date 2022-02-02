@@ -17,6 +17,9 @@
 def _create_cc_launcher_info(cc_info, cc_compilation_outputs):
     return None
 
+def _should_create_empty_archive():
+    return False
+
 def _validate_deps(ctx):
     pass
 
@@ -28,6 +31,9 @@ def _determine_headers_checking_mode(ctx):
 
 def _get_semantics():
     return _builtins.internal.bazel_cc_internal.semantics
+
+def _get_stl():
+    return attr.label()
 
 def _get_repo():
     return "bazel_tools"
@@ -47,7 +53,7 @@ def _get_loose_mode_in_hdrs_check_allowed_attr():
 
 def _get_def_parser():
     return attr.label(
-        default = "@bazel_tools//tools/def_parser:def_parser",
+        default = _builtins.internal.cc_internal.def_parser_computed_default(),
         allow_single_file = True,
         cfg = "exec",
     )
@@ -76,4 +82,6 @@ semantics = struct(
     get_licenses_attr = _get_licenses_attr,
     get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
     get_def_parser = _get_def_parser,
+    get_stl = _get_stl,
+    should_create_empty_archive = _should_create_empty_archive,
 )

@@ -242,6 +242,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = String.class),
               @ParamType(type = LateBoundDefaultApi.class),
+              @ParamType(type = NativeComputedDefaultApi.class),
               // TODO(adonovan): remove StarlarkFunction. It's undocumented,
               // unused by Google's .bzl files, and likely unused in Bazel.
               // I suspect it is a vestige of a "computed defaults" feature

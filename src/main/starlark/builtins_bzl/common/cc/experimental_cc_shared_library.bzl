@@ -452,9 +452,9 @@ def _cc_shared_library_impl(ctx):
 
         generated_def_file = None
         if def_parser != None:
-            generated_def_file = _generate_def_file(ctx, def_parser, object_files, ctx.label.name)
+            generated_def_file = cc_helper.generate_def_file(ctx, def_parser, object_files, ctx.label.name)
         custom_win_def_file = ctx.file.win_def_file
-        win_def_file = _get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
+        win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
 
     additional_inputs = []
     additional_inputs.extend(ctx.files.additional_linker_inputs)
@@ -515,45 +515,6 @@ def _cc_shared_library_impl(ctx):
             preloaded_deps = preloaded_dep_merged_cc_info,
         ),
     ]
-
-def _gen_empty_def_file(ctx):
-    trivial_def_file = ctx.actions.declare_file(ctx.label.name + ".gen.empty.def")
-    ctx.actions.write(trivial_def_file, "", False)
-    return trivial_def_file
-
-def _get_windows_def_file_for_linking(ctx, custom_def_file, generated_def_file, feature_configuration):
-    # 1. If a custom DEF file is specified in win_def_file attribute, use it.
-    # 2. If a generated DEF file is available and should be used, use it.
-    # 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
-    if custom_def_file != None:
-        return custom_def_file
-    elif generated_def_file != None and _should_generate_def_file(ctx, feature_configuration) == True:
-        return generated_def_file
-    else:
-        return _gen_empty_def_file(ctx)
-
-def _should_generate_def_file(ctx, feature_configuration):
-    windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "windows_export_all_symbols")
-    no_windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_windows_export_all_symbols")
-    return windows_export_all_symbols_enabled and (not no_windows_export_all_symbols_enabled) and (ctx.attr.win_def_file == None)
-
-def _generate_def_file(ctx, def_parser, object_files, dll_name):
-    def_file = ctx.actions.declare_file(ctx.label.name + ".gen.def")
-    argv = ctx.actions.args()
-    argv.add(def_file)
-    argv.add(dll_name)
-    for object_file in object_files:
-        argv.add(object_file.path)
-
-    ctx.actions.run(
-        mnemonic = "DefParser",
-        executable = def_parser,
-        arguments = [argv],
-        inputs = object_files,
-        outputs = [def_file],
-        use_default_shell_env = True,
-    )
-    return def_file
 
 def _graph_structure_aspect_impl(target, ctx):
     children = []

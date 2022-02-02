@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,11 +27,13 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
@@ -296,5 +299,71 @@ public class CcStarlarkInternal implements StarlarkValue {
     return ruleContext
         .getRuleContext()
         .getShareableArtifact(PathFragment.create(path), ruleContext.getBinDirectory());
+  }
+
+  @StarlarkMethod(
+      name = "dll_hash_suffix",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "feature_configuration", named = true, positional = false),
+      })
+  public String getDLLHashSuffix(
+      StarlarkRuleContext starlarkRuleContext,
+      FeatureConfigurationForStarlark featureConfiguration) {
+    return CppHelper.getDLLHashSuffix(
+        starlarkRuleContext.getRuleContext(), featureConfiguration.getFeatureConfiguration());
+  }
+
+  static class DefParserComputedDefault extends ComputedDefault
+      implements NativeComputedDefaultApi {
+    @Override
+    public Object getDefault(AttributeMap rule) {
+      // Every cc_rule depends implicitly on the def_parser tool.
+      // The only exceptions are the rules for building def_parser itself.
+      // To avoid cycles in the dependency graph, return null for rules under
+      // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
+      String label = rule.getLabel().toString();
+      return label.startsWith("@bazel_tools//third_party/def_parser")
+              // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
+              // are implicit dependencies of all cc rules,
+              // thus a dependency of the def_parser.
+              || label.startsWith("@bazel_tools//tools/cpp")
+          ? null
+          : Label.parseAbsoluteUnchecked("@bazel_tools//tools/def_parser:def_parser");
+    }
+
+    @Override
+    public boolean resolvableWithRawAttributes() {
+      return true;
+    }
+  }
+
+  @StarlarkMethod(name = "def_parser_computed_default", documented = false)
+  public ComputedDefault getDefParserComputedDefault() {
+    return new DefParserComputedDefault();
+  }
+
+  /**
+   * TODO(bazel-team): This can be re-written directly to Starlark but it will cause a memory
+   * regression due to the way StarlarkComputedDefault is stored for each rule.
+   */
+  static class StlComputedDefault extends ComputedDefault implements NativeComputedDefaultApi {
+    @Override
+    public Object getDefault(AttributeMap rule) {
+      return rule.getOrDefault("tags", Type.STRING_LIST, ImmutableList.of()).contains("__CC_STL__")
+          ? null
+          : Label.parseAbsoluteUnchecked("@//third_party/stl");
+    }
+
+    @Override
+    public boolean resolvableWithRawAttributes() {
+      return true;
+    }
+  }
+
+  @StarlarkMethod(name = "stl_computed_default", documented = false)
+  public ComputedDefault getStlComputedDefault() {
+    return new StlComputedDefault();
   }
 }
