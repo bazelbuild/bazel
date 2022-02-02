@@ -9,6 +9,8 @@ filegroup(
 win_cc_binary(
     name = "launcher",
     srcs = ["launcher_main.cc"],
+    features = ["fully_static_link"],
+    linkstatic = True,
     visibility = [
         "//src:__pkg__",
         "//tools/launcher:__pkg__",
