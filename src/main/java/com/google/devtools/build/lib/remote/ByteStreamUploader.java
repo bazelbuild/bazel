@@ -149,7 +149,7 @@ class ByteStreamUploader {
       uploads.add(uploadBlobAsync(context, chunkerEntry.getKey(), chunkerEntry.getValue()));
     }
 
-    waitForBulkTransfer(uploads, /* cancelRemainingOnInterrupt=*/ true);
+    waitForBulkTransfer(uploads, /* cancelRemainingOnInterrupt= */ true);
   }
 
   /**
