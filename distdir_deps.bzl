@@ -130,6 +130,7 @@ DIST_DEPS = {
         "patch_args": ["-p1"],
         "patches": [
             "//third_party/grpc:grpc_1.41.0.patch",
+            "//third_party/grpc:grpc_1.41.0.win_arm64.patch",
         ],
         "used_in": [
             "additional_distfiles",

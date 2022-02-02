@@ -203,7 +203,9 @@ target architecture, set the `--cpu` build option for your target architecture:
 *  x64 (default):  `--cpu=x64_windows` or no option
 *  x86: `--cpu=x64_x86_windows`
 *  ARM: `--cpu=x64_arm_windows`
-*  ARM64: `--cpu=x64_arm64_windows`
+*  ARM64: `--cpu=arm64_windows`
+
+Note: `--cpu=x64_arm64_windows` to target ARM64 architecture is deprecated. Please use `--cpu=arm64_windows`
 
 For example, to build targets for ARM architecture, run:
 
