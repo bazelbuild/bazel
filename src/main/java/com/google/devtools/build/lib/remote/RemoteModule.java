@@ -532,25 +532,10 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            remoteOptions.remoteInstanceName,
-            cacheChannel.retain(),
-            callCredentialsProvider,
-            remoteOptions.remoteTimeout.getSeconds(),
-            retrier,
-            remoteOptions.maximumOpenFiles);
-
-    cacheChannel.release();
     RemoteCacheClient cacheClient =
         new GrpcCacheClient(
-            cacheChannel.retain(),
-            callCredentialsProvider,
-            remoteOptions,
-            retrier,
-            digestUtil,
-            uploader.retain());
-    uploader.release();
+            cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
+    cacheChannel.release();
 
     if (enableRemoteExecution) {
       if (enableDiskCache) {

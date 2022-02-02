@@ -246,16 +246,8 @@ public class GrpcCacheClientTest {
                 return 100;
               }
             });
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            remoteOptions.remoteInstanceName,
-            channel.retain(),
-            callCredentialsProvider,
-            remoteOptions.remoteTimeout.getSeconds(),
-            retrier,
-            remoteOptions.maximumOpenFiles);
     return new GrpcCacheClient(
-        channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
   }
 
   protected static byte[] downloadBlob(

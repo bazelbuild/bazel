@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static java.lang.String.format;
-import static java.util.Collections.singletonMap;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -30,9 +30,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -49,22 +47,15 @@ import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
-import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 /**
  * A client implementing the {@code Write} method of the {@code ByteStream} gRPC service.
@@ -74,7 +65,7 @@ import javax.annotation.concurrent.GuardedBy;
  *
  * <p>See {@link ReferenceCounted} for more information on reference counting.
  */
-class ByteStreamUploader extends AbstractReferenceCounted {
+class ByteStreamUploader {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -83,18 +74,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
   private final CallCredentialsProvider callCredentialsProvider;
   private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
-
-  private final Object lock = new Object();
-
-  /** Contains the hash codes of already uploaded blobs. * */
-  @GuardedBy("lock")
-  private final Set<HashCode> uploadedBlobs = new HashSet<>();
-
-  @GuardedBy("lock")
-  private final Map<Digest, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
-
-  @GuardedBy("lock")
-  private boolean isShutdown;
 
   @Nullable private final Semaphore openedFilePermits;
 
@@ -109,7 +88,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    *     complete. The timeout resets between retries
    * @param retrier the {@link RemoteRetrier} whose backoff strategy to use for retry timings.
    */
-  public ByteStreamUploader(
+  ByteStreamUploader(
       @Nullable String instanceName,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
@@ -142,94 +121,35 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * <p>Uploads are retried according to the specified {@link RemoteRetrier}. Retrying is
    * transparent to the user of this API.
    *
-   * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
-   * performed. This is transparent to the user of this API.
-   *
-   * @param hash the hash of the data to upload.
+   * @param digest the digest of the data to upload.
    * @param chunker the data to upload.
-   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
-   *     uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
    */
-  public void uploadBlob(
-      RemoteActionExecutionContext context, HashCode hash, Chunker chunker, boolean forceUpload)
+  public void uploadBlob(RemoteActionExecutionContext context, Digest digest, Chunker chunker)
       throws IOException, InterruptedException {
-    uploadBlobs(context, singletonMap(hash, chunker), forceUpload);
+    getFromFuture(uploadBlobAsync(context, digest, chunker));
   }
 
   /**
    * Uploads a list of BLOBs concurrently to the remote {@code ByteStream} service. The call blocks
-   * until the upload of all BLOBs is complete, or throws an {@link Exception} after the first
-   * upload failed. Any other uploads will continue uploading in the background, until they complete
-   * or the {@link #shutdown()} method is called. Errors encountered by these uploads are swallowed.
+   * until the upload of all BLOBs is complete, or throws an {@link
+   * com.google.devtools.build.lib.remote.common.BulkTransferException} if there are errors.
    *
    * <p>Uploads are retried according to the specified {@link RemoteRetrier}. Retrying is
    * transparent to the user of this API.
    *
-   * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
-   * performed. This is transparent to the user of this API.
-   *
    * @param chunkers the data to upload.
-   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
-   *     uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source or uploading fails
    */
-  public void uploadBlobs(
-      RemoteActionExecutionContext context, Map<HashCode, Chunker> chunkers, boolean forceUpload)
+  public void uploadBlobs(RemoteActionExecutionContext context, Map<Digest, Chunker> chunkers)
       throws IOException, InterruptedException {
     List<ListenableFuture<Void>> uploads = new ArrayList<>();
 
-    for (Map.Entry<HashCode, Chunker> chunkerEntry : chunkers.entrySet()) {
-      uploads.add(
-          uploadBlobAsync(context, chunkerEntry.getKey(), chunkerEntry.getValue(), forceUpload));
+    for (Map.Entry<Digest, Chunker> chunkerEntry : chunkers.entrySet()) {
+      uploads.add(uploadBlobAsync(context, chunkerEntry.getKey(), chunkerEntry.getValue()));
     }
 
-    try {
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.get();
-      }
-    } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      Throwables.propagateIfInstanceOf(cause, IOException.class);
-      Throwables.propagateIfInstanceOf(cause, InterruptedException.class);
-      Throwables.propagate(cause);
-    }
-  }
-
-  /**
-   * Cancels all running uploads. The method returns immediately and does NOT wait for the uploads
-   * to be cancelled.
-   *
-   * <p>This method should not be called directly, but will be called implicitly when the reference
-   * count reaches {@code 0}.
-   */
-  @VisibleForTesting
-  void shutdown() {
-    synchronized (lock) {
-      if (isShutdown) {
-        return;
-      }
-      isShutdown = true;
-      // Before cancelling, copy the futures to a separate list in order to avoid concurrently
-      // iterating over and modifying the map (cancel triggers a listener that removes the entry
-      // from the map. the listener is executed in the same thread.).
-      List<Future<Void>> uploadsToCancel = new ArrayList<>(uploadsInProgress.values());
-      for (Future<Void> upload : uploadsToCancel) {
-        upload.cancel(true);
-      }
-    }
-  }
-
-  /**
-   * @deprecated Use {@link #uploadBlobAsync(RemoteActionExecutionContext, Digest, Chunker,
-   *     boolean)} instead.
-   */
-  @Deprecated
-  public ListenableFuture<Void> uploadBlobAsync(
-      RemoteActionExecutionContext context, HashCode hash, Chunker chunker, boolean forceUpload) {
-    Digest digest =
-        Digest.newBuilder().setHash(hash.toString()).setSizeBytes(chunker.getSize()).build();
-    return uploadBlobAsync(context, digest, chunker, forceUpload);
+    waitForBulkTransfer(uploads, /* cancelRemainingOnInterrupt= */ true);
   }
 
   /**
@@ -244,64 +164,20 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    *
    * @param digest the {@link Digest} of the data to upload.
    * @param chunker the data to upload.
-   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
-   *     uploaded, if {@code true} the blob is uploaded.
    */
   public ListenableFuture<Void> uploadBlobAsync(
-      RemoteActionExecutionContext context, Digest digest, Chunker chunker, boolean forceUpload) {
-    synchronized (lock) {
-      checkState(!isShutdown, "Must not call uploadBlobs after shutdown.");
-
-      if (!forceUpload && uploadedBlobs.contains(HashCode.fromString(digest.getHash()))) {
-        return immediateVoidFuture();
-      }
-
-      ListenableFuture<Void> inProgress = uploadsInProgress.get(digest);
-      if (inProgress != null) {
-        return inProgress;
-      }
-      ListenableFuture<Void> uploadResult =
-          Futures.transform(
-              startAsyncUpload(context, digest, chunker),
-              (v) -> {
-                synchronized (lock) {
-                  uploadedBlobs.add(HashCode.fromString(digest.getHash()));
-                }
-                return null;
-              },
-              MoreExecutors.directExecutor());
-
-      uploadResult =
-          Futures.catchingAsync(
-              uploadResult,
-              StatusRuntimeException.class,
-              (sre) ->
-                  Futures.immediateFailedFuture(
-                      new IOException(
-                          String.format(
-                              "Error while uploading artifact with digest '%s/%s'",
-                              digest.getHash(), digest.getSizeBytes()),
-                          sre)),
-              MoreExecutors.directExecutor());
-
-      uploadsInProgress.put(digest, uploadResult);
-      uploadResult.addListener(
-          () -> {
-            synchronized (lock) {
-              uploadsInProgress.remove(digest);
-            }
-          },
-          MoreExecutors.directExecutor());
-
-      return uploadResult;
-    }
-  }
-
-  @VisibleForTesting
-  boolean uploadsInProgress() {
-    synchronized (lock) {
-      return !uploadsInProgress.isEmpty();
-    }
+      RemoteActionExecutionContext context, Digest digest, Chunker chunker) {
+    return Futures.catchingAsync(
+        startAsyncUpload(context, digest, chunker),
+        StatusRuntimeException.class,
+        (sre) ->
+            Futures.immediateFailedFuture(
+                new IOException(
+                    String.format(
+                        "Error while uploading artifact with digest '%s/%s'",
+                        digest.getHash(), digest.getSizeBytes()),
+                    sre)),
+        MoreExecutors.directExecutor());
   }
 
   private static String buildUploadResourceName(
@@ -363,27 +239,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
         },
         MoreExecutors.directExecutor());
     return currUpload;
-  }
-
-  @Override
-  public ByteStreamUploader retain() {
-    return (ByteStreamUploader) super.retain();
-  }
-
-  @Override
-  public ByteStreamUploader retain(int increment) {
-    return (ByteStreamUploader) super.retain(increment);
-  }
-
-  @Override
-  protected void deallocate() {
-    shutdown();
-    channel.release();
-  }
-
-  @Override
-  public ReferenceCounted touch(Object o) {
-    return this;
   }
 
   private class AsyncUpload {

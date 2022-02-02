@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
@@ -109,8 +111,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
       }
 
       try {
-        RemoteCache.waitForBulkTransfer(
-            downloadsToWaitFor.values(), /* cancelRemainingOnInterrupt=*/ true);
+        waitForBulkTransfer(downloadsToWaitFor.values(), /* cancelRemainingOnInterrupt= */ true);
       } catch (BulkTransferException e) {
         if (e.onlyCausedByCacheNotFoundException()) {
           BulkTransferException bulkAnnotatedException = new BulkTransferException();
