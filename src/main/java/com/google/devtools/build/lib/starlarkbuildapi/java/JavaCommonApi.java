@@ -444,10 +444,18 @@ public interface JavaCommonApi<
             named = false,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
+        @Param(
+            name = "runtime_deps",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "A list of runtime dependencies. Optional."),
       },
       useStarlarkThread = true)
   JavaInfoT mergeJavaProviders(
-      Sequence<?> providers /* <JavaInfoT> expected. */, StarlarkThread thread)
+      Sequence<?> providers /* <JavaInfoT> expected. */,
+      Sequence<?> runtimeDeps /* <JavaInfoT> expected. */,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

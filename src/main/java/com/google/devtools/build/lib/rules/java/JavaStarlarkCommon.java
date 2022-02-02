@@ -219,9 +219,16 @@ public class JavaStarlarkCommon
 
   @Override
   public JavaInfo mergeJavaProviders(
-      Sequence<?> providers, /* <JavaInfo> expected. */ StarlarkThread thread)
+      Sequence<?> providers, /* <JavaInfo> expected. */
+      Sequence<?> runtimeDeps, /* <JavaInfo> expected. */
+      StarlarkThread thread)
       throws EvalException {
-    return JavaInfo.merge(Sequence.cast(providers, JavaInfo.class, "providers"));
+    if (!runtimeDeps.isEmpty()) {
+      checkPrivateAccess(thread);
+    }
+    return JavaInfo.merge(
+        Sequence.cast(providers, JavaInfo.class, "providers"),
+        Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"));
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.

@@ -3172,6 +3172,32 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRuntimeDepsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  java_info = JavaInfo(output_jar = output_jar, compile_jar = None)",
+        "  java_common.merge([java_info],",
+        "    runtime_deps = [java_info]",
+        "  )",
+        "  return []",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
   public void testGetBuildInfoArtifacts() throws Exception {
     scratch.file(
         "bazel_internal/test/custom_rule.bzl",
