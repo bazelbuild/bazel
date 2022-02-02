@@ -64,7 +64,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
 /**
- * Metadata of a rule attribute. Contains the attribute name and type, and a default value to be
+ * Metadata of a rule attribute. Contains the attribute name and type, and an default value to be
  * used if none is provided in a rule declaration in a BUILD file. Attributes are immutable, and may
  * be shared by more than one rule (for example, <code>foo_binary</code> and <code>foo_library
  * </code> may share many attributes in common).

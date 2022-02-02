@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
 public abstract class AbstractAttributeMapper implements AttributeMap {
   private final RuleClass ruleClass;
   private final Label ruleLabel;
-  protected final Rule rule;
+  final Rule rule;
 
   protected AbstractAttributeMapper(Rule rule) {
     this.ruleClass = rule.getRuleClassObject();
@@ -181,11 +181,11 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+  public final void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
     visitLabels(ruleClass.getAttributes(), filter, consumer);
   }
 
-  protected void visitLabels(
+  private void visitLabels(
       List<Attribute> attributes, DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
     Type.LabelVisitor visitor =
         (label, attribute) -> {
@@ -195,12 +195,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
         };
     for (Attribute attribute : attributes) {
       Type<?> type = attribute.getType();
-      // These types invoke visitLabels() so that they are reported in "bazel query" but do not
-      // create a dependency. Maybe it's better to remove that, but then the labels() query
-      // function would need to be rethought.
-      //
-      // TODO(bazel-team): clarify which variations of visitLabels include these types (for query)
-      //   and which don't (for dependency analysis)
+      // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
+      // special-case these types.
       if (type != BuildType.OUTPUT
           && type != BuildType.OUTPUT_LIST
           && type != BuildType.NODEP_LABEL
@@ -212,7 +208,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   /** Visits all labels reachable from the given attribute. */
-  public <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
+  <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
     T value = get(attribute.getName(), type);
     if (value != null) { // null values are particularly possible for computed defaults.
       type.visitLabels(visitor, value, attribute);
