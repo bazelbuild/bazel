@@ -141,3 +141,11 @@ following command:
 ```shell
 $ brew upgrade bazel
 ```
+
+To install older bazel versions
+
+```
+brew tap bazelbuild/tap
+brew extract bazel bazelbuild/tap --version X.Y.Z
+brew install bazel@X.Y.Z
+```
