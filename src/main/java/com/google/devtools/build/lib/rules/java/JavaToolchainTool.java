@@ -20,7 +20,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -127,9 +126,10 @@ public abstract class JavaToolchainTool {
    * also {@link #buildCommandLine(CustomCommandLine.Builder, JavaToolchainProvider,
    * NestedSetBuilder)}.
    */
-  CommandLine buildCommandLine(JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
+  CustomCommandLine.Builder buildCommandLine(
+      JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
     CustomCommandLine.Builder command = CustomCommandLine.builder();
     buildCommandLine(command, toolchain, inputs);
-    return command.build();
+    return command;
   }
 }

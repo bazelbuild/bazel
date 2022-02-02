@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -32,6 +33,8 @@ import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -367,7 +370,7 @@ public final class JavaCompilationHelper {
         || !getTranslations().isEmpty();
   }
 
-  private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
+  private ImmutableMap<String, String> getExecutionInfo() {
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
     ImmutableMap.Builder<String, String> workerInfo = ImmutableMap.builder();
     if (javaToolchain.getJavacSupportsWorkers()) {
@@ -876,5 +879,25 @@ public final class JavaCompilationHelper {
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
     path = path.replaceName(prefix + basename);
     return context.getDerivedArtifact(path, artifact.getRoot());
+  }
+
+  /**
+   * Canonical place to determine if a Java action should strip config prefixes from its output
+   * paths.
+   *
+   * <p>See {@link PathStripper}.
+   */
+  static boolean stripOutputPaths(
+      NestedSet<Artifact> actionInputs, BuildConfigurationValue configuration) {
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    return coreOptions.outputPathsMode == OutputPathsMode.STRIP
+        && PathStripper.isPathStrippable(
+            actionInputs,
+            PathFragment.create(configuration.getDirectories().getRelativeOutputPath()));
+  }
+
+  /** The output path under the exec root (i.e. "bazel-out"). */
+  static PathFragment outputBase(Artifact anyGeneratedArtifact) {
+    return anyGeneratedArtifact.getExecPath().subFragment(0, 1);
   }
 }

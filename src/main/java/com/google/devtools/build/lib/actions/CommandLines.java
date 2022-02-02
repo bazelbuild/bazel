@@ -99,14 +99,20 @@ public class CommandLines {
    * is expected to write these param files prior to execution of an action.
    *
    * @param artifactExpander The artifact expander to use.
-   * @param paramFileBasePath Used to derive param file names. Often the first output of an action.
+   * @param paramFileBasePath Used to derive param file names. Often the first output of an action
+   * @param stripPaths function to strip configuration prefixes from output paths, in accordance
+   *     with the logic in {@link PathStripper}
    * @param limits The command line limits the host OS can support.
    * @return The expanded command line and its param files (if any).
    */
   public ExpandedCommandLines expand(
-      ArtifactExpander artifactExpander, PathFragment paramFileBasePath, CommandLineLimits limits)
+      ArtifactExpander artifactExpander,
+      PathFragment paramFileBasePath,
+      Function<PathFragment, PathFragment> stripPaths,
+      CommandLineLimits limits)
       throws CommandLineExpansionException, InterruptedException {
-    return expand(artifactExpander, paramFileBasePath, limits, PARAM_FILE_ARG_LENGTH_ESTIMATE);
+    return expand(
+        artifactExpander, paramFileBasePath, limits, stripPaths, PARAM_FILE_ARG_LENGTH_ESTIMATE);
   }
 
   @VisibleForTesting
@@ -114,6 +120,7 @@ public class CommandLines {
       ArtifactExpander artifactExpander,
       PathFragment paramFileBasePath,
       CommandLineLimits limits,
+      Function<PathFragment, PathFragment> stripPaths,
       int paramFileArgLengthEstimate)
       throws CommandLineExpansionException, InterruptedException {
     // Optimize for simple case of single command line
@@ -155,7 +162,8 @@ public class CommandLines {
 
           String paramArg =
               SingleStringArgFormatter.format(
-                  paramFileInfo.getFlagFormatString(), paramFileExecPath.getPathString());
+                  paramFileInfo.getFlagFormatString(),
+                  stripPaths.apply(paramFileExecPath).getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
 

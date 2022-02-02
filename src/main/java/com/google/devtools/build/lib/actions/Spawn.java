@@ -177,4 +177,14 @@ public interface Spawn extends DescribableExecutionUnit {
     Label label = getResourceOwner().getOwner().getLabel();
     return label == null ? null : label.toString();
   }
+
+  /**
+   * If true, this spawn strips output path config prefixes from its inputs, outputs, and command
+   * line (including .params files) before running on an executor.
+   *
+   * <p>See {@link PathStripper}.
+   */
+  default boolean stripOutputPaths() {
+    return false;
+  }
 }

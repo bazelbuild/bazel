@@ -128,7 +128,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         mnemonic,
         /* executeUnconditionally */ false,
         /* extraActionInfoSupplier */ null,
-        /* resultConsumer */ null);
+        /* resultConsumer */ null,
+        /* stripOutputPaths */ false);
 
     this.allStarlarkActionInputs = inputs;
     this.unusedInputsList = unusedInputsList;

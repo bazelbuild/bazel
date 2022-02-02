@@ -67,7 +67,8 @@ public final class GenRuleAction extends SpawnAction {
         MNEMONIC,
         false,
         null,
-        null);
+        null,
+        /*stripOutputPaths=*/ false);
   }
 
   @Override

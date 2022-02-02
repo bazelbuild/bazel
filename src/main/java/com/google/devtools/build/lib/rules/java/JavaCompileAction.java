@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -90,6 +91,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -161,11 +163,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     super(
         owner,
         tools,
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(mandatoryInputs)
-            .addTransitive(transitiveInputs)
-            .addTransitive(dependencyArtifacts)
-            .build(),
+        allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts),
         runfilesSupplier,
         outputs,
         env);
@@ -199,6 +197,18 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         outputDepsProto != null || classpathMode != JavaClasspathMode.BAZEL,
         "Cannot have null outputDepsProto with reduced class path mode BAZEL %s",
         describe());
+  }
+
+  /** Computes all of a {@link JavaCompileAction}'s inputs. */
+  static NestedSet<Artifact> allInputs(
+      NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> transitiveInputs,
+      NestedSet<Artifact> dependencyArtifacts) {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(mandatoryInputs)
+        .addTransitive(transitiveInputs)
+        .addTransitive(dependencyArtifacts)
+        .build();
   }
 
   @Override
@@ -282,6 +292,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
   }
 
+  /** Should we strip config prefixes from executor output paths for this compilation? */
+  private boolean stripOutputPaths() {
+    return JavaCompilationHelper.stripOutputPaths(
+        allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts), configuration);
+  }
+
   @VisibleForTesting
   JavaSpawn getReducedSpawn(
       ActionExecutionContext actionExecutionContext,
@@ -289,6 +305,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       boolean fallback)
       throws CommandLineExpansionException, InterruptedException {
     CustomCommandLine.Builder classpathLine = CustomCommandLine.builder();
+    boolean stripOutputPaths = stripOutputPaths();
+    if (stripOutputPaths) {
+      classpathLine.stripOutputPaths(JavaCompilationHelper.outputBase(getPrimaryOutput()));
+    }
+
     if (fallback) {
       classpathLine.addExecPaths("--classpath", transitiveInputs);
     } else {
@@ -312,6 +333,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         reducedCommandLine.expand(
             actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
+            stripOutputPaths ? PathStripper::strip : Function.identity(),
             configuration.getCommandLineLimits());
     NestedSet<Artifact> inputs =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -323,16 +345,19 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
         getExecutionInfo(),
         inputs,
-        /*onlyMandatoryOutput=*/ fallback ? null : outputDepsProto);
+        /*onlyMandatoryOutput=*/ fallback ? null : outputDepsProto,
+        stripOutputPaths);
   }
 
   private JavaSpawn getFullSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
+    boolean stripOutputPaths = stripOutputPaths();
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(
                 actionExecutionContext.getArtifactExpander(),
                 getPrimaryOutput().getExecPath(),
+                stripOutputPaths ? PathStripper::strip : Function.identity(),
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
         expandedCommandLines,
@@ -351,7 +376,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             // possible by stripping prefixes on the executor.
             .addTransitive(dependencyArtifacts)
             .build(),
-        /*onlyMandatoryOutput=*/ null);
+        /*onlyMandatoryOutput=*/ null,
+        stripOutputPaths);
   }
 
   @Override
@@ -486,13 +512,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private final class JavaSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
     private final Artifact onlyMandatoryOutput;
+    private final boolean stripOutputPaths;
 
     JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
         Map<String, String> executionInfo,
         NestedSet<Artifact> inputs,
-        @Nullable Artifact onlyMandatoryOutput) {
+        @Nullable Artifact onlyMandatoryOutput,
+        boolean stripOutputPaths) {
       super(
           ImmutableList.copyOf(expandedCommandLines.arguments()),
           environment,
@@ -505,6 +533,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
               .addAll(expandedCommandLines.getParamFiles())
               .build();
+      this.stripOutputPaths = stripOutputPaths;
     }
 
     @Override
@@ -515,6 +544,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     @Override
     public boolean isMandatoryOutput(ActionInput output) {
       return onlyMandatoryOutput == null || onlyMandatoryOutput.equals(output);
+    }
+
+    public boolean stripOutputPaths() {
+      return stripOutputPaths;
     }
   }
 
@@ -530,6 +563,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private CommandLine getFullClasspathLine() {
     CustomCommandLine.Builder classpathLine =
         CustomCommandLine.builder().addExecPaths("--classpath", transitiveInputs);
+    if (stripOutputPaths()) {
+      classpathLine.stripOutputPaths(JavaCompilationHelper.outputBase(getPrimaryOutput()));
+    }
     if (classpathMode == JavaClasspathMode.JAVABUILDER) {
       classpathLine.add("--reduce_classpath_mode", "JAVABUILDER_REDUCED");
       if (!dependencyArtifacts.isEmpty()) {
@@ -605,11 +641,18 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    * <p>If the executor doesn't strip config prefixes (i.e. config stripping isn't turned on as a
    * feature), this is a trivial copy.
    *
+   * <p>If config stripping is on, this method won't work with {@link
+   * JavaConfiguration.JavaClasspathMode#JAVABUILDER}. That mode causes downstream Java compilations
+   * to read this .jdeps on the executor. Since this method replaces config prefixes, the .jdeps
+   * entries won't match the executor's stripped paths. This works best with {@link
+   * JavaConfiguration.JavaClasspathMode#BAZEL}, where Bazel directly processes the .jdeps on the
+   * local filesystem. Those paths match.
+   *
    * @param spawnResult the executor action that created the possibly stripped .jdeps output
    * @param outputDepsProto path to the .jdeps output
    * @param actionInputs all inputs to the current action
    * @param actionExecutionContext the action execution context
-   * @return the full deps proto (also wdritten to disk to satisfy the action's declared output)
+   * @return the full deps proto (also written to disk to satisfy the action's declared output)
    */
   static Deps.Dependencies createFullOutputDeps(
       SpawnResult spawnResult,

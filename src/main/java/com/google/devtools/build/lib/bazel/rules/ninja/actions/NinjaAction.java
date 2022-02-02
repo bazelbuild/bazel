@@ -94,7 +94,8 @@ public class NinjaAction extends SpawnAction implements ActionCacheAwareAction {
         /* mnemonic= */ MNEMONIC,
         /* executeUnconditionally= */ executeUnconditionally,
         /* extraActionInfoSupplier= */ null,
-        /* resultConsumer= */ null);
+        /* resultConsumer= */ null,
+        /*stripOutputPaths=*/ false);
     this.sourceRoot = sourceRoot;
     this.depFile = depFile;
 

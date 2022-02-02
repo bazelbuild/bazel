@@ -26,9 +26,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -199,15 +200,15 @@ public final class JavaCompileActionBuilder {
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
 
-    CommandLine executableLine = javaBuilder.buildCommandLine(toolchain, toolsBuilder);
-
+    CustomCommandLine.Builder executableLine =
+        javaBuilder.buildCommandLine(toolchain, toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
         ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
 
-    NestedSetBuilder<Artifact> mandatoryInputs = NestedSetBuilder.stableOrder();
-    mandatoryInputs
+    NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
+    mandatoryInputsBuilder
         .addTransitive(plugins.processorClasspath())
         .addTransitive(plugins.data())
         .addTransitive(extraData)
@@ -219,7 +220,7 @@ public final class JavaCompileActionBuilder {
         .addAll(additionalInputs)
         .addTransitive(bootClassPath.systemInputs());
     if (coverageArtifact != null) {
-      mandatoryInputs.add(coverageArtifact);
+      mandatoryInputsBuilder.add(coverageArtifact);
     }
 
     JavaCompileExtraActionInfoSupplier extraActionInfoSupplier =
@@ -254,7 +255,18 @@ public final class JavaCompileActionBuilder {
     }
 
     NestedSet<Artifact> tools = toolsBuilder.build();
-    mandatoryInputs.addTransitive(tools);
+    mandatoryInputsBuilder.addTransitive(tools);
+    NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
+
+    boolean stripOutputPaths =
+        JavaCompilationHelper.stripOutputPaths(
+            JavaCompileAction.allInputs(
+                mandatoryInputs, classpathEntries, compileTimeDependencyArtifacts),
+            ruleContext.getConfiguration());
+    if (stripOutputPaths) {
+      executableLine.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
+    }
+
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
         /* owner= */ ruleContext.getActionOwner(),
@@ -267,14 +279,14 @@ public final class JavaCompileActionBuilder {
             /* sourceFiles= */ sourceFiles,
             /* sourceJars= */ sourceJars,
             /* plugins= */ plugins),
-        /* mandatoryInputs= */ mandatoryInputs.build(),
+        /* mandatoryInputs= */ mandatoryInputs,
         /* transitiveInputs= */ classpathEntries,
         /* directJars= */ directJars,
         /* outputs= */ allOutputs(),
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
-        /* executableLine= */ executableLine,
-        /* flagLine= */ buildParamFileContents(internedJcopts),
+        /* executableLine= */ executableLine.build(),
+        /* flagLine= */ buildParamFileContents(internedJcopts, stripOutputPaths),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),
@@ -292,9 +304,13 @@ public final class JavaCompileActionBuilder {
     return result.build();
   }
 
-  private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts) {
+  private CustomCommandLine buildParamFileContents(
+      ImmutableList<String> javacOpts, boolean stripOutputPaths) {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
+    if (stripOutputPaths) {
+      result.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
+    }
 
     result.addExecPath("--output", outputs.output());
     result.addExecPath("--native_header_output", outputs.nativeHeader());
@@ -317,7 +333,21 @@ public final class JavaCompileActionBuilder {
     result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
     result.addExecPaths("--sources", sourceFiles);
     if (!javacOpts.isEmpty()) {
-      result.addAll("--javacopts", javacOpts);
+      if (stripOutputPaths) {
+        // Use textual search/replace to remove configuration prefixes from javacopts. This should
+        // ideally be constructed directly from artifact exec paths. In this case, targets with
+        // make variables like $(execpath ...)" stringify those paths before we get to this class.
+        // TODO(https://github.com/bazelbuild/bazel/issues/6526): provide direct path stripping
+        //   support for make variable expansion.
+        PathStripper.StringStripper coptStripper =
+            new PathStripper.StringStripper(
+                ruleContext.getConfiguration().getDirectories().getRelativeOutputPath());
+        result.addAll(
+            "--javacopts",
+            javacOpts.stream().map(coptStripper::strip).collect(Collectors.toList()));
+      } else {
+        result.addAll("--javacopts", javacOpts);
+      }
       // terminate --javacopts with `--` to support javac flags that start with `--`
       result.add("--");
     }
