@@ -73,6 +73,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   /** Prefix for iOS cpu values */
   public static final String IOS_CPU_PREFIX = "ios_";
 
+  /** Prefix for macOS cpu values */
+  private static final String MACOS_CPU_PREFIX = "darwin_";
+
   // TODO(b/180572694): Remove after platforms based toolchain resolution supported.
   /** Prefix for forced iOS simulator cpu values */
   public static final String IOS_FORCED_SIMULATOR_CPU_PREFIX = "sim_";
@@ -120,7 +123,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
               : ImmutableList.copyOf(options.tvosCpus);
       ImmutableList<String> macosCpus =
           (options.macosCpus == null || options.macosCpus.isEmpty())
-              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
+              ? ImmutableList.of(macosCpuFromCpu(coreOptions.cpu))
               : ImmutableList.copyOf(options.macosCpus);
       ImmutableList<String> catalystCpus =
           (options.catalystCpus == null || options.catalystCpus.isEmpty())
@@ -146,13 +149,21 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> catalystCpus();
   }
 
-  /** Determines cpu value from apple-specific toolchain identifier. */
+  /** Determines iOS cpu value from apple-specific toolchain identifier. */
   public static String iosCpuFromCpu(String cpu) {
     if (cpu.startsWith(IOS_CPU_PREFIX)) {
       return cpu.substring(IOS_CPU_PREFIX.length());
     } else {
       return DEFAULT_IOS_CPU;
     }
+  }
+
+  /** Determines macOS cpu value from apple-specific toolchain identifier. */
+  private static String macosCpuFromCpu(String cpu) {
+    if (cpu.startsWith(MACOS_CPU_PREFIX)) {
+      return cpu.substring(MACOS_CPU_PREFIX.length());
+    }
+    return AppleCommandLineOptions.DEFAULT_MACOS_CPU;
   }
 
   public AppleCommandLineOptions getOptions() {
