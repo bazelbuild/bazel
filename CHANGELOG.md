@@ -185,9 +185,15 @@ Cherry picks:
      Bzlmod: Starlarkify default attr values for TypeCheckedTags
    + 38117d491cbc4a5686e0bdb1e58f8946d96aed58:
      Fix build after rc4 cherrypicks (#14581)
+   + 21b4b1a489c991682b9fcc9a10b468b9ea18e931:
+     Remove the flag --incompatible_restrict_string_escapes
 ```
 
 This release contains contributions from many people at Google, as well as amberdixon, Benjamin Peterson, Brentley Jones, Dan Fleming, Danny Wolf, Fabian Meumertzheim, Keith Smiley, Noa Resare, Oliver Eikemeier, Philipp Schrader, Xùdōng Yáng, Yannic.
+
+### Breaking changes
+
+- [`--incompatible_restrict_string_escapes` removed](https://github.com/bazelbuild/bazel/commit/21b4b1a489c991682b9fcc9a10b468b9ea18e931)
 
 ## Release 6.0.0-pre.20220105.5 (2022-01-14)
 
