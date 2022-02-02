@@ -255,6 +255,13 @@ http_file(
 )
 
 http_file(
+    name = "openjdk_win_arm64_vanilla",
+    downloaded_file_path = "zulu-win-arm64.zip",
+    sha256 = "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
+    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip"],
+)
+
+http_file(
     name = "openjdk_win_minimal",
     downloaded_file_path = "zulu-win-minimal.zip",
     sha256 = "b90a713c9c2d9ea23cad44d2c2dfcc9af22faba9bde55dedc1c3bb9f556ac1ae",

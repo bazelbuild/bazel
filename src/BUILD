@@ -147,7 +147,10 @@ filegroup(
         "//src/conditions:darwin_arm64": [
             "@openjdk_macos_aarch64//file",
         ],
-        "//src/conditions:windows": [
+        "//src/conditions:windows_arm64": [
+            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
+        ],
+        "//src/conditions:windows_x86_64": [
             "@openjdk_win//file",
         ],
         "//src/conditions:linux_aarch64": [
@@ -169,7 +172,10 @@ filegroup(
         "//src/conditions:darwin_arm64": [
             "@openjdk_macos_aarch64_minimal//file",
         ],
-        "//src/conditions:windows": [
+        "//src/conditions:windows_arm64": [
+            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
+        ],
+        "//src/conditions:windows_x86_64": [
             "@openjdk_win_minimal//file",
         ],
         "//src/conditions:linux_aarch64": [
