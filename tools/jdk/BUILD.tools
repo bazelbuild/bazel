@@ -443,6 +443,7 @@ _JDKS = [
     "remotejdk11_macos",
     "remotejdk11_macos_aarch64",
     "remotejdk11_win",
+    "remotejdk11_win_arm64",
     "remotejdk11_linux_aarch64",
     "remotejdk11_linux",
     "remotejdk11_linux_ppc64le",
@@ -450,6 +451,7 @@ _JDKS = [
     "remotejdk17_macos",
     "remotejdk17_macos_aarch64",
     "remotejdk17_win",
+    "remotejdk17_win_arm64",
     "remotejdk17_linux",
 ]
 
