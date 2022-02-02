@@ -48,19 +48,23 @@ EOF
 </pre>
 
 <pre>
-# Traditional query: query doesn't know which select() branch will be chosen
-# so it conservatively lists all of them.
+# Traditional query: query doesn't know which select() branch you will choose,
+# so it conservatively lists all possible choices, including all used config_settings.
 $ bazel query "deps(//tree:ash)" --noimplicit_deps
+//tree:americana
 //tree:ash
-//tree:white-ash
-//tree:manna-ash
 //tree:common-ash
+//tree:excelsior
+//tree:manna-ash
+//tree:white-ash
 
 # cquery: cquery lets you set build options at the command line and chooses
-# the exact dependencies that implies.
+# the exact dependencies that implies (and also the config_setting targets).
 $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 //tree:ash (9f87702)
 //tree:manna-ash (9f87702)
+//tree:americana (9f87702)
+//tree:excelsior (9f87702)
 </pre>
 
 <p>
