@@ -68,7 +68,7 @@ class ImmutableBiMapCodec<K, V> implements ObjectCodec<ImmutableBiMap<K, V>> {
             ImmutableBiMap.builderWithExpectedSize(length), length, context, codedIn);
 
     try {
-      return builder.build();
+      return builder.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw new SerializationException(
           "Duplicate keys during ImmutableBiMapCodec deserialization", e);

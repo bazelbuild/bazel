@@ -59,6 +59,6 @@ public class ImmutableTableCodec<R, C, V> implements ObjectCodec<ImmutableTable<
           /*columnKey=*/ context.deserialize(codedIn),
           /*value=*/ context.deserialize(codedIn));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 }

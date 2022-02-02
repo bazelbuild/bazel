@@ -66,5 +66,5 @@ class ClassCodec implements ObjectCodec<Class<?>> {
           .put(double.class, 7)
           .put(boolean.class, 8)
           .put(void.class, 9)
-          .build();
+          .buildOrThrow();
 }
