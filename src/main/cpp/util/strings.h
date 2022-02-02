@@ -17,6 +17,7 @@
 #include <memory>  // unique_ptr
 #include <string>
 #include <vector>
+#include <sstream>
 
 #ifdef BLAZE_OPENSOURCE
 #include <string.h>

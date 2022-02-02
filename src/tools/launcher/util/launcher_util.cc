@@ -15,10 +15,10 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
 
 // For rand_s function, https://msdn.microsoft.com/en-us/library/sxtz2fa8.aspx
 #define _CRT_RAND_S
+#include <windows.h>
 #include <fcntl.h>
 #include <io.h>
 #include <stdarg.h>

@@ -135,6 +135,7 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 
 #define arraysize(array) (sizeof(ArraySizeHelper(array)))
 
+#ifndef __MINGW32__
 #ifdef _WIN32
 // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of global_variables.h and
 // wherever else it appears. Find some way to not have to declare a pid_t here,
@@ -142,5 +143,6 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 // the following typedef afterwards.
 typedef int pid_t;
 #endif  // _WIN32
+#endif  // __MINGW32__
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_

@@ -18,7 +18,7 @@
 
 #include "src/main/native/windows/file.h"
 
-#include <WinIoCtl.h>
+#include <winioctl.h>
 #include <stdint.h>  // uint8_t
 #include <versionhelpers.h>
 #include <windows.h>

@@ -19,7 +19,7 @@
 #include "src/main/native/windows/process.h"
 
 #include <windows.h>
-#include <VersionHelpers.h>
+#include <versionhelpers.h>
 
 #include <memory>
 #include <sstream>

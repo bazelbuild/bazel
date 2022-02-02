@@ -72,11 +72,6 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    // TODO(laszlocsomor): make this code check for the execution platform, not the host platform,
-    // once Bazel supports distinguishing between the two.
-    // OS.getCurrent() returns the host platform, not the execution platform, which is fine in a
-    // single-machine execution environment, but problematic with remote execution.
-    Preconditions.checkState(OS.getCurrent() == OS.WINDOWS);
     return out -> {
       try (InputStream in = ctx.getInputPath(this.launcher).getInputStream()) {
         ByteStreams.copy(in, out);
