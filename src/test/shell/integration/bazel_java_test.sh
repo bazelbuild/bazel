@@ -267,6 +267,22 @@ function test_no_javabase() {
   expect_log "bazel-bin/javabase_test/a.runfiles/local_jdk/bin/java: No such file or directory"
 }
 
+# Tests non-existent java_home path.
+function test_no_java_home_path() {
+  cat << EOF >> WORKSPACE
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+local_java_repository(
+    name = "javabase",
+    java_home = "$PWD/i-dont-exist",
+    version = "11",
+)
+EOF
+
+  bazel build @javabase//... >& $TEST_log && fail "Build with missing java_home should fail."
+  expect_log "The path indicated by the \"java_home\" attribute .* does not exist."
+}
+
+
 function test_genrule() {
   cat << EOF > WORKSPACE
 load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
