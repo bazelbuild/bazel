@@ -651,12 +651,12 @@ sh_binary(
   that lists subpackages instead of files and directories.  It uses the same
   path patterns as <code>glob()</code> and can match any subpackage that is a
   direct decendant of the currently loading BUILD file.  See <a
-  href="#glob">glob</a> for detailed explinations and example of include and
+  href="#glob">glob</a> for a detailed explanation and examples of include and
   exclude patterns.
 </p>
 
 <p>
-  The resulting list of subpackages returned is in sorted order and contains a
+  The resulting list of subpackages returned is in sorted order and contains
   paths relative to the current loading package that match the given patterns in
   <code>include</code> and not those in <code>exclude</code>.
 
@@ -675,15 +675,16 @@ sh_binary(
 # In foo/BUILD a call to
 subs = subpackages(include = ["**"])
 
-# results in subs == ["sub", "foo/bar/baz"]`
+# results in subs == ["sub", "bar/baz"]
 #
-# foo/sub/deeper is not included because it is a subpackage of 'foo/sub' not of
+# 'sub/deeper' is not included because it is a subpackage of 'foo/sub' not of
 # 'foo'
 </pre>
 
     <p>
     In general it is preferred that instead of calling this function directly
     that users use the 'subpackages' module of
+    <a href="https://github.com/bazelbuild/bazel-skylib">skylib</a>.
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
