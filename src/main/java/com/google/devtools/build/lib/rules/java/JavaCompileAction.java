@@ -546,6 +546,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       return onlyMandatoryOutput == null || onlyMandatoryOutput.equals(output);
     }
 
+    @Override
     public boolean stripOutputPaths() {
       return stripOutputPaths;
     }
