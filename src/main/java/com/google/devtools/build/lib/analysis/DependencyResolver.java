@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -58,7 +59,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Type.LabelVisitor;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -591,11 +591,11 @@ public abstract class DependencyResolver {
       Iterable<AttributeDependencyKind> attributeDependencyKinds,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
-      ConfiguredAttributeMapper ruleAttributes,
+      ConfiguredAttributeMapper attributeMap,
       BuildConfigurationValue ruleConfig) {
     for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
       Attribute attribute = dependencyKind.getAttribute();
-      if (!attribute.getCondition().apply(ruleAttributes)
+      if (!attribute.getCondition().apply(attributeMap)
           // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
           // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
           // breaks trimming as shown by
@@ -604,36 +604,70 @@ public abstract class DependencyResolver {
           // part of an unchosen select() branch.
           || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
         continue;
-      } else if (attribute.isLateBound()) {
-        // Latebound attributes: compute their values here instead of from the rule / aspect attrs.
-        addLateBoundDefault(
-            resolveLateBoundDefault(rule, ruleAttributes, attribute, ruleConfig),
-            attribute.getType(),
-            (depLabel, ctx) -> outgoingLabels.put(dependencyKind, depLabel));
-      } else {
-        // Everything else: read the rule / aspect attribute settings.
-        AspectAwareAttributeMapper combinedAttributes =
-            new AspectAwareAttributeMapper(
-                rule,
-                ruleAttributes,
-                dependencyKind.getOwningAspect() != null
-                    ? ImmutableMap.of(attribute.getName(), attribute)
-                    : ImmutableMap.of());
-        combinedAttributes.visitLabels(
-            attribute, (depLabel) -> outgoingLabels.put(dependencyKind, depLabel));
       }
+
+      Type<?> type = attribute.getType();
+      if (type == BuildType.OUTPUT
+          || type == BuildType.OUTPUT_LIST
+          || type == BuildType.NODEP_LABEL
+          || type == BuildType.NODEP_LABEL_LIST) {
+        // These types invoke visitLabels() so that they are reported in "bazel query" but do not
+        // create a dependency. Maybe it's better to remove that, but then the labels() query
+        // function would need to be rethought.
+        continue;
+      }
+
+      resolveAttribute(
+          attribute, type, dependencyKind, outgoingLabels, rule, attributeMap, ruleConfig);
     }
   }
 
-  private <T> void addLateBoundDefault(
-      @Nullable Object value, Type<T> type, LabelVisitor labelVisitor) {
-    if (value != null) {
-      type.visitLabels(labelVisitor, type.cast(value), /*context=*/ null);
+  private <T> void resolveAttribute(
+      Attribute attribute,
+      Type<T> type,
+      AttributeDependencyKind dependencyKind,
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
+      Rule rule,
+      ConfiguredAttributeMapper attributeMap,
+      BuildConfigurationValue ruleConfig) {
+    T attributeValue = null;
+    if (attribute.isImplicit()) {
+      // Since the attributes that come from aspects do not appear in attributeMap, we have to get
+      // their values from somewhere else. This incidentally means that aspects attributes are not
+      // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
+      // attribute mapping works, which is a large chunk of work.
+      if (dependencyKind.getOwningAspect() == null) {
+        attributeValue = attributeMap.get(attribute.getName(), type);
+      } else {
+        Object defaultValue = attribute.getDefaultValue(rule);
+        attributeValue =
+            type.cast(
+                defaultValue instanceof ComputedDefault
+                    ? ((ComputedDefault) defaultValue).getDefault(attributeMap)
+                    : defaultValue);
+      }
+    } else if (attribute.isLateBound()) {
+      attributeValue =
+          type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig));
+    } else if (attributeMap.has(attribute.getName())) {
+      // This condition is false for aspect attributes that do not give rise to dependencies because
+      // attributes that come from aspects do not appear in attributeMap (see the comment in the
+      // case that handles implicit attributes).
+      attributeValue = attributeMap.get(attribute.getName(), type);
     }
+
+    if (attributeValue == null) {
+      return;
+    }
+
+    type.visitLabels(
+        (depLabel, ctx) -> outgoingLabels.put(dependencyKind, depLabel),
+        attributeValue,
+        /*context=*/ null);
   }
 
   @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
-  static <FragmentT> Object resolveLateBoundDefault(
+  public static <FragmentT> Object resolveLateBoundDefault(
       Rule rule,
       AttributeMap attributeMap,
       Attribute attribute,

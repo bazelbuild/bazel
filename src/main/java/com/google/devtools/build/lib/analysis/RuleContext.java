@@ -209,9 +209,7 @@ public final class RuleContext extends TargetContext
     this.ruleClassProvider = builder.ruleClassProvider;
     this.targetMap = targetMap;
     this.configConditions = builder.configConditions.asProviders();
-    this.attributes =
-        new AspectAwareAttributeMapper(
-            rule, (ConfiguredAttributeMapper) attributes, builder.aspectAttributes);
+    this.attributes = new AspectAwareAttributeMapper(attributes, builder.aspectAttributes);
     Set<String> allEnabledFeatures = new HashSet<>();
     Set<String> allDisabledFeatures = new HashSet<>();
     getAllFeatures(allEnabledFeatures, allDisabledFeatures);
