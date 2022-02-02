@@ -427,6 +427,21 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "Use incremental_dexing attribute to override default for a particular "
                 + "android_binary.")
     public boolean incrementalDexingAfterProguardByDefault;
+  
+    @Option(
+        name = "experimental_enable_r8",
+        defaultValue = "false",
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        help =
+            "Whether to use R8 instead of proguarding.  "
+                + "This only has effect if proguard_specs are specified. "
+                + " Legacy multidex and mobile-install are not supported with R8.")
+    public boolean enableR8;
+
+
+
 
     // TODO(b/31711689): Remove this flag when this optimization is proven to work globally.
     @Option(
@@ -982,6 +997,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
       host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
       host.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
+      host.enableR8 = enableR8;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
@@ -1008,6 +1024,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final int incrementalDexingShardsAfterProguard;
   private final boolean incrementalDexingUseDexSharder;
   private final boolean incrementalDexingAfterProguardByDefault;
+  private final boolean enableR8;
   private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
@@ -1060,6 +1077,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
     this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
     this.incrementalDexingAfterProguardByDefault = options.incrementalDexingAfterProguardByDefault;
+    this.enableR8 = options.enableR8;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
@@ -1163,6 +1181,12 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean incrementalDexingAfterProguardByDefault() {
     return incrementalDexingAfterProguardByDefault;
+  }
+
+  /** Whether to dex class files using the r8 binary. */
+  @Override
+  public boolean enableR8() {
+    return enableR8;
   }
 
   /**

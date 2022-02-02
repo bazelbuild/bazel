@@ -61,6 +61,14 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean incrementalDexingAfterProguardByDefault();
 
+  @StarlarkMethod(
+      name = "experimental_enable_r8",
+      structField = true,
+      doc = "When true R8 is used for dexing and proguarding. "
+                + "Only in effect when proguard_specs are specified.",
+      documented = false)
+  boolean enableR8();
+
   @StarlarkMethod(name = "apk_signing_method_v1", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV1();
 
