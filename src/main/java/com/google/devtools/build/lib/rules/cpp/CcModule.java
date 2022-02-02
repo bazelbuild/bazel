@@ -2440,7 +2440,7 @@ public abstract class CcModule
         objects.toList(),
         Link.OBJECT_FILETYPES,
         Link.OBJECT_FILETYPES,
-        /* allowAnyTreeArtifacts= */ false);
+        /* allowAnyTreeArtifacts= */ true);
     LtoCompilationContext ltoCompilationContext =
         convertFromNoneable(ltoCompilationContextObject, null);
     NestedSet<Artifact> picObjects =
@@ -2450,7 +2450,7 @@ public abstract class CcModule
         picObjects.toList(),
         Link.OBJECT_FILETYPES,
         Link.OBJECT_FILETYPES,
-        /* allowAnyTreeArtifacts= */ false);
+        /* allowAnyTreeArtifacts= */ true);
     ccCompilationOutputsBuilder.addObjectFiles(objects.toList());
     ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
     if (ltoCompilationContext != null) {
