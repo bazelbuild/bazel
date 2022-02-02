@@ -1,3 +1,11 @@
+## Release 6.0.0-pre.20220127.1 (2022-02-02)
+
+```
+Baseline: c17f1b7f9b93bf034046d0973bf2b7e9a64815bf
+```
+
+This release contains contributions from many people at Google, as well as Bohdan Vanieiev, Keith Smiley, Zhongpeng Lin.
+
 ## Release 6.0.0-pre.20220123.2 (2022-01-28)
 
 ```
