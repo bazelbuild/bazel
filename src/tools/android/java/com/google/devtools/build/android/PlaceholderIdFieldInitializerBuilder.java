@@ -346,7 +346,7 @@ class PlaceholderIdFieldInitializerBuilder {
       // The styleable array should be sorted by ID value.
       // Make sure that if we have android: framework attributes, their IDs are listed first.
       ImmutableMap<String, Integer> arrayInitMap =
-          arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).build();
+          arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).buildOrThrow();
       initList.add(
           IntArrayFieldInitializer.of(
               dependencyInfo,

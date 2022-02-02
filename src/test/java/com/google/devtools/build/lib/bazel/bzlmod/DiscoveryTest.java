@@ -183,7 +183,7 @@ public class DiscoveryTest extends FoundationTestCase {
                         ruleClassProvider,
                         directories,
                         new BzlmodRepoRuleHelperImpl()))
-                .build(),
+                .buildOrThrow(),
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);

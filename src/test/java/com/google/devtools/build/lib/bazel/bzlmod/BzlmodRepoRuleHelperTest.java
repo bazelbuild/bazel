@@ -121,7 +121,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                     GET_REPO_SPEC_BY_NAME_FUNCTION,
                     new GetRepoSpecByNameFunction(new BzlmodRepoRuleHelperImpl()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .build(),
+                .buildOrThrow(),
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);

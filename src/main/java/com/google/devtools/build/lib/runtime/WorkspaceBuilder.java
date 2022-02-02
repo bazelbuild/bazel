@@ -78,7 +78,7 @@ public final class WorkspaceBuilder {
             runtime.getActionKeyContext(),
             workspaceStatusActionFactory,
             diffAwarenessFactories.build(),
-            skyFunctions.build(),
+            skyFunctions.buildOrThrow(),
             skyframeExecutorRepositoryHelpersHolder,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE

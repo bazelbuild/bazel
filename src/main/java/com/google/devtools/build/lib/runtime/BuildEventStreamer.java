@@ -370,14 +370,14 @@ public class BuildEventStreamer {
     for (BuildEventTransport transport : transports) {
       closeFuturesMapBuilder.put(transport, transport.close());
     }
-    closeFuturesMap = closeFuturesMapBuilder.build();
+    closeFuturesMap = closeFuturesMapBuilder.buildOrThrow();
 
     ImmutableMap.Builder<BuildEventTransport, ListenableFuture<Void>> halfCloseFuturesMapBuilder =
         ImmutableMap.builder();
     for (BuildEventTransport transport : transports) {
       halfCloseFuturesMapBuilder.put(transport, transport.getHalfCloseFuture());
     }
-    halfCloseFuturesMap = halfCloseFuturesMapBuilder.build();
+    halfCloseFuturesMap = halfCloseFuturesMapBuilder.buildOrThrow();
   }
 
   private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {

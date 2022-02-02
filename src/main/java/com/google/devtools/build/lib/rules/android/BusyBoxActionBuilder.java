@@ -352,7 +352,7 @@ public final class BusyBoxActionBuilder {
       spawnActionBuilder.addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO);
     }
 
-    spawnActionBuilder.setExecutionInfo(executionInfo.build());
+    spawnActionBuilder.setExecutionInfo(executionInfo.buildOrThrow());
 
     dataContext.registerAction(spawnActionBuilder);
   }

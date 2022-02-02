@@ -78,7 +78,7 @@ public class BazelModuleResolutionFunctionTest {
                     .setVersion(Version.parse("1.0"))
                     .setKey(createModuleKey("rules_java", ""))
                     .build())
-            .build();
+            .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "dep",

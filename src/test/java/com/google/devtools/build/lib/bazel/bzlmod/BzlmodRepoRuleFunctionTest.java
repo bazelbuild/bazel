@@ -283,7 +283,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                             ImmutableList.of(
                                 "https://maven.google.com", "https://repo1.maven.org/maven2")))
                 .build());
-    return new FakeBzlmodRepoRuleHelper(repoSpecs.build());
+    return new FakeBzlmodRepoRuleHelper(repoSpecs.buildOrThrow());
   }
 
   @Test

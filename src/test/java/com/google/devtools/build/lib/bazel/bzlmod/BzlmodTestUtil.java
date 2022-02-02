@@ -43,7 +43,7 @@ public final class BzlmodTestUtil {
           RepositoryName.createFromValidStrippedName(names[i]),
           RepositoryName.createFromValidStrippedName(names[i + 1]));
     }
-    return RepositoryMapping.create(mappingBuilder.build(), key.getCanonicalRepoName());
+    return RepositoryMapping.create(mappingBuilder.buildOrThrow(), key.getCanonicalRepoName());
   }
 
   public static TagClass createTagClass(Attribute... attrs) {

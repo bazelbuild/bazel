@@ -54,7 +54,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     public Map<String, String> convert(String input) {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       if (input.isEmpty()) {
-        return builder.build();
+        return builder.buildOrThrow();
       }
 
       String[] elements = input.split(":");
@@ -66,7 +66,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         }
         builder.put(unescape(name), unescape(value));
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
