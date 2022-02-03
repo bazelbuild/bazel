@@ -276,14 +276,8 @@ static bool AsWindowsPathImpl(const std::basic_string<char_type>& path,
   }
 
   std::basic_string<char_type> mutable_path = path;
-  if (path[0] == '/') {
-    if (error) {
-      *error = "Unix-style paths are unsupported";
-    }
-    return false;
-  }
 
-  if (path[0] == '\\') {
+  if (path[0] == '\\' || path[0] == '/') {
     // This is an absolute Windows path on the current drive, e.g. "\foo\bar".
     std::basic_string<char_type> drive(1, GetCurrentDrive());
     drive.push_back(':');
