@@ -29,7 +29,10 @@ android/ @ahumesky
 
 # Apple
 
-/src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
+/src/main/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
+/src/test/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
+/src/test/shell/bazel/apple @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl @bazelbuild/rules_apple-team
+/tools/osx @bazelbuild/rules_apple-team
 
 # Documentation
 
@@ -65,6 +68,14 @@ android/ @ahumesky
 /tools/test/collect_coverage.sh @lberki
 /tools/test/collect_cc_coverage.sh @lberki
 /tools/test/CoverageOutputGenerator/ @lberki
+
+# Configurability
+
+/src/main/java/com/google/devtools/build/lib/analysis @bazelbuild/configurability
+/src/test/java/com/google/devtools/build/lib/analysis @bazelbuild/configurability
+/src/main/java/com/google/devtools/build/lib/rules/platform @bazelbuild/configurability
+/src/test/java/com/google/devtools/build/lib/rules/platform @bazelbuild/configurability
+/tools/platforms @bazelbuild/configurability
 
 # Remote Execution
 
