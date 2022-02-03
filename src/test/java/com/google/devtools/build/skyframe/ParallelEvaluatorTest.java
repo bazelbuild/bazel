@@ -2171,6 +2171,112 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void getOrderedValuesAndExceptions() throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey otherKey = GraphTester.toSkyKey("other");
+    tester.set(otherKey, new StringValue("other"));
+    SkyKey anotherKey = GraphTester.toSkyKey("another");
+    tester.set(anotherKey, new StringValue("another"));
+    SkyKey errorExpectedKey = GraphTester.toSkyKey("errorExpected");
+    tester.getOrCreate(errorExpectedKey).setHasError(true);
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    Exception topException = new SomeErrorException("top exception");
+    AtomicInteger numComputes = new AtomicInteger(0);
+    tester
+        .getOrCreate(topKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env)
+                  throws SkyFunctionException, InterruptedException {
+                SkyframeIterableResult skyframeIterableResult =
+                    env.getOrderedValuesAndExceptions(
+                        ImmutableList.of(otherKey, anotherKey, errorExpectedKey));
+                if (numComputes.incrementAndGet() == 1) {
+                  assertThat(env.valuesMissing()).isTrue();
+                  int numElements = 0;
+                  while (skyframeIterableResult.hasNext()) {
+                    numElements++;
+                    try {
+                      assertThat(skyframeIterableResult.nextOrThrow(SomeErrorException.class))
+                          .isNull();
+                    } catch (SomeErrorException e) {
+                      throw new AssertionError("should not have thrown", e);
+                    }
+                  }
+                  assertThat(numElements).isEqualTo(3);
+                  return null;
+                } else {
+                  assertThat(numComputes.get()).isEqualTo(2);
+                  SkyValue value1 = skyframeIterableResult.next();
+                  assertThat(value1).isNotNull();
+                  assertThat(env.valuesMissing()).isFalse();
+                  try {
+                    SkyValue value2 = skyframeIterableResult.nextOrThrow(SomeErrorException.class);
+                    assertThat(value2).isNotNull();
+                    assertThat(env.valuesMissing()).isFalse();
+                  } catch (SomeErrorException e) {
+                    throw new AssertionError("Should not have thrown", e);
+                  }
+                  try {
+                    skyframeIterableResult.nextOrThrow(SomeErrorException.class);
+                    throw new AssertionError("Should throw");
+                  } catch (SomeErrorException e) {
+                    assertThat(env.valuesMissing()).isFalse();
+                  }
+                  throw new SkyFunctionException(topException, Transience.PERSISTENT) {};
+                }
+              }
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(topKey));
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(topKey)
+        .hasExceptionThat()
+        .isSameInstanceAs(topException);
+    assertThat(numComputes.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void getOrderedValuesAndExceptionsWithErrors() throws Exception {
+    graph = new InMemoryGraphImpl();
+    final SkyKey childKey = GraphTester.toSkyKey("error");
+    final SomeErrorException childExn = new SomeErrorException("child error");
+    tester
+        .getOrCreate(childKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              throw new GenericFunctionException(childExn, Transience.PERSISTENT);
+            });
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    final AtomicInteger numComputes = new AtomicInteger(0);
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              try {
+                SkyValue value =
+                    env.getOrderedValuesAndExceptions(ImmutableList.of(childKey))
+                        .nextOrThrow(SomeOtherErrorException.class);
+                assertThat(value).isNull();
+              } catch (SomeOtherErrorException e) {
+                throw new AssertionError("Should not have thrown", e);
+              }
+              numComputes.incrementAndGet();
+              assertThat(env.valuesMissing()).isTrue();
+              return null;
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(parentKey)
+        .hasExceptionThat()
+        .isSameInstanceAs(childExn);
+    assertThat(numComputes.get()).isEqualTo(2);
+  }
+
+  @Test
   public void duplicateCycles() throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey grandparentKey = GraphTester.toSkyKey("grandparent");

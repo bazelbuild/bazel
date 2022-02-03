@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -255,6 +256,14 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, null, null, null, null);
     return Collections.unmodifiableList(
         Lists.transform(valuesOrExceptions, ValueOrUntypedException::getValue));
+  }
+
+  @Override
+  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
+    List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
+    Iterator<ValueOrUntypedException> valuesOrExceptionsi = valuesOrExceptions.iterator();
+    return new SkyframeIterableResult(() -> valuesMissing = true, valuesOrExceptionsi);
   }
 
   @Override

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.ValueOrException3;
@@ -137,6 +138,12 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   public List<SkyValue> getOrderedValues(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     return delegate.getOrderedValues(depKeys);
+  }
+
+  @Override
+  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
+    return delegate.getOrderedValuesAndExceptions(depKeys);
   }
 
   @Override

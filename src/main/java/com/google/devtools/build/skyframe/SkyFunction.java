@@ -276,6 +276,15 @@ public interface SkyFunction {
             throws InterruptedException;
 
     /**
+     * Similar to {@link #getValues}, but returns a {@link SkyframeIterableResult}, which contains
+     * the values in the same order as {@code depKeys}. Use in preference to all other getting
+     * methods, since this method creates less garbage and allows the calling {@code SkyFunction} to
+     * declare exceptions on a per-SkyKey basis.
+     */
+    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+        throws InterruptedException;
+
+    /**
      * Similar to getValuesOrThrow, but instead of returning a {@code Map<SkyKey,
      * ValueOrException>}, returns a {@code List<SkyValue>} in the order of the input {@code
      * Iterable<SkyKey>}.
@@ -307,6 +316,8 @@ public interface SkyFunction {
      *   <li>getValues(ks).get(k) == {@code null} for some ks and k such that ks.contains(k)
      *   <li>getValuesOrThrow(ks, c).get(k).get() == {@code null} for some ks and k such that
      *       ks.contains(k)
+     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where
+     *       result=getOrderedValuesAndExceptions(ks) for some ks
      * </ul>
      *
      * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
