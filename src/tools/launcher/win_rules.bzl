@@ -62,3 +62,9 @@ def win_cc_test(srcs = [], deps = [], **kwargs):
         }),
         **kwargs
     )
+
+CC_17_COPT = select({
+    "//src/tools/launcher:msvc_compiler": ["/std:c++17"],
+    "//src/tools/launcher:clang-cl_compiler": ["/std:c++17"],
+    "//conditions:default": ["-std=c++17"],
+})
