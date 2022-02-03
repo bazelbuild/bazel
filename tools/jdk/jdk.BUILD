@@ -165,15 +165,12 @@ filegroup(
 #This folder holds security policies
 filegroup(
     name = "jdk-conf",
-    srcs = glob(
-        ["conf/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["conf/**"], allow_empty = True),
 )
 
 filegroup(
     name = "jdk-include",
-    srcs = glob(["include/**"]),
+    srcs = glob(["include/**"], allow_empty = True),
 )
 
 filegroup(
