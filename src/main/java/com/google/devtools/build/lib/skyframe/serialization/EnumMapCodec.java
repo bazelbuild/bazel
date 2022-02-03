@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.unsafe.UnsafeProvider;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
+
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Map;
-import sun.misc.Unsafe;
 
 /**
  * Serialize {@link EnumMap}. Subclasses of {@link EnumMap} will crash at runtime because currently
@@ -33,8 +33,7 @@ class EnumMapCodec<E extends Enum<E>, V> implements ObjectCodec<EnumMap<E, V>> {
 
   EnumMapCodec() {
     try {
-      classTypeOffset =
-          UnsafeProvider.getInstance().objectFieldOffset(EnumMap.class.getDeclaredField("keyType"));
+      classTypeOffset = unsafe().objectFieldOffset(EnumMap.class.getDeclaredField("keyType"));
     } catch (NoSuchFieldException e) {
       throw new IllegalStateException("Couldn't get keyType field fron EnumMap", e);
     }
@@ -56,8 +55,7 @@ class EnumMapCodec<E extends Enum<E>, V> implements ObjectCodec<EnumMap<E, V>> {
     codedOut.writeInt32NoTag(obj.size());
     if (obj.isEmpty()) {
       // Do gross hack to get key type of map, since we have no concrete element to examine.
-      Unsafe unsafe = UnsafeProvider.getInstance();
-      context.serialize(unsafe.getObject(obj, classTypeOffset), codedOut);
+      context.serialize(unsafe().getObject(obj, classTypeOffset), codedOut);
       return;
     }
     context.serialize(obj.keySet().iterator().next().getDeclaringClass(), codedOut);

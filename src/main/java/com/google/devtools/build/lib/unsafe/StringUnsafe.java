@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unsafe;
 
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-import sun.misc.Unsafe;
 
 /**
  * Provides direct access to the string implementation used by JDK9.
@@ -34,7 +35,6 @@ public final class StringUnsafe {
 
   private static final StringUnsafe INSTANCE = new StringUnsafe();
 
-  private final Unsafe unsafe;
   private final Constructor<String> constructor;
   private final long valueOffset;
   private final long coderOffset;
@@ -44,7 +44,6 @@ public final class StringUnsafe {
   }
 
   private StringUnsafe() {
-    unsafe = UnsafeProvider.getInstance();
     Field valueField;
     Field coderField;
     try {
@@ -60,15 +59,13 @@ public final class StringUnsafe {
           e);
     }
     this.constructor.setAccessible(true);
-    valueField.setAccessible(true);
-    valueOffset = UnsafeProvider.getInstance().objectFieldOffset(valueField);
-    coderField.setAccessible(true);
-    coderOffset = UnsafeProvider.getInstance().objectFieldOffset(coderField);
+    valueOffset = unsafe().objectFieldOffset(valueField);
+    coderOffset = unsafe().objectFieldOffset(coderField);
   }
 
   /** Returns the coder used for this string. See {@link #LATIN1} and {@link #UTF16}. */
   public byte getCoder(String obj) {
-    return unsafe.getByte(obj, coderOffset);
+    return unsafe().getByte(obj, coderOffset);
   }
 
   /**
@@ -78,7 +75,7 @@ public final class StringUnsafe {
    * Ensure you do not mutate this byte array in any way.
    */
   public byte[] getByteArray(String obj) {
-    return (byte[]) unsafe.getObject(obj, valueOffset);
+    return (byte[]) unsafe().getObject(obj, valueOffset);
   }
 
   /** Constructs a new string from a byte array and coder. */
