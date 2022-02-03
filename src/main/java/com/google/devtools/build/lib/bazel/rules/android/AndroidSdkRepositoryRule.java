@@ -42,7 +42,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
     builder.put("android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
     builder.put("android_sdk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));
     builder.put("has_androidsdk", Label.parseAbsoluteUnchecked(prefix + "has_androidsdk"));
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private static final ImmutableList<String> calculateToolchainsToRegister(Rule rule) {

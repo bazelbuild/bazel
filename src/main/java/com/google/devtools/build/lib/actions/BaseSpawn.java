@@ -90,7 +90,7 @@ public class BaseSpawn implements Spawn {
       String runfilesRootString = runfilesRoot.getPathString();
       env.put("JAVA_RUNFILES", runfilesRootString);
       env.put("PYTHON_RUNFILES", runfilesRootString);
-      return env.build();
+      return env.buildOrThrow();
     }
   }
 

@@ -48,11 +48,12 @@ public class BaseSpawnTest {
             AnalysisTestUtil.createRunfilesSupplier(
                 PathFragment.create(runfilesDir), Runfiles.EMPTY));
 
-    Map<String, String> expected = ImmutableMap.<String, String>builder()
-        .putAll(baseEnviron)
-        .put("PYTHON_RUNFILES", runfilesDir)
-        .put("JAVA_RUNFILES", runfilesDir)
-        .build();
+    Map<String, String> expected =
+        ImmutableMap.<String, String>builder()
+            .putAll(baseEnviron)
+            .put("PYTHON_RUNFILES", runfilesDir)
+            .put("JAVA_RUNFILES", runfilesDir)
+            .buildOrThrow();
 
     assertThat(underTest.getEnvironment()).isEqualTo(expected);
   }

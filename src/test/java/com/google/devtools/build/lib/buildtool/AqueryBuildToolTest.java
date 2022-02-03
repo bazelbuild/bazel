@@ -50,7 +50,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
       builder.put(queryFunction.getName(), queryFunction);
     }
 
-    functions = builder.build();
+    functions = builder.buildOrThrow();
     runtimeWrapper.addOptionsClass(AqueryOptions.class);
   }
 

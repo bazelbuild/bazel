@@ -174,8 +174,10 @@ public class ClassPathsSubject extends Subject {
           actualIntArrayFields.put(f.getName(), list.build());
         }
       }
-      assertThat(actualIntFields.build()).containsExactlyEntriesIn(intFields).inOrder();
-      assertThat(actualIntArrayFields.build()).containsExactlyEntriesIn(intArrayFields).inOrder();
+      assertThat(actualIntFields.buildOrThrow()).containsExactlyEntriesIn(intFields).inOrder();
+      assertThat(actualIntArrayFields.buildOrThrow())
+          .containsExactlyEntriesIn(intArrayFields)
+          .inOrder();
     }
   }
 }

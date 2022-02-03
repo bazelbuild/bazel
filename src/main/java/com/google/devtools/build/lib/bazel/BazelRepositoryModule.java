@@ -175,7 +175,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
         .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
         .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
-        .build();
+        .buildOrThrow();
   }
 
   private static class RepositoryCacheInfoItem extends InfoItem {

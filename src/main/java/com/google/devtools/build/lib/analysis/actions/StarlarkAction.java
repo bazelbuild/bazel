@@ -387,7 +387,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
                 .put(
                     ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
                     unusedInputsList.get().getExecPathString())
-                .build();
+                .buildOrThrow();
       }
       return new StarlarkAction(
           owner,

@@ -243,7 +243,7 @@ public final class Actions {
       ImmutableMap.Builder<String, Label> outputFileNamesBuilder =
           ImmutableMap.builderWithExpectedSize(outputFiles.size());
       outputFiles.forEach(o -> outputFileNamesBuilder.put(o.getLabel().getName(), o.getLabel()));
-      outputFileNames = outputFileNamesBuilder.build();
+      outputFileNames = outputFileNamesBuilder.buildOrThrow();
     }
     @Nullable
     ImmutableMap.Builder<Label, Artifact> artifactsByOutputLabel =
@@ -322,7 +322,7 @@ public final class Actions {
     }
     return new GeneratingActions(
         actions,
-        artifactsByOutputLabel != null ? artifactsByOutputLabel.build() : ImmutableMap.of());
+        artifactsByOutputLabel != null ? artifactsByOutputLabel.buildOrThrow() : ImmutableMap.of());
   }
 
   private static final Comparator<Artifact> EXEC_PATH_PREFIX_COMPARATOR =

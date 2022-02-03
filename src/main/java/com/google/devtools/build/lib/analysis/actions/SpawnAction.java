@@ -796,7 +796,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.putAll(executionInfo);
         builder.put("nosandbox", "1");
-        executionInfo = builder.build();
+        executionInfo = builder.buildOrThrow();
       }
 
       return createSpawnAction(

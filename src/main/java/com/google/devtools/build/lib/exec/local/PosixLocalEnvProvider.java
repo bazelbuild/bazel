@@ -56,6 +56,6 @@ public final class PosixLocalEnvProvider implements LocalEnvProvider {
       p = "/tmp";
     }
     result.put("TMPDIR", p);
-    return result.build();
+    return result.buildOrThrow();
   }
 }

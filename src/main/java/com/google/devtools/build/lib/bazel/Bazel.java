@@ -112,7 +112,7 @@ public final class Bazel {
           buildData.put(buildDataKey, props.getProperty(stringKey, ""));
         }
       }
-      return buildData.build();
+      return buildData.buildOrThrow();
     } catch (IOException ignored) {
       return ImmutableMap.of();
     }

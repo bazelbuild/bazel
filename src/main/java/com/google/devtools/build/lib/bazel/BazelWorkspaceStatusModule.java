@@ -312,7 +312,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           BuildInfo.BUILD_EMBED_LABEL, Key.of(KeyType.STRING, options.embedLabel, "redacted"));
       builder.put(BuildInfo.BUILD_HOST, Key.of(KeyType.STRING, "hostname", "redacted"));
       builder.put(BuildInfo.BUILD_USER, Key.of(KeyType.STRING, "username", "redacted"));
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
