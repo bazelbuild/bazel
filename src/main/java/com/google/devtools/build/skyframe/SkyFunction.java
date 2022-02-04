@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -232,12 +231,6 @@ public interface SkyFunction {
     Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
 
     /**
-     * Similar to getValues, but instead of returning a {@code Map<SkyKey, SkyValue>}, returns a
-     * {@code List<SkyValue>} in the order of the input {@code Iterable<SkyKey>}. b/172462551
-     */
-    List<SkyValue> getOrderedValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
-
-    /**
      * Similar to {@link #getValues} but allows the caller to specify a set of types that are proper
      * subtypes of Exception (see {@link SkyFunctionException} for more details) to find out whether
      * any of the dependencies' evaluations resulted in exceptions of those types. The returned
@@ -267,14 +260,6 @@ public interface SkyFunction {
             Class<E2> exceptionClass2)
             throws InterruptedException;
 
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-        Map<SkyKey, ValueOrException3<E1, E2, E3>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3)
-            throws InterruptedException;
-
     /**
      * Similar to {@link #getValues}, but returns a {@link SkyframeIterableResult}, which contains
      * the values in the same order as {@code depKeys}. Use in preference to all other getting
@@ -283,29 +268,6 @@ public interface SkyFunction {
      */
     SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
         throws InterruptedException;
-
-    /**
-     * Similar to getValuesOrThrow, but instead of returning a {@code Map<SkyKey,
-     * ValueOrException>}, returns a {@code List<SkyValue>} in the order of the input {@code
-     * Iterable<SkyKey>}.
-     */
-    <E extends Exception> List<ValueOrException<E>> getOrderedValuesOrThrow(
-        Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception>
-        List<ValueOrException2<E1, E2>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2)
-            throws InterruptedException;
-
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-        List<ValueOrException3<E1, E2, E3>> getOrderedValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2,
-            Class<E3> exceptionClass3)
-            throws InterruptedException;
 
     /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing

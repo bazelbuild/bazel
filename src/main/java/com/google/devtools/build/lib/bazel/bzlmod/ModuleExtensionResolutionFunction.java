@@ -20,13 +20,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.List;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Map;
 
 /** Resolves module extension repos by evaluating all module extensions. */
@@ -46,7 +46,7 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
         bazelModuleResolutionValue.getExtensionUsagesTable().rowKeySet().stream()
             .map(SingleExtensionEvalValue::key)
             .collect(toImmutableList());
-    List<SkyValue> singleEvalValues = env.getOrderedValues(singleEvalKeys);
+    SkyframeIterableResult singleEvalValues = env.getOrderedValuesAndExceptions(singleEvalKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -63,22 +63,24 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
         ImmutableMap.builder();
     ImmutableListMultimap.Builder<ModuleExtensionId, String> extensionIdToRepoInternalNames =
         ImmutableListMultimap.builder();
-    Streams.forEachPair(
-        bazelModuleResolutionValue.getExtensionUsagesTable().rowKeySet().stream(),
-        singleEvalValues.stream(),
-        (extensionId, value) -> {
-          ImmutableMap<String, Package> generatedRepos =
-              ((SingleExtensionEvalValue) value).getGeneratedRepos();
-          String repoPrefix =
-              bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId) + '.';
-          for (Map.Entry<String, Package> entry : generatedRepos.entrySet()) {
+    ImmutableSet<ModuleExtensionId> moduleEvalKeys =
+        bazelModuleResolutionValue.getExtensionUsagesTable().rowKeySet();
+    for (ModuleExtensionId extensionId : moduleEvalKeys) {
+      SkyValue value = singleEvalValues.next();
+      if (value == null) {
+        return null;
+      }
+      ImmutableMap<String, Package> generatedRepos =
+          ((SingleExtensionEvalValue) value).getGeneratedRepos();
+      String repoPrefix =
+          bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId) + '.';
+      for (Map.Entry<String, Package> entry : generatedRepos.entrySet()) {
             String canonicalRepoName = repoPrefix + entry.getKey();
             canonicalRepoNameToPackage.put(canonicalRepoName, entry.getValue());
             canonicalRepoNameToExtensionId.put(canonicalRepoName, extensionId);
           }
           extensionIdToRepoInternalNames.putAll(extensionId, generatedRepos.keySet());
-        });
-
+    }
     return ModuleExtensionResolutionValue.create(
         canonicalRepoNameToPackage.buildOrThrow(),
         canonicalRepoNameToExtensionId.buildOrThrow(),

@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -199,24 +199,23 @@ public final class EnvironmentBackedRecursivePackageProvider
         ImmutableSet.copyOf(
             Iterables.filter(ignoredSubdirectories, path -> path.startsWith(directory)));
 
-    List<ValueOrException2<NoSuchPackageException, ProcessPackageDirectoryException>>
-        recursivePackageValues =
-            env.getOrderedValuesOrThrow(
-                Iterables.transform(
-                    roots,
-                    r ->
-                        RecursivePkgValue.key(
-                            repository,
-                            RootedPath.toRootedPath(r, directory),
-                            filteredIgnoredSubdirectories)),
-                NoSuchPackageException.class,
-                ProcessPackageDirectoryException.class);
+    SkyframeIterableResult recursivePackageValues =
+        env.getOrderedValuesAndExceptions(
+            Iterables.transform(
+                roots,
+                r ->
+                    RecursivePkgValue.key(
+                        repository,
+                        RootedPath.toRootedPath(r, directory),
+                        filteredIgnoredSubdirectories)));
     NoSuchPackageException firstNspe = null;
-    for (ValueOrException2<NoSuchPackageException, ProcessPackageDirectoryException> lookupWrapper :
-        recursivePackageValues) {
+    while (recursivePackageValues.hasNext()) {
       RecursivePkgValue lookup;
       try {
-        lookup = (RecursivePkgValue) lookupWrapper.get();
+        lookup =
+            (RecursivePkgValue)
+                recursivePackageValues.nextOrThrow(
+                    NoSuchPackageException.class, ProcessPackageDirectoryException.class);
       } catch (NoSuchPackageException e) {
         // NoSuchPackageException can happen during error bubbling in a no-keep-going build.
         if (firstNspe == null) {
