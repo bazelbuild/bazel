@@ -87,6 +87,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:graph_backed_recursive_package_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_identifier_batching_callback",

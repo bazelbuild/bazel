@@ -62,9 +62,10 @@ public abstract class DirectoryListingValue implements SkyValue {
     return Key.create(directoryUnderRoot);
   }
 
+  /** Key type for DirectoryListingValue. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<RootedPath> {
+  public static class Key extends AbstractSkyKey<RootedPath> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(RootedPath arg) {
