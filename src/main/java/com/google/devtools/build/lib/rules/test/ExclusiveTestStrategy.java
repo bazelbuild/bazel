@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Test strategy wrapper called 'exclusive'. It should delegate to a test strategy for local
@@ -62,5 +63,13 @@ public class ExclusiveTestStrategy implements TestActionContext {
     // TODO(ulfjack): Exclusive tests run sequentially, and this feature exists to allow faster
     //  aborts of concurrent actions. It's not clear what, if anything, we should do here.
     return null;
+  }
+
+  @Override
+  public void finalizeIncompleteTest(
+      TestRunnerAction action,
+      ActionExecutionContext actionExecutionContext,
+      List<FailedAttemptResult> failedAttempts) {
+    parent.finalizeIncompleteTest(action, actionExecutionContext, failedAttempts);
   }
 }

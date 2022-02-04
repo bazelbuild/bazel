@@ -234,7 +234,16 @@ public class StandaloneTestStrategy extends TestStrategy {
         attemptId, /*isLastAttempt=*/ false, actionExecutionContext, action, result);
   }
 
-  private void finalizeTest(
+  @Override
+  public TestAttemptResult makeIncompleteTestResult() {
+    return StandaloneTestResult.builder()
+        .setSpawnResults(ImmutableList.of())
+        .setExecutionInfo(ExecutionInfo.getDefaultInstance())
+        .setTestResultDataBuilder(TestResultData.newBuilder().setStatus(BlazeTestStatus.INCOMPLETE))
+        .build();
+  }
+
+  public void finalizeTest(
       TestRunnerAction action,
       ActionExecutionContext actionExecutionContext,
       StandaloneTestResult standaloneTestResult,
@@ -261,7 +270,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     TestResultData data = dataBuilder.build();
     TestResult result =
         new TestResult(action, data, false, standaloneTestResult.primarySystemFailure());
-    postTestResult(actionExecutionContext, result);
+    postTestResultCached(actionExecutionContext, result);
   }
 
   private StandaloneFailedAttemptResult processTestAttempt(
@@ -639,7 +648,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
-  private final class StandaloneTestRunnerSpawn implements TestRunnerSpawn {
+  private final class StandaloneTestRunnerSpawn extends AbstractTestRunnerSpawn {
     private final TestRunnerAction testAction;
     private final ActionExecutionContext actionExecutionContext;
     private final Spawn spawn;

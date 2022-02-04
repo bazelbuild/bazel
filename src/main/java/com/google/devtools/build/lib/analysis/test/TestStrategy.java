@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -66,6 +67,16 @@ import javax.annotation.Nullable;
 public abstract class TestStrategy implements TestActionContext {
   private final ConcurrentHashMap<ShardKey, ListenableFuture<Void>> futures =
       new ConcurrentHashMap<>();
+
+  /** Base implementation of TestRunnerSpawn with common functionality across implementations. */
+  public abstract class AbstractTestRunnerSpawn implements TestRunnerSpawn {
+
+    @Override
+    public final void finalizeIncompleteTest(
+        TestRunnerAction action, List<FailedAttemptResult> failedAttempts) {
+      TestStrategy.this.finalizeIncompleteTest(action, getActionExecutionContext(), failedAttempts);
+    }
+  }
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
@@ -218,7 +229,6 @@ public abstract class TestStrategy implements TestActionContext {
    * <p>For rules with "flaky = 1" attribute, this method will return 3 unless --flaky_test_attempts
    * option is given and specifies another value.
    */
-  @VisibleForTesting /* protected */
   public int getTestAttempts(TestRunnerAction action) {
     return action.getTestProperties().isFlaky()
         ? getTestAttemptsForFlakyTest(action)
@@ -262,12 +272,54 @@ public abstract class TestStrategy implements TestActionContext {
         .get(testAction.getTestProperties().getTimeout());
   }
 
-  /*
-   * Finalize test run: persist the result, and post on the event bus.
+  /** Converts the test results to a TestAttemptResult. */
+  public abstract TestActionContext.TestAttemptResult makeIncompleteTestResult();
+
+  /**
+   * Post the final test result when a test execution is incomplete, perhaps due to environmental
+   * failures.
    */
-  protected void postTestResult(ActionExecutionContext actionExecutionContext, TestResult result)
-      throws IOException {
+  @Override
+  public void finalizeIncompleteTest(
+      TestRunnerAction action,
+      ActionExecutionContext actionExecutionContext,
+      List<FailedAttemptResult> failedAttempts) {
+    TestAttemptResult testResult = makeIncompleteTestResult();
+    TestResultData.Builder data = testResult.testResultDataBuilder();
+    BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo = testResult.executionInfo();
+    int attemptId = failedAttempts.size() + 1;
+
+    TestAttempt testAttempt =
+        TestAttempt.forExecutedTestResult(
+            action,
+            data.build(),
+            attemptId,
+            /*files=*/ ImmutableList.of(),
+            executionInfo,
+            /*lastAttempt=*/ true);
+    TestResult result =
+        new TestResult(action, data.build(), false, testResult.primarySystemFailure());
+    actionExecutionContext.getEventHandler().post(testAttempt);
+    postTestResultNeverCached(actionExecutionContext, result);
+  }
+
+  /** Report test run: post on the event bus, and write the result to disk cache. */
+  public final void postTestResultCached(
+      ActionExecutionContext actionExecutionContext, TestResult result) throws IOException {
     result.getTestAction().saveCacheStatus(actionExecutionContext, result.getData());
+    postTestResultNeverCached(actionExecutionContext, result);
+  }
+
+  /**
+   * Report a test run to the event bus.
+   *
+   * <p>Called by {@link #postTestResultCached(ActionExecutionContext, TestResult)}. May be called
+   * directly for results unsuitable for caching (eg. environmental failure to run the test
+   * executable).
+   */
+  // Not final to support testing.
+  protected void postTestResultNeverCached(
+      ActionExecutionContext actionExecutionContext, TestResult result) {
     actionExecutionContext.getEventHandler().post(result);
   }
 

@@ -1418,4 +1418,15 @@ function test_memory_profile() {
   expect_log 'used_heap_size_post_build: [1-9]'
 }
 
+function test_failure_to_execute_status() {
+  # The options --test_strategy=standalone --nobuild_runfile_manifests produce
+  # a TestExecException at test execution time.
+  bazel test --build_event_json_file=$TEST_log pkg:true \
+      --test_strategy=standalone --nobuild_runfile_manifests \
+      && fail "Expected failure"
+
+  expect_not_log 'testResult.*"aborted"'
+  expect_log 'testResult.*//pkg:true.*"INCOMPLETE"'
+}
+
 run_suite "Integration tests for the build event stream"
