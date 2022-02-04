@@ -215,7 +215,8 @@ class LocalBranch extends Branch {
       return;
     }
     synchronized (spawn) {
-      if (ignoreFailureCheck.canIgnoreFailure(spawn, exitCode, errorMessage, outErr, true)) {
+      if (ignoreFailureCheck.canIgnoreFailure(
+          spawn, context, exitCode, errorMessage, outErr, true)) {
         throw new DynamicInterruptedException(
             String.format(
                 "Local branch of %s cancelling self in favor of remote.",

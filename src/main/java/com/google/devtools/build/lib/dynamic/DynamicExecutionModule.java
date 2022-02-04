@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -232,14 +233,24 @@ public class DynamicExecutionModule extends BlazeModule {
    *     though this branch failed already.
    */
   protected boolean canIgnoreFailure(
-      Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal) {
+      Spawn spawn,
+      ActionExecutionContext context,
+      int exitCode,
+      String errorMessage,
+      FileOutErr outErr,
+      boolean isLocal) {
     return false;
   }
 
   @FunctionalInterface
   interface IgnoreFailureCheck {
     boolean canIgnoreFailure(
-        Spawn spawn, int exitCode, String errorMessage, FileOutErr outErr, boolean isLocal);
+        Spawn spawn,
+        ActionExecutionContext context,
+        int exitCode,
+        String errorMessage,
+        FileOutErr outErr,
+        boolean isLocal);
   }
 
   @Subscribe

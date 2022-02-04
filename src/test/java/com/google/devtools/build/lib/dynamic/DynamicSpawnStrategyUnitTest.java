@@ -292,7 +292,8 @@ public class DynamicSpawnStrategyUnitTest {
             false,
             10,
             10,
-            (s, exitCode, errorMsg, outErr, isLocal) -> isLocal && errorMsg.contains("Ignorable"));
+            (s, context, exitCode, errorMsg, outErr, isLocal) ->
+                isLocal && errorMsg.contains("Ignorable"));
     SandboxedSpawnStrategy local = createMockSpawnStrategy();
     // Make sure that local execution does not win the race before remote starts.
     Semaphore remoteStarted = new Semaphore(0);
@@ -338,7 +339,8 @@ public class DynamicSpawnStrategyUnitTest {
             false,
             10,
             10,
-            (s, exitCode, errorMsg, outErr, isLocal) -> isLocal && errorMsg.contains("Ignorable"));
+            (s, context, exitCode, errorMsg, outErr, isLocal) ->
+                isLocal && errorMsg.contains("Ignorable"));
     SandboxedSpawnStrategy local = createMockSpawnStrategy();
     // Make sure that local execution does not win the race before remote starts.
     Semaphore remoteStarted = new Semaphore(0);
