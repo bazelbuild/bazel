@@ -50,9 +50,8 @@ function test_verify_urls() {
     for url in $(grep -E '"https://|http://' "${file}" | \
       sed -e '/jekyll-tree/d' -e '/^#/d' -r -e  's#^.*"(https?://[^"]+)".*$#\1#g' | \
       sort -u); do
-      #echo "Checking ${url}"
-      if ! curl --head -silent --fail --output /dev/null --retry 3 "${url}"; then
-        #fail "URL ${url} is invalid."
+      echo "Checking ${url} ..."
+      if ! curl --head --silent --show-error --fail --output /dev/null --retry 3 "${url}"; then
         invalid_urls+=("${url}")
       fi
     done
