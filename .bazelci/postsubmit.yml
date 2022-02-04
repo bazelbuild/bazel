@@ -10,6 +10,7 @@ tasks:
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--noremote_accept_cached"
     build_targets:
       - "//:bazel-distfile.zip"
       - "//scripts/packages/debian:bazel-debian.deb"
@@ -55,6 +56,7 @@ tasks:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      - "--noremote_accept_cached"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -97,6 +99,7 @@ tasks:
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--noremote_accept_cached"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -122,6 +125,7 @@ tasks:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      - "--noremote_accept_cached"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -161,6 +165,7 @@ tasks:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      - "--noremote_accept_cached"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -197,6 +202,7 @@ tasks:
       - "--test_env=JAVA_HOME"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--noremote_accept_cached"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
