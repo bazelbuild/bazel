@@ -1033,100 +1033,23 @@ ALLOWED_SRC_FILES.extend(cc_helper.extensions.SHARED_LIBRARY)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.OBJECT_FILE)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_OBJECT_FILE)
 
-# Intended only to be used by cc_test. Do not import.
-cc_binary_attrs = {
-    "srcs": attr.label_list(
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-        allow_files = True,
-    ),
-    "win_def_file": attr.label(
-        allow_single_file = [".def"],
-    ),
-    "reexport_deps": attr.label_list(
-        allow_files = True,
-        allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-    ),
-    "linkopts": attr.string_list(),
-    "copts": attr.string_list(),
-    "defines": attr.string_list(),
-    "local_defines": attr.string_list(),
-    "includes": attr.string_list(),
-    "nocopts": attr.string(),
-    # TODO(b/198254254): Only once inside Google? in progress
-    # TODO(b/198254254): Add default = cc_internal.default_hdrs_check_computed_default().
-    "hdrs_check": attr.string(),
-    "linkstatic": attr.bool(
-        default = True,
-    ),
-    "additional_linker_inputs": attr.label_list(
-        allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "deps": attr.label_list(
-        allow_files = semantics.ALLOWED_FILES_IN_DEPS,
-        allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_WITH_WARNINGS_IN_DEPS,
-        flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-        providers = [CcInfo],
-    ),
-    "dynamic_deps": attr.label_list(
-        allow_files = False,
-        providers = [CcSharedLibraryInfo],
-    ),
-    "malloc": attr.label(
-        default = Label("@//tools/cpp:malloc"),
-        allow_files = False,
-        allow_rules = ["cc_library"],
-        # TODO(b/198254254): Add aspects. in progress
-        aspects = [],
-    ),
-    "_default_malloc": attr.label(
-        # TODO(b/198254254): Add default value. in progress
-        default = configuration_field(fragment = "cpp", name = "custom_malloc"),
-    ),
-    "stamp": attr.int(
-        default = -1,
-    ),
-    "linkshared": attr.bool(
-        default = False,
-    ),
-    "data": attr.label_list(
-        allow_files = True,
-        flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
-    ),
-    "env": attr.string_dict(),
-    "distribs": attr.string_list(),
-    "_is_test": attr.bool(default = False),
-    "_grep_includes": attr.label(
-        allow_files = True,
+def make_cc_binary(cc_binary_attrs, **kwargs):
+    return rule(
+        implementation = cc_binary_impl,
+        attrs = cc_binary_attrs,
+        outputs = {
+            # TODO(b/198254254): Handle case for windows.
+            "stripped_binary": "%{name}.stripped",
+            "dwp_file": "%{name}.dwp",
+        },
+        fragments = ["google_cpp", "cpp"],
+        exec_groups = {
+            "cpp_link": exec_group(copy_from_rule = True),
+        },
+        toolchains = [
+            "@" + semantics.get_repo() + "//tools/cpp:toolchain_type",
+        ],
+        incompatible_use_toolchain_transition = True,
         executable = True,
-        cfg = "exec",
-        default = Label("@//tools/cpp:grep-includes"),
-    ),
-    "_stl": attr.label(default = "@//third_party/stl"),
-    "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
-    "_cc_toolchain_type": attr.label(default = "@//tools/cpp:toolchain_type"),
-    # TODO(b/198254254): Add default computed value once it is available in the API.
-    "_default_copts": attr.string_list(),
-}
-cc_binary_attrs.update(semantics.get_licenses_attr())
-cc_binary_attrs.update(semantics.get_distribs_attr())
-cc_binary_attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
-
-cc_binary = rule(
-    implementation = cc_binary_impl,
-    attrs = cc_binary_attrs,
-    outputs = {
-        # TODO(b/198254254): Handle case for windows.
-        "stripped_binary": "%{name}.stripped",
-        "dwp_file": "%{name}.dwp",
-    },
-    fragments = ["google_cpp", "cpp"],
-    exec_groups = {
-        "cpp_link": exec_group(copy_from_rule = True),
-    },
-    toolchains = [
-        "@//tools/cpp:toolchain_type",
-    ],
-    incompatible_use_toolchain_transition = True,
-    executable = True,
-)
+        **kwargs
+    )

@@ -14,11 +14,15 @@
 
 """cc_test Starlark implementation."""
 
-load(":common/cc/cc_binary.bzl", "cc_binary_attrs", "cc_binary_impl")
+load(":common/cc/cc_binary.bzl", "cc_binary_impl")
+
+# TODO(b/198254254): We need to do a wrapper around cc_test like for
+# cc_binary, but for now it should work.
+load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects")
 
 testing = _builtins.toplevel.testing
 
-_cc_test_attrs = dict(cc_binary_attrs)
+_cc_test_attrs = dict(cc_binary_attrs_with_aspects)
 
 # Update other cc_test defaults:
 _cc_test_attrs.update(

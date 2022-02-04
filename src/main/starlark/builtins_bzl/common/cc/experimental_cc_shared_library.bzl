@@ -103,7 +103,8 @@ def _merge_cc_shared_library_infos(ctx):
     dynamic_deps = []
     transitive_dynamic_deps = []
     for dep in ctx.attr.dynamic_deps:
-        if dep[CcSharedLibraryInfo].preloaded_deps != None:
+        # This error is not relevant for cc_binary.
+        if not hasattr(ctx.attr, "_cc_binary") and dep[CcSharedLibraryInfo].preloaded_deps != None:
             fail("{} can only be a direct dependency of a " +
                  " cc_binary because it has " +
                  "preloaded_deps".format(str(dep.label)))
@@ -519,7 +520,8 @@ def _cc_shared_library_impl(ctx):
 def _graph_structure_aspect_impl(target, ctx):
     children = []
 
-    if hasattr(ctx.rule.attr, "deps"):
+    # For now ignore cases when deps is of type label instead of label_list.
+    if hasattr(ctx.rule.attr, "deps") and type(ctx.rule.attr.deps) != "Target":
         for dep in ctx.rule.attr.deps:
             if GraphNodeInfo in dep:
                 children.append(dep[GraphNodeInfo])
