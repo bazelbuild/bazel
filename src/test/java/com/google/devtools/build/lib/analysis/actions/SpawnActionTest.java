@@ -26,7 +26,9 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -45,6 +47,8 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,6 +57,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,6 +128,44 @@ public class SpawnActionTest extends BuildViewTestCase {
         createCopyFromWelcomeToDestination(ImmutableMap.of());
     Map<String, String> executionInfo = copyFromWelcomeToDestination.getExecutionInfo();
     assertThat(executionInfo).containsExactly("local", "");
+  }
+
+  @Test
+  public void testExecutionInfo_fromExecutionPlatform() throws Exception {
+    ActionOwner actionOwner =
+        ActionOwner.create(
+            Label.parseAbsoluteUnchecked("//target"),
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "dummy-configuration-mnemonic",
+            "dummy-kind",
+            "dummy-configuration",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            null,
+            ImmutableMap.<String, String>builder()
+                .put("prop1", "foo")
+                .put("prop2", "bar")
+                .buildOrThrow(),
+            null);
+
+    SpawnAction action =
+        builder()
+            .addInput(welcomeArtifact)
+            .addOutput(destinationArtifact)
+            .setExecutionInfo(
+                ImmutableMap.<String, String>builder()
+                    .put("prop2", "quux") // Overwrite the value from ActionOwner's exec properties.
+                    .buildOrThrow())
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .setProgressMessage("hi, mom!")
+            .setMnemonic("Dummy")
+            .build(actionOwner, targetConfig);
+
+    ImmutableMap<String, String> result = action.getExecutionInfo();
+    assertThat(result).containsEntry("prop1", "foo");
+    assertThat(result).containsEntry("prop2", "quux");
   }
 
   @Test
