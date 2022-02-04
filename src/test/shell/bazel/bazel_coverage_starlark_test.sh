@@ -134,4 +134,90 @@ EOF
         || fail "Coverage report did not contain evidence of custom lcov_merger."
 }
 
+function test_starlark_rule_with_configuration_field_lcov_merger_coverage_enabled() {
+
+    cat <<EOF > lcov_merger.sh
+for var in "\$@"
+do
+    if [[ "\$var" == "--output_file="* ]]; then
+        path="\${var##--output_file=}"
+        mkdir -p "\$(dirname \$path)"
+        echo lcov_merger_called >> \$path
+        exit 0
+    fi
+done
+EOF
+chmod +x lcov_merger.sh
+
+    cat <<EOF > rules.bzl
+def _impl(ctx):
+    output = ctx.actions.declare_file(ctx.attr.name)
+    ctx.actions.write(output, "", is_executable = True)
+    return [DefaultInfo(executable=output)]
+
+custom_test = rule(
+    implementation = _impl,
+    test = True,
+    attrs = {
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            cfg = "exec"
+        ),
+    },
+    fragments = ["coverage"],
+)
+EOF
+
+    cat <<EOF > BUILD
+load(":rules.bzl", "custom_test")
+
+sh_binary(
+    name = "lcov_merger",
+    srcs = ["lcov_merger.sh"],
+)
+custom_test(name = "foo_test")
+EOF
+
+    bazel coverage --test_output=all //:foo_test --combined_report=lcov --coverage_output_generator=//:lcov_merger > $TEST_log \
+        || fail "Coverage run failed but should have succeeded."
+
+    local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+    cat $coverage_file_path
+    grep "lcov_merger_called"  "$coverage_file_path" \
+        || fail "Coverage report did not contain evidence of custom lcov_merger."
+}
+
+function test_starlark_rule_with_configuration_field_lcov_merger_coverage_disabled() {
+
+    cat <<EOF > rules.bzl
+def _impl(ctx):
+    if ctx.attr._lcov_merger:
+        fail("Expected _lcov_merger to be None if coverage is not collected")
+    output = ctx.actions.declare_file(ctx.attr.name)
+    ctx.actions.write(output, "", is_executable = True)
+    return [DefaultInfo(executable=output)]
+
+custom_test = rule(
+    implementation = _impl,
+    test = True,
+    attrs = {
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            cfg = "exec"
+        ),
+    },
+    fragments = ["coverage"],
+)
+EOF
+
+    cat <<EOF > BUILD
+load(":rules.bzl", "custom_test")
+
+custom_test(name = "foo_test")
+EOF
+
+    bazel test --test_output=all //:foo_test > $TEST_log \
+        || fail "Test run failed but should have succeeded."
+}
+
 run_suite "test tests"
