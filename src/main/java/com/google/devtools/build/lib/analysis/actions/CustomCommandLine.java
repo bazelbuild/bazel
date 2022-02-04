@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -55,7 +54,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A customizable, serializable class for building memory efficient command lines. */
@@ -506,9 +504,9 @@ public class CustomCommandLine extends CommandLine {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static class FormatArg implements ArgvFragment {
-    @SerializationConstant @AutoCodec.VisibleForSerialization
+    @SerializationConstant @VisibleForSerialization
     static final FormatArg INSTANCE = new FormatArg();
 
     private static final UUID FORMAT_UUID = UUID.fromString("377cee34-e947-49e0-94a2-6ab95b396ec4");
@@ -552,9 +550,9 @@ public class CustomCommandLine extends CommandLine {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static class PrefixArg implements ArgvFragment {
-    @SerializationConstant @AutoCodec.VisibleForSerialization
+    @SerializationConstant @VisibleForSerialization
     static final PrefixArg INSTANCE = new PrefixArg();
 
     private static final UUID PREFIX_UUID = UUID.fromString("a95eccdf-4f54-46fc-b925-c8c7e1f50c95");
@@ -645,30 +643,14 @@ public class CustomCommandLine extends CommandLine {
     abstract String describe();
   }
 
-  // TODO(b/113932468): @AutoCodec is incorrectly not serializing expandFunction, but all the
-  // callers need to pass in serializable functions for us to switch to DynamicCodec
-  @AutoCodec
-  static final class ExpandedTreeArtifactArg extends TreeArtifactExpansionArgvFragment {
-    private final Artifact treeArtifact;
+  private static final class ExpandedTreeArtifactArg extends TreeArtifactExpansionArgvFragment {
     private static final UUID TREE_UUID = UUID.fromString("13b7626b-c77d-4a30-ad56-ff08c06b1cee");
-    private final Function<Artifact, Iterable<String>> expandFunction;
+    private final Artifact treeArtifact;
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
     ExpandedTreeArtifactArg(Artifact treeArtifact) {
       Preconditions.checkArgument(
           treeArtifact.isTreeArtifact(), "%s is not a TreeArtifact", treeArtifact);
       this.treeArtifact = treeArtifact;
-      this.expandFunction = artifact -> ImmutableList.of(artifact.getExecPathString());
-    }
-
-    @VisibleForSerialization
-    ExpandedTreeArtifactArg(
-        Artifact treeArtifact, Function<Artifact, Iterable<String>> expandFunction) {
-      Preconditions.checkArgument(
-          treeArtifact.isTreeArtifact(), "%s is not a TreeArtifact", treeArtifact);
-      this.treeArtifact = treeArtifact;
-      this.expandFunction = expandFunction;
     }
 
     @Override
@@ -677,9 +659,7 @@ public class CustomCommandLine extends CommandLine {
       artifactExpander.expand(treeArtifact, expandedArtifacts);
 
       for (Artifact expandedArtifact : expandedArtifacts) {
-        for (String commandLine : expandFunction.apply(expandedArtifact)) {
-          builder.add(commandLine);
-        }
+        builder.add(expandedArtifact.getExecPathString());
       }
     }
 
@@ -1129,34 +1109,6 @@ public class CustomCommandLine extends CommandLine {
       treeArtifactInputs.add(treeArtifact);
       Preconditions.checkNotNull(treeArtifact);
       arguments.add(new ExpandedTreeArtifactArg(treeArtifact));
-      return this;
-    }
-
-    public Builder addExpandedTreeArtifactExecPaths(String arg, Artifact treeArtifact) {
-      Preconditions.checkNotNull(arg);
-      Preconditions.checkNotNull(treeArtifact);
-      Preconditions.checkState(!treeArtifactsRequested);
-      treeArtifactInputs.add(treeArtifact);
-      arguments.add(
-          new ExpandedTreeArtifactArg(
-              treeArtifact, artifact -> ImmutableList.of(arg, artifact.getExecPathString())));
-      return this;
-    }
-
-    /**
-     * Adds the arguments for all {@link TreeFileArtifact}s under {@code treeArtifact}, one argument
-     * per file. Using {@code expandFunction} to expand each {@link TreeFileArtifact} to expected
-     * argument.
-     *
-     * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
-     * @param expandFunction the function to generate the argument for each{@link TreeFileArtifact}.
-     */
-    public Builder addExpandedTreeArtifact(
-        Artifact treeArtifact, Function<Artifact, Iterable<String>> expandFunction) {
-      Preconditions.checkNotNull(treeArtifact);
-      Preconditions.checkState(!treeArtifactsRequested);
-      treeArtifactInputs.add(treeArtifact);
-      arguments.add(new ExpandedTreeArtifactArg(treeArtifact, expandFunction));
       return this;
     }
 
