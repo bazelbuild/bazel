@@ -48,8 +48,8 @@ final class WorkerKey {
    * methods.
    */
   private final HashCode workerFilesCombinedHash;
-  /** Worker files with the corresponding hash code. */
-  private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
+  /** Worker files with the corresponding digest. */
+  private final SortedMap<PathFragment, byte[]> workerFilesWithDigests;
   /** If true, the workers run inside a sandbox. */
   private final boolean sandboxed;
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
@@ -70,7 +70,7 @@ final class WorkerKey {
       Path execRoot,
       String mnemonic,
       HashCode workerFilesCombinedHash,
-      SortedMap<PathFragment, HashCode> workerFilesWithHashes,
+      SortedMap<PathFragment, byte[]> workerFilesWithDigests,
       boolean sandboxed,
       boolean multiplex,
       boolean cancellable,
@@ -80,7 +80,7 @@ final class WorkerKey {
     this.execRoot = Preconditions.checkNotNull(execRoot);
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
-    this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
+    this.workerFilesWithDigests = Preconditions.checkNotNull(workerFilesWithDigests);
     this.sandboxed = sandboxed;
     this.multiplex = multiplex;
     this.cancellable = cancellable;
@@ -88,34 +88,28 @@ final class WorkerKey {
     hash = calculateHashCode();
   }
 
-  /** Getter function for variable args. */
   public ImmutableList<String> getArgs() {
     return args;
   }
 
-  /** Getter function for variable env. */
   public ImmutableMap<String, String> getEnv() {
     return env;
   }
 
-  /** Getter function for variable execRoot. */
   public Path getExecRoot() {
     return execRoot;
   }
 
-  /** Getter function for variable mnemonic. */
   public String getMnemonic() {
     return mnemonic;
   }
 
-  /** Getter function for variable workerFilesCombinedHash. */
   public HashCode getWorkerFilesCombinedHash() {
     return workerFilesCombinedHash;
   }
 
-  /** Getter function for variable workerFilesWithHashes. */
-  public SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
-    return workerFilesWithHashes;
+  public SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests() {
+    return workerFilesWithDigests;
   }
 
   /** Returns true if workers are sandboxed. */
@@ -217,11 +211,11 @@ final class WorkerKey {
     // debugging.
     return CommandFailureUtils.describeCommand(
         CommandDescriptionForm.COMPLETE,
-        /* prettyPrintArgs= */ false,
+        /*prettyPrintArgs=*/ false,
         args,
         env,
         execRoot.getPathString(),
-        /* configurationChecksum=*/ null,
-        /* executionPlatform= */ null);
+        /*configurationChecksum=*/ null,
+        /*executionPlatformAsLabelString=*/ null);
   }
 }

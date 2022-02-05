@@ -411,7 +411,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                     String.format("Worker #%d preparing execution", worker.getWorkerId()))) {
           // We consider `prepareExecution` to be also part of setup.
           Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
-          worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
+          worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithDigests().keySet());
           initializeMetricsSet(key, worker);
           spawnMetrics.setSetupTime(setupInputsTime.plus(prepareExecutionStopwatch.elapsed()));
         } catch (IOException e) {
