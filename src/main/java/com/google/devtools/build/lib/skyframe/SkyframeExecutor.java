@@ -286,6 +286,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
+  private final SyscallCache perCommandSyscallCache;
 
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -294,8 +295,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
-  protected final AtomicReference<SyscallCache> syscallCacheRef =
-      new AtomicReference<>(SyscallCache.NO_CACHE);
   protected final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
   protected final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
       new AtomicReference<>(ImmutableSet.of());
@@ -354,8 +353,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private final SkyKeyStateReceiver skyKeyStateReceiver;
 
-  private PerBuildSyscallCache perBuildSyscallCache;
-
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
 
   private boolean siblingRepositoryLayout = false;
@@ -403,6 +400,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ActionKeyContext actionKeyContext,
       Factory workspaceStatusActionFactory,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      SyscallCache perCommandSyscallCache,
       ExternalFileAction externalFileAction,
       SkyFunction ignoredPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
@@ -422,14 +420,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.skyKeyStateReceiver = skyKeyStateReceiver;
     this.bugReporter = bugReporter;
-    this.pkgFactory.setSyscallCache(syscallCacheRef::get);
+    this.perCommandSyscallCache = perCommandSyscallCache;
+    this.pkgFactory.setSyscallCache(this.perCommandSyscallCache);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager =
         new SkyframePackageManager(
             new SkyframePackageLoader(),
             new QueryTransitivePackagePreloader(
                 () -> memoizingEvaluator, this::newEvaluationContextBuilder),
-            syscallCacheRef::get,
+            this.perCommandSyscallCache,
             pkgLocator::get,
             numPackagesLoaded);
     this.fileSystem = fileSystem;
@@ -446,7 +445,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             outputArtifactsFromActionCache,
             statusReporterRef,
             this::getPathEntries,
-            syscallCacheRef::get,
+            this.perCommandSyscallCache,
             skyKeyStateReceiver::makeThreadStateReceiver);
     this.artifactFactory =
         new ArtifactFactory(
@@ -600,7 +599,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new ArtifactFunction(
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
             sourceArtifactsSeen,
-            syscallCacheRef::get));
+            perCommandSyscallCache));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
@@ -612,7 +611,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.actionExecutionFunction = actionExecutionFunction;
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
-        new RecursiveFilesystemTraversalFunction(syscallCacheRef::get));
+        new RecursiveFilesystemTraversalFunction(perCommandSyscallCache));
     map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(directories::getExecRoot));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
@@ -653,11 +652,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   protected SkyFunction newFileStateFunction() {
-    return new FileStateFunction(tsgm::get, syscallCacheRef::get, externalFilesHelper);
+    return new FileStateFunction(tsgm::get, perCommandSyscallCache, externalFilesHelper);
   }
 
   protected SkyFunction newDirectoryListingStateFunction() {
-    return new DirectoryListingStateFunction(externalFilesHelper, syscallCacheRef::get);
+    return new DirectoryListingStateFunction(externalFilesHelper, perCommandSyscallCache);
   }
 
   protected GlobFunction newGlobFunction() {
@@ -685,25 +684,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int globbingThreads) {
     return PerBuildSyscallCache.newBuilder().setInitialCapacity(globbingThreads).build();
-  }
-
-  /**
-   * Gets a (possibly cached) syscalls cache, re-initialized each build.
-   *
-   * <p>We cache the syscalls cache if possible because construction of the cache is surprisingly
-   * expensive, and is on the critical path of null builds.
-   */
-  protected final PerBuildSyscallCache getPerBuildSyscallCache(int globbingThreads) {
-    if (perBuildSyscallCache == null) {
-      perBuildSyscallCache = newPerBuildSyscallCache(globbingThreads);
-    } else {
-      perBuildSyscallCache.clear();
-    }
-    return perBuildSyscallCache;
-  }
-
-  public final SyscallCache getCurrentSyscallCache() {
-    return syscallCacheRef.get();
   }
 
   @ThreadCompatible
@@ -1367,7 +1347,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
 
-    syscallCacheRef.set(getPerBuildSyscallCache(packageOptions.globbingThreads));
+    perCommandSyscallCache.clear();
     this.pkgFactory.setGlobbingThreads(packageOptions.globbingThreads);
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
@@ -2243,12 +2223,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
+    perCommandSyscallCache.clear();
     invalidateFilesUnderPathForTestingImpl(eventHandler, modifiedFileSet, pathEntry);
-  }
-
-  @VisibleForTesting
-  public final void turnOffSyscallCacheForTesting() {
-    syscallCacheRef.set(SyscallCache.NO_CACHE);
   }
 
   protected abstract void invalidateFilesUnderPathForTestingImpl(
@@ -2282,8 +2258,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     EvaluationResult<ActionLookupValue> result =
         memoizingEvaluator.evaluate(
             Iterables.concat(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
-    // Get rid of any memory retained by the cache -- all loading is done.
-    perBuildSyscallCache.clear();
+    perCommandSyscallCache.noteAnalysisPhaseEnded();
     return result;
   }
 
@@ -2313,12 +2288,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setExecutionPhaseThreadPoolSize(mergedPhasesExecutionJobsCount)
             .setEventHandler(eventHandler)
             .build();
-    EvaluationResult<BuildDriverValue> result =
-        memoizingEvaluator.evaluate(
-            Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
-    // Get rid of any memory retained by the cache -- all loading is done.
-    perBuildSyscallCache.clear();
-    return result;
+    return memoizingEvaluator.evaluate(
+        Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
   }
 
   /**

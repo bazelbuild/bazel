@@ -237,7 +237,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             MetadataConsumerForMetrics.NO_OP,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ ImmutableList::of,
-            () -> SyscallCache.NO_CACHE,
+            SyscallCache.NO_CACHE,
             k -> ThreadStateReceiver.NULL_INSTANCE);
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
@@ -255,13 +255,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
                     FileStateValue.FILE_STATE,
-                    new FileStateFunction(
-                        () -> tsgm, () -> SyscallCache.NO_CACHE, externalFilesHelper))
+                    new FileStateFunction(() -> tsgm, SyscallCache.NO_CACHE, externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(
                     Artifact.ARTIFACT,
                     new ArtifactFunction(
-                        () -> true, MetadataConsumerForMetrics.NO_OP, () -> SyscallCache.NO_CACHE))
+                        () -> true, MetadataConsumerForMetrics.NO_OP, SyscallCache.NO_CACHE))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(

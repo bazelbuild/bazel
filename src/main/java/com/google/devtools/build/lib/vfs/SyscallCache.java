@@ -39,6 +39,9 @@ public interface SyscallCache {
         public Dirent.Type getType(Path path, Symlinks symlinks) throws IOException {
           return statusToDirentType(statIfFound(path, symlinks));
         }
+
+        @Override
+        public void clear() {}
       };
 
   /** Gets directory entries and their types. Does not follow symlinks. */
@@ -57,8 +60,15 @@ public interface SyscallCache {
     return path.getFastDigest();
   }
 
-  default byte[] getDigest(Path path) throws IOException {
-    return path.getDigest();
+  /** Called before each build. Implementations should flush their caches at that point. */
+  void clear();
+
+  /**
+   * Called at the end of the analysis phase (if not doing merged analysis/execution). Cache may
+   * choose to drop some data then.
+   */
+  default void noteAnalysisPhaseEnded() {
+    clear();
   }
 
   static Dirent.Type statusToDirentType(FileStatus status) {

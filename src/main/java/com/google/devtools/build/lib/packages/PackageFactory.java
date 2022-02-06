@@ -54,7 +54,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -114,7 +113,7 @@ public final class PackageFactory {
   private final RuleFactory ruleFactory;
   private final RuleClassProvider ruleClassProvider;
 
-  private Supplier<? extends SyscallCache> syscalls;
+  private SyscallCache syscallCache;
 
   private ForkJoinPool executor;
 
@@ -210,9 +209,9 @@ public final class PackageFactory {
             version);
   }
 
-  /** Sets the syscalls cache used in globbing. */
-  public void setSyscallCache(Supplier<? extends SyscallCache> syscalls) {
-    this.syscalls = Preconditions.checkNotNull(syscalls);
+  /** Sets the syscalls cache used in filesystem access. */
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.syscallCache = Preconditions.checkNotNull(syscallCache);
   }
 
   /**
@@ -481,7 +480,7 @@ public final class PackageFactory {
             packageId,
             ignoredGlobPrefixes,
             locator,
-            syscalls.get(),
+            syscallCache,
             executor,
             maxDirectoriesToEagerlyVisitInGlobbing,
             threadStateReceiverForMetrics));

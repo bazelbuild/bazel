@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -331,6 +332,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(

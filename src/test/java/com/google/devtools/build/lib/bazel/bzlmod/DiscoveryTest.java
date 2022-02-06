@@ -159,7 +159,7 @@ public class DiscoveryTest extends FoundationTestCase {
                     new FileStateFunction(
                         Suppliers.ofInstance(
                             new TimestampGranularityMonitor(BlazeClock.instance())),
-                        () -> SyscallCache.NO_CACHE,
+                        SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
                 .put(

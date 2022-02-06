@@ -170,7 +170,7 @@ public class FileFunctionTest {
                     new FileStateFunction(
                         Suppliers.ofInstance(
                             new TimestampGranularityMonitor(BlazeClock.instance())),
-                        () -> SyscallCache.NO_CACHE,
+                        SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(
                     FileSymlinkCycleUniquenessFunction.NAME,

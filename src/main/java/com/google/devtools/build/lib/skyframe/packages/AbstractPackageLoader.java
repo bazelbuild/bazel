@@ -437,7 +437,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     PerBuildSyscallCache syscallCache =
         PerBuildSyscallCache.newBuilder().setInitialCapacity(nonSkyframeGlobbingThreads).build();
-    pkgFactory.setSyscallCache(() -> syscallCache);
+    pkgFactory.setSyscallCache(syscallCache);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING);
     CachingPackageLocator cachingPackageLocator =
@@ -459,7 +459,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
         .put(
             FileStateValue.FILE_STATE,
-            new FileStateFunction(() -> tsgm, () -> syscallCache, externalFilesHelper))
+            new FileStateFunction(() -> tsgm, syscallCache, externalFilesHelper))
         .put(FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction())
         .put(
             FileSymlinkInfiniteExpansionUniquenessFunction.NAME,

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.Optional;
@@ -95,6 +96,7 @@ public class PackageLoadingTest extends FoundationTestCase {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     setUpSkyframe(parsePackageOptions(), parseBuildLanguageOptions());

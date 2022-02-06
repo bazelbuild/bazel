@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -90,6 +91,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
                     PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -129,6 +130,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(

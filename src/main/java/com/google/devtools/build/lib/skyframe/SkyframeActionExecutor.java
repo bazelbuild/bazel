@@ -146,7 +146,7 @@ public final class SkyframeActionExecutor {
   private final ActionKeyContext actionKeyContext;
   private final MetadataConsumerForMetrics outputArtifactsSeen;
   private final MetadataConsumerForMetrics outputArtifactsFromActionCache;
-  private final Supplier<SyscallCache> syscallCache;
+  private final SyscallCache syscallCache;
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
   private Reporter reporter;
   private Map<String, String> clientEnv = ImmutableMap.of();
@@ -218,7 +218,7 @@ public final class SkyframeActionExecutor {
       MetadataConsumerForMetrics outputArtifactsFromActionCache,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
-      Supplier<SyscallCache> syscallCache,
+      SyscallCache syscallCache,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
@@ -546,7 +546,7 @@ public final class SkyframeActionExecutor {
         actionFileSystem,
         skyframeDepsResult,
         discoveredModulesPruner,
-        syscallCache.get(),
+        syscallCache,
         threadStateReceiverFactory.apply(actionLookupData));
   }
 
@@ -767,7 +767,7 @@ public final class SkyframeActionExecutor {
             env,
             actionFileSystem,
             discoveredModulesPruner,
-            syscallCache.get(),
+            syscallCache,
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(

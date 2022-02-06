@@ -274,7 +274,7 @@ public class GlobTest {
   }
 
   @Test
-  public void testIOFailureOnStat() throws Exception {
+  public void testIOFailureOnStat() {
     SyscallCache syscalls =
         new SyscallCache() {
           @Override
@@ -289,6 +289,11 @@ public class GlobTest {
 
           @Override
           public Dirent.Type getType(Path path, Symlinks symlinks) {
+            throw new IllegalStateException();
+          }
+
+          @Override
+          public void clear() {
             throw new IllegalStateException();
           }
         };
@@ -320,6 +325,11 @@ public class GlobTest {
 
           @Override
           public Dirent.Type getType(Path path, Symlinks symlinks) {
+            throw new IllegalStateException();
+          }
+
+          @Override
+          public void clear() {
             throw new IllegalStateException();
           }
         };

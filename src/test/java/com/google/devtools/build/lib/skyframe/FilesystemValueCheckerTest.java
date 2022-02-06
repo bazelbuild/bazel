@@ -285,7 +285,7 @@ public final class FilesystemValueCheckerTest {
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
-            () -> SyscallCache.NO_CACHE,
+            SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(

@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
-  private final Supplier<SyscallCache> syscallCache;
+  private final SyscallCache syscallCache;
 
   static final class MissingArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
@@ -96,7 +96,7 @@ class ArtifactFunction implements SkyFunction {
   public ArtifactFunction(
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
-      Supplier<SyscallCache> syscallCache) {
+      SyscallCache syscallCache) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
     this.syscallCache = syscallCache;
@@ -279,8 +279,7 @@ class ArtifactFunction implements SkyFunction {
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       FileArtifactValue metadata;
       try {
-        metadata =
-            FileArtifactValue.createForSourceArtifact(artifact, fileValue, syscallCache.get());
+        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue, syscallCache);
       } catch (IOException e) {
         throw new ArtifactFunctionException(
             SourceArtifactException.create(artifact, e), Transience.TRANSIENT);

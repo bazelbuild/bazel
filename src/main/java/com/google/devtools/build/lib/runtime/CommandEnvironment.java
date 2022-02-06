@@ -161,6 +161,7 @@ public class CommandEnvironment {
       Thread commandThread,
       Command command,
       OptionsParsingResult options,
+      SyscallCache syscallCache,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
@@ -175,6 +176,7 @@ public class CommandEnvironment {
     this.command = command;
     this.options = options;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
+    this.syscallCache = syscallCache;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -220,7 +222,6 @@ public class CommandEnvironment {
     } else {
       this.packageLocator = null;
     }
-    this.syscallCache = workspace.getSkyframeExecutor().getCurrentSyscallCache();
     workspace.getSkyframeExecutor().setEventBus(eventBus);
 
     ClientOptions clientOptions =

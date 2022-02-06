@@ -66,7 +66,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A {@link SkyFunction} to build {@link RecursiveFilesystemTraversalValue}s. */
@@ -145,9 +144,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     }
   }
 
-  private final Supplier<SyscallCache> syscallCache;
+  private final SyscallCache syscallCache;
 
-  RecursiveFilesystemTraversalFunction(Supplier<SyscallCache> syscallCache) {
+  RecursiveFilesystemTraversalFunction(SyscallCache syscallCache) {
     this.syscallCache = syscallCache;
   }
 
@@ -160,7 +159,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         Profiler.instance()
             .profile(ProfilerTask.FILESYSTEM_TRAVERSAL, traversal.getRoot().toString())) {
       // Stat the traversal root.
-      FileInfo rootInfo = lookUpFileInfo(env, traversal, syscallCache.get());
+      FileInfo rootInfo = lookUpFileInfo(env, traversal, syscallCache);
       if (rootInfo == null) {
         return null;
       }
@@ -195,8 +194,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       }
 
       // Otherwise the root is a directory or a symlink to one.
-      PkgLookupResult pkgLookupResult =
-          checkIfPackage(env, traversal, rootInfo, syscallCache.get());
+      PkgLookupResult pkgLookupResult = checkIfPackage(env, traversal, rootInfo, syscallCache);
       if (pkgLookupResult == null) {
         return null;
       }

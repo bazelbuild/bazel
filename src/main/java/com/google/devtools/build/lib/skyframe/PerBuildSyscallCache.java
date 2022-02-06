@@ -29,7 +29,9 @@ import java.util.Collection;
 /**
  * A per-build cache of filesystem operations.
  *
- * <p>Mostly used by non-Skyframe globbing and include parsing.
+ * <p>Allows non-Skyframe operations (like legacy globbing) to share a filesystem cache with
+ * Skyframe nodes, and may be able to answer questions (like the type of a file) based on existing
+ * data (like the directory listing of a parent) without filesystem access.
  */
 public final class PerBuildSyscallCache implements SyscallCache {
 
@@ -181,6 +183,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
     return SyscallCache.statusToDirentType(statIfFound(path, symlinks));
   }
 
+  @Override
   public void clear() {
     statCache.invalidateAll();
     readdirCache.invalidateAll();

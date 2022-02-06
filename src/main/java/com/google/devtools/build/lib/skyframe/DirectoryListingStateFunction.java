@@ -20,7 +20,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.function.Supplier;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingStateValue}s.
@@ -37,10 +36,10 @@ public class DirectoryListingStateFunction implements SkyFunction {
    * re-use the results of expensive readdir() operations, that are likely already executed for
    * evaluating globs.
    */
-  private final Supplier<SyscallCache> syscallCache;
+  private final SyscallCache syscallCache;
 
   public DirectoryListingStateFunction(
-      ExternalFilesHelper externalFilesHelper, Supplier<SyscallCache> syscallCache) {
+      ExternalFilesHelper externalFilesHelper, SyscallCache syscallCache) {
     this.externalFilesHelper = externalFilesHelper;
     this.syscallCache = syscallCache;
   }
@@ -62,7 +61,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
         // the file system is frozen at the beginning of the build command.
         return DirectoryListingStateValue.create(dirRootedPath);
       }
-      return DirectoryListingStateValue.create(syscallCache.get().readdir(dirRootedPath.asPath()));
+      return DirectoryListingStateValue.create(syscallCache.readdir(dirRootedPath.asPath()));
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
       // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
       // indicative of a programming bug.

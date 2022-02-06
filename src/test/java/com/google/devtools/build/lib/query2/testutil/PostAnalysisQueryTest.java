@@ -17,13 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -47,24 +45,20 @@ import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.NotifyingHelper;
-import com.google.devtools.build.skyframe.TrackingAwaiter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -551,17 +545,20 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Test
   public void inconsistentSkyQueryIncremental() throws Exception {
     PathFragment barBuild = PathFragment.create("bar/BUILD");
-    PathFragment bar = barBuild.getParentDirectory();
     PostAnalysisQueryHelper.AnalysisHelper analysisHelper =
         new PostAnalysisQueryHelper.AnalysisHelper() {
           @Override
           protected FileSystem createFileSystem() {
             return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256) {
+              private final AtomicInteger barStatCount = new AtomicInteger(0);
+
               @Nullable
               @Override
               public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
                   throws IOException {
-                return path.endsWith(barBuild) ? null : super.statIfFound(path, followSymlinks);
+                return path.endsWith(barBuild) && barStatCount.incrementAndGet() == 2
+                    ? null
+                    : super.statIfFound(path, followSymlinks);
               }
             };
           }
@@ -573,31 +570,8 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
             return super.defaultFlags().with(Flag.KEEP_GOING);
           }
         };
-    CountDownLatch directoryListingLatch = new CountDownLatch(1);
     createQueryHelper();
     getHelper().setUp(analysisHelper);
-    // Make sure the directory listing populates the syscalls cache before the stat is done, so that
-    // the stat can happen after syscalls cache has already confirmed that it's a file. The usual
-    // testing technique of turning off the syscalls cache is undone via the preliminaries that
-    // AnalysisTestCase performs on each evaluation.
-    analysisHelper
-        .getSkyframeExecutor()
-        .getEvaluator()
-        .injectGraphTransformerForTesting(
-            NotifyingHelper.makeNotifyingTransformer(
-                (key, type, order, context) -> {
-                  if (NotifyingHelper.EventType.IS_READY.equals(type)
-                      && FileStateValue.FILE_STATE.equals(key.functionName())
-                      && barBuild.equals(((RootedPath) key.argument()).getRootRelativePath())) {
-                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                        directoryListingLatch, "Directory never listed");
-                  } else if (NotifyingHelper.EventType.SET_VALUE.equals(type)
-                      && NotifyingHelper.Order.AFTER.equals(order)
-                      && SkyFunctions.DIRECTORY_LISTING_STATE.equals(key.functionName())
-                      && bar.equals(((RootedPath) key.argument()).getRootRelativePath())) {
-                    directoryListingLatch.countDown();
-                  }
-                }));
     disableOrderedResults();
     writeFile("foo/BUILD");
     writeFile("bar/BUILD");
@@ -615,8 +589,6 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     QueryException queryException = assertThrows(QueryException.class, () -> eval("bar"));
     assertThat(queryException.getFailureDetail().getTargetPatterns().getCode())
         .isEqualTo(FailureDetails.TargetPatterns.Code.CANNOT_DETERMINE_TARGET_FROM_FILENAME);
-    TrackingAwaiter.INSTANCE.assertNoErrors();
-    assertThat(directoryListingLatch.await(0, SECONDS)).isTrue();
   }
 
   private void writeSimpleTarget() throws Exception {

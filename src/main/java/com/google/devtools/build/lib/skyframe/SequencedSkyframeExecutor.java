@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EventFilter;
@@ -166,6 +167,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      SyscallCache perCommandSyscallCache,
       SkyFunction ignoredPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
@@ -182,6 +184,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         actionKeyContext,
         workspaceStatusActionFactory,
         extraSkyFunctions,
+        perCommandSyscallCache,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         ignoredPackagePrefixesFunction,
         crossRepositoryLabelViolationStrategy,
@@ -771,7 +774,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     Differencer.Diff diff;
-    syscallCacheRef.set(getPerBuildSyscallCache(/*globbingThreads=*/ 42));
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
           new FilesystemValueChecker(tsgm, /*lastExecutionTimeRange=*/ null, /*numThreads=*/ 200)
@@ -1091,6 +1093,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private SkyFunction ignoredPackagePrefixesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
+    private SyscallCache perCommandSyscallCache = null;
 
     private Builder() {}
 
@@ -1117,6 +1120,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               diffAwarenessFactories,
               workspaceInfoFromDiffReceiver,
               extraSkyFunctions,
+              Preconditions.checkNotNull(perCommandSyscallCache),
               ignoredPackagePrefixesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
@@ -1218,6 +1222,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     public Builder setSkyKeyStateReceiver(SkyKeyStateReceiver skyKeyStateReceiver) {
       this.skyKeyStateReceiver = Preconditions.checkNotNull(skyKeyStateReceiver);
+      return this;
+    }
+
+    public Builder setPerCommandSyscallCache(SyscallCache perCommandSyscallCache) {
+      this.perCommandSyscallCache = perCommandSyscallCache;
       return this;
     }
   }

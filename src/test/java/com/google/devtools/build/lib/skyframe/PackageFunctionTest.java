@@ -357,7 +357,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testPropagatesFilesystemInconsistencies_globbing() throws Exception {
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
     Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
     scratch.file(
@@ -392,11 +391,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
   /** Regression test for unexpected exception type from PackageValue. */
   @Test
   public void testDiscrepancyBetweenGlobbingErrors() throws Exception {
-    // Normally, non-Skyframe globbing and skyframe globbing share a cache for `readdir` filesystem
-    // calls. In order to exercise a situation where they observe different results for filesystem
-    // calls, we disable the cache. This might happen in a real scenario, e.g. if the cache hits a
-    // limit and evicts entries.
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     Path fooBuildFile =
         scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['bar/*.sh']))");
     Path fooDir = fooBuildFile.getParentDirectory();
@@ -1320,7 +1314,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testNonSkyframeGlobbingEncountersSymlinkCycleAndThrowsIOException() throws Exception {
     reporter.removeHandler(failFastHandler);
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
 
     // When a package's BUILD file and the relevant filesystem state is such that non-Skyframe
     // globbing will encounter an IOException due to a directory symlink cycle,

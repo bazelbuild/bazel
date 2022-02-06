@@ -19,15 +19,18 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Map;
@@ -55,10 +58,32 @@ public final class WorkspaceBuilder {
   private SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder = null;
 
   @Nullable private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
+  private SyscallCache perCommandSyscallCache;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
     this.binTools = binTools;
+  }
+
+  public static int getSyscallCacheInitialCapacity() {
+    // The initial capacity here translates into the size of an array in ConcurrentHashMap, so
+    // oversizing by N results in memory usage of 8N bytes. So the maximum wasted memory here is
+    // 1/2^20 of heap, or 10K on a 10G heap (which would start with 1280-capacity caches).
+    long scaledMemory = Runtime.getRuntime().maxMemory() >> 23;
+    if (scaledMemory > Integer.MAX_VALUE) {
+      // Something went very wrong.
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Scaled memory was still too big: "
+                  + scaledMemory
+                  + ", "
+                  + Runtime.getRuntime().maxMemory()));
+      scaledMemory = 1024;
+    } else if (scaledMemory <= 0) {
+      // If Bazel is running in <8M of memory, very impressive.
+      scaledMemory = 32;
+    }
+    return (int) scaledMemory;
   }
 
   BlazeWorkspace build(
@@ -68,6 +93,12 @@ public final class WorkspaceBuilder {
     // Set default values if none are set.
     if (skyframeExecutorFactory == null) {
       skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
+    }
+    if (perCommandSyscallCache == null) {
+      perCommandSyscallCache =
+          PerBuildSyscallCache.newBuilder()
+              .setInitialCapacity(getSyscallCacheInitialCapacity())
+              .build();
     }
 
     SkyframeExecutor skyframeExecutor =
@@ -79,6 +110,7 @@ public final class WorkspaceBuilder {
             workspaceStatusActionFactory,
             diffAwarenessFactories.build(),
             skyFunctions.buildOrThrow(),
+            perCommandSyscallCache,
             skyframeExecutorRepositoryHelpersHolder,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
@@ -91,7 +123,8 @@ public final class WorkspaceBuilder {
         eventBusExceptionHandler,
         workspaceStatusActionFactory,
         binTools,
-        allocationTracker);
+        allocationTracker,
+        perCommandSyscallCache);
   }
 
   /**
@@ -124,6 +157,16 @@ public final class WorkspaceBuilder {
     Preconditions.checkState(
         this.allocationTracker == null, "At most one allocation tracker can be set.");
     this.allocationTracker = Preconditions.checkNotNull(allocationTracker);
+    return this;
+  }
+
+  public WorkspaceBuilder setPerCommandSyscallCache(SyscallCache perCommandSyscallCache) {
+    Preconditions.checkState(
+        this.perCommandSyscallCache == null,
+        "Set twice: %s %s",
+        this.perCommandSyscallCache,
+        perCommandSyscallCache);
+    this.perCommandSyscallCache = Preconditions.checkNotNull(perCommandSyscallCache);
     return this;
   }
 

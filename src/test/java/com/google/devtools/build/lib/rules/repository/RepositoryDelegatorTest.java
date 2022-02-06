@@ -181,7 +181,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new FileStateFunction(
                         Suppliers.ofInstance(
                             new TimestampGranularityMonitor(BlazeClock.instance())),
-                        () -> SyscallCache.NO_CACHE,
+                        SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(SkyFunctions.REPOSITORY_DIRECTORY, delegatorFunction)

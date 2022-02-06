@@ -111,7 +111,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                     new FileStateFunction(
                         Suppliers.ofInstance(
                             new TimestampGranularityMonitor(BlazeClock.instance())),
-                        () -> SyscallCache.NO_CACHE,
+                        SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,

@@ -128,13 +128,13 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
-            () -> SyscallCache.NO_CACHE,
+            SyscallCache.NO_CACHE,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(externalFilesHelper, () -> SyscallCache.NO_CACHE));
+        new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,

@@ -34,12 +34,12 @@ import java.util.function.Supplier;
 public class FileStateFunction implements SkyFunction {
 
   private final Supplier<TimestampGranularityMonitor> tsgm;
-  private final Supplier<SyscallCache> syscallCache;
+  private final SyscallCache syscallCache;
   private final ExternalFilesHelper externalFilesHelper;
 
   public FileStateFunction(
       Supplier<TimestampGranularityMonitor> tsgm,
-      Supplier<SyscallCache> syscallCache,
+      SyscallCache syscallCache,
       ExternalFilesHelper externalFilesHelper) {
     this.tsgm = tsgm;
     this.syscallCache = syscallCache;
@@ -65,7 +65,7 @@ public class FileStateFunction implements SkyFunction {
         // do not use syscallCache as files under repositories get generated during the build
         return FileStateValue.create(rootedPath, tsgm.get());
       }
-      return FileStateValue.create(rootedPath, syscallCache.get(), tsgm.get());
+      return FileStateValue.create(rootedPath, syscallCache, tsgm.get());
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
       return FileStateValue.NONEXISTENT_FILE_STATE_NODE;
     } catch (InconsistentFilesystemException e) {

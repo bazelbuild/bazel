@@ -313,7 +313,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
-            .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories));
+            .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE);
     ManagedDirectoriesKnowledge managedDirectoriesKnowledge = getManagedDirectoriesKnowledge();
     if (managedDirectoriesKnowledge != null) {
       builder.setRepositoryHelpersHolder(

@@ -116,8 +116,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
               .put(
                   SkyFunctions.DIRECTORY_LISTING_STATE,
-                  new DirectoryListingStateFunction(
-                      externalFilesHelper, () -> SyscallCache.NO_CACHE))
+                  new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE))
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
               .put(

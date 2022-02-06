@@ -40,14 +40,14 @@ import java.util.function.Supplier;
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   private final SkyframePackageLoader packageLoader;
   private final QueryTransitivePackagePreloader transitiveLoader;
-  private final Supplier<SyscallCache> syscallCache;
+  private final SyscallCache syscallCache;
   private final Supplier<PathPackageLocator> pkgLocator;
   private final AtomicInteger numPackagesLoaded;
 
   public SkyframePackageManager(
       SkyframePackageLoader packageLoader,
       QueryTransitivePackagePreloader transitiveLoader,
-      Supplier<SyscallCache> syscallCache,
+      SyscallCache syscallCache,
       Supplier<PathPackageLocator> pkgLocator,
       AtomicInteger numPackagesLoaded) {
     this.packageLoader = packageLoader;
@@ -99,7 +99,7 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     // TODO(bazel-team): Use a PackageLookupValue here [skyframe-loading]
     // TODO(bazel-team): The implementation in PackageCache also checks for duplicate packages, see
     // BuildFileCache#getBuildFile [skyframe-loading]
-    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscallCache.get());
+    return pkgLocator.get().getPackageBuildFileNullable(packageName, syscallCache);
   }
 
   @Override

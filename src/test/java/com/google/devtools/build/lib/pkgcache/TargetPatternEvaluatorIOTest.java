@@ -102,7 +102,6 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   @Test
   public void testBadStat(@TestParameter boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     // Given a package, "parent",
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     // And a child, "badstat",
@@ -130,7 +129,6 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   @Test
   public void testBadStatPathAsTarget(@TestParameter boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     AtomicBoolean returnNull = new AtomicBoolean(false);
     this.transformer =
@@ -162,7 +160,6 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   @Test
   public void testBadReaddirKeepGoing() throws Exception {
     reporter.removeHandler(failFastHandler);
-    skyframeExecutor.turnOffSyscallCacheForTesting();
     // Given a package, "parent",
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     // And a child, "badstat",

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -293,6 +294,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 /*workspaceStatusActionFactory=*/ null,
                 /*diffAwarenessFactories=*/ ImmutableList.of(),
                 getExtraSkyFunctions(),
+                SyscallCache.NO_CACHE,
                 /*repositoryHelpersHolder=*/ null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
                 BugReporter.defaultInstance());
