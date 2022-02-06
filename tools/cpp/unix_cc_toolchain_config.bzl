@@ -891,7 +891,18 @@ def _impl(ctx):
                         iterate_over = "user_link_flags",
                         expand_if_available = "user_link_flags",
                     ),
-                ] + ([flag_group(flags = ctx.attr.link_libs)] if ctx.attr.link_libs else []),
+                ],
+            ),
+        ],
+    )
+
+    default_link_libs_feature = feature(
+        name = "default_link_libs",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions + lto_index_actions,
+                flag_groups = [flag_group(flags = ctx.attr.link_libs)] if ctx.attr.link_libs else [],
             ),
         ],
     )
@@ -1240,6 +1251,7 @@ def _impl(ctx):
             default_link_flags_feature,
             libraries_to_link_feature,
             user_link_flags_feature,
+            default_link_libs_feature,
             static_libgcc_feature,
             fdo_optimize_feature,
             supports_dynamic_linker_feature,
@@ -1271,6 +1283,7 @@ def _impl(ctx):
             default_compile_flags_feature,
             default_link_flags_feature,
             user_link_flags_feature,
+            default_link_libs_feature,
             fdo_optimize_feature,
             supports_dynamic_linker_feature,
             dbg_feature,
