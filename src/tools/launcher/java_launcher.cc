@@ -117,7 +117,7 @@ vector<wstring> JavaBinaryLauncher::ProcessesCommandLine() {
     // launcher.
     if (GetFlagValue(arg, L"--wrapper_script_flag=", &flag_value)) {
       if (!ProcessWrapperArgument(flag_value)) {
-        die(L"invalid wrapper argument '%s'", arg.c_str());
+        die(L"invalid wrapper argument '%ls'", arg.c_str());
       }
     } else if (!args.empty() || !ProcessWrapperArgument(arg)) {
       args.push_back(arg);
@@ -230,7 +230,7 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
           wstring error;
           if (bazel::windows::CreateJunction(junction, jar_dir, &error) !=
               bazel::windows::CreateJunctionResult::kSuccess) {
-            die(L"CreateClasspathJar failed: %s", error.c_str());
+            die(L"CreateClasspathJar failed: %ls", error.c_str());
           }
 
           jar_dirs.insert(std::make_pair(jar_dir, junction));
@@ -266,7 +266,7 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   }
   jar_manifest_file.close();
   if (jar_manifest_file.fail()) {
-    die(L"Couldn't write jar manifest file: %s",
+    die(L"Couldn't write jar manifest file: %ls",
         jar_manifest_file_path.c_str());
   }
 
@@ -279,7 +279,7 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   arguments.push_back(jar_manifest_file_path);
 
   if (this->LaunchProcess(jar_bin, arguments, /* suppressOutput */ true) != 0) {
-    die(L"Couldn't create classpath jar: %s", manifest_jar_path.c_str());
+    die(L"Couldn't create classpath jar: %ls", manifest_jar_path.c_str());
   }
 
   // Delete jar_manifest_file after classpath jar is created.
@@ -304,7 +304,7 @@ ExitCode JavaBinaryLauncher::Launch() {
                                      /*has_workspace_name =*/true);
   if (this->print_javabin ||
       this->GetLaunchInfoByKey(JAVA_START_CLASS) == L"--print_javabin") {
-    wprintf(L"%s\n", java_bin.c_str());
+    wprintf(L"%ls\n", java_bin.c_str());
     return 0;
   }
 
@@ -316,7 +316,7 @@ ExitCode JavaBinaryLauncher::Launch() {
         GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]) +
         L"_deploy.jar";
     if (!DoesFilePathExist(deploy_jar.c_str())) {
-      die(L"Option --singlejar was passed, but %s does not exist.\n  (You may "
+      die(L"Option --singlejar was passed, but %ls does not exist.\n  (You may "
           "need to build it explicitly.)",
           deploy_jar.c_str());
     }
