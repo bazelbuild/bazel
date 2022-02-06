@@ -222,6 +222,7 @@ toolchain(
     target_compatible_with = [
         "@platforms//cpu:x86_64",
         "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:msvc",
     ],
     toolchain = ":cc-compiler-x64_windows",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
@@ -288,6 +289,7 @@ toolchain(
     target_compatible_with = [
         "@platforms//cpu:x86_32",
         "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:msvc",
     ],
     toolchain = ":cc-compiler-x64_x86_windows",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
@@ -354,6 +356,7 @@ toolchain(
     target_compatible_with = [
         "@platforms//cpu:arm",
         "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:msvc",
     ],
     toolchain = ":cc-compiler-x64_arm_windows",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
@@ -419,6 +422,7 @@ toolchain(
     target_compatible_with = [
         "@platforms//cpu:arm64",
         "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:msvc",
     ],
     toolchain = ":cc-compiler-arm64_windows",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
