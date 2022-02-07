@@ -20,11 +20,12 @@ load(":common/cc/cc_binary.bzl", "cc_binary_impl")
 # cc_binary, but for now it should work.
 load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects")
 
+cc_internal = _builtins.internal.cc_internal
 testing = _builtins.toplevel.testing
 
 _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
 
-# Update other cc_test defaults:
+# Update cc_test defaults:
 _cc_test_attrs.update(
     _is_test = attr.bool(default = True),
     stamp = attr.int(default = 0),
@@ -38,13 +39,45 @@ _cc_test_attrs.update(
 )
 
 def _cc_test_impl(ctx):
-    binary_info = cc_binary_impl(ctx)
-    env = testing.TestEnvironment(ctx.attr.env)
-    binary_info.append(env)
-    return binary_info
+    binary_info, cc_info, providers = cc_binary_impl(ctx, [])
+    providers.append(testing.TestEnvironment(ctx.attr.env))
+    providers.append(DefaultInfo(
+        files = binary_info.files,
+        runfiles = binary_info.runfiles,
+        executable = binary_info.executable,
+    ))
+    return _handle_legacy_return(ctx, cc_info, providers)
+
+def _handle_legacy_return(ctx, cc_info, providers):
+    if ctx.fragments.cpp.enable_legacy_cc_provider():
+        # buildifier: disable=rule-impl-return
+        return struct(
+            cc = cc_internal.create_cc_provider(cc_info = cc_info),
+            providers = providers,
+        )
+    else:
+        return providers
+
+def _impl(ctx):
+    cpp_config = ctx.fragments.cpp
+    cc_test_info = ctx.toolchains["@//tools/cpp:test_runner_toolchain_type"].cc_test_info
+
+    if not cpp_config.experimental_platform_cc_test() or cc_test_info.use_legacy_cc_test:
+        # This is the "legacy" cc_test flow
+        return _cc_test_impl(ctx)
+
+    binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+
+    test_providers = cc_test_info.get_runner.func(
+        ctx,
+        binary_info,
+        **cc_test_info.get_runner.args
+    )
+    providers.extend(test_providers)
+    return _handle_legacy_return(ctx, cc_info, providers)
 
 cc_test = rule(
-    implementation = _cc_test_impl,
+    implementation = _impl,
     attrs = _cc_test_attrs,
     outputs = {
         # TODO(b/198254254): Handle case for windows.
@@ -57,6 +90,7 @@ cc_test = rule(
     },
     toolchains = [
         "@//tools/cpp:toolchain_type",
+        "@//tools/cpp:test_runner_toolchain_type",
     ],
     incompatible_use_toolchain_transition = True,
     test = True,

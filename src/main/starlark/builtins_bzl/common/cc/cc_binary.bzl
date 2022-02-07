@@ -299,7 +299,7 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
         runtime_objects_for_coverage.extend(dynamic_runtime_lib_list)
 
     if link_compile_output_separately:
-        if cc_library_linking_outputs.library_to_link != None and cc_library_linking_outputs.library_to_link.dynamic_library != None:
+        if cc_library_linking_outputs != None and cc_library_linking_outputs.library_to_link != None and cc_library_linking_outputs.library_to_link.dynamic_library != None:
             builder_artifacts.append(cc_library_linking_outputs.library_to_link.dynamic_library)
             runtime_objects_for_coverage.append(cc_library_linking_outputs.library_to_link.dynamic_library)
 
@@ -491,12 +491,13 @@ def _create_transitive_linking_actions(
         linking_mode,
         link_target_type,
         pdb_file,
-        win_def_file):
+        win_def_file,
+        additional_linkopts):
     cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(objects = None, pic_objects = None)
     deps_cc_info = CcInfo(linking_context = deps_cc_linking_context)
     libraries_for_current_cc_linking_context = []
     if link_compile_output_separately:
-        if cc_linking_outputs.library_to_link != None:
+        if cc_linking_outputs != None and cc_linking_outputs.library_to_link != None:
             libraries_for_current_cc_linking_context.append(cc_linking_outputs.library_to_link)
     else:
         cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(
@@ -540,7 +541,7 @@ def _create_transitive_linking_actions(
     linker_inputs = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(libraries_for_current_cc_linking_context),
-        user_link_flags = common.linkopts,
+        user_link_flags = common.linkopts + additional_linkopts,
         additional_inputs = depset(common.linker_scripts + compilation_context.transitive_compilation_prerequisites().to_list()),
     )
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
@@ -556,6 +557,7 @@ def _create_transitive_linking_actions(
     link_deps_statically = True
     if linking_mode == _LINKING_DYNAMIC:
         link_deps_statically = False
+
     cc_linking_outputs = cc_common.link(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
@@ -636,13 +638,14 @@ def _is_apple_platform(target_cpu):
         return True
     return False
 
-def cc_binary_impl(ctx):
+def cc_binary_impl(ctx, additional_linkopts):
     """Implementation function of cc_binary rule.
 
     Do NOT import outside cc_test.
 
     Args:
       ctx: The Starlark rule context.
+      additional_linkopts: Additional linkopts from an external source (e.g. toolchain)
 
     Returns:
       Appropriate providers for cc_binary/cc_test.
@@ -738,7 +741,7 @@ def cc_binary_impl(ctx):
     additional_linker_inputs = ctx.files.additional_linker_inputs
 
     # Allows the dynamic library generated for code of test targets to be linked separately.
-    link_compile_output_separately = ctx.label.name.endswith("_test") and linking_mode == _LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
+    link_compile_output_separately = ctx.attr._is_test and linking_mode == _LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
 
     # When linking the object files directly into the resulting binary, we do not need
     # library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
@@ -804,7 +807,7 @@ def cc_binary_impl(ctx):
 
     extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
     linker_inputs_extra = depset()
-    extra_link_time_runtime_libraries_depset = depset()
+    runtime_libraries_extra = depset()
     if extra_link_time_libraries != None:
         linker_inputs_extra, extra_link_time_runtime_libraries_depset = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != _LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
 
@@ -827,6 +830,7 @@ def cc_binary_impl(ctx):
         link_target_type,
         pdb_file,
         win_def_file,
+        additional_linkopts,
     )
 
     cc_linking_outputs_binary_library = cc_linking_outputs_binary.library_to_link
@@ -882,7 +886,7 @@ def cc_binary_impl(ctx):
     # their names and use a different constructor below.
 
     files_to_build = depset(files_to_build_list)
-    transitive_artifacts_list = [files_to_build, extra_link_time_runtime_libraries_depset]
+    transitive_artifacts_list = [files_to_build, runtime_libraries_extra]
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "copy_dynamic_libraries_to_binary"):
         transitive_artifacts_list.append(copied_runtime_dynamic_libraries)
     transitive_artifacts = depset(transitive = transitive_artifacts_list)
@@ -952,25 +956,22 @@ def cc_binary_impl(ctx):
         unstripped_file = binary,
         dwp_file = explicit_dwp_file,
     )
+    binary_info = struct(
+        files = files_to_build,
+        runfiles = runfiles,
+        executable = binary,
+    )
     result = [
         cc_info,
         instrumented_files_provider,
         debug_package_info,
-        DefaultInfo(files = files_to_build, runfiles = runfiles, executable = binary),
         OutputGroupInfo(**output_groups),
     ]
     if "fully_static_link" in ctx.features:
         result.append(cc_internal.statically_linked_marker_provider(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
-    if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
-        return struct(
-            cc = cc_internal.create_cc_provider(cc_info = cc_info),
-            providers = result,
-        )
-    else:
-        return result
+    return binary_info, cc_info, result
 
 ALLOWED_SRC_FILES = []
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_SOURCE)
@@ -986,9 +987,29 @@ ALLOWED_SRC_FILES.extend(cc_helper.extensions.SHARED_LIBRARY)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.OBJECT_FILE)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_OBJECT_FILE)
 
+def _impl(ctx):
+    binary_info, cc_info, other_providers = cc_binary_impl(ctx, [])
+
+    # We construct DefaultInfo here, as other cc_binary-like rules (cc_test) need
+    # a different DefaultInfo.
+    default_info = DefaultInfo(
+        files = binary_info.files,
+        runfiles = binary_info.runfiles,
+        executable = binary_info.executable,
+    )
+    other_providers.append(default_info)
+    if ctx.fragments.cpp.enable_legacy_cc_provider():
+        # buildifier: disable=rule-impl-return
+        return struct(
+            cc = cc_internal.create_cc_provider(cc_info = cc_info),
+            providers = other_providers,
+        )
+    else:
+        return other_providers
+
 def make_cc_binary(cc_binary_attrs, **kwargs):
     return rule(
-        implementation = cc_binary_impl,
+        implementation = _impl,
         attrs = cc_binary_attrs,
         outputs = {
             "stripped_binary": "%{name}.stripped",
