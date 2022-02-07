@@ -199,8 +199,17 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
     Label mockConstraint = Label.parseAbsoluteUnchecked("//mock_constraint");
     ExecGroup parentGroup =
-        ExecGroup.create(ImmutableSet.of(mockToolchainType), ImmutableSet.of(mockConstraint));
-    ExecGroup childGroup = ExecGroup.create(ImmutableSet.of(), ImmutableSet.of());
+        ExecGroup.builder()
+            .requiredToolchains(ImmutableSet.of(mockToolchainType))
+            .execCompatibleWith(ImmutableSet.of(mockConstraint))
+            .copyFrom(null)
+            .build();
+    ExecGroup childGroup =
+        ExecGroup.builder()
+            .requiredToolchains(ImmutableSet.of())
+            .execCompatibleWith(ImmutableSet.of())
+            .copyFrom(null)
+            .build();
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
@@ -249,9 +258,12 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .addExecGroups(
                 ImmutableMap.of(
                     "blueberry",
-                    ExecGroup.create(
-                        ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")),
-                        ImmutableSet.of())))
+                    ExecGroup.builder()
+                        .requiredToolchains(
+                            ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")))
+                        .execCompatibleWith(ImmutableSet.of())
+                        .copyFrom(null)
+                        .build()))
             .add(attr("tags", STRING_LIST))
             .build();
     RuleClass b =
@@ -259,7 +271,12 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(
                 ImmutableMap.of(
-                    "blueberry", ExecGroup.create(ImmutableSet.of(), ImmutableSet.of())))
+                    "blueberry",
+                    ExecGroup.builder()
+                        .requiredToolchains(ImmutableSet.of())
+                        .execCompatibleWith(ImmutableSet.of())
+                        .copyFrom(null)
+                        .build()))
             .add(attr("tags", STRING_LIST))
             .build();
     IllegalArgumentException e =

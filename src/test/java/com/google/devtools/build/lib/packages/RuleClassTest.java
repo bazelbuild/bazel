@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -1081,15 +1082,18 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
-            "cherry", ExecGroup.create(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+            "cherry",
+            ExecGroup.builder()
+                .requiredToolchains(ImmutableSet.of(toolchain))
+                .execCompatibleWith(ImmutableSet.of(constraint))
+                .copyFrom(null)
+                .build()));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry").requiredToolchains())
-        .containsExactly(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry").execCompatibleWith())
-        .containsExactly(constraint);
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasRequiredToolchain(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
   }
 
   @Test

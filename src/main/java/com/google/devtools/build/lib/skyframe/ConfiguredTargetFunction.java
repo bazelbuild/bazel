@@ -559,7 +559,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Create a merged version of the exec groups that handles exec group inheritance properly.
     ExecGroup defaultExecGroup =
-        ExecGroup.create(requiredDefaultToolchains, defaultExecConstraintLabels);
+        ExecGroup.builder()
+            .requiredToolchains(requiredDefaultToolchains)
+            .execCompatibleWith(defaultExecConstraintLabels)
+            .copyFrom(null)
+            .build();
     ExecGroupCollection.Builder execGroupCollectionBuilder =
         ExecGroupCollection.builder(defaultExecGroup, rule.getRuleClassObject().getExecGroups());
 
