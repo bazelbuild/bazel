@@ -146,7 +146,12 @@ def _objc_library_impl(ctx):
         objc_provider,
         j2objc_providers[0],
         j2objc_providers[1],
-        objc_internal.instrumented_files_info(ctx = ctx, object_files = compilation_outputs.objects),
+        objc_internal.instrumented_files_info(
+            ctx = ctx,
+            cc_toolchain = cc_toolchain,
+            config = ctx.configuration,
+            object_files = compilation_outputs.objects,
+        ),
         OutputGroupInfo(**output_groups),
     ]
 

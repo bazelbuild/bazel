@@ -202,6 +202,10 @@ public class CppHelper {
       if (llvmCov == null) {
         llvmCov = "";
       }
+      String llvmProfdata = toolchain.getToolPathStringOrNull(Tool.LLVM_PROFDATA);
+      if (llvmProfdata == null) {
+        llvmProfdata = "";
+      }
       String gcov = toolchain.getToolPathStringOrNull(Tool.GCOV);
       if (gcov == null) {
         gcov = "";
@@ -210,6 +214,7 @@ public class CppHelper {
           NestedSetBuilder.<Pair<String, String>>stableOrder()
               .add(Pair.of("COVERAGE_GCOV_PATH", gcov))
               .add(Pair.of("LLVM_COV", llvmCov))
+              .add(Pair.of("LLVM_PROFDATA", llvmProfdata))
               .add(Pair.of("GENERATE_LLVM_LCOV", cppConfiguration.generateLlvmLCov() ? "1" : "0"));
       if (cppConfiguration.getFdoInstrument() != null) {
         coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
