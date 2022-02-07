@@ -22,8 +22,10 @@ java_library(
         "ToolchainCollectionSubject.java",
         "ToolchainContextSubject.java",
         "ToolchainInfoSubject.java",
+        "ToolchainTypeRequirementSubject.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",

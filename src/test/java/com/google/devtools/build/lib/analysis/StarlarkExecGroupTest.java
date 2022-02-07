@@ -383,7 +383,12 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     ExecGroupCollection execGroups = getRuleContext(ct).getExecGroups();
     assertThat(execGroups).isNotNull();
     assertThat(execGroups).hasExecGroup("watermelon");
-    assertThat(execGroups).execGroup("watermelon").hasRequiredToolchain("//rule:toolchain_type_1");
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(execGroups).execGroup("watermelon").hasToolchainType("//rule:toolchain_type_1");
+    assertThat(execGroups)
+        .execGroup("watermelon")
+        .toolchainType("//rule:toolchain_type_1")
+        .isMandatory();
     assertThat(execGroups).execGroup("watermelon").hasExecCompatibleWith("//platform:constraint_1");
   }
 

@@ -2338,7 +2338,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getRequiredToolchains()).isEmpty();
-    assertThat(plum.getExecGroups().get("group")).hasRequiredToolchain("//test:my_toolchain_type");
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(plum.getExecGroups().get("group")).hasToolchainType("//test:my_toolchain_type");
+    assertThat(plum.getExecGroups().get("group"))
+        .toolchainType("//test:my_toolchain_type")
+        .isMandatory();
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
     assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv1");
     assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv2");
@@ -2388,7 +2392,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
-    assertThat(group).hasRequiredToolchain("//test:my_toolchain_type");
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(group).hasToolchainType("//test:my_toolchain_type");
+    assertThat(group).toolchainType("//test:my_toolchain_type").isMandatory();
     assertThat(group).hasExecCompatibleWith("//constraint:cv1");
     assertThat(group).hasExecCompatibleWith("//constraint:cv2");
   }
