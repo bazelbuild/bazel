@@ -350,7 +350,7 @@ build_failure_test(
 
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_binary_test",
-    message = "Two shared libraries in dependencies export the same symbols",
+    message = "Two shared libraries in dependencies link the same  library statically",
     target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
 )
 

@@ -63,6 +63,7 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -593,6 +594,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testDeps() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
@@ -636,7 +638,8 @@ public abstract class AbstractQueryTest<T> {
                   helper.getToolsRepository()
                       + "//tools/cpp:malloc + //configurable:main + "
                       + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-                      + "//configurable:defaultdep + //conditions:a + //conditions:b"
+                      + "//configurable:defaultdep + //conditions:a + //conditions:b + "
+                      + "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain"
                       + implicitDeps));
     }
   }
@@ -952,6 +955,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testNoImplicitDeps() throws Exception {
     writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
 
@@ -972,10 +976,11 @@ public abstract class AbstractQueryTest<T> {
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";
+    String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
     assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr,
+        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr + " + " + toolchainDepsExpr,
         "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
     assertEqualsFiltered(
         targetDepsExpr + " + " + hostDepsExpr,

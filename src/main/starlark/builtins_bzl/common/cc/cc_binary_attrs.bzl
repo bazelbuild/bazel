@@ -83,12 +83,7 @@ cc_binary_attrs_with_aspects = {
     "distribs": attr.string_list(),
     "_cc_binary": attr.bool(),
     "_is_test": attr.bool(default = False),
-    "_grep_includes": attr.label(
-        allow_files = True,
-        executable = True,
-        cfg = "exec",
-        default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
-    ),
+    "_grep_includes": semantics.get_grep_includes(),
     "_stl": semantics.get_stl(),
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),

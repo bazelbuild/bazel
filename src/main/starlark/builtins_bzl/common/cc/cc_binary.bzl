@@ -39,6 +39,11 @@ _TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"]
 _CATALYST_TARGET_CPUS = ["catalyst_x86_64"]
 _MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"]
 
+def _grep_includes_executable(grep_includes):
+    if grep_includes == None:
+        return None
+    return grep_includes.files_to_run.executable
+
 def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
     return {
         "tools": dwp_tools,
@@ -600,7 +605,7 @@ def _create_transitive_linking_actions(
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         compilation_outputs = cc_compilation_outputs_with_only_objects,
-        grep_includes = ctx.attr._grep_includes.files_to_run.executable,
+        grep_includes = _grep_includes_executable(ctx.attr._grep_includes),
         stamp = _is_stamping_enabled(ctx),
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
@@ -773,7 +778,7 @@ def cc_binary_impl(ctx):
         copts_filter = common.copts_filter,
         srcs = common.srcs,
         compilation_contexts = compilation_context_deps,
-        grep_includes = ctx.attr._grep_includes.files_to_run.executable,
+        grep_includes = _grep_includes_executable(ctx.attr._grep_includes),
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
         hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
     )
@@ -807,7 +812,7 @@ def cc_binary_impl(ctx):
             cc_toolchain = cc_toolchain,
             compilation_outputs = cc_compilation_outputs,
             name = ctx.label.name,
-            grep_includes = ctx.attr._grep_includes.files_to_run.executable,
+            grep_includes = _grep_includes_executable(ctx.attr._grep_includes),
             linking_contexts = [cc_helper.get_linking_context_from_deps(_malloc_for_target(ctx, cpp_config))] + cc_helper.get_linking_context_from_deps(ctx.attr.deps),
             stamp = _is_stamping_enabled(ctx),
             test_only_target = cc_helper.is_test_target(ctx) or ctx.attr._is_test,

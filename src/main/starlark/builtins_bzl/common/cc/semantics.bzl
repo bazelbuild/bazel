@@ -58,6 +58,9 @@ def _get_def_parser():
         cfg = "exec",
     )
 
+def _get_grep_includes():
+    return attr.label()
+
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
@@ -84,4 +87,5 @@ semantics = struct(
     get_def_parser = _get_def_parser,
     get_stl = _get_stl,
     should_create_empty_archive = _should_create_empty_archive,
+    get_grep_includes = _get_grep_includes,
 )
