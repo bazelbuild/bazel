@@ -14,18 +14,19 @@
 # limitations under the License.
 
 """
-Finds the c++ toolchain.
+Utilities to help work with c++ toolchains.
 
-Returns the toolchain if enabled, and falls back to a toolchain constructed from
-the CppConfiguration.
 """
+
+CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type"
 
 def find_cpp_toolchain(ctx):
     """
     Finds the c++ toolchain.
 
     If the c++ toolchain is in use, returns it.  Otherwise, returns a c++
-    toolchain derived from legacy toolchain selection.
+    toolchain derived from legacy toolchain selection, constructed from
+    the CppConfiguration.
 
     Args:
       ctx: The rule context for which to find a toolchain.
@@ -36,9 +37,9 @@ def find_cpp_toolchain(ctx):
 
     # Check the incompatible flag for toolchain resolution.
     if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if not "@bazel_tools//tools/cpp:toolchain_type" in ctx.toolchains:
-            fail("In order to use find_cpp_toolchain, you must include the '@bazel_tools//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
-        toolchain_info = ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
+        if not CPP_TOOLCHAIN_TYPE in ctx.toolchains:
+            fail("In order to use find_cpp_toolchain, you must include the '%s' in the toolchains argument to your rule." % CPP_TOOLCHAIN_TYPE)
+        toolchain_info = ctx.toolchains[CPP_TOOLCHAIN_TYPE]
         if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
             return toolchain_info.cc
         return toolchain_info
@@ -49,3 +50,23 @@ def find_cpp_toolchain(ctx):
 
     # We didn't find anything.
     fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
+
+def use_cpp_toolchain(mandatory = True):
+    """
+    Helper to depend on the c++ toolchain.
+
+    Usage:
+    ```
+    my_rule = rule(
+        toolchains = [other toolchain types] + use_cpp_toolchain(),
+    )
+    ```
+
+    Args:
+      mandatory: Whether or not it should be an error if the toolchain cannot be resolved.
+        Currently ignored, this will be enabled when optional toolchain types are added.
+
+    Returns:
+      A list that can be used as the value for `rule.toolchains`.
+    """
+    return [CPP_TOOLCHAIN_TYPE]
