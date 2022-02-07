@@ -28,26 +28,26 @@ class RunfilesTest(unittest.TestCase):
     self.assertRaises(ValueError, lambda: r.Rlocation(None))
     self.assertRaises(ValueError, lambda: r.Rlocation(""))
     self.assertRaises(TypeError, lambda: r.Rlocation(1))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("../foo"))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("foo/.."))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("foo/../bar"))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("./foo"))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("foo/."))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("foo/./bar"))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("//foobar"))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("foo//"))
-    self.assertRaisesRegexp(ValueError, "is not normalized",
-                            lambda: r.Rlocation("foo//bar"))
-    self.assertRaisesRegexp(ValueError, "is absolute without a drive letter",
-                            lambda: r.Rlocation("\\foo"))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("../foo"))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("foo/.."))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("foo/../bar"))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("./foo"))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("foo/."))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("foo/./bar"))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("//foobar"))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("foo//"))
+    self.assertRaisesRegex(ValueError, "is not normalized",
+                           lambda: r.Rlocation("foo//bar"))
+    self.assertRaisesRegex(ValueError, "is absolute without a drive letter",
+                           lambda: r.Rlocation("\\foo"))
 
   def testCreatesManifestBasedRunfiles(self):
     with _MockFile(contents=["a/b c/d"]) as mf:
@@ -122,7 +122,7 @@ class RunfilesTest(unittest.TestCase):
     def _Run():
       runfiles.Create({"RUNFILES_MANIFEST_FILE": "non-existing path"})
 
-    self.assertRaisesRegexp(IOError, "non-existing path", _Run)
+    self.assertRaisesRegex(IOError, "non-existing path", _Run)
 
   def testFailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined(self):
     with _MockFile(contents=["a b"]) as mf:
@@ -140,14 +140,22 @@ class RunfilesTest(unittest.TestCase):
 
   def testManifestBasedRlocation(self):
     with _MockFile(contents=[
-        "Foo/runfile1", "Foo/runfile2 C:/Actual Path\\runfile2",
-        "Foo/Bar/runfile3 D:\\the path\\run file 3.txt"
+        "Foo/runfile1",
+        "Foo/runfile2 C:/Actual Path\\runfile2",
+        "Foo/Bar/runfile3 D:\\the path\\run file 3.txt",
+        "Foo/Bar/Dir E:\\Actual Path\\Directory",
     ]) as mf:
       r = runfiles.CreateManifestBased(mf.Path())
       self.assertEqual(r.Rlocation("Foo/runfile1"), "Foo/runfile1")
       self.assertEqual(r.Rlocation("Foo/runfile2"), "C:/Actual Path\\runfile2")
       self.assertEqual(
           r.Rlocation("Foo/Bar/runfile3"), "D:\\the path\\run file 3.txt")
+      self.assertEqual(
+          r.Rlocation("Foo/Bar/Dir/runfile4"),
+          "E:\\Actual Path\\Directory/runfile4")
+      self.assertEqual(
+          r.Rlocation("Foo/Bar/Dir/Deeply/Nested/runfile4"),
+          "E:\\Actual Path\\Directory/Deeply/Nested/runfile4")
       self.assertIsNone(r.Rlocation("unknown"))
       if RunfilesTest.IsWindows():
         self.assertEqual(r.Rlocation("c:/foo"), "c:/foo")
