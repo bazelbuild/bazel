@@ -249,10 +249,15 @@ public final class RunfilesTest {
         new MockFile(
             ImmutableList.of(
                 "Foo/runfile1 C:/Actual Path\\runfile1",
-                "Foo/Bar/runfile2 D:\\the path\\run file 2.txt"))) {
+                "Foo/Bar/runfile2 D:\\the path\\run file 2.txt",
+                "Foo/Bar/Dir E:\\Actual Path\\Directory"))) {
       Runfiles r = Runfiles.createManifestBasedForTesting(mf.path.toString());
       assertThat(r.rlocation("Foo/runfile1")).isEqualTo("C:/Actual Path\\runfile1");
       assertThat(r.rlocation("Foo/Bar/runfile2")).isEqualTo("D:\\the path\\run file 2.txt");
+      assertThat(r.rlocation("Foo/Bar/Dir")).isEqualTo("E:\\Actual Path\\Directory");
+      assertThat(r.rlocation("Foo/Bar/Dir/File")).isEqualTo("E:\\Actual Path\\Directory/File");
+      assertThat(r.rlocation("Foo/Bar/Dir/Deeply/Nested/File"))
+          .isEqualTo("E:\\Actual Path\\Directory/Deeply/Nested/File");
       assertThat(r.rlocation("unknown")).isNull();
     }
   }
