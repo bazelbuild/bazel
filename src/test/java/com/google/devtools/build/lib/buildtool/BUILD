@@ -450,7 +450,6 @@ java_test(
     name = "ProgressReportingTest",
     srcs = ["ProgressReportingTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -626,7 +625,6 @@ build_test(
         ":NoOutputActionTest",
         ":OutputArtifactConflictTest",
         ":PackageGroupIntegrationTest",
-        ":ProgressReportingTest",
         ":QueryIntegrationTest",
         ":SymlinkDependencyAnalysisTest",
         # Disabled in Google.
