@@ -305,7 +305,7 @@ function test_starlark_symlink_source_not_included_in_rbuildfiles() {
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -319,7 +319,7 @@ function test_starlark_symlink_target_not_included_in_rbuildfiles() {
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = ["Moo.java"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -332,7 +332,7 @@ function test_starlark_glob_regular_file_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -346,7 +346,7 @@ function test_starlark_glob_symlink_source_not_included_in_rbuildfiles() {
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -360,7 +360,7 @@ function test_starlark_glob_symlink_target_not_included_in_rbuildfiles() {
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.java"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -373,7 +373,7 @@ function test_starlark_recursive_glob_regular_file_not_included_in_rbuildfiles()
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -387,7 +387,7 @@ function test_starlark_recursive_glob_symlink_source_not_included_in_rbuildfiles
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/bar/baz.bzl" && [[ -f foo/bar/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -401,7 +401,7 @@ function test_starlark_recursive_glob_symlink_target_not_included_in_rbuildfiles
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/bar/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.java"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
