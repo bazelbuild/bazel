@@ -21,18 +21,13 @@ import javax.annotation.Nullable;
 
 /**
  * An iterable-like result of getting Skyframe dependencies via {@link
- * SkyFunction.Environment#getValuesAndExceptions}. Callers can use the {@link #next} and {@link
- * #nextOrThrow} methods to obtain successive elements. If a dependency is not done, {@link #next}
- * and {@link #nextOrThrow} will return {@code null}. If a dependency threw an exception, and that
- * exception class is specified in the argument to {@link #nextOrThrow}, then {@link #nextOrThrow}
- * will throw that exception. If a dependency threw an exception not specified by an argument to
- * {@link #nextOrThrow}, or {@link #next} is called on that dependency, {@code null} is returned as
- * well, and {@link SkyFunction.Environment#valuesMissing} will return true after that call to
- * {@link #next} or {@link #nextOrThrow}.
+ * SkyFunction.Environment#getOrderedValuesAndExceptions}. Callers can use the {@link #next} and
+ * {@link #nextOrThrow} methods to obtain successive elements.
  *
  * <p>Can only be iterated through once: if an iterable of size k was passed to {@link
- * SkyFunction.Environment#getValuesAndExceptions}, then the returned {@link SkyframeIterableResult}
- * can have {@link #next} and {@link #nextOrThrow} called a total of k times.
+ * SkyFunction.Environment#getOrderedValuesAndExceptions}, then the returned {@link
+ * SkyframeIterableResult} can have {@link #next} and {@link #nextOrThrow} called a total of k
+ * times.
  *
  * <p>Note that a {@link SkyFunction} cannot guarantee that {@link
  * SkyFunction.Environment#valuesMissing} will be true upon receipt of a {@code
@@ -71,8 +66,8 @@ public final class SkyframeIterableResult {
 
   /**
    * Returns the next direct dependency in {@link SkyframeIterableResult}. If the dependency is not
-   * in the set of already evaluated direct dependencies, returns {@code null}. If the specified
-   * value has already been evaluated and found to be in error, throws the exception coming from the
+   * in the set of already evaluated direct dependencies, returns {@code null}. If the dependency
+   * has already been evaluated and found to be in error, throws the exception coming from the
    * error, so long as the exception is of one of the specified types. SkyFunction implementations
    * may use this method to catch and rethrow a more informative exception or to continue
    * evaluation. The caller must specify the exception type(s) that might be thrown using the {@code
