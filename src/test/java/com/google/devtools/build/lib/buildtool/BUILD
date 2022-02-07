@@ -586,7 +586,6 @@ java_test(
 java_test(
     name = "AqueryBuildToolTest",
     srcs = ["AqueryBuildToolTest.java"],
-    tags = ["manual"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
@@ -609,7 +608,6 @@ build_test(
     name = "all_manual_tests",
     targets = [
         ":ActionListenerIntegrationTest",
-        ":AqueryBuildToolTest",
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
         ":CompileOneDependencyIntegrationTest",
