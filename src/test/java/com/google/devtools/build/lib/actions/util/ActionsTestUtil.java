@@ -26,6 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -370,7 +371,8 @@ public final class ActionsTestUtil {
     @Override
     protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
         Iterable<? extends SkyKey> depKeys) {
-      throw new UnsupportedOperationException();
+      Map<SkyKey, ValueOrUntypedException> mapResult = getValueOrUntypedExceptions(depKeys);
+      return ImmutableList.copyOf(Iterables.transform(depKeys, mapResult::get));
     }
 
     @Override

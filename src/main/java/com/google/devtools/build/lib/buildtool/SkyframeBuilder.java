@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.ExecutionDetailedExitCodeHelper;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -70,7 +69,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -359,8 +357,7 @@ public class SkyframeBuilder implements Builder {
     if (cause instanceof BuildFileNotFoundException) {
       // Sadly, this can happen because we may load new packages during input discovery. Any
       // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
-      LoggingUtil.logToRemote(
-          Level.WARNING, "undesirable loading exception with result " + resultForDebugging, cause);
+      bugReporter.sendBugReport(new IllegalStateException("Unexpected exception", cause));
       throw new BuildFailedException(
           cause.getMessage(),
           DetailedExitCode.of(
