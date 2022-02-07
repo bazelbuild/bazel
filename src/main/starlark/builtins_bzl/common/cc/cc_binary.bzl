@@ -190,48 +190,7 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
         arguments = command_line,
     )
 
-def _should_generate_def_file(ctx, feature_configuration):
-    windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "windows_export_all_symbols")
-    no_windows_export_all_symbols_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_windows_export_all_symbols")
-    return windows_export_all_symbols_enabled and (not no_windows_export_all_symbols_enabled) and (ctx.attr.win_def_file == None)
-
-def _gen_empty_def_file(ctx):
-    trivial_def_file = ctx.actions.declare_file(ctx.label.name + ".gen.empty.def")
-    ctx.actions.write(trivial_def_file, "", False)
-    return trivial_def_file
-
-def _get_windows_def_file_for_linking(ctx, custom_def_file, generated_def_file, feature_configuration):
-    # 1. If a custom DEF file is specified in win_def_file attribute, use it.
-    # 2. If a generated DEF file is available and should be used, use it.
-    # 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
-    if custom_def_file != None:
-        return custom_def_file
-    elif generated_def_file != None and _should_generate_def_file(ctx, feature_configuration) == True:
-        return generated_def_file
-    else:
-        return _gen_empty_def_file(ctx)
-
-def _generate_def_file(ctx, def_parser, object_files, dll_name):
-    def_file = ctx.actions.declare_file(ctx.label.name + ".gen.def")
-    argv = ctx.actions.args()
-    argv.add(def_file)
-    argv.add(dll_name)
-    for object_file in object_files:
-        argv.add(object_file.path)
-
-    # TODO(b/198254254): Add ParamFileInfo to args.
-    ctx.actions.run(
-        mnemonic = "DefParser",
-        executable = def_parser,
-        arguments = [argv],
-        inputs = object_files,
-        outputs = [def_file],
-        use_default_shell_env = True,
-    )
-    return def_file
-
 def _is_stamping_enabled(ctx):
-    # TODO(b/198254254): Not the exact same behaviour as in cc_binary.
     if ctx.configuration.is_tool_configuration():
         return 0
     stamp = 0
@@ -273,7 +232,6 @@ def _add(ctx, linking_statically):
 def _get_file_content(objects):
     result = []
     for obj in objects:
-        # TODO(b/198254254): Implementation is a bit off here, but might be enough.
         result.append(obj.short_path)
         result.append("\n")
     return "".join(result)
@@ -310,7 +268,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
     return (cc_info, instrumented_files_provider, output_groups)
 
 def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_library_linking_outputs, linking_mode, transitive_artifacts, link_compile_output_separately, cpp_config):
-    # TODO(b/198254254): Legacyexternalrunfiles. in progress
+    # TODO(b/198254254): Add Legacyexternalrunfiles if necessary.
     runtime_objects_for_coverage = []
     builder_artifacts = []
     builder_transitive_artifacts = []
@@ -553,12 +511,11 @@ def _create_transitive_linking_actions(
     # entries during linking process.
     for libs in precompiled_files[:]:
         for artifact in libs:
-            if _matches([".so", ".dylib", ".dll", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or _matches_versioned_shared_library(artifact.basename):
+            if _matches([".so", ".dylib", ".dll", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or cc_helper.is_shared_library_extension_valid(artifact.basename):
                 library_to_link = cc_common.create_library_to_link(
                     actions = ctx.actions,
                     feature_configuration = feature_configuration,
                     cc_toolchain = cc_toolchain,
-                    # TODO(b/198254254): or common.dynamic_library_symlink?
                     dynamic_library = artifact,
                 )
                 libraries_for_current_cc_linking_context.append(library_to_link)
@@ -580,7 +537,6 @@ def _create_transitive_linking_actions(
                 )
                 libraries_for_current_cc_linking_context.append(library_to_link)
 
-    # TODO(b/198254254): ctx getSymbolGenerator()
     linker_inputs = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(libraries_for_current_cc_linking_context),
@@ -668,13 +624,6 @@ def _matches(extensions, target):
             return True
     return False
 
-def _matches_versioned_shared_library(target):
-    if ".so." not in target and ".dylib." not in target:
-        return False
-
-    # TODO(b/198254254): Not the exact regexp match but should wwork.
-    return True
-
 def _is_link_shared(ctx):
     return hasattr(ctx.attr, "linkshared") and ctx.attr.linkshared
 
@@ -702,18 +651,17 @@ def cc_binary_impl(ctx):
     common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 
-    # TODO(b/198254254): Explicit spec.
-    # if ctx.attr.dynamic_deps != None:
-    #     cc_common.check_experimental_cc_shared_library()
-    #     if ctx.attr.linkshared:
-    #         fail("Do not use 'linkshared' to build a shared library. Use cc_shared_library instead.")
+    if len(ctx.attr.dynamic_deps) > 0:
+        cc_common.check_experimental_cc_shared_library()
+        # TODO(b/198254254): Add a check if linkshared value is explicitly specified.
+        # if ctx.attr.linkshared:
+        #     fail("Do not use 'linkshared' to build a shared library. Use cc_shared_library instead.")
 
-    # TODO(b/198254254): Fill in providers?
+    # TODO(b/198254254): Fill empty providers if needed.
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     cpp_config = ctx.fragments.cpp
     _report_invalid_options(ctx, cc_toolchain, cpp_config)
 
-    # TODO(b/198254254): initconfigurationMakeVariableContext
     precompiled_files = cc_helper.build_precompiled_files(ctx)
     link_target_type = _EXECUTABLE
     if _is_link_shared(ctx):
@@ -723,14 +671,14 @@ def cc_binary_impl(ctx):
         is_dynamic_link_type = False
     semantics.validate_attributes(ctx)
 
-    # TODO(b/198254254): Fill in providers.
+    # TODO(b/198254254): Fill in empty providers if needed.
     # If cc_binary includes "linkshared=1" then gcc will be invoked with
     # linkopt "-shared", which causes the result of linking to be a shared library.
     # For linkshared=1 we used to force users to specify the file extension manually, as part of
     # the target name.
     # This is no longer necessary, the toolchain can figure out the correct file extensions.
     target_name = ctx.label.name
-    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or _matches_versioned_shared_library(target_name))
+    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or cc_helper.is_shared_library_extension_valid(target_name))
     binary = None
     if has_legacy_link_shared_name:
         binary = ctx.actions.declare_file(target_name)
@@ -790,7 +738,7 @@ def cc_binary_impl(ctx):
     additional_linker_inputs = ctx.files.additional_linker_inputs
 
     # Allows the dynamic library generated for code of test targets to be linked separately.
-    link_compile_output_separately = ctx.label.name.endswith("_test") and linking_mode == _LINKING_DYNAMIC and cpp_config.dynamic_mode == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
+    link_compile_output_separately = ctx.label.name.endswith("_test") and linking_mode == _LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
 
     # When linking the object files directly into the resulting binary, we do not need
     # library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
@@ -839,9 +787,9 @@ def cc_binary_impl(ctx):
 
             def_parser = ctx.file._def_parser
             if def_parser != None:
-                generated_def_file = _generate_def_file(ctx, def_parser, object_files, binary.basename)
+                generated_def_file = cc_helper.generate_def_file(ctx, def_parser, object_files, binary.basename)
             custom_win_def_file = ctx.file.win_def_file
-            win_def_file = _get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
+            win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
 
     use_pic = _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration)
 
@@ -997,7 +945,7 @@ def cc_binary_impl(ctx):
     if copied_runtime_dynamic_libraries != None:
         output_groups["runtime_dynamic_libraries"] = copied_runtime_dynamic_libraries
 
-    # TODO(b/198254254): SetRunfilesSupport.
+    # TODO(b/198254254): SetRunfilesSupport if needed.
     debug_package_info = DebugPackageInfo(
         target_label = ctx.label,
         stripped_file = stripped_file,
@@ -1043,7 +991,6 @@ def make_cc_binary(cc_binary_attrs, **kwargs):
         implementation = cc_binary_impl,
         attrs = cc_binary_attrs,
         outputs = {
-            # TODO(b/198254254): Handle case for windows.
             "stripped_binary": "%{name}.stripped",
             "dwp_file": "%{name}.dwp",
         },
