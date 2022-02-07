@@ -33,24 +33,18 @@ import org.junit.runners.JUnit4;
 public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
-  public void testCcBinaryMember() throws Exception {
+  public void testPyBinaryMember() throws Exception {
     EventCollector eventCollector = new EventCollector(EventKind.START);
     events.addHandler(eventCollector);
     addOptions("--compile_one_dependency");
+    // Make build super minimal.
+    addOptions("--nobuild_runfile_links");
 
-    write("package/BUILD",
-          "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')");
-    write("package/foo.cc",
-          "#include <stdio.h>",
-          "int main() {",
-          "  printf(\"Hello, world!\\n\");",
-          "  return 0;",
-          "}");
-    buildTarget("package/foo.cc");
+    write("package/BUILD", "py_binary(name='foo', srcs=['foo.py'])");
+    write("package/foo.py");
+    buildTarget("package/foo.py");
 
-    // Check that 'foo' is recompiled and linked.
-    assertContainsEvent(eventCollector, "Compiling package/foo.cc");
-    assertContainsEvent(eventCollector, "Linking package/foo");
+    assertContainsEvent(eventCollector, "Creating source manifest for //package:foo");
   }
 
   /**

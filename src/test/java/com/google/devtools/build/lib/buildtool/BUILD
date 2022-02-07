@@ -104,7 +104,6 @@ java_test(
     name = "CompileOneDependencyIntegrationTest",
     srcs = ["CompileOneDependencyIntegrationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -609,7 +608,6 @@ build_test(
         ":ActionListenerIntegrationTest",
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
-        ":CompileOneDependencyIntegrationTest",
         ":ContextProviderInitializationTest",
         ":CorruptedActionCacheTest",
         ":DanglingSymlinkTest",
