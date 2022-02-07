@@ -21,7 +21,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_linux}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
@@ -32,7 +32,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_linux_aarch64}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
@@ -43,7 +43,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_linux_ppc64le}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:ppc",
     ],
@@ -54,7 +54,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_linux_s390x}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:s390x",
     ],
@@ -65,7 +65,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_macos}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:x86_64",
     ],
@@ -76,7 +76,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_macos_aarch64}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:aarch64",
     ],
@@ -87,7 +87,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_win}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
     ],
@@ -98,7 +98,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk17_linux}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
@@ -109,7 +109,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk17_macos}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:x86_64",
     ],
@@ -120,7 +120,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk17_macos_aarch64}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:aarch64",
     ],
@@ -131,7 +131,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk17_win}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
     ],

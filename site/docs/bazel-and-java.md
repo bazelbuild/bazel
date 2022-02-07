@@ -181,7 +181,7 @@ remote_java_repository(
   name = "openjdk_canary_linux_arm",
   prefix = "openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
   version = "11",            # or --java_runtime_version=11
-  exec_compatible_with = [   # Specifies constraints this JVM is compatible with "@platforms//cpu:arm",
+  target_compatible_with = [   # Specifies constraints this JVM is compatible with "@platforms//cpu:arm",
     "@platforms//os:linux",
   ],
   urls = ...,               # Other parameters are from http_repository rule.
