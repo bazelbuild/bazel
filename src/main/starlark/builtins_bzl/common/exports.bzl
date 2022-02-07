@@ -25,6 +25,7 @@ load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
+load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -50,6 +51,7 @@ exported_rules = {
     "+cc_shared_library_permissions": cc_shared_library_permissions,
     "-cc_binary": cc_binary,
     "-cc_test": cc_test,
+    "-cc_library": cc_library,
 }
 
 # A list of Starlark functions callable from native rules implementation.
