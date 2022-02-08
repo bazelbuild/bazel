@@ -105,7 +105,8 @@ public class DensitySpecificManifestProcessor {
    * specified densities. If the manifest already contains a superset of the
    * &lt;compatible-screens&gt; section to be created, it is left unchanged.
    *
-   * @throws ManifestProcessingException when the manifest cannot be properly modified.
+   * @throws AndroidManifestProcessor.ManifestProcessingException when the manifest cannot be
+   *     properly modified.
    */
   public Path process(Path manifest) {
     if (densities.isEmpty()) {
