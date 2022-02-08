@@ -752,8 +752,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['c/d.proto'],",
         "    strip_import_prefix = 'c')");
 
-    Iterable<String> commandLine =
-        paramFileArgsForAction(getDescriptorWriteAction("//third_party/a/b:d"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//third_party/a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .contains("-Id.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/d.proto");
@@ -770,8 +770,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['c/d.proto'],",
         "    strip_import_prefix = '/third_party/a')");
 
-    Iterable<String> commandLine =
-        paramFileArgsForAction(getDescriptorWriteAction("//third_party/a/b:d"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//third_party/a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .contains("-Ib/c/d.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/b/c/d.proto");
@@ -792,7 +792,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    import_prefix = 'foo',",
         "    strip_import_prefix = 'c')");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .contains("-Ifoo/d.proto=" + genfiles + "/a/b/_virtual_imports/d/foo/d.proto");
@@ -812,7 +813,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['c/d.proto'],",
         "    import_prefix = 'foo')");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .contains("-Ifoo/a/b/c/d.proto=" + genfiles + "/a/b/_virtual_imports/d/foo/a/b/c/d.proto");
@@ -903,7 +905,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['c/d.proto','c/e.proto'],",
         "    strip_import_prefix = 'c')");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
     assertThat(commandLine).containsAtLeast("--direct_dependencies", "d.proto:e.proto").inOrder();
   }
 
@@ -929,7 +932,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['e.proto'],",
         "    deps = ['//a/b:d'])");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b/e:e"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b/e:e"));
     assertThat(commandLine)
         .containsAtLeast("--direct_dependencies", "d.proto:a/b/e/e.proto")
         .inOrder();
@@ -951,7 +955,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    import_prefix = 'foo',",
         "    strip_import_prefix = 'c')");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
     assertThat(commandLine).containsAtLeast("--direct_dependencies", "foo/d.proto").inOrder();
   }
 
@@ -979,7 +984,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x/y:q'])");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:a"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a:a"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .contains("-Iy/z/q.proto=" + genfiles + "/external/foo/x/y/_virtual_imports/q/y/z/q.proto");
@@ -1007,7 +1013,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['a.proto'],",
         ")");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a_proto"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:a_proto"));
     assertThat(commandLine).doesNotContain("--include_source_info");
   }
 
@@ -1026,7 +1033,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['a.proto'],",
         ")");
 
-    Iterable<String> commandLine =
+    ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:a_proto"));
     assertThat(commandLine).contains("--include_source_info");
   }
@@ -1043,7 +1050,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "genrule(name='g', srcs=[], outs=['g.proto'], cmd = '')",
         "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a:p"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .containsAtLeast(
@@ -1066,7 +1074,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "genrule(name='g', srcs=[], outs=['g.proto'], cmd = '')",
         "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//a:p"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(commandLine)
         .containsAtLeast("-Ia/s.proto=a/s.proto", "-Ia/g.proto=" + genfiles + "/a/g.proto");
@@ -1099,13 +1108,15 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='c', srcs=['c.proto'], deps=['@foo//:c'])");
 
     {
-      Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a"));
+      ImmutableList<String> commandLine =
+          allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:a"));
       assertThat(commandLine)
           .containsAtLeast("-Ix/a.proto=x/a.proto", "-Ia.proto=external/foo/a.proto");
     }
 
     {
-      Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:c"));
+      ImmutableList<String> commandLine =
+          allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:c"));
       assertThat(commandLine)
           .containsAtLeast("-Ix/c.proto=x/c.proto", "-Ia/b/c.proto=external/foo/a/b/c.proto");
     }

@@ -102,6 +102,10 @@ def _create_proto_compile_action(
 
     args.add_all(proto_info.direct_sources)
 
+    if type(additional_args) == type(ctx.actions.args()):
+        additional_args.use_param_file(param_file_arg = "@%s")
+        additional_args.set_param_file_format("multiline")
+
     ctx.actions.run(
         mnemonic = mnemonic,
         progress_message = progress_message,
