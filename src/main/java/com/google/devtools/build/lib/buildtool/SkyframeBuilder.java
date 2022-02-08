@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
@@ -39,14 +38,12 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -353,20 +350,6 @@ public class SkyframeBuilder implements Builder {
     }
     if (cause instanceof InputFileErrorException) {
       throw (InputFileErrorException) cause;
-    }
-    if (cause instanceof BuildFileNotFoundException) {
-      // Sadly, this can happen because we may load new packages during input discovery. Any
-      // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
-      bugReporter.sendBugReport(new IllegalStateException("Unexpected exception", cause));
-      throw new BuildFailedException(
-          cause.getMessage(),
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(Strings.nullToEmpty(cause.getMessage()))
-                  .setIncludeScanning(
-                      IncludeScanning.newBuilder()
-                          .setCode(IncludeScanning.Code.PACKAGE_LOAD_FAILURE))
-                  .build()));
     }
     // We encountered an exception we don't think we should have encountered. This can indicate
     // an exception-processing bug in our code, such as lower level exceptions not being properly
