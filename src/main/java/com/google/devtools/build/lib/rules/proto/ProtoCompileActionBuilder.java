@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.util.OS;
 import java.util.HashSet;
 import java.util.List;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkFunction;
@@ -138,24 +141,57 @@ public class ProtoCompileActionBuilder {
       return;
     }
 
-    ImmutableList.Builder<Object> additionalArgs = ImmutableList.builder();
+    ruleContext.initStarlarkRuleContext();
+    StarlarkThread thread = ruleContext.getStarlarkThread();
+    Args additionalArgs = Args.newArgs(thread.mutability(), thread.getSemantics());
 
-    if (langPlugin != null && langPlugin.getExecutable() != null) {
-      // We pass a separate langPlugin as there are plugins that cannot be overridden
-      // and thus we have to deal with "$xx_plugin" and "xx_plugin".
-      additionalArgs.add(Tuple.of(langPlugin.getExecutable(), langPluginFormat));
-    }
+    try {
+      if (langPlugin != null && langPlugin.getExecutable() != null) {
+        // We pass a separate langPlugin as there are plugins that cannot be overridden
+        // and thus we have to deal with "$xx_plugin" and "xx_plugin".
+        additionalArgs.addArgument(
+            langPlugin.getExecutable(), /*value=*/ Starlark.UNBOUND, langPluginFormat, thread);
+      }
 
-    if (langPluginParameter != null) {
-      additionalArgs.add(Tuple.of(langPluginParameter, langPluginParameterFormat));
-    }
+      if (langPluginParameter != null) {
+        additionalArgs.addJoined(
+            StarlarkList.immutableCopyOf(langPluginParameter),
+            /*values=*/ Starlark.UNBOUND,
+            /*joinWith=*/ "",
+            /*mapEach=*/ Starlark.NONE,
+            /*formatEach=*/ Starlark.NONE,
+            /*formatJoined=*/ langPluginParameterFormat,
+            /*omitIfEmpty=*/ true,
+            /*uniquify=*/ false,
+            /*expandDirectories=*/ true,
+            /*allowClosure=*/ false,
+            thread);
+      }
 
-    if (!hasServices) {
-      additionalArgs.add("--disallow_services");
-    }
+      if (!hasServices) {
+        additionalArgs.addArgument(
+            "--disallow_services",
+            /* value = */ Starlark.UNBOUND,
+            /* format = */ Starlark.NONE,
+            thread);
+      }
 
-    if (additionalCommandLineArguments != null) {
-      additionalArgs.addAll(additionalCommandLineArguments);
+      if (additionalCommandLineArguments != null) {
+        additionalArgs.addAll(
+            StarlarkList.immutableCopyOf(additionalCommandLineArguments),
+            /*values=*/ Starlark.UNBOUND,
+            /*mapEach=*/ Starlark.NONE,
+            /*formatEach=*/ Starlark.NONE,
+            /*beforeEach=*/ Starlark.NONE,
+            /*omitIfEmpty=*/ true,
+            /*uniquify=*/ false,
+            /*expandDirectories=*/ true,
+            /*terminateWith=*/ Starlark.NONE,
+            /*allowClosure=*/ false,
+            thread);
+      }
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e);
     }
 
     ImmutableList.Builder<FilesToRunProvider> plugins = new ImmutableList.Builder<>();
@@ -168,7 +204,7 @@ public class ProtoCompileActionBuilder {
 
     StarlarkFunction createProtoCompileAction =
         (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("create_proto_compile_action");
-    ruleContext.initStarlarkRuleContext();
+
     ruleContext.callStarlarkOrThrowRuleError(
         createProtoCompileAction,
         ImmutableList.of(
@@ -177,7 +213,7 @@ public class ProtoCompileActionBuilder {
             /* proto_compiler */ protoCompiler,
             /* progress_message */ progressMessage,
             /* outputs */ StarlarkList.immutableCopyOf(outputs),
-            /* additional_args */ StarlarkList.immutableCopyOf(additionalArgs.build()),
+            /* additional_args */ additionalArgs,
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build()),
             /* mnemonic */ mnemonic,
             /* strict_imports */ checkStrictImportPublic,
@@ -246,41 +282,63 @@ public class ProtoCompileActionBuilder {
       return;
     }
 
+    ruleContext.initStarlarkRuleContext();
+    StarlarkThread thread = ruleContext.getStarlarkThread();
+    Args additionalArgs = Args.newArgs(thread.mutability(), thread.getSemantics());
+
     // A set to check if there are multiple invocations with the same name.
     HashSet<String> invocationNames = new HashSet<>();
-    ImmutableList.Builder<Object> additionalArgs = ImmutableList.builder();
     ImmutableList.Builder<Object> plugins = ImmutableList.builder();
 
-    for (ToolchainInvocation invocation : toolchainInvocations) {
-      if (!invocationNames.add(invocation.name)) {
-        throw new IllegalStateException(
-            "Invocation name "
-                + invocation.name
-                + " appears more than once. "
-                + "This could lead to incorrect proto-compiler behavior");
+    try {
+      for (ToolchainInvocation invocation : toolchainInvocations) {
+        if (!invocationNames.add(invocation.name)) {
+          throw new IllegalStateException(
+              "Invocation name "
+                  + invocation.name
+                  + " appears more than once. "
+                  + "This could lead to incorrect proto-compiler behavior");
+        }
+
+        ProtoLangToolchainProvider toolchain = invocation.toolchain;
+
+        String format = toolchain.outReplacementFormatFlag();
+        additionalArgs.addArgument(
+            invocation.outReplacement, /*value=*/ Starlark.UNBOUND, format, thread);
+
+        if (toolchain.pluginExecutable() != null) {
+          additionalArgs.addArgument(
+              toolchain.pluginExecutable().getExecutable(),
+              /*value=*/ Starlark.UNBOUND,
+              toolchain.pluginFormatFlag(),
+              thread);
+          plugins.add(toolchain.pluginExecutable());
+        }
+
+        additionalArgs.addJoined(
+            StarlarkList.immutableCopyOf(invocation.protocOpts),
+            /*values=*/ Starlark.UNBOUND,
+            /*joinWith=*/ "",
+            /*mapEach=*/ Starlark.NONE,
+            /*formatEach=*/ Starlark.NONE,
+            /*formatJoined=*/ Starlark.NONE,
+            /*omitIfEmpty=*/ true,
+            /*uniquify=*/ false,
+            /*expandDirectories=*/ true,
+            /*allowClosure=*/ false,
+            thread);
       }
 
-      ProtoLangToolchainProvider toolchain = invocation.toolchain;
-
-      String format = toolchain.outReplacementFormatFlag();
-      additionalArgs.add(Tuple.of(invocation.outReplacement, format));
-
-      if (toolchain.pluginExecutable() != null) {
-        additionalArgs.add(
-            Tuple.of(toolchain.pluginExecutable().getExecutable(), toolchain.pluginFormatFlag()));
-        plugins.add(toolchain.pluginExecutable());
+      if (allowServices == Services.DISALLOW) {
+        additionalArgs.addArgument(
+            "--disallow_services", /*value=*/ Starlark.UNBOUND, /*format=*/ Starlark.NONE, thread);
       }
-
-      additionalArgs.addAll(invocation.protocOpts);
-    }
-
-    if (allowServices == Services.DISALLOW) {
-      additionalArgs.add("--disallow_services");
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e.getMessageWithStack());
     }
 
     StarlarkFunction createProtoCompileAction =
         (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("create_proto_compile_action");
-    ruleContext.initStarlarkRuleContext();
     ruleContext.callStarlarkOrThrowRuleError(
         createProtoCompileAction,
         ImmutableList.of(
@@ -289,7 +347,7 @@ public class ProtoCompileActionBuilder {
             /* proto_compiler */ protoToolchain.getCompiler(),
             /* progress_message */ progressMessage,
             /* outputs */ StarlarkList.immutableCopyOf(outputs),
-            /* additional_args */ StarlarkList.immutableCopyOf(additionalArgs.build()),
+            /* additional_args */ additionalArgs,
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build())),
         ImmutableMap.of(
             "strict_imports",

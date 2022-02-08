@@ -224,10 +224,10 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
 
     dependencies_descriptor_sets = depset(transitive = [dep.transitive_descriptor_sets for dep in deps])
 
-    args = []
+    args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
-        args.append("--include_source_info")
-    args.append((descriptor_set, "--descriptor_set_out=%s"))
+        args.add("--include_source_info")
+    args.add(descriptor_set, format = "--descriptor_set_out=%s")
 
     proto_common.create_proto_compile_action(
         ctx,

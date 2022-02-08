@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -1025,7 +1026,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['a.proto'],",
         ")");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a_proto"));
+    Iterable<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:a_proto"));
     assertThat(commandLine).contains("--include_source_info");
   }
 
