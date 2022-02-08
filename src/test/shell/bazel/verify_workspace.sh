@@ -46,15 +46,23 @@ function test_verify_urls() {
   # Find url-shaped lines, skipping jekyll-tree (which isn't a valid URL), and
   # skipping comments.
   invalid_urls=()
+  urls=()
   for file in "${WORKSPACE_FILES[@]}"; do
     for url in $(grep -E '"https://|http://' "${file}" | \
       sed -e '/jekyll-tree/d' -e '/^#/d' -r -e  's#^.*"(https?://[^"]+)".*$#\1#g' | \
       sort -u); do
-      echo "Checking ${url} ..."
-      if ! curl --head --silent --show-error --fail --output /dev/null --retry 3 "${url}"; then
-        invalid_urls+=("${url}")
+      # add only unique url to the array
+      if [[ ${#urls[@]} == 0 ]] || [[ ! " ${urls[@]} " =~ " ${url} " ]]; then
+        urls+=("${url}")
       fi
     done
+  done
+
+  for url in "${urls[@]}"; do
+    echo "Checking ${url} ..."
+    if ! curl --head --silent --show-error --fail --output /dev/null --retry 3 "${url}"; then
+      invalid_urls+=("${url}")
+    fi
   done
 
   if [[ ${#invalid_urls[@]} > 0 ]]; then
