@@ -426,4 +426,29 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
                 .collect(Collectors.toList()))
         .isEmpty();
   }
+
+  @Test
+  public void conflictingDefinesLastWins() throws Exception {
+    analyzeTarget("--define", "a=1", "--define", "a=2");
+
+    ConfigurationForOutput targetConfig = null;
+    for (JsonElement configJson :
+        JsonParser.parseString(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+      ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
+      if (isTargetConfig(config)) {
+        targetConfig = config;
+        break;
+      }
+    }
+
+    assertThat(targetConfig).isNotNull();
+    assertThat(getOptionValue(targetConfig, "user-defined", "--define:a")).isEqualTo("2");
+    assertThat(
+            targetConfig.fragmentOptions.stream()
+                .filter(fragment -> fragment.name.endsWith("CoreOptions"))
+                .flatMap(fragment -> fragment.options.keySet().stream())
+                .filter(name -> name.equals("define"))
+                .collect(Collectors.toList()))
+        .isEmpty();
+  }
 }
