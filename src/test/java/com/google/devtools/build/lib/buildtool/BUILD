@@ -410,7 +410,6 @@ java_test(
     srcs = ["OutputArtifactConflictTest.java"],
     shard_count = 3,
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -424,6 +423,7 @@ java_test(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -621,7 +621,6 @@ build_test(
         ":MissingInputActionTest",
         ":ModifyBuildFileTest",
         ":NoOutputActionTest",
-        ":OutputArtifactConflictTest",
         ":PackageGroupIntegrationTest",
         ":QueryIntegrationTest",
         ":SymlinkDependencyAnalysisTest",
