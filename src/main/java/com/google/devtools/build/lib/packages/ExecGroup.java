@@ -18,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Resolves the appropriate toolchains for the given parameters. */
@@ -29,30 +28,29 @@ public abstract class ExecGroup implements ExecGroupApi {
   // users can't create a group with the same name.
   public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
 
+  /** Returns a builder for a new ExecGroup. */
+  public static Builder builder() {
+    return new AutoValue_ExecGroup.Builder()
+        .requiredToolchains(ImmutableSet.of())
+        .execCompatibleWith(ImmutableSet.of());
+  }
+
   /** Create an exec group that inherits from the default exec group. */
   public static ExecGroup copyFromDefault() {
-    return create(ImmutableSet.of(), ImmutableSet.of(), /* copyFrom= */ DEFAULT_EXEC_GROUP_NAME);
+    return builder().copyFrom(DEFAULT_EXEC_GROUP_NAME).build();
   }
 
-  /** Create an exec group with the given toolchains and execution constraints. */
-  public static ExecGroup create(Set<Label> requiredToolchains, Set<Label> execCompatibleWith) {
-    return create(requiredToolchains, execCompatibleWith, /* copyFrom= */ null);
-  }
-
-  private static ExecGroup create(
-      Set<Label> requiredToolchains, Set<Label> execCompatibleWith, @Nullable String copyFrom) {
-    return new AutoValue_ExecGroup(
-        ImmutableSet.copyOf(requiredToolchains), ImmutableSet.copyOf(execCompatibleWith), copyFrom);
-  }
-
+  /** Returns the required toolchain types for this exec group. */
   public abstract ImmutableSet<Label> requiredToolchains();
 
+  /** Returns the execution constraints for this exec group. */
   public abstract ImmutableSet<Label> execCompatibleWith();
 
+  /** Returns the name of another exec group in the same rule to copy data from. */
   @Nullable
   public abstract String copyFrom();
 
-  /** Creates a new exec group that inherits from the given group. */
+  /** Creates a new exec group that inherits from the given group and this group. */
   public ExecGroup inheritFrom(ExecGroup other) {
     ImmutableSet<Label> requiredToolchains =
         new ImmutableSet.Builder<Label>()
@@ -64,6 +62,27 @@ public abstract class ExecGroup implements ExecGroupApi {
             .addAll(this.execCompatibleWith())
             .addAll(other.execCompatibleWith())
             .build();
-    return create(requiredToolchains, execCompatibleWith);
+    return builder()
+        .requiredToolchains(requiredToolchains)
+        .execCompatibleWith(execCompatibleWith)
+        .copyFrom(null)
+        .build();
+  }
+
+  /** A builder interface to create ExecGroup instances. */
+  @AutoValue.Builder
+  public interface Builder {
+
+    /** Sets the required toolchain types. */
+    Builder requiredToolchains(ImmutableSet<Label> toolchainTypes);
+
+    /** Sets the execution constraints. */
+    Builder execCompatibleWith(ImmutableSet<Label> execCompatibleWith);
+
+    /** Sets the name of another exec group in the same rule to copy from. */
+    Builder copyFrom(@Nullable String copyfrom);
+
+    /** Returns the new ExecGroup instance. */
+    ExecGroup build();
   }
 }

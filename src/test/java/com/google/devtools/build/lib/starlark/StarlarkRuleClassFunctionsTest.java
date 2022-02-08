@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -2337,13 +2338,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getRequiredToolchains()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").requiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    assertThat(plum.getExecGroups().get("group")).hasRequiredToolchain("//test:my_toolchain_type");
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").execCompatibleWith())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+    assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(plum.getExecGroups().get("group")).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test
@@ -2390,12 +2388,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
-    assertThat(group.requiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
-    assertThat(group.execCompatibleWith())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+    assertThat(group).hasRequiredToolchain("//test:my_toolchain_type");
+    assertThat(group).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(group).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test

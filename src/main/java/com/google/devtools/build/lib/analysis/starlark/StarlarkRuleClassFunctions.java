@@ -1054,6 +1054,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
     ImmutableSet<Label> constraints =
         ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
-    return ExecGroup.create(toolchainTypes, constraints);
+    return ExecGroup.builder()
+        .requiredToolchains(toolchainTypes)
+        .execCompatibleWith(constraints)
+        .copyFrom(null)
+        .build();
   }
 }
