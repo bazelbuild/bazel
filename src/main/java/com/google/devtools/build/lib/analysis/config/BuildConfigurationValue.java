@@ -237,11 +237,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
     // and ImmutableMap.Builder does not support that.
-    Map<String, String> commandLineDefinesBuilder = new TreeMap<>();
-    for (Map.Entry<String, String> define : options.commandLineBuildVariables) {
-      commandLineDefinesBuilder.put(define.getKey(), define.getValue());
-    }
-    commandLineBuildVariables = ImmutableMap.copyOf(commandLineDefinesBuilder);
+    commandLineBuildVariables = ImmutableMap.copyOf(options.getNormalizedCommandLineBuildVariables());
 
     this.actionEnv = actionEnvironment;
     this.testEnv = setupTestEnvironment();

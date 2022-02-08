@@ -87,6 +87,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "If true, constraint settings from @bazel_tools are removed.")
   public boolean usePlatformsRepoForConstraints;
 
+  // Note: This value may contain conflicting duplicate values for the same define.
+  // Use `getNormalizedCommandLineBuildVariables` if you wish for these to be deduplicated
+  // (last-wins).
   @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
@@ -907,16 +910,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return host;
   }
 
+  /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.
+  public LinkedHashMap<String, String> getNormalizedCommandLineBuildVariables() {
+    LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : commandLineBuildVariables) {
+      // If the same --define flag is passed multiple times we keep the last value.
+      flagValueByName.put(entry.getKey(), entry.getValue());
+    }
+    return flagValueByName;
+  }
+
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
 
     if (collapseDuplicateDefines) {
-      LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
-      for (Map.Entry<String, String> entry : result.commandLineBuildVariables) {
-        // If the same --define flag is passed multiple times we keep the last value.
-        flagValueByName.put(entry.getKey(), entry.getValue());
-      }
+      LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
 
       // This check is an optimization to avoid creating a new list if the normalization was a
       // no-op.
