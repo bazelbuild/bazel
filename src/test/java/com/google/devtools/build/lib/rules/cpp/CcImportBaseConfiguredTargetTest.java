@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -404,5 +405,126 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_import"),
         "cc_import(name='a', static_library='a.a')");
+  }
+
+  @Test
+  public void testCcImportWithSharedLibraryAddsRpathEntry() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "a",
+            "foo",
+            starlarkImplementationLoadStatement,
+            "cc_import(name = 'foo', shared_library = 'libfoo.so')");
+    scratch.file("bin/BUILD", "cc_binary(name='bin', deps=['//a:foo'])");
+
+    Artifact dynamicLibrary =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getLibraries()
+            .getSingleton()
+            .getResolvedSymlinkDynamicLibrary();
+    Iterable<Artifact> dynamicLibrariesForRuntime =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
+    assertThat(artifactsToStrings(ImmutableList.of(dynamicLibrary)))
+        .containsExactly("src a/libfoo.so");
+    assertThat(artifactsToStrings(dynamicLibrariesForRuntime))
+        .containsExactly("bin _solib_k8/_U_S_Sa_Cfoo___Ua/libfoo.so");
+
+    ConfiguredTarget main = getConfiguredTarget("//bin:bin");
+    Artifact mainBin = getBinArtifact("bin", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua");
+  }
+
+  @Test
+  public void testCcImportWithSharedLibraryWithTransitionAddsRpathEntry() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "a",
+            "foo",
+            starlarkImplementationLoadStatement,
+            "cc_import(name = 'foo', shared_library = 'libfoo.so')");
+
+    scratch.file(
+        "bin/custom_transition.bzl",
+        "def _custom_transition_impl(settings, attr):",
+        "    _ignore = settings, attr",
+        "",
+        "    return {'//command_line_option:copt': ['-DFLAG']}",
+        "",
+        "custom_transition = transition(",
+        "    implementation = _custom_transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:copt'],",
+        ")",
+        "",
+        "def _apply_custom_transition_impl(ctx):",
+        "    cc_infos = []",
+        "    for dep in ctx.attr.deps:",
+        "        cc_infos.append(dep[CcInfo])",
+        "    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)",
+        "    return merged_cc_info",
+        "",
+        "apply_custom_transition = rule(",
+        "    implementation = _apply_custom_transition_impl,",
+        "    attrs = {",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "        'deps': attr.label_list(cfg = custom_transition),",
+        "    },",
+        ")");
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = ['//...'],",
+        ")");
+    scratch.file(
+        "bin/BUILD",
+        "load(':custom_transition.bzl', 'apply_custom_transition')",
+        "cc_library(name='lib', deps=['//a:foo'])",
+        "apply_custom_transition(name='transitioned_lib', deps=[':lib'])",
+        "cc_binary(name='bin', deps=[':transitioned_lib'])");
+
+    Artifact dynamicLibrary =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getLibraries()
+            .getSingleton()
+            .getResolvedSymlinkDynamicLibrary();
+    Iterable<Artifact> dynamicLibrariesForRuntime =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
+    assertThat(artifactsToStrings(ImmutableList.of(dynamicLibrary)))
+        .containsExactly("src a/libfoo.so");
+    assertThat(artifactsToStrings(dynamicLibrariesForRuntime))
+        .containsExactly("bin _solib_k8/_U_S_Sa_Cfoo___Ua/libfoo.so");
+
+    ConfiguredTarget main = getConfiguredTarget("//bin:bin");
+    Artifact mainBin = getBinArtifact("bin", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua");
   }
 }
