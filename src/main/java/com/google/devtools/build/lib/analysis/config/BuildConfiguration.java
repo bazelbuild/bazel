@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.function.Supplier;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -215,11 +214,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
     // and ImmutableMap.Builder does not support that.
-    Map<String, String> commandLineDefinesBuilder = new TreeMap<>();
-    for (Map.Entry<String, String> define : options.commandLineBuildVariables) {
-      commandLineDefinesBuilder.put(define.getKey(), define.getValue());
-    }
-    commandLineBuildVariables = ImmutableMap.copyOf(commandLineDefinesBuilder);
+    commandLineBuildVariables =
+        ImmutableMap.copyOf(options.getNormalizedCommandLineBuildVariables());
 
     this.actionEnv = actionEnvironment;
     this.testEnv = setupTestEnvironment();
