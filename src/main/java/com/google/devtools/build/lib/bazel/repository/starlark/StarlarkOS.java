@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.Locale;
 import java.util.Map;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -49,8 +50,20 @@ final class StarlarkOS implements StarlarkValue {
   @StarlarkMethod(
       name = "name",
       structField = true,
-      doc = "A string identifying the current system Bazel is running on.")
+      doc =
+          "A string identifying the operating system Bazel is running on (the value of the"
+              + " \"os.name\" Java property).")
   public String getName() {
-    return System.getProperty("os.name").toLowerCase();
+    return System.getProperty("os.name").toLowerCase(Locale.ROOT);
+  }
+
+  @StarlarkMethod(
+      name = "arch",
+      structField = true,
+      doc =
+          "A string identifying the architecture Bazel is running on (the value of the \"os.arch\""
+              + " Java property).")
+  public String getArch() {
+    return System.getProperty("os.arch").toLowerCase(Locale.ROOT);
   }
 }
