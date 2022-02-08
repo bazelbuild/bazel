@@ -809,7 +809,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     linker_inputs_extra = depset()
     runtime_libraries_extra = depset()
     if extra_link_time_libraries != None:
-        linker_inputs_extra, extra_link_time_runtime_libraries_depset = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != _LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
+        linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != _LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
 
     cc_linking_outputs_binary, cc_launcher_info, rule_impl_debug_files = _create_transitive_linking_actions(
         ctx,
