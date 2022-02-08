@@ -272,7 +272,6 @@ java_test(
     name = "InconsistentFilesystemTest",
     srcs = ["InconsistentFilesystemTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -615,7 +614,6 @@ build_test(
         ":EditDuringBuildTest",
         ":EnvironmentRestrictedBuildTest",
         ":IncludeValidationTest",
-        ":InconsistentFilesystemTest",
         ":LabelCrossesPackageBoundaryTest",
         ":MiscAnalysisTest",
         ":MissingInputActionTest",
