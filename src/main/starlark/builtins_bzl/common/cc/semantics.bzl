@@ -14,9 +14,6 @@
 
 """Semantics for Bazel cc rules"""
 
-def _create_cc_launcher_info(cc_info, cc_compilation_outputs):
-    return None
-
 def _should_create_empty_archive():
     return False
 
@@ -77,7 +74,6 @@ semantics = struct(
     validate_deps = _validate_deps,
     validate_attributes = _validate_attributes,
     determine_headers_checking_mode = _determine_headers_checking_mode,
-    create_cc_launcher_info = _create_cc_launcher_info,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     additional_fragments = _additional_fragments,

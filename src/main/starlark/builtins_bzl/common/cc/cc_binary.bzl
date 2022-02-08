@@ -583,7 +583,7 @@ def _create_transitive_linking_actions(
         pdb_file = pdb_file,
         win_def_file = win_def_file,
     )
-    cc_launcher_info = semantics.create_cc_launcher_info(cc_info_without_extra_link_time_libraries, cc_compilation_outputs_with_only_objects)
+    cc_launcher_info = cc_internal.create_cc_launcher_info(cc_info = cc_info_without_extra_link_time_libraries, compilation_outputs = cc_compilation_outputs_with_only_objects)
     return (cc_linking_outputs, cc_launcher_info, rule_impl_debug_files)
 
 def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
