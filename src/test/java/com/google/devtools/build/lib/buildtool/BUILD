@@ -354,7 +354,6 @@ java_test(
     name = "MissingInputActionTest",
     srcs = ["MissingInputActionTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -565,6 +564,7 @@ java_test(
     srcs = ["BuildResultTestCase.java"],
     shard_count = 4,
     tags = [
+        "manual",
         "no_windows",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -615,7 +615,6 @@ build_test(
         ":IncludeValidationTest",
         ":LabelCrossesPackageBoundaryTest",
         ":MiscAnalysisTest",
-        ":MissingInputActionTest",
         ":ModifyBuildFileTest",
         ":NoOutputActionTest",
         ":PackageGroupIntegrationTest",
