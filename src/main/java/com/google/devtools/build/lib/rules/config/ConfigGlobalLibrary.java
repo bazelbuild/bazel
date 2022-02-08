@@ -101,11 +101,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         }
       } else {
         String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        // If any other flags need to be excepted, then this fix should be amended to instead be
-        // a commandline-specified set of allowed exceptions.
-        if (optionName.startsWith("experimental_")
-            || (optionName.startsWith("incompatible_")
-                && !optionName.equals("incompatible_enable_cc_toolchain_resolution"))) {
+        if (!validOptionName(optionName)) {
           throw Starlark.errorf(
               "Invalid transition %s '%s'. Cannot transition on --experimental_* or "
                   + "--incompatible_* options",
@@ -116,5 +112,22 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         throw Starlark.errorf("duplicate transition %s '%s'", singularErrorDescriptor, optionKey);
       }
     }
+  }
+
+  private static boolean validOptionName(String optionName) {
+    if (optionName.startsWith("experimental_")) {
+      // Don't allow experimental flags.
+      return false;
+    }
+
+    if (optionName.equals("incompatible_enable_cc_toolchain_resolution")) {
+      // This is specifically allowed.
+      return true;
+    } else if (optionName.startsWith("incompatible_")) {
+      // Don't allow other incompatible flags.
+      return false;
+    }
+
+    return true;
   }
 }

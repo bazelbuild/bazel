@@ -565,7 +565,6 @@ java_test(
     srcs = ["BuildResultTestCase.java"],
     shard_count = 4,
     tags = [
-        "manual",
         "no_windows",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
