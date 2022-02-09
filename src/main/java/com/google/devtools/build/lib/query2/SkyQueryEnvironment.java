@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
@@ -96,6 +97,7 @@ import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
@@ -107,7 +109,6 @@ import com.google.devtools.build.lib.skyframe.TraversalInfoRootPackageExtractor;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -936,7 +937,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
           // Also add the BUILD file of the extension.
           if (buildFiles) {
-            Label buildFileLabel = getBuildFileLabel(loadTarget.getLabel().getPackageIdentifier());
+            Label buildFileLabel = getBuildFileLabelForPackageOfBzlFile(extension);
             addIfUniqueLabel(new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
           }
         }
@@ -945,18 +946,30 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return dependentFiles;
   }
 
-  protected Label getBuildFileLabel(PackageIdentifier packageIdentifier) throws QueryException {
-    // TODO(bazel-team): Try avoid filesystem access here.
-    Path buildFileForLoad = null;
-    try {
-      buildFileForLoad = pkgPath.getPackageBuildFile(packageIdentifier);
-    } catch (NoSuchPackageException e) {
+  protected Label getBuildFileLabelForPackageOfBzlFile(Label bzlFileLabel)
+      throws QueryException, InterruptedException {
+    PackageIdentifier packageIdentifier = bzlFileLabel.getPackageIdentifier();
+    PackageLookupValue packageLookupValue =
+        (PackageLookupValue) graph.getValue(PackageLookupValue.key(packageIdentifier));
+    if (packageLookupValue == null) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "PackageLookupValue for package of extension file "
+                  + bzlFileLabel
+                  + " not in graph"));
       throw new QueryException(
-          packageIdentifier + " does not exist in graph",
-          e,
-          e.getDetailedExitCode().getFailureDetail());
+          bzlFileLabel + " does not exist in graph",
+          FailureDetail.newBuilder()
+              .setMessage("BUILD file not found on package path")
+              .setPackageLoading(
+                  FailureDetails.PackageLoading.newBuilder()
+                      .setCode(FailureDetails.PackageLoading.Code.BUILD_FILE_MISSING)
+                      .build())
+              .build());
     }
-    return Label.createUnvalidated(packageIdentifier, buildFileForLoad.getBaseName());
+    return Label.createUnvalidated(
+        packageIdentifier,
+        packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName());
   }
 
   private static void addIfUniqueLabel(Target node, Set<Label> labels, Set<Target> nodes) {

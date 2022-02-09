@@ -21,11 +21,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,45 +58,20 @@ public final class PathPackageLocator {
   }
 
   /**
-   * Returns the path to the build file for this package.
+   * Returns the path to the build file for this package, or null if not found.
    *
-   * <p>The package's root directory may be computed by calling getParentFile()
-   * on the result of this function.
+   * <p>The package's root directory may be computed by calling getParentFile() on the result of
+   * this function.
    *
-   * <p>Instances of this interface do not attempt to do any caching, nor
-   * implement checks for package-boundary crossing logic; the PackageCache
-   * does that.
-   *
-   * <p>If the same package exists beneath multiple package path entries, the
-   * first path that matches always wins.
-   */
-  public Path getPackageBuildFile(PackageIdentifier packageName) throws NoSuchPackageException {
-    Path buildFile = getPackageBuildFileNullable(packageName, SyscallCache.NO_CACHE);
-    if (buildFile == null) {
-      String message = "BUILD file not found on package path";
-      throw new BuildFileNotFoundException(
-          packageName,
-          message,
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(message)
-                  .setPackageLoading(
-                      PackageLoading.newBuilder()
-                          .setCode(PackageLoading.Code.BUILD_FILE_MISSING)
-                          .build())
-                  .build()));
-    }
-    return buildFile;
-  }
-
-  /**
-   * Like #getPackageBuildFile(), but returns null instead of throwing.
+   * <p>If the same package exists beneath multiple package path entries, the first path that
+   * matches always wins.
    *
    * @param packageIdentifier the name of the package.
-   * @param cache a filesystem-level cache of stat() calls.
+   * @param syscallCache a filesystem-level cache of stat() calls.
    * @return the {@link Path} to the correct build file, or {@code null} if none was found
    */
-  public Path getPackageBuildFileNullable(PackageIdentifier packageIdentifier, SyscallCache cache) {
+  public Path getPackageBuildFileNullable(
+      PackageIdentifier packageIdentifier, SyscallCache syscallCache) {
     if (packageIdentifier.getRepository().isMain()) {
       for (BuildFileName buildFileName : buildFilesByPriority) {
         Path buildFilePath =
@@ -109,7 +79,7 @@ public final class PathPackageLocator {
                 packageIdentifier
                     .getPackageFragment()
                     .getRelative(buildFileName.getFilenameFragment()),
-                cache);
+                syscallCache);
         if (buildFilePath != null) {
           return buildFilePath;
         }
@@ -130,7 +100,7 @@ public final class PathPackageLocator {
                 .getRelative(packageIdentifier.getSourceRoot())
                 .getRelative(buildFileName.getFilenameFragment());
         try {
-          FileStatus stat = cache.statIfFound(buildFile, Symlinks.FOLLOW);
+          FileStatus stat = syscallCache.statIfFound(buildFile, Symlinks.FOLLOW);
           if (stat != null && stat.isFile()) {
             return buildFile;
           }

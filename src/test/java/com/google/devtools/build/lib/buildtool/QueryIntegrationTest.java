@@ -20,7 +20,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -29,11 +31,14 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
@@ -44,6 +49,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -61,6 +67,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathConstants;
@@ -78,7 +85,22 @@ import org.w3c.dom.NodeList;
 @RunWith(TestParameterInjector.class)
 public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private final CustomFileSystem fs = new CustomFileSystem();
+  private final SyscallCache perCommandSyscallCache = PerBuildSyscallCache.newBuilder().build();
+
   private final List<String> options = new ArrayList<>();
+
+  @Override
+  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
+    return super.getRuntimeBuilder()
+        .addBlazeModule(
+            new BlazeModule() {
+              @Override
+              public void workspaceInit(
+                  BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+                builder.setPerCommandSyscallCache(perCommandSyscallCache);
+              }
+            });
+  }
 
   @Override
   protected EventCollectionApparatus createEvents() {
@@ -90,6 +112,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   private static class CustomFileSystem extends UnixFileSystem {
     final Map<PathFragment, FileStatus> stubbedStats = new HashMap<>();
+    final Map<PathFragment, Runnable> watchedPaths = Maps.newConcurrentMap();
 
     CustomFileSystem() {
       super(DigestHashFunction.SHA256, "");
@@ -101,6 +124,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     @Override
     public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+      Runnable runnable = watchedPaths.get(path);
+      if (runnable != null) {
+        runnable.run();
+      }
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path);
       }
@@ -812,6 +839,65 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         .isEqualTo(FailureDetails.PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
     assertThat(directoryListingLatch.await(0, SECONDS)).isTrue();
     TrackingAwaiter.INSTANCE.assertNoErrors();
+  }
+
+  @Test
+  public void skyQueryStatExtensionPackage() throws Exception {
+    write("foo/BUILD", "load('//foo/bar:bar.bzl', 'sym')");
+    write("foo/bar/bar.bzl", "sym = 0");
+    Path barBuild = write("foo/bar/BUILD");
+    AtomicInteger barBuildCount = new AtomicInteger(0);
+    fs.watchedPaths.put(barBuild.asFragment(), barBuildCount::incrementAndGet);
+    QueryOutput queryResult =
+        getQueryResult("buildfiles(//foo:*)", "--universe_scope=//foo/...", "--order_output=no");
+    assertQueryOutputContains(queryResult, "//foo:BUILD", "//foo/bar:BUILD", "//foo/bar:bar.bzl");
+    assertThat(barBuildCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void skyQueryExtensionPackageBuildFileDeletedAfterStat() throws Exception {
+    write("foo/BUILD", "load('//foo/bar:bar.bzl', 'sym')");
+    Path barBzl = write("foo/bar/bar.bzl", "sym = 0");
+    Path barBuild = write("foo/bar/BUILD");
+    AtomicInteger barBuildCount = new AtomicInteger(0);
+    fs.watchedPaths.put(barBuild.asFragment(), barBuildCount::incrementAndGet);
+    fs.watchedPaths.put(
+        barBzl.asFragment(),
+        () -> {
+          perCommandSyscallCache.clear();
+          try {
+            barBuild.delete();
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
+        });
+    QueryOutput queryResult =
+        getQueryResult("buildfiles(//foo:*)", "--universe_scope=//foo/...", "--order_output=no");
+    assertQueryOutputContains(queryResult, "//foo:BUILD", "//foo/bar:BUILD", "//foo/bar:bar.bzl");
+    assertThat(barBuildCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void skyQueryExtensionPackageBuildFileNotInUniverseHasError() throws Exception {
+    write("foo/BUILD", "load('//foo/bar:bar.bzl', 'sym')");
+    Path barBzl = write("foo/bar/bar.bzl", "sym = 0");
+    Path barBuild = write("foo/bar/BUILD", "bad syntax won't matter");
+    AtomicInteger barBuildCount = new AtomicInteger(0);
+    fs.watchedPaths.put(barBuild.asFragment(), barBuildCount::incrementAndGet);
+    fs.watchedPaths.put(
+        barBzl.asFragment(),
+        () -> {
+          perCommandSyscallCache.clear();
+          try {
+            barBuild.delete();
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
+        });
+    QueryOutput queryResult =
+        getQueryResult("buildfiles(//foo:*)", "--universe_scope=//foo:*", "--order_output=no");
+    assertQueryOutputContains(queryResult, "//foo:BUILD", "//foo/bar:BUILD", "//foo/bar:bar.bzl");
+    assertThat(barBuildCount.get()).isEqualTo(1);
   }
 
   private void assertExitCode(QueryOutput result, ExitCode expected) {
