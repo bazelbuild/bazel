@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 /** Describes a requirement on a specific toolchain type. */
 @AutoValue
 public abstract class ToolchainTypeRequirement {
-  /** Returns a builder for a new {@Link ToolchainTypeRequirement}. */
+  /** Returns a builder for a new {@link ToolchainTypeRequirement}. */
   public static Builder builder() {
     return new AutoValue_ToolchainTypeRequirement.Builder().mandatory(true);
   }
