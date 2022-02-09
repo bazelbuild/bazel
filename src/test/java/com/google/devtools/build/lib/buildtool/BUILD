@@ -195,7 +195,6 @@ java_test(
     name = "DirectoryArtifactWarningTest",
     srcs = ["DirectoryArtifactWarningTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -611,7 +610,6 @@ build_test(
         ":ContextProviderInitializationTest",
         ":CorruptedActionCacheTest",
         ":DanglingSymlinkTest",
-        ":DirectoryArtifactWarningTest",
         ":EditDuringBuildTest",
         ":EnvironmentRestrictedBuildTest",
         ":IncludeValidationTest",
