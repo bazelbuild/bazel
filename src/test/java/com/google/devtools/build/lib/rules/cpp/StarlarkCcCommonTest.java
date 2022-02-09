@@ -6745,35 +6745,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("object.pic.o");
   }
 
-  @Test
-  public void testObjectFilesInCreateLibraryWithoutStaticLibrary() throws Exception {
-    setUpCcLinkingContextTest(true);
-    scratch.file(
-        "b/BUILD",
-        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
-        "crule(name='import_objects_no_lib',",
-        "   objects = ['object.o'],",
-        ")");
-
-    checkError(
-        "//b:import_objects_no_lib", "If you pass 'objects' you must also pass a 'static_library'");
-  }
-
-  @Test
-  public void testObjectFilesInCreateLibraryWithoutPicStaticLibrary() throws Exception {
-    setUpCcLinkingContextTest(true);
-    scratch.file(
-        "b/BUILD",
-        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
-        "crule(name='import_objects_no_pic_lib',",
-        "   pic_objects = ['object.pic.o'],",
-        ")");
-
-    checkError(
-        "//b:import_objects_no_pic_lib",
-        "If you pass 'pic_objects' you must also pass a 'pic_static_library'");
-  }
-
   private void setupDebugPackageProviderTest(String fission) throws Exception {
     getAnalysisMock()
         .ccSupport()
