@@ -119,11 +119,15 @@ def compile_action(
         by non-library targets such as binaries that do not have dependants.
 
     Returns:
-      ((JavaInfo, {output_class_jars: list[File],
+      ((JavaInfo, {files_to_build: list[File],
+                   runfiles: list[File],
                    compilation_classpath: list[File],
                    plugins: {processor_jars,
-                             processor_data: depset[File]}})
+                             processor_data: depset[File]}}))
       A tuple with JavaInfo provider and additional compilation info.
+
+      Files_to_build may include an empty .jar file when there are no sources
+      or resources present, whereas runfiles in this case are empty.
     """
 
     java_info = java_common.compile(
@@ -147,11 +151,9 @@ def compile_action(
         enable_compile_jar_action = enable_compile_jar_action,
     )
 
-    # TODO(b/213551463): Can `output_class_jars = [output_class_jar]` be used here, if not document.
-    output_class_jars = [out.class_jar for out in java_info.java_outputs]
-
     compilation_info = struct(
-        output_class_jars = output_class_jars,
+        files_to_build = [output_class_jar],
+        runfiles = [output_class_jar] if source_files or source_jars or resources else [],
         # TODO(ilist): collect compile_jars from JavaInfo in deps & exports
         compilation_classpath = java_info.compilation_info.compilation_classpath,
         javac_options = java_info.compilation_info.javac_options,

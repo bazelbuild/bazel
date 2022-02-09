@@ -106,7 +106,7 @@ def basic_java_library(
     Returns:
       ({java_info: JavaInfo,
         files_to_build: list[File],
-        has_sources_or_resources: bool,
+        runfiles: list[File],
         instrumented_files_info: InstrumentedFilesInfo,
         output_groups: dict[str,list[File]],
         extra_providers: list[Provider]})
@@ -143,7 +143,7 @@ def basic_java_library(
     )
 
     output_groups = dict(
-        compilation_outputs = compilation_info.output_class_jars,
+        compilation_outputs = compilation_info.files_to_build,
         _source_jars = java_info.transitive_source_jars,
         _direct_source_jars = java_info.source_jars,
     )
@@ -176,8 +176,8 @@ def basic_java_library(
 
     return struct(
         java_info = java_info,
-        files_to_build = compilation_info.output_class_jars,
-        has_sources_or_resources = source_files or source_jars or resources,
+        files_to_build = compilation_info.files_to_build,
+        runfiles = compilation_info.runfiles,
         instrumented_files_info = instrumented_files_info,
         output_groups = output_groups,
         extra_providers = {},
@@ -225,28 +225,26 @@ def _collect_native_libraries(*attrs):
     """
     return _filter_provider(CcInfo, *attrs)
 
-def construct_defaultinfo(ctx, files, neverlink, has_sources_or_resources, *extra_attrs):
+def construct_defaultinfo(ctx, files_to_build, files, neverlink, *extra_attrs):
     """Constructs DefaultInfo for Java library like rule.
 
     Args:
       ctx: (RuleContext) Used to construct the runfiles.
-      files: (list[File]) List of the files built by the rule.
+      files_to_build: (list[File]) List of the files built by the rule.
+      files: (list[File]) List of the files include in runfiles.
       neverlink: (bool) When true empty runfiles are constructed.
-      has_sources_or_resources: (bool) TODO(b/213551463): Check if this can be removed.
       *extra_attrs: (list[Target]) Extra attributes to merge runfiles from.
 
     Returns:
       (DefaultInfo) DefaultInfo provider.
     """
-    files_depset = depset(files)
     if neverlink:
         runfiles = None
     else:
-        run_files = files_depset if has_sources_or_resources else None
-        runfiles = ctx.runfiles(transitive_files = run_files, collect_default = True)
+        runfiles = ctx.runfiles(files = files, collect_default = True)
         runfiles = runfiles.merge_all([dep[DefaultInfo].default_runfiles for attr in extra_attrs for dep in attr])
     default_info = DefaultInfo(
-        files = files_depset,
+        files = depset(files_to_build),
         runfiles = runfiles,
     )
     return default_info

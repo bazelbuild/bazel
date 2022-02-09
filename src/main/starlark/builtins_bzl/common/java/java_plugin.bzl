@@ -85,8 +85,8 @@ def bazel_java_plugin_rule(
     default_info = construct_defaultinfo(
         ctx,
         base_info.files_to_build,
+        base_info.runfiles,
         neverlink,
-        base_info.has_sources_or_resources,
     )
 
     return dict({
