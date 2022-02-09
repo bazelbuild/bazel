@@ -27,10 +27,14 @@ public abstract class ToolchainTypeRequirement {
         .mandatory(true);
   }
 
-  /** The toolchain type this requirement is for. */
+  /** Returns the label of the toolchain type that is requested. */
   public abstract Label toolchainType();
 
-  /** Whether the toolchain type is mandatory or optional. */
+  /**
+   * Returns whether the toolchain type is mandatory or optional. An optional toolchain type which
+   * cannot be found will be skipped, but a mandatory toolchain type which cannot be found will stop
+   * the build with an error.
+   */
   public abstract boolean mandatory();
 
   /** A builder for a new {@link ToolchainTypeRequirement}. */
