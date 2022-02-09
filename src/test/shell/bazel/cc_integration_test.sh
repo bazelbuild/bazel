@@ -750,6 +750,43 @@ EOF
       || fail "args didn't contain tree artifact paths"
 }
 
+function test_argv_in_compile_action() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    action = [a for a in target.actions if a.mnemonic == "CppCompile"][0]
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.argv)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  touch "${package}/x.cc"
+  cat > "${package}/BUILD" <<EOF
+cc_library(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out
+
+  cat "bazel-bin/${package}/aspect_out" | \
+      grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\)" \
+      || fail "args didn't contain the tool path"
+
+  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "args didn't contain tree artifact paths"
+}
+
 function test_directory_arg_compile_action() {
   # This test assumes the presence of "nodeps" dynamic libraries, which do not
   # function on Apple platforms.

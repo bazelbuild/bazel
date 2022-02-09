@@ -862,6 +862,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
+  public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
+    try {
+      return StarlarkList.immutableCopyOf(getArguments());
+    } catch (CommandLineExpansionException ex) {
+      throw new EvalException(ex);
+    }
+  }
+
+  @Override
   public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     ImmutableSet<Artifact> directoryInputs =
         getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
