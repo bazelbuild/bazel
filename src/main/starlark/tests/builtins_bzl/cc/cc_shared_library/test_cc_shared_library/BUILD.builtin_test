@@ -100,7 +100,11 @@ cc_library(
 
 cc_library(
     name = "foo",
-    srcs = ["foo.cc"],
+    srcs = ["foo.cc",  "direct_so_file_cc_lib2.h"]
+       + select({
+        "//src/conditions:linux": [":renamed_so_file_copy.so"],
+        "//conditions:default": [],
+       }),
     hdrs = ["foo.h"],
     defines = select({
       "//src/conditions:linux": ["IS_LINUX"],
@@ -291,7 +295,7 @@ build_failure_test(
 
 cc_library(
     name = "prebuilt",
-    srcs = [":just_main_output"],
+    srcs = [":just_main_output", "direct_so_file_cc_lib.h"],
 )
 
 filegroup(
@@ -323,14 +327,19 @@ filegroup(
 cc_shared_library(
     name = "renamed_so_file",
     roots = [
-        ":direct_so_file_cc_lib",
+        ":direct_so_file_cc_lib2",
     ],
     shared_lib_name = "renamed_so_file.so",
 )
 
 cc_library(
     name = "direct_so_file_cc_lib",
-    srcs = ["direct_so_file_cc_lib.cc"],
+    srcs = ["direct_so_file_cc_lib.cc", "direct_so_file_cc_lib.h"],
+)
+
+cc_library(
+    name = "direct_so_file_cc_lib2",
+    srcs = ["direct_so_file_cc_lib2.cc", "direct_so_file_cc_lib2.h"],
 )
 
 cc_shared_library_permissions(

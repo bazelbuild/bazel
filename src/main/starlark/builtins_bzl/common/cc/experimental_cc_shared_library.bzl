@@ -154,9 +154,9 @@ def _is_dynamic_only(library_to_link):
 def _wrap_static_library_with_alwayslink(ctx, feature_configuration, cc_toolchain, linker_input):
     new_libraries_to_link = []
     for old_library_to_link in linker_input.libraries:
-        # TODO(#5200): This will lose the object files from a library to link.
-        # Not too bad for the prototype but as soon as the library_to_link
-        # constructor has object parameters this should be changed.
+        if _is_dynamic_only(old_library_to_link):
+            new_libraries_to_link.append(old_library_to_link)
+            continue
         new_library_to_link = cc_common.create_library_to_link(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
@@ -260,6 +260,7 @@ def _filter_inputs(
         preloaded_deps_direct_labels,
     )
 
+    precompiled_only_dynamic_libraries = []
     unaccounted_for_libs = []
     exports = {}
     owners_seen = {}
@@ -278,20 +279,24 @@ def _filter_inputs(
 
             is_direct_export = owner in direct_exports
 
-            found_dynamic_only = False
-            found_static = False
+            dynamic_only_libraries = []
+            static_libraries = []
             for library in linker_input.libraries:
                 if _is_dynamic_only(library):
-                    found_dynamic_only = True
+                    dynamic_only_libraries.append(library)
                 else:
-                    found_static = True
-            if found_dynamic_only:
-                if not found_static:
+                    static_libraries.append(library)
+
+            if len(dynamic_only_libraries):
+                if not len(static_libraries):
                     if is_direct_export:
                         fail("Do not place libraries which only contain a precompiled dynamic library in roots.")
+
+                precompiled_only_dynamic_libraries.extend(dynamic_only_libraries)
+
+                if not len(static_libraries):
+                    linker_inputs.append(linker_input)
                     continue
-                else:
-                    fail(owner + " has sources and a precompiled dynamic library. Pull the latter into a separate cc_import rule")
 
             if is_direct_export:
                 wrapped_library = _wrap_static_library_with_alwayslink(
@@ -330,7 +335,7 @@ def _filter_inputs(
                     unaccounted_for_libs.append(linker_input.owner)
 
     _throw_error_if_unaccounted_libs(unaccounted_for_libs)
-    return (exports, linker_inputs, link_once_static_libs)
+    return (exports, linker_inputs, link_once_static_libs, precompiled_only_dynamic_libraries)
 
 def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
     if not unaccounted_for_libs:
@@ -408,7 +413,7 @@ def _cc_shared_library_impl(ctx):
 
     link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
 
-    (exports, linker_inputs, link_once_static_libs) = _filter_inputs(
+    (exports, linker_inputs, link_once_static_libs, precompiled_only_dynamic_libraries) = _filter_inputs(
         ctx,
         feature_configuration,
         cc_toolchain,
@@ -511,7 +516,7 @@ def _cc_shared_library_impl(ctx):
             link_once_static_libs = link_once_static_libs,
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
-                libraries = depset([linking_outputs.library_to_link]),
+                libraries = depset([linking_outputs.library_to_link] + precompiled_only_dynamic_libraries),
             ),
             preloaded_deps = preloaded_dep_merged_cc_info,
         ),

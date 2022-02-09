@@ -1,4 +1,4 @@
-// Copyright 2021 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,5 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/direct_so_file_cc_lib.h"
-int direct_so_file_cc_lib() { return 0; }
+#ifndef THIRD_PARTY_BAZEL_SRC_MAIN_STARLARK_TESTS_BUILTINS_BZL_CC_CC_SHARED_LIBRARY_TEST_CC_SHARED_LIBRARY_DIRECT_SO_FILE_CC_LIB_H_
+#define THIRD_PARTY_BAZEL_SRC_MAIN_STARLARK_TESTS_BUILTINS_BZL_CC_CC_SHARED_LIBRARY_TEST_CC_SHARED_LIBRARY_DIRECT_SO_FILE_CC_LIB_H_
+
+int direct_so_file_cc_lib();
+
+#endif  // THIRD_PARTY_BAZEL_SRC_MAIN_STARLARK_TESTS_BUILTINS_BZL_CC_CC_SHARED_LIBRARY_TEST_CC_SHARED_LIBRARY_DIRECT_SO_FILE_CC_LIB_H_
