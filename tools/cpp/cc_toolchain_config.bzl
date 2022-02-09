@@ -395,7 +395,7 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-lstdc++",
+                                "-lc++",
                                 "-undefined",
                                 "dynamic_lookup",
                                 "-headerpad_max_install_names",
