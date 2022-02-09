@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
-import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -568,24 +566,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcLibraryNonThirdPartyIncludesWarned() throws Exception {
-    if (getAnalysisMock().isThisBazel()) {
-      return;
-    }
-
-    checkWarning(
-        "topdir",
-        "lib",
-        // message:
-        "in includes attribute of cc_library rule //topdir:lib: './' resolves to 'topdir' not "
-            + "in 'third_party'. This will be an error in the future",
-        // build file:
-        "cc_library(name = 'lib',",
-        "           srcs = ['foo.cc'],",
-        "           includes = ['./'])");
-  }
-
-  @Test
   public void testCcLibraryThirdPartyIncludesNotWarned() throws Exception {
     eventCollector.clear();
     ConfiguredTarget target =
@@ -692,21 +672,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcLibraryWithDashStatic() throws Exception {
-    assumeTrue(OS.getCurrent() != OS.DARWIN);
-    checkWarning(
-        "badlib",
-        "lib_with_dash_static",
-        // message:
-        "in linkopts attribute of cc_library rule //badlib:lib_with_dash_static: "
-            + "Using '-static' here won't work. Did you mean to use 'linkstatic=1' instead?",
-        // build file:
-        "cc_library(name = 'lib_with_dash_static',",
-        "   srcs = [ 'ok.cc' ],",
-        "   linkopts = [ '-static' ])");
-  }
-
-  @Test
   public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin");
     useConfiguration("--cpu=darwin");
@@ -794,18 +759,6 @@ public class CcCommonTest extends BuildViewTestCase {
             "           srcs = ['libshared.so', 'libshared.so.1.1', 'foo.cc'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
     assertThat(artifactNames).containsAtLeast("libshared.so", "libshared.so.1.1");
-  }
-
-  @Test
-  public void testNoHeaderInHdrsWarning() throws Exception {
-    checkWarning(
-        "hdrs_filetypes",
-        "foo",
-        "in hdrs attribute of cc_library rule //hdrs_filetypes:foo: file 'foo.a' "
-            + "from target '//hdrs_filetypes:foo.a' is not allowed in hdrs",
-        "cc_library(name = 'foo',",
-        "    srcs = [],",
-        "    hdrs = ['foo.a'])");
   }
 
   @Test

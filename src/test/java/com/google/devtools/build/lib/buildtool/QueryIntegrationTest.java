@@ -637,7 +637,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "package/inc.bzl",
         "def g(name):",
-        "    native.cc_library(name = name)",
+        "    native.sh_library(name = name)",
         "",
         "def f(name):",
         "    g(name)");
@@ -651,7 +651,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "# "
             + workspaceDir
             + "/package/BUILD:2:2\n"
-            + "cc_library(\n"
+            + "sh_library(\n"
             + "  name = \"a\",\n"
             + "  generator_name = \"a\",\n"
             + "  generator_function = \"f\",\n"
@@ -672,7 +672,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             + "# "
             + workspaceDir
             + "/package/BUILD:3:2\n"
-            + "cc_library(\n"
+            + "sh_library(\n"
             + "  name = \"b\",\n"
             + "  generator_name = \"b\",\n"
             + "  generator_function = \"f\",\n"
