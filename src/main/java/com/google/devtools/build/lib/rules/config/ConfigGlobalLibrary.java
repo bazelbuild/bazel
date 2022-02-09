@@ -120,7 +120,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       return false;
     }
 
-    if (optionName.equals("incompatible_enable_cc_toolchain_resolution")) {
+    if (optionName.equals("incompatible_enable_cc_toolchain_resolution")
+        || optionName.equals("incompatible_enable_apple_toolchain_resolution")) {
       // This is specifically allowed.
       return true;
     } else if (optionName.startsWith("incompatible_")) {

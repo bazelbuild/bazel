@@ -245,19 +245,33 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     throw new AssertionError();
   }
 
+  /** Override this to trigger platform-based Apple toolchain resolution. */
+  protected boolean platformBasedToolchains() {
+    return false;
+  }
+
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    ImmutableList<String> extraArgs = MockObjcSupport.requiredObjcCrosstoolFlags();
+    ImmutableList<String> extraArgs;
+    if (platformBasedToolchains()) {
+      extraArgs = MockObjcSupport.requiredObjcPlatformFlags();
+    } else {
+      extraArgs = MockObjcSupport.requiredObjcCrosstoolFlags();
+    }
     args = Arrays.copyOf(args, args.length + extraArgs.size());
     for (int i = 0; i < extraArgs.size(); i++) {
       args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);
     }
-
     super.useConfiguration(args);
   }
 
   protected void useConfigurationWithCustomXcode(String... args) throws Exception {
-    ImmutableList<String> extraArgs = MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig();
+    ImmutableList<String> extraArgs;
+    if (platformBasedToolchains()) {
+      extraArgs = MockObjcSupport.requiredObjcPlatformFlagsNoXcodeConfig();
+    } else {
+      extraArgs = MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig();
+    }
     args = Arrays.copyOf(args, args.length + extraArgs.size());
     for (int i = 0; i < extraArgs.size(); i++) {
       args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);

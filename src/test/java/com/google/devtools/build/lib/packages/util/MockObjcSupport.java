@@ -21,9 +21,7 @@ import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
-/**
- * Creates mock BUILD files required for the objc rules.
- */
+/** Creates mock BUILD files required for the objc rules. */
 public final class MockObjcSupport {
 
   private static final ImmutableList<String> OSX_ARCHS =
@@ -56,6 +54,14 @@ public final class MockObjcSupport {
   public static final String DEFAULT_XCODE_VERSION = "7.3.1";
   public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
 
+  public static ImmutableList<String> requiredObjcPlatformFlags() {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    return builder
+        .addAll(requiredObjcPlatformFlagsNoXcodeConfig())
+        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
+        .build();
+  }
+
   /** Returns the set of flags required to build objc libraries using the mock OSX crosstool. */
   public static ImmutableList<String> requiredObjcCrosstoolFlags() {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
@@ -63,6 +69,20 @@ public final class MockObjcSupport {
         .addAll(requiredObjcCrosstoolFlagsNoXcodeConfig())
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .build();
+  }
+
+  public static ImmutableList<String> requiredObjcPlatformFlagsNoXcodeConfig() {
+    ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+
+    // Set a crosstool_top that is compatible with Apple transitions. Currently, even though this
+    // references the old cc_toolchain_suite, it's still required of cc builds even when the
+    // incompatible_enable_cc_toolchain_resolution flag is active.
+    argsBuilder.add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+
+    argsBuilder.add("--incompatible_enable_cc_toolchain_resolution");
+    argsBuilder.add("--incompatible_enable_apple_toolchain_resolution");
+
+    return argsBuilder.build();
   }
 
   /**
@@ -79,9 +99,6 @@ public final class MockObjcSupport {
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
-    // TODO(b/32411441): This flag will be flipped off by default imminently, at which point
-    // this can be removed. The flag itself is for safe rollout of a backwards incompatible change.
-    argsBuilder.add("--noexperimental_objc_provider_from_linked");
     return argsBuilder.build();
   }
 
@@ -90,14 +107,58 @@ public final class MockObjcSupport {
    * toolchain stanza in the crosstool loaded from file.
    */
   public static void setup(MockToolsConfig config) throws IOException {
+
+    // Create default, simple Apple toolchains based on the default Apple Crosstool.
+    config.create(
+        "tools/build_defs/apple/toolchains/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "toolchain(",
+        "  name = 'darwin_x86_64_any',",
+        "  toolchain = '//"
+            + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR
+            + ":cc-compiler-darwin_x86_64',",
+        "  toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "  target_compatible_with = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")",
+        "toolchain(",
+        "  name = 'ios_arm64_any',",
+        "  toolchain = '//"
+            + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR
+            + ":cc-compiler-ios_arm64',",
+        "  toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "  target_compatible_with = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
+        "  ],",
+        ")");
+
+    // Create default Apple target platforms.
+    // Any device, simulator or maccatalyst platforms created by Apple tests should consider
+    // building on one of these targets as parents, to ensure that the proper constraints are set.
+    config.create(
+        TestConstants.PLATFORMS_PATH + "/apple/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "platform(",
+        "  name = 'darwin_x86_64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")",
+        "platform(",
+        "  name = 'ios_arm64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
+        "  ],",
+        ")");
+
     for (String tool :
         ImmutableSet.of(
-            "objc_dummy.mm",
-            "gcov",
-            "testrunner",
-            "xcrunwrapper.sh",
-            "mcov",
-            "libtool")) {
+            "objc_dummy.mm", "gcov", "testrunner", "xcrunwrapper.sh", "mcov", "libtool")) {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
     config.create(
@@ -240,7 +301,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx");
   }
 
   public static CcToolchainConfig.Builder x64_windows() {
@@ -290,7 +354,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder ios_armv7() {
@@ -322,7 +389,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder ios_i386() {
@@ -354,7 +424,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder iosX86_64() {
@@ -386,7 +459,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios");
   }
 
   public static CcToolchainConfig.Builder tvos_arm64() {
@@ -418,7 +494,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:tvos");
   }
 
   public static CcToolchainConfig.Builder tvosX86_64() {
@@ -450,7 +529,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:tvos");
   }
 
   public static CcToolchainConfig.Builder watchos_armv7k() {
@@ -482,7 +564,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7k",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
   }
 
   public static CcToolchainConfig.Builder watchos_i386() {
@@ -514,7 +599,10 @@ public final class MockObjcSupport {
             "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
             "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
-            "/usr/include");
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
   }
 
   /** Test setup for the Apple SDK targets that are used in tests. */
