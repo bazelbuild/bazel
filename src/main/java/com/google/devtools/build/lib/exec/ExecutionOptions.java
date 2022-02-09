@@ -265,7 +265,7 @@ public class ExecutionOptions extends OptionsBase {
         OptionEffectTag.EXECUTION
       },
       help =
-          "Specifies maximum per-test-log size that can be emitted when --test_summary is 'errors' "
+          "Specifies maximum per-test-log size that can be emitted when --test_output is 'errors' "
               + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
               + "output. The test header is included in the log size. Negative values imply no "
               + "limit. Output is all or nothing.")
