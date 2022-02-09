@@ -449,7 +449,8 @@ DIST_DEPS = {
     },
     "remotejdk17_win_arm64": {
         "aliases": [
-            "openjdk_win_arm64_vanilla",
+            "remotejdk17_win_arm64_for_testing",
+            "openjdk17_windows_arm64_archive",
         ],
         "archive": "zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
         "sha256": "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
@@ -522,18 +523,6 @@ DIST_DEPS = {
         "urls": [
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
-        ],
-        "used_in": [],
-    },
-    "remotejdk17_win_arm64": {
-        "aliases": [
-            "remotejdk17_win_arm64_for_testing",
-            "openjdk17_windows_arm64_archive",
-        ],
-        "sha256": "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
-        "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-win_aarch64",
-        "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip"
         ],
         "used_in": [],
     },
