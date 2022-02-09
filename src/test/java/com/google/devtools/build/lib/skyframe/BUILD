@@ -20,6 +20,7 @@ CROSS_PLATFORM_WINDOWS_TESTS = [
 
 # Tests that are broken out from the SkyframeTests target into separate targets.
 EXCLUDED_FROM_SKYFRAME_TESTS = [
+    "LocalDiffAwarenessTest.java",
     "LocalDiffAwarenessIntegrationTest.java",
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
 ] + CROSS_PLATFORM_WINDOWS_TESTS
@@ -381,6 +382,35 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "LocalDiffAwarenessTest",
+    srcs = ["LocalDiffAwarenessTest.java"],
+    # There are two issues with this test on Windows:
+    #   (1) [easy] The assertion in #modifiedPathIsntUnderWatchRoot needs to be
+    #       rewritten to handle Windows-style absolute paths.
+    #   (2) [hard] Watch events seem to be non-deterministically missing or
+    #       spurious. Maybe there was a bug in PR 11334?
+    # If you want to try to fix these, first put a statement like
+    # `localDiffOptions.windowsWatchFS = true;` in #initializeSettings. That
+    # flag is off by default, due to the instability of the --watchfs feature on
+    # Windows.
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
+        "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
