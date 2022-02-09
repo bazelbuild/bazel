@@ -115,7 +115,6 @@ public class MockPlatformSupport {
         // default value for simplicity.
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
         "        '" + constraintsPackageRoot + "os:linux',",
-        "        '" + platformPackageRoot + "/java/constraints:jdk11',",
         "    ],",
         ")",
         "platform(",
@@ -123,25 +122,7 @@ public class MockPlatformSupport {
         "    constraint_values = [",
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
         "        '" + constraintsPackageRoot + "os:linux',",
-        "        '" + platformPackageRoot + "/java/constraints:jdk11',",
         "    ],",
-        ")");
-    mockToolsConfig.create(
-        platformsPath + "/java/constraints/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "constraint_setting(name = 'runtime')",
-        "constraint_value(",
-        "    name = 'jdk8',",
-        "    constraint_setting = ':runtime',",
-        ")",
-        "constraint_value(",
-        "    name = 'jdk11',",
-        "    constraint_setting = ':runtime',",
-        ")",
-        "constraint_setting(name = 'language')",
-        "constraint_value(",
-        "    name = 'java8',",
-        "    constraint_setting = ':language',",
         ")");
   }
 

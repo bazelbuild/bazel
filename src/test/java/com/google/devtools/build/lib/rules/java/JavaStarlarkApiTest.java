@@ -82,23 +82,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')",
-        "constraint_value(",
-        "    name = 'constraint',",
-        "    constraint_setting = '"
-            + TestConstants.PLATFORM_PACKAGE_ROOT
-            + "/java/constraints:runtime',",
-        ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",
         "    toolchain = ':jvm',",
         "    toolchain_type = '"
             + TestConstants.TOOLS_REPOSITORY
             + "//tools/jdk:runtime_toolchain_type',",
-        "    target_compatible_with = [':constraint'],",
-        ")",
-        "platform(",
-        "    name = 'platform',",
-        "    constraint_values = [':constraint'],",
         ")");
 
     scratch.file(
@@ -114,7 +103,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
@@ -138,23 +127,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_runtime(name='jvm', srcs=[], java_home='foo/bar')",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')",
-        "constraint_value(",
-        "    name = 'constraint',",
-        "    constraint_setting = '"
-            + TestConstants.PLATFORM_PACKAGE_ROOT
-            + "/java/constraints:runtime',",
-        ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",
         "    toolchain = ':jvm',",
         "    toolchain_type = '"
             + TestConstants.TOOLS_REPOSITORY
             + "//tools/jdk:runtime_toolchain_type',",
-        "    target_compatible_with = [':constraint'],",
-        ")",
-        "platform(",
-        "    name = 'platform',",
-        "    constraint_values = [':constraint'],",
         ")");
 
     scratch.file(
@@ -170,7 +148,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
@@ -195,23 +173,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java')",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')",
-        "constraint_value(",
-        "    name = 'constraint',",
-        "    constraint_setting = '"
-            + TestConstants.PLATFORM_PACKAGE_ROOT
-            + "/java/constraints:runtime',",
-        ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",
         "    toolchain = ':jvm',",
         "    toolchain_type = '"
             + TestConstants.TOOLS_REPOSITORY
             + "//tools/jdk:runtime_toolchain_type',",
-        "    target_compatible_with = [':constraint'],",
-        ")",
-        "platform(",
-        "    name = 'platform',",
-        "    constraint_values = [':constraint'],",
         ")");
 
     scratch.file(
@@ -227,7 +194,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget genrule = getConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
@@ -2587,9 +2554,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             + "//tools/jdk:java_toolchain_alias.bzl', 'java_toolchain_alias')",
         "java_toolchain_alias(name='alias')",
         "myrule(name='myrule')");
-    useConfiguration(
-        "--extra_toolchains=//java/com/google/test:all",
-        "--platforms=//java/com/google/test:platform");
+    useConfiguration("--extra_toolchains=//java/com/google/test:all");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
     StructImpl info =
         (StructImpl)
@@ -2911,23 +2876,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_runtime(name='jvm', srcs=['a.txt'], java_home='foo/bar')",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')",
-        "constraint_value(",
-        "    name = 'constraint',",
-        "    constraint_setting = '"
-            + TestConstants.PLATFORM_PACKAGE_ROOT
-            + "/java/constraints:runtime',",
-        ")",
         "toolchain(",
         "    name = 'java_runtime_toolchain',",
         "    toolchain = ':jvm',",
         "    toolchain_type = '"
             + TestConstants.TOOLS_REPOSITORY
             + "//tools/jdk:runtime_toolchain_type',",
-        "    target_compatible_with = [':constraint'],",
-        ")",
-        "platform(",
-        "    name = 'platform',",
-        "    constraint_values = [':constraint'],",
         ")");
 
     scratch.file(
@@ -2939,7 +2893,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
-    useConfiguration("--extra_toolchains=//a:all", "--platforms=//a:platform");
+    useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     Depset files = (Depset) ct.get("files");
     assertThat(prettyArtifactNames(files.toList(Artifact.class))).containsExactly("a/a.txt");
