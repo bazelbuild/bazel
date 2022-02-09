@@ -182,7 +182,9 @@ public class BazelCcModule extends CcModule
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
+      Object mainOutput,
       Object linkerOutputs,
+      Object winDefFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -208,7 +210,9 @@ public class BazelCcModule extends CcModule
         wholeArchive,
         additionalLinkstampDefines,
         onlyForDynamicLibs,
+        mainOutput,
         linkerOutputs,
+        winDefFile,
         thread);
   }
 

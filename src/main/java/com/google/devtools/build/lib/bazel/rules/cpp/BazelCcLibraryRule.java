@@ -63,6 +63,7 @@ public final class BazelCcLibraryRule implements RuleDefinition {
             attr("implementation_deps", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(CcInfo.PROVIDER.id()))
+        .advertiseStarlarkProvider(CcInfo.PROVIDER.id())
         .build();
   }
 

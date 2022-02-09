@@ -1,0 +1,8 @@
+licenses(["notice"])
+
+cc_library(
+    name = "bar",
+    srcs = ["bar.cc"],
+    hdrs = ["bar.h"],
+    visibility = ["//visibility:public"],
+)
