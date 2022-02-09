@@ -9,10 +9,277 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+java_test(
+    name = "PackageLookupValueCodecTest",
+    size = "small",
+    srcs = ["PackageLookupValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "MutableListCodecTest",
+    size = "small",
+    srcs = ["MutableListCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "SingletonCodecTest",
+    size = "small",
+    srcs = ["SingletonCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "TupleCodecTest",
+    size = "small",
+    srcs = ["TupleCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "TransitiveTraversalValueCodecTest",
+    size = "small",
+    srcs = ["TransitiveTraversalValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_traversal_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+    ],
+)
+
+java_test(
+    name = "WorkspaceNameValueCodecTest",
+    size = "small",
+    srcs = ["WorkspaceNameValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "MemoizerTest",
+    size = "small",
+    srcs = ["MemoizerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "RecursivePkgKeyCodecTest",
+    size = "small",
+    srcs = ["RecursivePkgKeyCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_pkg_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "RootedPathCodecTest",
+    size = "small",
+    srcs = ["RootedPathCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "IgnoredPackagePrefixesValueCodecTest",
+    size = "small",
+    srcs = ["IgnoredPackagePrefixesValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "LongCodecTest",
+    size = "small",
+    srcs = ["LongCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "StarlarkInfoCodecTest",
+    size = "small",
+    srcs = ["StarlarkInfoCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "StatementCodecTest",
+    size = "small",
+    srcs = ["StatementCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ByteArrayCodecTest",
+    size = "small",
+    srcs = ["ByteArrayCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "IntegerCodecTest",
+    size = "small",
+    srcs = ["IntegerCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "NullableListCodecTest",
+    size = "small",
+    srcs = ["NullableListCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "BooleanCodecTest",
+    size = "small",
+    srcs = ["BooleanCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "ExpressionCodecTest",
+    size = "small",
+    srcs = ["ExpressionCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "BzlLoadValueCodecTest",
+    size = "small",
+    srcs = ["BzlLoadValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ProviderCodecTest",
+    size = "small",
+    srcs = ["ProviderCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:junit4",
+    ],
+)
+
 java_library(
     name = "serialization-tests",
     testonly = 1,
-    srcs = glob(["**/*.java"]),
+    srcs = glob(
+        ["**/*.java"],
+        exclude = [
+            "PackageLookupValueCodecTest.java",
+            "MutableListCodecTest.java",
+            "SingletonCodecTest.java",
+            "TupleCodecTest.java",
+            "TransitiveTraversalValueCodecTest.java",
+            "WorkspaceNameValueCodecTest.java",
+            "MemoizerTest.java",
+            "RecursivePkgKeyCodecTest.java",
+            "RootedPathCodecTest.java",
+            "IgnoredPackagePrefixesValueCodecTest.java",
+            "LongCodecTest.java",
+            "StarlarkInfoCodecTest.java",
+            "StatementCodecTest.java",
+            "ByteArrayCodecTest.java",
+            "IntegerCodecTest.java",
+            "NullableListCodecTest.java",
+            "BooleanCodecTest.java",
+            "ExpressionCodecTest.java",
+            "BzlLoadValueCodecTest.java",
+            "ProviderCodecTest.java",
+        ],
+    ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
