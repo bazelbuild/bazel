@@ -98,7 +98,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk11_win_arm64}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
     ],
@@ -152,7 +152,7 @@ maybe(
 maybe(
     remote_java_repository,
     {remotejdk17_win_arm64}
-    exec_compatible_with = [
+    target_compatible_with = [
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
     ],
