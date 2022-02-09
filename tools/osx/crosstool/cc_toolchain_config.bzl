@@ -1677,27 +1677,6 @@ def _impl(ctx):
         ],
     )
 
-    per_object_debug_info_feature = feature(
-        name = "per_object_debug_info",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_module_codegen,
-                    ACTION_NAMES.assemble,
-                    ACTION_NAMES.preprocess_assemble,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = ["-gsplit-dwarf", "-g"],
-                        expand_if_available = "per_object_debug_info_file",
-                    ),
-                ],
-            ),
-        ],
-    )
-
     lipo_feature = feature(
         name = "lipo",
         flag_sets = [
@@ -2892,7 +2871,6 @@ def _impl(ctx):
             sysroot_feature,
             dependency_file_feature,
             pic_feature,
-            per_object_debug_info_feature,
             preprocessor_defines_feature,
             framework_paths_feature,
             random_seed_feature,
@@ -2972,7 +2950,6 @@ def _impl(ctx):
             sysroot_feature,
             dependency_file_feature,
             pic_feature,
-            per_object_debug_info_feature,
             preprocessor_defines_feature,
             framework_paths_feature,
             random_seed_feature,

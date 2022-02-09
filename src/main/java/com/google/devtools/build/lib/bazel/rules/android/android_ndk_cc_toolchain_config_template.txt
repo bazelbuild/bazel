@@ -179,6 +179,22 @@ def _impl(ctx):
                 ],
             )
 
+    per_object_debug_info_feature = feature(
+        name = "per_object_debug_info",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_compile_actions,
+                flag_groups = [
+                    flag_group(
+                        flags = ["-gsplit-dwarf", "-g"],
+                        expand_if_available = "per_object_debug_info_file",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     unfiltered_compile_flag_sets = []
     if unfiltered_compile_flags:
       unfiltered_compile_flag_sets.append(
@@ -207,6 +223,7 @@ def _impl(ctx):
         opt_feature,
         user_compile_flags_feature,
         sysroot_feature,
+        per_object_debug_info_feature,
         unfiltered_compile_flags_feature,
     ]
 

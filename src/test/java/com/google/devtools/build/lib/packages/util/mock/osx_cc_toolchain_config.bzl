@@ -7577,27 +7577,6 @@ def _impl(ctx):
     else:
         apply_default_compiler_flags_feature = None
 
-    per_object_debug_info_feature = feature(
-        name = "per_object_debug_info",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_module_codegen,
-                    ACTION_NAMES.assemble,
-                    ACTION_NAMES.preprocess_assemble,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = ["-gsplit-dwarf", "-g"],
-                        expand_if_available = "per_object_debug_info_file",
-                    ),
-                ],
-            ),
-        ],
-    )
-
     symbol_counts_feature = feature(
         name = "symbol_counts",
         flag_sets = [
@@ -7825,7 +7804,6 @@ def _impl(ctx):
         dependency_file_feature,
         random_seed_feature,
         pic_feature,
-        per_object_debug_info_feature,
         includes_feature,
         include_paths_feature,
         fdo_instrument_feature,
