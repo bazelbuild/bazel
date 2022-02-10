@@ -52,6 +52,10 @@ OSX_TOOLS_CONSTRAINTS = {
         "@platforms//os:ios",
         "@platforms//cpu:x86_64",
     ],
+    "tvos_sim_arm64": [
+        "@platforms//os:ios",
+        "@platforms//cpu:aarch64",
+    ],
     "watchos_arm64": [
         "@platforms//os:ios",
         "@platforms//cpu:aarch64",
