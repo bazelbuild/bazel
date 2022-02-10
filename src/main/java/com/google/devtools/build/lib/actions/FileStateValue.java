@@ -18,11 +18,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -35,8 +32,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
@@ -139,28 +136,76 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
 
   @ThreadSafe
   public static Key key(RootedPath rootedPath) {
-    return Key.create(rootedPath);
+    return new Key(rootedPath);
   }
 
   /** Key type for FileStateValue. */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  public static class Key extends AbstractSkyKey<RootedPath> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  public static final class Key implements SkyKey {
+    private final RootedPath rootedPath;
 
-    private Key(RootedPath arg) {
-      super(arg);
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RootedPath arg) {
-      return interner.intern(new Key(arg));
+    // We used to weakly intern all Key instances but no longer do so after concluding the data
+    // structure overhead of the intern was a net negative wrt retained heap. The current approach
+    // of interning nothing is instead a net positive (saved ~0.1% when implemented in Feb 2022).
+    //
+    // A specific call to #key is going to be for one of the following important use-cases:
+    //   * FileFunction computing a specific FileValue (FV) node, declaring a Skyframe dep on a
+    //     specific FileStateValue (FSV) node. There are two things to consider:
+    //     * A specific FSV node will have exactly one rdep so there's no business-logic reason
+    //       interning of Key would be productive. One exception to this reasoning is symlinks: if
+    //       paths `a` and `b` are both symlinks to `c` and Blaze needs to consider `a` and `b`,
+    //       then it'll have nodes FV(a); FV(b); FSV(a); FSV(b); FSV(c) and forward edge sets
+    //       FV(a)->{FSV(a); FSV(c)}; FV(b)->{FSV(b); FSV(c)}. So our current non-interning
+    //       approach will mean we have different Key instances for right endpoints of edges
+    //       FV(a)->FSV(c); FV(b)->FSV(c). This is an acceptable inefficiency because this situation
+    //       is not common and not worth optimizing for.
+    //     * The Skyframe engine implementation effectively deduplicates the set of Skyframe deps of
+    //       a node declared by a skyFunction.compute(k, env), across all Skyframe restarts. So
+    //       there's no concern about a specific FV node causing many equivalent Key instances to be
+    //       retained, due to Skyframe restarts of FileFunction.
+    //   * SkyQuery's RBuildFilesVisitor, creating a root node for a graph traversal for query
+    //     evaluation. The set of RootedPaths used for these roots is both low in number and also
+    //     deduped, so interning Key here isn't productive. Also, these objects are not retained for
+    //     long anyway so it's fine to have some garbage churn.
+    //   * SkyframeExecutor, creating a root node for an invalidation traversal. Same reasoning as
+    //     above.
+    //
+    // Then, since we're not interning, using AbstractSkyKey is unproductive since the assumption
+    // about the #hashCode field is wrong. By not extending AbstractSkyKey, we save 8 bytes of
+    // shallow heap per Key instance.
+    private Key(RootedPath rootedPath) {
+      this.rootedPath = rootedPath;
     }
 
     @Override
     public SkyFunctionName functionName() {
       return FILE_STATE;
+    }
+
+    @Override
+    public RootedPath argument() {
+      return rootedPath;
+    }
+
+    @Override
+    public int hashCode() {
+      return rootedPath.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof Key)) {
+        return false;
+      }
+      Key other = (Key) obj;
+      return rootedPath.equals(other.rootedPath);
+    }
+
+    @Override
+    public String toString() {
+      return FILE_STATE + ":" + rootedPath;
     }
   }
 
