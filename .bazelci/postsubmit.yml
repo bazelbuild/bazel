@@ -161,9 +161,11 @@ tasks:
       - rm -f WORKSPACE.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
       - "--noremote_accept_cached"
     build_targets:
@@ -174,7 +176,7 @@ tasks:
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
       # Configure and enable tests that require access to the network.
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
@@ -196,12 +198,14 @@ tasks:
   windows:
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
+      - mkdir C:\b
+      - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
       - "--test_env=JAVA_HOME"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
       - "--noremote_accept_cached"
     build_targets:
       - "//src:bazel.exe"
@@ -213,7 +217,7 @@ tasks:
       - "--test_tag_filters=-no_windows,-slow"
       - "--test_env=JAVA_HOME"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
     test_targets:
       - "//src:embedded_tools_size_test"
       - "//src/test/cpp/..."
