@@ -172,17 +172,19 @@ def _should_generate_def_file(ctx, feature_configuration):
     return windows_export_all_symbols_enabled and (not no_windows_export_all_symbols_enabled) and (ctx.attr.win_def_file == None)
 
 def _generate_def_file(ctx, def_parser, object_files, dll_name):
-    def_file = ctx.actions.declare_file(ctx.label.name + ".gen.def")
+    args = ctx.actions.args()
+    args.add(def_file)
+    args.add(dll_name)
     argv = ctx.actions.args()
-    argv.add(def_file)
-    argv.add(dll_name)
+    argv.use_param_file("@%s", use_always = True)
+    argv.set_param_file_format("shell")
     for object_file in object_files:
         argv.add(object_file.path)
 
     ctx.actions.run(
         mnemonic = "DefParser",
         executable = def_parser,
-        arguments = [argv],
+        arguments = [args, argv],
         inputs = object_files,
         outputs = [def_file],
         use_default_shell_env = True,
