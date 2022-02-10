@@ -451,6 +451,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_win_arm64_for_testing",
             "openjdk17_windows_arm64_archive",
+            "openjdk_win_arm64_vanilla",
         ],
         "archive": "zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
         "sha256": "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
