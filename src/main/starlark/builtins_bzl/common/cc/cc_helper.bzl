@@ -161,8 +161,7 @@ def _get_windows_def_file_for_linking(ctx, custom_def_file, generated_def_file, 
     # 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
     if custom_def_file != None:
         return custom_def_file
-    elif generated_def_file != None and _should_
-    (ctx, feature_configuration) == True:
+    elif generated_def_file != None and _should_generate_def_file(ctx, feature_configuration) == True:
         return generated_def_file
     else:
         return _gen_empty_def_file(ctx)
