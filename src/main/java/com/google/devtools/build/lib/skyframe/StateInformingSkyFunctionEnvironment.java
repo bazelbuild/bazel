@@ -20,6 +20,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.Version;
@@ -150,6 +151,17 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   @Override
   public boolean valuesMissing() {
     return delegate.valuesMissing();
+  }
+
+  @Override
+  public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
+    preFetch.inform();
+    try {
+      return delegate.getValuesAndExceptions(depKeys);
+    } finally {
+      postFetch.inform();
+    }
   }
 
   @Override

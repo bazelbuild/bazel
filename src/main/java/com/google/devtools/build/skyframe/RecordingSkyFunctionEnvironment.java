@@ -169,6 +169,18 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
+  public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
+    recordDeps(depKeys);
+    try {
+      return delegate.getValuesAndExceptions(depKeys);
+    } catch (Exception e) {
+      noteException(e);
+      throw e;
+    }
+  }
+
+  @Override
   public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     recordDeps(depKeys);

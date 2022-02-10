@@ -178,6 +178,13 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
             voe -> ValueOrException2.fromUntypedException(voe, exceptionClass1, exceptionClass2)));
   }
 
+  @Override
+  public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
+    Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
+    return new SkyframeLookupResult(() -> valuesMissing = true, valuesOrExceptions::get);
+  }
+
   private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       void checkValuesMissingBecauseOfFilteredError(
           Map<SkyKey, ValueOrUntypedException> voes,
