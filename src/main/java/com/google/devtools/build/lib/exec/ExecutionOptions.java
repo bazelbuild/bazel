@@ -160,7 +160,10 @@ public class ExecutionOptions extends OptionsBase {
       converter = ShowSubcommandsConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Display the subcommands executed during a build.")
+      help =
+          "Display the subcommands executed during a build. Related flags:"
+              + " --execution_log_json_file, --execution_log_binary_file (for logging subcommands"
+              + " to a file in a tool-friendly format).")
   public ShowSubcommands showSubcommands;
 
   @Option(
@@ -427,7 +430,10 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      help =
+          "Log the executed spawns into this file as delimited Spawn protos. Related flags:"
+              + " --execution_log_json_file (text json format), --subcommands (for displaying"
+              + " subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
 
   @Option(
@@ -439,7 +445,8 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as json representation of the delimited Spawn"
-              + " protos.")
+              + " protos. Related flags: --execution_log_binary_file (binary protobuf format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
   @Option(
