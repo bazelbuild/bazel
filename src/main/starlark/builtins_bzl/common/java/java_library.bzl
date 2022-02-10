@@ -16,10 +16,9 @@
 Definition of java_library rule.
 """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
+load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
 
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
@@ -62,7 +61,7 @@ def bazel_java_library_rule(
     if not srcs and deps:
         fail("deps not allowed without srcs; move to runtime_deps?")
 
-    base_info = basic_java_library(
+    target, base_info = basic_java_library(
         ctx,
         srcs,
         deps,
@@ -74,17 +73,10 @@ def bazel_java_library_rule(
         [],  # class_pathresources
         javacopts,
         neverlink,
+        proguard_specs = proguard_specs,
     )
 
-    proguard_specs_provider = validate_proguard_specs(
-        ctx,
-        proguard_specs,
-        [deps, runtime_deps, exports, plugins, exported_plugins],
-    )
-    base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
-    base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
-
-    default_info = construct_defaultinfo(
+    target["DefaultInfo"] = construct_defaultinfo(
         ctx,
         base_info.files_to_build,
         base_info.runfiles,
@@ -92,13 +84,9 @@ def bazel_java_library_rule(
         exports,
         runtime_deps,
     )
+    target["OutputGroupInfo"] = OutputGroupInfo(**base_info.output_groups)
 
-    return dict({
-        "DefaultInfo": default_info,
-        "JavaInfo": base_info.java_info,
-        "InstrumentedFilesInfo": base_info.instrumented_files_info,
-        "OutputGroupInfo": OutputGroupInfo(**base_info.output_groups),
-    }, **base_info.extra_providers)
+    return target
 
 def _proxy(ctx):
     return bazel_java_library_rule(
@@ -115,10 +103,7 @@ def _proxy(ctx):
         ctx.files.proguard_specs,
     ).values()
 
-JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
-    BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
-    VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS,
-)
+JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS
 
 JAVA_LIBRARY_ATTRS = merge_attrs(
     JAVA_LIBRARY_IMPLICIT_ATTRS,

@@ -19,7 +19,6 @@ Definition of java_plugin rule.
 load(":common/java/java_common.bzl", "basic_java_library", "construct_defaultinfo")
 load(":common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "JAVA_LIBRARY_IMPLICIT_ATTRS")
 load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
@@ -57,7 +56,7 @@ def bazel_java_plugin_rule(
       (list[provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
     """
-    base_info = basic_java_library(
+    target, base_info = basic_java_library(
         ctx,
         srcs,
         deps,
@@ -69,32 +68,26 @@ def bazel_java_plugin_rule(
         [],  # classpath_resources
         javacopts,
         neverlink,
+        proguard_specs = proguard_specs,
     )
+    java_info = target.pop("JavaInfo")
 
-    proguard_specs_provider = validate_proguard_specs(ctx, proguard_specs, [deps, plugins])
-    base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
-    base_info.extra_providers["ProguardSpecProvider"] = proguard_specs_provider
-
-    java_plugin_info = JavaPluginInfo(
-        runtime_deps = [base_info.java_info],
+    # Replace JavaInfo with JavaPluginInfo
+    target["JavaPluginInfo"] = JavaPluginInfo(
+        runtime_deps = [java_info],
         processor_class = processor_class if processor_class else None,  # ignore empty string (default)
         data = data,
         generates_api = generates_api,
     )
-
-    default_info = construct_defaultinfo(
+    target["DefaultInfo"] = construct_defaultinfo(
         ctx,
         base_info.files_to_build,
         base_info.runfiles,
         neverlink,
     )
+    target["OutputGroupInfo"] = OutputGroupInfo(**base_info.output_groups)
 
-    return dict({
-        "DefaultInfo": default_info,
-        "JavaPluginInfo": java_plugin_info,
-        "InstrumentedFilesInfo": base_info.instrumented_files_info,
-        "OutputGroupInfo": OutputGroupInfo(**base_info.output_groups),
-    }, **base_info.extra_providers)
+    return target
 
 def _proxy(ctx):
     return bazel_java_plugin_rule(
