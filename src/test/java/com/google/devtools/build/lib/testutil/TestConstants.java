@@ -154,6 +154,9 @@ public class TestConstants {
   /** The launcher used by Bazel. */
   public static final String LAUNCHER_PATH = "@bazel_tools//tools/launcher:launcher";
 
+  /** The target name for ProGuard's allowlister. */
+  public static final String PROGUARD_ALLOWLISTER_TARGET = "@bazel_tools//tools/jdk:proguard_whitelister";
+
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {
     NORMAL
