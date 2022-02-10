@@ -40,6 +40,12 @@ http_archive(
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
+    {openjdk11_windows_arm64_archive}
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+)
+
 #################################### JDK 17 ####################################
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
@@ -71,6 +77,15 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
     {openjdk17_windows_archive}
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    {openjdk17_windows_arm64_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
