@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -83,13 +84,17 @@ public class ToolchainResolutionFunction implements SkyFunction {
           key.debugTarget()
               || configuration
                   .getFragment(PlatformConfiguration.class)
-                  .debugToolchainResolution(key.requiredToolchainTypeLabels());
+                  .debugToolchainResolution(
+                      key.toolchainTypes().stream()
+                          .map(ToolchainTypeRequirement::toolchainType)
+                          .collect(toImmutableSet()));
 
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
       ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypes =
-          loadToolchainTypes(env, configuration, key.requiredToolchainTypeLabels());
+          loadToolchainTypes(env, configuration, key.toolchainTypes());
       builder.setRequestedLabelToToolchainType(resolvedToolchainTypes);
+      // TODO(katre): Need to correct for possible aliases, map to mandatory/optional.
       ImmutableSet<Label> resolvedToolchainTypeLabels =
           resolvedToolchainTypes.values().stream()
               .map(ToolchainTypeInfo::typeLabel)
@@ -149,10 +154,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
   private static ImmutableMap<Label, ToolchainTypeInfo> loadToolchainTypes(
       Environment environment,
       BuildConfigurationValue configuration,
-      ImmutableSet<Label> requestedToolchainTypeLabels)
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements)
       throws InvalidToolchainTypeException, InterruptedException, ValueMissingException {
     ImmutableSet<ConfiguredTargetKey> toolchainTypeKeys =
-        requestedToolchainTypeLabels.stream()
+        toolchainTypeRequirements.stream()
+            .map(ToolchainTypeRequirement::toolchainType)
             .map(
                 label ->
                     ConfiguredTargetKey.builder()
@@ -361,7 +367,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           NoMatchingPlatformException, UnresolvedToolchainsException,
           InvalidToolchainLabelException {
 
-    // Find the toolchains for the required toolchain types.
+    // Find the toolchains for the requested toolchain types.
     List<SingleToolchainResolutionKey> registeredToolchainKeys = new ArrayList<>();
     for (Label toolchainTypeLabel : requiredToolchainTypeLabels) {
       registeredToolchainKeys.add(
@@ -420,6 +426,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes = requiredToolchainTypesBuilder.build();
 
     // Find and return the first execution platform which has all required toolchains.
+    // TODO(katre): Handle mandatory/optional.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
         findExecutionPlatformForToolchains(
             requiredToolchainTypes,

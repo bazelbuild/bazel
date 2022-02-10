@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -31,7 +34,7 @@ public abstract class ToolchainContextKey implements SkyKey {
   /** Returns a new {@link Builder}. */
   public static Builder key() {
     return new AutoValue_ToolchainContextKey.Builder()
-        .requiredToolchainTypeLabels(ImmutableSet.of())
+        .toolchainTypes(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
         .forceExecutionPlatform(Optional.empty())
         .debugTarget(false);
@@ -44,7 +47,7 @@ public abstract class ToolchainContextKey implements SkyKey {
 
   abstract BuildConfigurationKey configurationKey();
 
-  abstract ImmutableSet<Label> requiredToolchainTypeLabels();
+  abstract ImmutableSet<ToolchainTypeRequirement> toolchainTypes();
 
   abstract ImmutableSet<Label> execConstraintLabels();
 
@@ -57,9 +60,21 @@ public abstract class ToolchainContextKey implements SkyKey {
   public interface Builder {
     Builder configurationKey(BuildConfigurationKey key);
 
-    Builder requiredToolchainTypeLabels(ImmutableSet<Label> requiredToolchainTypeLabels);
+    // TODO(katre): Remove this once all callers use toolchainTypes.
+    default Builder requiredToolchainTypeLabels(Label... requiredToolchainTypeLabels) {
+      return this.requiredToolchainTypeLabels(ImmutableSet.copyOf(requiredToolchainTypeLabels));
+    }
 
-    Builder requiredToolchainTypeLabels(Label... requiredToolchainTypeLabels);
+    // TODO(katre): Remove this once all callers use toolchainTypes.
+    default Builder requiredToolchainTypeLabels(ImmutableSet<Label> requiredToolchainTypeLabels) {
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
+          requiredToolchainTypeLabels.stream()
+              .map(label -> ToolchainTypeRequirement.builder().toolchainType(label).build())
+              .collect(toImmutableSet());
+      return this.toolchainTypes(toolchainTypeRequirements);
+    }
+
+    Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes);
 
     Builder execConstraintLabels(ImmutableSet<Label> execConstraintLabels);
 
