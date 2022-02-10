@@ -73,6 +73,9 @@ _FEATURE_NAMES = struct(
     enable_fdo_split_functions = "enable_fdo_split_functions",
     fdo_split_functions = "fdo_split_functions",
     fdo_instrument = "fdo_instrument",
+    fsafdo = "fsafdo",
+    implicit_fsafdo = "implicit_fsafdo",
+    enable_fsafdo = "enable_fsafdo",
     supports_pic = "supports_pic",
     copy_dynamic_libraries_to_binary = "copy_dynamic_libraries_to_binary",
     per_object_debug_info = "per_object_debug_info",
@@ -616,6 +619,36 @@ _enable_fdo_split_functions_feature = feature(
 )
 
 _fdo_split_functions_feature = feature(name = _FEATURE_NAMES.fdo_split_functions)
+
+_enable_fsafdo_feature = feature(
+    name = _FEATURE_NAMES.enable_fsafdo,
+    requires = [feature_set(features = ["implicit_fsafdo"])],
+    implies = ["fsafdo"],
+)
+
+_implicit_fsafdo_feature = feature(name = _FEATURE_NAMES.implicit_fsafdo)
+
+_fsafdo_feature = feature(
+    name = _FEATURE_NAMES.fsafdo,
+    requires = [feature_set(features = ["autofdo"])],
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.c_compile,
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.cpp_module_codegen,
+                ACTION_NAMES.lto_backend,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-fsafdo",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
 
 _native_deps_link_feature = feature(
     name = _FEATURE_NAMES.native_deps_link,
@@ -1280,6 +1313,9 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.fdo_split_functions: _fdo_split_functions_feature,
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
+    _FEATURE_NAMES.fsafdo: _fsafdo_feature,
+    _FEATURE_NAMES.implicit_fsafdo: _implicit_fsafdo_feature,
+    _FEATURE_NAMES.enable_fsafdo: _enable_fsafdo_feature,
     _FEATURE_NAMES.native_deps_link: _native_deps_link_feature,
     _FEATURE_NAMES.java_launcher_link: _java_launcher_link_feature,
     _FEATURE_NAMES.py_launcher_link: _py_launcher_link_feature,

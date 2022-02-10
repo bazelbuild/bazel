@@ -1061,6 +1061,10 @@ public final class CcCommon implements StarlarkValue {
         if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
         }
+        // Support implicit enabling of FSAFDO for AFDO unless it has been disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.FSAFDO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_FSAFDO);
+        }
       }
       if (branchFdoProvider.isAutoXBinaryFdo()) {
         allFeatures.add(CppRuleClasses.XBINARYFDO);
