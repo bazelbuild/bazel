@@ -45,6 +45,17 @@ java_test(
 )
 
 java_test(
+    name = "JavaConfigurationTest",
+    srcs = ["JavaConfigurationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "JavaInfoRoundtripTest",
     srcs = ["JavaInfoRoundtripTest.java"],
     data = ["//tools/build_defs/inspect:defs"],
