@@ -711,9 +711,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public void checkDependencyRuleKinds(RuleContext ruleContext) {}
-
-  @Override
   public void setLintProgressMessage(SpawnAction.Builder spawnAction) {
     spawnAction.setProgressMessage("Running Android Lint for: %{label}");
   }

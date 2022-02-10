@@ -64,9 +64,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Unit test for Java source file translation into ObjC in {@link
- * com.google.devtools.build.lib.rules.java.JavaLibrary} and translated file compilation and linking
- * in {@link ObjcBinary} and {@link J2ObjcLibrary}.
+ * Unit test for Java source file translation into ObjC in <code>java_library</code> and translated
+ * file compilation and linking in {@link ObjcBinary} and {@link J2ObjcLibrary}.
  */
 @RunWith(JUnit4.class)
 public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {

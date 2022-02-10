@@ -19,7 +19,7 @@ load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 
 exported_toplevels = {}
 exported_rules = {
-    "+java_library": java_library,
-    "+java_plugin": java_plugin,
+    "java_library": java_library,
+    "java_plugin": java_plugin,
 }
 exported_to_java = {}
