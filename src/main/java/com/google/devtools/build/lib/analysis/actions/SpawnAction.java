@@ -24,6 +24,8 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -66,6 +68,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -100,6 +103,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
+
+  public static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   private final CommandLines commandLines;
   private final CommandLineLimits commandLineLimits;
@@ -218,7 +224,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
     this.primaryOutput = primaryOutput;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
-    this.executionInfo = executionInfo;
+    this.executionInfo =
+        executionInfo.isEmpty()
+            ? ImmutableSortedMap.of()
+            : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
     this.commandLines = commandLines;
     this.commandLineLimits = commandLineLimits;
     this.isShellCommand = isShellCommand;

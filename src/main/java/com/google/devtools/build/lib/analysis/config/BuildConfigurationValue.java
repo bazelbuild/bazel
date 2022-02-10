@@ -84,9 +84,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
 
-  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
-      BlazeInterners.newWeakInterner();
-
   /** Global state necessary to build a BuildConfiguration. */
   public interface GlobalStateProvider {
     /** Computes the default shell environment for actions from the command line options. */
@@ -806,7 +803,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
     modifyExecutionInfo(mutableCopy, mnemonic);
-    return executionInfoInterner.intern(ImmutableSortedMap.copyOf(mutableCopy));
+    return ImmutableSortedMap.copyOf(mutableCopy);
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
