@@ -12,47 +12,76 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Semantics for Google cc rules"""
+"""Semantics for Bazel cc rules"""
+
+def _should_create_empty_archive():
+    return False
+
+def _validate_deps(ctx):
+    pass
+
+def _validate_attributes(ctx):
+    pass
+
+def _determine_headers_checking_mode(ctx):
+    return "strict"
 
 def _get_semantics():
-    return _builtins.internal.google_cc_internal.semantics
+    return _builtins.internal.bazel_cc_internal.semantics
+
+def _get_stl():
+    return attr.label()
 
 def _get_repo():
-    return ""
+    return "bazel_tools"
 
 def _additional_fragments():
-    return ["google_cpp"]
-
-def _get_licenses_attr():
-    if hasattr(attr, "license"):
-        # TODO(b/182226065): Change to applicable_licenses
-        return {
-            # buildifier: disable=attr-license
-            "licenses": attr.license(),
-        }
-    else:
-        return {
-            "licenses": attr.string_list(),
-        }
+    return []
 
 def _get_distribs_attr():
-    return {
-        "distribs": attr.string_list(),
-    }
+    return {}
+
+def _get_licenses_attr():
+    # TODO(b/182226065): Change to applicable_licenses
+    return {}
 
 def _get_loose_mode_in_hdrs_check_allowed_attr():
-    return {
-        "_allowlist_loose_mode_in_hdrs_check_allowed": attr.label(
-            default = "@//tools/build_defs/cc/whitelists/hdrs_check:loose_mode_in_hdrs_check_allowed",
-            providers = [_builtins.internal.cc_internal.PackageGroupInfo],
-        ),
-    }
+    return {}
+
+def _get_def_parser():
+    return attr.label(
+        default = "@bazel_tools//tools/def_parser:def_parser",
+        allow_single_file = True,
+        cfg = "exec",
+    )
+
+def _get_grep_includes():
+    return attr.label()
 
 semantics = struct(
+    ALLOWED_RULES_IN_DEPS = [
+        "cc_library",
+        "objc_library",
+        "cc_proto_library",
+        "cc_import",
+    ],
+    ALLOWED_FILES_IN_DEPS = [
+        ".ld",
+        ".lds",
+        ".ldscript",
+    ],
+    ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
+    validate_deps = _validate_deps,
+    validate_attributes = _validate_attributes,
+    determine_headers_checking_mode = _determine_headers_checking_mode,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     additional_fragments = _additional_fragments,
-    get_licenses_attr = _get_licenses_attr,
     get_distribs_attr = _get_distribs_attr,
+    get_licenses_attr = _get_licenses_attr,
     get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
+    get_def_parser = _get_def_parser,
+    get_stl = _get_stl,
+    should_create_empty_archive = _should_create_empty_archive,
+    get_grep_includes = _get_grep_includes,
 )

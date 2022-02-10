@@ -26,6 +26,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -68,6 +69,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -130,6 +132,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -166,6 +169,7 @@ tasks:
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
       - "//scripts/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -203,6 +207,7 @@ tasks:
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
       - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
       - "//src/test/java/com/google/devtools/build/android/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
@@ -269,6 +274,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
