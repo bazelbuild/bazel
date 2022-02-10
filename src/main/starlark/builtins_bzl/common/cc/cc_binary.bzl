@@ -573,7 +573,7 @@ def _create_transitive_linking_actions(
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
         name = ctx.label.name,
-        use_test_only_flags = ctx.label.name.endswith("_test"),
+        use_test_only_flags = ctx.attr._is_test,
         # Note: Current Starlark API supports either dynamic or static linking modes,
         # even though there are more(LEGACY_FULL_STATIC, LEGACY_MOSTLY_STATIC_LIBRARIES) cc_binary
         # only uses dynamic or static modes. So instead of adding more native footprint
@@ -581,7 +581,7 @@ def _create_transitive_linking_actions(
         # It is highly unlikely that cc_binary will start using legacy modes,
         # but if in case it does, code needs to be modified to support it.
         link_deps_statically = link_deps_statically,
-        test_only_target = cc_helper.is_test_target(ctx) or ctx.label.name.endswith("_test"),
+        test_only_target = cc_helper.is_test_target(ctx) or ctx.attr._is_test,
         output_type = link_target_type,
         main_output = binary,
         never_link = True,
@@ -761,18 +761,17 @@ def cc_binary_impl(ctx, additional_linkopts):
     # cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
     # output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
     cc_linking_outputs = None
-    if link_compile_output_separately and len(cc_compilation_outputs.objects) != 0 and len(cc_compilation_outputs.pic_objects) != 0:
-        cc_linking_outputs = cc_common.create_linking_context_from_compilation_outputs(
+    if link_compile_output_separately and (len(cc_compilation_outputs.objects) != 0 or len(cc_compilation_outputs.pic_objects) != 0):
+        (linking_context, cc_linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
             compilation_outputs = cc_compilation_outputs,
             name = ctx.label.name,
             grep_includes = _grep_includes_executable(ctx.attr._grep_includes),
-            linking_contexts = [cc_helper.get_linking_context_from_deps(_malloc_for_target(ctx, cpp_config))] + cc_helper.get_linking_context_from_deps(ctx.attr.deps),
+            linking_contexts = cc_helper.get_linking_contexts_from_deps([_malloc_for_target(ctx, cpp_config)]) + cc_helper.get_linking_contexts_from_deps(ctx.attr.deps),
             stamp = _is_stamping_enabled(ctx),
-            test_only_target = cc_helper.is_test_target(ctx) or ctx.attr._is_test,
-            always_link = True,
+            alwayslink = True,
         )
 
     is_static_mode = linking_mode != _LINKING_DYNAMIC

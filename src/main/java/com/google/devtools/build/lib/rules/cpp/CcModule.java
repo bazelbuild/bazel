@@ -1819,7 +1819,7 @@ public abstract class CcModule
     StarlarkActionFactory actions = starlarkActionFactoryApi;
     int stampInt = 0;
     if (stamp != Starlark.UNBOUND) {
-      stampInt = (int) stamp;
+      stampInt = Starlark.toInt(stamp, "stamp");
     }
     boolean isStampingEnabled =
         isStampingEnabled(stampInt, actions.getRuleContext().getConfiguration());
