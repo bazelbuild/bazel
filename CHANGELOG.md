@@ -1,3 +1,26 @@
+## Release 6.0.0-pre.20220201.3 (2022-02-11)
+
+```
+Baseline: c7652d875869ec063addd146a2746c1378c73236
+
+Cherry picks:
+
+   + 1c0cf8ee505edee539ebb1ce84a78da8e6064d0a:
+     Undelete BigIntegerCodec deleted in
+     https://github.com/bazelbuild/bazel/commit/16753d6ab16c22ed8cfd42
+     47e05c695223b67616. Belatedly realized needed for Starlark
+     bigint serialization.
+   + 382b187d4df664e555608c895716172d96e092c5:
+     Automated rollback of commit
+     9998c6361d3d7c22184ea07e363f38e88a345701.
+   + 45ce5459f3a8f0a32ec71c13c22500ba87aaa8c2:
+     Rollback
+     https://github.com/bazelbuild/bazel/commit/8174262bf946e31df86476
+     014c6f231f46ca0882
+```
+
+This release contains contributions from many people at Google, as well as Denys Kurylenko, Keith Smiley.
+
 ## Release 6.0.0-pre.20220127.1 (2022-02-02)
 
 ```
