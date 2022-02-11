@@ -49,7 +49,7 @@ Native rules are available globally in BUILD files. In .bzl files, you can find 
 the <code>native</code> module.
 
 For non-native Starlark rules that ship separately from Bazel, see the list of
-<a href="../rules.html#recommended-rules">Recommended Rules</a>.
+<a href="../rules.html#recommended-rules">recommended rules</a>.
 
 <h3>Language-specific native rules</h3>
 
