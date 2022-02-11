@@ -263,7 +263,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
 
   @Test
   public void testGetWorkspaceFile() throws Exception {
-    assertThat(locator.getWorkspaceFile()).isEqualTo(rootDir1WorkspaceFile);
+    assertThat(locator.getWorkspaceFile(SyscallCache.NO_CACHE)).isEqualTo(rootDir1WorkspaceFile);
   }
 
   private Path setLocator(String root) {

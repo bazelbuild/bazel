@@ -182,7 +182,8 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               timeoutScaling,
               processWrapper,
               starlarkSemantics,
-              repositoryRemoteExecutor);
+              repositoryRemoteExecutor,
+              syscallCache);
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
