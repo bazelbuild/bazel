@@ -39,7 +39,7 @@ message FlagInfo {
   repeated string effect_tags = 7;
   // The metadata tags associated with the flag
   repeated string metadata_tags = 8;
-  // The documentation category assigned to this flag, empty if uncategorized
+  // The documentation category assigned to this flag
   optional string documentation_category = 9;
 }
 

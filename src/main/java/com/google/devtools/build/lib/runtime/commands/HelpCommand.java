@@ -280,14 +280,11 @@ public final class HelpCommand implements BlazeCommand {
     flagBuilder.addAllEffectTags(optionEffectTags);
 
     List<String> optionMetadataTags = Arrays.stream(option.getOptionMetadataTags())
-        .filter(tag -> !OptionMetadataTag.INTERNAL.equals(tag))
         .map(Enum::toString)
         .collect(Collectors.toList());
     flagBuilder.addAllMetadataTags(optionMetadataTags);
 
-    if (option.getDocumentationCategory() != null &&
-        !OptionDocumentationCategory.UNDOCUMENTED.equals(option.getDocumentationCategory()) &&
-        !OptionDocumentationCategory.UNCATEGORIZED.equals(option.getDocumentationCategory())) {
+    if (option.getDocumentationCategory() != null) {
       flagBuilder.setDocumentationCategory(option.getDocumentationCategory().toString());
     }
 
