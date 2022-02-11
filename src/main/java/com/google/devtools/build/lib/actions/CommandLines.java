@@ -315,6 +315,10 @@ public class CommandLines {
     public PathFragment getExecPath() {
       return paramFileExecPath;
     }
+
+    public ImmutableList<String> getArguments() {
+      return ImmutableList.copyOf(arguments);
+    }
   }
 
   // Helper function to unpack the optimized storage format into a list
