@@ -15,7 +15,6 @@
 
 """
 Utilities to help work with c++ toolchains.
-
 """
 
 CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type"
@@ -51,6 +50,7 @@ def find_cpp_toolchain(ctx):
     # We didn't find anything.
     fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
 
+# buildifier: disable=unused-variable
 def use_cpp_toolchain(mandatory = True):
     """
     Helper to depend on the c++ toolchain.
