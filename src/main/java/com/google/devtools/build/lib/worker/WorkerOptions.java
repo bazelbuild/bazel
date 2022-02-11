@@ -188,6 +188,14 @@ public class WorkerOptions extends OptionsBase {
   public boolean workerCancellation;
 
   @Option(
+      name = "experimental_worker_as_resource",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, workers are acquired as resources from ResourceManager.")
+  public boolean workerAsResource;
+
+  @Option(
       name = "experimental_worker_multiplex_sandboxing",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

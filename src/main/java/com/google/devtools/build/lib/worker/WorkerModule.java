@@ -55,7 +55,7 @@ public class WorkerModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
-    WorkerMultiplexerManager.beforeCommand(env);
+    WorkerMultiplexerManager.beforeCommand(env.getReporter());
   }
 
   @Subscribe

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
@@ -53,8 +53,8 @@ public class WorkerMultiplexerManager {
     return instanceInfo.getWorkerMultiplexer();
   }
 
-  static void beforeCommand(CommandEnvironment env) {
-    setReporter(env.getReporter());
+  static void beforeCommand(Reporter reporter) {
+    setReporter(reporter);
   }
 
   static void afterCommand() {

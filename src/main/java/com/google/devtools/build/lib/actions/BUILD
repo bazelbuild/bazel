@@ -53,6 +53,7 @@ java_library(
             "LocalHostResourceManagerDarwin.java",
             "LocalHostResourceFallback.java",
             "MiddlemanType.java",
+            "ResourceManager.java",
             "ResourceSet.java",
             "ResourceSetOrBuilder.java",
             "PackageRootResolver.java",
@@ -97,7 +98,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:command",
@@ -352,4 +352,22 @@ java_library(
         "UserExecException.java",
     ],
     deps = ["//src/main/protobuf:failure_details_java_proto"],
+)
+
+java_library(
+    name = "resource_manager",
+    srcs = [
+        "ResourceManager.java",
+    ],
+    deps = [
+        ":actions",
+        ":localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/worker",
+        "//third_party:guava",
+    ],
 )
