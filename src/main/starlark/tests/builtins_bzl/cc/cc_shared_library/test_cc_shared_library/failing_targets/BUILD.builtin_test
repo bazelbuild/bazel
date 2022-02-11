@@ -96,11 +96,13 @@ cc_shared_library(
 
 cc_library(
     name = "d1",
+    srcs = ["empty.cc"],
     deps = ["d2"],
 )
 
 cc_library(
     name = "d2",
+    srcs = ["empty.cc"],
     deps = [
         "d3",
     ] + select({
@@ -111,4 +113,5 @@ cc_library(
 
 cc_library(
     name = "d3",
+    srcs = ["empty.cc"],
 )
