@@ -156,7 +156,6 @@ java_test(
     name = "DanglingSymlinkTest",
     srcs = ["DanglingSymlinkTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [

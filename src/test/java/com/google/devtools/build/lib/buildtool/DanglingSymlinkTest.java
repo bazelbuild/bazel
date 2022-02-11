@@ -57,31 +57,6 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
         "Executing genrule //test:test_ln failed: not all outputs were created");
   }
 
-  /**
-   * Regression test for bug 2411632: cc_library with *.so in srcs list doesn't
-   * work as expected.
-   */
-  @Test
-  public void testGeneratedLibs() throws Exception {
-    write("test/liba.so");
-    write("test/BUILD",
-        "genrule(name = 'b',",
-        "        srcs = ['liba.so'],",
-        "        outs = ['libb.so'],",
-        "        cmd = 'cp $(SRCS) $@')",
-        "cc_library(name = 'c',",
-        "           srcs = [':b'])",
-        "cc_binary(name = 'd',",
-        "          srcs = ['d.cc'],",
-        "          deps = [':c'])");
-    write("test/a.cc");
-    write("test/d.cc", "int main() { return 0; }");
-
-    addOptions("--jobs=2");
-
-    buildTarget("//test:d");
-  }
-
   /** Tests that bad symlinks for inputs are properly handled. */
   @Test
   public void testCircularSymlinkMidLevel() throws Exception {
