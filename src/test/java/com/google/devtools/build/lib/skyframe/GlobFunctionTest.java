@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -175,7 +176,7 @@ public abstract class GlobFunctionTest {
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
         BazelSkyframeExecutorConstants.IGNORED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(
-        FileStateValue.FILE_STATE,
+        FileStateKey.FILE_STATE,
         new FileStateFunction(
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,

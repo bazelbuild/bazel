@@ -21,7 +21,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -816,7 +816,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
                   if (NotifyingHelper.EventType.IS_READY.equals(type)
-                      && FileStateValue.FILE_STATE.equals(key.functionName())
+                      && FileStateKey.FILE_STATE.equals(key.functionName())
                       && barFile.equals(((RootedPath) key.argument()).getRootRelativePath())) {
                     TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
                         directoryListingLatch, "Directory never listed");

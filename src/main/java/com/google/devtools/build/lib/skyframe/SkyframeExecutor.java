@@ -177,6 +177,7 @@ import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -480,7 +481,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
-    map.put(FileStateValue.FILE_STATE, newFileStateFunction());
+    map.put(FileStateKey.FILE_STATE, newFileStateFunction());
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE, newDirectoryListingStateFunction());
     map.put(FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     map.put(
@@ -1283,7 +1284,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
-    Collection<SkyKey> dirtyFileStateSkyKeys =
+    Collection<FileStateKey> dirtyFileStateSkyKeys =
         Collections2.transform(
             modifiedFileSet.modifiedSourceFiles(),
             pathFragment -> {

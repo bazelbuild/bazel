@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
@@ -299,7 +300,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
-          FileStateValue.FILE_STATE,
+          FileStateKey.FILE_STATE,
           FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
@@ -696,7 +697,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // We are searching only for changed files, DirectoryListingValues don't depend on
     // child values, that's why they are invalidated separately
     return Iterables.size(
-        Iterables.filter(modifiedValues, SkyFunctionName.functionIs(FileStateValue.FILE_STATE)));
+        Iterables.filter(modifiedValues, SkyFunctionName.functionIs(FileStateKey.FILE_STATE)));
   }
 
   /**

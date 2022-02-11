@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBoots
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -126,7 +126,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileValue.FILE, new FileFunction(packageLocator))
                 .put(
-                    FileStateValue.FILE_STATE,
+                    FileStateKey.FILE_STATE,
                     new FileStateFunction(
                         Suppliers.ofInstance(
                             new TimestampGranularityMonitor(BlazeClock.instance())),

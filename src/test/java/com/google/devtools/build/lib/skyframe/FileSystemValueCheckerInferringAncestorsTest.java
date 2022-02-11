@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -124,7 +125,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   @Test
   public void getDiffWithInferredAncestors_fileModified_returnsFileWithValues() throws Exception {
     scratch.file("file", "hello");
-    FileStateValue.Key key = fileStateValueKey("file");
+    FileStateKey key = fileStateValueKey("file");
     FileStateValue value = fileStateValue("file");
     scratch.overwriteFile("file", "there");
 
@@ -145,7 +146,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   @Test
   public void getDiffWithInferredAncestors_fileAdded_returnsFileAndDirListing() throws Exception {
     scratch.file("file");
-    FileStateValue.Key key = fileStateValueKey("file");
+    FileStateKey key = fileStateValueKey("file");
 
     ImmutableDiff diff =
         FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
@@ -167,7 +168,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_fileWithDirsAdded_returnsFileAndInjectsDirs()
       throws Exception {
     scratch.file("a/b/file");
-    FileStateValue.Key fileKey = fileStateValueKey("a/b/file");
+    FileStateKey fileKey = fileStateValueKey("a/b/file");
 
     ImmutableDiff diff =
         FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
@@ -206,7 +207,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_addedFileWithReportedDirs_returnsFileAndInjectsDirs()
       throws Exception {
     scratch.file("a/b/file");
-    FileStateValue.Key fileKey = fileStateValueKey("a/b/file");
+    FileStateKey fileKey = fileStateValueKey("a/b/file");
 
     ImmutableDiff diff =
         FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
@@ -280,7 +281,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_addEmptyDir_returnsDirAndParentListing()
       throws Exception {
     scratch.dir("dir");
-    FileStateValue.Key key = fileStateValueKey("dir");
+    FileStateKey key = fileStateValueKey("dir");
     FileStateValue value = fileStateValue("dir");
 
     ImmutableDiff diff =
@@ -302,7 +303,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_deleteFile_returnsFileParentListing() throws Exception {
     Path file = scratch.file("dir/file1");
     scratch.file("dir/file2");
-    FileStateValue.Key key = fileStateValueKey("dir/file1");
+    FileStateKey key = fileStateValueKey("dir/file1");
     FileStateValue oldValue = fileStateValue("dir/file1");
     file.delete();
 
@@ -325,7 +326,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_deleteFileFromDirWithListing_skipsDirStat()
       throws Exception {
     Path file1 = scratch.file("dir/file1");
-    FileStateValue.Key key = fileStateValueKey("dir/file1");
+    FileStateKey key = fileStateValueKey("dir/file1");
     FileStateValue oldValue = fileStateValue("dir/file1");
     file1.delete();
 
@@ -350,7 +351,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_deleteLastFileFromDir_ignoresInvalidatedListing()
       throws Exception {
     Path file1 = scratch.file("dir/file1");
-    FileStateValue.Key key = fileStateValueKey("dir/file1");
+    FileStateKey key = fileStateValueKey("dir/file1");
     FileStateValue oldValue = fileStateValue("dir/file1");
     file1.delete();
 
@@ -381,8 +382,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
     file.getParentDirectory()
         .getRelative("symlink")
         .createSymbolicLink(PathFragment.create("file"));
-    FileStateValue.Key fileKey = fileStateValueKey("dir/file");
-    FileStateValue.Key symlinkKey = fileStateValueKey("dir/symlink");
+    FileStateKey fileKey = fileStateValueKey("dir/file");
+    FileStateKey symlinkKey = fileStateValueKey("dir/symlink");
 
     ImmutableDiff diff =
         FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
@@ -406,8 +407,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
       throws Exception {
     scratch.dir("dir/file1");
     scratch.dir("dir/file2");
-    FileStateValue.Key file1Key = fileStateValueKey("dir/file1");
-    FileStateValue.Key file2Key = fileStateValueKey("dir/file2");
+    FileStateKey file1Key = fileStateValueKey("dir/file1");
+    FileStateKey file2Key = fileStateValueKey("dir/file2");
     DirectoryListingStateValue.Key dirKey = directoryListingStateValueKey("dir");
 
     ImmutableDiff diff =
@@ -446,11 +447,11 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
     Path file1 = scratch.file("dir/file1");
     Path file2 = scratch.file("dir/file2");
     Path file3 = scratch.file("dir/file3");
-    FileStateValue.Key key1 = fileStateValueKey("dir/file1");
+    FileStateKey key1 = fileStateValueKey("dir/file1");
     FileStateValue oldValue1 = fileStateValue("dir/file1");
-    FileStateValue.Key key2 = fileStateValueKey("dir/file2");
+    FileStateKey key2 = fileStateValueKey("dir/file2");
     FileStateValue oldValue2 = fileStateValue("dir/file2");
-    FileStateValue.Key key3 = fileStateValueKey("dir/file3");
+    FileStateKey key3 = fileStateValueKey("dir/file3");
     FileStateValue oldValue3 = fileStateValue("dir/file3");
     file1.delete();
     file2.delete();
@@ -486,11 +487,11 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_deleteFileWithDirs_returnsFileAndDirs()
       throws Exception {
     scratch.file("a/b/c/file");
-    FileStateValue.Key abKey = fileStateValueKey("a/b");
+    FileStateKey abKey = fileStateValueKey("a/b");
     FileStateValue abValue = fileStateValue("a/b");
-    FileStateValue.Key abcKey = fileStateValueKey("a/b/c");
+    FileStateKey abcKey = fileStateValueKey("a/b/c");
     FileStateValue abcValue = fileStateValue("a/b/c");
-    FileStateValue.Key abcFileKey = fileStateValueKey("a/b/c/file");
+    FileStateKey abcFileKey = fileStateValueKey("a/b/c/file");
     FileStateValue abcFileValue = fileStateValue("a/b/c/file");
     scratch.dir("a/b").deleteTree();
 
@@ -527,11 +528,11 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_deleteFileWithReportedDirs_returnsFileAndDirListings()
       throws Exception {
     scratch.file("a/b/c/file");
-    FileStateValue.Key abKey = fileStateValueKey("a/b");
+    FileStateKey abKey = fileStateValueKey("a/b");
     FileStateValue abValue = fileStateValue("a/b");
-    FileStateValue.Key abcKey = fileStateValueKey("a/b/c");
+    FileStateKey abcKey = fileStateValueKey("a/b/c");
     FileStateValue abcValue = fileStateValue("a/b/c");
-    FileStateValue.Key abcFileKey = fileStateValueKey("a/b/c/file");
+    FileStateKey abcFileKey = fileStateValueKey("a/b/c/file");
     FileStateValue abcFileValue = fileStateValue("a/b/c/file");
     scratch.dir("a/b").deleteTree();
 
@@ -569,9 +570,9 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
       throws Exception {
     Path file1 = scratch.file("dir/file1");
     scratch.file("dir/file2", "1");
-    FileStateValue.Key file1Key = fileStateValueKey("dir/file1");
+    FileStateKey file1Key = fileStateValueKey("dir/file1");
     FileStateValue file1Value = fileStateValue("dir/file1");
-    FileStateValue.Key file2Key = fileStateValueKey("dir/file2");
+    FileStateKey file2Key = fileStateValueKey("dir/file2");
     FileStateValue file2Value = fileStateValue("dir/file2");
     file1.delete();
     scratch.overwriteFile("dir/file2", "12");
@@ -602,11 +603,11 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
   public void getDiffWithInferredAncestors_deleteDirReportDirOnly_returnsDir() throws Exception {
     Path file1 = scratch.file("dir/file1");
     scratch.file("dir/file2");
-    FileStateValue.Key file1Key = fileStateValueKey("dir/file1");
+    FileStateKey file1Key = fileStateValueKey("dir/file1");
     FileStateValue file1Value = fileStateValue("dir/file1");
-    FileStateValue.Key file2Key = fileStateValueKey("dir/file2");
+    FileStateKey file2Key = fileStateValueKey("dir/file2");
     FileStateValue file2Value = fileStateValue("dir/file2");
-    FileStateValue.Key dirKey = fileStateValueKey("dir");
+    FileStateKey dirKey = fileStateValueKey("dir");
     FileStateValue dirValue = fileStateValue("dir");
     file1.getParentDirectory().deleteTree();
 
@@ -655,7 +656,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
     throwOnStat = new IOException("oh no");
     ImmutableMap<SkyKey, SkyValue> graphValues =
         ImmutableMap.of(fileStateValueKey("file"), NONEXISTENT_FILE_STATE_NODE);
-    ImmutableSet<SkyKey> modifiedKeys = ImmutableSet.of(fileStateValueKey("file"));
+    ImmutableSet<FileStateKey> modifiedKeys = ImmutableSet.of(fileStateValueKey("file"));
 
     AbruptExitException e =
         assertThrows(
@@ -679,7 +680,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
     throwOnStat = new RuntimeException("oh no");
     ImmutableMap<SkyKey, SkyValue> graphValues =
         ImmutableMap.of(fileStateValueKey("file"), NONEXISTENT_FILE_STATE_NODE);
-    ImmutableSet<SkyKey> modifiedKeys = ImmutableSet.of(fileStateValueKey("file"));
+    ImmutableSet<FileStateKey> modifiedKeys = ImmutableSet.of(fileStateValueKey("file"));
 
     assertThrows(
         IllegalStateException.class,
@@ -699,7 +700,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
         .containsAtLeastElementsIn(list);
   }
 
-  private FileStateValue.Key fileStateValueKey(String relativePath) {
+  private FileStateKey fileStateValueKey(String relativePath) {
     return FileStateValue.key(
         RootedPath.toRootedPath(root, root.asPath().getRelative(relativePath)));
   }

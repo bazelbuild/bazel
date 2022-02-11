@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.FileStateValue.DIRECTORY_FILE_STATE_NODE;
-import static com.google.devtools.build.lib.actions.FileStateValue.FILE_STATE;
 import static com.google.devtools.build.lib.skyframe.SkyFunctions.PACKAGE_LOOKUP;
+import static com.google.devtools.build.lib.vfs.FileStateKey.FILE_STATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;

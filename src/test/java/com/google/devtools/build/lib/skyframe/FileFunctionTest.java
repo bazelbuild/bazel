@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -166,7 +167,7 @@ public class FileFunctionTest {
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
-                    FileStateValue.FILE_STATE,
+                    FileStateKey.FILE_STATE,
                     new FileStateFunction(
                         Suppliers.ofInstance(
                             new TimestampGranularityMonitor(BlazeClock.instance())),
@@ -852,7 +853,7 @@ public class FileFunctionTest {
 
   private static Set<RootedPath> filesSeen(MemoizingEvaluator graph) {
     return graph.getValues().keySet().stream()
-        .filter(SkyFunctionName.functionIs(FileStateValue.FILE_STATE))
+        .filter(SkyFunctionName.functionIs(FileStateKey.FILE_STATE))
         .map(SkyKey::argument)
         .map(RootedPath.class::cast)
         .collect(toImmutableSet());
