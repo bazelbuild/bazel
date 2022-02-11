@@ -135,7 +135,7 @@ distdir_tar(
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 
 dist_http_file(
-    name = "openjdk_linux_vanilla",
+    name = "openjdk_linux",
     downloaded_file_path = "zulu-linux-vanilla.tar.gz",
 )
 
@@ -147,7 +147,7 @@ http_file(
 )
 
 dist_http_file(
-    name = "openjdk_linux_aarch64_vanilla",
+    name = "openjdk_linux_aarch64",
     downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
 )
 
@@ -159,18 +159,18 @@ http_file(
 )
 
 dist_http_file(
-    name = "openjdk_linux_ppc64le_vanilla",
+    name = "openjdk_linux_ppc64le",
     downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
 )
 
 dist_http_file(
-    name = "openjdk_linux_s390x_vanilla",
+    name = "openjdk_linux_s390x",
     downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
 )
 
 
 dist_http_file(
-    name = "openjdk_macos_x86_64_vanilla",
+    name = "openjdk_macos_x86_64",
     downloaded_file_path = "zulu-macos-vanilla.tar.gz",
 )
 
@@ -183,7 +183,7 @@ http_file(
 
 
 dist_http_file(
-    name = "openjdk_macos_aarch64_vanilla",
+    name = "openjdk_macos_aarch64",
     downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
 )
 
@@ -196,12 +196,12 @@ http_file(
 
 
 dist_http_file(
-    name = "openjdk_win_vanilla",
+    name = "openjdk_win",
     downloaded_file_path = "zulu-win-vanilla.zip",
 )
 
 dist_http_file(
-    name = "openjdk_win_arm64_vanilla",
+    name = "openjdk_win_arm64",
     downloaded_file_path = "zulu-win-arm64.zip",
 )
 
