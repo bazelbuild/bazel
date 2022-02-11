@@ -226,6 +226,23 @@ java_test(
 )
 
 java_test(
+    name = "FileSymlinkExceptionCodecTest",
+    size = "small",
+    srcs = ["FileSymlinkExceptionCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "BzlLoadValueCodecTest",
     size = "small",
     srcs = ["BzlLoadValueCodecTest.java"],
@@ -265,6 +282,7 @@ java_library(
             "TransitiveTraversalValueCodecTest.java",
             "WorkspaceNameValueCodecTest.java",
             "MemoizerTest.java",
+            "FileSymlinkExceptionCodecTest.java",
             "RecursivePkgKeyCodecTest.java",
             "RootedPathCodecTest.java",
             "IgnoredPackagePrefixesValueCodecTest.java",
