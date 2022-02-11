@@ -858,6 +858,18 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
+    name = "openjdk11_windows_arm64_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    sha256 = "b8a28e6e767d90acf793ea6f5bed0bb595ba0ba5ebdf8b99f395266161e53ec2",
+    strip_prefix = "jdk-11.0.13+8",
+    urls = ["https://mirror.bazel.build/aka.ms/download-jdk/microsoft-jdk-11.0.13.8.1-windows-aarch64.zip"],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
     name = "openjdk15_linux_archive",
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
