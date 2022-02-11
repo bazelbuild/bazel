@@ -806,15 +806,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
         @Override
         public Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
-          if (primaryKey instanceof ActionLookupKey) {
-            return Predicates.alwaysTrue();
-          } else {
-            return key ->
-                (key instanceof ActionTemplateExpansionValue.ActionTemplateExpansionKey)
-                    || !(key instanceof ActionLookupKey);
-          }
+          return isAnalysisPhaseKey(primaryKey)
+              ? Predicates.alwaysTrue()
+              : depKey -> !isAnalysisPhaseKey(depKey);
         }
       };
+
+  private static boolean isAnalysisPhaseKey(SkyKey key) {
+    return (key instanceof ActionLookupKey)
+        && !(key instanceof ActionTemplateExpansionValue.ActionTemplateExpansionKey);
+  }
 
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
     return new SkyframeProgressReceiver();

@@ -63,6 +63,8 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/testutil:srcs",
+        "//src/test/java/com/google/devtools/build/lib/view/cpp:srcs",
+        "//src/test/java/com/google/devtools/build/lib/view/go:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/java:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/windows:srcs",
