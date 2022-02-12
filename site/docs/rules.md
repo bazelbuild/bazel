@@ -72,8 +72,6 @@ BUILD files without a `load` statement.
   - [`bind`](be/workspace.html#bind)
   - [`local_repository`](be/workspace.html#local_repository)
   - [`new_local_repository`](be/workspace.html#new_local_repository)
-  - [`xcode_config`](be/workspace.html#xcode_config)
-  - [`xcode_version`](be/workspace.html#xcode_version)
 
 ## Embedded non-native rules
 
