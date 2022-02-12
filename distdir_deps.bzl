@@ -351,7 +351,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk11_linux_for_testing",
             "openjdk11_linux_archive",
-            "openjdk_linux_vanilla",
+            "openjdk_linux",
         ],
         "archive": "zulu11.52.13-ca-jdk11.0.13-linux_x64.tar.gz",
         "sha256": "77a126669b26b3a89e0117b0f28cddfcd24fcd7699b2c1d35f921487148b9a9f",
@@ -365,7 +365,7 @@ DIST_DEPS = {
     "remotejdk11_linux_aarch64": {
         "aliases": [
             "remotejdk11_linux_aarch64_for_testing",
-            "openjdk_linux_aarch64_vanilla",
+            "openjdk_linux_aarch64",
         ],
         "archive": "zulu11.52.13-ca-jdk11.0.13-linux_aarch64.tar.gz",
         "sha256": "6be187379c26506a4b804b4f734c17e554aebe4204bde58a10b429054cc9cf9f",
@@ -379,7 +379,7 @@ DIST_DEPS = {
     "remotejdk11_linux_ppc64le": {
         "aliases": [
             "remotejdk11_linux_ppc64le_for_testing",
-            "openjdk_linux_ppc64le_vanilla",
+            "openjdk_linux_ppc64le",
         ],
         "sha256": "82f14cda71cff99c878bf8400598a87235adb6c81b0337f7077c27e5cac1190c",
         "strip_prefix": "jdk-11.0.13+8",
@@ -392,7 +392,7 @@ DIST_DEPS = {
     "remotejdk11_linux_s390x": {
         "aliases": [
             "remotejdk11_linux_s390x_for_testing",
-            "openjdk_linux_s390x_vanilla",
+            "openjdk_linux_s390x",
         ],
         "sha256": "9d280d86fdf6a7d9e5cbf54dc37f1d6d09dfe676ff5c684802fdfa3932eee63e",
         "strip_prefix": "jdk-11.0.13+8",
@@ -405,7 +405,7 @@ DIST_DEPS = {
     "remotejdk11_macos": {
         "aliases": [
             "remotejdk11_macos_for_testing",
-            "openjdk_macos_x86_64_vanilla",
+            "openjdk_macos_x86_64",
             "openjdk11_darwin_archive",
         ],
         "archive": "zulu11.52.13-ca-jdk11.0.13-macosx_x64.tar.gz",
@@ -419,7 +419,7 @@ DIST_DEPS = {
     },
     "remotejdk11_macos_aarch64": {
         "aliases": [
-            "openjdk_macos_aarch64_vanilla",
+            "openjdk_macos_aarch64",
             "remotejdk11_macos_aarch64_for_testing",
             "openjdk11_darwin_aarch64_archive",
         ],
@@ -436,7 +436,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk11_win_for_testing",
             "openjdk11_windows_archive",
-            "openjdk_win_vanilla",
+            "openjdk_win",
         ],
         "archive": "zulu11.52.13-ca-jdk11.0.13-win_x64.zip",
         "sha256": "49289cc181504a01c946d5a66a5c904f8e6d912a2226dd82db62eb37e6c0a9d9",
@@ -451,7 +451,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_win_arm64_for_testing",
             "openjdk17_windows_arm64_archive",
-            "openjdk_win_arm64_vanilla",
+            "openjdk_win_arm64",
         ],
         "archive": "zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
         "sha256": "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
