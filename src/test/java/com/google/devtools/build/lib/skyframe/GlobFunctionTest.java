@@ -561,7 +561,10 @@ public abstract class GlobFunctionTest {
     FileSystemUtils.createEmptyFile(pkgPath.getChild("aab"));
     // Note: this contains two asterisks because otherwise a RE is not built,
     // as an optimization.
-    assertThat(UnixGlob.forPath(pkgPath).addPattern("*a.b*").globInterruptible())
+    assertThat(
+            new UnixGlob.Builder(pkgPath, SyscallCache.NO_CACHE)
+                .addPattern("*a.b*")
+                .globInterruptible())
         .containsExactly(aDotB);
   }
 

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.vfs;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -280,10 +278,6 @@ public final class UnixGlob {
     return Pattern.compile(regexp.toString());
   }
 
-  public static Builder forPath(Path path) {
-    return new Builder(path);
-  }
-
   /**
    * Builder class for UnixGlob.
    *
@@ -292,15 +286,14 @@ public final class UnixGlob {
   public static class Builder {
     private final Path base;
     private final List<String> patterns;
+    private final SyscallCache syscallCache;
     private UnixGlobPathDiscriminator pathDiscriminator = DEFAULT_DISCRIMINATOR;
     private Executor executor;
-    private SyscallCache syscallCache = SyscallCache.NO_CACHE;
 
-    /**
-     * Creates a glob builder with the given base path.
-     */
-    public Builder(Path base) {
+    /** Creates a glob builder with the given base path. */
+    public Builder(Path base, SyscallCache syscallCache) {
       this.base = base;
+      this.syscallCache = syscallCache;
       this.patterns = Lists.newArrayList();
     }
 
@@ -331,12 +324,6 @@ public final class UnixGlob {
      */
     public Builder addPatterns(Collection<String> patterns) {
       this.patterns.addAll(patterns);
-      return this;
-    }
-
-    /** Sets the SyscallCache interface to use on this glob(). */
-    public Builder setFilesystemCalls(SyscallCache syscallCache) {
-      this.syscallCache = checkNotNull(syscallCache);
       return this;
     }
 

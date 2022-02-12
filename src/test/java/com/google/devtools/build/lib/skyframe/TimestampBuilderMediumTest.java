@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import org.junit.Before;
@@ -375,7 +376,9 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // Remove filename index file.
     assertThat(
             Iterables.getOnlyElement(
-                    UnixGlob.forPath(cacheRoot).addPattern("filename_index*").globInterruptible())
+                    new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+                        .addPattern("filename_index*")
+                        .globInterruptible())
                 .delete())
         .isTrue();
 
@@ -420,7 +423,9 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // Get filename index path and store a copy of it.
     Path indexPath =
         Iterables.getOnlyElement(
-            UnixGlob.forPath(cacheRoot).addPattern("filename_index*").globInterruptible());
+            new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+                .addPattern("filename_index*")
+                .globInterruptible());
     Path indexCopy = scratch.resolve("index_copy");
     FileSystemUtils.copyFile(indexPath, indexCopy);
 

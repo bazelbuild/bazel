@@ -219,11 +219,10 @@ public class GlobCache {
       throw new BadGlobException(error + " (in glob pattern '" + pattern + "')");
     }
     try {
-      return UnixGlob.forPath(packageDirectory)
+      return new UnixGlob.Builder(packageDirectory, syscallCache)
           .addPattern(pattern)
           .setPathDiscriminator(new GlobUnixPathDiscriminator(globberOperation))
           .setExecutor(globExecutor)
-          .setFilesystemCalls(syscallCache)
           .globAsync();
     } catch (UnixGlob.BadPattern ex) {
       throw new BadGlobException(ex.getMessage());

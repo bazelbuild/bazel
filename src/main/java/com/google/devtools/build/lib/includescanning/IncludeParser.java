@@ -430,11 +430,7 @@ class IncludeParser {
           // foo/bar/**/*.h. No examples of this currently exist in the INCLUDE_HINTS
           // file.
           logger.atFine().log("Globbing: %s %s", root, rule.findFilter);
-          hints.addAll(
-              new UnixGlob.Builder(root)
-                  .setFilesystemCalls(syscallCache)
-                  .addPattern(rule.findFilter)
-                  .glob());
+          hints.addAll(new UnixGlob.Builder(root, syscallCache).addPattern(rule.findFilter).glob());
         } catch (UnixGlob.BadPattern | IOException e) {
           logger.atWarning().withCause(e).log("Error in hint expansion");
         }
