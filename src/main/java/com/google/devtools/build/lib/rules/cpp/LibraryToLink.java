@@ -364,6 +364,18 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         LibraryToLink result = autoBuild();
         Preconditions.checkNotNull(result.getLibraryIdentifier(), result);
         Preconditions.checkState(
+            (result.getObjectFiles() == null
+                    && result.getLtoCompilationContext() == null
+                    && result.getSharedNonLtoBackends() == null)
+                || result.getStaticLibrary() != null,
+            result);
+        Preconditions.checkState(
+            (result.getPicObjectFiles() == null
+                    && result.getPicLtoCompilationContext() == null
+                    && result.getPicSharedNonLtoBackends() == null)
+                || result.getPicStaticLibrary() != null,
+            result);
+        Preconditions.checkState(
             result.getResolvedSymlinkDynamicLibrary() == null || result.getDynamicLibrary() != null,
             result);
         Preconditions.checkState(
