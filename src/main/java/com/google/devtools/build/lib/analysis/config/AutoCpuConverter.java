@@ -53,7 +53,6 @@ public class AutoCpuConverter implements Converter<String> {
             case AARCH64:
               return "arm64_windows";
             default:
-              // We only support x64 and arm64 Windows for now.
               return "unknown";
           }
         case LINUX:
