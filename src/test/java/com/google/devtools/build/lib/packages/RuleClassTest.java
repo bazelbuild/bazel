@@ -41,6 +41,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -1085,7 +1086,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ImmutableMap.of(
             "cherry",
             ExecGroup.builder()
-                .requiredToolchains(ImmutableSet.of(toolchain))
+                .addToolchainType(ToolchainTypeRequirement.create(toolchain))
                 .execCompatibleWith(ImmutableSet.of(constraint))
                 .copyFrom(null)
                 .build()));
