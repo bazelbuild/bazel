@@ -243,6 +243,36 @@ java_test(
 )
 
 java_test(
+    name = "NoSuchTargetExceptionCodecTest",
+    size = "small",
+    srcs = ["NoSuchTargetExceptionCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "DirectoryListingValueCodecTest",
+    size = "small",
+    srcs = ["DirectoryListingValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
     name = "BzlLoadValueCodecTest",
     size = "small",
     srcs = ["BzlLoadValueCodecTest.java"],
@@ -283,6 +313,8 @@ java_library(
             "WorkspaceNameValueCodecTest.java",
             "MemoizerTest.java",
             "FileSymlinkExceptionCodecTest.java",
+            "DirectoryListingValueCodecTest.java",
+            "NoSuchTargetExceptionCodecTest.java",
             "RecursivePkgKeyCodecTest.java",
             "RootedPathCodecTest.java",
             "IgnoredPackagePrefixesValueCodecTest.java",
