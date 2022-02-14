@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Globber;
+import com.google.devtools.build.lib.packages.GlobberUtils;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
@@ -139,6 +140,7 @@ public class PackageFunction implements SkyFunction {
     @Nullable private final Program prog;
     @Nullable private final ImmutableList<String> globs;
     @Nullable private final ImmutableList<String> globsWithDirs;
+    @Nullable private final ImmutableList<String> subpackages;
     @Nullable private final ImmutableMap<Location, String> generatorMap;
     @Nullable private final ImmutableMap<String, Object> predeclared;
 
@@ -151,11 +153,13 @@ public class PackageFunction implements SkyFunction {
         Program prog,
         ImmutableList<String> globs,
         ImmutableList<String> globsWithDirs,
+        ImmutableList<String> subpackages,
         ImmutableMap<Location, String> generatorMap,
         ImmutableMap<String, Object> predeclared) {
       this.errors = null;
       this.prog = prog;
       this.globs = globs;
+      this.subpackages = subpackages;
       this.globsWithDirs = globsWithDirs;
       this.generatorMap = generatorMap;
       this.predeclared = predeclared;
@@ -167,6 +171,7 @@ public class PackageFunction implements SkyFunction {
       this.prog = null;
       this.globs = null;
       this.globsWithDirs = null;
+      this.subpackages = null;
       this.generatorMap = null;
       this.predeclared = null;
     }
@@ -923,9 +928,12 @@ public class PackageFunction implements SkyFunction {
 
     @Override
     public Token runAsync(
-        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
+        List<String> includes,
+        List<String> excludes,
+        Globber.Operation globberOperation,
+        boolean allowEmpty)
         throws BadGlobException, InterruptedException {
-      return delegate.runAsync(includes, excludes, excludeDirs, allowEmpty);
+      return delegate.runAsync(includes, excludes, globberOperation, allowEmpty);
     }
 
     @Override
@@ -1025,10 +1033,11 @@ public class PackageFunction implements SkyFunction {
       return ImmutableSet.copyOf(globDepsRequested);
     }
 
-    private SkyKey getGlobKey(String pattern, boolean excludeDirs) throws BadGlobException {
+    private SkyKey getGlobKey(String pattern, Globber.Operation globberOperation)
+        throws BadGlobException {
       try {
         return GlobValue.key(
-            packageId, packageRoot, pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
+            packageId, packageRoot, pattern, globberOperation, PathFragment.EMPTY_FRAGMENT);
       } catch (InvalidGlobPatternException e) {
         throw new BadGlobException(e.getMessage());
       }
@@ -1036,13 +1045,16 @@ public class PackageFunction implements SkyFunction {
 
     @Override
     public Token runAsync(
-        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
+        List<String> includes,
+        List<String> excludes,
+        Globber.Operation globberOperation,
+        boolean allowEmpty)
         throws BadGlobException, InterruptedException {
       LinkedHashSet<SkyKey> globKeys = Sets.newLinkedHashSetWithExpectedSize(includes.size());
       Map<SkyKey, String> globKeyToPatternMap = Maps.newHashMapWithExpectedSize(includes.size());
 
       for (String pattern : includes) {
-        SkyKey globKey = getGlobKey(pattern, excludeDirs);
+        SkyKey globKey = getGlobKey(pattern, globberOperation);
         globKeys.add(globKey);
         globKeyToPatternMap.put(globKey, pattern);
       }
@@ -1066,9 +1078,9 @@ public class PackageFunction implements SkyFunction {
           globsToDelegate.isEmpty()
               ? null
               : nonSkyframeGlobber.runAsync(
-                  globsToDelegate, ImmutableList.of(), excludeDirs, allowEmpty);
+                  globsToDelegate, ImmutableList.of(), globberOperation, allowEmpty);
       return new HybridToken(
-          globValueMap, globKeys, nonSkyframeIncludesToken, excludes, allowEmpty);
+          globValueMap, globKeys, nonSkyframeIncludesToken, excludes, globberOperation, allowEmpty);
     }
 
     private static Collection<SkyKey> getMissingKeys(
@@ -1126,6 +1138,8 @@ public class PackageFunction implements SkyFunction {
 
       private final List<String> excludes;
 
+      private final Globber.Operation globberOperation;
+
       private final boolean allowEmpty;
 
       private HybridToken(
@@ -1133,11 +1147,13 @@ public class PackageFunction implements SkyFunction {
           Iterable<SkyKey> includesGlobKeys,
           @Nullable NonSkyframeGlobber.Token nonSkyframeGlobberIncludesToken,
           List<String> excludes,
+          Globber.Operation globberOperation,
           boolean allowEmpty) {
         this.globValueMap = globValueMap;
         this.includesGlobKeys = includesGlobKeys;
         this.nonSkyframeGlobberIncludesToken = nonSkyframeGlobberIncludesToken;
         this.excludes = excludes;
+        this.globberOperation = globberOperation;
         this.allowEmpty = allowEmpty;
       }
 
@@ -1152,12 +1168,8 @@ public class PackageFunction implements SkyFunction {
             foundMatch = true;
           }
           if (!allowEmpty && !foundMatch) {
-            throw new BadGlobException(
-                "glob pattern '"
-                    + ((GlobDescriptor) includeGlobKey.argument()).getPattern()
-                    + "' didn't match anything, but allow_empty is set to False "
-                    + "(the default value of allow_empty can be set with "
-                    + "--incompatible_disallow_empty_glob).");
+            GlobberUtils.throwBadGlobExceptionEmptyResult(
+                ((GlobDescriptor) includeGlobKey.argument()).getPattern(), globberOperation);
           }
         }
         if (nonSkyframeGlobberIncludesToken != null) {
@@ -1171,10 +1183,7 @@ public class PackageFunction implements SkyFunction {
         List<String> result = new ArrayList<>(matches);
 
         if (!allowEmpty && result.isEmpty()) {
-          throw new BadGlobException(
-              "all files in the glob have been excluded, but allow_empty is set to False "
-                  + "(the default value of allow_empty can be set with "
-                  + "--incompatible_disallow_empty_glob).");
+          GlobberUtils.throwBadGlobExceptionAllExcluded(globberOperation);
         }
         return result;
       }
@@ -1370,6 +1379,7 @@ public class PackageFunction implements SkyFunction {
             compiled.prog,
             compiled.globs,
             compiled.globsWithDirs,
+            compiled.subpackages,
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics,
@@ -1470,9 +1480,11 @@ public class PackageFunction implements SkyFunction {
     // - record the generator_name of each top-level macro call
     Set<String> globs = new HashSet<>();
     Set<String> globsWithDirs = new HashSet<>();
+    Set<String> subpackages = new HashSet<>();
     Map<Location, String> generatorMap = new HashMap<>();
     ImmutableList.Builder<SyntaxError> errors = ImmutableList.builder();
-    if (!PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, generatorMap, errors::add)) {
+    if (!PackageFactory.checkBuildSyntax(
+        file, globs, globsWithDirs, subpackages, generatorMap, errors::add)) {
       return new CompiledBuildFile(errors.build());
     }
 
@@ -1520,6 +1532,7 @@ public class PackageFunction implements SkyFunction {
         prog,
         ImmutableList.copyOf(globs),
         ImmutableList.copyOf(globsWithDirs),
+        ImmutableList.copyOf(subpackages),
         ImmutableMap.copyOf(generatorMap),
         ImmutableMap.copyOf(predeclared));
   }
