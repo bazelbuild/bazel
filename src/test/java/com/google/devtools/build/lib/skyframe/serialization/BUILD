@@ -273,6 +273,59 @@ java_test(
 )
 
 java_test(
+    name = "DirectoryListingStateValueCodecTest",
+    size = "small",
+    srcs = ["DirectoryListingStateValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "DictCodecTest",
+    size = "small",
+    srcs = ["DictCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ModuleCodecTest",
+    size = "small",
+    srcs = ["ModuleCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "NoSuchPackageExceptionCodecTest",
+    size = "small",
+    srcs = ["NoSuchPackageExceptionCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "BzlLoadValueCodecTest",
     size = "small",
     srcs = ["BzlLoadValueCodecTest.java"],
@@ -315,6 +368,10 @@ java_library(
             "FileSymlinkExceptionCodecTest.java",
             "DirectoryListingValueCodecTest.java",
             "NoSuchTargetExceptionCodecTest.java",
+            "NoSuchPackageExceptionCodecTest.java",
+            "ModuleCodecTest.java",
+            "DictCodecTest.java",
+            "DirectoryListingStateValueCodecTest.java",
             "RecursivePkgKeyCodecTest.java",
             "RootedPathCodecTest.java",
             "IgnoredPackagePrefixesValueCodecTest.java",
