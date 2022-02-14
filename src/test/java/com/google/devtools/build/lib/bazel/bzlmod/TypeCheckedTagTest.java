@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.HashMap;
@@ -77,7 +77,7 @@ public class TypeCheckedTagTest {
                 .addAttr(
                     "foo", StarlarkList.immutableOf(":thing1", "//pkg:thing2", "@repo//pkg:thing3"))
                 .build(),
-            new LabelConversionContext(
+            new LabelConverter(
                 Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo"),
                 new HashMap<>()));
@@ -97,7 +97,7 @@ public class TypeCheckedTagTest {
             createTagClass(
                 attr("foo", BuildType.LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build()),
             buildTag("tag_name").build(),
-            new LabelConversionContext(
+            new LabelConverter(
                 Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo"),
                 new HashMap<>()));

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -2521,8 +2520,8 @@ public class RuleClass {
       Interner<ImmutableList<?>> listInterner,
       HashMap<String, Label> convertedLabelsInPackage)
       throws ConversionException {
-    LabelConversionContext context =
-        new LabelConversionContext(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
+    LabelConverter context =
+        new LabelConverter(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),

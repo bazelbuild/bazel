@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -126,8 +126,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
         extensionUsagesTableBuilder = ImmutableTable.builder();
     for (Module module : depGraph.values()) {
-      LabelConversionContext labelConversionContext =
-          new LabelConversionContext(
+      LabelConverter labelConverter =
+          new LabelConverter(
               StarlarkBazelModule.createModuleRootLabel(module.getCanonicalRepoName()),
               module.getRepoMappingWithBazelDepsOnly(),
               new HashMap<>());
@@ -135,8 +135,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         try {
           ModuleExtensionId moduleExtensionId =
               ModuleExtensionId.create(
-                  labelConversionContext.convert(usage.getExtensionBzlFile()),
-                  usage.getExtensionName());
+                  labelConverter.convert(usage.getExtensionBzlFile()), usage.getExtensionName());
           extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
         } catch (LabelSyntaxException e) {
           throw new BazelModuleResolutionFunctionException(

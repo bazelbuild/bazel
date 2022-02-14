@@ -68,12 +68,12 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -568,17 +568,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   private static ImmutableList<Label> parseLabels(
       Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
-    BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    LabelConversionContext context =
-        new LabelConversionContext(
-            moduleContext.label(),
-            moduleContext.repoMapping(),
-            bazelStarlarkContext.getConvertedLabelsInPackage());
+    LabelConverter converter = LabelConverter.forThread(thread);
     for (String input : inputs) {
       try {
-        Label label = context.convert(input);
+        Label label = converter.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf(
