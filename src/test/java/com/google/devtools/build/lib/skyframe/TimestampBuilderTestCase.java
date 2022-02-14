@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -405,7 +404,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             throw new BuildFailedException(
                 null, createDetailedExitCode(Code.NON_ACTION_EXECUTION_FAILURE));
           } else {
-            SkyframeBuilder.rethrow(
+            SkyframeErrorProcessor.rethrow(
                 Preconditions.checkNotNull(result.getError().getException()),
                 BugReporter.defaultInstance(),
                 result);

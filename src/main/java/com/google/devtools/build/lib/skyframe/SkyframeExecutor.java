@@ -186,7 +186,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -1846,10 +1845,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 .collect(toMap(BuildConfigurationValue::getKey, Functions.identity()));
     // We ignore the return value here because tests effectively run with --keep_going, and the
     // loading-phase-error bit is only needed if we're constructing a SkyframeAnalysisResult.
-    SkyframeBuildView.processErrors(
+    SkyframeErrorProcessor.processErrors(
         result,
         configurationLookupSupplier,
-        this,
+        cyclesReporter,
         eventHandler,
         /*keepGoing=*/ true,
         /*eventBus=*/ null);
@@ -2574,7 +2573,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ErrorInfo error = result.getError(key);
       if (error != null) {
         if (!error.getCycleInfo().isEmpty()) {
-          reportCycles(eventHandler, result.getError().getCycleInfo(), key);
+          cyclesReporter.reportCycles(result.getError().getCycleInfo(), key, eventHandler);
           // This can only happen if a package is freshly loaded outside of the target parsing or
           // loading phase
           throw new BuildFileContainsErrorsException(
@@ -2779,14 +2778,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new StarlarkModuleCycleReporter());
   }
 
-  CyclesReporter getCyclesReporter() {
+  public CyclesReporter getCyclesReporter() {
     return cyclesReporter;
-  }
-
-  /** Convenience method with same semantics as {@link CyclesReporter#reportCycles}. */
-  public void reportCycles(
-      ExtendedEventHandler eventHandler, Iterable<CycleInfo> cycles, SkyKey topLevelKey) {
-    cyclesReporter.reportCycles(cycles, topLevelKey, eventHandler);
   }
 
   public void setActionExecutionProgressReportingObjects(

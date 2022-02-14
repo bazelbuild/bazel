@@ -179,31 +179,4 @@ public class BuildDriverFunction implements SkyFunction {
       super(cause, Transience.TRANSIENT);
     }
   }
-
-  /**
-   * Encapsulates a collection of action conflicts of the transitive closure of a top-level
-   * ActionLookupKey.
-   */
-  static final class TopLevelConflictException extends Exception {
-
-    private final ImmutableMap<ActionAnalysisMetadata, ConflictException> transitiveActionConflicts;
-
-    private TopLevelConflictException(
-        String message, ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts) {
-      super(message);
-      this.transitiveActionConflicts = actionConflicts;
-    }
-
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> getTransitiveActionConflicts() {
-      return transitiveActionConflicts;
-    }
-
-    /**
-     * Simply returns the first found exception in the map. This is deterministic since the
-     * underlying map is immutable.
-     */
-    public ConflictException getRepresentativeException() {
-      return transitiveActionConflicts.values().asList().get(0);
-    }
-  }
 }

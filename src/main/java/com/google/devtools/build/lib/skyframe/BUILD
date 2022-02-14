@@ -186,6 +186,7 @@ java_library(
         ":sky_functions",
         ":sky_value_dirtiness_checker",
         ":skyframe_aware_action",
+        ":skyframe_error_processor",
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
         ":skylark_module_cycle_reporter",
@@ -203,6 +204,7 @@ java_library(
         ":tests_for_target_pattern_value",
         ":toolchain_context_key",
         ":toolchain_exception",
+        ":top_level_conflict_exception",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
         ":transitive_target_value",
@@ -327,7 +329,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:execution_detailed_exit_code_helper",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -2286,6 +2287,45 @@ java_library(
 )
 
 java_library(
+    name = "skyframe_error_processor",
+    srcs = ["SkyframeErrorProcessor.java"],
+    deps = [
+        ":artifact_conflict_finder",
+        ":aspect_key_creator",
+        ":build_configuration",
+        ":build_driver_key",
+        ":configured_target_key",
+        ":configured_value_creation_exception",
+        ":detailed_exceptions",
+        ":sane_analysis_exception",
+        ":sky_functions",
+        ":top_level_conflict_exception",
+        ":transitive_target_key",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/causes",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:execution_detailed_exit_code_helper",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "skyframe_executor_repository_helpers_holder",
     srcs = ["SkyframeExecutorRepositoryHelpersHolder.java"],
     deps = [
@@ -2546,6 +2586,16 @@ java_library(
         ":detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "top_level_conflict_exception",
+    srcs = ["TopLevelConflictException.java"],
+    deps = [
+        ":artifact_conflict_finder",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//third_party:guava",
     ],
 )
