@@ -14,8 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import javax.annotation.Nullable;
@@ -31,7 +35,7 @@ public abstract class ExecGroup implements ExecGroupApi {
   /** Returns a builder for a new ExecGroup. */
   public static Builder builder() {
     return new AutoValue_ExecGroup.Builder()
-        .requiredToolchains(ImmutableSet.of())
+        .toolchainTypes(ImmutableSet.of())
         .execCompatibleWith(ImmutableSet.of());
   }
 
@@ -41,7 +45,17 @@ public abstract class ExecGroup implements ExecGroupApi {
   }
 
   /** Returns the required toolchain types for this exec group. */
-  public abstract ImmutableSet<Label> requiredToolchains();
+  public ImmutableSet<ToolchainTypeRequirement> toolchainTypes() {
+    return ImmutableSet.copyOf(toolchainTypesMap().values());
+  }
+
+  @Nullable
+  public ToolchainTypeRequirement toolchainType(Label label) {
+    return toolchainTypesMap().get(label);
+  }
+
+  /** Returns the underlying map from label to ToolchainTypeRequirement. */
+  public abstract ImmutableMap<Label, ToolchainTypeRequirement> toolchainTypesMap();
 
   /** Returns the execution constraints for this exec group. */
   public abstract ImmutableSet<Label> execCompatibleWith();
@@ -52,21 +66,17 @@ public abstract class ExecGroup implements ExecGroupApi {
 
   /** Creates a new exec group that inherits from the given group and this group. */
   public ExecGroup inheritFrom(ExecGroup other) {
-    ImmutableSet<Label> requiredToolchains =
-        new ImmutableSet.Builder<Label>()
-            .addAll(this.requiredToolchains())
-            .addAll(other.requiredToolchains())
-            .build();
-    ImmutableSet<Label> execCompatibleWith =
+    Builder builder = builder().copyFrom(null);
+    builder.toolchainTypesMapBuilder().putAll(this.toolchainTypesMap());
+    builder.toolchainTypesMapBuilder().putAll(other.toolchainTypesMap());
+
+    builder.execCompatibleWith(
         new ImmutableSet.Builder<Label>()
             .addAll(this.execCompatibleWith())
             .addAll(other.execCompatibleWith())
-            .build();
-    return builder()
-        .requiredToolchains(requiredToolchains)
-        .execCompatibleWith(execCompatibleWith)
-        .copyFrom(null)
-        .build();
+            .build());
+
+    return builder.build();
   }
 
   /** A builder interface to create ExecGroup instances. */
@@ -74,7 +84,28 @@ public abstract class ExecGroup implements ExecGroupApi {
   public interface Builder {
 
     /** Sets the required toolchain types. */
-    Builder requiredToolchains(ImmutableSet<Label> toolchainTypes);
+    // TODO(katre): Remove this once all callers use toolchainTypes.
+    default Builder requiredToolchains(ImmutableSet<Label> toolchainTypes) {
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
+          toolchainTypes.stream()
+              .map(label -> ToolchainTypeRequirement.builder().toolchainType(label).build())
+              .collect(toImmutableSet());
+      return this.toolchainTypes(toolchainTypeRequirements);
+    }
+
+    /** Sets the toolchain type requirements. */
+    default Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes) {
+      toolchainTypes.forEach(this::addToolchainType);
+      return this;
+    }
+
+    ImmutableMap.Builder<Label, ToolchainTypeRequirement> toolchainTypesMapBuilder();
+
+    default Builder addToolchainType(ToolchainTypeRequirement toolchainTypeRequirement) {
+      this.toolchainTypesMapBuilder()
+          .put(toolchainTypeRequirement.toolchainType(), toolchainTypeRequirement);
+      return this;
+    }
 
     /** Sets the execution constraints. */
     Builder execCompatibleWith(ImmutableSet<Label> execCompatibleWith);

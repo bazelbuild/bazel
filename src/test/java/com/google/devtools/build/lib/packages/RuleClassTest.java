@@ -1080,6 +1080,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
     Label constraint = Label.parseAbsoluteUnchecked("//constraint");
 
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
             "cherry",
@@ -1092,7 +1093,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry")).hasRequiredToolchain(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasToolchainType(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry")).toolchainType(toolchain).isMandatory();
     assertThat(ruleClass.getExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
   }
 
