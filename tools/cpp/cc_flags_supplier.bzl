@@ -15,7 +15,7 @@
 
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "CC_FLAGS_MAKE_VARIABLE_ACTION_NAME")
 load("@bazel_tools//tools/cpp:cc_flags_supplier_lib.bzl", "build_cc_flags")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
 
 def _cc_flags_supplier_impl(ctx):
     cc_toolchain = find_cpp_toolchain(ctx)
@@ -30,7 +30,7 @@ cc_flags_supplier = rule(
     attrs = {
         "_cc_toolchain": attr.label(default = Label("@bazel_tools//tools/cpp:current_cc_toolchain")),
     },
-    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
+    toolchains = use_cpp_toolchain(),
     incompatible_use_toolchain_transition = True,
     fragments = ["cpp"],
 )
