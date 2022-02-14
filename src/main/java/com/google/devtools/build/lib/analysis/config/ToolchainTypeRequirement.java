@@ -15,10 +15,11 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkToolchainTypeRequirement;
 
 /** Describes a requirement on a specific toolchain type. */
 @AutoValue
-public abstract class ToolchainTypeRequirement {
+public abstract class ToolchainTypeRequirement implements StarlarkToolchainTypeRequirement {
 
   /** Returns a new {@link ToolchainTypeRequirement}. */
   public static ToolchainTypeRequirement create(Label toolchainType) {
