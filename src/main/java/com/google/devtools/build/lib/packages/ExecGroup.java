@@ -83,16 +83,6 @@ public abstract class ExecGroup implements ExecGroupApi {
   @AutoValue.Builder
   public interface Builder {
 
-    /** Sets the required toolchain types. */
-    // TODO(katre): Remove this once all callers use toolchainTypes.
-    default Builder requiredToolchains(ImmutableSet<Label> toolchainTypes) {
-      ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
-          toolchainTypes.stream()
-              .map(label -> ToolchainTypeRequirement.create(label))
-              .collect(toImmutableSet());
-      return this.toolchainTypes(toolchainTypeRequirements);
-    }
-
     /** Sets the toolchain type requirements. */
     default Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes) {
       toolchainTypes.forEach(this::addToolchainType);

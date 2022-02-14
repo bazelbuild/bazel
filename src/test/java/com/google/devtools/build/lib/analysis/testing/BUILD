@@ -20,6 +20,7 @@ java_library(
         "ExecGroupSubject.java",
         "ResolvedToolchainContextSubject.java",
         "RuleClassSubject.java",
+        "StarlarkDefinedAspectSubject.java",
         "ToolchainCollectionSubject.java",
         "ToolchainContextSubject.java",
         "ToolchainInfoSubject.java",
