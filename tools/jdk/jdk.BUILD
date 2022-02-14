@@ -213,6 +213,6 @@ java_import(
 
 config_setting(
     name = "windows",
-    values = {"cpu": "x64_windows"},
+    constraint_values = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
 )

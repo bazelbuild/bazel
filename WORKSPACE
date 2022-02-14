@@ -266,6 +266,13 @@ http_file(
 )
 
 http_file(
+    name = "openjdk_win_arm64_vanilla",
+    downloaded_file_path = "zulu-win-arm64.zip",
+    sha256 = "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
+    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip"],
+)
+
+http_file(
     name = "openjdk_win_minimal",
     downloaded_file_path = "zulu-win-minimal.zip",
     sha256 = "b90a713c9c2d9ea23cad44d2c2dfcc9af22faba9bde55dedc1c3bb9f556ac1ae",
@@ -558,6 +565,14 @@ http_archive(
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
 )
 
+dist_http_archive(
+    name = "remotejdk11_win_arm64_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+
+)
+
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 http_archive(
     name = "remotejdk15_linux_for_testing",
@@ -726,6 +741,14 @@ http_archive(
     ],
 )
 
+dist_http_archive(
+    name = "remotejdk17_win_arm64_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+
+)
+
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
     name = "remote_java_tools_for_testing",
@@ -831,6 +854,18 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     sha256 = "42ae65e75d615a3f06a674978e1fa85fdf078cad94e553fee3e779b2b42bb015",
     strip_prefix = "zulu11.50.19-ca-jdk11.0.12-win_x64",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.50.19-ca-jdk11.0.12/zulu11.50.19-ca-jdk11.0.12-win_x64.zip"],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "openjdk11_windows_arm64_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+    sha256 = "b8a28e6e767d90acf793ea6f5bed0bb595ba0ba5ebdf8b99f395266161e53ec2",
+    strip_prefix = "jdk-11.0.13+8",
+    urls = ["https://mirror.bazel.build/aka.ms/download-jdk/microsoft-jdk-11.0.13.8.1-windows-aarch64.zip"],
 )
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
@@ -1011,6 +1046,15 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
         "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
     ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
+    name = "openjdk17_windows_arm64_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
 )
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")

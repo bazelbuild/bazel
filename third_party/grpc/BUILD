@@ -21,6 +21,7 @@ licenses(["notice"])  # Apache v2
 exports_files([
     "grpc_1.31.1.patch",
     "grpc_1.41.0.patch",
+    "grpc_1.41.0.win_arm64.patch"
 ])
 
 package(default_visibility = ["//visibility:public"])

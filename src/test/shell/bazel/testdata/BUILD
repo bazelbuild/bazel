@@ -44,6 +44,8 @@ gen_workspace_stanza(
         "remote_java_tools_test_linux",
         "remote_java_tools_test_windows",
         "remote_java_tools_test_darwin",
+        "openjdk11_windows_arm64_archive",
+        "openjdk17_windows_arm64_archive",
     ],
     template = "jdk_http_archives.tmpl",
     visibility = ["//:__pkg__"],

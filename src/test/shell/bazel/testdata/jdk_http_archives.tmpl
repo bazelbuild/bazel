@@ -166,6 +166,17 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
+    name = "openjdk11_windows_arm64_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "b8a28e6e767d90acf793ea6f5bed0bb595ba0ba5ebdf8b99f395266161e53ec2",
+    strip_prefix = "jdk-11.0.13+8",
+    urls = [
+        "https://mirror.bazel.build/aka.ms/download-jdk/microsoft-jdk-11.0.13.8.1-windows-aarch64.zip",
+    ],
+)
+
 #################################### JDK 17 ####################################
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
@@ -224,5 +235,17 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     urls = [
         "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
         "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-win_x64.zip",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "openjdk17_windows_arm64_archive",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+    sha256 = "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
+    strip_prefix = "zulu17.30.15-ca-jdk17.0.1-win_aarch64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip"
     ],
 )

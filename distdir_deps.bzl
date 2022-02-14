@@ -130,6 +130,7 @@ DIST_DEPS = {
         "patch_args": ["-p1"],
         "patches": [
             "//third_party/grpc:grpc_1.41.0.patch",
+            "//third_party/grpc:grpc_1.41.0.win_arm64.patch",
         ],
         "used_in": [
             "additional_distfiles",
@@ -339,6 +340,34 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+    },
+    "remotejdk17_win_arm64": {
+        "aliases": [
+            "remotejdk17_win_arm64_for_testing",
+            "openjdk17_windows_arm64_archive",
+            "openjdk_win_arm64_vanilla",
+        ],
+        "archive": "zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+        "sha256": "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
+        "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-win_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk11_win_arm64": {
+        "aliases": [
+            "remotejdk11_win_arm64_for_testing",
+            "openjdk11_windows_arm64_archive",
+        ],
+        "archive": "microsoft-jdk-11.0.13.8.1-windows-aarch64.zip",
+        "sha256": "b8a28e6e767d90acf793ea6f5bed0bb595ba0ba5ebdf8b99f395266161e53ec2",
+        "strip_prefix": "jdk-11.0.13+8",
+        "urls": [
+            "https://mirror.bazel.build/aka.ms/download-jdk/microsoft-jdk-11.0.13.8.1-windows-aarch64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
     },
 }
 
