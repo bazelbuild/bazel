@@ -25,11 +25,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -211,6 +213,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:nodeps")).getRemainingArguments())
         .containsAtLeast("--direct_dependencies", "x/nodeps.proto")
         .inOrder();
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:nodeps")).getRemainingArguments())
+        .contains(String.format(ProtoCompileActionBuilder.STRICT_DEPS_FLAG_TEMPLATE, "//x:nodeps"));
 
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//x:withdeps")).getRemainingArguments())
@@ -258,6 +262,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     for (String arg :
         getGeneratingSpawnAction(getDescriptorOutput("//x:foo")).getRemainingArguments()) {
       assertThat(arg).doesNotContain("--direct_dependencies=");
+      assertThat(arg)
+          .doesNotContain(
+              String.format(ProtoCompileActionBuilder.STRICT_DEPS_FLAG_TEMPLATE, "//x:foo_proto"));
     }
   }
 
@@ -282,6 +289,59 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
             getGeneratingSpawnAction(getDescriptorOutput("//third_party/x/foo:nodeps"))
                 .getRemainingArguments())
         .contains("--proto_path=" + genfiles + "/third_party/x/foo/_virtual_imports/nodeps");
+  }
+
+  @Test
+  public void strictPublicImports_enabled() throws Exception {
+    useConfiguration("--strict_public_imports=ERROR", "--proto_compiler=//proto:compiler");
+    scratch.file(
+        "test/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "  name = 'myProto',",
+        "  srcs = ['myProto.proto'],",
+        ")");
+
+    ConfiguredTarget configuredTargetTrue = getConfiguredTarget("//test:myProto");
+    SpawnAction spawnActionTrue =
+        (SpawnAction) ((RuleConfiguredTarget) configuredTargetTrue).getActions().get(0);
+    assertThat(spawnActionTrue.getCommandLines().allArguments())
+        .contains("--allowed_public_imports=");
+  }
+
+  @Test
+  public void strictPublicImports_disabled() throws Exception {
+    useConfiguration("--strict_public_imports=OFF", "--proto_compiler=//proto:compiler");
+    scratch.file(
+        "test/BUILD", "proto_library(", "  name = 'myProto',", "  srcs = ['myProto.proto'],", ")");
+
+    ConfiguredTarget configuredTargetFalse = getConfiguredTarget("//test:myProto");
+    SpawnAction spawnActionFalse =
+        (SpawnAction) ((RuleConfiguredTarget) configuredTargetFalse).getActions().get(0);
+    assertThat(spawnActionFalse.getCommandLines().allArguments())
+        .doesNotContain("--allowed_public_imports=");
+  }
+
+  @Test
+  public void strictPublicImports_transitiveExports() throws Exception {
+    useConfiguration("--strict_public_imports=ERROR", "--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name = 'prototop', srcs = ['top.proto'], ",
+        "              deps = [':exported1', ':exported2', ':notexported'],",
+        "              exports = [':exported1', ':exported2'])",
+        "proto_library(name = 'exported1', srcs = ['exported1.proto'])",
+        "proto_library(name = 'exported2', srcs = ['exported2.proto'])",
+        "proto_library(name = 'notexported', srcs = ['notexported.proto'])");
+
+    // Check that the allowed public imports are passed correctly to the proto compiler.
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:prototop");
+    List<String> arguments =
+        ((SpawnAction) ((RuleConfiguredTarget) configuredTarget).getActions().get(0))
+            .getRemainingArguments();
+    String allowedImports =
+        Iterables.getFirst(flagValue("--allowed_public_imports", arguments), null);
+    assertThat(allowedImports).isEqualTo("x/exported1.proto:x/exported2.proto");
   }
 
   @Test

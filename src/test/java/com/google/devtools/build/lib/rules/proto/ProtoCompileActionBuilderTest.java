@@ -228,9 +228,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             "--java_out=param1,param2:foo.srcjar",
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
-            "--direct_dependencies",
-            "import1.proto",
-            String.format(ProtoCompileActionBuilder.STRICT_DEPS_FLAG_TEMPLATE, "//foo:bar"),
             "source_file.proto")
         .inOrder();
   }
@@ -244,8 +241,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
-    useConfiguration(
-        "--strict_proto_deps=OFF", "--experimental_java_proto_add_allowed_public_imports");
+    useConfiguration("--strict_proto_deps=OFF");
 
     RuleContext ruleContext =
         getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);
@@ -270,8 +266,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             "--java_out=param1,param2:foo.srcjar",
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
-            "--allowed_public_imports",
-            "export1.proto",
             "source_file.proto")
         .inOrder();
   }
@@ -398,8 +392,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 /* transitiveSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ null))
-        .containsAtLeast("-Ifoo.proto=out/foo.proto", "--direct_dependencies=")
-        .inOrder();
+        .contains("-Ifoo.proto=out/foo.proto");
   }
 
   @Test
@@ -410,8 +403,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()))))
-        .containsAtLeast("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto")
-        .inOrder();
+        .contains("-Ifoo.proto=out/foo.proto");
   }
 
   @Test
@@ -423,9 +415,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()),
                     protoSource(derivedArtifact("bar.proto"), derivedRoot.getExecPath()))))
-        .containsAtLeast(
-            "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto")
-        .inOrder();
+        .contains("-Ifoo.proto=out/foo.proto");
   }
 
   /**
@@ -443,8 +433,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         artifact("@bla//foo:bar", "external/bla/foo/bar.proto"),
                         PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of()))
-        .containsAtLeast("-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies=")
-        .inOrder();
+        .contains("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
   @Test
@@ -456,9 +445,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                     protoSource(protoSource, PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(protoSource, PathFragment.create("external/bla")))))
-        .containsAtLeast(
-            "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto")
-        .inOrder();
+        .contains("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
   private Artifact artifact(String ownerLabel, String path) {

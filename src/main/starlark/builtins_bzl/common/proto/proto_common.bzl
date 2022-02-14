@@ -16,8 +16,6 @@
 Definition of proto_common module.
 """
 
-load(":common/proto/proto_semantics.bzl", "semantics")
-
 def _create_proto_compile_action(
         ctx,
         proto_info,
@@ -46,7 +44,8 @@ def _create_proto_compile_action(
         format string, or a pair of list of strings and a format string.
       plugins: Additional plugin executables used by proto compiler.
       mnemonic: The mnemonic to set on the action.
-      strict_imports: Whether to check for strict imports.
+      strict_imports:
+        Deprecated: Whether to check for strict imports.
       additional_inputs: Additional inputs to add to the action.
       resource_set: A callback function that is passed to the created action.
         See `ctx.actions.run`, `resource_set` parameter.
@@ -77,21 +76,6 @@ def _create_proto_compile_action(
     # path when including other protos.
     args.add_all(proto_info.transitive_proto_sources(), map_each = _Iimport_path_equals_fullpath)
     # Example: `-Ia.proto=bazel-bin/target/third_party/pkg/_virtual_imports/subpkg/a.proto`
-
-    strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
-    strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
-    if strict_deps:
-        strict_importable_sources = proto_info.strict_importable_sources()
-        if strict_importable_sources:
-            args.add_joined("--direct_dependencies", strict_importable_sources, map_each = _get_import_path, join_with = ":")
-            # Example: `--direct_dependencies a.proto:b.proto`
-
-        else:
-            # The proto compiler requires an empty list to turn on strict deps checking
-            args.add("--direct_dependencies=")
-
-        # Set `-direct_dependencies_violation_msg=`
-        args.add(ctx.label, format = semantics.STRICT_DEPS_FLAG_TEMPLATE)
 
     if strict_imports:
         if not proto_info.public_import_sources():

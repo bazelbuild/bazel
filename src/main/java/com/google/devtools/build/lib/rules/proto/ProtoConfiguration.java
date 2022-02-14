@@ -142,6 +142,18 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public StrictDepsMode strictProtoDeps;
 
     @Option(
+        name = "strict_public_imports",
+        defaultValue = "off",
+        converter = CoreOptionConverters.StrictDepsConverter.class,
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "Unless OFF, checks that a proto_library target explicitly declares all targets used "
+                + "in 'import public' as exported.")
+    public StrictDepsMode strictPublicImports;
+
+    @Option(
       name = "cc_proto_library_header_suffixes",
       defaultValue = ".pb.h",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -178,12 +190,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.experimentalProtoDescriptorSetsIncludeSourceInfo =
           experimentalProtoDescriptorSetsIncludeSourceInfo;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
-      host.protoCompiler = protoCompiler;
       host.protoToolchainForJava = protoToolchainForJava;
       host.protoToolchainForJ2objc = protoToolchainForJ2objc;
       host.protoToolchainForJavaLite = protoToolchainForJavaLite;
       host.protoToolchainForCc = protoToolchainForCc;
       host.strictProtoDeps = strictProtoDeps;
+      host.strictPublicImports = strictPublicImports;
       host.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
       host.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
       host.experimentalJavaProtoAddAllowedPublicImports =
@@ -271,6 +283,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
     ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
     return strictProtoDeps().toString();
+  }
+
+  @StarlarkMethod(name = "strict_public_imports", useStarlarkThread = true, documented = false)
+  public String strictPublicImportsForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return options.strictPublicImports.toString();
   }
 
   public StrictDepsMode strictProtoDeps() {
