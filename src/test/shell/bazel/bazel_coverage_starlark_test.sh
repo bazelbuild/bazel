@@ -58,6 +58,33 @@ EOF
         || fail "Coverage run failed but should have succeeded."
 }
 
+function test_starlark_rule_without_lcov_merger_failing_test() {
+    cat <<EOF > rules.bzl
+def _impl(ctx):
+    executable = ctx.actions.declare_file(ctx.attr.name)
+    ctx.actions.write(executable, "exit 1", is_executable = True)
+    return [
+        DefaultInfo(
+            executable = executable,
+        )
+    ]
+custom_test = rule(
+    implementation = _impl,
+    test = True,
+)
+EOF
+
+    cat <<EOF > BUILD
+load(":rules.bzl", "custom_test")
+
+custom_test(name = "foo_test")
+EOF
+    if bazel coverage //:foo_test > $TEST_log; then
+      fail "Coverage run succeeded but should have failed."
+    fi
+}
+
+
 function test_starlark_rule_with_custom_lcov_merger() {
 
     cat <<EOF > lcov_merger.sh
