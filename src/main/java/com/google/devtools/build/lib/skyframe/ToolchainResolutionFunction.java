@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToo
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -378,12 +378,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
               debugTarget));
     }
 
-    Map<SkyKey, ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>>
-        results =
-            environment.getValuesOrThrow(
-                registeredToolchainKeys,
-                NoToolchainFoundException.class,
-                InvalidToolchainLabelException.class);
+    SkyframeIterableResult results =
+        environment.getOrderedValuesAndExceptions(registeredToolchainKeys);
     boolean valuesMissing = false;
 
     // Determine the potential set of toolchains.
@@ -391,14 +387,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
         HashBasedTable.create();
     ImmutableSet.Builder<ToolchainTypeInfo> requiredToolchainTypesBuilder = ImmutableSet.builder();
     List<Label> missingToolchains = new ArrayList<>();
-    for (Map.Entry<
-            SkyKey, ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>>
-        entry : results.entrySet()) {
+    while (results.hasNext()) {
       try {
-        ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>
-            valueOrException = entry.getValue();
         SingleToolchainResolutionValue singleToolchainResolutionValue =
-            (SingleToolchainResolutionValue) valueOrException.get();
+            (SingleToolchainResolutionValue)
+                results.nextOrThrow(
+                    NoToolchainFoundException.class, InvalidToolchainLabelException.class);
         if (singleToolchainResolutionValue == null) {
           valuesMissing = true;
           continue;

@@ -52,7 +52,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -168,15 +168,12 @@ public final class CompletionFunction<
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
 
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    Map<SkyKey, ValueOrException2<ActionExecutionException, SourceArtifactException>> inputDeps =
-        env.getValuesOrThrow(
-            Artifact.keys(allArtifacts),
-            ActionExecutionException.class,
-            SourceArtifactException.class);
+    SkyframeIterableResult inputDeps =
+        env.getOrderedValuesAndExceptions(Artifact.keys(allArtifacts));
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
-    ActionInputMap inputMap = new ActionInputMap(bugReporter, inputDeps.size());
+    ActionInputMap inputMap = new ActionInputMap(bugReporter, allArtifacts.size());
     // Prepare an ActionInputMap for important artifacts separately, to be used by BEP events. The
     // _validation output group can contain orders of magnitude more unimportant artifacts than
     // there are important artifacts, and BEP events will retain the ActionInputMap until the
@@ -206,7 +203,8 @@ public final class CompletionFunction<
     FilesMetricConsumer currentConsumer = new FilesMetricConsumer();
     for (Artifact input : allArtifacts) {
       try {
-        SkyValue artifactValue = inputDeps.get(Artifact.key(input)).get();
+        SkyValue artifactValue =
+            inputDeps.nextOrThrow(ActionExecutionException.class, SourceArtifactException.class);
         if (artifactValue != null) {
           if (artifactValue instanceof MissingArtifactValue) {
             handleSourceFileError(

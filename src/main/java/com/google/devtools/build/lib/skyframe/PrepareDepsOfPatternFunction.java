@@ -49,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -273,7 +274,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           builder.add(TransitiveTraversalValue.key(target.getLabel()));
         }
         ImmutableList<SkyKey> skyKeys = builder.build();
-        env.getValuesOrThrow(skyKeys, NoSuchPackageException.class, NoSuchTargetException.class);
+        SkyframeIterableResult skyframeIterableResult = env.getOrderedValuesAndExceptions(skyKeys);
+        while (skyframeIterableResult.hasNext()) {
+          skyframeIterableResult.nextOrThrow(
+              NoSuchPackageException.class, NoSuchTargetException.class);
+        }
         if (env.valuesMissing()) {
           throw new MissingDepException();
         }

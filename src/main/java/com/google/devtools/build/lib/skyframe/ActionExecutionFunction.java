@@ -100,8 +100,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.ValueOrException;
-import com.google.devtools.build.skyframe.ValueOrException2;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -372,25 +372,25 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableList<SkyKey> previouslyLostDiscoveredInputs =
         skyframeActionExecutor.getLostDiscoveredInputs(action);
     if (previouslyLostDiscoveredInputs != null) {
-      Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
-          lostInputValues =
-              env.getValuesOrThrow(
-                  previouslyLostDiscoveredInputs,
-                  MissingInputFileException.class,
-                  ActionExecutionException.class);
+      SkyframeIterableResult lostInputValues =
+          env.getOrderedValuesAndExceptions(previouslyLostDiscoveredInputs);
       if (env.valuesMissing()) {
         return true;
       }
-      for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
-          lostInput : lostInputValues.entrySet()) {
+      for (SkyKey lostInputKey : previouslyLostDiscoveredInputs) {
         try {
-          lostInput.getValue().get();
+          SkyValue value =
+              lostInputValues.nextOrThrow(
+                  MissingInputFileException.class, ActionExecutionException.class);
+          if (value == null) {
+            return true;
+          }
         } catch (MissingInputFileException e) {
           // MissingInputFileException comes from problems with source artifact construction.
           // Rewinding never invalidates source artifacts.
           throw new IllegalStateException(
               "MissingInputFileException unexpected from rewound generated discovered input. key="
-                  + lostInput.getKey(),
+                  + lostInputKey,
               e);
         } catch (ActionExecutionException e) {
           throw new ActionExecutionFunctionException(e);
@@ -658,12 +658,7 @@ public class ActionExecutionFunction implements SkyFunction {
         packageLookupsRequested.add(depKey);
       }
 
-      Map<SkyKey, ValueOrException2<BuildFileNotFoundException, InconsistentFilesystemException>>
-          values =
-              env.getValuesOrThrow(
-                  depKeys.values(),
-                  BuildFileNotFoundException.class,
-                  InconsistentFilesystemException.class);
+      SkyframeLookupResult values = env.getValuesAndExceptions(depKeys.values());
       Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment path : execPaths) {
         if (!depKeys.containsKey(path)) {
@@ -671,7 +666,12 @@ public class ActionExecutionFunction implements SkyFunction {
         }
         ContainingPackageLookupValue value;
         try {
-          value = (ContainingPackageLookupValue) values.get(depKeys.get(path)).get();
+          value =
+              (ContainingPackageLookupValue)
+                  values.getOrThrow(
+                      depKeys.get(path),
+                      BuildFileNotFoundException.class,
+                      InconsistentFilesystemException.class);
         } catch (BuildFileNotFoundException e) {
           throw PackageRootException.create(path, e);
         } catch (InconsistentFilesystemException e) {
