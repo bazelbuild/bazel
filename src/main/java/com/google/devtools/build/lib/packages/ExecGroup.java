@@ -88,7 +88,7 @@ public abstract class ExecGroup implements ExecGroupApi {
     default Builder requiredToolchains(ImmutableSet<Label> toolchainTypes) {
       ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
           toolchainTypes.stream()
-              .map(label -> ToolchainTypeRequirement.builder().toolchainType(label).build())
+              .map(label -> ToolchainTypeRequirement.create(label))
               .collect(toImmutableSet());
       return this.toolchainTypes(toolchainTypeRequirements);
     }
