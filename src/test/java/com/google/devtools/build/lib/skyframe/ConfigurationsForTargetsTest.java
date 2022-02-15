@@ -47,6 +47,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -274,6 +275,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    * contexts.
    */
   @Test
+  @Ignore("b/219749974")
   public void hostDeps() throws Exception {
     scratch.file(
         "a/host_rule.bzl",
