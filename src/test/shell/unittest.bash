@@ -112,6 +112,10 @@ _TEST_FILTERS=()                # List of globs to use to filter the tests.
                                 # of the globs are run and test list provided in
                                 # the arguments is ignored if present.
 
+__in_tear_down=0                # Indicates whether we are in `tear_down` phase
+                                # of test. Used to avoid re-entering `tear_down`
+                                # on failures within it.
+
 if (( $# > 0 )); then
   (
     IFS=':'
@@ -226,13 +230,23 @@ function testenv_tear_down() {
 function fail() {
     __show_log >&2
     echo "${TEST_name} FAILED: $*." >&2
-    echo "$@" >"$TEST_TMPDIR"/__fail
+    # Keep the original error message if we fail in `tear_down` after a failure.
+    [[ "${TEST_passed}" == "true" ]] && echo "$@" >"$TEST_TMPDIR"/__fail
     TEST_passed="false"
     __show_stack
     # Cleanup as we are leaving the subshell now
+    __run_tear_down_after_failure
+    exit 1
+}
+
+function __run_tear_down_after_failure() {
+    # Skip `tear_down` after a failure in `tear_down` to prevent infinite
+    # recursion.
+    (( __in_tear_down )) && return
+    __in_tear_down=1
+    echo -e "\nTear down:\n" >&2
     tear_down
     testenv_tear_down
-    exit 1
 }
 
 # Usage: warn <message>
@@ -558,8 +572,7 @@ function __test_terminated_err() {
     # If $TEST_name is still empty, the test suite failed before we even started
     # to run tests, so we shouldn't call tear_down.
     if [[ -n "$TEST_name" ]]; then
-      tear_down
-      testenv_tear_down
+      __run_tear_down_after_failure
     fi
     exit 1
 }
@@ -749,6 +762,7 @@ function run_suite() {
           testenv_set_up
           set_up
           eval "$TEST_name"
+          __in_tear_down=1
           tear_down
           testenv_tear_down
           timestamp >"${TEST_TMPDIR}"/__ts_end

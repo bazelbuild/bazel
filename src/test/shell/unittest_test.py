@@ -74,36 +74,44 @@ class TestResult(object):
   # Methods to assert on the state of the results.
 
   def assertLogMessage(self, message):
-    self._asserter.assertRegex(self._output, message)
+    self.assertExactlyOneMatch(self._output, message)
 
   def assertNotLogMessage(self, message):
     self._asserter.assertNotRegex(self._output, message)
 
   def assertXmlMessage(self, message):
-    self._asserter.assertRegex(self._xml, message)
+    self.assertExactlyOneMatch(self._xml, message)
+
+  def assertNotXmlMessage(self, message):
+    self._asserter.assertNotRegex(self._xml, message)
 
   def assertSuccess(self, suite_name):
     self._asserter.assertEqual(0, self._return_code,
-                               "Script failed unexpectedly:\n%s" % self._output)
+                               f"Script failed unexpectedly:\n{self._output}")
     self.assertLogMessage(suite_name)
-    self.assertXmlMessage("failures=\"0\"")
-    self.assertXmlMessage("errors=\"0\"")
+    self.assertXmlMessage("<testsuites [^/]*failures=\"0\"")
+    self.assertXmlMessage("<testsuites [^/]*errors=\"0\"")
 
   def assertNotSuccess(self, suite_name, failures=0, errors=0):
     self._asserter.assertNotEqual(0, self._return_code)
     self.assertLogMessage(suite_name)
     if failures:
-      self.assertXmlMessage("failures=\"%d\"" % failures)
+      self.assertXmlMessage(f'<testsuites [^/]*failures="{failures}"')
     if errors:
-      self.assertXmlMessage("errors=\"%d\"" % errors)
+      self.assertXmlMessage(f'<testsuites [^/]*errors="{errors}"')
 
   def assertTestPassed(self, test_name):
-    self.assertLogMessage("PASSED: %s" % test_name)
+    self.assertLogMessage(f"PASSED: {test_name}")
 
   def assertTestFailed(self, test_name, message=""):
-    self.assertLogMessage("%s FAILED" % test_name)
-    if message:
-      self.assertLogMessage("FAILED: %s" % message)
+    self.assertLogMessage(f"{test_name} FAILED: {message}")
+
+  def assertExactlyOneMatch(self, text, pattern):
+    self._asserter.assertRegex(text, pattern)
+    self._asserter.assertEqual(
+        len(re.findall(pattern, text)),
+        1,
+        msg=f"Found more than 1 match of '{pattern}' in '{text}'")
 
 
 class UnittestTest(unittest.TestCase):
@@ -136,7 +144,7 @@ class UnittestTest(unittest.TestCase):
       return os.environ["TEST_SRCDIR"]
 
     # Base on the current dir
-    return "%s/.." % os.getcwd()
+    return f"{os.getcwd()}/.."
 
   def execute_test(self, filename, env=None, args=()):
     """Executes the file and stores the results."""
@@ -585,8 +593,147 @@ run_suite "empty test suite"
             "TEST_TOTAL_SHARDS": 2,
             "TEST_SHARD_INDEX": 1
         })
+
     result.assertSuccess("custom IFS test")
     result.assertTestPassed("test_foo")
+
+  def test_fail_in_teardown_reports_failure(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        function tear_down() {
+          echo "tear_down log" >"${TEST_log}"
+          fail "tear_down failure"
+        }
+
+        function test_foo() {
+          :
+        }
+
+        run_suite "Failure in tear_down test"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("Failure in tear_down test", errors=1)
+    result.assertTestFailed("test_foo", "tear_down failure")
+    result.assertXmlMessage('message="tear_down failure"')
+    result.assertLogMessage("tear_down log")
+
+  def test_fail_in_teardown_after_test_failure_reports_both_failures(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        function tear_down() {
+          echo "tear_down log" >"${TEST_log}"
+          fail "tear_down failure"
+        }
+
+        function test_foo() {
+          echo "test_foo log" >"${TEST_log}"
+          fail "Test failure"
+        }
+
+        run_suite "Failure in tear_down test"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("Failure in tear_down test", errors=1)
+    result.assertTestFailed("test_foo", "Test failure")
+    result.assertTestFailed("test_foo", "tear_down failure")
+    result.assertXmlMessage('message="Test failure"')
+    result.assertNotXmlMessage('message="tear_down failure"')
+    result.assertXmlMessage("test_foo log")
+    result.assertXmlMessage("tear_down log")
+    result.assertLogMessage("Test failure")
+    result.assertLogMessage("tear_down failure")
+    result.assertLogMessage("test_foo log")
+    result.assertLogMessage("tear_down log")
+
+  def test_errexit_in_teardown_reports_failure(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        set -euo pipefail
+
+        function tear_down() {
+          invalid_command
+        }
+
+        function test_foo() {
+          :
+        }
+
+        run_suite "errexit in tear_down test"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("errexit in tear_down test")
+    result.assertLogMessage("invalid_command: command not found")
+    result.assertXmlMessage('message="No failure message"')
+    result.assertXmlMessage("invalid_command: command not found")
+
+  def test_fail_in_tear_down_after_errexit_reports_both_failures(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        set -euo pipefail
+
+        function tear_down() {
+          echo "tear_down log" >"${TEST_log}"
+          fail "tear_down failure"
+        }
+
+        function test_foo() {
+          invalid_command
+        }
+
+        run_suite "fail after failure"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("fail after failure")
+    result.assertTestFailed(
+        "test_foo",
+        "terminated because this command returned a non-zero status")
+    result.assertTestFailed("test_foo", "tear_down failure")
+    result.assertLogMessage("invalid_command: command not found")
+    result.assertLogMessage("tear_down log")
+    result.assertXmlMessage('message="No failure message"')
+    result.assertXmlMessage("invalid_command: command not found")
+
+  def test_errexit_in_tear_down_after_errexit_reports_both_failures(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        set -euo pipefail
+
+        function tear_down() {
+          invalid_command_tear_down
+        }
+
+        function test_foo() {
+          invalid_command_test
+        }
+
+        run_suite "fail after failure"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("fail after failure")
+    result.assertTestFailed(
+        "test_foo",
+        "terminated because this command returned a non-zero status")
+    result.assertLogMessage("invalid_command_test: command not found")
+    result.assertLogMessage("invalid_command_tear_down: command not found")
+    result.assertXmlMessage('message="No failure message"')
+    result.assertXmlMessage("invalid_command_test: command not found")
+    result.assertXmlMessage("invalid_command_tear_down: command not found")
+
 
 if __name__ == "__main__":
   unittest.main()
