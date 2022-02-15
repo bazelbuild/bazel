@@ -467,7 +467,7 @@ public final class FunctionTransitionUtil {
    * Extend the global build config affectedByStarlarkTransition, by adding any new option names
    * from changedOptions
    */
-  private static void updateAffectedByStarlarkTransition(
+  public static void updateAffectedByStarlarkTransition(
       CoreOptions buildConfigOptions, Set<String> changedOptions) {
     if (changedOptions.isEmpty()) {
       return;
