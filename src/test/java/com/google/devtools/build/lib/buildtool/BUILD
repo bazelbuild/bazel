@@ -206,7 +206,6 @@ java_test(
     name = "EditDuringBuildTest",
     srcs = ["EditDuringBuildTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -609,7 +608,6 @@ build_test(
         ":ContextProviderInitializationTest",
         ":CorruptedActionCacheTest",
         ":DanglingSymlinkTest",
-        ":EditDuringBuildTest",
         ":EnvironmentRestrictedBuildTest",
         ":IncludeValidationTest",
         ":LabelCrossesPackageBoundaryTest",
