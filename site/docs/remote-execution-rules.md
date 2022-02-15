@@ -169,7 +169,7 @@ outputs of your remote execution build in to your source repo to reference.
 
 For example, for Tensorflow's rules for [`cuda`](https://github.com/tensorflow/tensorflow/blob/master/third_party/gpus/cuda_configure.bzl)
 and [`python`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl),
-the `WORKSPACE` rules produce the following [`BUILD files`](https://github.com/tensorflow/toolchains/tree/master/toolchains/cpus/py).
+the `WORKSPACE` rules produce the following [`BUILD files`](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/toolchains/cpus/py).
 For local execution, files produced by checking the host environment are used.
 For remote execution, a [conditional statement](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl#L304)
 on an environment variable allows the rule to use files that are checked into
