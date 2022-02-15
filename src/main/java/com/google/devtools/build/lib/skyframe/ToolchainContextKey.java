@@ -69,7 +69,7 @@ public abstract class ToolchainContextKey implements SkyKey {
     default Builder requiredToolchainTypeLabels(ImmutableSet<Label> requiredToolchainTypeLabels) {
       ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
           requiredToolchainTypeLabels.stream()
-              .map(label -> ToolchainTypeRequirement.builder().toolchainType(label).build())
+              .map(label -> ToolchainTypeRequirement.create(label))
               .collect(toImmutableSet());
       return this.toolchainTypes(toolchainTypeRequirements);
     }
