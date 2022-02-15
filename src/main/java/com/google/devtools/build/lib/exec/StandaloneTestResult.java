@@ -38,10 +38,8 @@ public abstract class StandaloneTestResult implements TestActionContext.TestAtte
   public abstract ImmutableList<SpawnResult> spawnResults();
 
   /** Returns the TestResultData for the test. */
-  @Override
   public abstract TestResultData.Builder testResultDataBuilder();
 
-  @Override
   public abstract BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo();
 
   /** Returns a builder that can be used to construct a {@link StandaloneTestResult} object. */
