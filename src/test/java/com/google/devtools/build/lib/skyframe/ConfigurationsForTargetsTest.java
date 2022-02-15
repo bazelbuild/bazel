@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -27,12 +28,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -47,7 +53,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
-import org.junit.Ignore;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -74,6 +80,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ConfigurationsForTargetsTest extends AnalysisTestCase {
+
+  public static final Label TARGET_PLATFORM_LABEL =
+      Label.parseAbsoluteUnchecked("//platform:target");
+  public static final Label EXEC_PLATFORM_LABEL = Label.parseAbsoluteUnchecked("//platform:exec");
 
   /**
    * A mock {@link SkyFunction} that just calls {@link ConfiguredTargetFunction#computeDependencies}
@@ -118,6 +128,23 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws EvalException, InterruptedException {
       try {
+        TargetAndConfiguration targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
+        // Set up the toolchain context so that exec transitions resolve properly.
+        ToolchainCollection<ToolchainContext> toolchainContexts =
+            ToolchainCollection.builder()
+                .addDefaultContext(
+                    UnloadedToolchainContextImpl.builder(
+                            ToolchainContextKey.key()
+                                .toolchainTypes(ImmutableSet.of())
+                                .configurationKey(
+                                    targetAndConfiguration.getConfiguration().getKey())
+                                .build())
+                        .setTargetPlatform(
+                            PlatformInfo.builder().setLabel(TARGET_PLATFORM_LABEL).build())
+                        .setExecutionPlatform(
+                            PlatformInfo.builder().setLabel(EXEC_PLATFORM_LABEL).build())
+                        .build())
+                .build();
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             ConfiguredTargetFunction.computeDependencies(
                 new ConfiguredTargetFunction.ComputeDependenciesState(),
@@ -125,11 +152,11 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 /*transitiveRootCauses=*/ NestedSetBuilder.stableOrder(),
                 env,
                 new SkyframeDependencyResolver(env),
-                (TargetAndConfiguration) skyKey.argument(),
+                targetAndConfiguration,
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                /*toolchainContexts=*/ null,
-                /*useToolchainTransition=*/ false,
+                toolchainContexts,
+                /*useToolchainTransition=*/ true,
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig());
         return env.valuesMissing() ? null : new Value(depMap);
@@ -243,6 +270,15 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         String.format("Couldn't find attribute %s for label %s", attrName, targetLabel));
   }
 
+  @Before
+  public void setUp() throws Exception {
+    scratch.file(
+        "platform/BUILD",
+        // Add basic target and exec platforms for testing.
+        "platform(name = 'target')",
+        "platform(name = 'exec')");
+  }
+
   @Test
   public void nullConfiguredDepsHaveExpectedConfigs() throws Exception {
     scratch.file(
@@ -275,23 +311,24 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    * contexts.
    */
   @Test
-  @Ignore("b/219749974")
-  public void hostDeps() throws Exception {
+  public void execDeps() throws Exception {
     scratch.file(
-        "a/host_rule.bzl",
-        "host_rule = rule(",
+        "a/exec_rule.bzl",
+        "exec_rule = rule(",
         "  implementation = lambda ctx: [],",
-        "  attrs = {'tools': attr.label_list(cfg = 'host')},",
+        "  attrs = {'tools': attr.label_list(cfg = 'exec')},",
         ")");
     scratch.file(
         "a/BUILD",
-        "load('//a:host_rule.bzl', 'host_rule')",
-        "cc_binary(name = 'host_tool', srcs = ['host_tool.cc'])",
-        "host_rule(name = 'gen', tools = [':host_tool'])");
+        "load('//a:exec_rule.bzl', 'exec_rule')",
+        "sh_binary(name = 'exec_tool', srcs = ['exec_tool.sh'])",
+        "exec_rule(name = 'gen', tools = [':exec_tool'])");
 
     ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
-
-    assertThat(getConfiguration(toolDep).isHostConfiguration()).isTrue();
+    BuildConfigurationValue toolConfiguration = getConfiguration(toolDep);
+    assertThat(toolConfiguration.isToolConfiguration()).isTrue();
+    assertThat(toolConfiguration.getOptions().get(PlatformOptions.class).platforms)
+        .containsExactly(EXEC_PLATFORM_LABEL);
   }
 
   @Test
