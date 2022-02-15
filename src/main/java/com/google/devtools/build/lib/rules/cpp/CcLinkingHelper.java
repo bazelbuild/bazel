@@ -761,10 +761,15 @@ public final class CcLinkingHelper {
               linkingMode != LinkingMode.DYNAMIC,
               dynamicLinkType.isDynamicLibrary(),
               featureConfiguration);
+      ImmutableList<CcLinkingContext.Linkstamp> linkstamps =
+          ccLinkingContext.getLinkstamps().toList();
+      if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
+        linkstamps = ImmutableList.of();
+      }
       dynamicLinkActionBuilder.addLinkParams(
           libraries,
           ccLinkingContext.getFlattenedUserLinkFlags(),
-          ccLinkingContext.getLinkstamps().toList(),
+          linkstamps,
           ccLinkingContext.getNonCodeInputs().toList(),
           ruleErrorConsumer);
     }

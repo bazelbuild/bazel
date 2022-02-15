@@ -2186,4 +2186,46 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .doesNotContain("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
     assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-ltransition_Slibdep2");
   }
+
+  /**
+   * Due to Windows forcing every dynamic library to link its dependencies, the
+   * NODEPS_DYNAMIC_LIBRARY link target type actually does link in its transitive dependencies
+   * statically on Windows. There is no reason why these cc_libraries should be link stamped.
+   */
+  @Test
+  public void testWindowsCcLibrariesNoDepsDynamicLibrariesDoNotLinkstamp() throws Exception {
+    scratch.overwriteFile(
+        "hello/BUILD",
+        "cc_library(",
+        "  name = 'hello',",
+        "  srcs = ['hello.cc'],",
+        "  deps = ['linkstamp']",
+        ")",
+        "cc_library(",
+        "  name = 'linkstamp',",
+        "  linkstamp = 'linkstamp.cc',",
+        ")");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.TARGETS_WINDOWS,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    Artifact sharedObject =
+        hello
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getLinkerInputs()
+            .toList()
+            .get(0)
+            .getLibraries()
+            .get(0)
+            .getDynamicLibrary();
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
+    assertThat(action.getLinkstampObjects()).isEmpty();
+  }
 }
