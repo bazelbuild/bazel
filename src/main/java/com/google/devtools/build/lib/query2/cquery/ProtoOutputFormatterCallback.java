@@ -13,11 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -29,6 +35,8 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
@@ -36,7 +44,9 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Proto output formatter for cquery results. */
 class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -58,9 +68,37 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
+  private static class ConfigurationCache {
+    private final Map<BuildConfigurationEvent, Integer> cache = new HashMap<>();
+
+    public int getId(BuildConfigurationEvent buildConfigurationEvent) {
+      return cache.computeIfAbsent(buildConfigurationEvent, event -> cache.size() + 1);
+    }
+
+    public ImmutableList<Configuration> getConfigurations() {
+      return cache.entrySet().stream()
+          .map(
+              entry -> {
+                BuildConfigurationEvent event = entry.getKey();
+                String checksum = event.getEventId().getConfiguration().getId();
+                BuildEventStreamProtos.Configuration configProto =
+                    event.asStreamProto(/* unusedConverters= */ null).getConfiguration();
+
+                return AnalysisProtosV2.Configuration.newBuilder()
+                    .setChecksum(checksum)
+                    .setMnemonic(configProto.getMnemonic())
+                    .setPlatformName(configProto.getPlatformName())
+                    .setId(entry.getValue())
+                    .build();
+              })
+          .collect(toImmutableList());
+    }
+  }
+
   private final OutputType outputType;
   private final AspectResolver resolver;
   private final SkyframeExecutor skyframeExecutor;
+  private final ConfigurationCache configurationCache = new ConfigurationCache();
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
   private AnalysisProtosV2.CqueryResult.Builder protoResult;
@@ -127,6 +165,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   @VisibleForTesting
   public AnalysisProtosV2.CqueryResult getProtoResult() {
+    protoResult.addAllConfigurations(configurationCache.getConfigurations());
     return protoResult.build();
   }
 
@@ -150,6 +189,18 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         String checksum = keyedConfiguredTarget.getConfigurationChecksum();
         builder.setConfiguration(
             AnalysisProtosV2.Configuration.newBuilder().setChecksum(String.valueOf(checksum)));
+
+        ConfiguredTargetKey configuredTargetKey = keyedConfiguredTarget.getConfiguredTargetKey();
+        // Some targets don't have a configuration, e.g. InputFileConfiguredTarget
+        if (configuredTargetKey != null) {
+          BuildConfigurationKey configurationKey = configuredTargetKey.getConfigurationKey();
+          if (configurationKey != null) {
+            BuildConfigurationEvent buildConfigurationEvent =
+                getConfiguration(configurationKey).toBuildEvent();
+            int id = configurationCache.getId(buildConfigurationEvent);
+            builder.setConfigurationId(id);
+          }
+        }
       }
 
       protoResult.addResults(builder.build());

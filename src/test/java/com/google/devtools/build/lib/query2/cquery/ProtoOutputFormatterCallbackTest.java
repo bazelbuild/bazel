@@ -14,12 +14,15 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
@@ -34,10 +37,10 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -118,7 +121,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   }
 
   @Test
-  public void testConfigurationHash() throws Exception {
+  public void testConfigurations() throws Exception {
     FooPatchTransition attributePatchTransition = new FooPatchTransition("SET BY PATCH");
 
     MockRule ruleWithPatch =
@@ -130,32 +133,101 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                         attr("deps", LABEL_LIST)
                             .allowedFileTypes(FileTypeSet.ANY_FILE)
                             .cfg(TransitionFactories.of(attributePatchTransition))));
+    MockRule parentRuleClass =
+        () ->
+            MockRule.define(
+                "parent_rule",
+                (builder, env) ->
+                    builder.add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
-    helper.useRuleClassProvider(setRuleClassProviders(ruleWithPatch, getSimpleRule()).build());
+    helper.useRuleClassProvider(
+        setRuleClassProviders(ruleWithPatch, parentRuleClass, getSimpleRule()).build());
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'my_rule',",
-        "  deps = [':patched'],",
+        "parent_rule(name = 'parent_rule',",
+        "  deps = [':transition_rule'],",
+        ")",
+        "my_rule(name = 'transition_rule',",
+        "  deps = [':patched', ':dep'],",
         ")",
         "simple_rule(name = 'dep')");
 
-    // Assert checksum from proto is proper checksum.
-    AnalysisProtosV2.ConfiguredTarget myRuleProto =
-        Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
-    KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
+    AnalysisProtosV2.CqueryResult cqueryResult = getOutput("deps(//test:parent_rule)");
+    List<Configuration> configurations = cqueryResult.getConfigurationsList();
+    assertThat(configurations).hasSize(2);
 
-    assertThat(myRuleProto.getConfiguration().getChecksum())
-        .isEqualTo(myRule.getConfigurationChecksum());
+    assertThat(configurations)
+        .ignoringFieldDescriptors(
+            Configuration.getDescriptor().findFieldByName("checksum"),
+            Configuration.getDescriptor().findFieldByName("id"))
+        .containsExactly(
+            Configuration.newBuilder().setMnemonic("k8-fastbuild").setPlatformName("k8").build(),
+            Configuration.newBuilder().setMnemonic("k8-fastbuild").setPlatformName("k8").build());
 
-    // Assert checksum for two configured targets in proto are not the same.
-    List<AnalysisProtosV2.ConfiguredTarget> protoDeps =
-        getOutput("deps(//test:my_rule)").getResultsList();
-    assertThat(protoDeps).hasSize(2);
+    List<ConfiguredTarget> resultsList = cqueryResult.getResultsList();
 
-    Iterator<AnalysisProtosV2.ConfiguredTarget> protoDepsIterator = protoDeps.iterator();
-    assertThat(protoDepsIterator.next().getConfiguration().getChecksum())
-        .isNotEqualTo(protoDepsIterator.next().getConfiguration().getChecksum());
+    ConfiguredTarget parentRuleProto = getRuleProtoByName(resultsList, "//test:parent_rule");
+    Set<KeyedConfiguredTarget> keyedTargets = eval("deps(//test:parent_rule)");
+
+    KeyedConfiguredTarget parentRule = getKeyedTargetByLabel(keyedTargets, "//test:parent_rule");
+    assertThat(parentRuleProto.getConfiguration().getChecksum())
+        .isEqualTo(parentRule.getConfigurationChecksum());
+
+    Configuration parentConfiguration =
+        getConfigurationForId(configurations, parentRuleProto.getConfigurationId());
+    assertThat(parentConfiguration.getChecksum()).isEqualTo(parentRule.getConfigurationChecksum());
+
+    ConfiguredTarget transitionRuleProto =
+        getRuleProtoByName(resultsList, "//test:transition_rule");
+    KeyedConfiguredTarget transitionRule =
+        getKeyedTargetByLabel(keyedTargets, "//test:transition_rule");
+    assertThat(transitionRuleProto.getConfiguration().getChecksum())
+        .isEqualTo(transitionRule.getConfigurationChecksum());
+
+    Configuration transitionConfiguration =
+        getConfigurationForId(configurations, transitionRuleProto.getConfigurationId());
+    assertThat(transitionConfiguration.getChecksum())
+        .isEqualTo(transitionRule.getConfigurationChecksum());
+
+    ConfiguredTarget depRuleProto = getRuleProtoByName(resultsList, "//test:dep");
+    Configuration depRuleConfiguration =
+        getConfigurationForId(configurations, depRuleProto.getConfigurationId());
+    KeyedConfiguredTarget depRule = getKeyedTargetByLabel(keyedTargets, "//test:dep");
+
+    assertThat(depRuleProto.getConfiguration().getChecksum())
+        .isEqualTo(depRule.getConfigurationChecksum());
+
+    // Assert the proto checksums for targets in different configurations are not the same.
+    assertThat(depRuleConfiguration.getChecksum())
+        .isNotEqualTo(transitionConfiguration.getChecksum());
+
+    // Targets without a configuration have a configuration_id of 0.
+    ConfiguredTarget fileTargetProto =
+        resultsList.stream()
+            .filter(result -> "//test:patched".equals(result.getTarget().getSourceFile().getName()))
+            .findAny()
+            .orElseThrow();
+    assertThat(fileTargetProto.getConfigurationId()).isEqualTo(0);
+  }
+
+  private KeyedConfiguredTarget getKeyedTargetByLabel(
+      Set<KeyedConfiguredTarget> keyedTargets, String label) {
+    return Iterables.getOnlyElement(
+        keyedTargets.stream()
+            .filter(t -> label.equals(t.getConfiguredTarget().getLabel().getCanonicalForm()))
+            .collect(Collectors.toSet()));
+  }
+
+  private Configuration getConfigurationForId(List<Configuration> configurations, int id) {
+    return configurations.stream().filter(c -> c.getId() == id).findAny().orElseThrow();
+  }
+
+  private ConfiguredTarget getRuleProtoByName(List<ConfiguredTarget> resultsList, String s) {
+    return resultsList.stream()
+        .filter(result -> s.equals(result.getTarget().getRule().getName()))
+        .findAny()
+        .orElseThrow();
   }
 
   @Test
