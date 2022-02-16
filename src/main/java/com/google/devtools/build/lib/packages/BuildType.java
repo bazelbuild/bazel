@@ -394,14 +394,13 @@ public final class BuildType {
         // Enforce value is relative to the context.
         Label currentRule;
         RepositoryMapping repositoryMapping;
-        if (context instanceof LabelConverter) {
-          currentRule = ((LabelConverter) context).getParent();
-          repositoryMapping = ((LabelConverter) context).getRepositoryMapping();
-        } else {
+        if (!(context instanceof LabelConverter)) {
           throw new ConversionException("invalid context '" + context + "' in " + what);
         }
-        Label result = currentRule.getRelativeWithRemapping(value, repositoryMapping);
-        if (!result.getPackageIdentifier().equals(currentRule.getPackageIdentifier())) {
+
+        LabelConverter converter = (LabelConverter) context;
+        Label result = converter.convert(value);
+        if (!result.getPackageIdentifier().equals(converter.getBase().getPackageIdentifier())) {
           throw new ConversionException("label '" + value + "' is not in the current package");
         }
         return result;

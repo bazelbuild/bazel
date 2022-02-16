@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.HashMap;
+import java.util.Map;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -34,21 +36,22 @@ public class LabelConverter {
         bazelStarlarkContext.getConvertedLabelsInPackage());
   }
 
-  private final Label parent;
+  private final Label base;
   private final RepositoryMapping repositoryMapping;
   private final HashMap<String, Label> convertedLabelsInPackage;
 
   public LabelConverter(
-      Label label,
+      Label base,
       RepositoryMapping repositoryMapping,
       HashMap<String, Label> convertedLabelsInPackage) {
-    this.parent = label;
+    this.base = base;
     this.repositoryMapping = repositoryMapping;
     this.convertedLabelsInPackage = convertedLabelsInPackage;
   }
 
-  Label getParent() {
-    return parent;
+  /** Returns the base label that relative labels will be resolved against. */
+  Label getBase() {
+    return base;
   }
 
   /** Returns the Label corresponding to the input, using the current conversion context. */
@@ -59,22 +62,19 @@ public class LabelConverter {
     // label-strings across all their attribute values.
     Label converted = convertedLabelsInPackage.get(input);
     if (converted == null) {
-      converted = parent.getRelativeWithRemapping(input, repositoryMapping);
+      converted = base.getRelativeWithRemapping(input, repositoryMapping);
       convertedLabelsInPackage.put(input, converted);
     }
     return converted;
   }
 
-  RepositoryMapping getRepositoryMapping() {
-    return repositoryMapping;
-  }
-
-  HashMap<String, Label> getConvertedLabelsInPackage() {
+  @VisibleForTesting
+  Map<String, Label> getConvertedLabelsInPackage() {
     return convertedLabelsInPackage;
   }
 
   @Override
   public String toString() {
-    return parent.toString();
+    return base.toString();
   }
 }
