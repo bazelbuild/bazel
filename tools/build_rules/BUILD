@@ -5,7 +5,10 @@ licenses(["notice"])  # Apache 2.0
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools:__pkg__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//tools:__pkg__",
+    ],
 )
 
 filegroup(

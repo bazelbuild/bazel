@@ -83,6 +83,12 @@ public class TestConstants {
   public static final String CPU_TIME_SPENDER_PATH =
       "io_bazel/src/test/shell/integration/spend_cpu_time";
 
+  /**
+   * Directory where we can find Bazel's own bootstrapping rules relative to a test's runfiles
+   * directory, i.e. when //tools/build_rules:srcs is in a test's data.
+   */
+  public static final String BUILD_RULES_DATA_PATH = "io_bazel/tools/build_rules/";
+
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final String TEST_RULE_MODULE =
@@ -154,7 +160,8 @@ public class TestConstants {
   public static final String LAUNCHER_PATH = "@bazel_tools//tools/launcher:launcher";
 
   /** The target name for ProGuard's allowlister. */
-  public static final String PROGUARD_ALLOWLISTER_TARGET = "@bazel_tools//tools/jdk:proguard_whitelister";
+  public static final String PROGUARD_ALLOWLISTER_TARGET =
+      "@bazel_tools//tools/jdk:proguard_whitelister";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {
