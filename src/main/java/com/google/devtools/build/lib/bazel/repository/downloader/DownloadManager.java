@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
@@ -108,12 +109,14 @@ public class DownloadManager {
       throw new InterruptedException();
     }
 
-    List<URL> rewrittenUrls = originalUrls;
+    ImmutableList<URL> rewrittenUrls = ImmutableList.copyOf(originalUrls);
     Map<URI, Map<String, String>> rewrittenAuthHeaders = authHeaders;
 
     if (rewriter != null) {
-      rewrittenUrls = rewriter.amend(originalUrls);
-      rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrls, authHeaders);
+      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
+      rewrittenUrls =
+          rewrittenUrlMappings.stream().map(url -> url.url()).collect(toImmutableList());
+      rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders);
     }
 
     URL mainUrl; // The "main" URL for this request
