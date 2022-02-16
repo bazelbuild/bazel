@@ -160,9 +160,9 @@ config_setting(
 <p>
   The <a href="$expander.expandRef("select")"><code>select()</code></a> function
   chooses among different alternative values for a configurable attribute based
-  on which <a href="$expander.expandRef("config_setting")"> or
-  <a href="$expander.expandRef("constraint_value")"> criteria the target's
-  configuration satisfies.
+  on which <a href="$expander.expandRef("config_setting")"><code>config_setting</code></a>
+  or <a href="$expander.expandRef("constraint_value")"><code>constraint_value</code></a>
+  criteria the target's configuration satisfies.
 </p>
 
 <p>
