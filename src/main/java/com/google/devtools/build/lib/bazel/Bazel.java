@@ -76,7 +76,10 @@ public final class Bazel {
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
-          BazelBuiltinCommandModule.class);
+          BazelBuiltinCommandModule.class,
+          // This module needs to be registered after any module submitting tasks with its {@code
+          // submit} method.
+          com.google.devtools.build.lib.runtime.BlockWaitingModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
