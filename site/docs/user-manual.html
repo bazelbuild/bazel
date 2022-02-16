@@ -2848,7 +2848,7 @@ adb -s deadbeef install ...
 <p>For example:</p>
 <pre><code>
   OUTPUT_BASE=/var/tmp/google/_bazel_johndoe/custom_output_base
-  % bazel --output_base $OUTPUT_BASE build //foo  &amp;  bazel --output_base $OUTPUT_BASE build //bar
+  % bazel --output_base ${OUTPUT_BASE}1 build //foo  &amp;  bazel --output_base ${OUTPUT_BASE}2 build //bar
 </code></pre>
 <p>
   In this command, the two Bazel commands run concurrently (because of
