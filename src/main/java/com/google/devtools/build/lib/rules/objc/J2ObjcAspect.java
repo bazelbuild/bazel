@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -152,7 +153,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             J2ObjcConfiguration.class,
             ObjcConfiguration.class,
             ProtoConfiguration.class)
-        .addRequiredToolchains(ccToolchainType)
+        .addToolchainType(
+            ToolchainTypeRequirement.builder(ccToolchainType)
+                // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can
+                // be optional.
+                .mandatory(true)
+                .build())
         .useToolchainTransition(true)
         .add(
             attr("$grep_includes", LABEL)

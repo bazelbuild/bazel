@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -182,8 +183,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.of(ProtoLangToolchainProvider.class)))
-            .addRequiredToolchains(
-                Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel))
+            .addToolchainType(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel)))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)

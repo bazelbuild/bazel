@@ -567,13 +567,12 @@ final class AspectFunction implements SkyFunction {
       // Configuration can be null in the case of aspects applied to input files. In this case,
       // there are no chances of toolchains being used, so skip it.
       try {
-        ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
         unloadedToolchainContext =
             (UnloadedToolchainContext)
                 env.getValueOrThrow(
                     ToolchainContextKey.key()
                         .configurationKey(configuration.getKey())
-                        .requiredToolchainTypeLabels(requiredToolchains)
+                        .toolchainTypes(aspect.getDefinition().getToolchainTypes())
                         .build(),
                     ToolchainException.class);
       } catch (ToolchainException e) {
