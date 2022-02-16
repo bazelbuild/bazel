@@ -461,19 +461,21 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "info_file",
       structField = true,
-      documented = false,
+      documented = true,
       doc =
           "Returns the file that is used to hold the non-volatile workspace status for the "
-              + "current build request.")
+              + "current build request. See documentation for --workspace_status_command "
+              + "for more information.")
   FileApi getStableWorkspaceStatus() throws InterruptedException, EvalException;
 
   @StarlarkMethod(
       name = "version_file",
       structField = true,
-      documented = false,
+      documented = true,
       doc =
           "Returns the file that is used to hold the volatile workspace status for the "
-              + "current build request.")
+              + "current build request. See documentation for --workspace_status_command "
+              + "for more information.")
   FileApi getVolatileWorkspaceStatus() throws InterruptedException, EvalException;
 
   @StarlarkMethod(
