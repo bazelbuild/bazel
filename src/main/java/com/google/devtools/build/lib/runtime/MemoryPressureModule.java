@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.skyframe.SkyframeHighWaterMarkLimiter;
+import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import javax.annotation.Nullable;
 
@@ -42,14 +42,16 @@ public class MemoryPressureModule extends BlazeModule {
     }
 
     CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    SkyframeHighWaterMarkLimiter skyframeHighWaterMarkLimiter =
-        new SkyframeHighWaterMarkLimiter(
-            env.getSkyframeExecutor(), commonOptions.skyframeHighWaterMarkMemoryThreshold);
+    HighWaterMarkLimiter highWaterMarkLimiter =
+        new HighWaterMarkLimiter(
+            env.getSkyframeExecutor(),
+            env.getSyscallCache(),
+            commonOptions.skyframeHighWaterMarkMemoryThreshold);
 
     retainedHeapLimiter.setThreshold(
         /*listening=*/ memoryPressureListener != null, commonOptions.oomMoreEagerlyThreshold);
 
-    env.getEventBus().register(skyframeHighWaterMarkLimiter);
+    env.getEventBus().register(highWaterMarkLimiter);
   }
 
   @Override

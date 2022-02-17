@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.function.Supplier;
 
 /**
  * A per-build cache of filesystem operations.
@@ -34,19 +35,23 @@ import java.util.Collection;
  * data (like the directory listing of a parent) without filesystem access.
  */
 public final class PerBuildSyscallCache implements SyscallCache {
+  private final Supplier<LoadingCache<Pair<Path, Symlinks>, Object>> statCacheSupplier;
+  private final Supplier<LoadingCache<Path, Object>> readdirCacheSupplier;
 
-  private final LoadingCache<Pair<Path, Symlinks>, Object> statCache;
+  private LoadingCache<Pair<Path, Symlinks>, Object> statCache;
 
   /* Caches the result of readdir(<path>, Symlinks.NOFOLLOW) calls. */
-  private final LoadingCache<Path, Object> readdirCache;
+  private LoadingCache<Path, Object> readdirCache;
 
   private static final FileStatus NO_STATUS = new FakeFileStatus();
 
   private PerBuildSyscallCache(
-      LoadingCache<Pair<Path, Symlinks>, Object> statCache,
-      LoadingCache<Path, Object> readdirCache) {
-    this.statCache = statCache;
-    this.readdirCache = readdirCache;
+      Supplier<LoadingCache<Pair<Path, Symlinks>, Object>> statCacheSupplier,
+      Supplier<LoadingCache<Path, Object>> readdirCacheSupplier) {
+    this.statCacheSupplier = statCacheSupplier;
+    this.readdirCacheSupplier = readdirCacheSupplier;
+    this.statCache = statCacheSupplier.get();
+    this.readdirCache = readdirCacheSupplier.get();
   }
 
   public static Builder newBuilder() {
@@ -94,8 +99,8 @@ public final class PerBuildSyscallCache implements SyscallCache {
         readdirCacheBuilder.initialCapacity(initialCapacity);
       }
       return new PerBuildSyscallCache(
-          statCacheBuilder.build(PerBuildSyscallCache::statImpl),
-          readdirCacheBuilder.build(PerBuildSyscallCache::readdirImpl));
+          () -> statCacheBuilder.build(PerBuildSyscallCache::statImpl),
+          () -> readdirCacheBuilder.build(PerBuildSyscallCache::readdirImpl));
     }
   }
 
@@ -185,8 +190,9 @@ public final class PerBuildSyscallCache implements SyscallCache {
 
   @Override
   public void clear() {
-    statCache.invalidateAll();
-    readdirCache.invalidateAll();
+    // Drop not just the memory of the FileStatus objects but the maps themselves.
+    statCache = statCacheSupplier.get();
+    readdirCache = readdirCacheSupplier.get();
   }
 
   // This is used because the cache implementations don't allow null.
