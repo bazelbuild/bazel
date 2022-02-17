@@ -283,7 +283,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache =
       Caffeine.newBuilder().build();
 
-  private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
+  private final AtomicInteger numPackagesSuccessfullyLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
   private final SyscallCache perCommandSyscallCache;
@@ -430,7 +430,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 () -> memoizingEvaluator, this::newEvaluationContextBuilder),
             this.perCommandSyscallCache,
             pkgLocator::get,
-            numPackagesLoaded);
+            numPackagesSuccessfullyLoaded);
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
@@ -534,7 +534,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             pkgFactory,
             packageManager,
             showLoadingProgress,
-            numPackagesLoaded,
+            numPackagesSuccessfullyLoaded,
             bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
@@ -1359,7 +1359,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // build), these may have stale entries.
     bzlCompileCache.invalidateAll();
 
-    numPackagesLoaded.set(0);
+    numPackagesSuccessfullyLoaded.set(0);
     if (packageProgress != null) {
       packageProgress.reset();
     }

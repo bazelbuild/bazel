@@ -79,6 +79,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -161,7 +162,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             null,
             null,
             null,
-            null,
+            /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(),
             null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,

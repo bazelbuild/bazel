@@ -500,7 +500,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 pkgFactory,
                 cachingPackageLocator,
                 /*showLoadingProgress=*/ new AtomicBoolean(false),
-                /*numPackagesLoaded=*/ new AtomicInteger(0),
+                /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(0),
                 /*bzlLoadFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),

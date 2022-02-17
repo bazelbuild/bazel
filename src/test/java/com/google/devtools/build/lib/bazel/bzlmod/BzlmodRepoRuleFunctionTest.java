@@ -150,7 +150,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         /*packageFactory=*/ null,
                         /*pkgLocator=*/ null,
                         /*showLoadingProgress=*/ null,
-                        /*numPackagesLoaded=*/ null,
+                        /*numPackagesSuccessfullyLoaded=*/ null,
                         /*bzlLoadFunctionForInlining=*/ null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException

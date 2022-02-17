@@ -916,7 +916,19 @@ message BuildMetrics {
   TargetMetrics target_metrics = 3;
 
   message PackageMetrics {
-    // Number of BUILD files (aka packages) loaded during this build.
+    // Number of BUILD files (aka packages) successfully loaded during this
+    // build.
+    //
+    // [For Bazel binaries built at source states] Before Dec 2021, this value
+    // was the number of packages attempted to be loaded, for a particular
+    // definition of "attempted".
+    //
+    // After Dec 2021, this value would sometimes overcount because the same
+    // package could sometimes be attempted to be loaded multiple times due to
+    // memory pressure.
+    //
+    // After Feb 2022, this value is the number of packages successfully
+    // loaded.
     int64 packages_loaded = 1;
   }
   PackageMetrics package_metrics = 4;

@@ -1414,4 +1414,93 @@ function test_memory_profile() {
   expect_log 'used_heap_size_post_build: [1-9]'
 }
 
+function test_packages_loaded_contains_only_successfully_loaded_packages() {
+  mkdir just-to-get-packages-needed-for-toolchain-resolution
+  cat > just-to-get-packages-needed-for-toolchain-resolution/BUILD <<'EOF'
+sh_library(name = 'whatever')
+EOF
+  # Do an initial invocation to get Bazel to load packages necessary for
+  # toolchain resolution and also the //external package. This way we don't need
+  # to bother making careful assertions about these packages in our actual test
+  # logic below.
+  bazel build --nobuild \
+    //just-to-get-packages-needed-for-toolchain-resolution:whatever \
+    >& "$TEST_log" || fail "Expected success"
+
+  mkdir successful \
+    dep-of-successful \
+    unsuccessful-because-of-illegal-load \
+    unsuccessful-because-of-BUILD-file-syntax-error \
+    unsuccessful-because-of-BUILD-file-evaluation-error
+  cat > successful/BUILD <<'EOF'
+sh_library(
+  name = 'successful',
+  deps = ['//dep-of-successful:dep'],
+)
+EOF
+  cat > dep-of-successful/BUILD <<'EOF'
+sh_library(name = 'dep', visibility = ['//visibility:public'])
+EOF
+  # We use 3 different sorts of package loading errors to exercise different
+  # parts of the code...
+  #
+  # ... for this sort of BUILD file, PackageFunction notices the illegal load
+  # statement after parsing the file and doesn't proceed to BUILD file
+  # evaluation. It then throws a Skyframe error.
+  cat > unsuccessful-because-of-illegal-load/BUILD <<'EOF'
+load('//no/such/package:f.bzl', 'doesntmatter')
+EOF
+  # ... for this sort of BUILD file, PackageFunction notices the illegal syntax
+  # after parsing the BUILD file and doesn't proceed to BUILD file evaluation.
+  # But it doesn't throw a Skyframe error (instead, it returns a PackageValue
+  # that has an errorful Package).
+  cat > unsuccessful-because-of-BUILD-file-syntax-error/BUILD <<'EOF'
+@
+EOF
+  # ... for this sort of BUILD file, PackageFunction parses it successfully and
+  # then evaluates it. PackageFunction then encounters the evaluation error and
+  # returns a PackageValue that has an errorful Package.
+  cat > unsuccessful-because-of-BUILD-file-evaluation-error/BUILD <<'EOF'
+fail('bad')
+EOF
+
+  bazel build \
+    --nobuild \
+    --keep_going \
+    --build_event_text_file=bep.txt \
+    --bes_upload_mode=wait_for_upload_complete \
+    --experimental_ui_debug_all_events \
+    --show_progress_rate_limit=-1 \
+    //successful:all \
+    //unsuccessful-because-of-illegal-load:all \
+    //unsuccessful-because-of-BUILD-file-syntax-error:all \
+    //unsuccessful-because-of-BUILD-file-evaluation-error:all \
+    >& "$TEST_log" && fail "Expected failure"
+  expect_log "unsuccessful-because-of-illegal-load.*Label '//no/such/package:f.bzl' is invalid because 'no/such/package' is not a package"
+  expect_log "unsuccessful-because-of-BUILD-file-syntax-error.*invalid character: '@'"
+  expect_log "Error in fail: bad"
+
+  # On this invocation, Bazel attempts to load exactly 5 packages.
+  expect_log_n "PROGRESS.*Loading package" 5
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: successful"
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: unsuccessful-because-of-illegal-load"
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: unsuccessful-because-of-BUILD-file-syntax-error"
+  # This package is attempted to be loaded during the target parsing phase.
+  expect_log "Loading package: unsuccessful-because-of-BUILD-file-evaluation-error"
+  # This package is attempted to be loaded while traversing the dep edge
+  # //successful:successful -> //dep-of-successful:dep during the analysis
+  # phase.
+  expect_log "Loading package: dep-of-successful"
+
+  cp bep.txt "$TEST_log" || fail "cp failed"
+  # In contrast, the metric in the BEP counts only successfully loaded packages
+  # Of the 5 packages that are attempted to be loaded, 2 were successful:
+  #   * //successful
+  #   * //dep-of-successful
+  expect_log 'packages_loaded: 2'
+}
+
 run_suite "Integration tests for the build event stream"

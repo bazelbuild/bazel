@@ -109,7 +109,7 @@ public class PackageFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
   private final AtomicBoolean showLoadingProgress;
-  private final AtomicInteger numPackagesLoaded;
+  private final AtomicInteger numPackagesSuccessfullyLoaded;
   @Nullable private final PackageProgressReceiver packageProgress;
 
   // Not final only for testing.
@@ -176,7 +176,7 @@ public class PackageFunction implements SkyFunction {
       PackageFactory packageFactory,
       CachingPackageLocator pkgLocator,
       AtomicBoolean showLoadingProgress,
-      AtomicInteger numPackagesLoaded,
+      AtomicInteger numPackagesSuccessfullyLoaded,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
@@ -186,7 +186,7 @@ public class PackageFunction implements SkyFunction {
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
     this.showLoadingProgress = showLoadingProgress;
-    this.numPackagesLoaded = numPackagesLoaded;
+    this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.incrementalityIntent = incrementalityIntent;
@@ -357,6 +357,9 @@ public class PackageFunction implements SkyFunction {
       } catch (InvalidPackageException e) {
         throw new PackageFunctionException(e, Transience.PERSISTENT);
       }
+    }
+    if (!pkg.containsErrors()) {
+      numPackagesSuccessfullyLoaded.incrementAndGet();
     }
     return new PackageValue(pkg);
   }
@@ -563,7 +566,9 @@ public class PackageFunction implements SkyFunction {
     } catch (InvalidPackageException e) {
       throw new PackageFunctionException(e, Transience.PERSISTENT);
     }
-
+    if (!pkg.containsErrors()) {
+      numPackagesSuccessfullyLoaded.incrementAndGet();
+    }
     return new PackageValue(pkg);
   }
 
@@ -1330,7 +1335,6 @@ public class PackageFunction implements SkyFunction {
         pkgBuilder.setContainsErrors();
       }
 
-      numPackagesLoaded.incrementAndGet();
       long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
       return new LoadedPackage(pkgBuilder, globDepKeys, loadTimeNanos);
 

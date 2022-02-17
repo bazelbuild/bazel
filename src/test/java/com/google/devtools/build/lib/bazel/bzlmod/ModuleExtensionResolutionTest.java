@@ -86,6 +86,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -180,7 +181,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         /*packageFactory=*/ null,
                         /*pkgLocator=*/ null,
                         /*showLoadingProgress=*/ null,
-                        /*numPackagesLoaded=*/ null,
+                        /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(),
                         /*bzlLoadFunctionForInlining=*/ null,
                         /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException

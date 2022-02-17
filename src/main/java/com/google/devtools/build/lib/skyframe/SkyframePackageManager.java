@@ -42,19 +42,19 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   private final QueryTransitivePackagePreloader transitiveLoader;
   private final SyscallCache syscallCache;
   private final Supplier<PathPackageLocator> pkgLocator;
-  private final AtomicInteger numPackagesLoaded;
+  private final AtomicInteger numPackagesSuccessfullyLoaded;
 
   public SkyframePackageManager(
       SkyframePackageLoader packageLoader,
       QueryTransitivePackagePreloader transitiveLoader,
       SyscallCache syscallCache,
       Supplier<PathPackageLocator> pkgLocator,
-      AtomicInteger numPackagesLoaded) {
+      AtomicInteger numPackagesSuccessfullyLoaded) {
     this.packageLoader = packageLoader;
     this.transitiveLoader = transitiveLoader;
     this.pkgLocator = pkgLocator;
     this.syscallCache = syscallCache;
-    this.numPackagesLoaded = numPackagesLoaded;
+    this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
   }
 
   @ThreadSafe
@@ -73,8 +73,8 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
 
   @Override
   public PackageManagerStatistics getAndClearStatistics() {
-    int packagesLoaded = numPackagesLoaded.getAndSet(0);
-    return () -> packagesLoaded;
+    int packagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded.getAndSet(0);
+    return () -> packagesSuccessfullyLoaded;
   }
 
   @Override
