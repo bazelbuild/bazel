@@ -291,7 +291,7 @@ public final class CcCompilationHelper {
   private String stripIncludePrefix = null;
   private String includePrefix = null;
 
-  // This context is built out of interface deps and implementation deps.
+  // This context is built out of deps and implementation_deps.
   private CcCompilationContext ccCompilationContext;
 
   private final RuleErrorConsumer ruleErrorConsumer;
@@ -1241,7 +1241,7 @@ public final class CcCompilationHelper {
     ImmutableList.Builder<CppModuleMap> builder = ImmutableList.<CppModuleMap>builder();
     // TODO(bazel-team): Here we use the implementationDeps to build the dependents of this rule's
     // module map. This is technically incorrect for the following reasons:
-    //  - Clang will not issue a layering_check warning if headers from implementation deps are
+    //  - Clang will not issue a layering_check warning if headers from implementation_deps are
     //    included from headers of this library.
     //  - If we were to ever build with modules, Clang might store this dependency inside the .pcm
     // It should be evaluated whether this is ok.  If this turned into a problem at some

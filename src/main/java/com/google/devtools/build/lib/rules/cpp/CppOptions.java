@@ -1047,15 +1047,15 @@ public class CppOptions extends FragmentOptions {
   public boolean objcGenerateDotdFiles;
 
   @Option(
-      name = "experimental_cc_interface_deps",
+      name = "experimental_cc_implementation_deps",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, cc_library targets can use attribute `interface_deps`.")
-  public boolean experimentalCcInterfaceDeps;
+      help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
+  public boolean experimentalCcImplementationDeps;
 
   @Option(
       name = "experimental_link_static_libraries_once",
@@ -1175,7 +1175,7 @@ public class CppOptions extends FragmentOptions {
     host.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
     host.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
     host.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
-    host.experimentalCcInterfaceDeps = experimentalCcInterfaceDeps;
+    host.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();

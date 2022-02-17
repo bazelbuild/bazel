@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -121,7 +122,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    boolean shouldUseInterfaceDepsBehavior = semantics.shouldUseInterfaceDepsBehavior(ruleContext);
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if (!cppConfiguration.experimentalCcImplementationDeps()
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
+      ruleContext.attributeError(
+          "implementation_deps", "requires --experimental_cc_implementation_deps");
+    }
 
     final CcCommon common = new CcCommon(ruleContext);
     common.reportInvalidOptions(ruleContext);
@@ -151,24 +157,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       addEmptyRequiredProviders(targetBuilder);
       return;
     }
-
-    ImmutableList.Builder<CcCompilationContext> interfaceDeps = ImmutableList.builder();
-    ImmutableList.Builder<CcCompilationContext> implementationDeps = ImmutableList.builder();
-
-    if (shouldUseInterfaceDepsBehavior) {
-      interfaceDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))));
-      implementationDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    } else {
-      interfaceDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    }
-    interfaceDeps.add(CcCompilationHelper.getStlCcCompilationContext(ruleContext));
-
+    Iterable<CcInfo> ccInfosFromDeps = AnalysisUtils.getProviders(deps, CcInfo.PROVIDER);
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
                 ruleContext,
@@ -187,8 +176,15 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .addPrivateHeaders(common.getPrivateHeaders())
             .addPublicHeaders(common.getHeaders())
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
-            .addCcCompilationContexts(interfaceDeps.build())
-            .addImplementationDepsCcCompilationContexts(implementationDeps.build())
+            .addCcCompilationContexts(
+                Streams.stream(ccInfosFromDeps)
+                    .map(CcInfo::getCcCompilationContext)
+                    .collect(ImmutableList.toImmutableList()))
+            .addCcCompilationContexts(
+                ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
+            .addImplementationDepsCcCompilationContexts(
+                CppHelper.getCompilationContextsFromDeps(
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     CcLinkingHelper linkingHelper =
@@ -209,7 +205,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .fromCommon(ruleContext, common)
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
-                    ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))))
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
             .addLinkopts(common.getLinkopts())
@@ -258,8 +254,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     linkingHelper.setShouldCreateDynamicLibrary(createDynamicLibrary);
     linkingHelper.setLinkerOutputArtifact(soImplArtifact);
-
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
     // If the reason we're not creating a dynamic library is that the toolchain
     // doesn't support it, then register an action which complains when triggered,
@@ -491,8 +485,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 .setCcLinkingContext(ccLinkingContext)
                 .setCcDebugInfoContext(
                     CppHelper.mergeCcDebugInfoContexts(
-                        compilationInfo.getCcCompilationOutputs(),
-                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)))
+                        compilationInfo.getCcCompilationOutputs(), ccInfosFromDeps))
                 .setCcNativeLibraryInfo(ccNativeLibraryInfo)
                 .build())
         .addOutputGroups(
