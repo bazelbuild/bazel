@@ -376,6 +376,7 @@ def _impl(ctx):
 
     per_object_debug_info_feature = feature(
         name = "per_object_debug_info",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
