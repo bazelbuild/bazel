@@ -384,11 +384,12 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_unix_ErrnoFileStatus_00024ErrnoConstants_initErrnoConstants(  // NOLINT
   JNIEnv *env, jobject errno_constants) {
   jclass clazz = env->GetObjectClass(errno_constants);
-  SetIntField(env, clazz, errno_constants, "ENOENT", ENOENT);
-  SetIntField(env, clazz, errno_constants, "EACCES", EACCES);
-  SetIntField(env, clazz, errno_constants, "ELOOP", ELOOP);
-  SetIntField(env, clazz, errno_constants, "ENOTDIR", ENOTDIR);
-  SetIntField(env, clazz, errno_constants, "ENAMETOOLONG", ENAMETOOLONG);
+  SetIntField(env, clazz, errno_constants, "errnoENOENT", ENOENT);
+  SetIntField(env, clazz, errno_constants, "errnoEACCES", EACCES);
+  SetIntField(env, clazz, errno_constants, "errnoELOOP", ELOOP);
+  SetIntField(env, clazz, errno_constants, "errnoENOTDIR", ENOTDIR);
+  SetIntField(env, clazz, errno_constants, "errnoENAMETOOLONG", ENAMETOOLONG);
+  SetIntField(env, clazz, errno_constants, "errnoENODATA", ENODATA);
 }
 
 namespace {
