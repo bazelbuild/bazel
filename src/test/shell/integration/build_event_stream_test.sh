@@ -311,6 +311,11 @@ my_rule(name = "my_lib", outs=[])
 EOF
 }
 
+function tear_down() {
+  bazel shutdown
+  rm -f bep.txt
+}
+
 #### TESTS #############################################################
 
 function test_basic() {
@@ -882,8 +887,6 @@ function test_build_only() {
 function test_command_whitelisting() {
   # We expect the "help" command to not generate a build-event stream,
   # but the "build" command to do.
-  bazel shutdown
-  rm -f bep.txt
   bazel help --build_event_text_file=bep.txt || fail "bazel help failed"
   ( [ -f bep.txt ] && fail "bazel help generated a build-event file" ) || :
   bazel version --build_event_text_file=bep.txt || fail "bazel help failed"
@@ -891,7 +894,6 @@ function test_command_whitelisting() {
   bazel build --build_event_text_file=bep.txt //pkg:true \
       || fail "bazel build failed"
   [ -f bep.txt ] || fail "build did not generate requested build-event file"
-  bazel shutdown
 }
 
 function test_multiple_transports() {
@@ -991,7 +993,6 @@ function test_loading_failure() {
 }
 
 function test_visibility_failure() {
-  bazel shutdown
   (bazel build --experimental_bep_target_summary \
          --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
@@ -1015,7 +1016,6 @@ function test_visibility_failure() {
 function test_visibility_indirect() {
   # verify that an indirect visibility error is reported, including the
   # target that violates visibility constraints.
-  bazel shutdown
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:indirect && fail "build failure expected") || true
   expect_log 'reason: ANALYSIS_FAILURE'
@@ -1028,7 +1028,6 @@ function test_visibility_indirect() {
 }
 
 function test_independent_visibility_failures() {
-  bazel shutdown
   (bazel build -k --build_event_text_file=$TEST_log \
          //visibility:indirect //visibility:indirect2 \
        && fail "build failure expected") || true
@@ -1287,7 +1286,6 @@ function test_server_pid() {
     || fail "Build failed but should have succeeded"
   cat bep.txt | grep server_pid >> "$TEST_log"
   expect_log_once "server_pid:.*$(bazel info server_pid)$"
-  rm bep.txt
 }
 
 function test_bep_report_only_important_artifacts() {
@@ -1295,7 +1293,6 @@ function test_bep_report_only_important_artifacts() {
     //pkg:true || fail "Build failed but should have succeeded"
   cat bep.txt >> "$TEST_log"
   expect_not_log "_hidden_top_level_INTERNAL_"
-  rm bep.txt
 }
 
 function test_starlark_flags() {
@@ -1318,7 +1315,6 @@ EOF
     --//:my_int_setting=666 \
     //pkg:true || fail "Build failed but should have succeeded"
   cat bep.txt >> "$TEST_log"
-  rm bep.txt
 
   expect_log 'option_name: "//:my_int_setting"'
   expect_log 'option_value: "666"'
