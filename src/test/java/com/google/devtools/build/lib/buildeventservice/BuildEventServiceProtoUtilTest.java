@@ -70,6 +70,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
@@ -92,6 +93,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
