@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -2182,7 +2181,7 @@ public class RuleClass {
       RepositoryMapping repositoryMapping,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
-      HashMap<String, Label> convertedLabelsInPackage,
+      Map<String, Label> convertedLabelsInPackage,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -2519,10 +2518,10 @@ public class RuleClass {
       Object buildLangValue,
       RepositoryMapping repositoryMapping,
       Interner<ImmutableList<?>> listInterner,
-      HashMap<String, Label> convertedLabelsInPackage)
+      Map<String, Label> convertedLabelsInPackage)
       throws ConversionException {
-    LabelConversionContext context =
-        new LabelConversionContext(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
+    LabelConverter context =
+        new LabelConverter(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),

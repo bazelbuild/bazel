@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -145,10 +145,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         BazelModuleContext moduleContext =
             BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
         builder.defaultValue(
-            defaultValue,
-            new BuildType.LabelConversionContext(
-                moduleContext.label(), moduleContext.repoMapping(), new HashMap<>()),
-            DEFAULT_ARG);
+            defaultValue, LabelConverter.forModuleContext(moduleContext), DEFAULT_ARG);
       }
     }
 

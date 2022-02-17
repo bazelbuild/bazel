@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import java.util.Map;
@@ -40,8 +40,7 @@ public class TypeCheckedTag implements Structure {
   }
 
   /** Creates a {@link TypeCheckedTag}. */
-  public static TypeCheckedTag create(
-      TagClass tagClass, Tag tag, LabelConversionContext labelConversionContext)
+  public static TypeCheckedTag create(TagClass tagClass, Tag tag, LabelConverter labelConverter)
       throws ExternalDepsException {
     Object[] attrValues = new Object[tagClass.getAttributes().size()];
     for (Map.Entry<String, Object> attrValue : tag.getAttributeValues().entrySet()) {
@@ -57,8 +56,7 @@ public class TypeCheckedTag implements Structure {
       Object nativeValue;
       try {
         nativeValue =
-            attr.getType()
-                .convert(attrValue.getValue(), attr.getPublicName(), labelConversionContext);
+            attr.getType().convert(attrValue.getValue(), attr.getPublicName(), labelConverter);
       } catch (ConversionException e) {
         throw ExternalDepsException.withCauseAndMessage(
             Code.BAD_MODULE,
