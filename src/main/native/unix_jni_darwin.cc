@@ -172,10 +172,7 @@ static os_log_t JniOSLog() {
   } while (0);
 
 // Protects all of the g_sleep_state_* statics.
-// value is "leaked" intentionally because std::mutex is not trivially
-// destructible at this time, g_sleep_state_mutex is a singleton, and
-// leaking it has no consequences.
-static std::mutex *g_sleep_state_mutex = new std::mutex;
+static std::mutex g_sleep_state_mutex;
 
 // Keep track of our pushes and pops of sleep state.
 static int g_sleep_state_stack = 0;
@@ -184,7 +181,7 @@ static int g_sleep_state_stack = 0;
 static IOPMAssertionID g_sleep_state_assertion = kIOPMNullAssertionID;
 
 int portable_push_disable_sleep() {
-  std::lock_guard<std::mutex> lock(*g_sleep_state_mutex);
+  std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
   assert(g_sleep_state_stack >= 0);
   if (g_sleep_state_stack == 0) {
     assert(g_sleep_state_assertion == kIOPMNullAssertionID);
@@ -201,7 +198,7 @@ int portable_push_disable_sleep() {
 }
 
 int portable_pop_disable_sleep() {
-  std::lock_guard<std::mutex> lock(*g_sleep_state_mutex);
+  std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
   assert(g_sleep_state_stack > 0);
   g_sleep_state_stack -= 1;
   if (g_sleep_state_stack == 0) {
@@ -217,10 +214,6 @@ int portable_pop_disable_sleep() {
 typedef struct {
   // Port used to relay sleep call back messages.
   io_connect_t connect_port;
-
-  // Count of suspensions. Atomic because it can be read from any java thread
-  // and is written to from a dispatch_queue thread.
-  std::atomic_int suspend_count;
 } SuspendState;
 
 static void SleepCallBack(void *refcon, io_service_t service,
@@ -234,41 +227,41 @@ static void SleepCallBack(void *refcon, io_service_t service,
 
     case kIOMessageSystemWillSleep:
       log_if_possible("suspend anomaly due to kIOMessageSystemWillSleep");
-      ++state->suspend_count;
+      suspend_callback(SuspensionReasonSleep);
       // This needs to be acknowledged to allow sleep.
       IOAllowPowerChange(state->connect_port, (intptr_t)message_argument);
       break;
 
-    case kIOMessageSystemWillNotSleep:
-      log_if_possible(
-          "suspend anomaly cancelled due to kIOMessageSystemWillNotSleep");
-      --state->suspend_count;
-      break;
-
-    case kIOMessageSystemWillPowerOn:
     case kIOMessageSystemHasPoweredOn:
-      // We increment g_suspend_count when we are alerted to the sleep as
-      // opposed to when we wake up, because Macs have a "Dark Wake" mode (also
-      // known as PowerNap) which is when the processors (and disk and network)
-      // turn on for brief periods of time
-      // (https://support.apple.com/en-us/HT204032). Dark Wake does NOT trigger
-      // PowerOn messages through our sleep callbacks, but can allow
+      // Note that Macs have a "Dark Wake" mode (also known as PowerNap) which
+      // can have the processors (and disk and network) turn on.
+      // (https://support.apple.com/en-us/HT204032). Dark Wake does NOT
+      // trigger PowerOn messages through our sleep callbacks, but can allow
       // builds to proceed for a considerable amount of time (for example if
       // Time Machine is performing a back up).
       // There is currently a race condition where a build may finish
       // between the time we receive the kIOMessageSystemWillSleep and the
-      // machine actually goes to sleep (roughly 20 seconds in my experiments)
-      // or between the time we receive the kIOMessageSystemWillSleep and
-      // kIOMessageSystemWillNotSleep. This will result in us reporting that the
-      // build was suspended when it wasn't. I haven't come up with an smart way
-      // of avoiding this issue, but I don't think we really care. Over
-      // reporting "suspensions" is better than under reporting them.
+      // machine actually goes to sleep (roughly 20 seconds in my experiments).
+      // This will result in us reporting that the build was suspended when it
+      // wasn't. I haven't come up with an smart way of avoiding this issue, but
+      // I don't think we really care. Over reporting "suspensions" is better
+      // than under reporting them.
+      log_if_possible("suspend anomaly due to kIOMessageSystemHasPoweredOn");
+      suspend_callback(SuspensionReasonWake);
+      break;
+
+    case kIOMessageSystemWillPowerOn:
+    case kIOMessageSystemWillNotSleep:
+      // We don't handle will not sleep. This can only occur is somebody else
+      // cancels the sleep, and will never occur AFTER a
+      // kIOMessageSystemWillSleep.
+      // We don't handle will power on, we only care when it HAS powered on.
     default:
       break;
   }
 }
 
-int portable_suspend_count() {
+void portable_start_suspend_monitoring() {
   static dispatch_once_t once_token;
   static SuspendState suspend_state;
   dispatch_once(&once_token, ^{
@@ -279,15 +272,15 @@ int portable_suspend_count() {
     // Register to receive system sleep notifications.
     // Testing needs to be done manually. Use the logging to verify
     // that sleeps are being caught here.
-    // `log stream -level debug --predicate '(subsystem == "build.bazel")'`
+    // `/usr/bin/log \
+    //  stream -level debug --predicate '(subsystem == "build.bazel")'`
     suspend_state.connect_port = IORegisterForSystemPower(
         &suspend_state, &notifyPortRef, SleepCallBack, &notifierObject);
     CHECK(suspend_state.connect_port != MACH_PORT_NULL);
     IONotificationPortSetDispatchQueue(notifyPortRef, queue);
 
     // Register to deal with SIGCONT.
-    // We register for SIGCONT because we can't catch SIGSTOP and we can't
-    // distinguish a SIGCONT after a SIGSTOP from a SIGCONT after SIGTSTP.
+    // We register for SIGCONT because we can't catch SIGSTOP.
     // We do have the potential of "over counting" suspensions if you send
     // multiple SIGCONTs to a process without a previous SIGSTOP/SIGTSTP,
     // but there is no reason to send a SIGCONT without a SIGSTOP/SIGTSTP, and
@@ -300,11 +293,19 @@ int portable_suspend_count() {
     CHECK(signal_source != nullptr);
     dispatch_source_set_event_handler(signal_source, ^{
       log_if_possible("suspend anomaly due to SIGCONT");
-      ++suspend_state.suspend_count;
+      suspend_callback(SuspensionReasonSIGCONT);
     });
     dispatch_resume(signal_source);
+    signal_source =
+        dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTSTP, 0, queue);
+    CHECK(signal_source != nullptr);
+    dispatch_source_set_event_handler(signal_source, ^{
+      log_if_possible("suspend anomaly due to SIGTSTP");
+      suspend_callback(SuspensionReasonSIGTSTP);
+    });
+    dispatch_resume(signal_source);
+    log_if_possible("suspend monitoring registered");
   });
-  return suspend_state.suspend_count;
 }
 
 static std::atomic_int pressure_warning_count{0};
@@ -312,7 +313,7 @@ static std::atomic_int pressure_critical_count{0};
 
 static void RegisterMemoryPressureHandler() {
   // To test use:
-  // log stream -level debug --predicate '(subsystem == "build.bazel")'
+  // /usr/bin/log stream -level debug --predicate '(subsystem == "build.bazel")'
   // sudo memory_pressure -S -l warn
   // sudo memory_pressure -S -l critical
   static dispatch_once_t once_token;
@@ -334,6 +335,7 @@ static void RegisterMemoryPressureHandler() {
       }
     });
     dispatch_resume(source);
+    log_if_possible("memory pressure handler registered");
   });
 }
 

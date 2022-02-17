@@ -48,8 +48,6 @@ public final class BuildResult {
   private long startTimeMillis = 0; // milliseconds since UNIX epoch.
   private long stopTimeMillis = 0;
 
-  private boolean wasSuspended = false;
-
   private Throwable crash = null;
   private boolean catastrophe = false;
   private boolean stopOnFirstFailure;
@@ -95,16 +93,6 @@ public final class BuildResult {
       throw new IllegalStateException("BuildRequest has not been serviced");
     }
     return (stopTimeMillis - startTimeMillis) / 1000.0;
-  }
-
-  /** Record if the build was suspended (SIGSTOP or hardware put to sleep). */
-  public void setWasSuspended(boolean wasSuspended) {
-    this.wasSuspended = wasSuspended;
-  }
-
-  /** Whether the build was suspended (SIGSTOP or hardware put to sleep). */
-  public boolean getWasSuspended() {
-    return wasSuspended;
   }
 
   public void setDetailedExitCode(DetailedExitCode detailedExitCode) {

@@ -34,6 +34,9 @@ namespace blaze_jni {
       } \
     } while (0)
 
+#define CHECK_EQ(a, b) CHECK((a) == (b))
+#define CHECK_NEQ(a, b) CHECK((a) != (b))
+
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 // stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;
@@ -105,9 +108,22 @@ int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep);
 int portable_push_disable_sleep();
 int portable_pop_disable_sleep();
 
-// Returns the number of times that the process has been suspended (SIGSTOP,
-// computer put to sleep, etc.) since Bazel started.
-int portable_suspend_count();
+// Starts up any infrastructure needed to do suspend monitoring.
+// May be called more than once.
+void portable_start_suspend_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemSuspensionEvent.java
+typedef enum  {
+  SuspensionReasonSIGTSTP = 0,
+  SuspensionReasonSIGCONT = 1,
+  SuspensionReasonSleep = 2,
+  SuspensionReasonWake = 3
+} SuspensionReason;
+
+// Declaration for callback function that is called by suspend monitoring
+// when a suspension is detected.
+extern void suspend_callback(SuspensionReason value);
 
 // Returns the number of times that the system has received a memory pressure
 // warning notification since Bazel started.

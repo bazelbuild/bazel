@@ -12,26 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.platform;
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 
-import com.google.devtools.build.lib.jni.JniLoader;
+#include <windows.h>
+#include "src/main/native/jni.h"
 
-/** Native methods for dealing with suspension events. */
-public final class SuspendCounter {
-
-  static {
-    JniLoader.loadJni();
-  }
-
-  private SuspendCounter() {}
-
-  static native int suspendCountJNI();
-
-  /**
-   * The number of times the build has been suspended. Currently this is a hardware sleep and/or the
-   * platform equivalents to a SIGSTOP/SIGTSTP.
-   */
-  public static int suspendCount() {
-    return JniLoader.isJniAvailable() ? suspendCountJNI() : 0;
-  }
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemSuspensionModule
+ * Method:    registerJNI
+ * Signature: ()V
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemSuspensionModule_registerJNI(
+    JNIEnv *env, jobject local_object) {
+  // Currently not implemented.
 }
