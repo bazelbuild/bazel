@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.buildevent.SystemSuspensionEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
@@ -57,6 +58,7 @@ public final class SystemSuspensionEventTest extends BuildIntegrationTestCase {
   @Test
   public void testSuspendCounter() throws Exception {
     if (OS.getCurrent() == OS.DARWIN) {
+      AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
       MockGenruleSupport.setup(mockToolsConfig);
       StringBuilder buildFile = new StringBuilder();
       // Send a SIGCONT to ourselves which should cause our signal handler to fire.
