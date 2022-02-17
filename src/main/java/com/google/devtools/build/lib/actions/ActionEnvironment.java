@@ -186,6 +186,23 @@ public final class ActionEnvironment {
     return new ActionEnvironment(new CompoundEnvironmentVariables(vars, fixedEnv), inheritedEnv);
   }
 
+  /**
+   * Returns a copy of the environment with the given fixed and inherited variables added to it,
+   * <em>overwriting any existing occurrences of those variables</em>.
+   */
+  public ActionEnvironment addVariables(Map<String, String> vars, Set<String> inheritedVars) {
+    if (inheritedVars.isEmpty()) {
+      return addFixedVariables(vars);
+    } else {
+      // TODO: inheritedEnv is currently not optimized for allocation avoidance in the same way as
+      //  fixedEnv.
+      ImmutableSet<String> newInheritedEnv = ImmutableSet.<String>builder().addAll(inheritedEnv)
+          .addAll(inheritedVars).build();
+      return new ActionEnvironment(new CompoundEnvironmentVariables(vars, fixedEnv),
+          newInheritedEnv);
+    }
+  }
+
   /** Returns the combined size of the fixed and inherited environments. */
   public int size() {
     return fixedEnv.size() + inheritedEnv.size();
