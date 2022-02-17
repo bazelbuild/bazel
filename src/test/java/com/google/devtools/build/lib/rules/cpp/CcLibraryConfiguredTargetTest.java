@@ -1894,9 +1894,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
+    useConfiguration("--experimental_cc_interface_deps");
     scratch.file(
         "foo/BUILD",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.cc'],",
+        "    deps = ['lib'],",
+        ")",
         "cc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.cc'],",
@@ -1907,7 +1912,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['public_dep.cc'],",
         "    includes = ['public_dep'],",
         "    hdrs = ['public_dep.h'],",
-        "    implementation_deps = ['implementation_dep'],",
+        "    tags = ['__INTERFACE_DEPS__'],",
+        "    interface_deps = ['interface_dep'],",
+        "    deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'interface_dep',",
+        "    srcs = ['interface_dep.cc'],",
+        "    includes = ['interface_dep'],",
+        "    hdrs = ['interface_dep.h'],",
         ")",
         "cc_library(",
         "    name = 'implementation_dep',",
@@ -1921,27 +1934,39 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
         .contains("src foo/public_dep.h");
     assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
+        .contains("src foo/interface_dep.h");
+    assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
         .doesNotContain("src foo/implementation_dep.h");
 
     assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
         .contains("foo/public_dep");
     assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
-        .doesNotContain("implementation_dep");
+        .contains("foo/interface_dep");
+    assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
+        .doesNotContain("foo/implementation_dep");
 
     CcCompilationContext publicDepCompilationContext =
         getCppCompileAction("//foo:public_dep").getCcCompilationContext();
     assertThat(artifactsToStrings(publicDepCompilationContext.getDeclaredIncludeSrcs()))
+        .contains("src foo/interface_dep.h");
+    assertThat(pathfragmentsToStrings(publicDepCompilationContext.getSystemIncludeDirs()))
+        .contains("foo/interface_dep");
+    assertThat(artifactsToStrings(publicDepCompilationContext.getDeclaredIncludeSrcs()))
         .contains("src foo/implementation_dep.h");
-
     assertThat(pathfragmentsToStrings(publicDepCompilationContext.getSystemIncludeDirs()))
         .contains("foo/implementation_dep");
   }
 
   @Test
   public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
+    useConfiguration("--experimental_cc_interface_deps");
     scratch.file(
         "foo/BUILD",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.cc'],",
+        "    deps = ['lib'],",
+        ")",
         "cc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.cc'],",
@@ -1951,7 +1976,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'public_dep',",
         "    srcs = ['public_dep.cc'],",
         "    hdrs = ['public_dep.h'],",
-        "    implementation_deps = ['implementation_dep'],",
+        "    tags = ['__INTERFACE_DEPS__'],",
+        "    interface_deps = ['interface_dep'],",
+        "    deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'interface_dep',",
+        "    srcs = ['interface_dep.cc'],",
+        "    hdrs = ['interface_dep.h'],",
         ")",
         "cc_library(",
         "    name = 'implementation_dep',",
@@ -1976,52 +2008,78 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsConfigurationHostSucceeds() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
+    useConfiguration("--experimental_cc_interface_deps");
     scratch.file(
         "foo/BUILD",
-        "cc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.cc'],",
-        "    deps = ['lib'],",
-        ")",
-        "cc_library(",
-        "    name = 'lib',",
-        "    srcs = ['lib.cc'],",
-        "    deps = ['public_dep'],",
-        ")",
         "cc_library(",
         "    name = 'public_dep',",
         "    srcs = ['public_dep.cc'],",
         "    hdrs = ['public_dep.h'],",
-        "    implementation_deps = ['implementation_dep'],",
+        "    tags = ['__INTERFACE_DEPS__'],",
+        "    interface_deps = ['interface_dep'],",
         ")",
         "cc_library(",
-        "    name = 'implementation_dep',",
-        "    srcs = ['implementation_dep.cc'],",
-        "    hdrs = ['implementation_dep.h'],",
+        "    name = 'interface_dep',",
+        "    srcs = ['interface_dep.cc'],",
+        "    hdrs = ['interface_dep.h'],",
         ")");
 
-    getHostConfiguredTarget("//foo:bin");
-    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
+    getHostConfiguredTarget("//foo:public_dep");
+    assertDoesNotContainEvent("requires --experimental_cc_interface_deps");
   }
 
   @Test
-  public void testImplementationDepsFailsWithoutFlag() throws Exception {
+  public void testInterfaceDepsFailsWithoutFlagOrTag() throws Exception {
     scratch.file(
         "foo/BUILD",
         "cc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.cc'],",
-        "    implementation_deps = ['implementation_dep'],",
+        "    interface_deps = ['interface_dep'],",
         ")",
         "cc_library(",
-        "    name = 'implementation_dep',",
-        "    srcs = ['implementation_dep.cc'],",
-        "    hdrs = ['implementation_dep.h'],",
+        "    name = 'interface_dep',",
+        "    srcs = ['interface_dep.cc'],",
+        "    hdrs = ['interface_dep.h'],",
         ")");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//foo:lib");
-    assertContainsEvent("requires --experimental_cc_implementation_deps");
+    if (analysisMock.isThisBazel()) {
+      assertContainsEvent("requires --experimental_cc_interface_deps");
+    } else {
+      assertContainsEvent(
+          "Please include the tag '__INTERFACE_DEPS__' in tags when using the 'interface_deps'"
+              + " attribute");
+    }
+  }
+
+  @Test
+  public void testInterfaceDepsNotInAllowlistThrowsError() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      // In OSS usage is controlled only by a flag and not an allowlist.
+      return;
+    }
+    scratch.overwriteFile(
+        "tools/build_defs/cc/whitelists/interface_deps/BUILD",
+        "package_group(",
+        "    name = 'cc_library_interface_deps_attr_allowed',",
+        "    packages = []",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    interface_deps = ['interface_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'interface_dep',",
+        "    srcs = ['interface_dep.cc'],",
+        "    hdrs = ['interface_dep.h'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:lib");
+    assertContainsEvent("Only targets in the following allowlist");
   }
 
   @Test
