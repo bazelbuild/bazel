@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
