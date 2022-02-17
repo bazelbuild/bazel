@@ -1,3 +1,25 @@
+## Release 6.0.0-pre.20220208.2 (2022-02-17)
+
+```
+Baseline: de3c14da9eba34bed39f4cb34446037813420ae3
+
+Cherry picks:
+
+   + a6bfab095ff11cc9d37e45994c2dd85be626710f:
+     Automated rollback of commit
+     64ac2a81f73ba7b085d0de65f12230814f4151c8.
+```
+
+Important changes:
+
+  - Tests that fail to create or complete their
+    `TestAttemptContinuation` by
+    throwing an `ExecException` will report an `INCOMPLETE` status.
+    Previously, Bazel
+    would fail to report any status for the test attempt.
+
+This release contains contributions from many people at Google, as well as divanorama, Fabian Meumertzheim, Keith Smiley, Marek uppa, Niyas Sait, Thi Doan, Yesudeep Mangalapilly.
+
 ## Release 6.0.0-pre.20220201.3 (2022-02-11)
 
 ```
