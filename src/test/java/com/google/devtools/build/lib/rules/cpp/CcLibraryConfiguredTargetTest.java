@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -288,11 +287,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFilesToBuildWithSaveFeatureState() throws Exception {
     useConfiguration("--experimental_save_feature_state");
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact archive = getBinArtifact("libhello.a", hello);
     assertThat(getFilesToBuild(hello).toList()).containsExactly(archive);
     assertThat(ActionsTestUtil.baseArtifactNames(getOutputGroup(hello, OutputGroupInfo.DEFAULT)))
-        .containsAtLeast("enabled_features.txt", "requested_features.txt");
+        .contains("hello_feature_state.txt");
   }
 
   @Test
@@ -610,7 +610,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
     useConfiguration("--cpu=k8");
     ConfiguredTarget x =
-
         scratchConfiguredTarget(
             "foo",
             "x",
@@ -1417,22 +1416,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     }
   }
 
-  /**
-   * Tests that configurable "srcs" doesn't crash because of orphaned implicit .so outputs.
-   * (see {@link CcLibrary#appearsToHaveObjectFiles}).
-   */
-  @Test
-  public void testConfigurableSrcs() throws Exception {
-    scratch.file("foo/BUILD",
-        "cc_library(",
-        "    name = 'foo',",
-        "    srcs = select({'//conditions:default': []}),",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//foo:foo");
-    Artifact soOutput = getBinArtifact("libfoo.so", target);
-    assertThat(getGeneratingAction(soOutput)).isInstanceOf(FailAction.class);
-  }
-
   @Test
   public void alwaysAddStaticAndDynamicLibraryToFilesToBuildWhenBuilding() throws Exception {
     AnalysisMock.get()
@@ -1567,7 +1550,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "a",
         "foo",
-        "in cc_library rule //a:foo: Can't put library with "
+        "Can't put library with "
             + "identifier 'a/libfoo' into the srcs of a cc_library with the same name (foo) which "
             + "also contains other code or objects to link",
         "cc_library(name = 'foo', srcs = ['foo.cc', 'libfoo.lo'])");

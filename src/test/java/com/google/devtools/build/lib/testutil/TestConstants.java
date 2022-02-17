@@ -140,7 +140,9 @@ public class TestConstants {
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
-      " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
+      " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")"
+      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:current_cc_toolchain)"
+      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
   public static final String PLATFORM_PACKAGE_ROOT = "@bazel_tools//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";

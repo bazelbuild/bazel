@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,6 +30,11 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testStaticLibraryOnlyOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
@@ -46,6 +52,11 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testSharedLibraryOnlyOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
@@ -63,6 +74,11 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testStaticAndDynamicLibraryOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
@@ -83,6 +99,11 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testSharedAndDynamicLibraryOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
