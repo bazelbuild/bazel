@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
@@ -110,7 +111,6 @@ import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -127,6 +127,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
@@ -269,7 +270,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     if (graph == null || graph != result.getWalkableGraph()) {
-      checkEvaluationResult(universeScopeListToUse, roots, universeKey, result);
+      checkEvaluationResult(universeScopeListToUse, roots, universeKey, result, expr);
       packageSemaphore = makeFreshPackageMultisetSemaphore();
       graph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
       ignoredPatternsSupplier =
@@ -331,7 +332,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       ImmutableList<String> universeScopeList,
       Set<SkyKey> roots,
       SkyKey universeKey,
-      EvaluationResult<SkyValue> result)
+      EvaluationResult<SkyValue> result,
+      QueryExpression exprForError)
       throws QueryException {
     // If the only root is the universe key, we expect to see either a single successfully evaluated
     // value or a cycle in the result or a catastrophic error.
@@ -353,56 +355,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         "Universe query \"%s\" failed but had no error: %s",
         universeScopeList,
         result);
-    Exception exception = result.getCatastrophe();
-    if (exception != null) {
-      throw throwException(exception, result);
-    }
-
-    // Catastrophe not present: look at top-level keys now.
-    boolean foundCycle = false;
-    for (ErrorInfo errorInfo : result.errorMap().values()) {
-      if (errorInfo == null) {
-        continue;
-      }
-      if (!errorInfo.getCycleInfo().isEmpty()) {
-        foundCycle = true;
-      } else {
-        exception = errorInfo.getException();
-        if (exception instanceof DetailedException) {
-          break;
-        }
-      }
-    }
-
-    if (exception != null) {
-      throw throwException(exception, result);
-    }
-    Preconditions.checkState(
-        foundCycle,
-        "No cycle or exception found in result with error: %s %s %s %s",
-        result,
-        roots,
-        universeKey,
-        universeScopeList);
-  }
-
-  private static QueryException throwException(
-      Exception exception, EvaluationResult<SkyValue> resultForDebugging) throws QueryException {
-    FailureDetail failureDetail;
-    if (!(exception instanceof DetailedException)) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "Non-detailed exception found during universe scope building: " + resultForDebugging,
-              exception));
-      failureDetail =
-          FailureDetail.newBuilder()
-              .setQuery(Query.newBuilder().setCode(Code.NON_DETAILED_ERROR))
-              .build();
-    } else {
-      failureDetail = ((DetailedException) exception).getDetailedExitCode().getFailureDetail();
-    }
-    throw new QueryException(
-        "Building universe scope failed: " + exception.getMessage(), exception, failureDetail);
+    QueryTransitivePackagePreloader.maybeThrowQueryExceptionForResultWithError(
+        result, roots, exprForError, /*operation=*/ "Building universe scope");
   }
 
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
@@ -1085,7 +1039,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public void buildTransitiveClosure(
-      QueryExpression caller, ThreadSafeMutableSet<Target> targets, int maxDepth)
+      QueryExpression caller, ThreadSafeMutableSet<Target> targets, OptionalInt maxDepth)
       throws QueryException, InterruptedException {
     // Everything has already been loaded, so here we just check for errors so that we can
     // pre-emptively throw/report if needed.

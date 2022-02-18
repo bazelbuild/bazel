@@ -197,7 +197,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   @Override
   public AbstractBlazeQueryEnvironment<Target> getQueryEnvironment() {
     return queryEnvironmentFactory.create(
-        pkgManager.transitiveLoader(),
+        skyframeExecutor.getQueryTransitivePackagePreloader(),
         skyframeExecutor,
         pkgManager,
         pkgManager,

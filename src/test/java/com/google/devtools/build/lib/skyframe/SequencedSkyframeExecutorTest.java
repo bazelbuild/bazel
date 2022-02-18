@@ -94,7 +94,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -177,7 +177,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   @Before
   public void createSkyframeExecutorAndVisitor() throws Exception {
     skyframeExecutor = getSkyframeExecutor();
-    visitor = skyframeExecutor.getPackageManager().transitiveLoader();
+    visitor = skyframeExecutor.getQueryTransitivePackagePreloader();
     options =
         OptionsParser.builder()
             .optionsClasses(
@@ -474,7 +474,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       labels.add(Label.parseAbsolute(labelString, ImmutableMap.of()));
     }
     visitor.preloadTransitiveTargets(
-        reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200);
+        reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200, /*callerForError=*/ null);
   }
 
   @Test

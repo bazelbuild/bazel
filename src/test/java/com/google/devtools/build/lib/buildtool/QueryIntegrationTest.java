@@ -17,10 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
@@ -40,6 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -422,7 +425,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     runInconsistentFileSystem(/*keepGoing=*/ false);
   }
 
-  private void runDepInconsistentFileSystem(boolean keepGoing) throws Exception {
+  @Test
+  public void depInconsistentFileSystem(@TestParameter boolean keepGoing) throws Exception {
     write("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:baz'])");
     createBadBarBuild();
     if (keepGoing) {
@@ -434,21 +438,16 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     assertExitCode(result, expectedExitcode);
     events.assertContainsError("Inconsistent filesystem operations");
     events.assertContainsError("and referenced by '//foo:foo'");
-    events.assertContainsError("Evaluation of query \"deps(//foo:foo)\" failed: errors were ");
+    if (keepGoing) {
+      events.assertContainsError("Evaluation of query \"deps(//foo:foo)\" failed: errors were ");
+    } else {
+      events.assertContainsError(
+          "Evaluation of query \"deps(//foo:foo)\" failed: preloading transitive closure failed: ");
+    }
     // TODO(janakr): We emit duplicate events: in the ErrorPrintingTargetEdgeErrorObserver and in
     //  TransitiveTargetFunction. Should be able to remove one of them, most likely
     //  TransitiveTargetFunction.
-    assertThat(events.errors()).hasSize(3);
-  }
-
-  @Test
-  public void depInconsistentFileSystemKeepGoing() throws Exception {
-    runDepInconsistentFileSystem(/*keepGoing=*/ true);
-  }
-
-  @Test
-  public void depInconsistentFileSystemNoKeepGoing() throws Exception {
-    runDepInconsistentFileSystem(/*keepGoing=*/ false);
+    assertThat(events.errors()).hasSize(keepGoing ? 3 : 2);
   }
 
   @Test
@@ -898,6 +897,40 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         getQueryResult("buildfiles(//foo:*)", "--universe_scope=//foo:*", "--order_output=no");
     assertQueryOutputContains(queryResult, "//foo:BUILD", "//foo/bar:BUILD", "//foo/bar:bar.bzl");
     assertThat(barBuildCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void nokeepGoingStopsLoadingPackages() throws Exception {
+    Path fooBuild = write("foo/BUILD", "sh_library(name = 'foo', deps = ['//deppackage'])");
+    write("bar/BUILD", "sh_library(name = 'bar', deps= ['//missing'])");
+    fs.watchedPaths.put(
+        fooBuild.getParentDirectory().getChild("deppackage").asFragment(),
+        () -> fail("deppackage should not have been statted"));
+    PathFragment depPackageBuild = PathFragment.create("deppackage/BUILD");
+    getSkyframeExecutor()
+        .getEvaluator()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (order == NotifyingHelper.Order.BEFORE
+                      && FileValue.FILE.equals(key.functionName())) {
+                    if (!((RootedPath) key.argument())
+                        .getRootRelativePath()
+                        .endsWith(depPackageBuild)) {
+                      return;
+                    }
+                    try {
+                      Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                      fail("Should have been interrupted");
+                    } catch (InterruptedException e) {
+                      // Expected.
+                      Thread.currentThread().interrupt();
+                    }
+                  }
+                }));
+    QueryOutput queryResult = getQueryResult("deps(//foo:all + //bar:all)", "--nokeep_going");
+    assertExitCode(queryResult, ExitCode.ANALYSIS_FAILURE);
+    events.assertDoesNotContainEvent("deppackage");
   }
 
   private void assertExitCode(QueryOutput result, ExitCode expected) {

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -39,19 +38,16 @@ import java.util.function.Supplier;
 
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   private final SkyframePackageLoader packageLoader;
-  private final QueryTransitivePackagePreloader transitiveLoader;
   private final SyscallCache syscallCache;
   private final Supplier<PathPackageLocator> pkgLocator;
   private final AtomicInteger numPackagesSuccessfullyLoaded;
 
   public SkyframePackageManager(
       SkyframePackageLoader packageLoader,
-      QueryTransitivePackagePreloader transitiveLoader,
       SyscallCache syscallCache,
       Supplier<PathPackageLocator> pkgLocator,
       AtomicInteger numPackagesSuccessfullyLoaded) {
     this.packageLoader = packageLoader;
-    this.transitiveLoader = transitiveLoader;
     this.pkgLocator = pkgLocator;
     this.syscallCache = syscallCache;
     this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
@@ -119,8 +115,4 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     return pkgLocator.get();
   }
 
-  @Override
-  public QueryTransitivePackagePreloader transitiveLoader() {
-    return transitiveLoader;
-  }
 }

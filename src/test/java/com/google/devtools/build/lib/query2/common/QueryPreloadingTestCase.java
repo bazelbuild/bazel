@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.pkgcache;
+package com.google.devtools.build.lib.query2.common;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
@@ -98,7 +98,8 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
     Set<Label> startingLabels = asLabelSet(startingLabelStrings);
 
     // Spawn a lot of threads to help uncover concurrency issues
-    visitor.preloadTransitiveTargets(reporter, startingLabels, keepGoing, /*parallelThreads=*/ 200);
+    visitor.preloadTransitiveTargets(
+        reporter, startingLabels, keepGoing, /*parallelThreads=*/ 200, /*callerForError=*/ null);
 
     assertExpectedTargets(expectedLabels, startingLabels);
   }
@@ -165,7 +166,7 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
     Set<Label> labels = asLabelSet(startingLabels);
 
     // Spawn a lot of threads to help uncover concurrency issues
-    visitor.preloadTransitiveTargets(reporter, labels, keepGoing, 200);
+    visitor.preloadTransitiveTargets(reporter, labels, keepGoing, 200, /*callerForError=*/ null);
     assertThat(getVisitedLabels(asLabelSet(startingLabels), skyframeExecutor))
         .containsAtLeastElementsIn(asLabelSet(expectedLabels));
   }
@@ -184,7 +185,7 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
   @Before
   public final void initializeVisitor() {
     setUpSkyframe(ConstantRuleVisibility.PRIVATE);
-    this.visitor = skyframeExecutor.getPackageManager().transitiveLoader();
+    this.visitor = skyframeExecutor.getQueryTransitivePackagePreloader();
   }
 
   protected static class CustomInMemoryFs extends InMemoryFileSystem {

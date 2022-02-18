@@ -682,6 +682,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Override
   public void badRuleInDeps() {}
 
+  @Override
+  public void boundedRdepsWithError() {}
+
   // Can't handle cycles.
   @Override
   public void testDotDotDotWithCycle() {}
@@ -842,6 +845,10 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Override
   @Test
   public void testWildcardsDontLoadUnnecessaryPackages() {}
+
+  @Override
+  @Test
+  public void boundedDepsWithError() {}
 
   // Query needs a graph.
   @Override

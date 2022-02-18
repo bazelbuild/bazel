@@ -47,7 +47,4 @@ public interface PackageManager extends PackageProvider, CachingPackageLocator {
     /** Returns the number of successfully loaded packages since the last sync. */
     int getPackagesSuccessfullyLoaded();
   }
-
-  /** Retrieves a {@link QueryTransitivePackagePreloader} for preloading packages in query. */
-  QueryTransitivePackagePreloader transitiveLoader();
 }
