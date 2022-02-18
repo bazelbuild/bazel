@@ -14,7 +14,7 @@ This does not constitute an endorsement.
 
 ### [acqio](https://acqio.com.br){: .external}
 
-<img src="/images/user-logos/acqio_logo.svg" width="150" align="right">
+<img src="/community/images/acqio_logo.svg" width="150" align="right">
 
 Acqio is a Fintech that provides payment products and services for small and
 medium merchants. Acqio has a handful of monorepos and uses Bazel along with
@@ -82,7 +82,7 @@ trusted source for home seekers.
 
 ### [Databricks](https://databricks.com){: .external}
 
-<img src="https://upload.wikimedia.org/wikipedia/en/0/09/Databricks_logo.png" width="100" align="right">
+<img src="https://databricks.com/wp-content/uploads/2021/10/db-nav-logo.svg" width="100" align="right">
 Databricks provides cloud-based integrated workspaces based on Apache Spark™.
 
 > The Databricks codebase is a Monorepo, containing the Scala code that powers
@@ -102,7 +102,7 @@ After the migration to Bazel, they
 [reported many benefits](https://github.com/bazelbuild/rules_nodejs#user-testimonials){: .external},
 including:
 
-> * Faster CI: we enabled the remote build caching which has reduced our average build time from 30 minutes to 5 (for the entire repository). 
+> * Faster CI: we enabled the remote build caching which has reduced our average build time from 30 minutes to 5 (for the entire repository).
 > * Improvements to local development: no more random bash scripts that you forget to run, incremental builds reduced to seconds from minutes
 > * Developer setup time: New engineers can build all our code with just 3 dependencies - bazel, docker and the JVM. The last engineer to join our team managed to build all our code in < 30 minutes on a brand new, empty laptop
 
@@ -112,7 +112,7 @@ C++/Python/Go/C as a base for their internal build tooling and especially for
 baking and deploying all their 3D Assets.
 
 ### [Dropbox](https://www.dropbox.com/){: .external}
-<img src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Dropbox_logo_2015.svg" width="150" align="right">
+<img src="/community/images/dropbox.png" width="150" align="right">
 At Dropbox, Bazel is a key component to our distributed build and test
 environment. We use Bazel to combine Typescript/Python/Go/C/Rust into reliable
 production releases.
@@ -170,7 +170,7 @@ Google is built using Bazel. Google uses Bazel and its rules for millions of
 builds every day.
 
 ### [GRAKN.AI](https://grakn.ai){: .external}
-<img src="https://grakn.ai/assets/img/grakn-logo-name.png" alt="GRAKN AI Logo" width="150" align="right">
+<img src="/community/images/grakn.jpeg" alt="GRAKN AI Logo" width="150" align="right">
 
 Grakn is a database technology that serves as the knowledge-base foundation to
 intelligent systems. Grakn allows intelligent systems to interpret complex
@@ -239,13 +239,13 @@ another hour waiting for building and testing.
 
 ### [LingoChamp](https://www.liulishuo.com/en){: .external}
 
-<img src="/images/user-logos/lingo_champ.png" width="100" align="right">
+<img src="/community/images/liulishuo.png" width="100" align="right">
 LingoChamp provides professional solutions to English learners. We use Bazel
 for our go, java and python projects.
 
 ### [LinkedIn](https://linkedin.com/){: .external}
 
-<img src="/images/user-logos/linkedin_icon.jpg" width="100" align="right">
+<img src="/community/images/Linkedin-Logo.png" width="100" align="right">
 LinkedIn, a subsidiary of Microsoft, is the world’s largest professional social
 network. LinkedIn uses Bazel for building its iOS Apps.
 
