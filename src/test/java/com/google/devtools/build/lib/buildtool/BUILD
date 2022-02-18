@@ -588,16 +588,8 @@ build_test(
         ":ActionListenerIntegrationTest",
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
-        ":ContextProviderInitializationTest",
-        ":CorruptedActionCacheTest",
-        ":DanglingSymlinkTest",
-        ":EnvironmentRestrictedBuildTest",
         ":IncludeValidationTest",
-        ":LabelCrossesPackageBoundaryTest",
         ":NoOutputActionTest",
-        ":PackageGroupIntegrationTest",
-        ":QueryIntegrationTest",
-        ":SymlinkDependencyAnalysisTest",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests",
         # Disabled in Google.
