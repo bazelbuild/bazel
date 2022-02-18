@@ -117,25 +117,6 @@ public final class SymlinkTreeHelper {
     root.syncTreeRecursively(symlinkTreeRoot);
   }
 
-  /**
-   * Creates symlink tree and output manifest using the {@code build-runfiles.cc} tool.
-   *
-   * @param enableRunfiles If {@code false} only the output manifest is created.
-   */
-  public void createSymlinks(
-      Path execRoot,
-      OutErr outErr,
-      BinTools binTools,
-      Map<String, String> shellEnvironment,
-      boolean enableRunfiles)
-      throws ExecException, InterruptedException {
-    if (enableRunfiles) {
-      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
-    } else {
-      copyManifest();
-    }
-  }
-
   /** Copies the input manifest to the output manifest. */
   public void copyManifest() throws ExecException {
     // Pretend we created the runfiles tree by copying the manifest

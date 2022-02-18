@@ -176,6 +176,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       runfilesTreeUpdater.updateRunfilesDirectory(
           execRoot,
           spawn.getRunfilesSupplier(),
+          context.getMetadataProvider(),
+          context.getArtifactExpander(),
           binTools,
           spawn.getEnvironment(),
           context.getFileOutErr(),

@@ -14,14 +14,20 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -29,6 +35,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -41,7 +48,11 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 public class RunfilesTreeUpdater {
 
-  public static final RunfilesTreeUpdater INSTANCE = new RunfilesTreeUpdater();
+  private final OutputService outputService;
+
+  public RunfilesTreeUpdater(OutputService outputService) {
+    this.outputService = outputService;
+  }
 
   private final Object lock = new Object();
 
@@ -59,17 +70,18 @@ public class RunfilesTreeUpdater {
   @GuardedBy("lock")
   private final Map<PathFragment, LockWithRefcnt> locksWithRefcnt = new HashMap<>();
 
-  private RunfilesTreeUpdater() {}
-
-  private static void updateRunfilesTree(
+  private void updateRunfilesTree(
       Path execRoot,
-      PathFragment runfilesDir,
+      Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings,
+      MetadataProvider actionInputFileCache,
+      ArtifactExpander artifactExpander,
       BinTools binTools,
       ImmutableMap<String, String> env,
       OutErr outErr,
       boolean enableRunfiles,
       XattrProvider xattrProvider)
-      throws IOException, ExecException, InterruptedException {
+      throws ExecException, ForbiddenActionInputException, IOException, InterruptedException {
+    PathFragment runfilesDir = rootAndMappings.getKey();
     Path runfilesDirPath = execRoot.getRelative(runfilesDir);
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
@@ -99,7 +111,34 @@ public class RunfilesTreeUpdater {
 
     SymlinkTreeHelper helper =
         new SymlinkTreeHelper(inputManifest, runfilesDirPath, /* filesetTree= */ false);
-    helper.createSymlinks(execRoot, outErr, binTools, env, enableRunfiles);
+    if (!enableRunfiles) {
+      helper.copyManifest();
+    } else if (outputService != null && outputService.canCreateSymlinkTree()) {
+      SpawnInputExpander spawnInputExpander = new SpawnInputExpander(execRoot, false);
+      TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
+      spawnInputExpander.addExpandedMapping(
+          inputMap,
+          rootAndMappings,
+          actionInputFileCache,
+          artifactExpander,
+          execRoot.asFragment());
+
+      Map<PathFragment, PathFragment> symlinks = new TreeMap<>();
+      PathFragment absoluteRunfilesDir = runfilesDirPath.asFragment();
+      for (Map.Entry<PathFragment, ActionInput> mapping : inputMap.entrySet()) {
+        ActionInput input = mapping.getValue();
+        symlinks.put(
+            mapping.getKey().relativeTo(absoluteRunfilesDir),
+            input instanceof VirtualActionInput.EmptyActionInput
+                ? null
+                : execRoot.getRelative(input.getExecPath()).asFragment());
+      }
+
+      outputService.createSymlinkTree(symlinks, runfilesDir);
+      helper.copyManifest();
+    } else {
+      helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);
+    }
   }
 
   private LockWithRefcnt getLockAndIncrementRefcnt(PathFragment runfilesDirectory) {
@@ -132,11 +171,13 @@ public class RunfilesTreeUpdater {
   public void updateRunfilesDirectory(
       Path execRoot,
       RunfilesSupplier runfilesSupplier,
+      MetadataProvider actionInputFileCache,
+      ArtifactExpander artifactExpander,
       BinTools binTools,
       ImmutableMap<String, String> env,
       OutErr outErr,
       XattrProvider xattrProvider)
-      throws ExecException, IOException, InterruptedException {
+      throws ExecException, ForbiddenActionInputException, IOException, InterruptedException {
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
         runfilesSupplier.getMappings().entrySet()) {
       PathFragment runfilesDir = runfiles.getKey();
@@ -154,7 +195,9 @@ public class RunfilesTreeUpdater {
               .logSimpleTask(startTime, ProfilerTask.WAIT, "Waiting to create runfiles tree");
           updateRunfilesTree(
               execRoot,
-              runfilesDir,
+              runfiles,
+              actionInputFileCache,
+              artifactExpander,
               binTools,
               env,
               outErr,

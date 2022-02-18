@@ -265,7 +265,7 @@ public class LocalSpawnRunnerTest {
 
     @Override
     public ArtifactExpander getArtifactExpander() {
-      throw new UnsupportedOperationException();
+      return mockArtifactExpander;
     }
 
     @Override
@@ -319,6 +319,7 @@ public class LocalSpawnRunnerTest {
   }
 
   private final MetadataProvider mockFileCache = mock(MetadataProvider.class);
+  private final ArtifactExpander mockArtifactExpander = mock(ArtifactExpander.class);
   private final ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
 
   private Logger logger;
