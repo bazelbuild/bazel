@@ -369,23 +369,6 @@ java_test(
 )
 
 java_test(
-    name = "ModifyBuildFileTest",
-    srcs = ["ModifyBuildFileTest.java"],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "NoOutputActionTest",
     srcs = ["NoOutputActionTest.java"],
     tags = [
@@ -612,7 +595,6 @@ build_test(
         ":IncludeValidationTest",
         ":LabelCrossesPackageBoundaryTest",
         ":MiscAnalysisTest",
-        ":ModifyBuildFileTest",
         ":NoOutputActionTest",
         ":PackageGroupIntegrationTest",
         ":QueryIntegrationTest",
