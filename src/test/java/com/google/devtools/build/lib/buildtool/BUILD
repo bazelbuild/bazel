@@ -329,7 +329,6 @@ java_test(
     name = "MiscAnalysisTest",
     srcs = ["MiscAnalysisTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -594,7 +593,6 @@ build_test(
         ":EnvironmentRestrictedBuildTest",
         ":IncludeValidationTest",
         ":LabelCrossesPackageBoundaryTest",
-        ":MiscAnalysisTest",
         ":NoOutputActionTest",
         ":PackageGroupIntegrationTest",
         ":QueryIntegrationTest",
