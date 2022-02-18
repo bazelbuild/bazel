@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -550,8 +551,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Rule rule = ((Rule) targetAndConfig.getTarget());
     BuildConfigurationValue configuration = targetAndConfig.getConfiguration();
 
-    ImmutableSet<Label> requiredDefaultToolchains =
-        rule.getRuleClassObject().getRequiredToolchains();
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
+        rule.getRuleClassObject().getToolchainTypes();
     // Collect local (target, rule) constraints for filtering out execution platforms.
     ImmutableSet<Label> defaultExecConstraintLabels =
         getExecutionPlatformConstraints(
@@ -560,7 +561,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // Create a merged version of the exec groups that handles exec group inheritance properly.
     ExecGroup defaultExecGroup =
         ExecGroup.builder()
-            .requiredToolchains(requiredDefaultToolchains)
+            .toolchainTypes(toolchainTypes)
             .execCompatibleWith(defaultExecConstraintLabels)
             .copyFrom(null)
             .build();
@@ -619,7 +620,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     ToolchainContextKey.Builder toolchainContextKeyBuilder =
         ToolchainContextKey.key()
             .configurationKey(toolchainConfig)
-            .requiredToolchainTypeLabels(requiredDefaultToolchains)
+            .toolchainTypes(toolchainTypes)
             .execConstraintLabels(defaultExecConstraintLabels)
             .debugTarget(debugTarget);
 

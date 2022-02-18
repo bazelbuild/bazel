@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -2299,8 +2300,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def impl(ctx): return None",
         "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.getRequiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    assertThat(c).hasToolchainType("//test:my_toolchain_type");
   }
 
   @Test
@@ -2337,7 +2337,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  },",
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
-    assertThat(plum.getRequiredToolchains()).isEmpty();
+    assertThat(plum.getToolchainTypes()).isEmpty();
     // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     assertThat(plum.getExecGroups().get("group")).hasToolchainType("//test:my_toolchain_type");
     assertThat(plum.getExecGroups().get("group"))

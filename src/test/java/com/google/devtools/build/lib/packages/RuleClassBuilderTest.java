@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
@@ -185,14 +186,15 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(ImmutableList.of(mockToolchainType))
+            .addToolchainTypes(ToolchainTypeRequirement.create(mockToolchainType))
             .build();
     RuleClass child =
         new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("attr", STRING))
             .build();
-    assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
+
+    assertThat(child).hasToolchainType(mockToolchainType);
   }
 
   @Test
@@ -233,18 +235,23 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/toolchain"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(Label.parseAbsoluteUnchecked("//some/toolchain")))
             .build();
     RuleClass b =
         new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/other/toolchain"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//some/other/toolchain")))
             .build();
     RuleClass c =
         new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b)
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about")))
             .build();
     assertThat(c.getExecGroups()).containsKey("blueberry");
     ExecGroup blueberry = c.getExecGroups().get("blueberry");

@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -216,8 +216,9 @@ public class TestRuleClassProvider {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .requiresConfigurationFragments(PlatformConfiguration.class)
-          .addRequiredToolchains(
-              ImmutableList.of(Label.parseAbsoluteUnchecked("//toolchain:test_toolchain")))
+          .addToolchainTypes(
+              ToolchainTypeRequirement.create(
+                  Label.parseAbsoluteUnchecked("//toolchain:test_toolchain")))
           .build();
     }
 
