@@ -179,6 +179,9 @@ message Configuration {
 
   // The checksum representation of the configuration options;
   string checksum = 4;
+
+  // Whether this configuration is used for building tools.
+  bool is_tool = 5;
 }
 
 message KeyValuePair {

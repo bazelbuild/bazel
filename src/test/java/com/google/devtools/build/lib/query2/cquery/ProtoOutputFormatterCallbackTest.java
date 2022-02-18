@@ -23,7 +23,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -122,8 +122,6 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void testConfigurations() throws Exception {
-    FooPatchTransition attributePatchTransition = new FooPatchTransition("SET BY PATCH");
-
     MockRule ruleWithPatch =
         () ->
             MockRule.define(
@@ -132,7 +130,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                     builder.add(
                         attr("deps", LABEL_LIST)
                             .allowedFileTypes(FileTypeSet.ANY_FILE)
-                            .cfg(TransitionFactories.of(attributePatchTransition))));
+                            .cfg(ExecutionTransitionFactory.create())));
     MockRule parentRuleClass =
         () ->
             MockRule.define(
@@ -157,14 +155,6 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     List<Configuration> configurations = cqueryResult.getConfigurationsList();
     assertThat(configurations).hasSize(2);
 
-    assertThat(configurations)
-        .ignoringFieldDescriptors(
-            Configuration.getDescriptor().findFieldByName("checksum"),
-            Configuration.getDescriptor().findFieldByName("id"))
-        .containsExactly(
-            Configuration.newBuilder().setMnemonic("k8-fastbuild").setPlatformName("k8").build(),
-            Configuration.newBuilder().setMnemonic("k8-fastbuild").setPlatformName("k8").build());
-
     List<ConfiguredTarget> resultsList = cqueryResult.getResultsList();
 
     ConfiguredTarget parentRuleProto = getRuleProtoByName(resultsList, "//test:parent_rule");
@@ -177,6 +167,16 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     Configuration parentConfiguration =
         getConfigurationForId(configurations, parentRuleProto.getConfigurationId());
     assertThat(parentConfiguration.getChecksum()).isEqualTo(parentRule.getConfigurationChecksum());
+    assertThat(parentConfiguration)
+        .ignoringFieldDescriptors(
+            Configuration.getDescriptor().findFieldByName("checksum"),
+            Configuration.getDescriptor().findFieldByName("id"))
+        .isEqualTo(
+            Configuration.newBuilder()
+                .setMnemonic("k8-fastbuild")
+                .setPlatformName("k8")
+                .setIsTool(false)
+                .build());
 
     ConfiguredTarget transitionRuleProto =
         getRuleProtoByName(resultsList, "//test:transition_rule");
@@ -193,6 +193,10 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     ConfiguredTarget depRuleProto = getRuleProtoByName(resultsList, "//test:dep");
     Configuration depRuleConfiguration =
         getConfigurationForId(configurations, depRuleProto.getConfigurationId());
+    assertThat(depRuleConfiguration.getPlatformName()).isEqualTo("k8");
+    assertThat(depRuleConfiguration.getMnemonic()).matches("k8-opt-exec-.*");
+    assertThat(depRuleConfiguration.getIsTool()).isTrue();
+
     KeyedConfiguredTarget depRule = getKeyedTargetByLabel(keyedTargets, "//test:dep");
 
     assertThat(depRuleProto.getConfiguration().getChecksum())

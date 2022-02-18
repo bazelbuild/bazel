@@ -89,6 +89,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                     .setMnemonic(configProto.getMnemonic())
                     .setPlatformName(configProto.getPlatformName())
                     .setId(entry.getValue())
+                    .setIsTool(configProto.getIsTool())
                     .build();
               })
           .collect(toImmutableList());

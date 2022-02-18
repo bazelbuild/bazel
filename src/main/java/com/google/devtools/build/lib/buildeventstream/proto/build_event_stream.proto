@@ -410,6 +410,8 @@ message Configuration {
   string platform_name = 2;
   string cpu = 3;
   map<string, string> make_variable = 4;
+  // Whether this configuration is used for building tools.
+  bool is_tool = 5;
 }
 
 // Payload of the event indicating the expansion of a target pattern.

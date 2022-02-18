@@ -861,6 +861,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
                 .setPlatformName(getCpu())
                 .putAllMakeVariable(getMakeEnvironment())
                 .setCpu(getCpu())
+                .setIsTool(isToolConfiguration())
                 .build());
     return new BuildConfigurationEvent(eventId, builder.build());
   }

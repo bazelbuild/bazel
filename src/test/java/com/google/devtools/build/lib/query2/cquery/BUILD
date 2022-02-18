@@ -122,7 +122,7 @@ java_test(
     deps = [
         ":configured_target_query_helper",
         ":configured_target_query_test",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transition_factories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/query2",
@@ -132,7 +132,6 @@ java_test(
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/query2/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
