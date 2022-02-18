@@ -106,6 +106,51 @@ public class SpawnInputExpander {
     inputMappings.put(baseDirectory.getRelative(targetLocation), input);
   }
 
+  public void addExpandedMapping(
+      Map<PathFragment, ActionInput> inputMap,
+      Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings,
+      MetadataProvider actionFileCache,
+      ArtifactExpander artifactExpander,
+      PathFragment baseDirectory)
+      throws IOException, ForbiddenActionInputException {
+    PathFragment root = rootAndMappings.getKey();
+    Preconditions.checkState(!root.isAbsolute(), root);
+    for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
+      PathFragment location = root.getRelative(mapping.getKey());
+      Artifact localArtifact = mapping.getValue();
+      if (localArtifact != null) {
+        Preconditions.checkState(!localArtifact.isMiddlemanArtifact());
+        if (localArtifact.isTreeArtifact()) {
+          List<ActionInput> expandedInputs =
+              ActionInputHelper.expandArtifacts(
+                  NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
+          for (ActionInput input : expandedInputs) {
+            addMapping(
+                inputMap,
+                location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
+                input,
+                baseDirectory);
+          }
+        } else if (localArtifact.isFileset()) {
+          ImmutableList<FilesetOutputSymlink> filesetLinks;
+          try {
+            filesetLinks = artifactExpander.getFileset(localArtifact);
+          } catch (MissingExpansionException e) {
+            throw new IllegalStateException(e);
+          }
+          addFilesetManifest(location, localArtifact, filesetLinks, inputMap, baseDirectory);
+        } else {
+          if (strict) {
+            failIfDirectory(actionFileCache, localArtifact);
+          }
+          addMapping(inputMap, location, localArtifact, baseDirectory);
+        }
+      } else {
+        addMapping(inputMap, location, VirtualActionInput.EMPTY_MARKER, baseDirectory);
+      }
+    }
+  }
+
   /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
   @VisibleForTesting
   void addRunfilesToInputs(
@@ -120,42 +165,12 @@ public class SpawnInputExpander {
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
         rootsAndMappings.entrySet()) {
-      PathFragment root = rootAndMappings.getKey();
-      Preconditions.checkState(!root.isAbsolute(), root);
-      for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
-        PathFragment location = root.getRelative(mapping.getKey());
-        Artifact localArtifact = mapping.getValue();
-        if (localArtifact != null) {
-          Preconditions.checkState(!localArtifact.isMiddlemanArtifact());
-          if (localArtifact.isTreeArtifact()) {
-            List<ActionInput> expandedInputs =
-                ActionInputHelper.expandArtifacts(
-                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
-            for (ActionInput input : expandedInputs) {
-              addMapping(
-                  inputMap,
-                  location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
-                  input,
-                  baseDirectory);
-            }
-          } else if (localArtifact.isFileset()) {
-            ImmutableList<FilesetOutputSymlink> filesetLinks;
-            try {
-              filesetLinks = artifactExpander.getFileset(localArtifact);
-            } catch (MissingExpansionException e) {
-              throw new IllegalStateException(e);
-            }
-            addFilesetManifest(location, localArtifact, filesetLinks, inputMap, baseDirectory);
-          } else {
-            if (strict) {
-              failIfDirectory(actionFileCache, localArtifact);
-            }
-            addMapping(inputMap, location, localArtifact, baseDirectory);
-          }
-        } else {
-          addMapping(inputMap, location, VirtualActionInput.EMPTY_MARKER, baseDirectory);
-        }
-      }
+      addExpandedMapping(
+          inputMap,
+          rootAndMappings,
+          actionFileCache,
+          artifactExpander,
+          baseDirectory);
     }
   }
 

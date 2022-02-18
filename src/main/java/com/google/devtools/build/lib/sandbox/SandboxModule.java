@@ -452,7 +452,7 @@ public final class SandboxModule extends BlazeModule {
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
         // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-        RunfilesTreeUpdater.INSTANCE);
+        new RunfilesTreeUpdater(env.getOutputService()));
   }
 
   /**
