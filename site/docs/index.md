@@ -9,7 +9,7 @@ Welcome to the archived Bazel documentation! In February 2022, we migrated the d
 
 * See the [current docs](https://bazel.build).
 * Read about the migration on our [blog](https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html).
-* Tell us [what you think](https://forms.gle/onkAkr2ZwBmcbWXj7k) about the migration.
+* Tell us [what you think](https://docs.google.com/forms/d/e/1FAIpQLSfMd1j_n9bqfye8P8MhNHSVR3MOBx1krDhH0ySwItbsPncoAg/viewform?usp=sf_link) about the migration.
 
 Please update your bookmarks. We will continue to host the archived docs for now, but will turn them down at some point.
 
