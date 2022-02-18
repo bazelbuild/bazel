@@ -147,7 +147,6 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 "}"));
   }
 
-  // TODO(b/203203933): Replace "host" with "exec" throughout this test.
   @Test
   public void nullAndHostDeps() throws Exception {
     writeFile(
@@ -160,8 +159,6 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
-    String hostNode = output.get(6);
-    String execConfigHash = hostNode.substring(hostNode.indexOf("(") + 1, hostNode.length() - 2);
     assertThat(getOutput("deps(//test:a)"))
         .isEqualTo(
             withConfigHash(
@@ -171,8 +168,8 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 "  \"//test:a (%s)\"",
                 "  \"//test:a (%s)\" -> \"//test:b (%s)\"",
                 "  \"//test:a (%s)\" -> \"//test:file.src (null)\"",
-                "  \"//test:a (%s)\" -> \"//test:host_dep (" + execConfigHash + ")\"",
-                "  \"//test:host_dep (" + execConfigHash + ")\"",
+                "  \"//test:a (%s)\" -> \"//test:host_dep (HOST)\"",
+                "  \"//test:host_dep (HOST)\"",
                 "  \"//test:file.src (null)\"",
                 "  \"//test:b (%s)\"",
                 "}"));

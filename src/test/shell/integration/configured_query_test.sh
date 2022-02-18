@@ -194,6 +194,16 @@ function test_universe_scope_specified() {
   assert_not_equals $HOST_CONFIG $TARGET_CONFIG
 }
 
+function test_host_config_output() {
+  local -r pkg=$FUNCNAME
+  write_test_targets $pkg
+
+  bazel cquery //$pkg:host --universe_scope=//$pkg:main \
+    > output 2>"$TEST_log" || fail "Excepted success"
+
+  assert_contains "//$pkg:host (HOST)" output
+}
+
 function test_transitions_lite() {
   local -r pkg=$FUNCNAME
   write_test_targets $pkg
@@ -202,7 +212,7 @@ function test_transitions_lite() {
     > output 2>"$TEST_log" || fail "Excepted success"
 
   assert_contains "//$pkg:main" output
-  assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
+  assert_contains "host_dep#//$pkg:host#HostTransition" output
 }
 
 
@@ -214,7 +224,7 @@ function test_transitions_full() {
     > output 2>"$TEST_log" || fail "Excepted success"
 
   assert_contains "//$pkg:main" output
-  assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
+  assert_contains "host_dep#//$pkg:host#HostTransition" output
 }
 
 function write_test_targets() {

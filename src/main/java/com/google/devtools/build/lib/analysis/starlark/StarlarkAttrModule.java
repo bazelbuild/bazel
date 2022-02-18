@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -227,9 +228,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
       }
-      // TODO(b/203203933): Officially deprecate HOST transition and remove this.
       if (trans.equals("host")) {
-        builder.cfg(ExecutionTransitionFactory.create());
+        builder.cfg(HostTransition.createFactory());
       } else if (trans.equals("exec")) {
         builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans instanceof ExecutionTransitionFactory) {
