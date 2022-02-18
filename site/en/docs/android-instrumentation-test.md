@@ -176,7 +176,7 @@ The main attributes of the rule `android_instrumentation_test` are:
 - `target_device`: An `android_device` target. This target describes the
   specifications of the Android emulator which Bazel uses to create, launch and
   run the tests. See the [section on choosing an Android
-  device](#choosing-an-android_device) for more information.
+  device](#android-device-target) for more information.
 
 The test app's `AndroidManifest.xml` must include [an `<instrumentation>`
 tag](https://developer.android.com/studio/test/#configure_instrumentation_manifest_settings){: .external}.

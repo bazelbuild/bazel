@@ -38,7 +38,7 @@ is typically done with a rule. Rules are for advanced users, and most
 users will never have to write one; they will only load and call existing
 rules.
 
-## Evaluation model
+## Evaluation model {:#evaluation-model}
 
 A build consists of three phases.
 

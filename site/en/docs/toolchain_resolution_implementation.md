@@ -36,7 +36,7 @@ Several SkyFunction classes implement the [toolchain resolution](/docs/toolchain
         1.  If the execution platform is already set by the toolchain
             transition, it will be selected first as described below.
 
-As discussed in [Toolchains and Configurations](/docs/toolchains#toolchains-and-configurations),
+As discussed in [Toolchains and Configurations](/docs/toolchains#toolchains_and_configurations),
 the dependency from a target to a toolchain uses a special configuration that
 forces the execution platform to be the same for both. Despite the name
 "toolchain transition", this is not implemented as a configuration

@@ -18,7 +18,7 @@ they can be pasted directly into a `bazelrc` file and invoked with
 
 Bazel writes a JSON trace profile by default to a file called
 `command.profile.gz` in Bazel's output base.
-See the [JSON Profile documentation](/rules/performance#json-profile) for
+See the [JSON Profile documentation](/rules/performance#performance-profiling) for
 how to read and interact with the profile.
 
 **Persistent workers for Android build actions**.

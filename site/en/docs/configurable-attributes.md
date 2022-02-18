@@ -358,7 +358,7 @@ This saves the need for boilerplate `config_setting`s when you only need to
 check against single values.
 
 Platforms are still under development. See the
-[documentation](/docs/platforms-intro) for details.
+[documentation](/concepts/platforms-intro) for details.
 
 ## Combining `select()`s {:#combining-selects}
 
@@ -693,7 +693,7 @@ $ bazel cquery 'deps(//myapp:my_lib)' --//myapp:dog_type=pug
 
 ### Why doesn't select() work in macros? {:#faq-select-macro}
 
-select() *does* work in rules! See [Rules compatibility](#rules) for
+select() *does* work in rules! See [Rules compatibility](#rules-compatibility) for
 details.
 
 The key issue this question usually means is that select() doesn't work in

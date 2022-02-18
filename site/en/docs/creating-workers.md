@@ -15,8 +15,8 @@ experimental and thus subject to change. It is guarded behind the
 
 The worker implementation has two parts:
 
-* The [worker](#making-the-worker).
-* The [rule that uses the worker](#making-the-rule-that-uses-the-worker).
+* The [worker](#making-worker).
+* The [rule that uses the worker](#rule-uses-worker).
 
 ## Making the worker {:#making-worker}
 

@@ -69,9 +69,9 @@ Set up your build environment as follows:
 For an entry `build:{config_name} --flag=value`, the command line flag
 `--config={config_name}` is associated with that particular flag. See
 documentation for the flags used:
-[`crosstool_top`](/docs/user-manual#flag--crosstool_top),
-[`cpu`](/docs/user-manual#flag--cpu) and
-[`host_crosstool_top`](/docs/user-manual#flag--host_crosstool_top).
+[`crosstool_top`](/docs/user-manual#crosstool-top),
+[`cpu`](/docs/user-manual#cpu) and
+[`host_crosstool_top`](/docs/user-manual#host-crosstool-top).
 
 When you build your [target](/concepts/build-ref#targets)
 with `bazel build --config=clang_config //main:hello-world`, Bazel uses your

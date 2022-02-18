@@ -38,10 +38,10 @@ This page describes the issues that can arise when implementing custom Bazel
 build and test rules for remote execution and how to avoid them. It covers the
 following topics:
 
-*  [Invoking build tools through toolchain rules](#invoking-build-tools-through-toolchain-rules)
-*  [Managing implicit dependencies](#managing-implicit-dependencies)
-*  [Managing platform-dependent binaries](#managing-platform-dependent-binaries)
-*  [Managing configure-style WORKSPACE rules](#managing-configure-style-workspace-rules)
+*  [Invoking build tools through toolchain rules](#toolchain-rules)
+*  [Managing implicit dependencies](#manage-dependencies)
+*  [Managing platform-dependent binaries](#manage-binaries)
+*  [Managing configure-style WORKSPACE rules](#manage-workspace-rules)
 
 ## Invoking build tools through toolchain rules {:#toolchain-rules}
 

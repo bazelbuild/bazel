@@ -19,7 +19,7 @@ Install Bazel on Ubuntu using one of the following methods:
 
 *   *Recommended*: [Use Bazelisk](/install/bazelisk)
 *   [Use our custom APT repository](#install-on-ubuntu)
-*   [Use the binary installer](#install-with-installer-ubuntu)
+*   [Use the binary installer](#binary-installer)
 *   [Compile Bazel from source](/install/compile-source)
 
 **Note:** For Arm-based systems, the APT repository does not contain an `arm64`

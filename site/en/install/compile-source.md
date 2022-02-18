@@ -47,7 +47,7 @@ it by typing `bazel` in a terminal.
 
 **Reason**: To build Bazel from a GitHub source tree, you need a pre-existing
 Bazel binary. You can install one from a package manager or download one from
-GitHub. See <a href="install.html">Installing Bazel</a>. (Or you can [build from
+GitHub. See [Installing Bazel](/install). (Or you can [build from
 scratch (bootstrap)](#bootstrap-bazel).)
 
 **Troubleshooting**:

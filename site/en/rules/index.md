@@ -69,8 +69,8 @@ BUILD files without a `load` statement.
   - [`bind`](/reference/be/workspace#bind)
   - [`local_repository`](/reference/be/workspace#local_repository)
   - [`new_local_repository`](/reference/be/workspace#new_local_repository)
-  - [`xcode_config`](/reference/be/workspace#xcode_config)
-  - [`xcode_version`](/reference/be/workspace#xcode_version)
+  - [`xcode_config`](/reference/be/objective-c#xcode_config)
+  - [`xcode_version`](/reference/be/objective-c#xcode_version)
 
 ## Embedded non-native rules {:#embedded-rules}
 

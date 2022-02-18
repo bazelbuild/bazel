@@ -167,7 +167,7 @@ host configuration.
 
 This option takes an argument which is to be passed to the compiler for C source files
 that are compiled in the host configuration. This is analogous to
-the [`--conlyopt`](#conlyopt) option, but applies only
+the [`--conlyopt`](#cconlyopt) option, but applies only
 to the host configuration.
 
 #### `--host_cxxopt={{ "<var>" }}cc-option{{ "</var>" }}` {:#host-cxxopt}
@@ -630,7 +630,7 @@ Note: Dynamically linked binaries (for example `--dynamic_mode fully`)
 generate PIC code regardless of this flag's setting. So this flag is for cases
 where users want PIC code explicitly generated for static links.
 
-#### `--android_resource_shrinking` {:#android-resource-shrinking}
+#### `--android_resource_shrinking` {:#flag--android_resource_shrinking}
 
 Selects whether to perform resource shrinking for android_binary rules. Sets the default for the
 [shrink_resources attribute](/reference/be/android#android_binary.shrink_resources) on
@@ -713,7 +713,7 @@ for example for host build tools including JavaBuilder and Singlejar.
 
 This does not select the Java compiler that is used to compile Java
 source files. The compiler can be selected by settings the
-[`--java_toolchain`](#flag--java_toolchain) option.
+[`--java_toolchain`](#java-toolchain) option.
 
 ### Execution strategy {:#execution-strategy}
 
@@ -966,7 +966,7 @@ produce the preprocessed files after the compilation fails.
 The `--save_temps` flag currently works only for cc_* rules.
 
 To ensure that Bazel prints the location of the additional output files, check that
-your [`--show_result {{ "<var>" }}n{{ "</var>" }}`](#flag--show_result)
+your [`--show_result {{ "<var>" }}n{{ "</var>" }}`](#show-result)
 setting is high enough.
 
 #### `--build_tag_filters={{ "<var>" }}tag[,tag]*{{ "</var>" }}` {:#build-tag-filters}
@@ -1207,7 +1207,7 @@ help make long command lines more readable.
 See also [--verbose_failures](#verbose-failures), below.
 
 For logging subcommands to a file in a tool-friendly format, see
-[--execution_log_json_file](/reference/command-line-reference#flag--execution_log_json_file")
+[--execution_log_json_file](/reference/command-line-reference#flag--execution_log_json_file)
 and
 [--execution_log_binary_file](/reference/command-line-reference#flag--execution_log_binary_file).
 
@@ -1455,7 +1455,7 @@ that perform a build. For more details, see
 are strongly recommended:
 
 *   [`--bazelrc=/dev/null`](/docs/bazelrc)
-*   [`--nokeep_state_after_build`](#keep-state-after-build)
+*   [`--nokeep_state_after_build`](/reference/command-line-reference#flag--keep_state_after_build)
 
 These options are also important:
 
@@ -1716,7 +1716,7 @@ Examples:
 
 #### Test selection {:#test-selection}
 
-As documented under [Output selection options](#output-selection-options),
+As documented under [Output selection options](#output-selection),
 you can filter tests by [size](#test-size-filters),
 [timeout](#test-timeout-filters),
 [tag](#test-tag-filters), or
@@ -2030,8 +2030,8 @@ These data may be affected by the configuration options passed
 to `bazel info`, for
 example `--cpu`, `--compilation_mode`,
 etc. The `info` command accepts all
-the [options that control dependency
-analysis](#analysis-options), since some of these determine the location of the
+the options that control dependency
+analysis, since some of these determine the location of the
 output directory of a build, the choice of compiler, etc.
 
 *   `bazel-bin`, `bazel-testlogs`,

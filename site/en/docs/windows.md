@@ -332,4 +332,4 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples){: .external}
 
 If you are interested in details about how Bazel builds Python targets on
 Windows, check out this [design
-doc](https://bazel.build/designs/2016/09/05/build-python-on-windows.html){: .external}.
+doc](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-09-05-build-python-on-windows.md){: .external}.

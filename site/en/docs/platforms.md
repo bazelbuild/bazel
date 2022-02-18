@@ -154,7 +154,7 @@ $ bazel build --platforms=//:myplatform //:all
 
 Incompatible tests in a [`test_suite`](/reference/be/general#test_suite) are
 similarly skipped if the `test_suite` is specified on the command line with
-[`--expand_test_suites`](/reference/command-line-reference#expand-test_suites).
+[`--expand_test_suites`](/reference/command-line-reference#flag--expand_test_suites).
 In other words, `test_suite` targets on the command line behave like `:all` and
 `...`. Using `--noexpand_test_suites` prevents expansion and causes
 `test_suite` targets with incompatible tests to also be incompatible.
@@ -227,7 +227,7 @@ cc_library(
 You can use the
 [`IncompatiblePlatformProvider`](/rules/lib/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
-format](/docs/cquery#defining-the-output-format-using-starlark) to distinguish
+format](/docs/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.
 
 This can be used to filter out incompatible targets. The example below will

@@ -42,8 +42,7 @@ Before you start developing, you'll need to:
     ```
 1. Install any missing [prerequisites](/install/compile-source#bootstrap-unix).
 
-1. Try to [build
-   Bazel](/contribute/guide#building-programs-with-bazel):
+1. Try to [build Bazel](/docs/build):
 
    *  On Linux/macOS, in Bash/Terminal:
 

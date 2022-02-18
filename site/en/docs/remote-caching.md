@@ -66,7 +66,7 @@ actions locally and creates the required build outputs.
 You need to set up a server to act as the cache's backend. A HTTP/1.1
 server can treat Bazel's data as opaque bytes and so many existing servers
 can be used as a remote caching backend. Bazel's
-[HTTP Caching Protocol](#http-caching-protocol) is what supports remote
+[HTTP Caching Protocol](#http-caching) is what supports remote
 caching.
 
 You are responsible for choosing, setting up, and maintaining the backend
@@ -82,7 +82,7 @@ include:
 
 * [nginx](#nginx)
 * [bazel-remote](#bazel-remote)
-* [Google Cloud Storage](#google-cloud-storage)
+* [Google Cloud Storage](#cloud-storage)
 
 ### nginx {:#nginx}
 

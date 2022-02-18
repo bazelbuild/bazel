@@ -67,23 +67,23 @@ For more information on external dependencies, see
 
 To build or test an Xcode project with Bazel, do the following:
 
-1.  [Create the `WORKSPACE` file](#step-1-create-the-workspace-file)
+1.  [Create the `WORKSPACE` file](#create-workspace)
 
-2. [(Experimental) Integrate CocoaPods dependencies](#step-2-experimental-integrate-cocoapods-dependencies)
+2. [(Experimental) Integrate CocoaPods dependencies](#integrate-cocoapods)
 
-3.  [Create a `BUILD` file:](#step-3-create-a-build-file)
+3.  [Create a `BUILD` file:](#create-build-file)
 
-    a.  [Add the application target](#step-3a-add-the-application-target)
+    a.  [Add the application target](#add-app-target)
 
-    b.  [(Optional) Add the test target(s)](#step-3b-optional-add-the-test-target-s)
+    b.  [(Optional) Add the test target(s)](#add-test-target)
 
-    c.  [Add the library target(s)](#step-3c-add-the-library-target-s)
+    c.  [Add the library target(s)](#add-library-target)
 
-4.  [(Optional) Granularize the build](#step-4-optional-granularize-the-build)
+4.  [(Optional) Granularize the build](#granularize-build)
 
-5.  [Run the build](#step-5-run-the-build)
+5.  [Run the build](#run-build)
 
-6.  [Generate the Xcode project with Tulsi](#step-6-generate-the-xcode-project-with-tulsi)
+6.  [Generate the Xcode project with Tulsi](#generate-xcode-tulsi)
 
 ### Step 1: Create the `WORKSPACE` file {:#create-workspace}
 

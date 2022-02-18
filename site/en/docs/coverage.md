@@ -11,16 +11,16 @@ always trivial to make this work for a given project.
 This page documents the general process for creating and viewing
 coverage reports, and also features some language-specific notes for
 languages whose configuration is well-known. It is best read by first
-reading [the general section](#Creating-a-coverage-report), and then
+reading [the general section](#creating-a-coverage-report), and then
 reading about the requirements for a specific language. Note also the
-[remote execution section](#Remote-execution), which requires some
+[remote execution section](#remote-execution), which requires some
 additional considerations.
 
 While a lot of customization is possible, this document focuses on
 producing and consuming [`lcov`][lcov] reports, which is currently the
 most well-supported route.
 
-## Creating a coverage report
+## Creating a coverage report {:#creating-a-coverage-report}
 
 ### Preparation
 
@@ -84,7 +84,7 @@ To view the result, simply open the `index.html` file produced in the
 For further help and information around the `genhtml` tool, or the
 `lcov` coverage format, see [the lcov project][lcov].
 
-## Remote execution
+## Remote execution {:#remote-execution}
 
 Running with remote test execution currently has a few caveats:
 

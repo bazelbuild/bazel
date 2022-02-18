@@ -253,7 +253,7 @@ by using [`java.net.preferIPv6Addresses=true` system property](https://docs.orac
 Specifically:
 
 * Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true`
-  [startup option](user-manual#startup_options),
+  [startup option](/docs/user-manual#startup-options),
   for example by adding the following line in your
   [`.bazelrc` file](/docs/bazelrc):
 
@@ -262,7 +262,7 @@ Specifically:
 * If you are running Java build targets that need to connect to the internet
   as well (integration tests sometimes needs that), also use
   `--jvmopt=-Djava.net.preferIPv6Addresses=true`
-  [tool flag](user-manual#flags-options), for example by having the
+  [tool flag](/docs/user-manual#jvmopt), for example by having the
   following line in your [`.bazelrc` file](/docs/bazelrc):
 
   `build --jvmopt=-Djava.net.preferIPv6Addresses`
@@ -325,7 +325,7 @@ a file matching the basename of the first URL provided, and use that local copy
 if the hash matches.
 
 Bazel itself uses this technique to bootstrap offline from the [distribution
-artifact](https://bazel.build/designs/2016/10/11/distribution-artifact.html).
+artifact](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-10-11-distribution-artifact.md).
 It does so by [collecting all the needed external
 dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/WORKSPACE#L116){: .external}
 in an internal

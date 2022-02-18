@@ -37,7 +37,7 @@ You can troubleshoot these issues using one of the following methods:
     execution. However, this method will not detect local tools, states, and
     data leaking into your build, which will cause problems with remote execution.
 
-*   **[Troubleshooting in a Docker container.](#troubleshooting-in-a-docker-container)**
+*   **[Troubleshooting in a Docker container.](#troubleshooting-docker-container)**
     With this method, Bazel and its build actions run inside a Docker container,
     which allows you to detect tools, states, and data leaking from the local
     machine into the build in addition to imposing restrictions
@@ -95,8 +95,8 @@ machine and is a reliable way to confirm whether your build will succeed when
 executed remotely.
 
 However, with this method, locally installed tools, binaries, and data may leak
-into into your build, especially if it uses [configure-style WORKSPACE rules](/docs/remote-execution-rules#managing-configure-style-workspace-rules).
-Such leaks will cause problems with remote execution; to detect them, [troubleshoot in a Docker container](#troubleshooting-in-a-docker-container)
+into into your build, especially if it uses [configure-style WORKSPACE rules](/docs/remote-execution-rules#manage-workspace-rules).
+Such leaks will cause problems with remote execution; to detect them, [troubleshoot in a Docker container](#troubleshooting-docker-container)
 in addition to troubleshooting natively.
 
 ### Step 1: Run the build {:#run-build}
@@ -121,7 +121,7 @@ If you do, run the build again with the `--experimental_docker_verbose`  flag.
 This flag enables verbose error messages. This error is typically caused by a
 faulty Docker installation or lack of permissions to execute it under the
 current user account. See the [Docker documentation](https://docs.docker.com/install/linux/linux-postinstall/){: .external}
-for more information. If problems persist, skip ahead to [Troubleshooting in a Docker container](#troubleshooting-in-a-docker-container).
+for more information. If problems persist, skip ahead to [Troubleshooting in a Docker container](#troubleshooting-docker-container).
 
 ### Step 2: Resolve detected issues {:#resolve-common-issues}
 
@@ -130,7 +130,7 @@ The following are the most commonly encountered issues and their workarounds.
 *  **A file, tool, binary, or resource referenced by the Bazel runfiles tree is
    missing.**. Confirm that all dependencies of the affected targets have been
    [explicitly declared](/concepts/dependencies). See
-   [Managing implicit dependencies](/docs/remote-execution-rules#managing-implicit-dependencies)
+   [Managing implicit dependencies](/docs/remote-execution-rules#manage-dependencies)
    for more information.
 
 *  **A file, tool, binary, or resource referenced by an absolute path or the `PATH`
@@ -142,7 +142,7 @@ The following are the most commonly encountered issues and their workarounds.
 
 *  **A binary execution fails.** One of the build rules is referencing a binary
    incompatible with the execution environment (the Docker container). See
-   [Managing platform-dependent binaries](/docs/remote-execution-rules#managing-platform-dependent-binaries)
+   [Managing platform-dependent binaries](/docs/remote-execution-rules#manage-binaries)
    for more information. If you cannot resolve the issue, contact [bazel-discuss@google.com](mailto:bazel-discuss@google.com)
    for help.
 
@@ -256,4 +256,4 @@ You can resolve build failures as follows:
     remote execution. See [Adapting Bazel Rules for Remote Execution](/docs/remote-execution-rules)
     for possible causes and workarounds.
 
-*   If the build fails for any other reason, see the troubleshooting steps in [Step 2: Resolve detected issues](#step-2-resolve-detected-issues).
+*   If the build fails for any other reason, see the troubleshooting steps in [Step 2: Resolve detected issues](#start-container).

@@ -41,7 +41,7 @@ directly run by Bazel since there's no Maven compatibility layer.
 
 The steps below describe how to migrate your project to Bazel:
 
-1.  [Create the WORKSPACE file](#1-workspace)
+1.  [Create the WORKSPACE file](#1-build)
 2.  [Create one BUILD file](#2-build)
 3.  [Create more BUILD files](#3-build)
 4.  [Build using Bazel](#4-build)
@@ -52,7 +52,7 @@ The Guava project used is release 22.0. The examples using Guava do not walk thr
 each step in the migration, but they do show the files and contents that are
 generated or added manually for the migration.
 
-### 1. Create the WORKSPACE file {:#workspace}
+### 1. Create the WORKSPACE file {:#1-build}
 
 Create a file named `WORKSPACE` at the root of your project. If your project
 has no external dependencies, the workspace file can be empty.
@@ -102,7 +102,7 @@ maven_install(
 )
 ```
 
-### 2. Create one BUILD file {:#build}
+### 2. Create one BUILD file {:#2-build}
 
 Now that you have your workspace defined and external dependencies (if
 applicable) listed, you need to create `BUILD` files to describe how your project
@@ -174,7 +174,7 @@ targets.
           for `java_library` are the libraries listed in the
           `generated_java_libraries` macro.
     *  Take a look at the
-       [example below of this top-level BUILD file](#guava-example-2) from
+       [example below of this top-level BUILD file](#guava-2) from
        the migration of the Guava project.
 
 3.  Now that you have a `BUILD` file at the root of your project, build

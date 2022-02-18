@@ -20,7 +20,7 @@ execution. However, local execution presents some additional challenges.
 
 Successful remote cache hits will show up in the status line, similar to
 [Cache Hits rate with Remote
-Execution](/docs/remote-execution-caching-debug#checking-your-cache-hit-rate).
+Execution](/docs/remote-execution-caching-debug#check-cache-hits).
 
 In the standard output of your Bazel run, you will see something like the
 following:
@@ -70,7 +70,7 @@ the steps in this section.
    `--verbose_failures`.
 
 2. Follow the steps from [Troubleshooting cache hits for remote
-   execution](/docs/remote-execution-caching-debug#troubleshooting-cache-hits) to
+   execution](/docs/remote-execution-caching-debug#troubleshooting_cache_hits) to
    ensure that your cache-writing Bazel invocations are able to get cache hits
    on the same machine and across machines.
 
@@ -85,6 +85,6 @@ the steps in this section.
       cache-writing Bazel invocations.
 
    c. Follow the same steps as to [ensure caching across
-      machines](/docs/remote-execution-caching-debug#ensure-caching-across-machines),
+      machines](/docs/remote-execution-caching-debug#caching-across-machines),
       to ensure caching from your cache-writing Bazel invocation to your
       cache-reading Bazel invocation.

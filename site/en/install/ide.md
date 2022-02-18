@@ -107,5 +107,5 @@ tool for building Bazel targets when source files change.
 ## Building your own IDE plugin {:#build-own-plugin}
 
 Read the [**IDE support** blog
-post](https://bazel.build/blog/2016/06/10/ide-support.html) to learn more about
+post](https://blog.bazel.build/2016/06/10/ide-support.html) to learn more about
 the Bazel APIs to use when building an IDE plugin.

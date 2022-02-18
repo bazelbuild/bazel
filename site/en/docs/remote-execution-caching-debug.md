@@ -32,7 +32,7 @@ cache hits are not included in this summary. If you are getting 0 processes
 (or a number lower than expected), run `bazel clean` followed by your build/test
 command.
 
-## Troubleshooting cache hits
+## Troubleshooting cache hits {:#troubleshooting-cache-hits}
 
 If you are not getting the cache hit rate you are expecting, do the following:
 
@@ -66,7 +66,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_json_file=/tmp/exec1.json
       ```
 
-   b. [Compare the execution logs](#comparing-the-execution-logs) between the
+   b. [Compare the execution logs](#compare-logs-the-execution-logs) between the
       two runs. Ensure that the actions are identical across the two log files.
       Discrepancies provide a clue about the changes that occurred between the
       runs. Update your build to eliminate those discrepancies.
@@ -131,7 +131,7 @@ not happening across machines, do the following:
     bazel ... build ... --execution_log_json_file=/tmp/exec2.json
    ```
 
-4. [Compare the execution logs](#comparing-the-execution-logs) for the two
+4. [Compare the execution logs](#compare-logs-the-execution-logs) for the two
     runs. If the logs are not identical, investigate your build configurations
     for discrepancies as well as properties from the host environment leaking
     into either of the builds.

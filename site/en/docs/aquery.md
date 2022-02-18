@@ -304,7 +304,7 @@ Each `AspectDescriptor` has the following format:
 `AspectClass` could be the name of the Aspect class (for native Aspects) or
 `bzl_file%aspect_name` (for Starlark Aspects). `AspectDescriptor` are
 sorted in topological order of the
-[dependency graph](/rules/aspects#aspect-basics).
+[dependency graph](rules/aspects#aspect_basics).
 
 ### Linking with the JSON profile {:#linking-with-json-profile}
 

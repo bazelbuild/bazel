@@ -39,9 +39,9 @@ Book: /_book.yaml
 
 ## Previous Roadmaps
 
-* [2020](2020/configuration.html) (w/ EOY review)
-* [2019](2019/configuration.html) (w/ EOY review)
-* [2018](2018/configuration.html)
+* [2020](https://github.com/bazelbuild/bazel-website/blob/master/roadmaps/2020/configuration.md) (w/ EOY review)
+* [2019](https://github.com/bazelbuild/bazel-website/blob/master/roadmaps/2019/configuration.md) (w/ EOY review)
+* [2018](https://github.com/bazelbuild/bazel-website/blob/master/roadmaps/2018/configuration.md)
 
 ## Goal
 

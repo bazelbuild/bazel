@@ -98,7 +98,7 @@ META-INF/MANIFEST.MF
 Bazel compiles all of the cc_libraries into a single shared object (`.so`) file,
 targeted for the `armeabi-v7a` ABI by default. To change this or build for
 multiple ABIs at the same time, see the section on [configuring the target
-ABI](#configuring-the-target-abi).
+ABI](#configuring-target-abi).
 
 ## Example setup {:#example-setup}
 
@@ -228,7 +228,7 @@ bazel build //:app --cxxopt=-std=c++11
 ```
 
 Read more about passing compiler and linker flags with `--cxxopt`, `--copt`, and
-`--linkopt` in the [User Manual](/docs/user-manual#flag--cxxopt).
+`--linkopt` in the [User Manual](/docs/user-manual#cxxopt).
 
 Compiler and linker flags can also be specified as attributes in `cc_library`
 using `copts` and `linkopts`. For example:
@@ -386,7 +386,7 @@ With this approach, the entire build tree is affected.
 
 Note: All of the targets on the command line must be compatible with
 building for Android when specifying these flags, which may make it difficult to
-use [Bazel wild-cards](/reference/command-line-reference#target-pattern-syntax) like
+use [Bazel wild-cards](/docs/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in

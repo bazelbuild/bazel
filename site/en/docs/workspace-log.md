@@ -42,10 +42,7 @@ Things to note:
 * Sometimes functions might be re-executed, in which case the related
   events will show up in the log multiple times.
 
-* Workspace rules log currently only logs Starlark events. Some native rules
-  may cause non-hermetic behavior but not show up in this log. Examples of those
-  rules include
-  [maven_jar](/reference/be/workspace#maven_jar).
+* Workspace rules  currently only log Starlark events.
 
   Note: These particular rules do not cause hermiticity concerns as long
   as a hash is specified.

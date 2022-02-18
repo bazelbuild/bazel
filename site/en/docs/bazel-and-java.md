@@ -36,7 +36,7 @@ sources in the repository add `build --java_language_version={ver}` to
 `.bazelrc` file, where `{ver}` is for example `11`. Bazel repository owners
 should set this flag so that Bazel and its users can reference the source code's
 Java version number. For more details, see
-[Java language version flag](/docs/user-manual#flag--java_language_version).
+[Java language version flag](/docs/user-manual#java-language-version).
 
 ### Configuring the JVM used to execute and test the code {:#config-jvm}
 
@@ -58,7 +58,7 @@ flag. The default value is `local_jdk`.
 To create a hermetic compile, you can use command line flag
 `--java_runtime_version=remotejdk_11`. The code is compiled for, executed, and
 tested on the JVM downloaded from a remote repository. For more details, see
-[Java runtime version flag](/docs/user-manual#flag--java_runtime_version).
+[Java runtime version flag](/docs/user-manual#java_runtime_version).
 
 ### Configuring compilation and execution of build tools in Java {:#config-build-tools-java}
 
@@ -79,7 +79,7 @@ for local JDK, use additional flag `--extra_toolchains=@local_jdk//:all`,
 however, mind that this may not work on JDK of arbitrary vendors.
 
 For more details, see
-[configuring Java toolchains](#Configuring-the-Java-toolchains).
+[configuring Java toolchains](#config-java-toolchains).
 
 ## Best practices {:#best-practices}
 
@@ -232,7 +232,7 @@ The `TestRunner` tool executes JUnit 4 tests in a controlled environment.
 You can reconfigure the compilation by adding `default_java_toolchain` macro to
 a `BUILD` file and registering it either by adding `register_toolchain` rule to
 the `WORKSPACE` file or by using
-[`--extra_toolchains`](/docs/user-manual#flag--extra_toolchains) flag.
+[`--extra_toolchains`](/docs/user-manual#extra-toolchains) flag.
 
 The toolchain is only used when the `source_version` attribute matches the
 value specified by `--java_language_version` flag.

@@ -86,7 +86,7 @@ However, all non-zero exit values will always constitute an error.
 
 ### Reading the .bazelrc file {:#reading-bazelrc}
 
-By default, Bazel reads the [`.bazelrc` file](#bazelrc) from the base
+By default, Bazel reads the [`.bazelrc` file](/docs/bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (such as when doing release builds), you should disable reading the

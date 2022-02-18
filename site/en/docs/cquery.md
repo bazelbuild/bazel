@@ -85,7 +85,7 @@ The query expression `"function(//target)"` consists of the following:
 
 `cquery` requires a target to run through the [loading and analysis](/rules/concepts#evaluation-model)
 phases. Unless otherwise specified, `cquery` parses the target(s) listed in the
-query expression. See [`--universe_scope`](#universe_scope-comma-separated-list)
+query expression. See [`--universe_scope`](#universe-scope)
 for querying dependencies of top-level build targets.
 
 ## Configurations {:#configurations}
@@ -334,7 +334,7 @@ By default, cquery results return configuration information as part of each
 configured target. If you'd like to omit this information and get proto output
 that is formatted exactly like query's proto output, set this flag to false.
 
-See [query's proto output documentation](/reference/query#output-proto)
+See [query's proto output documentation](/reference/query#output-formats)
 for more proto output-related options.
 
 Note: While selects are resolved both at the top level of returned
@@ -348,9 +348,9 @@ included as `rule_input` fields.
 </pre>
 
 This option generates output as a Graphviz-compatible .dot file. See `query`'s
-[graph output documentation](/reference/query#output-graph) for details. `cquery`
-also supports [`--graph:node_limit`](/reference/query#graph-node_limit-n) and
-[`--graph:factored`](/reference/query#no-graph-factored).
+[graph output documentation](/reference/query#display-result-graph) for details. `cquery`
+also supports [`--graph:node_limit`](/reference/query#graph-nodelimit) and
+[`--graph:factored`](/reference/query#graph-factored).
 
 ### Defining the output format using Starlark {:#output-format-definition}
 
@@ -506,7 +506,7 @@ different niches. Consider the following to decide which is right for you:
     evaluates _configured targets_ while `query` only
     evaluates _targets_. This takes more time and uses more memory.
 *   `cquery`'s intepretation of
-    the [query language](/reference/query#concepts) introduces ambiguity
+    the [query language](/reference/query) introduces ambiguity
     that `query` avoids. For example,
     if `"//foo"` exists in two configurations, which one
     should `cquery "deps(//foo)"` use?
@@ -522,7 +522,7 @@ Before evaluating queries, `cquery` triggers a build up to just
 before the point where build actions would execute. The targets it
 "builds" are by default selected from all labels that appear in the query
 expression (this can be overridden
-with [`--universe_scope`](#universe_scope-comma-separated-list)). These
+with [`--universe_scope`](#universe-scope)). These
 must have the same configuration.
 
 While these generally share the top-level "target" configuration,
@@ -546,7 +546,7 @@ configurations is not supported)
 $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 </pre>
 
-**No support for [`--output=xml`](/reference/query#output-xml).**
+**No support for [`--output=xml`](/reference/query#xml).**
 
 **Non-deterministic output.**
 

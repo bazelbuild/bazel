@@ -64,14 +64,14 @@ Xcode versions available on your host machine. The default version is
 the newest available Xcode version. This is appropriate for local execution.
 
 If you are performing remote builds, you should set `--xcode_config` to an
-[`xcode_config`](/reference/be/workspace#xcode_config)
+[`xcode_config`](/reference/be/objective-c#xcode_config)
 target whose `versions` attribute is a list of remotely available
-[`xcode_version`](/reference/be/workspace#xcode_version)
+[`xcode_version`](/reference/be/objective-c#xcode_version)
 targets, and whose `default` attribute is one of these
-[`xcode_versions`](/reference/be/workspace#xcode_version).
+[`xcode_versions`](/reference/be/objective-c#xcode_version).
 
 If you are using dynamic execution, you should set `--xcode_config` to an
-[`xcode_config`](/reference/be/workspace#xcode_config)
+[`xcode_config`](/reference/be/objective-c#xcode_config)
 target whose `remote_versions` attribute is an
 [`available_xcodes`](/reference/be/workspace#available_xcodes)
 target containing the remotely available Xcode versions, and whose

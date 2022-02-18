@@ -41,8 +41,8 @@ Alternatively you can:
 
 *   [Download the Bazel binary (`bazel-{{ '<var>' }}version{{ '</var>' }}-windows-x86_64.exe`) from
  GitHub](https://github.com/bazelbuild/bazel/releases){: .external}.
-*   [Install Bazel from Chocolatey](#using-chocolatey)
-*   [Install Bazel from Scoop](#using-scoop)
+*   [Install Bazel from Chocolatey](#chocolately)
+*   [Install Bazel from Scoop](#scoop)
 *   [Build Bazel from source](/install/compile-source)
 
 ### Set up your environment {:#set-environment}
@@ -67,7 +67,7 @@ bazel {{ '<var>' }}version{{ '</var>' }}
 
 Next, you can check out more tips and guidance here:
 
-*   [Installing compilers and language runtimes](#installing-compilers-and-language-runtimes)
+*   [Installing compilers and language runtimes](#install-compilers)
 *   [Troubleshooting](#troubleshooting)
 *   [Best practices on Windows](/docs/windows#best-practices)
 *   [Tutorials](/start/getting-started#tutorials)

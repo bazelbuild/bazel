@@ -21,20 +21,20 @@ Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" 
 ### Available commands {:#available-commands}
 
 * [`analyze-profile`](/docs/user-manual#analyze-profile): Analyzes build profile data.
-* [`aquery`](/docs/user-manual#aquery): Executes a query on the [post-analysis](#analysis-phase) action graph.
-* [`build`](#build): Builds the specified targets.
-* [`canonicalize-flags`](/docs/user-manual#canonicalize): Canonicalize Bazel flags.
+* [`aquery`](/docs/user-manual#aquery): Executes a query on the [post-analysis](#analysis) action graph.
+* [`build`](#bazel-build): Builds the specified targets.
+* [`canonicalize-flags`](/docs/user-manual#canonicalize-flags): Canonicalize Bazel flags.
 * [`clean`](/docs/user-manual#clean): Removes output files and optionally stops the server.
-* [`cquery`](/docs/user-manual#query): Executes a [post-analysis](#analysis-phase) dependency graph query.
+* [`cquery`](/docs/cquery): Executes a [post-analysis](#analysis) dependency graph query.
 * [`dump`](/docs/user-manual#dump): Dumps the internal state of the Bazel server process.
 * [`help`](/docs/user-manual#help): Prints help for commands, or the index.
 * [`info`](/docs/user-manual#info): Displays runtime info about the bazel server.
-* [`fetch`](#fetch): Fetches all external dependencies of a target.
+* [`fetch`](#fetching-external-dependencies): Fetches all external dependencies of a target.
 * [`mobile-install`](/docs/user-manual#mobile-install): Installs apps on mobile devices.
-* [`query`](/docs/user-manual#query): Executes a dependency graph query.
-* [`run`](/docs/user-manual#run): Runs the specified target.
+* [`query`](/docs/query-how-to): Executes a dependency graph query.
+* [`run`](/docs/user-manual#running-executables): Runs the specified target.
 * [`shutdown`](/docs/user-manual#shutdown): Stops the Bazel server.
-* [`test`](/docs/user-manual#test): Builds and runs the specified test targets.
+* [`test`](/docs/user-manual#running-tests): Builds and runs the specified test targets.
 * [`version`](/docs/user-manual#version): Prints version information for Bazel.
 
 ### Getting help {:#getting-help}
@@ -42,7 +42,7 @@ Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" 
 * `bazel help {{ '<var>' }}command{{ '</var>' }}`: Prints help and options for
   `{{ '<var>' }}command{{ '</var>' }}`.
 * `bazel help `[`startup_options`](/docs/user-manual#startup-options): Options for the JVM hosting Bazel.
-* `bazel help `[`target-syntax`](#target-patterns): Explains the syntax for specifying targets.
+* `bazel help `[`target-syntax`](#specifying-build-targets): Explains the syntax for specifying targets.
 * `bazel help info-keys`: Displays a list of keys used by the info command.
 
 The `bazel` tool performs many functions, called commands. The most commonly
@@ -58,7 +58,7 @@ application. Bazel allows you to perform a build from a completely read-only
 volume.
 
 To build a program with Bazel, type `bazel build` followed by the
-[target](#target-patterns) you want to build.
+[target](#specifying-build-targets) you want to build.
 
 ```posix-terminal
 bazel build //foo
@@ -666,7 +666,7 @@ inputs to a rule, and all rule-specific error messages.
 The loading and analysis phases are fast because Bazel avoids unnecessary file
 I/O at this stage, reading only BUILD files in order to determine the work to be
 done. This is by design, and makes Bazel a good foundation for analysis tools,
-such as Bazel's [query](#query) command, which is implemented atop the loading
+such as Bazel's [query](/docs/query-how-to) command, which is implemented atop the loading
 phase.
 
 #### Execution phase {:#execution}
