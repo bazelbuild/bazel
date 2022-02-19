@@ -129,7 +129,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   public void close(boolean failFast) throws IOException {
     if (!failFast && printStream != null) {
       if (options.protoIncludeConfigurations) {
-        writeData(protoResult.build());
+        writeData(getProtoResult());
       } else {
         // Documentation promises that setting this flag to false means we convert directly
         // to the build.proto format. This is hard to test in integration testing due to the way
