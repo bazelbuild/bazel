@@ -217,7 +217,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           }
         });
 
-    if (matchingConditions.size() > 1) {
+    if (matchingConditions.values().stream().map(s -> s.value).distinct().count() > 1) {
       throw new ValidationException(
           "Illegal ambiguous match on configurable attribute \""
               + attributeName
@@ -225,9 +225,10 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
               + getLabel()
               + ":\n"
               + Joiner.on("\n").join(matchingConditions.keySet())
-              + "\nMultiple matches are not allowed unless one is unambiguously more specialized.");
-    } else if (matchingConditions.size() == 1) {
-      return Iterables.getOnlyElement(matchingConditions.values());
+              + "\nMultiple matches are not allowed unless one is unambiguously "
+              + "more specialized or they resolve to the same value.");
+    } else if (matchingConditions.size() > 0) {
+      return Iterables.getFirst(matchingConditions.values(), null);
     }
 
     // If nothing matched, choose the default condition.
