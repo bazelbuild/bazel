@@ -2,7 +2,6 @@ package(default_visibility = ["//visibility:public"])
 
 load("@bazel_tools//tools/osx/crosstool:osx_archs.bzl", "OSX_TOOLS_ARCHS")
 load("@rules_cc//cc:defs.bzl", "cc_toolchain_suite", "cc_library")
-load(":armeabi_cc_toolchain_config.bzl", "armeabi_cc_toolchain_config")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 # Reexporting osx_arch.bzl for backwards compatibility
@@ -92,21 +91,3 @@ cc_toolchain_suite(
     )
     for arch in OSX_TOOLS_ARCHS
 ]
-
-# Android tooling requires a default toolchain for the armeabi-v7a cpu.
-cc_toolchain(
-    name = "cc-compiler-armeabi-v7a",
-    toolchain_identifier = "stub_armeabi-v7a",
-    toolchain_config = ":stub_armeabi-v7a",
-    all_files = ":empty",
-    ar_files = ":empty",
-    as_files = ":empty",
-    compiler_files = ":empty",
-    dwp_files = ":empty",
-    linker_files = ":empty",
-    objcopy_files = ":empty",
-    strip_files = ":empty",
-    supports_param_files = 1,
-)
-
-armeabi_cc_toolchain_config(name = "stub_armeabi-v7a")
