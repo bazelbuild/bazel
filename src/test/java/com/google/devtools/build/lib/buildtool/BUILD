@@ -371,7 +371,6 @@ java_test(
     name = "NoOutputActionTest",
     srcs = ["NoOutputActionTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -589,7 +588,6 @@ build_test(
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
         ":IncludeValidationTest",
-        ":NoOutputActionTest",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests",
         # Disabled in Google.
