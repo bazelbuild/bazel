@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
+import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -38,14 +40,15 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxFutures;
+import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
@@ -57,8 +60,6 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
-
-  private final Object lock = new Object();
 
   private final String buildRequestId;
   private final String commandId;
@@ -77,59 +78,70 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
    * Fetches remotely stored action outputs, that are inputs to this spawn, and stores them under
    * their path in the output base.
    *
-   * <p>This method blocks until all downloads have finished.
-   *
    * <p>This method is safe to be called concurrently from spawn runners before running any local
    * spawn.
+   *
+   * @return a future that is completed once all downloads have finished.
    */
   @Override
-  public void prefetchFiles(
-      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider)
-      throws IOException, InterruptedException {
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
-      Map<Path, ListenableFuture<Void>> downloadsToWaitFor = new HashMap<>();
-      for (ActionInput input : inputs) {
-        if (input instanceof VirtualActionInput) {
-          if (!(input instanceof EmptyActionInput)) {
-            VirtualActionInput virtualActionInput = (VirtualActionInput) input;
-            Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
-            SandboxHelpers.atomicallyWriteVirtualInput(virtualActionInput, outputPath, ".remote");
-          }
-        } else {
-          FileArtifactValue metadata = metadataProvider.getMetadata(input);
-          if (metadata == null || !metadata.isRemote()) {
-            continue;
-          }
+  public ListenableFuture<Void> prefetchFiles(
+      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
+    Flowable<TransferResult> transfers =
+        Flowable.fromIterable(inputs)
+            .flatMapSingle(input -> downloadOneInput(metadataProvider, input));
+    Completable prefetch =
+        mergeBulkTransfer(transfers)
+            .onErrorResumeNext(
+                e -> {
+                  if (e instanceof BulkTransferException) {
+                    if (((BulkTransferException) e).onlyCausedByCacheNotFoundException()) {
+                      BulkTransferException bulkAnnotatedException = new BulkTransferException();
+                      for (Throwable t : e.getSuppressed()) {
+                        IOException annotatedException =
+                            new IOException(
+                                String.format(
+                                    "Failed to fetch file with hash '%s' because it does not"
+                                        + " exist remotely. --remote_download_outputs=minimal"
+                                        + " does not work if your remote cache evicts files"
+                                        + " during builds.",
+                                    ((CacheNotFoundException) t).getMissingDigest().getHash()));
+                        bulkAnnotatedException.add(annotatedException);
+                      }
+                      e = bulkAnnotatedException;
+                    }
+                  }
+                  return Completable.error(e);
+                });
+    Completable prefetchWithProfiler =
+        Completable.using(
+            () -> Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs"),
+            profiler -> prefetch,
+            SilentCloseable::close);
+    return toListenableFuture(prefetchWithProfiler);
+  }
 
-          Path path = execRoot.getRelative(input.getExecPath());
-          synchronized (lock) {
-            downloadsToWaitFor.computeIfAbsent(
-                path, key -> RxFutures.toListenableFuture(downloadFileAsync(path, metadata)));
-          }
-        }
-      }
+  private Single<TransferResult> downloadOneInput(
+      MetadataProvider metadataProvider, ActionInput input) {
+    return toTransferResult(
+        Completable.defer(
+            () -> {
+              if (input instanceof VirtualActionInput) {
+                if (!(input instanceof EmptyActionInput)) {
+                  VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+                  Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
+                  SandboxHelpers.atomicallyWriteVirtualInput(
+                      virtualActionInput, outputPath, ".remote");
+                }
+              } else {
+                FileArtifactValue metadata = metadataProvider.getMetadata(input);
+                if (metadata != null && metadata.isRemote()) {
+                  Path path = execRoot.getRelative(input.getExecPath());
+                  return downloadFileAsync(path, metadata);
+                }
+              }
 
-      try {
-        waitForBulkTransfer(downloadsToWaitFor.values(), /* cancelRemainingOnInterrupt= */ true);
-      } catch (BulkTransferException e) {
-        if (e.onlyCausedByCacheNotFoundException()) {
-          BulkTransferException bulkAnnotatedException = new BulkTransferException();
-          for (Throwable t : e.getSuppressed()) {
-            IOException annotatedException =
-                new IOException(
-                    String.format(
-                        "Failed to fetch file with hash '%s' because it does not exist remotely."
-                            + " --remote_download_outputs=minimal does not work if"
-                            + " your remote cache evicts files during builds.",
-                        ((CacheNotFoundException) t).getMissingDigest().getHash()));
-            bulkAnnotatedException.add(annotatedException);
-          }
-          e = bulkAnnotatedException;
-        }
-        throw e;
-      }
-    }
+              return Completable.complete();
+            }));
   }
 
   ImmutableSet<Path> downloadedFiles() {
@@ -147,7 +159,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
   void downloadFile(Path path, FileArtifactValue metadata)
       throws IOException, InterruptedException {
-    Utils.getFromFuture(RxFutures.toListenableFuture(downloadFileAsync(path, metadata)));
+    Utils.getFromFuture(toListenableFuture(downloadFileAsync(path, metadata)));
   }
 
   private Completable downloadFileAsync(Path path, FileArtifactValue metadata) {

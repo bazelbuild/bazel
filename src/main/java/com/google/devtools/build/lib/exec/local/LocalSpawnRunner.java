@@ -353,7 +353,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         stepLog(INFO, "prefetching inputs for local execution");
         setState(State.PREFETCHING_LOCAL_INPUTS);
-        context.prefetchInputs();
+        context.prefetchInputsAndWait();
       }
 
       spawnMetrics.setInputFiles(spawn.getInputFiles().memoizedFlattenAndGetSize());

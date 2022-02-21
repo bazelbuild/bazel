@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -53,6 +55,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
@@ -98,7 +101,7 @@ public class RemoteActionInputFetcherTest {
         new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
 
     // act
-    actionInputFetcher.prefetchFiles(metadata.keySet(), metadataProvider);
+    wait(actionInputFetcher.prefetchFiles(metadata.keySet(), metadataProvider));
 
     // assert
     assertThat(FileSystemUtils.readContent(a1.getPath(), StandardCharsets.UTF_8))
@@ -122,7 +125,7 @@ public class RemoteActionInputFetcherTest {
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
-    actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider);
+    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
 
     // assert
     Path p = execRoot.getRelative(a.getExecPath());
@@ -141,8 +144,9 @@ public class RemoteActionInputFetcherTest {
         new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
 
     // act
-    actionInputFetcher.prefetchFiles(
-        ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider);
+    wait(
+        actionInputFetcher.prefetchFiles(
+            ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider));
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -165,7 +169,7 @@ public class RemoteActionInputFetcherTest {
     // act
     assertThrows(
         BulkTransferException.class,
-        () -> actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
+        () -> wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider)));
 
     // assert
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -187,7 +191,7 @@ public class RemoteActionInputFetcherTest {
         new RemoteActionInputFetcher("none", "none", remoteCache, execRoot);
 
     // act
-    actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider);
+    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
 
     // assert
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -282,7 +286,8 @@ public class RemoteActionInputFetcherTest {
         new Thread(
             () -> {
               try {
-                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+                wait(
+                    actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
               } catch (IOException | InterruptedException ignored) {
                 // do nothing
               }
@@ -293,7 +298,8 @@ public class RemoteActionInputFetcherTest {
         new Thread(
             () -> {
               try {
-                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+                wait(
+                    actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
                 successful.set(true);
               } catch (IOException | InterruptedException ignored) {
                 // do nothing
@@ -342,7 +348,8 @@ public class RemoteActionInputFetcherTest {
         new Thread(
             () -> {
               try {
-                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+                wait(
+                    actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
               } catch (IOException | InterruptedException ignored) {
                 // do nothing
               }
@@ -352,7 +359,8 @@ public class RemoteActionInputFetcherTest {
         new Thread(
             () -> {
               try {
-                actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider);
+                wait(
+                    actionInputFetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
               } catch (IOException | InterruptedException ignored) {
                 // do nothing
               }
@@ -394,5 +402,22 @@ public class RemoteActionInputFetcherTest {
       cacheEntriesByteArray.put(entry.getKey(), entry.getValue().toByteArray());
     }
     return new RemoteCache(new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil);
+  }
+
+  private static void wait(ListenableFuture<Void> future) throws IOException, InterruptedException {
+    try {
+      future.get();
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+        throwIfInstanceOf(cause, RuntimeException.class);
+      }
+      throw new IOException(e);
+    } catch (InterruptedException e) {
+      future.cancel(/*mayInterruptIfRunning=*/ true);
+      throw e;
+    }
   }
 }

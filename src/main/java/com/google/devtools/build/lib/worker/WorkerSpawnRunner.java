@@ -373,7 +373,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         }
 
         try {
-          context.prefetchInputs();
+          context.prefetchInputsAndWait();
         } catch (IOException e) {
           restoreInterrupt(e);
           String message = "IOException while prefetching for worker:";

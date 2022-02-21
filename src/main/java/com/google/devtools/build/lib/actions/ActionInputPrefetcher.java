@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 
 /** Prefetches files to local disk. */
@@ -20,20 +23,20 @@ public interface ActionInputPrefetcher {
   public static final ActionInputPrefetcher NONE =
       new ActionInputPrefetcher() {
         @Override
-        public void prefetchFiles(
+        public ListenableFuture<Void> prefetchFiles(
             Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
           // Do nothing.
+          return immediateVoidFuture();
         }
       };
 
   /**
-   * Initiates best-effort prefetching of all given inputs. This should not block.
+   * Initiates best-effort prefetching of all given inputs.
    *
    * <p>For any path not under this prefetcher's control, the call should be a no-op.
    *
-   * <p>TODO(b/215316609): Implementation in remote module blocks until download completes. Change
-   * this method to return a Future.
+   * @return future success if prefetch is finished or {@link IOException}.
    */
-  void prefetchFiles(Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider)
-      throws IOException, InterruptedException;
+  ListenableFuture<Void> prefetchFiles(
+      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider);
 }

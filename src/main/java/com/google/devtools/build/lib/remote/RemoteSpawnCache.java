@@ -155,7 +155,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
     context.report(SPAWN_EXECUTING_EVENT);
 
-    context.prefetchInputs();
+    context.prefetchInputsAndWait();
 
     if (shouldUploadLocalResults) {
       return new CacheHandle() {
