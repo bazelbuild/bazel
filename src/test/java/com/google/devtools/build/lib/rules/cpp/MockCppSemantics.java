@@ -88,4 +88,15 @@ public final class MockCppSemantics implements CppSemantics {
   public boolean createEmptyArchive() {
     return false;
   }
+
+  @Override
+  public boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext) {
+    boolean experimentalCcInterfaceDeps =
+        ruleContext.getFragment(CppConfiguration.class).experimentalCcInterfaceDeps();
+    if (!experimentalCcInterfaceDeps
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("interface_deps")) {
+      ruleContext.attributeError("interface_deps", "requires --experimental_cc_interface_deps");
+    }
+    return experimentalCcInterfaceDeps;
+  }
 }
