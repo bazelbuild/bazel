@@ -27,7 +27,7 @@ JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 java_common = _builtins.toplevel.java_common
 java_proto_common = _builtins.toplevel.java_proto_common
 JavaInfo = _builtins.toplevel.JavaInfo
-proguard_spec_provider = _builtins.toplevel.ProguardSpecProvider
+ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 
 _JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
 
@@ -36,12 +36,16 @@ def _rule_impl(ctx):
         ctx,
         proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
     )
-    progard_provider = runtime_deps[proguard_spec_provider]
+    proguard_provider_specs = []
+    runtime_deps_java_info = []
+    if runtime_deps:
+        proguard_provider_specs = [runtime_deps[ProguardSpecProvider].specs]
+        runtime_deps_java_info = [runtime_deps[JavaInfo]]
 
     # Merging the retrieved list of aspect providers from the dependencies and runtime JavaInfo providers.
     java_info = java_common.merge(
         [dep[JavaInfo] for dep in ctx.attr.deps],
-        runtime_deps = [runtime_deps[JavaInfo]],
+        runtime_deps = runtime_deps_java_info,
     )
 
     # Collect the aspect output files.
@@ -56,8 +60,8 @@ def _rule_impl(ctx):
         ),
         java_info,
         OutputGroupInfo(default = depset()),
-        proguard_spec_provider(
-            depset(transitive = [progard_provider.specs]),
+        ProguardSpecProvider(
+            depset(transitive = proguard_provider_specs),
         ),
     ]
 
@@ -77,6 +81,9 @@ def _aspect_impl(target, ctx):
     # Collect the dependencies' aspect providers.
     deps = [dep[JavaInfo] for dep in ctx.rule.attr.deps]
 
+    # Collect the exports' aspect providers.
+    exports = [exp[JavaInfo] for exp in ctx.rule.attr.exports]
+
     if java_proto_common.has_proto_sources(target):
         source_jar = ctx.actions.declare_file(ctx.label.name + "-lite-src.jar")
         java_proto_common.create_java_lite_proto_compile_action(
@@ -91,18 +98,21 @@ def _aspect_impl(target, ctx):
 
         files_to_build.extend([source_jar, output_jar])
 
-        # This returns a java provider.
+        # This returns a java provider or None.
         toolchain_deps = java_proto_common.toolchain_deps(
             ctx,
             proto_toolchain_attr = PROTO_TOOLCHAIN_ATTR,
         )
+        if toolchain_deps:
+            deps.extend([toolchain_deps])
 
         java_info = java_common.compile(
             ctx,
             injecting_rule_kind = "java_lite_proto_library",
             source_jars = [source_jar],
             output = output_jar,
-            deps = deps + [toolchain_deps],
+            deps = deps,
+            exports = exports,
             java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
         )
     else:
@@ -116,7 +126,7 @@ def _aspect_impl(target, ctx):
 
 java_lite_proto_aspect = aspect(
     implementation = _aspect_impl,
-    attr_aspects = ["deps"],
+    attr_aspects = ["deps", "exports"],
     attrs = {
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
