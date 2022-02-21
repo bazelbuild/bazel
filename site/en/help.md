@@ -28,6 +28,7 @@ There are recordings of Bazel talks at various conferences, such as:
   * [BazelCon 2018](https://youtu.be/DVYRg6b2UBo?t=PLxNYxgaZ8Rsd3Nmvl1W1B4I6nK1674ezp){: .external}
   * [BazelCon 2017](https://youtu.be/3eFllvz8_0k?t=PLxNYxgaZ8RseY0KmkXQSt0StE71E7yizG){: .external}
 * Bazel day on [Google Open Source Live](https://opensourcelive.withgoogle.com/events/bazel){: .external}
+
 {% dynamic endif %}
 
 ## Ask the Bazel community {:#community}
