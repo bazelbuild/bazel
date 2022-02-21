@@ -256,6 +256,7 @@ final class JavaInfoBuildHelper {
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      boolean enableJSpecify,
       JavaSemantics javaSemantics,
       Object injectingRuleKind,
       StarlarkThread thread)
@@ -272,6 +273,7 @@ final class JavaInfoBuildHelper {
             .addClasspathResources(classpathResources)
             .setSourcePathEntries(sourcepathEntries)
             .addAdditionalOutputs(annotationProcessorAdditionalOutputs)
+            .enableJspecify(enableJSpecify)
             .setJavacOpts(
                 ImmutableList.<String>builder()
                     .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))

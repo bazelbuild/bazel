@@ -231,6 +231,12 @@ public interface JavaCommonApi<
                     + " intended for use by non-library targets such as binaries that do not have"
                     + " dependants."),
         @Param(
+            name = "enable_jspecify",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            documented = false),
+        @Param(
             name = "injecting_rule_kind",
             documented = false,
             positional = false,
@@ -266,6 +272,7 @@ public interface JavaCommonApi<
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      Boolean enableJSpecify,
       Object injectingRuleKind,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

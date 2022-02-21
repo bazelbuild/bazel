@@ -114,6 +114,7 @@ def _aspect_impl(target, ctx):
             deps = deps,
             exports = exports,
             java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+            enable_jspecify = False,
         )
     else:
         # If there are no proto sources just pass along the compilation dependencies.
