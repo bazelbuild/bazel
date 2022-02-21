@@ -147,7 +147,7 @@ public interface WorkspaceGlobalsApi {
       doc =
           "<p>Warning: use of <code>bind()</code> is not recommended. See <a"
               + " href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider removing"
-              + " bind</a> for a long discussion if its issues and alternatives.</p> <p>Gives a"
+              + " bind</a> for a long discussion of its issues and alternatives.</p> <p>Gives a"
               + " target an alias in the <code>//external</code> package.</p>",
       parameters = {
         @Param(
