@@ -323,14 +323,33 @@ class ByteStreamUploader {
               // level/algorithm, so we cannot know the expected committed offset
               long committedSize = committedOffset.get();
               long expected = chunker.getOffset();
-              if (!chunker.hasNext() && committedSize != expected) {
+
+              if (committedSize == expected) {
+                // Both compressed and uncompressed uploads can succeed
+                // with this result.
+                return immediateVoidFuture();
+              }
+
+              if (chunker.isCompressed()) {
+                if (committedSize == -1) {
+                  // Returned early, blob already available.
+                  return immediateVoidFuture();
+                }
+
                 String message =
                     format(
-                        "write incomplete: committed_size %d for %d total",
+                        "compressed write incomplete: committed_size %d is neither -1 nor total %d",
                         committedSize, expected);
                 return Futures.immediateFailedFuture(new IOException(message));
               }
+
+              // Uncompressed upload failed.
+              String message =
+                  format(
+                      "write incomplete: committed_size %d for %d total", committedSize, expected);
+              return Futures.immediateFailedFuture(new IOException(message));
             }
+
             return immediateVoidFuture();
           },
           MoreExecutors.directExecutor());
