@@ -346,7 +346,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         // remove some of the filesystem operations we're doing here.
         Path path = traversal.root.asRootedPath().asPath();
         FileStateValue fileState =
-            FileStateValue.create(traversal.root.asRootedPath(), SyscallCache.NO_CACHE, null);
+            FileStateValue.create(traversal.root.asRootedPath(), syscallCache, null);
         if (fileState.getType() == FileStateType.NONEXISTENT) {
           throw new IOException("Missing file: " + path);
         }
