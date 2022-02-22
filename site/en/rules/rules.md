@@ -756,7 +756,7 @@ on the target name as well, but this feature is deprecated.
 
 In addition to default outputs, there are *output groups*, which are collections
 of output files that may be requested together. These can be requested with
-[`--output_groups`](/rules/command-line-reference#flag--output_groups). For
+[`--output_groups`](/reference/command-line-reference#flag--output_groups). For
 example, if a target `//pkg:mytarget` is of a rule type that has a `debug_files`
 output group, these files can be built by running `bazel build //pkg:mytarget
 --output_groups=debug_files`. Since non-predeclared outputs don't have labels,

@@ -80,7 +80,7 @@ any language.
     language (such as Maven for Java), and support incremental migration paths
     from other widely-used build systems.
 1.  The rules need to be **extensible and interoperable**, following
-    ["Bazel sandwich"](https://bazel.build/designs/2016/08/04/extensibility-for-native-rules.html)
+    ["Bazel sandwich"](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-08-04-extensibility-for-native-rules.md)
     principles.
 1.  The rules need to be **remote-execution ready**. In practice, this means
     **configurable using the [toolchains](/docs/toolchains) mechanism**.
