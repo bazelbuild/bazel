@@ -132,7 +132,12 @@ See documentation in <code>ProtoInfo.java</code>.</p>
    is located in the same package.
 <li> A <code>[language]_proto_library</code> that wraps a <code>proto_library</code> named
   <code>foo_proto</code> should be called
-   <code>foo_[language]_proto</code>, and be located in the same package.
+  <code>foo_[language]_proto</code>, and be located in the same package.
+  
+  <p>For a high-level overview of using Protocol Buffers and gRPC with Bazel, see
+     <a href="https://bazel-contrib.github.io/SIG-rules-authors/proto-grpc.html">
+     https://bazel-contrib.github.io/SIG-rules-authors/proto-grpc.html</a>.
+  </p>
 </ul>
 
 <!-- #END_BLAZE_RULE -->*/
