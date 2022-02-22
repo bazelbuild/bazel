@@ -32,7 +32,7 @@ you don't have it installed already.
 1.  Install Java JDK (preferred version is 11, however versions between 8 and 15 are supported).
 
 2.  Set the JAVA\_HOME environment variable to point to the JDK.
-    *   On Linux/macOS:
+    *   On Linux/macOS:\
 
             export JAVA_HOME="$(dirname $(dirname $(realpath $(which javac))))"
     *   On Windows:
@@ -180,7 +180,7 @@ Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
 As you can see, the project has a single target that build two source files with
 no additional dependencies:
 
-![Dependency graph of the target 'ProjectRunner'](/assets/tutorial_java_01.svg)
+![Dependency graph of the target 'ProjectRunner'](/site/assets/tutorial_java_01.svg)
 
 After you set up your workspace, build your project, and examine its
 dependencies, then you can add some complexity.
@@ -244,7 +244,7 @@ Looking at the dependency graph, you can see that `ProjectRunner` depends on the
 same inputs as it did before, but the structure of the build is different:
 
 ![Dependency graph of the target 'ProjectRunner' after adding a dependency](
-/assets/tutorial_java_02.svg)
+/site/assets/tutorial_java_02.svg)
 
 You've now built the project with two targets. The `ProjectRunner` target builds
 two source files and depends on one other target (`:greeter`), which builds
@@ -273,7 +273,7 @@ The `runner` target depends on the `greeter` target in the `//` package (hence
 the target label `//:greeter`) - Bazel knows this through the `deps` attribute.
 Take a look at the dependency graph:
 
-![Dependency graph of the target 'runner'](/assets/tutorial_java_03.svg)
+![Dependency graph of the target 'runner'](/site/assets/tutorial_java_03.svg)
 
 However, for the build to succeed, you must explicitly give the `runner` target
 in `//src/main/java/com/example/cmdline/BUILD` visibility to targets in
