@@ -435,6 +435,27 @@ def _additional_inputs_from_linking_context(linking_context):
         inputs.extend(linker_input.additional_inputs)
     return depset(inputs, order = "topological")
 
+def _stringify_linker_input(linker_input):
+    parts = []
+    parts.append(str(linker_input.owner))
+    for library in linker_input.libraries:
+        if library.static_library != None:
+            parts.append(library.static_library.path)
+        if library.pic_static_library != None:
+            parts.append(library.pic_static_library.path)
+        if library.dynamic_library != None:
+            parts.append(library.dynamic_library.path)
+        if library.interface_library != None:
+            parts.append(library.interface_library.path)
+
+    for additional_input in linker_input.additional_inputs:
+        parts.append(additional_input.path)
+
+    for linkstamp in linker_input.linkstamps:
+        parts.append(linkstamp.file.path)
+
+    return "".join(parts)
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -462,4 +483,5 @@ cc_helper = struct(
     dll_hash_suffix = _dll_hash_suffix,
     get_windows_def_file_for_linking = _get_windows_def_file_for_linking,
     generate_def_file = _generate_def_file,
+    stringify_linker_input = _stringify_linker_input,
 )

@@ -452,12 +452,13 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
 
     (link_statically_labels, link_dynamically_labels) = _separate_static_and_dynamic_link_libraries(graph_structure_aspect_nodes, can_be_linked_dynamically)
 
-    owners_seen = {}
+    linker_inputs_seen = {}
     for linker_input in linker_inputs:
-        owner = str(linker_input.owner)
-        if owner in owners_seen:
+        stringified_linker_input = cc_helper.stringify_linker_input(linker_input)
+        if stringified_linker_input in linker_inputs_seen:
             continue
-        owners_seen[owner] = True
+        linker_inputs_seen[stringified_linker_input] = True
+        owner = str(linker_input.owner)
         if owner not in link_dynamically_labels and (owner in link_statically_labels or _get_canonical_form(ctx.label) == owner):
             if owner in link_once_static_libs_map:
                 fail(owner + " is already linked statically in " + link_once_static_libs_map[owner] + " but not exported.")

@@ -263,12 +263,14 @@ def _filter_inputs(
     precompiled_only_dynamic_libraries = []
     unaccounted_for_libs = []
     exports = {}
-    owners_seen = {}
+    linker_inputs_seen = {}
+    dynamic_only_roots = {}
     for linker_input in dependency_linker_inputs:
-        owner = str(linker_input.owner)
-        if owner in owners_seen:
+        stringified_linker_input = cc_helper.stringify_linker_input(linker_input)
+        if stringified_linker_input in linker_inputs_seen:
             continue
-        owners_seen[owner] = True
+        linker_inputs_seen[stringified_linker_input] = True
+        owner = str(linker_input.owner)
         if owner in link_dynamically_labels:
             dynamic_linker_input = transitive_exports[owner]
             linker_inputs.append(dynamic_linker_input)
@@ -278,7 +280,6 @@ def _filter_inputs(
                      link_once_static_libs_map[owner] + " but not exported")
 
             is_direct_export = owner in direct_exports
-
             dynamic_only_libraries = []
             static_libraries = []
             for library in linker_input.libraries:
@@ -288,15 +289,14 @@ def _filter_inputs(
                     static_libraries.append(library)
 
             if len(dynamic_only_libraries):
+                precompiled_only_dynamic_libraries.extend(dynamic_only_libraries)
                 if not len(static_libraries):
                     if is_direct_export:
-                        fail("Do not place libraries which only contain a precompiled dynamic library in roots.")
-
-                precompiled_only_dynamic_libraries.extend(dynamic_only_libraries)
-
-                if not len(static_libraries):
+                        dynamic_only_roots[owner] = True
                     linker_inputs.append(linker_input)
                     continue
+            if len(static_libraries) and owner in dynamic_only_roots:
+                dynamic_only_roots.pop(owner)
 
             if is_direct_export:
                 wrapped_library = _wrap_static_library_with_alwayslink(
@@ -333,6 +333,14 @@ def _filter_inputs(
                     linker_inputs.append(linker_input)
                 else:
                     unaccounted_for_libs.append(linker_input.owner)
+
+    if dynamic_only_roots:
+        message = ("Do not place libraries which only contain a " +
+                   "precompiled dynamic library in roots. The following " +
+                   "libraries only have precompiled dynamic libraries:\n")
+        for dynamic_only_root in dynamic_only_roots:
+            message += dynamic_only_root + "\n"
+        fail(message)
 
     _throw_error_if_unaccounted_libs(unaccounted_for_libs)
     return (exports, linker_inputs, link_once_static_libs, precompiled_only_dynamic_libraries)
