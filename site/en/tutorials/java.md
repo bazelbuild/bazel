@@ -32,7 +32,7 @@ you don't have it installed already.
 1.  Install Java JDK (preferred version is 11, however versions between 8 and 15 are supported).
 
 2.  Set the JAVA\_HOME environment variable to point to the JDK.
-    *   On Linux/macOS:\
+    *   On Linux/macOS:
 
             export JAVA_HOME="$(dirname $(dirname $(realpath $(which javac))))"
     *   On Windows:
