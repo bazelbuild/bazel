@@ -27,7 +27,7 @@
 #
 set -eu
 
-INSTALL_NAME_TOOL="/usr/bin/install_name_tool"
+INSTALL_NAME_TOOL=/usr/bin/xcrun install_name_tool
 
 LIBS=
 LIB_DIRS=
