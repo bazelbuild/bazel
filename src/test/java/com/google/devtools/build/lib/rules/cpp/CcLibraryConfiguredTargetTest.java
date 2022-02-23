@@ -1894,6 +1894,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     useConfiguration("--experimental_cc_interface_deps");
     scratch.file(
         "foo/BUILD",
@@ -1959,6 +1960,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     useConfiguration("--experimental_cc_interface_deps");
     scratch.file(
         "foo/BUILD",
@@ -2030,6 +2032,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testInterfaceDepsFailsWithoutFlagOrTag() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     scratch.file(
         "foo/BUILD",
         "cc_library(",
@@ -2055,6 +2058,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testInterfaceDepsNotInAllowlistThrowsError() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     if (analysisMock.isThisBazel()) {
       // In OSS usage is controlled only by a flag and not an allowlist.
       return;
