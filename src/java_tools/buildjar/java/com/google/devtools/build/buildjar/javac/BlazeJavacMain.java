@@ -138,7 +138,7 @@ public class BlazeJavacMain {
       } catch (PropagatedException e) {
         throw e.getCause();
       }
-    } catch (Throwable t) {
+    } catch (Exception t) {
       if (t.getCause() instanceof CancelRequestException) {
         return BlazeJavacResult.cancelled(t.getCause().getMessage());
       }
