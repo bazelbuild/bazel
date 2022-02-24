@@ -329,11 +329,20 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         if (allowsMultiple) {
           // if this setting allows multiple settings
           if (!(newValue instanceof List)) {
-            throw new TransitionException(
-                String.format(
-                    "'%s' allows multiple values and must be set"
-                        + " in transition using a starlark list instead of single value '%s'",
-                    actualSetting, newValue));
+            if (newValue.equals(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+              // We make an exception for the default value here for two reasons:
+              // 1. It ensures that specifying a setting with allow_multiple as an input but not as
+              //    an output of a transition does not run into the exception below.
+              // 2. It provides a clear way to reset the setting to its (literal) default from a
+              //    transition.
+              newValue = ImmutableList.of(newValue);
+            } else {
+              throw new TransitionException(
+                  String.format(
+                      "'%s' allows multiple values and must be set"
+                          + " in transition using a starlark list instead of single value '%s'",
+                      actualSetting, newValue));
+            }
           }
           List<?> rawNewValueAsList = (List<?>) newValue;
           List<Object> convertedValue = new ArrayList<>();
