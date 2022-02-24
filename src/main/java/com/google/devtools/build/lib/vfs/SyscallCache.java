@@ -62,8 +62,16 @@ public interface SyscallCache {
   @Nullable
   DirentTypeWithSkip getType(Path path, Symlinks symlinks) throws IOException;
 
+  /**
+   * This and {@link #getxattr} exist for caches that may retrieve bulk data for a path
+   * (stat+digest+xattrs) at once.
+   */
   default byte[] getFastDigest(Path path) throws IOException {
     return path.getFastDigest();
+  }
+
+  default byte[] getxattr(Path path, String xattrName) throws IOException {
+    return path.getxattr(xattrName);
   }
 
   /** Called before each build. Implementations should flush their caches at that point. */
