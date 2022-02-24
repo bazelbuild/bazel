@@ -30,7 +30,7 @@ def _create_proto_compile_action(
         resource_set = None):
     """Creates proto compile action for compiling *.proto files to language specific sources.
 
-    It uses proto configuration fragment to access protoc_opts and strict_proto_deps flags.
+    It uses proto configuration fragment to access experimental_protoc_opts and strict_proto_deps flags.
 
     Args:
       ctx: The rule context, used to create the action and to obtain label.
@@ -68,7 +68,7 @@ def _create_proto_compile_action(
             else:
                 args.add(arg)
 
-    args.add_all(ctx.fragments.proto.protoc_opts())
+    args.add_all(ctx.fragments.proto.experimental_protoc_opts)
 
     # Include maps
     # For each import, include both the import as well as the import relativized against its

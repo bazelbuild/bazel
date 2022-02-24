@@ -218,9 +218,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.options = options;
   }
 
-  @StarlarkMethod(name = "protoc_opts", useStarlarkThread = true, documented = false)
-  public ImmutableList<String> protocOptsForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "experimental_protoc_opts", structField = true, documented = false)
+  public ImmutableList<String> protocOptsForStarlark() throws EvalException {
     return protocOpts();
   }
 
