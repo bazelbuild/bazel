@@ -1,3 +1,37 @@
+## Release 6.0.0-pre.20220216.3 (2022-02-24)
+
+```
+Baseline: b194653252feb363ff3c3c7ac015329f5137a3f9
+
+Cherry picks:
+
+   + e6a44f89ec9fb40822fa4588aeb58416075922ee:
+     ConfigurationsForTargetsTest should test the exec transition.
+   + 563664e0e0a9083be554b4931654743d84b9cba4:
+     Add
+     `--incompatible_android_platforms_transition_updates_affected`
+   + 9a8cac7625f51034b8f9957db0e2392c4b6def63:
+     Force local spawns to work around remote cache problem /
+     spurious test failure
+   + bdc6c5c8d013a4cddc467e2c8385a3d05b41a8fb:
+     Automated rollback of commit
+     34f20a181c0bf2c3857eeaab3f5b6031757afbcf.
+```
+
+Incompatible changes:
+
+  - The --incompatible_existing_rules_immutable_view flag has been
+    flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/13907 for
+    migration notes.
+
+Important changes:
+
+  - Fixed an issue where Bazel could erroneously report a test passes
+    in coverage mode without actually running the test.
+
+This release contains contributions from many people at Google, as well as Ast-x64, Benjamin Lee, Dan Fleming, Daniel Wagner-Hall, David Ostrovsky, Fabian Meumertzheim, Keith Smiley, Matt Mackay, Niyas Sait, Yuval K.
+
 ## Release 6.0.0-pre.20220208.2 (2022-02-17)
 
 ```
