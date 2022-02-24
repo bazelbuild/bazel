@@ -19,12 +19,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -50,6 +47,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -58,36 +56,6 @@ import java.util.stream.Collectors;
 public class MultiArchBinarySupport {
   private final RuleContext ruleContext;
   private final CppSemantics cppSemantics;
-
-  /**
-   * Returns all child configurations for this multi-arch target, mapped to the toolchains that they
-   * should use.
-   */
-  static ImmutableMap<BuildConfigurationValue, CcToolchainProvider>
-      getChildConfigurationsAndToolchains(RuleContext ruleContext) {
-    ImmutableListMultimap<BuildConfigurationValue, CcToolchainProvider> configToProvider =
-        ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, CcToolchainProvider.PROVIDER);
-
-    ImmutableMap.Builder<BuildConfigurationValue, CcToolchainProvider> result =
-        ImmutableMap.builder();
-    for (BuildConfigurationValue config : configToProvider.keySet()) {
-      CcToolchainProvider toolchain = Iterables.getOnlyElement(configToProvider.get(config));
-      result.put(config, toolchain);
-    }
-
-    return result.buildOrThrow();
-  }
-
-  static <V> ImmutableListMultimap<String, V> transformMap(
-      Multimap<BuildConfigurationValue, V> input) {
-    ImmutableListMultimap.Builder<String, V> result = ImmutableListMultimap.builder();
-    for (Map.Entry<BuildConfigurationValue, V> entry : input.entries()) {
-      result.put(entry.getKey().getCpu(), entry.getValue());
-    }
-
-    return result.build();
-  }
 
   /** A tuple of values about dependency trees in a specific child configuration. */
   @AutoValue
@@ -149,7 +117,7 @@ public class MultiArchBinarySupport {
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
       boolean isStampingEnabled,
-      Iterable<TransitiveInfoCollection> infoCollections,
+      Iterable<? extends TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
     IntermediateArtifacts intermediateArtifacts =
@@ -191,53 +159,60 @@ public class MultiArchBinarySupport {
   }
 
   /**
-   * Returns a set of {@link DependencySpecificConfiguration} instances that comprise all
-   * information about the dependencies for each child configuration. This can be used both to
-   * register actions in {@link #registerConfigurationSpecificLinkActions} and collect provider
-   * information to be propagated upstream.
+   * Returns a map of {@link DependencySpecificConfiguration} instances keyed by their split
+   * transition key. Each dependency specific configuration comprise all information about the
+   * dependencies for each child configuration. This can be used both to register actions in {@link
+   * #registerConfigurationSpecificLinkActions} and collect provider information to be propagated
+   * upstream.
    *
-   * @param childConfigurationsAndToolchains the set of configurations and toolchains for which
-   *     dependencies of the current rule are built
-   * @param cpuToDepsCollectionMap a map from child configuration CPU to providers that "deps" of
-   *     the current rule have propagated in that configuration
+   * @param splitToolchains a map from split toolchains for which dependencies of the current rule
+   *     are built
+   * @param splitDeps a map from split "deps" of the current rule.
    * @param dylibProviders {@link TransitiveInfoCollection}s that dynamic library dependencies of
    *     the current rule have propagated
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public ImmutableSet<DependencySpecificConfiguration> getDependencySpecificConfigurations(
-      Map<BuildConfigurationValue, CcToolchainProvider> childConfigurationsAndToolchains,
-      ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
-      ImmutableList<TransitiveInfoCollection> dylibProviders)
-      throws RuleErrorException, InterruptedException {
+  public ImmutableMap<Optional<String>, DependencySpecificConfiguration>
+      getDependencySpecificConfigurations(
+          Map<Optional<String>, List<ConfiguredTargetAndData>> splitToolchains,
+          Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps,
+          ImmutableList<TransitiveInfoCollection> dylibProviders)
+          throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
-    ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
-    for (BuildConfigurationValue childToolchainConfig : childConfigurationsAndToolchains.keySet()) {
-      String childCpu = childToolchainConfig.getCpu();
-
+    ImmutableMap.Builder<Optional<String>, DependencySpecificConfiguration> childInfoBuilder =
+        ImmutableMap.builder();
+    for (Optional<String> splitTransitionKey : splitToolchains.keySet()) {
+      ConfiguredTargetAndData ctad =
+          Iterables.getOnlyElement(splitToolchains.get(splitTransitionKey));
+      BuildConfigurationValue childToolchainConfig = ctad.getConfiguration();
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
+
+      List<? extends TransitiveInfoCollection> propagatedDeps =
+          getProvidersFromCtads(splitDeps.get(splitTransitionKey));
 
       ObjcCommon common =
           common(
               ruleContext,
               childToolchainConfig,
               intermediateArtifacts,
-              nullToEmptyList(cpuToDepsCollectionMap.get(childCpu)),
+              propagatedDeps,
               dylibObjcProviders);
       ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
           objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
 
-      childInfoBuilder.add(
+      CcToolchainProvider toolchainProvider =
+          ctad.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
+
+      childInfoBuilder.put(
+          splitTransitionKey,
           DependencySpecificConfiguration.create(
-              childToolchainConfig,
-              childConfigurationsAndToolchains.get(childToolchainConfig),
-              objcProvider,
-              objcProviderWithDylibSymbols));
+              childToolchainConfig, toolchainProvider, objcProvider, objcProviderWithDylibSymbols));
     }
 
-    return childInfoBuilder.build();
+    return childInfoBuilder.buildOrThrow();
   }
 
   /**
@@ -540,15 +515,23 @@ public class MultiArchBinarySupport {
     return commonBuilder.build();
   }
 
-  private <T> List<T> nullToEmptyList(List<T> inputList) {
-    return inputList != null ? inputList : ImmutableList.<T>of();
-  }
-
   private static <T extends Info> ImmutableList<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections, BuiltinProvider<T> providerClass) {
+      Iterable<? extends TransitiveInfoCollection> infoCollections,
+      BuiltinProvider<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
         .collect(ImmutableList.toImmutableList());
+  }
+
+  /** Returns providers from a list of {@link ConfiguredTargetAndData} */
+  public static List<? extends TransitiveInfoCollection> getProvidersFromCtads(
+      List<ConfiguredTargetAndData> ctads) {
+    if (ctads == null) {
+      return ImmutableList.<TransitiveInfoCollection>of();
+    }
+    return ctads.stream()
+        .map(ConfiguredTargetAndData::getConfiguredTarget)
+        .collect(Collectors.toList());
   }
 }

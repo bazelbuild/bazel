@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -31,12 +32,13 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -69,17 +71,25 @@ public class AppleBinary {
       Iterable<Artifact> extraLinkInputs,
       boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
-        MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
+    Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps =
+        ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets("deps");
+    Map<Optional<String>, List<ConfiguredTargetAndData>> splitToolchains =
+        ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets(
+            ObjcRuleClasses.CHILD_CONFIG_ATTR);
 
-    ImmutableMap<BuildConfigurationValue, CcToolchainProvider> childConfigurationsAndToolchains =
-        MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
+    Preconditions.checkState(
+        splitDeps.keySet().isEmpty() || splitDeps.keySet().equals(splitToolchains.keySet()),
+        "Split transition keys are different between 'deps' [%s] and '%s' [%s]",
+        splitDeps.keySet(),
+        ObjcRuleClasses.CHILD_CONFIG_ATTR,
+        splitToolchains.keySet());
+
     MultiArchBinarySupport multiArchBinarySupport =
         new MultiArchBinarySupport(ruleContext, cppSemantics);
-
-    ImmutableSet<DependencySpecificConfiguration> dependencySpecificConfigurations =
-        multiArchBinarySupport.getDependencySpecificConfigurations(
-            childConfigurationsAndToolchains, cpuToDepsCollectionMap, avoidDeps);
+    ImmutableMap<Optional<String>, DependencySpecificConfiguration>
+        dependencySpecificConfigurations =
+            multiArchBinarySupport.getDependencySpecificConfigurations(
+                splitToolchains, splitDeps, avoidDeps);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
 
@@ -100,7 +110,7 @@ public class AppleBinary {
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
-        dependencySpecificConfigurations) {
+        dependencySpecificConfigurations.values()) {
       objcProviderBuilder.addTransitiveAndPropagate(
           dependencySpecificConfiguration.objcProviderWithDylibSymbols());
     }
@@ -110,10 +120,10 @@ public class AppleBinary {
     AppleLinkingOutputs.Builder builder =
         new AppleLinkingOutputs.Builder().addOutputGroups(outputGroupCollector);
 
-    for (DependencySpecificConfiguration dependencySpecificConfiguration :
-        dependencySpecificConfigurations) {
+    for (Optional<String> splitTransitionKey : dependencySpecificConfigurations.keySet()) {
+      DependencySpecificConfiguration dependencySpecificConfiguration =
+          dependencySpecificConfigurations.get(splitTransitionKey);
       BuildConfigurationValue childConfig = dependencySpecificConfiguration.config();
-      String configCpu = childConfig.getCpu();
       AppleConfiguration childAppleConfig = childConfig.getFragment(AppleConfiguration.class);
       CppConfiguration childCppConfig = childConfig.getFragment(CppConfiguration.class);
       ObjcConfiguration childObjcConfig = childConfig.getFragment(ObjcConfiguration.class);
@@ -122,17 +132,21 @@ public class AppleBinary {
               ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", childConfig);
       String arch = childAppleConfig.getSingleArchitecture();
 
+      List<? extends TransitiveInfoCollection> propagatedDeps =
+          MultiArchBinarySupport.getProvidersFromCtads(splitDeps.get(splitTransitionKey));
+
       Artifact binaryArtifact =
           multiArchBinarySupport.registerConfigurationSpecificLinkActions(
               dependencySpecificConfiguration,
               new ExtraLinkArgs(allLinkopts.build()),
               allLinkInputs.build(),
               isStampingEnabled,
-              cpuToDepsCollectionMap.get(configCpu),
+              propagatedDeps,
               outputGroupCollector);
 
       // TODO(b/177442911): Use the target platform from platform info coming from split
       // transition outputs instead of inferring this based on the target CPU.
+      String configCpu = childConfig.getCpu();
       ApplePlatform cpuPlatform = ApplePlatform.forTargetCpu(configCpu);
 
       AppleLinkingOutputs.LinkingOutput.Builder outputBuilder =
