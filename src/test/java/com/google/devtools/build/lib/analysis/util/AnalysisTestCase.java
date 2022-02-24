@@ -82,11 +82,11 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -163,6 +163,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory;
   private PathPackageLocator pkgLocator;
+  protected final TestUtils.DelegatingSyscallCache delegatingSyscallCache =
+      new TestUtils.DelegatingSyscallCache();
 
   @Before
   public final void createMocks() throws Exception {
@@ -196,7 +198,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setActionKeyContext(actionKeyContext)
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-        .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+        .setPerCommandSyscallCache(delegatingSyscallCache)
         .build();
   }
 

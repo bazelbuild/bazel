@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A per-build cache of filesystem operations.
@@ -135,7 +136,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
 
   @Override
   @SuppressWarnings("unchecked")
-  public Dirent.Type getType(Path path, Symlinks symlinks) throws IOException {
+  public DirentTypeWithSkip getType(Path path, Symlinks symlinks) throws IOException {
     // Use a cached stat call if we have one. This is done first so that we don't need to iterate
     // over a list of directory entries as we do for cached readdir() entries. We don't ever expect
     // to get a cache hit if symlinks == Symlinks.NOFOLLOW and so we don't bother to check.
@@ -146,14 +147,14 @@ public final class PerBuildSyscallCache implements SyscallCache {
         if (result == NO_STATUS) {
           return null;
         }
-        return SyscallCache.statusToDirentType((FileStatus) result);
+        return ofStat((FileStatus) result);
       }
     }
 
     // If this is a root directory, we must stat, there is no parent.
     Path parent = path.getParentDirectory();
     if (parent == null) {
-      return SyscallCache.statusToDirentType(statIfFound(path, symlinks));
+      return ofStat(statIfFound(path, symlinks));
     }
 
     // Answer based on a cached readdir() call if possible. The cache might already be populated
@@ -178,14 +179,19 @@ public final class PerBuildSyscallCache implements SyscallCache {
         }
         if (dirent.getType() == Dirent.Type.SYMLINK && symlinks == Symlinks.FOLLOW) {
           // See above: We don't want to follow symlinks with readdir(). Do a stat() instead.
-          return SyscallCache.statusToDirentType(statIfFound(path, Symlinks.FOLLOW));
+          return ofStat(statIfFound(path, Symlinks.FOLLOW));
         }
-        return dirent.getType();
+        return DirentTypeWithSkip.of(dirent.getType());
       }
       return null;
     }
 
-    return SyscallCache.statusToDirentType(statIfFound(path, symlinks));
+    return ofStat(statIfFound(path, symlinks));
+  }
+
+  @Nullable
+  private static DirentTypeWithSkip ofStat(@Nullable FileStatus status) {
+    return DirentTypeWithSkip.of(SyscallCache.statusToDirentType(status));
   }
 
   @Override

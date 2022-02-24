@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -101,6 +102,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
+  private final TestUtils.DelegatingSyscallCache delegatingSyscallCache =
+      new TestUtils.DelegatingSyscallCache();
 
   @Override
   public void setUp() throws Exception {
@@ -317,6 +320,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     initTargetPatternEvaluator(ruleClassProvider);
   }
 
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.delegatingSyscallCache.setDelegate(syscallCache);
+  }
+
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {
     PackageFactory pkgFactory =
         TestPackageFactoryBuilderFactory.getInstance()
@@ -332,7 +339,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setPerCommandSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(

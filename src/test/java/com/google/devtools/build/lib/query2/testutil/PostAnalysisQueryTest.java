@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -46,20 +45,13 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -544,35 +536,8 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
   @Test
   public void inconsistentSkyQueryIncremental() throws Exception {
-    PathFragment barBuild = PathFragment.create("bar/BUILD");
-    PostAnalysisQueryHelper.AnalysisHelper analysisHelper =
-        new PostAnalysisQueryHelper.AnalysisHelper() {
-          @Override
-          protected FileSystem createFileSystem() {
-            return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256) {
-              private final AtomicInteger barStatCount = new AtomicInteger(0);
-
-              @Nullable
-              @Override
-              public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
-                  throws IOException {
-                return path.endsWith(barBuild) && barStatCount.incrementAndGet() == 2
-                    ? null
-                    : super.statIfFound(path, followSymlinks);
-              }
-            };
-          }
-
-          @Override
-          protected FlagBuilder defaultFlags() {
-            // This is normally done in the test body, but easy to just piggyback here.
-            reporter.removeHandler(failFastHandler);
-            return super.defaultFlags().with(Flag.KEEP_GOING);
-          }
-        };
-    createQueryHelper();
-    getHelper().setUp(analysisHelper);
-    disableOrderedResults();
+    getHelper().setSyscallCache(TestUtils.makeDisappearingFileCache("bar/BUILD"));
+    getHelper().turnOffFailFast();
     writeFile("foo/BUILD");
     writeFile("bar/BUILD");
     getHelper().setUniverseScope("//bar/...");

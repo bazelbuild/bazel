@@ -72,7 +72,15 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       RootedPath rootedPath, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Path path = rootedPath.asPath();
-    Dirent.Type type = syscallCache.getType(path, Symlinks.NOFOLLOW);
+    SyscallCache.DirentTypeWithSkip typeWithSkip = syscallCache.getType(path, Symlinks.NOFOLLOW);
+    FileStatus stat = null;
+    Dirent.Type type = null;
+    if (typeWithSkip == SyscallCache.DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED) {
+      stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+      type = SyscallCache.statusToDirentType(stat);
+    } else if (typeWithSkip != null) {
+      type = typeWithSkip.getType();
+    }
     if (type == null) {
       return NONEXISTENT_FILE_STATE_NODE;
     }
@@ -83,7 +91,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
       case FILE:
       case UNKNOWN:
-        FileStatus stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+        if (stat == null) {
+          stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+        }
         if (stat == null) {
           throw new InconsistentFilesystemException(
               "File " + rootedPath + " found in directory, but stat failed");

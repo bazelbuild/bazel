@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import java.io.IOException;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * Centralized point to perform filesystem calls, to promote caching. Ideally all filesystem
@@ -36,8 +39,8 @@ public interface SyscallCache {
         }
 
         @Override
-        public Dirent.Type getType(Path path, Symlinks symlinks) throws IOException {
-          return statusToDirentType(statIfFound(path, symlinks));
+        public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
+          return DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED;
         }
 
         @Override
@@ -52,9 +55,12 @@ public interface SyscallCache {
 
   /**
    * Returns the type of a specific file. This may be answered using stat() or readdir(). Returns
-   * null if the path does not exist.
+   * null if the path does not exist. Returns {@link DirentTypeWithSkip#FILESYSTEM_OP_SKIPPED} if
+   * cache had no data for path and chose not to do filesystem access to determine the type. Callers
+   * should call {@link #statIfFound} and then {@link #statusToDirentType} if needed in that case.
    */
-  Dirent.Type getType(Path path, Symlinks symlinks) throws IOException;
+  @Nullable
+  DirentTypeWithSkip getType(Path path, Symlinks symlinks) throws IOException;
 
   default byte[] getFastDigest(Path path) throws IOException {
     return path.getFastDigest();
@@ -69,6 +75,47 @@ public interface SyscallCache {
    */
   default void noteAnalysisPhaseEnded() {
     clear();
+  }
+
+  /**
+   * A {@link Dirent.Type} with an additional element signifying that the type is unknown because
+   * this {@link SyscallCache} implementation skipped filesystem access.
+   */
+  enum DirentTypeWithSkip {
+    FILE(Dirent.Type.FILE),
+    DIRECTORY(Dirent.Type.DIRECTORY),
+    SYMLINK(Dirent.Type.SYMLINK),
+    UNKNOWN(Dirent.Type.UNKNOWN),
+    FILESYSTEM_OP_SKIPPED(null);
+
+    @Nullable private final Dirent.Type type;
+
+    DirentTypeWithSkip(@Nullable Dirent.Type type) {
+      this.type = type;
+    }
+
+    public Dirent.Type getType() {
+      checkState(this != FILESYSTEM_OP_SKIPPED, "No type if filesystem op skipped");
+      return type;
+    }
+
+    @Nullable
+    public static DirentTypeWithSkip of(@Nullable Dirent.Type type) {
+      if (type == null) {
+        return null;
+      }
+      switch (type) {
+        case FILE:
+          return FILE;
+        case DIRECTORY:
+          return DIRECTORY;
+        case SYMLINK:
+          return SYMLINK;
+        case UNKNOWN:
+          return UNKNOWN;
+      }
+      throw new IllegalStateException("Got unrecognized type " + type);
+    }
   }
 
   static Dirent.Type statusToDirentType(FileStatus status) {
