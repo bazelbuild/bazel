@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
@@ -533,5 +534,24 @@ public class MultiArchBinarySupport {
     return ctads.stream()
         .map(ConfiguredTargetAndData::getConfiguredTarget)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns an Apple target triplet (arch, platform, environment) for a given {@link
+   * BuildConfigurationValue}.
+   *
+   * @param config {@link BuildConfigurationValue} from rule context
+   * @return {@link AppleLinkingOutputs.TargetTriplet}
+   */
+  public static AppleLinkingOutputs.TargetTriplet getTargetTriplet(BuildConfigurationValue config) {
+    // TODO(b/177442911): Use the target platform from platform info coming from split
+    // transition outputs instead of inferring this based on the target CPU.
+    ApplePlatform cpuPlatform = ApplePlatform.forTargetCpu(config.getCpu());
+    AppleConfiguration appleConfig = config.getFragment(AppleConfiguration.class);
+
+    return TargetTriplet.create(
+        appleConfig.getSingleArchitecture(),
+        cpuPlatform.getTargetPlatform(),
+        cpuPlatform.getTargetEnvironment());
   }
 }

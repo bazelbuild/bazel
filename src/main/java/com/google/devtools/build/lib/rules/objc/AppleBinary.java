@@ -29,12 +29,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
+import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -124,13 +123,11 @@ public class AppleBinary {
       DependencySpecificConfiguration dependencySpecificConfiguration =
           dependencySpecificConfigurations.get(splitTransitionKey);
       BuildConfigurationValue childConfig = dependencySpecificConfiguration.config();
-      AppleConfiguration childAppleConfig = childConfig.getFragment(AppleConfiguration.class);
       CppConfiguration childCppConfig = childConfig.getFragment(CppConfiguration.class);
       ObjcConfiguration childObjcConfig = childConfig.getFragment(ObjcConfiguration.class);
       IntermediateArtifacts intermediateArtifacts =
           new IntermediateArtifacts(
               ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", childConfig);
-      String arch = childAppleConfig.getSingleArchitecture();
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           MultiArchBinarySupport.getProvidersFromCtads(splitDeps.get(splitTransitionKey));
@@ -144,22 +141,17 @@ public class AppleBinary {
               propagatedDeps,
               outputGroupCollector);
 
-      // TODO(b/177442911): Use the target platform from platform info coming from split
-      // transition outputs instead of inferring this based on the target CPU.
-      String configCpu = childConfig.getCpu();
-      ApplePlatform cpuPlatform = ApplePlatform.forTargetCpu(configCpu);
-
+      TargetTriplet childTriplet = MultiArchBinarySupport.getTargetTriplet(childConfig);
       AppleLinkingOutputs.LinkingOutput.Builder outputBuilder =
           AppleLinkingOutputs.LinkingOutput.builder()
-              .setPlatform(cpuPlatform.getTargetPlatform())
-              .setArchitecture(arch)
-              .setEnvironment(cpuPlatform.getTargetEnvironment())
+              .setTargetTriplet(childTriplet)
               .setBinary(binaryArtifact);
 
       if (childCppConfig.getAppleBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
         Artifact bitcodeSymbols = intermediateArtifacts.bitcodeSymbolMap();
         outputBuilder.setBitcodeSymbols(bitcodeSymbols);
-        legacyDebugOutputsBuilder.addOutput(arch, OutputType.BITCODE_SYMBOLS, bitcodeSymbols);
+        legacyDebugOutputsBuilder.addOutput(
+            childTriplet.architecture(), OutputType.BITCODE_SYMBOLS, bitcodeSymbols);
       }
       if (childCppConfig.appleGenerateDsym()) {
         Artifact dsymBinary =
@@ -167,12 +159,14 @@ public class AppleBinary {
                 ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
                 : intermediateArtifacts.dsymSymbolForStrippedBinary();
         outputBuilder.setDsymBinary(dsymBinary);
-        legacyDebugOutputsBuilder.addOutput(arch, OutputType.DSYM_BINARY, dsymBinary);
+        legacyDebugOutputsBuilder.addOutput(
+            childTriplet.architecture(), OutputType.DSYM_BINARY, dsymBinary);
       }
       if (childObjcConfig.generateLinkmap()) {
         Artifact linkmap = intermediateArtifacts.linkmap();
         outputBuilder.setLinkmap(linkmap);
-        legacyDebugOutputsBuilder.addOutput(arch, OutputType.LINKMAP, linkmap);
+        legacyDebugOutputsBuilder.addOutput(
+            childTriplet.architecture(), OutputType.LINKMAP, linkmap);
       }
 
       builder.addOutput(outputBuilder.build());

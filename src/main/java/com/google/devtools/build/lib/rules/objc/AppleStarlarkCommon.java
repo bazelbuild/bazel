@@ -316,13 +316,14 @@ public class AppleStarlarkCommon
     ImmutableList.Builder<StarlarkInfo> outputStructs = ImmutableList.builder();
 
     for (AppleLinkingOutputs.LinkingOutput linkingOutput : linkingOutputs.getOutputs()) {
+      AppleLinkingOutputs.TargetTriplet targetTriplet = linkingOutput.getTargetTriplet();
       outputStructs.add(
           StarlarkInfo.create(
               linkingOutputConstructor,
               ImmutableMap.<String, Object>builder()
-                  .put("platform", linkingOutput.getPlatform())
-                  .put("architecture", linkingOutput.getArchitecture())
-                  .put("environment", linkingOutput.getEnvironment())
+                  .put("platform", targetTriplet.platform())
+                  .put("architecture", targetTriplet.architecture())
+                  .put("environment", targetTriplet.environment())
                   .put("binary", linkingOutput.getBinary())
                   .put("bitcode_symbols", valueOrNone(linkingOutput.getBitcodeSymbols()))
                   .put("dsym_binary", valueOrNone(linkingOutput.getDsymBinary()))
