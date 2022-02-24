@@ -452,7 +452,7 @@ def _stringify_linker_input(linker_input):
         parts.append(additional_input.path)
 
     for linkstamp in linker_input.linkstamps:
-        parts.append(linkstamp.file.path)
+        parts.append(linkstamp.file().path)
 
     return "".join(parts)
 

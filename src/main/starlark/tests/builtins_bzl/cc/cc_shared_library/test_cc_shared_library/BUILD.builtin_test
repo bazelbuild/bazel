@@ -137,6 +137,7 @@ cc_library(
 cc_library(
     name = "qux",
     srcs = ["qux.cc"],
+    linkstamp = "l.cc",
     hdrs = ["qux.h"],
 )
 

@@ -72,7 +72,7 @@ def _additional_inputs_test_impl(ctx):
         actions = analysistest.target_actions(env)
 
         found = False
-        for arg in actions[3].argv:
+        for arg in actions[4].argv:
             if arg.find("-Wl,--script=") != -1:
                 asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
                 found = True
