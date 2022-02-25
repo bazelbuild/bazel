@@ -316,6 +316,10 @@ function test_incremental_deleting_package_roots() {
 }
 
 function test_no_package_loading_on_benign_workspace_file_changes() {
+  if [ -f WORKSPACE ]; then
+    cp WORKSPACE "${TEST_TMPDIR}/OLD_WORKSPACE"
+  fi
+
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -346,6 +350,12 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
+
+  if [ -f "${TEST_TMPDIR}/OLD_WORKSPACE" ]; then
+    # Restore the old WORKSPACE file we don't pollute the behavior of other test
+    # cases.
+    mv "${TEST_TMPDIR}/OLD_WORKSPACE" WORKSPACE
+  fi
 }
 
 function test_disallow_load_labels_to_cross_package_boundaries() {
