@@ -605,7 +605,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             externalDirtyNodes.put(key, value);
           }
           key = DirectoryListingStateValue.key(path);
-          memoizingEvaluator.getExistingValue(key);
+          value = memoizingEvaluator.getExistingValue(key);
           if (value != null) {
             externalDirtyNodes.put(key, value);
           }

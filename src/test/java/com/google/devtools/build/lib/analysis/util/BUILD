@@ -104,6 +104,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_roots_no_symlink_creation",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",

@@ -155,6 +155,7 @@ import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
@@ -249,6 +250,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   public void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
+    initializeSkyframeExecutor(
+        /*doPackageLoadingChecks=*/ doPackageLoadingChecks,
+        /*diffAwarenessFactories=*/ ImmutableList.of());
+  }
+
+  public void initializeSkyframeExecutor(
+      boolean doPackageLoadingChecks, ImmutableList<DiffAwareness.Factory> diffAwarenessFactories)
+      throws Exception {
     analysisMock = getAnalysisMock();
     directories =
         new BlazeDirectories(
@@ -314,7 +323,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE);
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setDiffAwarenessFactories(diffAwarenessFactories);
     ManagedDirectoriesKnowledge managedDirectoriesKnowledge = getManagedDirectoriesKnowledge();
     if (managedDirectoriesKnowledge != null) {
       builder.setRepositoryHelpersHolder(
