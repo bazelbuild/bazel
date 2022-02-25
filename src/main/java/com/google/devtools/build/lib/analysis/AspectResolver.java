@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -60,9 +60,7 @@ public final class AspectResolver {
       allAspectKeys.addAll(getAspectKeys(dep).values());
     }
 
-    Map<SkyKey, ValueOrException2<AspectCreationException, NoSuchThingException>> depAspects =
-        env.getValuesOrThrow(
-            allAspectKeys, AspectCreationException.class, NoSuchThingException.class);
+    SkyframeLookupResult depAspects = env.getValuesAndExceptions(allAspectKeys);
 
     for (Dependency dep : deps) {
       Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
@@ -74,7 +72,10 @@ public final class AspectResolver {
         try {
           // TODO(ulfjack): Catch all thrown AspectCreationException and NoSuchThingException
           // instances and merge them into a single Exception to get full root cause data.
-          aspectValue = (AspectValue) depAspects.get(aspectKey).get();
+          aspectValue =
+              (AspectValue)
+                  depAspects.getOrThrow(
+                      aspectKey, AspectCreationException.class, NoSuchThingException.class);
         } catch (NoSuchThingException e) {
           throw new AspectCreationException(
               String.format(
