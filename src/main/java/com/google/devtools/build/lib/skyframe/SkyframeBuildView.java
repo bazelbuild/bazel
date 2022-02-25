@@ -35,8 +35,10 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
+import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -60,6 +62,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -477,15 +480,19 @@ public final class SkyframeBuildView {
     }
 
     ErrorProcessingResult errorProcessingResult =
-        SkyframeErrorProcessor.processErrors(
+        SkyframeErrorProcessor.processAnalysisErrors(
             result,
             configurationLookupSupplier,
             skyframeExecutor.getCyclesReporter(),
             eventHandler,
             keepGoing,
             eventBus);
+
+    ViewCreationFailedException noKeepGoingExceptionDueToConflict = null;
+    // Sometimes there are action conflicts, but the actions aren't actually required to run by the
+    // build. In such cases, the conflict should still be reported to the user.
+    // See OutputArtifactConflictTest#unusedActionsStillConflict.
     Collection<Exception> reportedExceptions = Sets.newHashSet();
-    ViewCreationFailedException noKeepGoingException = null;
     for (Entry<ActionAnalysisMetadata, ConflictException> bad : actionConflicts.entrySet()) {
       ConflictException ex = bad.getValue();
       DetailedExitCode detailedExitCode;
@@ -507,25 +514,10 @@ public final class SkyframeBuildView {
           eventHandler.handle(Event.error(apce.getMessage()));
         }
       }
-      // TODO(ulfjack): Don't throw here in the nokeep_going case, but report all known issues.
       if (!keepGoing) {
-        noKeepGoingException =
+        noKeepGoingExceptionDueToConflict =
             new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ex);
-        if (errorProcessingResult.nonActionConflictNoKeepGoingException() != null) {
-          throw noKeepGoingException;
-        }
       }
-    }
-
-    // This is here for backwards compatibility. The keep_going and nokeep_going code paths were
-    // checking action conflicts and analysis errors in different orders, so we only throw the
-    // analysis error here after first throwing action conflicts.
-    //
-    // If there is no other analysis error, we will have not thrown for action conflicts because we
-    // have not yet reported a root cause for the action conflict. Finding that root cause requires
-    // a skyframe evaluation.
-    if (!keepGoing && errorProcessingResult.nonActionConflictNoKeepGoingException() != null) {
-      throw errorProcessingResult.nonActionConflictNoKeepGoingException();
     }
 
     if (foundActionConflictInLatestCheck) {
@@ -560,7 +552,7 @@ public final class SkyframeBuildView {
                   configurationLookupSupplier.get().get(configKey).toBuildEvent().getEventId(),
                   NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
           if (!keepGoing) {
-            noKeepGoingException =
+            noKeepGoingExceptionDueToConflict =
                 new ViewCreationFailedException(
                     failedCause.getDetailedExitCode().getFailureDetail(), e.get());
           }
@@ -574,7 +566,7 @@ public final class SkyframeBuildView {
       // identify root-cause top-level keys but does catch all possible conflicts.
       if (!keepGoing) {
         skyframeExecutor.resetActionConflictsStoredInSkyframe();
-        throw noKeepGoingException;
+        throw Preconditions.checkNotNull(noKeepGoingExceptionDueToConflict);
       }
 
       // Filter cts and aspects to only error-free keys. Note that any analysis failure - not just
@@ -620,13 +612,15 @@ public final class SkyframeBuildView {
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
+      BugReporter bugReporter,
       boolean keepGoing,
       boolean strictConflictCheck,
       boolean checkForActionConflicts,
       int numThreads,
       int cpuHeavySkyKeysThreadPoolSize,
       int mergedPhasesExecutionJobsCount)
-      throws InterruptedException, ViewCreationFailedException {
+      throws InterruptedException, ViewCreationFailedException, BuildFailedException,
+          TestExecException {
     enableAnalysis(true);
     EvaluationResult<BuildDriverValue> evaluationResult;
 
@@ -700,88 +694,23 @@ public final class SkyframeBuildView {
             eventHandler,
             keepGoing,
             eventBus,
+            bugReporter,
             /*includeExecutionPhase=*/ true);
 
     foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
-
-    TopLevelActionConflictReport topLevelActionConflictReport = null;
-    ViewCreationFailedException noKeepGoingException =
-        errorProcessingResult.nonActionConflictNoKeepGoingException();
-
-    // Here we already have the <TopLevelAspectKey, error> mapping, but what we need to fit into the
-    // existing AnalysisFailureEvent is <AspectKey, error>. An extra Skyframe evaluation is
-    // required.
-    if (foundActionConflictInLatestCheck) {
-      Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting =
-          Iterables.concat(ctKeys, getDerivedAspectKeysForConflictReporting(topLevelAspectsKeys));
-      enableAnalysis(true);
-      // In order to determine the set of configured targets transitively error free from action
-      // conflict issues, we run a post-processing update() that uses the bad action map.
-      try {
-        topLevelActionConflictReport =
-            skyframeExecutor.filterActionConflictsForConfiguredTargetsAndAspects(
+    TopLevelActionConflictReport topLevelActionConflictReport =
+        foundActionConflictInLatestCheck
+            ? handleActionConflicts(
                 eventHandler,
-                effectiveTopLevelKeysForConflictReporting,
-                errorProcessingResult.actionConflicts(),
-                topLevelArtifactContextForConflictPruning);
-      } finally {
-        enableAnalysis(false);
-      }
+                ctKeys,
+                topLevelAspectsKeys,
+                configurationLookupSupplier,
+                topLevelArtifactContextForConflictPruning,
+                eventBus,
+                keepGoing,
+                errorProcessingResult)
+            : null;
 
-      // ArtifactPrefixConflictExceptions come in pairs, and only one should be reported.
-      Set<ArtifactPrefixConflictException> reportedExceptions = Sets.newHashSet();
-
-      // Report an AnalysisFailureEvent to BEP for the top-level targets with discoverable action
-      // conflicts, then finally throw.
-      for (ActionLookupKey actionLookupKey : effectiveTopLevelKeysForConflictReporting) {
-        if (!topLevelActionConflictReport.isErrorFree(actionLookupKey)) {
-          Optional<ConflictException> e =
-              topLevelActionConflictReport.getConflictException(actionLookupKey);
-          if (e.isEmpty()) {
-            continue;
-          }
-
-          ConflictException conflictException = e.get();
-          try {
-            conflictException.rethrowTyped();
-          } catch (ActionConflictException ace) {
-            ace.reportTo(eventHandler);
-          } catch (ArtifactPrefixConflictException apce) {
-            if (reportedExceptions.add(apce)) {
-              eventHandler.handle(Event.error(apce.getMessage()));
-            }
-          }
-
-          AnalysisFailedCause failedCause =
-              makeArtifactConflictAnalysisFailedCause(
-                  configurationLookupSupplier, conflictException);
-          eventHandler.handle(
-              Event.warn(
-                  String.format(
-                      "errors encountered while building target '%s'",
-                      actionLookupKey.getLabel())));
-          BuildConfigurationKey configKey = actionLookupKey.getConfigurationKey();
-          // TODO(b/210710338) Replace with a more appropriate event.
-          eventBus.post(
-              new AnalysisFailureEvent(
-                  actionLookupKey,
-                  configurationLookupSupplier.get().get(configKey).toBuildEvent().getEventId(),
-                  NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
-          noKeepGoingException =
-              new ViewCreationFailedException(
-                  failedCause.getDetailedExitCode().getFailureDetail(), conflictException);
-          if (!keepGoing) {
-            break;
-          }
-        }
-      }
-    }
-
-    skyframeExecutor.resetActionConflictsStoredInSkyframe();
-    skyframeExecutor.resetIncrementalArtifactConflictFinder();
-    if (!keepGoing) {
-      throw Preconditions.checkNotNull(noKeepGoingException);
-    }
     Map<AspectKey, ConfiguredAspect> successfulAspects =
         getSuccessfulAspectMap(
             topLevelAspectsKeys.size(),
@@ -803,6 +732,116 @@ public final class SkyframeBuildView {
         errorProcessingResult.executionDetailedExitCode());
   }
 
+  /**
+   * Report the appropriate conflicts and return a TopLevelActionConflictReport.
+   *
+   * <p>The TopLevelActionConflictReport is used to determine the set of top level targets that
+   * depend on conflicted actions.
+   */
+  private TopLevelActionConflictReport handleActionConflicts(
+      ExtendedEventHandler eventHandler,
+      List<ConfiguredTargetKey> ctKeys,
+      ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
+      TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
+      EventBus eventBus,
+      boolean keepGoing,
+      ErrorProcessingResult errorProcessingResult)
+      throws InterruptedException, ViewCreationFailedException {
+
+    try {
+      // Here we already have the <TopLevelAspectKey, error> mapping, but what we need to fit into
+      // the existing AnalysisFailureEvent is <AspectKey, error>. An extra Skyframe evaluation is
+      // required.
+      Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting =
+          Iterables.concat(ctKeys, getDerivedAspectKeysForConflictReporting(topLevelAspectsKeys));
+      TopLevelActionConflictReport topLevelActionConflictReport = null;
+      enableAnalysis(true);
+      // In order to determine the set of configured targets transitively error free from action
+      // conflict issues, we run a post-processing update() that uses the bad action map.
+      try {
+        topLevelActionConflictReport =
+            skyframeExecutor.filterActionConflictsForConfiguredTargetsAndAspects(
+                eventHandler,
+                effectiveTopLevelKeysForConflictReporting,
+                errorProcessingResult.actionConflicts(),
+                topLevelArtifactContextForConflictPruning);
+      } finally {
+        enableAnalysis(false);
+      }
+      reportActionConflictErrors(
+          topLevelActionConflictReport,
+          effectiveTopLevelKeysForConflictReporting,
+          eventHandler,
+          eventBus,
+          configurationLookupSupplier,
+          keepGoing);
+      return topLevelActionConflictReport;
+    } finally {
+      skyframeExecutor.resetActionConflictsStoredInSkyframe();
+      skyframeExecutor.resetIncrementalArtifactConflictFinder();
+    }
+  }
+
+  /**
+   * From the {@code topLevelActionConflictReport}, report the action conflict errors.
+   *
+   * <p>Throw a ViewCreationFailedException in case of --nokeep_going.
+   */
+  private void reportActionConflictErrors(
+      TopLevelActionConflictReport topLevelActionConflictReport,
+      Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting,
+      ExtendedEventHandler eventHandler,
+      EventBus eventBus,
+      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
+      boolean keepGoing)
+      throws ViewCreationFailedException {
+
+    // ArtifactPrefixConflictExceptions come in pairs, and only one should be reported.
+    Set<ArtifactPrefixConflictException> reportedExceptions = Sets.newHashSet();
+
+    // Report an AnalysisFailureEvent to BEP for the top-level targets with discoverable action
+    // conflicts, then finally throw.
+    for (ActionLookupKey actionLookupKey : effectiveTopLevelKeysForConflictReporting) {
+      if (topLevelActionConflictReport.isErrorFree(actionLookupKey)) {
+        continue;
+      }
+      Optional<ConflictException> e =
+          topLevelActionConflictReport.getConflictException(actionLookupKey);
+      if (e.isEmpty()) {
+        continue;
+      }
+
+      ConflictException conflictException = e.get();
+      try {
+        conflictException.rethrowTyped();
+      } catch (ActionConflictException ace) {
+        ace.reportTo(eventHandler);
+      } catch (ArtifactPrefixConflictException apce) {
+        if (reportedExceptions.add(apce)) {
+          eventHandler.handle(Event.error(apce.getMessage()));
+        }
+      }
+
+      AnalysisFailedCause failedCause =
+          makeArtifactConflictAnalysisFailedCause(configurationLookupSupplier, conflictException);
+      eventHandler.handle(
+          Event.warn(
+              String.format(
+                  "errors encountered while building target '%s'", actionLookupKey.getLabel())));
+      BuildConfigurationKey configKey = actionLookupKey.getConfigurationKey();
+      // TODO(b/210710338) Replace with a more appropriate event.
+      eventBus.post(
+          new AnalysisFailureEvent(
+              actionLookupKey,
+              configurationLookupSupplier.get().get(configKey).toBuildEvent().getEventId(),
+              NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+      if (!keepGoing) {
+        throw new ViewCreationFailedException(
+            failedCause.getDetailedExitCode().getFailureDetail(), conflictException);
+      }
+    }
+  }
   // When we check for action conflicts that occur with a TopLevelAspectKey, a reference to the
   // lower-level AspectKeys is required: it could happen that only some AspectKeys, but not
   // all, that derived from a TopLevelAspectKey has a conflicting action.

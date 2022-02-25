@@ -23,6 +23,7 @@ EXCLUDED_FROM_SKYFRAME_TESTS = [
     "LocalDiffAwarenessTest.java",
     "LocalDiffAwarenessIntegrationTest.java",
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
+    "SkyframeErrorProcessorTest.java",
 ] + CROSS_PLATFORM_WINDOWS_TESTS
 
 java_library(
@@ -442,5 +443,27 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "SkyframeErrorProcessorTest",
+    srcs = ["SkyframeErrorProcessorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )

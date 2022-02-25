@@ -167,8 +167,11 @@ public class EvaluationResult<T extends SkyValue> {
       return this;
     }
 
-    /** Adds an error to the result. A successful value for this key must not already be present. */
-    Builder<T> addError(SkyKey key, ErrorInfo error) {
+    /**
+     * Adds an error to the result. A successful value for this key must not already be present.
+     * Publicly visible only for testing: should be package-private.
+     */
+    public Builder<T> addError(SkyKey key, ErrorInfo error) {
       errors.put(key, Preconditions.checkNotNull(error, key));
       Preconditions.checkState(
           !result.containsKey(key), "%s in both result and errors: %s %s", error, result);

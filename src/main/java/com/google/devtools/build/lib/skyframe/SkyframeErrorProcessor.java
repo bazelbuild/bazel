@@ -93,45 +93,49 @@ public final class SkyframeErrorProcessor {
     abstract ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts();
 
     @Nullable
-    abstract ViewCreationFailedException nonActionConflictNoKeepGoingException();
-
-    @Nullable
     abstract DetailedExitCode executionDetailedExitCode();
 
     static ErrorProcessingResult create(
         boolean hasLoadingError,
         boolean hasAnalysisError,
         ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts,
-        @Nullable ViewCreationFailedException nonActionConflictNoKeepGoingException,
         @Nullable DetailedExitCode executionDetailedExitCode) {
       return new AutoValue_SkyframeErrorProcessor_ErrorProcessingResult(
-          hasLoadingError,
-          hasAnalysisError,
-          actionConflicts,
-          nonActionConflictNoKeepGoingException,
-          executionDetailedExitCode);
+          hasLoadingError, hasAnalysisError, actionConflicts, executionDetailedExitCode);
     }
   }
 
-  static ErrorProcessingResult processErrors(
+  /**
+   * Process only loading/analysis errors. Returns a {@link ErrorProcessingResult}.
+   *
+   * <p>In case of --nokeep_going or catastrophe: immediately throw the exception.
+   */
+  static ErrorProcessingResult processAnalysisErrors(
       EvaluationResult<? extends SkyValue> result,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
       @Nullable EventBus eventBus)
-      throws InterruptedException {
-    return processErrors(
-        result,
-        configurationLookupSupplier,
-        cyclesReporter,
-        eventHandler,
-        keepGoing,
-        eventBus,
-        false);
+      throws InterruptedException, ViewCreationFailedException {
+    try {
+      return processErrors(
+          result,
+          configurationLookupSupplier,
+          cyclesReporter,
+          eventHandler,
+          keepGoing,
+          eventBus,
+          /*bugReporter=*/ null,
+          /*includeExecutionPhase=*/ false);
+    } catch (BuildFailedException | TestExecException unexpected) {
+      throw new IllegalStateException("Unexpected execution phase exception: ", unexpected);
+    }
   }
+
   /**
-   * Process errors encountered during analysis, and return a {@link ErrorProcessingResult}.
+   * Process errors encountered during analysis/execution, and return a {@link
+   * ErrorProcessingResult}.
    *
    * <p>Visible only for use by tests via {@link
    * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler,
@@ -139,6 +143,10 @@ public final class SkyframeErrorProcessor {
    * indicate that this is a test, and so there may be additional {@link SkyKey}s in the {@code
    * result} that are not {@link AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will
    * be ignored.
+   *
+   * <p>In case of --nokeep_going: immediately throw the exception.
+   *
+   * <p>TODO(b/218308694): Throw catastrophic exceptions.
    */
   static ErrorProcessingResult processErrors(
       EvaluationResult<? extends SkyValue> result,
@@ -147,15 +155,16 @@ public final class SkyframeErrorProcessor {
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
       @Nullable EventBus eventBus,
+      @Nullable BugReporter bugReporter,
       boolean includeExecutionPhase)
-      throws InterruptedException {
+      throws InterruptedException, ViewCreationFailedException, BuildFailedException,
+          TestExecException {
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
     // At this point, we consider the build to already have an analysis error, unless the error
     // turns out to be with execution.
     boolean hasAnalysisError = true;
-    ViewCreationFailedException nonActionConflictNoKeepGoingException = null;
-    ConfiguredTargetKey failedAspectLabel = null; // helps prefer target over aspect failures
+    ViewCreationFailedException noKeepGoingAnalysisExceptionAspect = null;
     DetailedExitCode detailedExitCode = null;
     Throwable undetailedCause = null;
     Map<ActionAnalysisMetadata, ConflictException> actionConflicts = new HashMap<>();
@@ -171,6 +180,7 @@ public final class SkyframeErrorProcessor {
       Exception cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
+      // TODO(leba): Can the handling of aspect errors be simplified here?
       if (errorKey.argument() instanceof TopLevelAspectsKey) {
         if (includeExecutionPhase && cause instanceof TopLevelConflictException) {
           TopLevelConflictException tlce = (TopLevelConflictException) cause;
@@ -178,15 +188,13 @@ public final class SkyframeErrorProcessor {
         }
         // We skip Aspects in the keepGoing case; the failures should already have been reported to
         // the event handler.
-        if (!keepGoing && nonActionConflictNoKeepGoingException == null) {
+        if (!keepGoing && noKeepGoingAnalysisExceptionAspect == null) {
           TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
-          failedAspectLabel = aspectKey.getBaseConfiguredTargetKey();
           String errorMsg =
               String.format(
                   "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
           if (!(cause instanceof TopLevelConflictException)) {
-            nonActionConflictNoKeepGoingException =
-                createViewCreationFailedException(cause, errorMsg);
+            noKeepGoingAnalysisExceptionAspect = createViewCreationFailedException(cause, errorMsg);
           }
         }
         continue;
@@ -212,7 +220,7 @@ public final class SkyframeErrorProcessor {
       ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
       Label topLevelLabel = label.getLabel();
 
-      NestedSet<Cause> rootCauses;
+      NestedSet<Cause> rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       if (cause instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
         // Previously, the nested set was de-duplicating loading root cause labels. Now that we
@@ -259,13 +267,13 @@ public final class SkyframeErrorProcessor {
             new AnalysisFailedCause(
                 topLevelLabel, configId, ((NoSuchPackageException) cause).getDetailedExitCode());
         rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
-      } else if (includeExecutionPhase && cause instanceof TopLevelConflictException) {
+      } else if (cause instanceof TopLevelConflictException) {
         // The root causes for action conflicts will be determined and reported later in the error
         // handling process.
         TopLevelConflictException tlce = (TopLevelConflictException) cause;
         actionConflicts.putAll(tlce.getTransitiveActionConflicts());
         continue;
-      } else if (includeExecutionPhase && isExecutionException(cause)) {
+      } else if (isExecutionException(cause)) {
         detailedExitCode =
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
                 detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
@@ -276,24 +284,7 @@ public final class SkyframeErrorProcessor {
         hasAnalysisError = false;
       } else {
         // TODO(ulfjack): Report something!
-        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
         undetailedCause = cause;
-      }
-
-      if (keepGoing) {
-        String warningMsg =
-            includeExecutionPhase
-                ? String.format("errors encountered while building target '%s'", topLevelLabel)
-                : String.format(
-                    "errors encountered while analyzing target '%s': it will not be built",
-                    topLevelLabel);
-        eventHandler.handle(Event.warn(warningMsg));
-      } else if (nonActionConflictNoKeepGoingException == null || label.equals(failedAspectLabel)) {
-        String errorMsg =
-            includeExecutionPhase
-                ? String.format("Build of target '%s' failed; build aborted", topLevelLabel)
-                : String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
-        nonActionConflictNoKeepGoingException = createViewCreationFailedException(cause, errorMsg);
       }
 
       if (!inTest) {
@@ -306,18 +297,41 @@ public final class SkyframeErrorProcessor {
         // eventBus is null, but test can still assert on the expected root causes being found.
         eventHandler.handle(Event.error(rootCauses.toList().toString()));
       }
+
+      if (!keepGoing) {
+        if (isExecutionException(cause)) {
+          rethrow(cause, bugReporter, result);
+        }
+        String errorMsg =
+            includeExecutionPhase
+                ? String.format("Build of target '%s' failed; build aborted", topLevelLabel)
+                : String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
+        throw createViewCreationFailedException(cause, errorMsg);
+      } else {
+        String warningMsg =
+            includeExecutionPhase
+                ? String.format("errors encountered while building target '%s'", topLevelLabel)
+                : String.format(
+                    "errors encountered while analyzing target '%s': it will not be built",
+                    topLevelLabel);
+        eventHandler.handle(Event.warn(warningMsg));
+      }
     }
+
+    // We wait until this point to throw the exception to make sure that the target error is
+    // preferred over the aspect one, for the same target.
+    if (!keepGoing && noKeepGoingAnalysisExceptionAspect != null) {
+      throw noKeepGoingAnalysisExceptionAspect;
+    }
+
     if (includeExecutionPhase && detailedExitCode == null) {
       detailedExitCode =
           ExecutionDetailedExitCodeHelper.createDetailedExitCodeForUndetailedExecutionCause(
               result, undetailedCause);
     }
+
     return ErrorProcessingResult.create(
-        hasLoadingError,
-        hasAnalysisError,
-        ImmutableMap.copyOf(actionConflicts),
-        nonActionConflictNoKeepGoingException,
-        detailedExitCode);
+        hasLoadingError, hasAnalysisError, ImmutableMap.copyOf(actionConflicts), detailedExitCode);
   }
 
   private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
@@ -466,7 +480,9 @@ public final class SkyframeErrorProcessor {
   }
 
   private static boolean isExecutionException(Throwable cause) {
-    return cause instanceof ActionExecutionException || cause instanceof InputFileErrorException;
+    return cause instanceof ActionExecutionException
+        || cause instanceof InputFileErrorException
+        || cause instanceof TestExecException;
   }
 
   /**
@@ -483,7 +499,7 @@ public final class SkyframeErrorProcessor {
    * </ol>
    *
    * <p>Throws on catastrophic failures and, if !keepGoing, on any failure. TODO(leba): We should
-   * ideally remove this method and incorporate its logic into #processErrors.
+   * ideally remove this method and incorporate its logic into #processAnalysisErrors.
    */
   @Nullable
   public static DetailedExitCode processResult(
@@ -557,7 +573,9 @@ public final class SkyframeErrorProcessor {
         result, undetailedCause);
   }
 
-  /** Figure out why an action's execution failed and rethrow the right kind of exception. */
+  /**
+   * Figure out why an action's analysis/execution failed and rethrow the right kind of exception.
+   */
   @VisibleForTesting
   public static void rethrow(
       Throwable cause, BugReporter bugReporter, EvaluationResult<?> resultForDebugging)
