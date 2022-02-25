@@ -19,7 +19,7 @@ Small example of rule using chosen template.
 
 <b>
       <code>name</code>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
 </b>
         <p>
           A unique name for this target.
@@ -125,14 +125,14 @@ This is my aspect. It does stuff.
 
 <b>
       <code>name</code>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
 </b>
         <p>
           A unique name for this target.
         </p>
 <b>
       <code>first</code>
-        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+        <a href="https://bazel.build/concepts/labels">Label</a>; required
 </b>
 
 

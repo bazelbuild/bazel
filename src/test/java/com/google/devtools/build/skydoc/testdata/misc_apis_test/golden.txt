@@ -21,7 +21,7 @@ This rule exercises some of the build API.
     <tr id="my_rule-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>
@@ -30,7 +30,7 @@ This rule exercises some of the build API.
     <tr id="my_rule-deps">
       <td><code>deps</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; optional
+        <a href="https://bazel.build/concepts/labels">List of labels</a>; optional
         <p>
           A list of dependencies.
         </p>
@@ -48,7 +48,7 @@ This rule exercises some of the build API.
     <tr id="my_rule-out">
       <td><code>out</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+        <a href="https://bazel.build/concepts/labels">Label</a>; required
         <p>
           The output file.
         </p>
@@ -57,7 +57,7 @@ This rule exercises some of the build API.
     <tr id="my_rule-src">
       <td><code>src</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; optional
+        <a href="https://bazel.build/concepts/labels">Label</a>; optional
         <p>
           The source file.
         </p>
@@ -66,7 +66,7 @@ This rule exercises some of the build API.
     <tr id="my_rule-tool">
       <td><code>tool</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; optional
+        <a href="https://bazel.build/concepts/labels">Label</a>; optional
         <p>
           The location of the tool to use.
         </p>
