@@ -1658,14 +1658,57 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLibDep.a")).isNull();
   }
 
-  public void checkAvoidDepsObjectsWithCrosstool(RuleType ruleType) throws Exception {
+  public void checkAvoidDepsObjects(RuleType ruleType) throws Exception {
     useConfiguration("--ios_multi_cpus=i386,x86_64");
     assertAvoidDepsObjects(ruleType);
   }
 
-  public void checkAvoidDepsObjects(RuleType ruleType) throws Exception {
+  private void assertAvoidDepsObjcLibraries(RuleType ruleType) throws Exception {
+    ruleType.scratchTarget(
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidLib']");
+    scratch.file(
+        "package/BUILD",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib', ':baseLib'])",
+        "objc_library(name = 'baseLib', srcs = [ 'base.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    Action lipobinAction = lipoBinAction("//x:x");
+    Artifact binArtifact = getFirstArtifactEndingWith(lipobinAction.getInputs(), "x/x_bin");
+
+    Action action = getGeneratingAction(binArtifact);
+
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libobjcLib.a")).isNotNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libbaseLib.a")).isNotNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLib.a")).isNull();
+  }
+
+  public void checkAvoidDepsObjcLibraries(RuleType ruleType) throws Exception {
     useConfiguration("--ios_multi_cpus=i386,x86_64");
-    assertAvoidDepsObjects(ruleType);
+    assertAvoidDepsObjcLibraries(ruleType);
+  }
+
+  public void assertAvoidDepsObjcLibrariesAvoidViaCcLibrary(RuleType ruleType) throws Exception {
+    ruleType.scratchTarget(
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidCclib']");
+    scratch.file(
+        "package/BUILD",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib'])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    Action lipobinAction = lipoBinAction("//x:x");
+    Artifact binArtifact = getFirstArtifactEndingWith(lipobinAction.getInputs(), "x/x_bin");
+
+    Action action = getGeneratingAction(binArtifact);
+
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidCclib.a")).isNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libobjcLib.a")).isNotNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLib.a")).isNull();
+  }
+
+  public void checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(RuleType ruleType) throws Exception {
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
+    assertAvoidDepsObjcLibrariesAvoidViaCcLibrary(ruleType);
   }
 
   /**

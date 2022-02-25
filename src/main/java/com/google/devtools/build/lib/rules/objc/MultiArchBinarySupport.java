@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
@@ -22,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -65,9 +65,9 @@ public class MultiArchBinarySupport {
         BuildConfigurationValue config,
         CcToolchainProvider toolchain,
         ObjcProvider objcLinkProvider,
-        ObjcProvider objcPropagateProvider) {
+        ObjcProvider objcProviderWithAvoidDepsSymbols) {
       return new AutoValue_MultiArchBinarySupport_DependencySpecificConfiguration(
-          config, toolchain, objcLinkProvider, objcPropagateProvider);
+          config, toolchain, objcLinkProvider, objcProviderWithAvoidDepsSymbols);
     }
 
     /** Returns the child configuration for this tuple. */
@@ -77,16 +77,16 @@ public class MultiArchBinarySupport {
     abstract CcToolchainProvider toolchain();
 
     /**
-     * Returns the {@link ObjcProvider} to use as input to the support controlling link actoins;
-     * dylib symbols should be subtracted from this provider.
+     * Returns the {@link ObjcProvider} to use as input to the support controlling link actions;
+     * avoid deps symbols should be subtracted from this provider.
      */
     abstract ObjcProvider objcLinkProvider();
 
     /**
-     * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have dylib
+     * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have avoid deps
      * symbols subtracted, thus signaling that this target is still responsible for those symbols.
      */
-    abstract ObjcProvider objcProviderWithDylibSymbols();
+    abstract ObjcProvider objcProviderWithAvoidDepsSymbols();
   }
 
   /** @param ruleContext the current rule context */
@@ -169,17 +169,21 @@ public class MultiArchBinarySupport {
    * @param splitToolchains a map from split toolchains for which dependencies of the current rule
    *     are built
    * @param splitDeps a map from split "deps" of the current rule.
-   * @param dylibProviders {@link TransitiveInfoCollection}s that dynamic library dependencies of
-   *     the current rule have propagated
+   * @param avoidDepsProviders {@link TransitiveInfoCollection}s that dependencies of the current
+   *     rule have propagated which should not be linked into the binary
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
   public ImmutableMap<Optional<String>, DependencySpecificConfiguration>
       getDependencySpecificConfigurations(
           Map<Optional<String>, List<ConfiguredTargetAndData>> splitToolchains,
           Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps,
-          ImmutableList<TransitiveInfoCollection> dylibProviders)
+          ImmutableList<TransitiveInfoCollection> avoidDepsProviders)
           throws RuleErrorException, InterruptedException {
-    Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
+    Iterable<ObjcProvider> avoidDepsObjcProviders = getAvoidDepsObjcProviders(avoidDepsProviders);
+    ImmutableList<CcLinkingContext> avoidDepsCcLinkingContexts =
+        getTypedProviders(avoidDepsProviders, CcInfo.PROVIDER).stream()
+            .map(CcInfo::getCcLinkingContext)
+            .collect(toImmutableList());
 
     ImmutableMap.Builder<Optional<String>, DependencySpecificConfiguration> childInfoBuilder =
         ImmutableMap.builder();
@@ -199,10 +203,11 @@ public class MultiArchBinarySupport {
               childToolchainConfig,
               intermediateArtifacts,
               propagatedDeps,
-              dylibObjcProviders);
-      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
+              avoidDepsObjcProviders);
+      ObjcProvider objcProviderWithAvoidDepsSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
-          objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
+          objcProviderWithAvoidDepsSymbols.subtractSubtrees(
+              avoidDepsObjcProviders, avoidDepsCcLinkingContexts);
 
       CcToolchainProvider toolchainProvider =
           ctad.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
@@ -210,7 +215,10 @@ public class MultiArchBinarySupport {
       childInfoBuilder.put(
           splitTransitionKey,
           DependencySpecificConfiguration.create(
-              childToolchainConfig, toolchainProvider, objcProvider, objcProviderWithDylibSymbols));
+              childToolchainConfig,
+              toolchainProvider,
+              objcProvider,
+              objcProviderWithAvoidDepsSymbols));
     }
 
     return childInfoBuilder.buildOrThrow();
@@ -475,20 +483,20 @@ public class MultiArchBinarySupport {
     return splitBuildOptions.buildOrThrow();
   }
 
-  private static Iterable<ObjcProvider> getDylibObjcProviders(
+  private static Iterable<ObjcProvider> getAvoidDepsObjcProviders(
       ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
     // Dylibs.
     ImmutableList<ObjcProvider> frameworkObjcProviders =
         getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
     // Bundle Loaders.
     ImmutableList<ObjcProvider> executableObjcProviders =
         getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
 
     return Iterables.concat(
         frameworkObjcProviders,
@@ -519,10 +527,10 @@ public class MultiArchBinarySupport {
   private static <T extends Info> ImmutableList<T> getTypedProviders(
       Iterable<? extends TransitiveInfoCollection> infoCollections,
       BuiltinProvider<T> providerClass) {
-    return Streams.stream(infoCollections)
+    return stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   /** Returns providers from a list of {@link ConfiguredTargetAndData} */

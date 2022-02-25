@@ -111,7 +111,7 @@ public class AppleBinary {
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations.values()) {
       objcProviderBuilder.addTransitiveAndPropagate(
-          dependencySpecificConfiguration.objcProviderWithDylibSymbols());
+          dependencySpecificConfiguration.objcProviderWithAvoidDepsSymbols());
     }
 
     AppleDebugOutputsInfo.Builder legacyDebugOutputsBuilder =
