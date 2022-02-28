@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -225,8 +226,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
             MockRule.define(
                 "implicit_toolchain_deps_rule",
                 (builder, env) ->
-                    builder.addRequiredToolchains(
-                        Label.parseAbsoluteUnchecked("//test:toolchain_type")));
+                    builder.addToolchainTypes(
+                        ToolchainTypeRequirement.create(
+                            Label.parseAbsoluteUnchecked("//test:toolchain_type"))));
     helper.useRuleClassProvider(setRuleClassProviders(ruleWithImplicitDeps).build());
 
     writeFile(

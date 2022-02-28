@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -59,20 +58,6 @@ public abstract class ToolchainContextKey implements SkyKey {
   @AutoValue.Builder
   public interface Builder {
     Builder configurationKey(BuildConfigurationKey key);
-
-    // TODO(katre): Remove this once all callers use toolchainTypes.
-    default Builder requiredToolchainTypeLabels(Label... requiredToolchainTypeLabels) {
-      return this.requiredToolchainTypeLabels(ImmutableSet.copyOf(requiredToolchainTypeLabels));
-    }
-
-    // TODO(katre): Remove this once all callers use toolchainTypes.
-    default Builder requiredToolchainTypeLabels(ImmutableSet<Label> requiredToolchainTypeLabels) {
-      ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
-          requiredToolchainTypeLabels.stream()
-              .map(label -> ToolchainTypeRequirement.create(label))
-              .collect(toImmutableSet());
-      return this.toolchainTypes(toolchainTypeRequirements);
-    }
 
     Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes);
 

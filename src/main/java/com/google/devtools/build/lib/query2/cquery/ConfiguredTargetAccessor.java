@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -215,7 +216,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
       return null;
     }
 
-    ImmutableSet<Label> requiredToolchains = rule.getRuleClassObject().getRequiredToolchains();
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
+        rule.getRuleClassObject().getToolchainTypes();
     // Collect local (target, rule) constraints for filtering out execution platforms.
     ImmutableSet<Label> execConstraintLabels =
         getExecutionPlatformConstraints(rule, config.getFragment(PlatformConfiguration.class));
@@ -249,7 +251,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
               walkableGraph.getValue(
                   ToolchainContextKey.key()
                       .configurationKey(configurationKey)
-                      .requiredToolchainTypeLabels(requiredToolchains)
+                      .toolchainTypes(toolchainTypes)
                       .execConstraintLabels(execConstraintLabels)
                       .debugTarget(debugTarget)
                       .build());
