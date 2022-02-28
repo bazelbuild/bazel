@@ -220,7 +220,7 @@ ctx.actions.run(
   mnemonic="someMnemonic",
   execution_requirements={
     "supports-workers" : "1",
-    "requires-worker-protocol" : "json},
+    "requires-worker-protocol" : "json"},
   arguments=ctx.attr.args + ["@flagfile"]
  )
 ```
