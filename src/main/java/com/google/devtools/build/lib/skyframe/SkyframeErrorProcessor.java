@@ -145,8 +145,6 @@ public final class SkyframeErrorProcessor {
    * be ignored.
    *
    * <p>In case of --nokeep_going: immediately throw the exception.
-   *
-   * <p>TODO(b/218308694): Throw catastrophic exceptions.
    */
   static ErrorProcessingResult processErrors(
       EvaluationResult<? extends SkyValue> result,
@@ -159,6 +157,9 @@ public final class SkyframeErrorProcessor {
       boolean includeExecutionPhase)
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
+    if (result.getCatastrophe() != null) {
+      rethrow(result.getCatastrophe(), bugReporter, result);
+    }
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
     // At this point, we consider the build to already have an analysis error, unless the error
@@ -575,6 +576,7 @@ public final class SkyframeErrorProcessor {
 
   /**
    * Figure out why an action's analysis/execution failed and rethrow the right kind of exception.
+   * At the moment, we don't expect any analysis failure to be catastrophic.
    */
   @VisibleForTesting
   public static void rethrow(

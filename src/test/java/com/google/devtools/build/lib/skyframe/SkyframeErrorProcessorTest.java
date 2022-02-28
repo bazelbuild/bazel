@@ -79,6 +79,32 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown).hasCauseThat().isEqualTo(analysisException);
   }
 
+  @Test
+  public void testProcessErrors_catastrophic_rethrow(
+      @TestParameter boolean keepGoing, @TestParameter boolean includeExecutionPhase)
+      throws Exception {
+    DummyException catastrophe = new DummyException();
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.builder().setCatastrophe(catastrophe).build();
+
+    DummyException thrown =
+        assertThrows(
+            DummyException.class,
+            () ->
+                SkyframeErrorProcessor.processErrors(
+                    result,
+                    /*configurationLookupSupplier=*/ null,
+                    /*cyclesReporter=*/ null,
+                    /*eventHandler=*/ null,
+                    keepGoing,
+                    /*eventBus=*/ null,
+                    /*bugReporter=*/ null,
+                    includeExecutionPhase));
+    assertThat(thrown).isEqualTo(catastrophe);
+  }
+
+  private static final class DummyException extends RuntimeException {}
+
   private static final class DummySkyFunctionException extends SkyFunctionException {
     DummySkyFunctionException(Exception cause, Transience transience) {
       super(cause, transience);
