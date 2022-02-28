@@ -84,7 +84,7 @@ A list of all modules and globals that are available:
 <h2>
 
 
-  <a href="skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
+  <a href="starlark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
 
 
 </h2>

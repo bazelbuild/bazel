@@ -10,7 +10,7 @@ You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.ht
 </div>
 
 <a href="../concepts.html">Extensions</a> &gt;
-<a href="skylark-overview.html">API reference</a> &gt;
+<a href="starlark-overview.html">API reference</a> &gt;
 ${module.title}
 
 <!-- {% raw %} -->
