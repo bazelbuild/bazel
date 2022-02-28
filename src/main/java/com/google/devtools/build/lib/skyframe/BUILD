@@ -2760,6 +2760,7 @@ java_library(
         ":sky_functions",
         ":transitive_base_traversal_function",
         ":transitive_traversal_value",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",

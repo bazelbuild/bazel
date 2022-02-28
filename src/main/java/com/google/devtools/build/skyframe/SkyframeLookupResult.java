@@ -15,7 +15,9 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import javax.annotation.Nullable;
 
 /**
@@ -29,11 +31,12 @@ import javax.annotation.Nullable;
  * returns {@code null}, only then will {@link SkyFunction.Environment#valuesMissing} be guaranteed
  * to return true.
  */
-public final class SkyframeLookupResult {
+public class SkyframeLookupResult {
   private final Runnable valuesMissingCallback;
   private final Function<SkyKey, ValueOrUntypedException> valuesOrExceptions;
 
-  SkyframeLookupResult(
+  @VisibleForTesting
+  public SkyframeLookupResult(
       Runnable valuesMissingCallback,
       Function<SkyKey, ValueOrUntypedException> valuesOrExceptions) {
     this.valuesMissingCallback = checkNotNull(valuesMissingCallback);
@@ -93,6 +96,12 @@ public final class SkyframeLookupResult {
       @Nullable Class<E3> exceptionClass3)
       throws E1, E2, E3 {
     ValueOrUntypedException voe = valuesOrExceptions.apply(skyKey);
+    if (voe == null) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "ValueOrUntypedException " + skyKey + " was missing, this should never happen"));
+      return null;
+    }
     SkyValue value = voe.getValue();
     if (value != null) {
       return value;
