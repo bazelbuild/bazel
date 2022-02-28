@@ -20,8 +20,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * The providers and artifact outputs returned by the {@code apple_common.link_multi_arch_binary}
@@ -41,6 +47,16 @@ public class AppleLinkingOutputs {
     abstract String platform();
 
     abstract String environment();
+
+    /** Returns a Starlark Dict representation of a {@link TargetTriplet} */
+    public final StructImpl toStarlarkStruct() {
+      Provider constructor = new BuiltinProvider<StructImpl>("target_triplet", StructImpl.class) {};
+      HashMap<String, Object> fields = new HashMap<>();
+      fields.put("architecture", architecture());
+      fields.put("environment", environment());
+      fields.put("platform", platform());
+      return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
+    }
   }
 
   /**

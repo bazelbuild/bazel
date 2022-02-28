@@ -427,6 +427,22 @@ public interface AppleCommonApi<
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
+      name = "link_multi_arch_static_library",
+      doc =
+          "Links a (potentially multi-architecture) static library targeting Apple platforms."
+              + " This method comprises a part of the <code>apple_static_library</code> rule logic,"
+              + " and is exposed as an API to iterate on XCFrameworks support on Starlark.\n"
+              + "<p>This API is <b>highly experimental</b> and subject to change at any time."
+              + " Do not depend on the stability of this function at this time.",
+      parameters = {
+        @Param(name = "ctx", named = true, positional = false, doc = "The Starlark rule context."),
+      },
+      useStarlarkThread = true)
+  StructApi linkMultiArchStaticLibrary(
+      StarlarkRuleContextT starlarkRuleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
       name = "dotted_version",
       doc = "Creates a new <a href=\"DottedVersion.html\">DottedVersion</a> instance.",
       parameters = {

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Dict;
 
 /** Support utility for creating multi-arch Apple binaries. */
 public class MultiArchBinarySupport {
@@ -561,5 +563,26 @@ public class MultiArchBinarySupport {
         appleConfig.getSingleArchitecture(),
         cpuPlatform.getTargetPlatform(),
         cpuPlatform.getTargetEnvironment());
+  }
+
+  /**
+   * Transforms a {@link Map<Optional<String>, List<ConfiguredTargetAndData>>}, to a Starlark Dict
+   * keyed by split transition keys with {@link AppleLinkingOutputs.TargetTriplet} Starlark struct
+   * definition.
+   *
+   * @param ctads a {@link Map<Optional<String>, List<ConfiguredTargetAndData>>} from rule context
+   * @return a Starlark {@link Dict<String, StructImpl>} representing split transition keys with
+   *     their target triplet (architecture, platform, environment)
+   */
+  public static Dict<String, StructImpl> getSplitTargetTripletFromCtads(
+      Map<Optional<String>, List<ConfiguredTargetAndData>> ctads) {
+    Dict.Builder<String, StructImpl> result = Dict.builder();
+    for (Optional<String> splitTransitionKey : ctads.keySet()) {
+      TargetTriplet targetTriplet =
+          getTargetTriplet(
+              Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
+      result.put(splitTransitionKey.get(), targetTriplet.toStarlarkStruct());
+    }
+    return result.buildImmutable();
   }
 }

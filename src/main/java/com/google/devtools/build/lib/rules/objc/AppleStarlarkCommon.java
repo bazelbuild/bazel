@@ -45,12 +45,14 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -281,6 +283,29 @@ public class AppleStarlarkCommon
               isStampingEnabled);
       return createStarlarkLinkingOutputs(linkingOutputs, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
+      throw new EvalException(exception);
+    }
+  }
+
+  @Override
+  public StructImpl linkMultiArchStaticLibrary(
+      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    try {
+      RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+      StarlarkFunction linkMultiArchLibrary =
+          (StarlarkFunction)
+              ruleContext.getStarlarkDefinedBuiltin("link_multi_arch_static_library");
+      Dict<String, StructImpl> splitTargetTriplets =
+          MultiArchBinarySupport.getSplitTargetTripletFromCtads(
+              ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets(
+                  ObjcRuleClasses.CHILD_CONFIG_ATTR));
+      return (StructImpl)
+          ruleContext.callStarlarkOrThrowRuleError(
+              linkMultiArchLibrary,
+              ImmutableList.of(ruleContext.getStarlarkRuleContext(), splitTargetTriplets),
+              new HashMap<>());
+    } catch (RuleErrorException exception) {
       throw new EvalException(exception);
     }
   }
