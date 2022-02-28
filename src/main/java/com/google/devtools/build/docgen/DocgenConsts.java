@@ -37,13 +37,13 @@ public class DocgenConsts {
   public static final String BE_NAV_TEMPLATE = BE_TEMPLATE_DIR + "/be-nav.vm";
 
   public static final String STARLARK_LIBRARY_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-library.vm";
+      "com/google/devtools/build/docgen/templates/starlark-library.vm";
   public static final String STARLARK_NAV_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-nav.vm";
+      "com/google/devtools/build/docgen/templates/starlark-nav.vm";
   public static final String STARLARK_MODULE_CATEGORY_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-category.vm";
+      "com/google/devtools/build/docgen/templates/starlark-category.vm";
   public static final String STARLARK_OVERVIEW_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-overview.vm";
+      "com/google/devtools/build/docgen/templates/starlark-overview.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 
