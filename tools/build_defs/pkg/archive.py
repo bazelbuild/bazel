@@ -244,7 +244,6 @@ class TarFileWriter(object):
               rootuid=None,
               rootgid=None,
               numeric=False,
-              name_filter=None,
               root=None):
     """Merge a tar content into the current tar, stripping timestamp.
 
@@ -254,9 +253,6 @@ class TarFileWriter(object):
       rootgid: group id that we will pretend is root (replaced by gid 0).
       numeric: set to true to strip out name of owners (and just use the
           numeric values).
-      name_filter: filter out file by names. If not none, this method will be
-          called for each file to add, given the name and should return true if
-          the file is to be added to the final tar and false otherwise.
       root: place all non-absolute content under given root directory, if not
           None.
 
@@ -282,7 +278,6 @@ class TarFileWriter(object):
       inmode = 'r:' + compression
     intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
-      if name_filter is None or name_filter(tarinfo.name):
         if not self.preserve_mtime:
           tarinfo.mtime = self.default_mtime
         if rootuid is not None and tarinfo.uid == rootuid:
