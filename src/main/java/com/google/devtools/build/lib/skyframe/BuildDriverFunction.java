@@ -21,18 +21,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.AnalysisTraversalResult;
-import com.google.devtools.build.lib.skyframe.ToplevelStarlarkAspectFunction.TopLevelAspectsValue;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
@@ -48,13 +48,13 @@ import javax.annotation.Nullable;
  * Drives the analysis & execution of an ActionLookupKey, which is wrapped inside a BuildDriverKey.
  */
 public class BuildDriverFunction implements SkyFunction {
-  private final SkyframeExecutor skyframeExecutor;
+  private final TransitiveActionLookupValuesCollector transitiveActionLookupValuesCollector;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
 
   BuildDriverFunction(
-      SkyframeExecutor skyframeExecutor,
+      TransitiveActionLookupValuesCollector transitiveActionLookupValuesCollector,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder) {
-    this.skyframeExecutor = skyframeExecutor;
+    this.transitiveActionLookupValuesCollector = transitiveActionLookupValuesCollector;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
   }
 
@@ -143,13 +143,11 @@ public class BuildDriverFunction implements SkyFunction {
 
   private ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
       ActionLookupKey actionLookupKey, boolean strictConflictCheck) throws InterruptedException {
-    AnalysisTraversalResult analysisTraversalResult =
-        skyframeExecutor.collectTransitiveActionLookupKeys(actionLookupKey);
-    ArtifactConflictFinder.ActionConflictsAndStats conflictsAndStats =
-        incrementalArtifactConflictFinder
-            .get()
-            .findArtifactConflicts(analysisTraversalResult.getActionShards(), strictConflictCheck);
-    return conflictsAndStats.getConflicts();
+    return incrementalArtifactConflictFinder
+        .get()
+        .findArtifactConflicts(
+            transitiveActionLookupValuesCollector.collect(actionLookupKey), strictConflictCheck)
+        .getConflicts();
   }
 
   private void addExtraActionsIfRequested(
@@ -178,5 +176,9 @@ public class BuildDriverFunction implements SkyFunction {
     BuildDriverFunctionException(TopLevelConflictException cause) {
       super(cause, Transience.TRANSIENT);
     }
+  }
+
+  interface TransitiveActionLookupValuesCollector {
+    Sharder<ActionLookupValue> collect(ActionLookupKey key) throws InterruptedException;
   }
 }

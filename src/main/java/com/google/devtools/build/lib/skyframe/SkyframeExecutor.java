@@ -641,7 +641,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new MapBasedActionGraph(actionKeyContext));
     map.put(
         SkyFunctions.BUILD_DRIVER,
-        new BuildDriverFunction(this, this::getIncrementalArtifactConflictFinder));
+        new BuildDriverFunction(
+            key -> collectTransitiveActionLookupKeys(key).getActionShards(),
+            this::getIncrementalArtifactConflictFinder));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }

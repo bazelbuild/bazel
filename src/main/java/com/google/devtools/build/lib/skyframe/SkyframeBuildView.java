@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKe
 import com.google.devtools.build.lib.skyframe.SkyframeErrorProcessor.ErrorProcessingResult;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
-import com.google.devtools.build.lib.skyframe.ToplevelStarlarkAspectFunction.TopLevelAspectsValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.Root;

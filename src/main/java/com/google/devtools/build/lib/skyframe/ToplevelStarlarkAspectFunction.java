@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
@@ -111,24 +109,4 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
     }
   }
 
-  /**
-   * SkyValue for {@code TopLevelAspectsKey} wraps a list of the {@code AspectValue} of the top
-   * level aspects applied on the same top level target.
-   */
-  public static class TopLevelAspectsValue implements ActionLookupValue {
-    private final ImmutableList<SkyValue> topLevelAspectsValues;
-
-    public TopLevelAspectsValue(Collection<SkyValue> topLevelAspectsValues) {
-      this.topLevelAspectsValues = ImmutableList.copyOf(topLevelAspectsValues);
-    }
-
-    public ImmutableList<SkyValue> getTopLevelAspectsValues() {
-      return topLevelAspectsValues;
-    }
-
-    @Override
-    public ImmutableList<ActionAnalysisMetadata> getActions() {
-      return ImmutableList.of();
-    }
-  }
 }
