@@ -76,6 +76,10 @@ public abstract class ToolchainContextKey implements SkyKey {
 
     Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes);
 
+    default Builder toolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
+      return this.toolchainTypes(ImmutableSet.copyOf(toolchainTypes));
+    }
+
     Builder execConstraintLabels(ImmutableSet<Label> execConstraintLabels);
 
     Builder execConstraintLabels(Label... execConstraintLabels);

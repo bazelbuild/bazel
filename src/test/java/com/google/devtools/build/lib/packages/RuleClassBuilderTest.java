@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -200,13 +201,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     Label mockConstraint = Label.parseAbsoluteUnchecked("//mock_constraint");
     ExecGroup parentGroup =
         ExecGroup.builder()
-            .requiredToolchains(ImmutableSet.of(mockToolchainType))
+            .addToolchainType(ToolchainTypeRequirement.create(mockToolchainType))
             .execCompatibleWith(ImmutableSet.of(mockConstraint))
             .copyFrom(null)
             .build();
     ExecGroup childGroup =
         ExecGroup.builder()
-            .requiredToolchains(ImmutableSet.of())
+            .toolchainTypes(ImmutableSet.of())
             .execCompatibleWith(ImmutableSet.of())
             .copyFrom(null)
             .build();
@@ -259,8 +260,9 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
                 ImmutableMap.of(
                     "blueberry",
                     ExecGroup.builder()
-                        .requiredToolchains(
-                            ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")))
+                        .addToolchainType(
+                            ToolchainTypeRequirement.create(
+                                Label.parseAbsoluteUnchecked("//some/toolchain")))
                         .execCompatibleWith(ImmutableSet.of())
                         .copyFrom(null)
                         .build()))
@@ -273,7 +275,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
                 ImmutableMap.of(
                     "blueberry",
                     ExecGroup.builder()
-                        .requiredToolchains(ImmutableSet.of())
+                        .toolchainTypes(ImmutableSet.of())
                         .execCompatibleWith(ImmutableSet.of())
                         .copyFrom(null)
                         .build()))

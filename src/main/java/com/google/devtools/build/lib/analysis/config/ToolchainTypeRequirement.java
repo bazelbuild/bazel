@@ -27,12 +27,9 @@ public abstract class ToolchainTypeRequirement {
 
   /** Returns a builder for a new {@link ToolchainTypeRequirement}. */
   public static Builder builder(Label toolchainType) {
-    return builder().toolchainType(toolchainType);
-  }
-
-  /** Returns a builder for a new {@link ToolchainTypeRequirement}. */
-  public static Builder builder() {
-    return new AutoValue_ToolchainTypeRequirement.Builder().mandatory(true);
+    return new AutoValue_ToolchainTypeRequirement.Builder()
+        .toolchainType(toolchainType)
+        .mandatory(true);
   }
 
   /** Returns the label of the toolchain type that is requested. */
