@@ -31,7 +31,12 @@ def _determine_single_architecture(platform_type, settings):
         ios_cpus = settings["//command_line_option:ios_multi_cpus"]
         if len(ios_cpus) > 0:
             return ios_cpus[0]
-        return _ios_cpu_from_cpu(settings["//command_line_option:cpu"])
+        cpu_value = settings["//command_line_option:cpu"]
+        if cpu_value.startswith(IOS_CPU_PREFIX):
+            return cpu_value[len(IOS_CPU_PREFIX):]
+        if cpu_value == "darwin_arm64":
+            return "sim_arm64"
+        return DEFAULT_IOS_CPU
     if platform_type == WATCHOS:
         watchos_cpus = settings["//command_line_option:watchos_cpus"]
         if len(watchos_cpus) == 0:
@@ -44,9 +49,12 @@ def _determine_single_architecture(platform_type, settings):
         return tvos_cpus[0]
     if platform_type == MACOS:
         macos_cpus = settings["//command_line_option:macos_cpus"]
-        if len(macos_cpus) == 0:
-            return DEFAULT_MACOS_CPU
-        return macos_cpus[0]
+        if macos_cpus:
+            return macos_cpus[0]
+        cpu_value = settings["//command_line_option:cpu"]
+        if cpu_value.startswith(DARWIN_CPU_PREFIX):
+            return cpu_value[len(DARWIN_CPU_PREFIX):]
+        return DEFAULT_MACOS_CPU
     if platform_type == CATALYST:
         catalyst_cpus = settings["//command_line_option:catalyst_cpus"]
         if len(catalyst_cpus) == 0:
@@ -61,16 +69,12 @@ TVOS = "tvos"
 MACOS = "macos"
 CATALYST = "catalyst"
 IOS_CPU_PREFIX = "ios_"
+DARWIN_CPU_PREFIX = "darwin_"
 DEFAULT_IOS_CPU = "x86_64"
 DEFAULT_WATCHOS_CPU = "i386"
 DEFAULT_TVOS_CPU = "x86_64"
 DEFAULT_MACOS_CPU = "x86_64"
 DEFAULT_CATALYST_CPU = "x86_64"
-
-def _ios_cpu_from_cpu(cpu):
-    if cpu.startswith(IOS_CPU_PREFIX):
-        return cpu[len(IOS_CPU_PREFIX):]
-    return DEFAULT_IOS_CPU
 
 def _output_dictionary(settings, cpu, platform_type, platforms):
     return {
