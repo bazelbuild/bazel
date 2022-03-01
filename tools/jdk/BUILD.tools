@@ -348,7 +348,8 @@ alias(
     actual = ":toolchain",
 )
 
-RELEASES = (8, 9, 10, 11)
+
+RELEASES = (9, 10, 11)
 
 [
     default_java_toolchain(
@@ -359,6 +360,14 @@ RELEASES = (8, 9, 10, 11)
     )
     for release in RELEASES
 ]
+
+
+default_java_toolchain(
+    name = "toolchain_java8",
+    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
+    source_version = "8",
+    target_version = "8",
+)
 
 # A toolchain that targets java 14.
 default_java_toolchain(
