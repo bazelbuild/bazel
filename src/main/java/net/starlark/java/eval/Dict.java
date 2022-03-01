@@ -72,7 +72,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "0 in d, \"a\" in d  # (True, False)\n"
             + "[(k, v) for k, v in d.items()]  # [(0, \"a\"), (1, 1), (2, \"b\")]\n"
             + "</pre>\n"
-            + "<p>There are three ways to construct a dictionary:\n"
+            + "<p>There are four ways to construct a dictionary:\n"
             + "<ol>\n"
             + "<li>A dictionary expression <code>{k: v, ...}</code> yields a new dictionary with"
             + " the specified key/value entries, inserted in the order they appear in the"
@@ -90,6 +90,17 @@ import net.starlark.java.annot.StarlarkMethod;
             + " a dictionary containing the specified entries, which are inserted in argument"
             + " order, positional arguments before named. As with comprehensions, duplicate keys"
             + " are permitted.\n"
+            + "<li>The union expression <code>x | y</code> yields a new dictionary by combining two"
+            + " existing dictionaries. If the two dictionaries have a key <code>k</code> in common,"
+            + " the right hand side dictionary's value of the key (in other words,"
+            + " <code>y[k]</code>) wins. The <code>|=</code> variant of the union operator modifies"
+            + " a dictionary in-place. Example:<br>"
+            + "<pre class=language-python>"
+            + "d = {\"foo\": \"FOO\", \"bar\": \"BAR\"} | {\"foo\": \"FOO2\", \"baz\": \"BAZ\"}\n"
+            + "# d == {\"foo\": \"FOO2\", \"bar\": \"BAR\", \"baz\": \"BAZ\"}\n"
+            + "d = {\"a\": 1, \"b\": 2}\n"
+            + "d |= {\"b\": 3, \"c\": 4}\n"
+            + "# d == {\"a\": 1, \"b\": 3, \"c\": 4}</pre>"
             + "</ol>")
 public class Dict<K, V>
     implements Map<K, V>,
