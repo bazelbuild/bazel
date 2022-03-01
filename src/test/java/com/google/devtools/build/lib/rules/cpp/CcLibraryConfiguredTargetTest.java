@@ -2223,7 +2223,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     List<String> linkArgv = action.getLinkCommandLine().arguments();
     assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
     assertThat(Joiner.on(" ").join(linkArgv))
-        .contains("-Wl,-rpath,$ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
+        .contains("-Wl,-rpath,$ORIGIN/../../../k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv))
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv)).containsMatch("-lST-[0-9a-f]+_transition_Slibdep2");
