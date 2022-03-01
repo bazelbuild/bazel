@@ -156,19 +156,10 @@ _real_pkg_tar = rule(
     },
 )
 
-def pkg_tar(**kwargs):
-    # Compatibility with older versions of pkg_tar that define files as
-    # a flat list of labels.
-    if "srcs" not in kwargs:
-        if "files" in kwargs:
-            if not hasattr(kwargs["files"], "items"):
-                label = "%s//%s:%s" % (native.repository_name(), native.package_name(), kwargs["name"])
-                print("%s: you provided a non dictionary to the pkg_tar `files` attribute. " % (label,) +
-                      "This attribute was renamed to `srcs`. " +
-                      "Consider renaming it in your BUILD file.")
-                kwargs["srcs"] = kwargs.pop("files")
+def pkg_tar(name, **kwargs):
     extension = kwargs.get("extension") or "tar"
     _real_pkg_tar(
-        out = kwargs["name"] + "." + extension,
+        name = name,
+        out = name + "." + extension,
         **kwargs
     )
