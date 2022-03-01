@@ -1,15 +1,8 @@
 # -*- coding: utf-8 -*-
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//tools/config:common_settings.bzl", "bool_flag")
 load("//tools/python:private/defs.bzl", "py_binary", "py_library", "py_test")
 
 licenses(["notice"])  # Apache 2.0
-
-bool_flag(
-    name = "incompatible_no_build_defs_pkg",
-    build_setting_default = False,
-    visibility = ["//visibility:public"],
-)
 
 filegroup(
     name = "srcs",

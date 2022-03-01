@@ -14,7 +14,6 @@
 """Rules for manipulation of various packaging."""
 
 load(":path.bzl", "compute_data_path", "dest_path")
-load("//tools/config:common_settings.bzl", "BuildSettingInfo")
 
 # Filetype to restrict inputs
 tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.bz2"]
@@ -32,10 +31,6 @@ def _quote(filename, protect = "="):
 
 def _pkg_tar_impl(ctx):
     """Implementation of the pkg_tar rule."""
-
-    if ctx.attr._no_build_defs_pkg_flag[BuildSettingInfo].value:
-        fail("The built-in version of pkg_tar has been removed. Please use" +
-             " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
 
     # Compute the relative path
     data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
@@ -149,9 +144,6 @@ _real_pkg_tar = rule(
             cfg = "host",
             executable = True,
             allow_files = True,
-        ),
-        "_no_build_defs_pkg_flag": attr.label(
-            default = "//tools/build_defs/pkg:incompatible_no_build_defs_pkg",
         ),
     },
 )
