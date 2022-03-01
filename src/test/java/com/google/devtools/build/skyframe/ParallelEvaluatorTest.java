@@ -64,7 +64,6 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -1645,9 +1644,8 @@ public class ParallelEvaluatorTest {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env)
                   throws SkyFunctionException, InterruptedException {
-                Map<SkyKey, ValueOrException<SomeErrorException>> values =
-                    env.getValuesOrThrow(
-                        ImmutableList.of(errorKey, otherKey), SomeErrorException.class);
+                SkyframeLookupResult values =
+                    env.getValuesAndExceptions(ImmutableList.of(errorKey, otherKey));
                 if (numComputes.incrementAndGet() == 1) {
                   assertThat(env.valuesMissing()).isTrue();
                 } else {
@@ -1655,7 +1653,7 @@ public class ParallelEvaluatorTest {
                   assertThat(env.valuesMissing()).isFalse();
                 }
                 try {
-                  values.get(errorKey).get();
+                  values.getOrThrow(errorKey, SomeErrorException.class);
                   throw new AssertionError("Should have thrown");
                 } catch (SomeErrorException e) {
                   throw new SkyFunctionException(topException, Transience.PERSISTENT) {};
@@ -2034,10 +2032,9 @@ public class ParallelEvaluatorTest {
    *
    * @param sameFirst whether the dep in common in the two groups should be the first dep.
    * @param twoCalls whether the two groups should be requested in two different builder calls.
-   * @param valuesOrThrow whether the deps should be requested using getValuesOrThrow.
    */
-  private void sameDepInTwoGroups(
-      final boolean sameFirst, final boolean twoCalls, final boolean valuesOrThrow)
+  @Test
+  public void sameDepInTwoGroups(@TestParameter boolean sameFirst, @TestParameter boolean twoCalls)
       throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey topKey = GraphTester.toSkyKey("top");
@@ -2053,22 +2050,14 @@ public class ParallelEvaluatorTest {
         .getOrCreate(topKey)
         .setBuilder(
             (skyKey, env) -> {
-              if (valuesOrThrow) {
-                env.getValuesOrThrow(leaves, SomeErrorException.class);
-              } else {
-                env.getValues(leaves);
-              }
+              env.getOrderedValuesAndExceptions(leaves);
               if (twoCalls && env.valuesMissing()) {
                 return null;
               }
               SkyKey first = sameFirst ? leaves.get(0) : leaf4;
               SkyKey second = sameFirst ? leaf4 : leaves.get(2);
               ImmutableList<SkyKey> secondRequest = ImmutableList.of(first, second);
-              if (valuesOrThrow) {
-                env.getValuesOrThrow(secondRequest, SomeErrorException.class);
-              } else {
-                env.getValues(secondRequest);
-              }
+              env.getOrderedValuesAndExceptions(secondRequest);
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2076,46 +2065,6 @@ public class ParallelEvaluatorTest {
             });
     eval(/*keepGoing=*/ false, topKey);
     assertThat(eval(/*keepGoing=*/ false, topKey)).isEqualTo(new StringValue("top"));
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Same_Two_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ true, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Same_Two_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ true, /*valuesOrThrow=*/ false);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Same_One_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ false, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Same_One_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ false, /*valuesOrThrow=*/ false);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_Two_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ true, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_Two_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ true, /*valuesOrThrow=*/ false);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_One_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ false, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_One_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ false, /*valuesOrThrow=*/ false);
   }
 
   private void getValuesOrThrowWithErrors(boolean keepGoing) throws Exception {
