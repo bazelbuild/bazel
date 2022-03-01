@@ -238,7 +238,7 @@ def _filter_inputs(
         preloaded_deps_direct_labels,
         link_once_static_libs_map):
     linker_inputs = []
-    link_once_static_libs = []
+    curr_link_once_static_libs_map = {}
 
     graph_structure_aspect_nodes = []
     dependency_linker_inputs = []
@@ -307,7 +307,7 @@ def _filter_inputs(
                 )
 
                 if not link_statically_labels[owner]:
-                    link_once_static_libs.append(owner)
+                    curr_link_once_static_libs_map[owner] = True
                 linker_inputs.append(wrapped_library)
             else:
                 can_be_linked_statically = False
@@ -329,7 +329,7 @@ def _filter_inputs(
 
                 if can_be_linked_statically:
                     if not link_statically_labels[owner]:
-                        link_once_static_libs.append(owner)
+                        curr_link_once_static_libs_map[owner] = True
                     linker_inputs.append(linker_input)
                 else:
                     unaccounted_for_libs.append(linker_input.owner)
@@ -343,7 +343,7 @@ def _filter_inputs(
         fail(message)
 
     _throw_error_if_unaccounted_libs(unaccounted_for_libs)
-    return (exports, linker_inputs, link_once_static_libs, precompiled_only_dynamic_libraries)
+    return (exports, linker_inputs, curr_link_once_static_libs_map.keys(), precompiled_only_dynamic_libraries)
 
 def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
     if not unaccounted_for_libs:
