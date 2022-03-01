@@ -2569,6 +2569,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    main_dex_classes = 'main_dex_classes',",
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
+        "    proguard_configuration_optimize = 'proguard-android-optimize.txt',",
+        "    proguard_configuration_dont_optimize = 'proguard-android.txt',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'])");
@@ -2614,6 +2616,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    main_dex_classes = 'main_dex_classes',",
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
+        "    proguard_configuration_optimize = 'proguard-android-optimize.txt',",
+        "    proguard_configuration_dont_optimize = 'proguard-android.txt',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
         "    legacy_main_dex_list_generator = '//tools/fake:generate_main_dex_list',",
@@ -2660,6 +2664,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    main_dex_classes = 'main_dex_classes',",
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
+        "    proguard_configuration_optimize = 'proguard-android-optimize.txt',",
+        "    proguard_configuration_dont_optimize = 'proguard-android.txt',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'])");
@@ -4094,6 +4100,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             // Only one combined library jar
             "-libraryjars",
             execPathEndingWith(action.getInputs(), "legacy_b_combined_library_jars.jar"),
+            "@" + execPathEndingWith(action.getInputs(), "/empty-proguard-mocks-android-default.pro"),
             "@" + execPathEndingWith(action.getInputs(), "b_proguard.cfg"),
             "@java/com/google/android/hello/proguard-spec.pro",
             "@java/com/google/android/hello/proguard-spec1.pro",
@@ -4137,6 +4144,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             // Only one combined library jar
             "-libraryjars",
             execPathEndingWith(action.getInputs(), "legacy_b_combined_library_jars.jar"),
+            "@" + execPathEndingWith(action.getInputs(), "/empty-proguard-mocks-android-default.pro"),
             "@" + execPathEndingWith(action.getInputs(), "b_proguard.cfg"),
             "@java/com/google/android/hello/proguard-spec.pro",
             "@java/com/google/android/hello/proguard-spec1.pro",
@@ -4233,6 +4241,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(prettyArtifactNames(action.getInputs())).containsNoDuplicates();
     assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
         .containsExactly(
+            "@" + execPathEndingWith(action.getInputs(), "/empty-proguard-mocks-android-default.pro"),
             "@" + execPathEndingWith(action.getInputs(), "/proguard-spec.pro"),
             "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"),
             "@java/com/google/android/hello/extra.pro");
@@ -4264,6 +4273,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(prettyArtifactNames(action.getInputs())).containsNoDuplicates();
     assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
         .containsExactly(
+            "@" + execPathEndingWith(action.getInputs(), "/empty-proguard-mocks-android-default.pro"),
             "@java/com/google/android/hello/proguard-spec.pro",
             "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"));
   }

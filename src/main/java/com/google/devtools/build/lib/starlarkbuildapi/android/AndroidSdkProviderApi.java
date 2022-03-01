@@ -125,6 +125,12 @@ public interface AndroidSdkProviderApi<
   @StarlarkMethod(name = "proguard", structField = true, doc = "", documented = false)
   FilesToRunProviderT getProguard();
 
+  @StarlarkMethod(name = "proguard_configuration_optimize", structField = true, doc = "", documented = false)
+  FileT getProguardConfigurationOptimize();
+
+  @StarlarkMethod(name = "proguard_configuration_dont_optimize", structField = true, doc = "", documented = false)
+  FileT getProguardConfigurationDontOptimize();
+
   @StarlarkMethod(name = "zip_align", structField = true, doc = "", documented = false)
   FilesToRunProviderT getZipalign();
 
@@ -252,6 +258,16 @@ public interface AndroidSdkProviderApi<
               positional = true,
               named = false),
           @Param(
+              name = "proguard_configuration_optimize",
+              doc = "File containing the equivalent of getDefaultProguardFile(proguard-android-optimize.txt).",
+              positional = true,
+              named = false),
+          @Param(
+              name = "proguard_configuration_dont_optimize",
+              doc = "File containing the equivalent of getDefaultProguardFile(proguard-android.txt).",
+              positional = true,
+              named = false),
+          @Param(
               name = "zipalign",
               doc = "A files to run provider of Zipalign.",
               positional = true,
@@ -291,6 +307,8 @@ public interface AndroidSdkProviderApi<
         Object apkBuilder,
         FilesToRunProviderT apkSigner,
         FilesToRunProviderT proguard,
+        FileT proguardConfigurationOptimize,
+        FileT proguardConfigurationDontOptimize,
         FilesToRunProviderT zipalign,
         Object system,
         Object legacyMainDexListGenerator)

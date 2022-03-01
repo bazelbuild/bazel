@@ -86,6 +86,8 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
         "    main_dex_classes = 'main_dex_classes',",
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
+        "    proguard_configuration_optimize = 'proguard-android-optimize.txt',",
+        "    proguard_configuration_dont_optimize = 'proguard-android.txt',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'],",

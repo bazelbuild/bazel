@@ -125,6 +125,8 @@ def create_android_sdk_rules(
             name = "sdk-%d" % api_level,
             build_tools_version = build_tools_version,
             proguard = "@bazel_tools//tools/jdk:proguard",
+            proguard_configuration_optimize = "@bazel_tools//tools/android:proguard-android-optimize.txt",
+            proguard_configuration_dont_optimize = "@bazel_tools//tools/android:proguard-android.txt",
             aapt = select({
                 ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
                 "//conditions:default": ":aapt_binary",
@@ -351,6 +353,8 @@ def create_dummy_sdk_toolchain():
         main_dex_classes = "dummy.jar",
         main_dex_list_creator = ":empty-binary",
         proguard = ":empty-binary",
+        proguard_configuration_optimize = ":empty.sh",
+        proguard_configuration_dont_optimize = ":empty.sh",
         shrinked_android_jar = "dummy.jar",
         zipalign = ":empty-binary",
         tags = ["__ANDROID_RULES_MIGRATION__"],

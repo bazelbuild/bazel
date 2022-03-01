@@ -52,6 +52,18 @@ public class AndroidSdkBaseRule implements RuleDefinition {
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
+        // This is the equivalent of getDefaultProguardFile(proguard-android-optimize.txt)
+        // For more, see https://developer.android.com/studio/build/shrink-code
+        .add(
+            attr("proguard_configuration_optimize", LABEL)
+                .mandatory()
+                .allowedFileTypes(ANY_FILE))
+        // This is the equivalent of getDefaultProguardFile(proguard-android.txt)
+        // For more, see https://developer.android.com/studio/build/shrink-code
+        .add(
+            attr("proguard_configuration_dont_optimize", LABEL)
+                .mandatory()
+                .allowedFileTypes(ANY_FILE))
         .add(
             attr("aapt", LABEL)
                 .mandatory()

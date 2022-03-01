@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -313,6 +314,19 @@ public final class ProguardHelper {
       @Nullable Artifact proguardOutputMap)
       throws InterruptedException {
     Preconditions.checkArgument(!proguardSpecs.isEmpty());
+
+    // Configure proguard for Android
+    // This is the equivalent of getDefaultProguardFile(proguard-android-optimize.txt)
+    //                        or getDefaultProguardFile(proguard-android.txt)
+    // For more, see https://developer.android.com/studio/build/shrink-code
+    boolean opt = ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT;
+    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
+    proguardSpecs =
+        ImmutableList.<Artifact>builder()
+            .add(opt ? sdk.getProguardConfigurationOptimize()
+                     : sdk.getProguardConfigurationDontOptimize())
+            .addAll(proguardSpecs)
+            .build();
 
     ProguardOutput output =
         getProguardOutputs(

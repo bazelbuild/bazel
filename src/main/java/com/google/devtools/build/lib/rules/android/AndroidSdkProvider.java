@@ -65,6 +65,8 @@ public final class AndroidSdkProvider extends NativeInfo
   private final FilesToRunProvider apkBuilder;
   private final FilesToRunProvider apkSigner;
   private final FilesToRunProvider proguard;
+  private final Artifact proguardConfigurationOptimize;
+  private final Artifact proguardConfigurationDontOptimize;
   private final FilesToRunProvider zipalign;
   @Nullable private final BootClassPathInfo system;
   @Nullable private final FilesToRunProvider legacyMainDexListGenerator;
@@ -86,6 +88,8 @@ public final class AndroidSdkProvider extends NativeInfo
       @Nullable FilesToRunProvider apkBuilder,
       FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
+      Artifact proguardConfigurationOptimize,
+      Artifact proguardConfigurationDontOptimize,
       FilesToRunProvider zipalign,
       @Nullable BootClassPathInfo system,
       @Nullable FilesToRunProvider legacyMainDexListGenerator) {
@@ -105,6 +109,8 @@ public final class AndroidSdkProvider extends NativeInfo
     this.apkBuilder = apkBuilder;
     this.apkSigner = apkSigner;
     this.proguard = proguard;
+    this.proguardConfigurationOptimize = proguardConfigurationOptimize;
+    this.proguardConfigurationDontOptimize = proguardConfigurationDontOptimize;
     this.zipalign = zipalign;
     this.system = system;
     this.legacyMainDexListGenerator = legacyMainDexListGenerator;
@@ -298,6 +304,16 @@ public final class AndroidSdkProvider extends NativeInfo
   }
 
   @Override
+  public Artifact getProguardConfigurationOptimize() {
+    return proguardConfigurationOptimize;
+  }
+
+  @Override
+  public Artifact getProguardConfigurationDontOptimize() {
+    return proguardConfigurationDontOptimize;
+  }
+
+  @Override
   public FilesToRunProvider getZipalign() {
     return zipalign;
   }
@@ -339,6 +355,8 @@ public final class AndroidSdkProvider extends NativeInfo
         Object apkBuilder,
         FilesToRunProvider apkSigner,
         FilesToRunProvider proguard,
+        Artifact proguardConfigurationOptimize,
+        Artifact proguardConfigurationDontOptimize,
         FilesToRunProvider zipalign,
         Object system,
         Object legacyMainDexListGenerator)
@@ -360,6 +378,8 @@ public final class AndroidSdkProvider extends NativeInfo
           fromNoneable(apkBuilder, FilesToRunProvider.class),
           apkSigner,
           proguard,
+          proguardConfigurationOptimize,
+          proguardConfigurationDontOptimize,
           zipalign,
           fromNoneable(system, BootClassPathInfo.class),
           fromNoneable(legacyMainDexListGenerator, FilesToRunProvider.class));

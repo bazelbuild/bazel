@@ -57,6 +57,8 @@ public abstract class AndroidSdkTest extends AndroidBuildViewTestCase {
         "    main_dex_classes = 'mainDexClasses.rules',",
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'ProGuard',",
+        "    proguard_configuration_optimize = 'proguard-android-optimize.txt',",
+        "    proguard_configuration_dont_optimize = 'proguard-android.txt',",
         "    shrinked_android_jar = 'android.jar',",
         "    zipalign = 'zipalign',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'],",

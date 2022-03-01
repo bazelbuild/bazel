@@ -51,6 +51,10 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
         ruleContext.getFragment(JavaConfiguration.class).getProguardBinary() == null
             ? ruleContext.getExecutablePrerequisite("proguard")
             : ruleContext.getExecutablePrerequisite(":proguard");
+    Artifact proguardConfigurationOptimize = 
+        ruleContext.getPrerequisiteArtifact("proguard_configuration_optimize");
+    Artifact proguardConfigurationDontOptimize = 
+        ruleContext.getPrerequisiteArtifact("proguard_configuration_dont_optimize");
 
     String buildToolsVersion =
         AggregatingAttributeMapper.of(ruleContext.getRule())
@@ -98,6 +102,8 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
             apkBuilder,
             apkSigner,
             proguard,
+            proguardConfigurationOptimize,
+            proguardConfigurationDontOptimize,
             zipalign,
             system,
             legacyMainDexListGenerator);
