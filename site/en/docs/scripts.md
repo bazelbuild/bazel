@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 #  Calling Bazel from scripts
 
+DO NOT MERGE
+
 You can call Bazel from scripts to perform a build, run tests, or query
 the dependency graph. Bazel has been designed to enable effective scripting, but
 this section lists some details to bear in mind to make your scripts more
