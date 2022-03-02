@@ -153,7 +153,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             J2ObjcConfiguration.class,
             ObjcConfiguration.class,
             ProtoConfiguration.class)
-        .addToolchainType(
+        .addToolchainTypes(
             ToolchainTypeRequirement.builder(ccToolchainType)
                 // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can
                 // be optional.
