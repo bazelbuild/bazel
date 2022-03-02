@@ -1,3 +1,27 @@
+## Release 6.0.0-pre.20220223.1 (2022-03-02)
+
+```
+Baseline: 24e82426e689853b0d9a04e7b9b6f13e145cf2d6
+```
+
+Important changes:
+
+  - Include more information about configurations in cquery proto
+    formatted output. This deprecates the configuration field of
+    AnalysisProtosV2.ConfiguredTarget, and adds a new field,
+    configuration_id, to
+    be used instead.
+  - experimental cc_library.implementation_deps inverted to
+    interface_deps
+  - In aquery and cquery proto output, indicate if a configuration is
+    a
+    tool or non-tool configuration.
+  - Include complete configurations in cquery proto output.
+  - experimental cc_library.implementation_deps inverted to
+    interface_deps
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Keith Smiley, Mostyn Bramley-Moore, Sven Tiffe.
+
 ## Release 6.0.0-pre.20220216.3 (2022-02-24)
 
 ```
