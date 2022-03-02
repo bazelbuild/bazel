@@ -1551,15 +1551,6 @@ public class RuleClass {
      * resolution when a target is configured.
      */
     // TODO(katre): Remove this once all callers use addToolchainType.
-    public Builder addRequiredToolchains(Label... toolchainLabels) {
-      return this.addRequiredToolchains(ImmutableList.copyOf(toolchainLabels));
-    }
-
-    /**
-     * Causes rules of this type to require the specified toolchains be available via toolchain
-     * resolution when a target is configured.
-     */
-    // TODO(katre): Remove this once all callers use addToolchainType.
     public Builder addRequiredToolchains(Collection<Label> toolchainLabels) {
       return this.addToolchainTypes(
           toolchainLabels.stream()

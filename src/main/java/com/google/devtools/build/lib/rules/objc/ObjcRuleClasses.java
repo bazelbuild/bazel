@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -312,7 +313,12 @@ public class ObjcRuleClasses {
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
-          .addRequiredToolchains(ImmutableList.of(CppRuleClasses.ccToolchainTypeAttribute(env)))
+          // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+          // optional.
+          .addToolchainTypes(
+              ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                  .mandatory(true)
+                  .build())
           .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }

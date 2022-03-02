@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -115,7 +116,12 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
                         return null;
                       }
                     }))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+        // optional.
+        .addToolchainTypes(
+            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                .mandatory(true)
+                .build())
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }

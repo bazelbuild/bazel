@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -99,7 +100,12 @@ public final class CcImportRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
         .add(attr("data", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).dontCheckConstraints())
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
+        // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+        // optional.
+        .addToolchainTypes(
+            ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
+                .mandatory(true)
+                .build())
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
