@@ -20,6 +20,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -97,7 +98,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -487,27 +488,32 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       boolean ok = true;
       Map<String, Collection<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
-      Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
+      ImmutableMap.Builder<TargetPatternKey, String> targetBuilder =
+          ImmutableMap.builderWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
         checkValidPatternType(pattern);
-        patternKeys.put(
+        targetBuilder.put(
             TargetPatternValue.key(
                 SignedTargetPattern.parse(pattern, TargetPattern.defaultParser()),
                 FilteringPolicies.NO_FILTER),
             pattern);
       }
+      ImmutableMap<TargetPatternKey, String> patternKeys = targetBuilder.buildOrThrow();
       Set<SkyKey> packageKeys = new HashSet<>();
       Map<String, ResolvedTargets<Label>> resolvedLabelsMap =
           Maps.newHashMapWithExpectedSize(patterns.size());
       synchronized (this) {
-        for (Map.Entry<SkyKey, ValueOrException<TargetParsingException>> entry :
-          env.getValuesOrThrow(patternKeys.keySet(), TargetParsingException.class).entrySet()) {
-          TargetPatternValue patternValue = (TargetPatternValue) entry.getValue().get();
+        ImmutableSet<TargetPatternKey> targetPatternKeys = patternKeys.keySet();
+        SkyframeIterableResult patternKeysResult =
+            env.getOrderedValuesAndExceptions(targetPatternKeys);
+        for (TargetPatternKey targetPatternKey : targetPatternKeys) {
+          TargetPatternValue patternValue =
+              (TargetPatternValue) patternKeysResult.nextOrThrow(TargetParsingException.class);
           if (patternValue == null) {
             ok = false;
           } else {
             ResolvedTargets<Label> resolvedLabels = patternValue.getTargets();
-            resolvedLabelsMap.put(patternKeys.get(entry.getKey()), resolvedLabels);
+            resolvedLabelsMap.put(patternKeys.get(targetPatternKey), resolvedLabels);
             for (Label label
                 : Iterables.concat(resolvedLabels.getTargets(),
                     resolvedLabels.getFilteredTargets())) {
@@ -522,12 +528,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Map<PackageIdentifier, Package> packages =
           Maps.newHashMapWithExpectedSize(packageKeys.size());
       synchronized (this) {
-        for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry :
-          env.getValuesOrThrow(packageKeys, NoSuchPackageException.class).entrySet()) {
-          PackageIdentifier pkgName = (PackageIdentifier) entry.getKey().argument();
+        SkyframeIterableResult packageKeysResult = env.getOrderedValuesAndExceptions(packageKeys);
+        // packageKeys is not mutated, the iteration order is the same.
+        for (SkyKey depKey : packageKeys) {
+          PackageIdentifier pkgName = (PackageIdentifier) depKey.argument();
           Package pkg;
           try {
-            PackageValue packageValue = (PackageValue) entry.getValue().get();
+            PackageValue packageValue =
+                (PackageValue) packageKeysResult.nextOrThrow(NoSuchPackageException.class);
             if (packageValue == null) {
               ok = false;
               continue;

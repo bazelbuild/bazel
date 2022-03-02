@@ -77,7 +77,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import com.google.devtools.build.skyframe.ValueOrException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -675,13 +674,11 @@ public class PackageFunction implements SkyFunction {
       Environment env, List<BzlLoadValue.Key> keys)
       throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    Map<SkyKey, ValueOrException<BzlLoadFailedException>> starlarkLookupResults =
-        env.getValuesOrThrow(keys, BzlLoadFailedException.class);
-    // TODO(b/172462551): use list-based utility (see CL 342917514).
-    for (BzlLoadValue.Key key : keys) {
+    SkyframeIterableResult starlarkLookupResults = env.getOrderedValuesAndExceptions(keys);
+    for (int i = 0; i < keys.size(); i++) {
       // TODO(adonovan): if get fails, report the source location
       // in the corresponding programLoads[i] (see caller).
-      bzlLoads.add((BzlLoadValue) starlarkLookupResults.get(key).get());
+      bzlLoads.add((BzlLoadValue) starlarkLookupResults.nextOrThrow(BzlLoadFailedException.class));
     }
     return env.valuesMissing() ? null : bzlLoads;
   }

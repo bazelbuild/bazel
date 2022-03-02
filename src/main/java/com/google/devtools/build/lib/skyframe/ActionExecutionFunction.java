@@ -101,7 +101,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import com.google.devtools.build.skyframe.ValueOrException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -906,16 +905,15 @@ public class ActionExecutionFunction implements SkyFunction {
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
     //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
-    Map<SkyKey, ValueOrException<SourceArtifactException>> nonMandatoryDiscovered =
-        env.getValuesOrThrow(
-            Iterables.transform(discoveredInputs, Artifact::key), SourceArtifactException.class);
-    if (nonMandatoryDiscovered.isEmpty()) {
+    SkyframeIterableResult nonMandatoryDiscovered =
+        env.getOrderedValuesAndExceptions(Iterables.transform(discoveredInputs, Artifact::key));
+    if (!nonMandatoryDiscovered.hasNext()) {
       return DiscoveredState.NO_DISCOVERED_DATA;
     }
     for (Artifact input : discoveredInputs) {
       SkyValue retrievedMetadata;
       try {
-        retrievedMetadata = nonMandatoryDiscovered.get(Artifact.key(input)).get();
+        retrievedMetadata = nonMandatoryDiscovered.nextOrThrow(SourceArtifactException.class);
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
           bugReporter.sendBugReport(
@@ -990,8 +988,7 @@ public class ActionExecutionFunction implements SkyFunction {
       @SuppressWarnings("unchecked")
       SkyframeAwareAction<E> skyframeAwareAction = (SkyframeAwareAction<E>) action;
       ImmutableList<? extends SkyKey> keys = skyframeAwareAction.getDirectSkyframeDependencies();
-      Map<SkyKey, ValueOrException<E>> values =
-          env.getValuesOrThrow(keys, skyframeAwareAction.getExceptionType());
+      SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
 
       try {
         return skyframeAwareAction.processSkyframeValues(keys, values, env.valuesMissing());
