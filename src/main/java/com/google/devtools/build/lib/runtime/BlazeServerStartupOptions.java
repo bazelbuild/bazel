@@ -77,7 +77,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   /* Passed from the client to the server, specifies the installation
    * location. The location should be of the form:
-   * $OUTPUT_BASE/_blaze_${USER}/install/${MD5_OF_INSTALL_MANIFEST}.
+   * $OUTPUT_BASE/_bazel_${USER}/install/${MD5_OF_INSTALL_MANIFEST}.
    * The server code will only accept a non-empty path; it's the
    * responsibility of the client to compute a proper default if
    * necessary.
@@ -120,7 +120,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help =
           "If set, specifies the output location to which all build output will be written. "
               + "Otherwise, the location will be "
-              + "${OUTPUT_ROOT}/_blaze_${USER}/${MD5_OF_WORKSPACE_ROOT}. Note: If you specify a "
+              + "${OUTPUT_ROOT}/_bazel_${USER}/${MD5_OF_WORKSPACE_ROOT}. Note: If you specify a "
               + "different option from one to the next Bazel invocation for this value, you'll "
               + "likely start up a new, additional Bazel server. Bazel starts exactly one server "
               + "per specified output base. Typically there is one output base per workspace - "
@@ -268,7 +268,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "Only on Linux; use 'batch' CPU scheduling for Blaze. This policy is useful for "
+          "Only on Linux; use 'batch' CPU scheduling for Bazel. This policy is useful for "
               + "workloads that are non-interactive, but do not want to lower their nice value. "
               + "See 'man 2 sched_setscheduler'. If false, then Bazel does not perform a system "
               + "call.")
