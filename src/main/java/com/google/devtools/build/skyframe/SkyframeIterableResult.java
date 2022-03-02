@@ -80,19 +80,27 @@ public final class SkyframeIterableResult {
    * SkyFunctionException#validateExceptionType} for details.
    */
   public <E1 extends Exception> SkyValue nextOrThrow(Class<E1> exceptionClass) throws E1 {
-    return nextOrThrow(exceptionClass, null, null);
+    return nextOrThrow(exceptionClass, null, null, null);
   }
 
   public <E1 extends Exception, E2 extends Exception> SkyValue nextOrThrow(
       Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
-    return nextOrThrow(exceptionClass1, exceptionClass2, null);
+    return nextOrThrow(exceptionClass1, exceptionClass2, null, null);
   }
 
   public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue nextOrThrow(
-      @Nullable Class<E1> exceptionClass1,
-      @Nullable Class<E2> exceptionClass2,
-      @Nullable Class<E3> exceptionClass3)
+      Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3)
       throws E1, E2, E3 {
+    return nextOrThrow(exceptionClass1, exceptionClass2, exceptionClass3, null);
+  }
+
+  public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+      SkyValue nextOrThrow(
+          @Nullable Class<E1> exceptionClass1,
+          @Nullable Class<E2> exceptionClass2,
+          @Nullable Class<E3> exceptionClass3,
+          @Nullable Class<E4> exceptionClass4)
+          throws E1, E2, E3, E4 {
     ValueOrUntypedException voe = valuesOrExceptions.next();
     SkyValue value = voe.getValue();
     if (value != null) {
@@ -108,6 +116,9 @@ public final class SkyframeIterableResult {
       }
       if (exceptionClass3 != null && exceptionClass3.isInstance(e)) {
         throw exceptionClass3.cast(e);
+      }
+      if (exceptionClass4 != null && exceptionClass4.isInstance(e)) {
+        throw exceptionClass4.cast(e);
       }
     }
     valuesMissingCallback.run();

@@ -253,13 +253,6 @@ public interface SkyFunction {
     <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
         Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
 
-    <E1 extends Exception, E2 extends Exception>
-        Map<SkyKey, ValueOrException2<E1, E2>> getValuesOrThrow(
-            Iterable<? extends SkyKey> depKeys,
-            Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2)
-            throws InterruptedException;
-
     /**
      * Simailar to {@link #getValues}, but returns a {@link SkyframeLookupResult}, which contains
      * the values of {@code depKeys}. Use in preference to all other getting methods (except for
