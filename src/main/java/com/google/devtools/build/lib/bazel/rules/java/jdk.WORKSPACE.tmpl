@@ -31,39 +31,6 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk8_linux_aarch64}
-    target_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:aarch64",
-    ],
-    version = "8",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
-    {remotejdk8_linux_ppc64le}
-    target_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:ppc",
-    ],
-    version = "8",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
-    {remotejdk8_linux_s390x}
-    target_compatible_with = [
-        "@platforms//os:linux",
-        "@platforms//cpu:s390x",
-    ],
-    version = "8",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
     {remotejdk8_macos}
     target_compatible_with = [
         "@platforms//os:macos",

@@ -353,50 +353,10 @@ DIST_DEPS = {
             "openjdk8_linux_archive",
         ],
         "sha256": "73d5c4bae20325ca41b606f7eae64669db3aac638c5b3ead4a975055846ad61e",
-        "strip_prefix": "zulu8.32.13-ca-jdk8.0.2-linux_x64",
+        "strip_prefix": "zulu8.60.0.21-ca-jdk8.0.322-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-linux_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-linux_x64.tar.gz",
-        ],
-        "used_in": [],
-    },
-     "remotejdk8_linux_aarch64": {
-        "aliases": [
-            "remotejdk8_linux_aarch64_for_testing",
-            "openjdk_linux_aarch64_vanilla",
-        ],
-        "archive": "zulu8.52.13-ca-jdk8.0.13-linux_aarch64.tar.gz",
-        "sha256": "6be187379c26506a4b804b4f734c17e554aebe4204bde51a10b429054cc9cf9f",
-        "strip_prefix": "zulu8.52.13-ca-jdk8.0.13-linux_aarch64",
-        "urls": [
-            "https://mirror.bazel.build/zulu-embedded/bin/zulu8.52.13-ca-jdk8.0.13-linux_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu-embedded/bin/zulu8.52.13-ca-jdk8.0.13-linux_aarch64.tar.gz",
-        ],
-        "used_in": ["test_WORKSPACE_files"],
-    },
-    "remotejdk8_linux_ppc64le": {
-        "aliases": [
-            "remotejdk8_linux_ppc64le_for_testing",
-            "openjdk_linux_ppc64le_vanilla",
-        ],
-        "sha256": "82f14cda71cff99c878b18400598a87235adb6c81b0337f7077c27e5cac890c",
-        "strip_prefix": "jdk-8.0.13+8",
-        "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_ppc64le_linux_hotspot_8.0.13_8.tar.gz",
-            "https://github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_ppc64le_linux_hotspot_8.0.13_8.tar.gz",
-        ],
-        "used_in": [],
-    },
-    "remotejdk8_linux_s390x": {
-        "aliases": [
-            "remotejdk8_linux_s390x_for_testing",
-            "openjdk_linux_s390x_vanilla",
-        ],
-        "sha256": "9d180d86fdf6a7d9e5cbf54dc37f1d6d09dfe676ff5c684802fdfa3932eee63e",
-        "strip_prefix": "jdk-8.0.13+8",
-        "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_s390x_linux_hotspot_8.0.13_8.tar.gz",
-            "https://github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_s390x_linux_hotspot_8.0.13_8.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu8.60.0.21-ca-jdk8.0.322-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu8.60.0.21-ca-jdk8.0.322-linux_x64.tar.gz",
         ],
         "used_in": [],
     },
