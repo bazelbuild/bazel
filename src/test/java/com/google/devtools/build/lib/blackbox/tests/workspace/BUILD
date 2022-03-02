@@ -20,6 +20,9 @@ java_test(
         "RepoWithRuleWritingTextGenerator.java",
         "RepoWithRuleWritingTextGeneratorTest.java",
     ],
+    data = [
+        "//tools/mini_tar:mini_tar_srcs",
+    ],
     tags = ["black_box_test"],
     deps = common_deps,
 )
@@ -44,6 +47,9 @@ java_test(
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceTestUtils.java",
     ],
+    data = [
+        "//tools/mini_tar:mini_tar_srcs",
+    ],
     tags = ["black_box_test"],
     deps = common_deps + [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
@@ -61,6 +67,9 @@ java_test(
         "GitRepositoryHelper.java",
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceTestUtils.java",
+    ],
+    data = [
+        "//tools/mini_tar:mini_tar_srcs",
     ],
     tags = ["black_box_test"],
     deps = common_deps + [
