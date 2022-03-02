@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Skyframe
 
+DO NOT MERGE
+
 The parallel evaluation and incrementality model of Bazel.
 
 ## Data model
