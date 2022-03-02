@@ -347,6 +347,111 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
+    "remotejdk8_linux": {
+        "aliases": [
+            "remotejdk8_linux_for_testing",
+            "openjdk8_linux_archive",
+        ],
+        "sha256": "73d5c4bae20325ca41b606f7eae64669db3aac638c5b3ead4a975055846ad61e",
+        "strip_prefix": "zulu8.32.13-ca-jdk8.0.2-linux_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-linux_x64.tar.gz",
+        ],
+        "used_in": [],
+    },
+     "remotejdk8_linux_aarch64": {
+        "aliases": [
+            "remotejdk8_linux_aarch64_for_testing",
+            "openjdk_linux_aarch64_vanilla",
+        ],
+        "archive": "zulu8.52.13-ca-jdk8.0.13-linux_aarch64.tar.gz",
+        "sha256": "6be187379c26506a4b804b4f734c17e554aebe4204bde51a10b429054cc9cf9f",
+        "strip_prefix": "zulu8.52.13-ca-jdk8.0.13-linux_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/zulu-embedded/bin/zulu8.52.13-ca-jdk8.0.13-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu-embedded/bin/zulu8.52.13-ca-jdk8.0.13-linux_aarch64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk8_linux_ppc64le": {
+        "aliases": [
+            "remotejdk8_linux_ppc64le_for_testing",
+            "openjdk_linux_ppc64le_vanilla",
+        ],
+        "sha256": "82f14cda71cff99c878b18400598a87235adb6c81b0337f7077c27e5cac890c",
+        "strip_prefix": "jdk-8.0.13+8",
+        "urls": [
+            "https://mirror.bazel.build/github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_ppc64le_linux_hotspot_8.0.13_8.tar.gz",
+            "https://github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_ppc64le_linux_hotspot_8.0.13_8.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk8_linux_s390x": {
+        "aliases": [
+            "remotejdk8_linux_s390x_for_testing",
+            "openjdk_linux_s390x_vanilla",
+        ],
+        "sha256": "9d180d86fdf6a7d9e5cbf54dc37f1d6d09dfe676ff5c684802fdfa3932eee63e",
+        "strip_prefix": "jdk-8.0.13+8",
+        "urls": [
+            "https://mirror.bazel.build/github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_s390x_linux_hotspot_8.0.13_8.tar.gz",
+            "https://github.com/adoptium/temurin8-binaries/releases/download/jdk-8.0.13+8/OpenJDK8U-jdk_s390x_linux_hotspot_8.0.13_8.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk8_macos": {
+        "aliases": [
+            "remotejdk8_macos_for_testing",
+            "openjdk8_darwin_archive",
+        ],
+        "sha256": "89d04b2d99b05dcb2511488e65f6a1c5ca742e125cab0a63d87e7e42f3fc180",
+        "strip_prefix": "zulu8.32.13-ca-jdk8.0.2-macosx_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-macosx_x64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk8_macos_aarch64": {
+        "aliases": [
+            "remotejdk8_macos_aarch64_for_testing",
+            "openjdk8_darwin_aarch64_archive",
+        ],
+        "sha256": "54247dde248ffbcd3c048675504b1c503b81daf2dc0d64a79e353c48d383c177",
+        "strip_prefix": "zulu8.32.13-ca-jdk8.0.2-macosx_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-macosx_aarch64.tar.gz",
+        ],
+        "used_in": [],
+    },
+    "remotejdk8_win": {
+        "aliases": [
+            "remotejdk8_win_for_testing",
+            "openjdk8_windows_archive",
+        ],
+        "sha256": "e965aa0ea7a0661a3446cf8f10ee00684b851f883b803315289f26b4aa107fdb",
+        "strip_prefix": "zulu8.32.13-ca-jdk8.0.2-win_x64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu8.32.13-ca-jdk8.0.2-win_x64.zip",
+        ],
+        "used_in": [],
+    },
+    "remotejdk8_win_arm64": {
+        "aliases": [
+            "remotejdk8_win_arm64_for_testing",
+            "openjdk8_windows_arm64_archive",
+        ],
+        "archive": "microsoft-jdk-8.0.13.8.1-windows-aarch64.zip",
+        "sha256": "b8a28e6e767d90acf713ea6f5bed0bb595ba0ba5ebdf8b99f395266161e53ec2",
+        "strip_prefix": "jdk-8.0.13+8",
+        "urls": [
+            "https://mirror.bazel.build/aka.ms/download-jdk/microsoft-jdk-8.0.13.8.1-windows-aarch64.zip",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
     "remotejdk11_linux": {
         "aliases": [
             "remotejdk11_linux_for_testing",
