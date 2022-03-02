@@ -29,15 +29,15 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RepoWithRuleWritingTextGeneratorTest {
   private static final String BUILD_TEXT =
-      "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")\n"
+      "load(\"@bazel_tools//tools/build_defs/pkg:tar.bzl\", \"mini_tar\")\n"
           + "load('//:helper.bzl', 'write_to_file')\n"
           + "write_to_file(name = 'write_text', filename = 'out', text ='HELLO')\n"
-          + "pkg_tar(name = \"pkg_tar_write_text\", srcs = glob([\"*\"]),)";
+          + "mini_tar(name = \"mini_tar_write_text\", srcs = glob([\"*\"]),)";
   private static final String BUILD_TEXT_PARAMS =
-      "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")\n"
+      "load(\"@bazel_tools//tools/build_defs/pkg:tar.bzl\", \"mini_tar\")\n"
           + "load('//:helper.bzl', 'write_to_file')\n"
           + "write_to_file(name = 'target', filename = 'file', text ='text')\n"
-          + "pkg_tar(name = \"pkg_tar_target\", srcs = glob([\"*\"]),)";
+          + "mini_tar(name = \"mini_tar_target\", srcs = glob([\"*\"]),)";
 
   @Test
   public void testOutput() throws IOException {
@@ -51,7 +51,7 @@ public class RepoWithRuleWritingTextGeneratorTest {
 
       String buildText = String.join("\n", PathUtils.readFile(repository.resolve("BUILD")));
       assertThat(buildText).isEqualTo(BUILD_TEXT);
-      assertThat(generator.getPkgTarTarget()).isEqualTo("pkg_tar_write_text");
+      assertThat(generator.getPkgTarTarget()).isEqualTo("mini_tar_write_text");
     } finally {
       PathUtils.deleteTree(directory);
     }
@@ -73,7 +73,7 @@ public class RepoWithRuleWritingTextGeneratorTest {
 
       String buildText = String.join("\n", PathUtils.readFile(repository.resolve("BUILD")));
       assertThat(buildText).isEqualTo(BUILD_TEXT_PARAMS);
-      assertThat(generator.getPkgTarTarget()).isEqualTo("pkg_tar_target");
+      assertThat(generator.getPkgTarTarget()).isEqualTo("mini_tar_target");
     } finally {
       PathUtils.deleteTree(directory);
     }

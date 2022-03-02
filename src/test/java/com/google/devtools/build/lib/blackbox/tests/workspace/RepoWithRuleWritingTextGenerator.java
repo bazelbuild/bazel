@@ -27,7 +27,7 @@ import java.nio.file.Path;
  *
  * <p>empty WORKSPACE file,
  *
- * <p>BUILD file, with write_to_file target and pkg_tar target for packing the contents of the
+ * <p>BUILD file, with write_to_file target and mini_tar target for packing the contents of the
  * generated repository.
  *
  * <p>Intended to be used by workspace tests.
@@ -130,10 +130,10 @@ public class RepoWithRuleWritingTextGenerator {
       PathUtils.writeFileInDir(
           root,
           "BUILD",
-          "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
+          "load(\"@bazel_tools//tools/build_defs/pkg:tar.bzl\", \"mini_tar\")",
           loadRule(""),
           callRule(target, outFile, outputText),
-          String.format("pkg_tar(name = \"%s\", srcs = glob([\"*\"]),)", getPkgTarTarget()));
+          String.format("mini_tar(name = \"%s\", srcs = glob([\"*\"]),)", getPkgTarTarget()));
     }
     return workspace.getParent();
   }
@@ -162,8 +162,8 @@ public class RepoWithRuleWritingTextGenerator {
         "%s(name = '%s', filename = '%s', text ='%s')", RULE_NAME, name, filename, text);
   }
 
-  /** @return name of the generated pkg_tar target */
+  /** @return name of the generated mini_tar target */
   String getPkgTarTarget() {
-    return "pkg_tar_" + target;
+    return "mini_tar_" + target;
   }
 }

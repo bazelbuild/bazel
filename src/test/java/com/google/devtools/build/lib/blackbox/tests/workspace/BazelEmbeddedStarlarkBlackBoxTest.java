@@ -34,22 +34,22 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.junit.Test;
 
-/** Tests pkg_tar and http_archive. */
+/** Tests mini_tar and http_archive. */
 public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
 
   private static final String HELLO_FROM_EXTERNAL_REPOSITORY = "Hello from external repository!";
   private static final String HELLO_FROM_MAIN_REPOSITORY = "Hello from main repository!";
 
   @Test
-  public void testPkgTar() throws Exception {
+  public void testMiniTar() throws Exception {
     context().write("main/WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
     context().write("main/foo.txt", "Hello World");
     context().write("main/bar.txt", "Hello World, again");
     context()
         .write(
             "main/BUILD",
-            "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
-            "pkg_tar(name = \"data\", srcs = ['foo.txt', 'bar.txt'],)");
+            "load(\"@bazel_tools//tools/build_defs/pkg:tar.bzl\", \"mini_tar\")",
+            "mini_tar(name = \"data\", srcs = ['foo.txt', 'bar.txt'],)");
 
     BuilderRunner bazel = bazel();
     bazel.build("...");
