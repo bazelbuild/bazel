@@ -388,7 +388,8 @@ def _get_permissions(ctx):
     return None
 
 def _cc_shared_library_impl(ctx):
-    cc_common.check_experimental_cc_shared_library()
+    semantics.check_experimental_cc_shared_library(ctx)
+
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,

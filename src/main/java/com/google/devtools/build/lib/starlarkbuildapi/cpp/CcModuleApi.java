@@ -749,7 +749,7 @@ public interface CcModuleApi<
       doc = "DO NOT USE. This is to guard use of cc_shared_library.",
       useStarlarkThread = true,
       documented = false)
-  void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
+  boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "check_experimental_starlark_cc_import",

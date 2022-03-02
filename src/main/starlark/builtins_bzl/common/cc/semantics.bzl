@@ -14,6 +14,8 @@
 
 """Semantics for Bazel cc rules"""
 
+cc_common = _builtins.toplevel.cc_common
+
 def _should_create_empty_archive():
     return False
 
@@ -69,6 +71,10 @@ def _should_use_interface_deps_behavior(ctx):
 
     return experimental_cc_interface_deps
 
+def _check_experimental_cc_shared_library(ctx):
+    if not cc_common.check_experimental_cc_shared_library():
+        fail("Pass --experimental_cc_shared_library to use cc_shared_library")
+
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
@@ -97,4 +103,5 @@ semantics = struct(
     get_grep_includes = _get_grep_includes,
     get_interface_deps_allowed_attr = _get_interface_deps_allowed_attr,
     should_use_interface_deps_behavior = _should_use_interface_deps_behavior,
+    check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
 )
