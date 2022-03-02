@@ -87,7 +87,7 @@ public class JavaBinary {
 }
 EOF
   bazel run java/main:JavaBinary \
-      --java_language_version=8 \
+      --java_language_version=11 \
       --java_runtime_version=11 \
       --extra_toolchains=//java/main:default_toolchain_definition \
       --verbose_failures -s &>"${TEST_log}" \
