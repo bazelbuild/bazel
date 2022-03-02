@@ -1,4 +1,4 @@
-load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "debug_files_test", "linking_suffix_test", "paths_test")
+load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "debug_files_test", "linking_suffix_test", "paths_test", "runfiles_test")
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
@@ -367,6 +367,14 @@ build_failure_test(
 debug_files_test(
     name = "debug_files_test",
     target_under_test = ":binary",
+)
+
+runfiles_test(
+    name = "runfiles_test",
+    target_under_test = ":binary",
+    is_linux = select({
+        "//src/conditions:linux": True,
+        "//conditions:default": False}),
 )
 
 build_failure_test(

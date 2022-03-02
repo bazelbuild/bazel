@@ -498,6 +498,12 @@ def _cc_shared_library_impl(ctx):
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
         transitive_debug_files.append(dep[OutputGroupInfo].rule_impl_debug_files)
 
+    precompiled_only_dynamic_libraries_runfiles = []
+    for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
+        precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+        if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
+
     for export in ctx.attr.roots:
         exports[str(export.label)] = True
 

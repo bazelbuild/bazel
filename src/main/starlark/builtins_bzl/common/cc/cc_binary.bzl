@@ -296,6 +296,9 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
         runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, True).to_list())
         runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, False).to_list())
 
+    for dynamic_dep in ctx.attr.dynamic_deps:
+        builder = builder.merge(dynamic_dep[DefaultInfo].default_runfiles)
+
     builder = builder.merge_all(runfiles_is_static + runfiles_is_not_static)
     if linking_mode == _LINKING_DYNAMIC:
         dynamic_runtime_lib = cc_toolchain.dynamic_runtime_lib(feature_configuration = feature_configuration)

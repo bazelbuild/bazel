@@ -146,3 +146,28 @@ def _debug_files_test_impl(ctx):
     return analysistest.end(env)
 
 debug_files_test = analysistest.make(_debug_files_test_impl)
+
+def _runfiles_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    if not ctx.attr.is_linux:
+        return analysistest.end(env)
+
+    target_under_test = analysistest.target_under_test(env)
+    actual_files = []
+    for runfile in target_under_test[DefaultInfo].default_runfiles.files.to_list():
+        actual_files.append(runfile.basename)
+    expected = [
+        "libfoo_so.so",
+        "libbar_so.so",
+    ]
+    for expected_file in expected:
+        asserts.true(env, expected_file in actual_files, expected_file + " not found in actual files:\n" + "\n".join(actual_files))
+
+    return analysistest.end(env)
+
+runfiles_test = analysistest.make(
+    _runfiles_test_impl,
+    attrs = {
+        "is_linux": attr.bool(),
+    },
+)
