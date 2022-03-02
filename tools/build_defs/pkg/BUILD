@@ -10,11 +10,6 @@ filegroup(
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
-exports_files(
-    ["README.md"],
-    visibility = ["//site:__pkg__"],
-)
-
 py_library(
     name = "archive",
     srcs = ["archive.py"],
