@@ -101,7 +101,7 @@ EOF
   mkdir -p foobar/bin
   touch foobar/bin/java
 
-  bazel aquery --output=text --java_language_version=8  //java:javalib >& $TEST_log
+  bazel aquery --output=text --java_language_version=11  //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
 
   bazel aquery --output=text --java_language_version=11  //java:javalib >& $TEST_log
