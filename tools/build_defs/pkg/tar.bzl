@@ -78,7 +78,7 @@ _real_mini_tar = rule(
 
 def mini_tar(name, out = None, **kwargs):
     if not out:
-        out = name + ".tar",
+        out = name + ".tar"
     _real_mini_tar(
         name = name,
         out = out,
