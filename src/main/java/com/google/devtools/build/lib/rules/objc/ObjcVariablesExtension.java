@@ -212,9 +212,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());
     builder.addStringVariable(
         LINKED_BINARY_VARIABLE_NAME,
-        ruleContext.getFragment(ObjcConfiguration.class).shouldStripBinary()
-            ? intermediateArtifacts.unstrippedSingleArchitectureBinary().getExecPathString()
-            : intermediateArtifacts.strippedSingleArchitectureBinary().getExecPathString());
+        intermediateArtifacts.singleArchitectureBinary().getExecPathString());
 
     builder.addStringSequenceVariable(
         FORCE_LOAD_EXEC_PATHS_VARIABLE_NAME,

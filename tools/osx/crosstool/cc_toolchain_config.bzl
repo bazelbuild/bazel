@@ -2360,6 +2360,7 @@ def _impl(ctx):
 
     dead_strip_feature = feature(
         name = "dead_strip",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = all_link_actions +

@@ -140,12 +140,9 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
       name = "objc_enable_binary_stripping",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help =
-          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
-              + "strippings will be performed if both this flag and --compilation_mode=opt are "
-              + "specified.")
+      help = "No-op, obselete, stripping is enabled by default when generating dSYMs")
   public boolean enableBinaryStripping;
 
   @Option(

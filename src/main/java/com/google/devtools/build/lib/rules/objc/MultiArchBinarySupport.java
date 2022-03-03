@@ -158,7 +158,7 @@ public class MultiArchBinarySupport {
         .validateAttributes();
     ruleContext.assertNoErrors();
 
-    return intermediateArtifacts.strippedSingleArchitectureBinary();
+    return intermediateArtifacts.singleArchitectureBinary();
   }
 
   /**

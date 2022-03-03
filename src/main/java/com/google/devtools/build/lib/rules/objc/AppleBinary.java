@@ -154,10 +154,7 @@ public class AppleBinary {
             childTriplet.architecture(), OutputType.BITCODE_SYMBOLS, bitcodeSymbols);
       }
       if (childCppConfig.appleGenerateDsym()) {
-        Artifact dsymBinary =
-            childObjcConfig.shouldStripBinary()
-                ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
-                : intermediateArtifacts.dsymSymbolForStrippedBinary();
+        Artifact dsymBinary = intermediateArtifacts.dsymSymbolForBinary();
         outputBuilder.setDsymBinary(dsymBinary);
         legacyDebugOutputsBuilder.addOutput(
             childTriplet.architecture(), OutputType.DSYM_BINARY, dsymBinary);

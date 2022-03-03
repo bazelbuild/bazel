@@ -104,12 +104,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   ImmutableList<String> getCopts();
 
   @StarlarkMethod(
-      name = "should_strip_binary",
-      structField = true,
-      doc = "Returns whether to perform symbol and dead-code strippings on linked binaries.")
-  boolean shouldStripBinary();
-
-  @StarlarkMethod(
       name = "signing_certificate_name",
       structField = true,
       allowReturnNones = true,

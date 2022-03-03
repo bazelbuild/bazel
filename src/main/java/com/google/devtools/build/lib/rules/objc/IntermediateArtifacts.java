@@ -142,23 +142,10 @@ public final class IntermediateArtifacts implements StarlarkValue {
 
   /**
    * The artifact which is the binary (or library) which is comprised of one or more .a files linked
-   * together. Compared to the artifact returned by {@link #unstrippedSingleArchitectureBinary},
-   * this artifact is stripped of symbol table when --compilation_mode=opt and
-   * --objc_enable_binary_stripping are specified.
+   * together.
    */
-  public Artifact strippedSingleArchitectureBinary() {
+  public Artifact singleArchitectureBinary() {
     return appendExtension("_bin");
-  }
-
-  /**
-   * The artifact which is the binary (or library) which is comprised of one or more .a files linked
-   * together. It also contains full debug symbol information, compared to the artifact returned by
-   * {@link #strippedSingleArchitectureBinary}. This artifact will serve as input for the symbol
-   * strip action and is only created when --compilation_mode=opt and --objc_enable_binary_stripping
-   * are specified.
-   */
-  public Artifact unstrippedSingleArchitectureBinary() {
-    return appendExtension("_bin_unstripped");
   }
 
   /**
@@ -206,24 +193,13 @@ public final class IntermediateArtifacts implements StarlarkValue {
   }
 
   /**
-   * Debug symbol file generated for a stripped linked binary.
+   * Debug symbol file generated for a linked binary.
    *
-   * <p>The name of the debug symbol file matches that of stripped binary plus that of the debug
-   * symbol file extension (.dwarf), so we must know if the binary has been stripped or not as that
-   * will modify its name.
-   */
-  public Artifact dsymSymbolForStrippedBinary() {
-    return dsymSymbol("bin");
-  }
-
-  /**
-   * Debug symbol file generated for an unstripped linked binary.
-   *
-   * <p>The name of the debug symbol file matches that of unstripped binary plus that of the debug
+   * <p>The name of the debug symbol file matches that of binary plus that of the debug
    * symbol file extension (.dwarf).
    */
-  public Artifact dsymSymbolForUnstrippedBinary() {
-    return dsymSymbol("bin_unstripped");
+  public Artifact dsymSymbolForBinary() {
+    return dsymSymbol("bin");
   }
 
   /** Debug symbol file generated for a linked binary, for a specific architecture. */

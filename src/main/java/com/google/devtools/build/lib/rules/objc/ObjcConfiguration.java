@@ -58,7 +58,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
   private final ImmutableList<String> fastbuildOptions;
-  private final boolean enableBinaryStripping;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
@@ -79,7 +78,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
-    this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
@@ -183,15 +181,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public ImmutableList<String> getCopts() {
     return copts;
-  }
-
-  /**
-   * Returns whether to perform symbol and dead-code strippings on linked binaries. The strippings
-   * are performed iff --compilation_mode=opt and --objc_enable_binary_stripping are specified.
-   */
-  @Override
-  public boolean shouldStripBinary() {
-    return this.enableBinaryStripping && getCompilationMode() == CompilationMode.OPT;
   }
 
   /**

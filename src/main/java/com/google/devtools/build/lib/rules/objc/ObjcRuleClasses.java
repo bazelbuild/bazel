@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  */
 public class ObjcRuleClasses {
   static final String LIPO = "lipo";
-  static final String STRIP = "strip";
 
   private ObjcRuleClasses() {
     throw new UnsupportedOperationException("static-only");

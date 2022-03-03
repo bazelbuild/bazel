@@ -413,5 +413,11 @@ int main(int argc, char *argv[]) {
                                             "--flat",
                                             "--no-swiftmodule-timestamp"};
   RunSubProcess(dsymutil_args);
+
+  std::vector<std::string> strip_args = {
+    "/usr/bin/xcrun", "strip", "-rSTx", "-no_code_signature_warning",
+    linked_binary};
+  RunSubProcess(strip_args);
+
   return 0;
 }
