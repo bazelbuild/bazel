@@ -1448,7 +1448,7 @@ genrule(
           "--nodesugar_interface_method_bodies_if_needed -i $(location :testdata) -o $@ " +
           "--min_sdk_version 17 --desugar_try_with_resources_if_needed " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $$(echo $(locations //third_party:guava-jars) | tr ' ' ',') " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
     tags = ["no_windows"],
@@ -2094,6 +2094,7 @@ genrule(
     name = "desugar_guava_at_head",
     srcs = [
         "//third_party:guava-jars",
+        "//third_party:guava-failureaccess-jar",
         # Depend on Jacoco runtime in case testdata was built with coverage
         # instrumentation
         "//third_party/java/jacoco:blaze-agent",
@@ -2101,7 +2102,9 @@ genrule(
     ],
     outs = ["guava_at_head_desugared.jar"],
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
-          "-i $(location //third_party:guava-jars) -o $@ " +
+          "-i $(location //third_party:guava-jars) " +
+          "--classpath_entry $(location //third_party:guava-failureaccess-jar) " +
+          "-o $@ " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
     tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
