@@ -363,30 +363,6 @@ dist_http_archive(
     name = "io_bazel_skydoc",
 )
 
-load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
-
-# Load versioned documentation tarballs from GCS
-[http_file(
-    # Split on "-" to get the version without cherrypick commits.
-    name = "jekyll_tree_%s" % DOC_VERSION["version"].split("-")[0].replace(".", "_"),
-    sha256 = DOC_VERSION["sha256"],
-    urls = ["https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-%s.tar" % DOC_VERSION["version"]],
-) for DOC_VERSION in DOC_VERSIONS]
-
-# Load shared base CSS theme from bazelbuild/bazel-website
-http_archive(
-    name = "bazel_website",
-    # TODO(https://github.com/bazelbuild/bazel/issues/10793)
-    # - Export files from bazel-website's BUILD, instead of doing it here.
-    # - Share more common stylesheets, like footer and navbar.
-    build_file_content = """
-exports_files(["_sass/style.scss"])
-""",
-    sha256 = "a5f531dd1d62e6947dcfc279656ffc2fdf6f447c163914c5eabf7961b4cb6eb4",
-    strip_prefix = "bazel-website-c174fa288aa079b68416d2ce2cc97268fa172f42",
-    urls = ["https://github.com/bazelbuild/bazel-website/archive/c174fa288aa079b68416d2ce2cc97268fa172f42.tar.gz"],
-)
-
 # Stardoc recommends declaring its dependencies via "*_dependencies" functions.
 # This requires that the repositories these functions come from need to be
 # fetched unconditionally for everything (including just building bazel!), so
