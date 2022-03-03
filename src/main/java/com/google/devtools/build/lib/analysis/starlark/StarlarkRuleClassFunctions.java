@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -696,6 +698,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
     }
 
+    ImmutableList<Label> toolchainTypes = parseToolchains(toolchains, thread);
     return new StarlarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -709,7 +712,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
-        parseToolchains(toolchains, thread),
+        toolchainTypes.stream()
+            .map(tt -> ToolchainTypeRequirement.create(tt))
+            .collect(toImmutableSet()),
         useToolchainTransition,
         applyToGeneratingRules);
   }

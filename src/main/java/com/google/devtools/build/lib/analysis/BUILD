@@ -298,6 +298,7 @@ java_library(
         ":config/per_label_options",
         ":config/run_under",
         ":config/starlark_defined_config_transition",
+        ":config/toolchain_type_requirement",
         ":config/transition_factories",
         ":config/transitions/composing_transition",
         ":config/transitions/composing_transition_factory",

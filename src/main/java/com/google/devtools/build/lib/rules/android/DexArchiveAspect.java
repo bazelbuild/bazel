@@ -183,7 +183,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.of(ProtoLangToolchainProvider.class)))
-            .addToolchainType(
+            .addToolchainTypes(
                 ToolchainTypeRequirement.create(
                     Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel)))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule

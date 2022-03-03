@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -659,8 +660,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev, "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
     StarlarkDefinedAspect a = (StarlarkDefinedAspect) ev.lookup("a1");
-    assertThat(a.getRequiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(a.getToolchainTypes())
+        .containsExactly(
+            ToolchainTypeRequirement.create(
+                Label.parseAbsoluteUnchecked("//test:my_toolchain_type")));
   }
 
   @Test
@@ -2300,6 +2304,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def impl(ctx): return None",
         "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     assertThat(c).hasToolchainType("//test:my_toolchain_type");
   }

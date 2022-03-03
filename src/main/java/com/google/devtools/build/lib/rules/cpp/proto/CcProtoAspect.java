@@ -125,7 +125,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
-            .addToolchainType(
+            .addToolchainTypes(
                 ToolchainTypeRequirement.builder(ccToolchainType)
                     // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this
                     // can be optional.
