@@ -46,7 +46,7 @@ def _mini_tar_impl(ctx):
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
     ctx.actions.run(
-        inputs = file_inputs + ctx.files.deps + [arg_file],
+        inputs = file_inputs + [arg_file],
         executable = ctx.executable.build_tar,
         arguments = ["--flagfile", arg_file.path],
         outputs = [ctx.outputs.out],
