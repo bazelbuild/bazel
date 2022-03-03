@@ -34,33 +34,17 @@ def _mini_tar_impl(ctx):
         "--directory=" + ctx.attr.package_dir,
         "--mode=" + ctx.attr.mode,
         "--owner=" + ctx.attr.owner,
-        "--owner_name=" + ctx.attr.ownername,
     ]
     if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
-        if ctx.attr.portable_mtime:
-            fail("You may not set both mtime and portable_mtime")
         args.append("--mtime=%d" % ctx.attr.mtime)
-    if ctx.attr.portable_mtime:
-        args.append("--mtime=portable")
 
-    # Add runfiles if requested
     file_inputs = ctx.files.srcs[:]
-
     args += [
         "--file=%s=%s" % (_quote(f.path), dest_path(f, data_path))
         for f in file_inputs
     ]
-    if ctx.attr.extension:
-        dotPos = ctx.attr.extension.find(".")
-        if dotPos > 0:
-            dotPos += 1
-            args += ["--compression=%s" % ctx.attr.extension[dotPos:]]
-        elif ctx.attr.extension == "tgz":
-            args += ["--compression=gz"]
-    args += ["--tar=" + f.path for f in ctx.files.deps]
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
-
     ctx.actions.run(
         inputs = file_inputs + ctx.files.deps + [arg_file],
         executable = ctx.executable.build_tar,
@@ -74,31 +58,29 @@ def _mini_tar_impl(ctx):
 _real_mini_tar = rule(
     implementation = _mini_tar_impl,
     attrs = {
-        "strip_prefix": attr.string(),
-        "package_dir": attr.string(default = "/"),
-        "deps": attr.label_list(allow_files = tar_filetype),
-        "srcs": attr.label_list(allow_files = True),
         "mode": attr.string(default = "0555"),
         "mtime": attr.int(default = -1),
-        "portable_mtime": attr.bool(default = True),
         "out": attr.output(),
         "owner": attr.string(default = "0.0"),
-        "ownername": attr.string(default = "."),
-        "extension": attr.string(default = "tar"),
+        "package_dir": attr.string(default = "/"),
+        "srcs": attr.label_list(allow_files = True),
+        "strip_prefix": attr.string(),
+
         # Implicit dependencies.
         "build_tar": attr.label(
             default = Label("//tools/build_defs/pkg:build_tar"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),
     },
 )
 
-def mini_tar(name, **kwargs):
-    extension = kwargs.get("extension") or "tar"
+def mini_tar(name, out = None, **kwargs):
+    if not out:
+        out = name + ".tar",
     _real_mini_tar(
         name = name,
-        out = name + "." + extension,
+        out = out,
         **kwargs
     )
