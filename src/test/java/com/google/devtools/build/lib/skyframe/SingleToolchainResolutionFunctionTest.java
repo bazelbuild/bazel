@@ -143,33 +143,33 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     new EqualsTester()
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType,
+                testToolchainTypeInfo,
                 ImmutableMap.of(
                     linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))),
             SingleToolchainResolutionValue.create(
-                testToolchainType,
+                testToolchainTypeInfo,
                 ImmutableMap.of(
                     linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
         // Different execution platform, same label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType,
+                testToolchainTypeInfo,
                 ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
         // Same execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType,
+                testToolchainTypeInfo,
                 ImmutableMap.of(
                     linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
         // Different execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType,
+                testToolchainTypeInfo,
                 ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
         // Multiple execution platforms.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
-                testToolchainType,
+                testToolchainTypeInfo,
                 ImmutableMap.<ConfiguredTargetKey, Label>builder()
                     .put(linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))
                     .put(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))

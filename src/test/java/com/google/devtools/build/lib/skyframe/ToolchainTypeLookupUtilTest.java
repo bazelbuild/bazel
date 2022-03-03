@@ -85,7 +85,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
 
     Map<Label, ToolchainTypeInfo> toolchainTypes = result.get(key).toolchainTypes();
     assertThat(toolchainTypes)
-        .containsExactlyEntriesIn(ImmutableMap.of(testToolchainTypeLabel, testToolchainType));
+        .containsExactlyEntriesIn(ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo));
   }
 
   @Test
@@ -111,9 +111,9 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
         .containsExactlyEntriesIn(
             ImmutableMap.of(
                 testToolchainTypeLabel,
-                testToolchainType,
+                testToolchainTypeInfo,
                 aliasToolchainTypeLabel,
-                testToolchainType));
+                testToolchainTypeInfo));
   }
 
   @Test
