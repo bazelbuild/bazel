@@ -503,6 +503,7 @@ distrib_jar_filegroup(
       "guava/failureaccess-1.0.1.jar",
       "guava/guava-31.1-jre.jar",
     ],
+    srcs = ["guava/guava-31.1-jre.jar"],
     enable_distributions = ["debian"],
 )
 
