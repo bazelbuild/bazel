@@ -1448,7 +1448,7 @@ genrule(
           "--nodesugar_interface_method_bodies_if_needed -i $(location :testdata) -o $@ " +
           "--min_sdk_version 17 --desugar_try_with_resources_if_needed " +
           "--classpath_entry $(location :separate) " +
-          "--classpath_entry $(location //third_party:guava-jars) " +
+          "--classpath_entry $$(echo $(locations //third_party:guava-jars) | tr ' ' ',') " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
     tags = ["no_windows"],
