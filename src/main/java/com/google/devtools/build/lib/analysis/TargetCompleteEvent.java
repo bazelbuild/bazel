@@ -411,7 +411,9 @@ public final class TargetCompleteEvent
                 builder.add(
                     new LocalFile(
                         completionContext.pathResolver().toPath(artifact),
-                        LocalFileType.OUTPUT_FILE));
+                        LocalFileType.OUTPUT_FILE,
+                        artifact,
+                        completionContext.getFileArtifactValue(artifact)));
               }
 
               @Override
@@ -424,9 +426,13 @@ public final class TargetCompleteEvent
     }
     if (baselineCoverageArtifacts != null) {
       for (Artifact artifact : baselineCoverageArtifacts.toList()) {
+        // TODO(b/199940216): Coverage artifacts don't have metadata available.
         builder.add(
             new LocalFile(
-                completionContext.pathResolver().toPath(artifact), LocalFileType.COVERAGE_OUTPUT));
+                completionContext.pathResolver().toPath(artifact),
+                LocalFileType.COVERAGE_OUTPUT,
+                /*artifact=*/ null,
+                /*artifactMetadata=*/ null));
       }
     }
     return builder.build();

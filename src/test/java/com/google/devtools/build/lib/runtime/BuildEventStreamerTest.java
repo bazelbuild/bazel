@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -144,6 +145,8 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
           new ActionsTestUtil.NullAction(),
           /*exception=*/ null,
           ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
+          ActionsTestUtil.DUMMY_ARTIFACT,
+          FileArtifactValue.OMITTED_FILE_MARKER,
           /*stdout=*/ null,
           /*stderr=*/ null,
           /*actionMetadataLogs=*/ ImmutableList.of(),
@@ -1248,6 +1251,8 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                         .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_DENIED))
                         .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
+            ActionsTestUtil.DUMMY_ARTIFACT,
+            /*primaryOutputMetadata=*/ null,
             /*stdout=*/ null,
             /*stderr=*/ null,
             /*actionMetadataLogs=*/ ImmutableList.of(),
@@ -1291,9 +1296,11 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                         .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_DENIED))
                         .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
-            /* stdout= */ null,
-            /* stderr= */ null,
-            /* actionMetadataLogs= */ ImmutableList.of(),
+            ActionsTestUtil.DUMMY_ARTIFACT,
+            /*primaryOutputMetadata=*/ null,
+            /*stdout=*/ null,
+            /*stderr=*/ null,
+            /*actionMetadataLogs=*/ ImmutableList.of(),
             ErrorTiming.BEFORE_EXECUTION,
             /* isInMemoryFs= */ false);
 
@@ -1503,8 +1510,10 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
         new ActionsTestUtil.NullAction(),
         /* exception= */ null,
         ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
-        /* stdout= */ null,
-        /* stderr= */ null,
+        ActionsTestUtil.DUMMY_ARTIFACT,
+        FileArtifactValue.OMITTED_FILE_MARKER,
+        /*stdout=*/ null,
+        /*stderr=*/ null,
         metadataLogs,
         ErrorTiming.NO_ERROR,
         /* isInMemoryFs= */ false);

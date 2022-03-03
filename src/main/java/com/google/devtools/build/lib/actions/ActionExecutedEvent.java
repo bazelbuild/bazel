@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * This event is fired during the build, when an action is executed. It contains information about
@@ -44,8 +45,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
 
   private final PathFragment actionId;
   private final Action action;
-  private final ActionExecutionException exception;
+  @Nullable private final ActionExecutionException exception;
   private final Path primaryOutput;
+  private final Artifact outputArtifact;
+  @Nullable private final FileArtifactValue primaryOutputMetadata;
   private final Path stdout;
   private final Path stderr;
   private final ImmutableList<MetadataLog> actionMetadataLogs;
@@ -55,8 +58,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   public ActionExecutedEvent(
       PathFragment actionId,
       Action action,
-      ActionExecutionException exception,
+      @Nullable ActionExecutionException exception,
       Path primaryOutput,
+      Artifact outputArtifact,
+      @Nullable FileArtifactValue primaryOutputMetadata,
       Path stdout,
       Path stderr,
       ImmutableList<MetadataLog> actionMetadataLogs,
@@ -66,6 +71,8 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     this.action = action;
     this.exception = exception;
     this.primaryOutput = primaryOutput;
+    this.outputArtifact = outputArtifact;
+    this.primaryOutputMetadata = primaryOutputMetadata;
     this.stdout = stdout;
     this.stderr = stderr;
     this.timing = timing;
@@ -74,6 +81,8 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     Preconditions.checkNotNull(this.actionMetadataLogs, this);
     Preconditions.checkState(
         (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
+    Preconditions.checkState(
+        (this.exception == null) != (this.primaryOutputMetadata == null), this);
   }
 
   public Action getAction() {
@@ -142,17 +151,29 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   @Override
   public Collection<LocalFile> referencedLocalFiles() {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    // TODO(b/199940216): thread file metadata through here when possible.
     if (stdout != null) {
-      localFiles.add(new LocalFile(stdout, LocalFileType.STDOUT));
+      localFiles.add(
+          new LocalFile(
+              stdout, LocalFileType.STDOUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
     }
     if (stderr != null) {
-      localFiles.add(new LocalFile(stderr, LocalFileType.STDERR));
+      localFiles.add(
+          new LocalFile(
+              stderr, LocalFileType.STDERR, /*artifact=*/ null, /*artifactMetadata=*/ null));
     }
     for (MetadataLog actionMetadataLog : actionMetadataLogs) {
-      localFiles.add(new LocalFile(actionMetadataLog.getFilePath(), LocalFileType.LOG));
+      localFiles.add(
+          new LocalFile(
+              actionMetadataLog.getFilePath(),
+              LocalFileType.LOG,
+              /*artifact=*/ null,
+              /*artifactMetadata=*/ null));
     }
     if (exception == null) {
-      localFiles.add(new LocalFile(primaryOutput, LocalFileType.OUTPUT));
+      localFiles.add(
+          new LocalFile(
+              primaryOutput, LocalFileType.OUTPUT, outputArtifact, primaryOutputMetadata));
     }
     return localFiles.build();
   }
@@ -238,6 +259,9 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
         .add("stdout", stdout)
         .add("stderr", stderr)
         .add("action", action)
+        .add("primaryOutput", primaryOutput)
+        .add("outputArtifact", outputArtifact)
+        .add("primaryOutputMetadata", primaryOutputMetadata)
         .toString();
   }
 

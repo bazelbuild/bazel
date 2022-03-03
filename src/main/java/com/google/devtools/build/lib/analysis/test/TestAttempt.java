@@ -201,7 +201,10 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
     for (Pair<String, Path> file : files) {
       if (file.getSecond() != null) {
-        localFiles.add(new LocalFile(file.getSecond(), localFileType));
+        // TODO(b/199940216): Can we populate metadata for these files?
+        localFiles.add(
+            new LocalFile(
+                file.getSecond(), localFileType, /*artifact=*/ null, /*artifactMetadata=*/ null));
       }
     }
     return localFiles.build();

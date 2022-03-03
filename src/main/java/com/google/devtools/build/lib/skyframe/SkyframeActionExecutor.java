@@ -1174,7 +1174,8 @@ public final class SkyframeActionExecutor {
 
       MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
       FileOutErr fileOutErr = actionExecutionContext.getFileOutErr();
-      Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
+      Artifact primaryOutput = action.getPrimaryOutput();
+      Path primaryOutputPath = actionExecutionContext.getInputPath(primaryOutput);
       try {
         Preconditions.checkState(action.inputsDiscovered(),
             "Action %s successfully executed, but inputs still not known", action);
@@ -1206,21 +1207,12 @@ public final class SkyframeActionExecutor {
                 Code.ACTION_FINALIZATION_FAILURE);
           }
         }
-
-        reportActionExecution(
-            eventHandler,
-            primaryOutputPath,
-            action,
-            actionResult,
-            actionFileSystemType().inMemoryFileSystem(),
-            null,
-            fileOutErr,
-            ErrorTiming.NO_ERROR);
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
+            /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
             actionFileSystemType().inMemoryFileSystem(),
@@ -1233,6 +1225,7 @@ public final class SkyframeActionExecutor {
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
+            /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
             actionFileSystemType().inMemoryFileSystem(),
@@ -1245,6 +1238,27 @@ public final class SkyframeActionExecutor {
             ErrorTiming.AFTER_EXECUTION);
         throw exception;
       }
+
+      FileArtifactValue primaryOutputMetadata;
+      if (metadataHandler.artifactOmitted(primaryOutput)) {
+        primaryOutputMetadata = FileArtifactValue.OMITTED_FILE_MARKER;
+      } else {
+        try {
+          primaryOutputMetadata = metadataHandler.getMetadata(primaryOutput);
+        } catch (IOException e) {
+          throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
+        }
+      }
+      reportActionExecution(
+          eventHandler,
+          primaryOutputPath,
+          primaryOutputMetadata,
+          action,
+          actionResult,
+          actionFileSystemType().inMemoryFileSystem(),
+          null,
+          fileOutErr,
+          ErrorTiming.NO_ERROR);
 
       Preconditions.checkState(
           actionExecutionContext.getOutputSymlinks() == null
@@ -1391,6 +1405,7 @@ public final class SkyframeActionExecutor {
     reportActionExecution(
         eventHandler,
         primaryOutputPath,
+        /*primaryOutputMetadata=*/ null,
         action,
         null,
         actionFileSystemType().inMemoryFileSystem(),
@@ -1671,6 +1686,7 @@ public final class SkyframeActionExecutor {
   private static void reportActionExecution(
       ExtendedEventHandler eventHandler,
       Path primaryOutputPath,
+      @Nullable FileArtifactValue primaryOutputMetadata,
       Action action,
       @Nullable ActionResult actionResult,
       boolean isInMemoryFs,
@@ -1700,6 +1716,8 @@ public final class SkyframeActionExecutor {
             action,
             exception,
             primaryOutputPath,
+            action.getPrimaryOutput(),
+            primaryOutputMetadata,
             stdout,
             stderr,
             logs,
