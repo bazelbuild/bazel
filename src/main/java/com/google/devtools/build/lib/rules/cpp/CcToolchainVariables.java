@@ -656,7 +656,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * significantly reduces memory overhead.
    */
   @Immutable
-  @AutoCodec
   public static class LibraryToLinkValue extends VariableValueAdapter {
     public static final String OBJECT_FILES_FIELD_NAME = "object_files";
     public static final String NAME_FIELD_NAME = "name";
