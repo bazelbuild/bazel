@@ -17,6 +17,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -110,8 +111,8 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
           "In %s, toolchain type %s was requested but only types [%s] are configured",
           toolchainContext().targetDescription(),
           toolchainTypeLabel,
-          toolchainContext().requiredToolchainTypes().stream()
-              .map(ToolchainTypeInfo::typeLabel)
+          toolchainContext().toolchainTypes().stream()
+              .map(ToolchainTypeRequirement::toolchainType)
               .map(Label::toString)
               .collect(joining(", ")));
     }
