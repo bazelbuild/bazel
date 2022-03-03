@@ -108,14 +108,6 @@ pkg_tar(
     ],
 )
 
-pkg_tar(
-    name = "skylark-rule-docs",
-    srcs = [
-        "//tools/build_defs/pkg:README.md",
-    ],
-    strip_prefix = "/tools/build_defs",
-)
-
 genrule(
     name = "dot-graphs",
     srcs = DOT_GRAPH_HTML_FILES,
@@ -142,7 +134,6 @@ genrule(
     name = "jekyll-tree",
     srcs = [
         ":jekyll-base",
-        ":skylark-rule-docs",
         "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
         "//src/main/java/com/google/devtools/build/lib:gen_skylarklibrary",
         "//src/main/java/com/google/devtools/build/lib:gen_command-line-reference",
@@ -152,7 +143,6 @@ genrule(
     cmd = ("$(location jekyll-tree.sh) $@ " +
            DOC_VERSIONS[0]["version"].split("-")[0] + " " +
            "$(location :jekyll-base) " +
-           "$(location :skylark-rule-docs) " +
            "$(location //src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia) " +
            "$(location //src/main/java/com/google/devtools/build/lib:gen_skylarklibrary) " +
            "$(location //src/main/java/com/google/devtools/build/lib:gen_command-line-reference) " +
