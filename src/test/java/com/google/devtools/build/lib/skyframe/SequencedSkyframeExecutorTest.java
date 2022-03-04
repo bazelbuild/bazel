@@ -672,6 +672,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Diff diff =
         new FilesystemValueChecker(
                 new TimestampGranularityMonitor(BlazeClock.instance()),
+                SyscallCache.NO_CACHE,
                 /* lastExecutionTimeRange= */ null,
                 /* numThreads= */ 20)
             .getDirtyKeys(

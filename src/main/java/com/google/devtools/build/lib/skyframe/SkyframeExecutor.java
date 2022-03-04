@@ -287,7 +287,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final AtomicInteger numPackagesSuccessfullyLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
-  private final SyscallCache perCommandSyscallCache;
+  final SyscallCache perCommandSyscallCache;
 
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -1300,7 +1300,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
 
     return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
-        tsgm, valuesMap, memoizingEvaluator.getDoneValues(), dirtyFileStateSkyKeys, fsvcThreads);
+        tsgm,
+        valuesMap,
+        memoizingEvaluator.getDoneValues(),
+        dirtyFileStateSkyKeys,
+        fsvcThreads,
+        perCommandSyscallCache);
   }
 
   /**

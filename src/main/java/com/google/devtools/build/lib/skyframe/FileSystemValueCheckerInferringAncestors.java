@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -65,6 +66,7 @@ final class FileSystemValueCheckerInferringAncestors {
   private final Map<SkyKey, SkyValue> graphValues;
   private final Map<SkyKey, SkyValue> graphDoneValues;
   private final Map<RootedPath, NodeVisitState> nodeStates;
+  private final SyscallCache syscallCache;
   private final Set<SkyKey> valuesToInvalidate = Sets.newConcurrentHashSet();
   private final ConcurrentMap<SkyKey, SkyValue> valuesToInject = new ConcurrentHashMap<>();
 
@@ -114,11 +116,13 @@ final class FileSystemValueCheckerInferringAncestors {
       @Nullable TimestampGranularityMonitor tsgm,
       Map<SkyKey, SkyValue> graphValues,
       Map<SkyKey, SkyValue> graphDoneValues,
-      Map<RootedPath, NodeVisitState> nodeStates) {
+      Map<RootedPath, NodeVisitState> nodeStates,
+      SyscallCache syscallCache) {
     this.tsgm = tsgm;
     this.graphValues = graphValues;
     this.graphDoneValues = graphDoneValues;
     this.nodeStates = nodeStates;
+    this.syscallCache = syscallCache;
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -127,7 +131,8 @@ final class FileSystemValueCheckerInferringAncestors {
       Map<SkyKey, SkyValue> graphValues,
       Map<SkyKey, SkyValue> graphDoneValues,
       Iterable<FileStateKey> modifiedKeys,
-      int nThreads)
+      int nThreads,
+      SyscallCache syscallCache)
       throws InterruptedException, AbruptExitException {
     Map<RootedPath, NodeVisitState> nodeStates = new HashMap<>();
     for (FileStateKey fileStateKey : modifiedKeys) {
@@ -157,7 +162,11 @@ final class FileSystemValueCheckerInferringAncestors {
     }
 
     return new FileSystemValueCheckerInferringAncestors(
-            tsgm, graphValues, graphDoneValues, Collections.unmodifiableMap(nodeStates))
+            tsgm,
+            graphValues,
+            graphDoneValues,
+            Collections.unmodifiableMap(nodeStates),
+            syscallCache)
         .processEntries(nThreads);
   }
 
@@ -327,7 +336,7 @@ final class FileSystemValueCheckerInferringAncestors {
   private FileStateValue getNewFileStateValueFromFileSystem(RootedPath path)
       throws StatFailedException {
     try {
-      return FileStateValue.create(path, tsgm);
+      return FileStateValue.create(path, syscallCache, tsgm);
     } catch (IOException e) {
       throw new StatFailedException(path, e);
     }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -35,14 +36,18 @@ public abstract class SkyValueDirtinessChecker {
    * was unable to create a new value.
    */
   @Nullable
-  public abstract SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm);
+  public abstract SkyValue createNewValue(
+      SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm);
 
   /**
    * If {@code applies(key)}, returns the result of checking whether this key's value is up to date.
    */
-  public DirtyResult check(SkyKey key, @Nullable SkyValue oldValue,
+  public DirtyResult check(
+      SkyKey key,
+      @Nullable SkyValue oldValue,
+      SyscallCache syscallCache,
       @Nullable TimestampGranularityMonitor tsgm) {
-    SkyValue newValue = createNewValue(key, tsgm);
+    SkyValue newValue = createNewValue(key, syscallCache, tsgm);
     if (newValue == null) {
       return DirtyResult.dirty(oldValue);
     }

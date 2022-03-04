@@ -214,6 +214,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:per_build_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_exception",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_uniqueness_function",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",

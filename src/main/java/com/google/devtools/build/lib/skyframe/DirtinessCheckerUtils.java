@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -43,10 +44,10 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
-      RootedPath rootedPath = (RootedPath) key.argument();
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
       try {
-        return FileStateValue.create(rootedPath, tsgm);
+        return FileStateValue.create((RootedPath) key.argument(), syscallCache, tsgm);
       } catch (IOException e) {
         // TODO(bazel-team): An IOException indicates a failure to get a file digest or a symlink
         // target, not a missing file. Such a failure really shouldn't happen, so failing early
@@ -64,7 +65,8 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
       RootedPath rootedPath = (RootedPath) key.argument();
       try {
         return DirectoryListingStateValue.create(rootedPath);
@@ -87,8 +89,9 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
-      return checker.createNewValue(key, tsgm);
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
+      return checker.createNewValue(key, syscallCache, tsgm);
     }
   }
 
@@ -132,14 +135,18 @@ public class DirtinessCheckerUtils {
 
     @Nullable
     @Override
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
       throw new UnsupportedOperationException();
     }
 
     @Override
     public SkyValueDirtinessChecker.DirtyResult check(
-        SkyKey skyKey, SkyValue oldValue, @Nullable TimestampGranularityMonitor tsgm) {
-      SkyValue newValue = super.createNewValue(skyKey, tsgm);
+        SkyKey skyKey,
+        SkyValue oldValue,
+        SyscallCache syscallCache,
+        @Nullable TimestampGranularityMonitor tsgm) {
+      SkyValue newValue = super.createNewValue(skyKey, syscallCache, tsgm);
       if (Objects.equal(newValue, oldValue)) {
         return SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue);
       }
@@ -180,14 +187,20 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
-      return Preconditions.checkNotNull(getChecker(key), key).createNewValue(key, tsgm);
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
+      return Preconditions.checkNotNull(getChecker(key), key)
+          .createNewValue(key, syscallCache, tsgm);
     }
 
     @Override
-    public DirtyResult check(SkyKey key, @Nullable SkyValue oldValue,
+    public DirtyResult check(
+        SkyKey key,
+        @Nullable SkyValue oldValue,
+        SyscallCache syscallCache,
         @Nullable TimestampGranularityMonitor tsgm) {
-      return Preconditions.checkNotNull(getChecker(key), key).check(key, oldValue, tsgm);
+      return Preconditions.checkNotNull(getChecker(key), key)
+          .check(key, oldValue, syscallCache, tsgm);
     }
   }
 }

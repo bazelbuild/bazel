@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -64,13 +65,17 @@ public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecke
   }
 
   @Override
-  public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
+  public SkyValue createNewValue(
+      SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
     throw new UnsupportedOperationException();
   }
 
   @Override
   public DirtyResult check(
-      SkyKey skyKey, SkyValue skyValue, @Nullable TimestampGranularityMonitor tsgm) {
+      SkyKey skyKey,
+      SkyValue skyValue,
+      SyscallCache syscallCache,
+      @Nullable TimestampGranularityMonitor tsgm) {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;
 
