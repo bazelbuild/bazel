@@ -102,35 +102,25 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
             rootedPath,
             FileStatusWithDigestAdapter.adapt(stat),
             /*digestWillBeInjected=*/ false,
+            syscallCache,
             tsgm);
     }
     throw new AssertionError(type);
-  }
-
-  public static FileStateValue create(
-      RootedPath rootedPath, @Nullable TimestampGranularityMonitor tsgm) throws IOException {
-    Path path = rootedPath.asPath();
-    // Stat, but don't throw an exception for the common case of a nonexistent file. This still
-    // throws an IOException in case any other IO error is encountered.
-    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
-    if (stat == null) {
-      return NONEXISTENT_FILE_STATE_NODE;
-    }
-    return createWithStatNoFollow(
-        rootedPath, FileStatusWithDigestAdapter.adapt(stat), /*digestWillBeInjected=*/ false, tsgm);
   }
 
   public static FileStateValue createWithStatNoFollow(
       RootedPath rootedPath,
       FileStatusWithDigest statNoFollow,
       boolean digestWillBeInjected,
+      SyscallCache syscallCache,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Path path = rootedPath.asPath();
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
           ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)
-          : RegularFileStateValue.fromPath(path, statNoFollow, digestWillBeInjected, tsgm);
+          : RegularFileStateValue.fromPath(
+              path, statNoFollow, digestWillBeInjected, syscallCache, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
@@ -233,6 +223,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         Path path,
         FileStatusWithDigest stat,
         boolean digestWillBeInjected,
+        SyscallCache syscallCache,
         @Nullable TimestampGranularityMonitor tsgm)
         throws InconsistentFilesystemException {
       Preconditions.checkState(stat.isFile(), path);
@@ -241,7 +232,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         // If the digest will be injected, we can skip calling getFastDigest, but we need to store a
         // contents proxy because if the digest is injected but is not available from the
         // filesystem, we will need the proxy to determine whether the file was modified.
-        byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat);
+        byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat, syscallCache);
         if (digest == null) {
           // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
           // method.
@@ -265,10 +256,11 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     }
 
     @Nullable
-    private static byte[] tryGetDigest(Path path, FileStatusWithDigest stat) throws IOException {
+    private static byte[] tryGetDigest(
+        Path path, FileStatusWithDigest stat, SyscallCache syscallCache) throws IOException {
       try {
         byte[] digest = stat.getDigest();
-        return digest != null ? digest : path.getFastDigest();
+        return digest != null ? digest : syscallCache.getFastDigest(path);
       } catch (IOException ioe) {
         if (!path.isReadable()) {
           return null;

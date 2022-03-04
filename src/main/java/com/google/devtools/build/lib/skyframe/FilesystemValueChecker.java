@@ -339,7 +339,8 @@ public class FilesystemValueChecker {
         FileArtifactValue lastKnownData = actionValue.getExistingFileArtifactValue(artifact);
         try {
           FileArtifactValue newData =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(artifact, stat, tsgm);
+              ActionMetadataHandler.fileArtifactValueFromArtifact(
+                  artifact, stat, syscallCache, tsgm);
           if (newData.couldBeModifiedSince(lastKnownData)) {
             updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1);
             modifiedOutputFilesCounter.getAndIncrement();
@@ -455,7 +456,7 @@ public class FilesystemValueChecker {
     }
     try {
       FileArtifactValue fileMetadata =
-          ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, tsgm);
+          ActionMetadataHandler.fileArtifactValueFromArtifact(file, null, syscallCache, tsgm);
       boolean trustRemoteValue =
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()

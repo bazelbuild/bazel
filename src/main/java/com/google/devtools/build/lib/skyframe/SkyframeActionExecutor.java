@@ -317,6 +317,10 @@ public final class SkyframeActionExecutor {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
+  SyscallCache getSyscallCache() {
+    return syscallCache;
+  }
+
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
   FileSystem createActionFileSystem(
       String relativeOutputPath,

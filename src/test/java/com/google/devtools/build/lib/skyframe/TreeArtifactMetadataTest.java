@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -273,6 +274,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
               ActionMetadataHandler.fileArtifactValueFromArtifact(
                   suboutput,
                   FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  SyscallCache.NO_CACHE,
                   null);
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());

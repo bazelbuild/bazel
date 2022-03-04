@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -319,7 +320,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     ActionLookupData dummyData = ActionLookupData.create(ALL_OWNER, 0);
     DerivedArtifact artifact1 = createDerivedArtifact("one");
     FileArtifactValue metadata1 =
-        ActionMetadataHandler.fileArtifactValueFromArtifact(artifact1, null, null);
+        ActionMetadataHandler.fileArtifactValueFromArtifact(
+            artifact1, null, SyscallCache.NO_CACHE, null);
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
     treeArtifact.setGeneratingActionKey(dummyData);
     TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(treeArtifact, "subpath");
@@ -519,6 +521,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
               ActionMetadataHandler.fileArtifactValueFromArtifact(
                   output,
                   FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  SyscallCache.NO_CACHE,
                   null);
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());

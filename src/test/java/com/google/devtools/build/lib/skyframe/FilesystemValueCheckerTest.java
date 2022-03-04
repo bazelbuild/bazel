@@ -189,7 +189,10 @@ public final class FilesystemValueCheckerTest {
     Path path = artifact.getPath();
     FileArtifactValue noDigest =
         ActionMetadataHandler.fileArtifactValueFromArtifact(
-            artifact, FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)), null);
+            artifact,
+            FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+            SyscallCache.NO_CACHE,
+            null);
     return FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
   }
 
@@ -1311,6 +1314,7 @@ public final class FilesystemValueCheckerTest {
             ActionMetadataHandler.fileArtifactValueFromArtifact(
                 output,
                 FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                SyscallCache.NO_CACHE,
                 null);
         FileArtifactValue withDigest =
             FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
