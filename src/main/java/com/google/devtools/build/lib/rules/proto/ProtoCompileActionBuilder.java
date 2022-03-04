@@ -242,12 +242,6 @@ public class ProtoCompileActionBuilder {
         ImmutableMap.of());
   }
 
-  /** Whether to use exports in the proto compile action. */
-  public enum Exports {
-    USE,
-    DO_NOT_USE,
-  }
-
   /** Whether to allow services in the proto compiler invocation. */
   public enum Services {
     ALLOW,
@@ -270,7 +264,6 @@ public class ProtoCompileActionBuilder {
       ProtoInfo protoInfo,
       Iterable<Artifact> outputs,
       String progressMessage,
-      Exports useExports,
       Services allowServices)
       throws RuleErrorException, InterruptedException {
     if (isEmpty(outputs)) {

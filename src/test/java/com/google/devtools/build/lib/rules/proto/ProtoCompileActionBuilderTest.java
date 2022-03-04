@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.OS;
@@ -153,7 +152,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -187,7 +185,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -218,7 +215,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of(protoSource("import1.proto"))),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -256,7 +252,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -286,7 +281,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare",
-        Exports.DO_NOT_USE,
         Services.DISALLOW);
 
     ImmutableList<String> cmdLine =
@@ -297,11 +291,11 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
   private static class InterceptOnDemandString extends OnDemandString implements StarlarkValue {
     boolean hasBeenCalled;
 
-          @Override
-          public String toString() {
+    @Override
+    public String toString() {
       hasBeenCalled = true;
-            return "mu";
-          }
+      return "mu";
+    }
   }
 
   @Test
@@ -327,7 +321,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "flavour",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     assertThat(outReplacement.hasBeenCalled).isFalse();
@@ -375,7 +368,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         /* strictImportableSources */ ImmutableList.of()),
                     ImmutableList.of(out),
                     "dontcare",
-                    Exports.DO_NOT_USE,
                     Services.ALLOW));
 
     assertThat(e)
@@ -484,7 +476,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 : ImmutableList.copyOf(importableProtoSources)),
         ImmutableList.of(out),
         "dontcare",
-        Exports.DO_NOT_USE,
         Services.DISALLOW);
 
     return allArgsForAction(

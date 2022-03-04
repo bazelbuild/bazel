@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -255,7 +254,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
           protoInfo,
           ImmutableList.of(sourceJar),
           "Generating JavaLite proto_library %{label}",
-          Exports.USE,
           Services.ALLOW);
     }
   }

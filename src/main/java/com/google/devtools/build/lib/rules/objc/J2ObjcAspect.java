@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -680,7 +679,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         protoInfo,
         outputs,
         "Generating j2objc proto_library %{label}",
-        Exports.DO_NOT_USE,
         shouldAllowProtoServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
 
     return new J2ObjcMappingFileProvider(
