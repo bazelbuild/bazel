@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.Strict
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
-import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoConfigurationApi;
@@ -31,6 +30,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Configuration for Protocol Buffer Libraries. */
 @Immutable
