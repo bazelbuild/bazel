@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
 /**
  * A per-build cache of filesystem operations.
  *
- * <p>Allows non-Skyframe operations (like legacy globbing) to share a filesystem cache with
- * Skyframe nodes, and may be able to answer questions (like the type of a file) based on existing
- * data (like the directory listing of a parent) without filesystem access.
+ * <p>Allows non-Skyframe operations (like non-Skyframe globbing) to share a filesystem cache with
+ * Skyframe operations, and may be able to answer questions (like the type of a file) based on
+ * existing data (like the directory listing of a parent) without filesystem access.
  */
 public final class PerBuildSyscallCache implements SyscallCache {
   private final Supplier<LoadingCache<Pair<Path, Symlinks>, Object>> statCacheSupplier;
