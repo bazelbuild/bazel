@@ -87,7 +87,7 @@ public interface AppleCommonApi<
               + "<li><code>tvos_device</code></li>"
               + "<li><code>tvos_simulator</code></li>"
               + "<li><code>watchos_device</code></li>"
-              + "<li><code>watchos_device</code></li>"
+              + "<li><code>watchos_simulator</code></li>"
               + "</ul><p>"
               + "These values can be passed to methods that expect a platform, like "
               + "<a href='XcodeVersionConfig.html#sdk_version_for_platform'>"
