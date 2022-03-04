@@ -349,14 +349,7 @@ public class ProtoCompileActionBuilder {
             /* outputs */ StarlarkList.immutableCopyOf(outputs),
             /* additional_args */ additionalArgs,
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build())),
-        ImmutableMap.of(
-            "strict_imports",
-            arePublicImportsStrict(ruleContext) ? (useExports == Exports.USE) : false));
-  }
-
-
-  public static boolean arePublicImportsStrict(RuleContext ruleContext) {
-    return ruleContext.getFragment(ProtoConfiguration.class).strictPublicImports();
+        ImmutableMap.of());
   }
 
   /**

@@ -77,13 +77,6 @@ def _create_proto_compile_action(
     args.add_all(proto_info.transitive_proto_sources(), map_each = _Iimport_path_equals_fullpath)
     # Example: `-Ia.proto=bazel-bin/target/third_party/pkg/_virtual_imports/subpkg/a.proto`
 
-    if strict_imports:
-        if not proto_info.public_import_sources():
-            # This line is necessary to trigger the check.
-            args.add("--allowed_public_imports=")
-        else:
-            args.add_joined("--allowed_public_imports", proto_info.public_import_sources(), map_each = _get_import_path, join_with = ":")
-
     args.add_all(proto_info.direct_sources)
 
     if type(additional_args) == type(ctx.actions.args()):
@@ -106,9 +99,6 @@ def _proto_path_flag(path):
     if path == ".":
         return None
     return "--proto_path=%s" % path
-
-def _get_import_path(proto_source):
-    return proto_source.import_path()
 
 def _Iimport_path_equals_fullpath(proto_source):
     return "-I%s=%s" % (proto_source.import_path(), proto_source.source_file().path)

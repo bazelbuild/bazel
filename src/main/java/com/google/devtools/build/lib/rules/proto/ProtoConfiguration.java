@@ -176,10 +176,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     @Option(
         name = "experimental_java_proto_add_allowed_public_imports",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "If true, add --allowed_public_imports to the java compile actions.")
+        help = "This flag is a noop and scheduled for removal.")
     public boolean experimentalJavaProtoAddAllowedPublicImports;
 
     @Override
@@ -198,8 +198,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.strictPublicImports = strictPublicImports;
       host.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
       host.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
-      host.experimentalJavaProtoAddAllowedPublicImports =
-          experimentalJavaProtoAddAllowedPublicImports;
       host.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
       return host;
     }
@@ -302,9 +300,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return ccProtoLibrarySourceSuffixes;
   }
 
-  public boolean strictPublicImports() {
-    return options.experimentalJavaProtoAddAllowedPublicImports;
-  }
 
   @StarlarkMethod(
       name = "generated_protos_in_virtual_imports",

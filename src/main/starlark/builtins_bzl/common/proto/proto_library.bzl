@@ -248,6 +248,13 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         args.add(ctx.label, format = semantics.STRICT_DEPS_FLAG_TEMPLATE)
 
     strict_public_imports_mode = ctx.fragments.proto.strict_public_imports()
+    strict_imports = strict_public_imports_mode != "OFF" and strict_public_imports_mode != "DEFAULT"
+    if strict_imports:
+        if not proto_info.public_import_sources():
+            # This line is necessary to trigger the check.
+            args.add("--allowed_public_imports=")
+        else:
+            args.add_joined("--allowed_public_imports", proto_info.public_import_sources(), map_each = _get_import_path, join_with = ":")
     proto_common.create_proto_compile_action(
         ctx,
         proto_info,
@@ -257,7 +264,6 @@ def _write_descriptor_set(ctx, deps, proto_info, descriptor_set):
         outputs = [descriptor_set],
         additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
-        strict_imports = strict_public_imports_mode != "OFF" and strict_public_imports_mode != "DEFAULT",
     )
 
 proto_library = rule(
