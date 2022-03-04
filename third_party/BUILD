@@ -503,6 +503,15 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
+# For desugaring the Guava jar.
+distrib_jar_filegroup(
+    name = "guava-failureaccess-jar",
+    srcs = [
+      "guava/failureaccess-1.0.1.jar",
+    ],
+    enable_distributions = ["debian"],
+)
+
 java_import(
     name = "javax_activation",
     jars = ["javax_activation/javax.activation-api-1.2.0.jar"],
