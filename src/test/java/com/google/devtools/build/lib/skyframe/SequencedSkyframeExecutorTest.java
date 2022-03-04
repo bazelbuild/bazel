@@ -124,6 +124,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -305,7 +306,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor.memoizingEvaluator.injectGraphTransformerForTesting(
         inMemoryGraphWithValues(
-            ImmutableMap.of(file, FileStateValue.create(file, /*tsgm=*/ null))));
+            ImmutableMap.of(
+                file, FileStateValue.create(file, SyscallCache.NO_CACHE, /*tsgm=*/ null))));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -334,7 +336,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor.memoizingEvaluator.injectGraphTransformerForTesting(
         inMemoryGraphWithValues(
-            ImmutableMap.of(file, FileStateValue.create(file, /*tsgm=*/ null))));
+            ImmutableMap.of(
+                file, FileStateValue.create(file, SyscallCache.NO_CACHE, /*tsgm=*/ null))));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -366,7 +369,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.memoizingEvaluator.injectGraphTransformerForTesting(
         inMemoryGraphWithValues(
             ImmutableMap.of(
-                dir, FileStateValue.create(dir, /*tsgm=*/ null), dirListingKey, value)));
+                dir,
+                FileStateValue.create(dir, SyscallCache.NO_CACHE, /*tsgm=*/ null),
+                dirListingKey,
+                value)));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -401,7 +407,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.memoizingEvaluator.injectGraphTransformerForTesting(
         inMemoryGraphWithValues(
             ImmutableMap.of(
-                dir, FileStateValue.create(dir, /*tsgm=*/ null), dirListingKey, value)));
+                dir,
+                FileStateValue.create(dir, SyscallCache.NO_CACHE, /*tsgm=*/ null),
+                dirListingKey,
+                value)));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
