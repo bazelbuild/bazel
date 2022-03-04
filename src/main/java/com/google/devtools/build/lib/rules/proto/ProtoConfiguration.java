@@ -30,6 +30,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Configuration for Protocol Buffer Libraries. */
 @Immutable
@@ -201,6 +202,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.options = options;
   }
 
+  @StarlarkMethod(name = "experimental_protoc_opts", structField = true, documented = false)
   public ImmutableList<String> protocOpts() {
     return protocOpts;
   }
