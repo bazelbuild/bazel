@@ -202,10 +202,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   }
 
   @StarlarkMethod(name = "experimental_protoc_opts", structField = true, documented = false)
-  public ImmutableList<String> protocOptsForStarlark() throws EvalException {
-    return protocOpts();
-  }
-
   public ImmutableList<String> protocOpts() {
     return protocOpts;
   }
