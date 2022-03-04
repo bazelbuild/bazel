@@ -327,8 +327,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional "
-                    + "runfiles that are automatically made available to the action."),
+                    + "additional runfiles that are automatically made available to the action. "
+                    + "The list can contain Files or FilesToRunProvider instances."),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
