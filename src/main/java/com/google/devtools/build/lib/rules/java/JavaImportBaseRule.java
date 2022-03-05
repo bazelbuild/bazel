@@ -54,6 +54,13 @@ public class JavaImportBaseRule implements RuleDefinition {
         for IDE plug-ins or <code>tools.jar</code> for anything running on
         a standard JDK.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("use_ijar", BOOLEAN).value(false))
+        /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(use_ijar) -->
+        If you import an oft-changing JAR that doesn't have a Kotlin interface,
+        you can enable this as a caching optimization.
+        Temporarily available until ijar is updated to properly handle Kotlin.
+        For more, see https://github.com/bazelbuild/bazel/issues/4549.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("neverlink", BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(constraints) -->
         Extra constraints imposed on this rule as a Java library.

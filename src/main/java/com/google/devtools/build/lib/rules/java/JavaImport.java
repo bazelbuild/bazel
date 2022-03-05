@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -202,7 +203,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       ImmutableMap.Builder<Artifact, Artifact> compilationToRuntimeJarMap) {
     ImmutableList.Builder<Artifact> interfaceJarsBuilder = ImmutableList.builder();
-    boolean useIjar = ruleContext.getFragment(JavaConfiguration.class).getUseIjars();
+    boolean useIjar = ruleContext.getFragment(JavaConfiguration.class).getUseIjars()
+        && ruleContext.attributes().get("use_ijar", Type.BOOLEAN);
     for (Artifact jar : jars) {
       Artifact interfaceJar =
           useIjar

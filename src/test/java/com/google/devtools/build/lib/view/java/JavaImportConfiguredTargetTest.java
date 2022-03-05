@@ -55,10 +55,12 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/jarlib/BUILD",
         "java_import(name = 'libraryjar',",
-        "            jars = ['library.jar'])",
+        "            jars = ['library.jar'],",
+        "            use_ijar = True)",
         "java_import(name = 'libraryjar_with_srcjar',",
         "            jars = ['library.jar'],",
-        "            srcjar = 'library.srcjar')");
+        "            srcjar = 'library.srcjar',",
+        "            use_ijar = True)");
   }
 
   @Test
@@ -130,11 +132,14 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "            jars = ['import.jar'],",
         "            deps = ['//java/jarlib2:depjar'],",
         "            exports = ['//java/jarlib2:exportjar'],",
+        "            use_ijar = True",
         ")",
         "java_import(name  = 'depjar',",
-        "            jars = ['depjar.jar'])",
+        "            jars = ['depjar.jar'],",
+        "            use_ijar = True)",
         "java_import(name  = 'exportjar',",
-        "            jars = ['exportjar.jar'])");
+        "            jars = ['exportjar.jar'],",
+        "            use_ijar = True)");
 
     ConfiguredTarget importJar = getConfiguredTarget("//java/jarlib2:import-jar");
 
@@ -210,7 +215,8 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "java_import(name  = 'library-jar',",
         "            jars = [':generated_jar'],",
         "            srcjar = ':generated_src_jar',",
-        "            exports = ['//java/jarlib:libraryjar'])");
+        "            exports = ['//java/jarlib:libraryjar'],",
+        "            use_ijar = True)");
     ConfiguredTarget jarLib = getConfiguredTarget("//java/genrules:library-jar");
 
     JavaCompilationArgsProvider compilationArgs =
@@ -441,7 +447,8 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "             deps = ['//java/jarlib:libraryjar'])",
         "java_import(name  = 'library2-jar',",
         "            jars = ['library2.jar'],",
-        "            exports = [':lib'])",
+        "            exports = [':lib'],",
+        "            use_ijar = True)",
         "java_library(name  = 'javalib2',",
         "             srcs = ['Other.java'],",
         "             deps = [':library2-jar'])");
@@ -464,6 +471,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'import_dep',",
         "    jars = ['import_compile.jar'],",
         "    runtime_deps = ['import_runtime.jar'],",
+        "    use_ijar = True",
         ")",
         "java_library(",
         "    name = 'library_dep',",
