@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import java.util.Collection;
+import java.util.Collections;
 
 /**
  * Helpers for implementing rules which export Proguard specs.
@@ -51,11 +52,39 @@ public final class ProguardLibrary {
     return collectProguardSpecs(DEPENDENCY_ATTRIBUTES);
   }
 
+  /** 
+   * Collects the validated proguard specs exported by this rule and its dependencies, adding an
+   * additional local spec from outside of the normal attributes, e.g., embedded in a JAR or AAR.
+   */
+  public NestedSet<Artifact> collectProguardSpecs(Artifact additionalLocalSpec) {
+    return collectProguardSpecs(DEPENDENCY_ATTRIBUTES, additionalLocalSpec);
+  }
+
   /**
    * Collects the validated proguard specs exported by this rule and its dependencies through the
    * given attributes.
    */
   public NestedSet<Artifact> collectProguardSpecs(Iterable<String> attributes) {
+    return collectProguardSpecs(attributes, Collections.emptySet());
+  }
+
+  /**
+   * Collects the validated proguard specs exported by this rule and its dependencies through the
+   * given attributes, adding an additional local spec from outside of the normal attributes, e.g.,
+   * embedded in a JAR or AAR.
+   */
+  public NestedSet<Artifact> collectProguardSpecs(
+      Iterable<String> attributes, Artifact additionalLocalSpec) {
+    return collectProguardSpecs(attributes, Collections.singleton(additionalLocalSpec));
+  }
+
+  /**
+   * Collects the validated proguard specs exported by this rule and its dependencies through the
+   * given attributes, adding additional local specs from outside of the normal attributes, e.g.,
+   * embedded in a JAR or AAR.
+   */
+  public NestedSet<Artifact> collectProguardSpecs(
+      Iterable<String> attributes, Iterable<Artifact> additionalLocalSpecs) {
     NestedSetBuilder<Artifact> specsBuilder = NestedSetBuilder.naiveLinkOrder();
 
     for (String attribute : attributes) {
@@ -63,7 +92,7 @@ public final class ProguardLibrary {
     }
 
     Collection<Artifact> localSpecs = collectLocalProguardSpecs();
-    if (!localSpecs.isEmpty()) {
+    if (!localSpecs.isEmpty() || additionalLocalSpecs.iterator().hasNext()) {
       // Pass our local proguard configs through the validator, which checks an allowlist.
       FilesToRunProvider proguardAllowlister =
           JavaToolchainProvider.from(ruleContext).getProguardAllowlister();
@@ -73,6 +102,9 @@ public final class ProguardLibrary {
         return specsBuilder.build();
       }
       for (Artifact specToValidate : localSpecs) {
+        specsBuilder.add(validateProguardSpec(ruleContext, proguardAllowlister, specToValidate));
+      }
+      for (Artifact specToValidate : additionalLocalSpecs) {
         specsBuilder.add(validateProguardSpec(ruleContext, proguardAllowlister, specToValidate));
       }
     }

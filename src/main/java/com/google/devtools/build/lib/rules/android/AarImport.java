@@ -256,44 +256,22 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }
 
-  /**
-   * Collect Proguard Specs from transitives and proguard.txt if it exists in the AAR file. In the
-   * case the proguard.txt file does exists, we need to extract it from the AAR file
-   */
+  /* Collects transitive and local ProGuard specs, including any embedded in the AAR. */
   private NestedSet<Artifact> extractProguardSpecs(RuleContext ruleContext, Artifact aar) {
-
-    NestedSet<Artifact> proguardSpecs =
-        new ProguardLibrary(ruleContext).collectProguardSpecs(ImmutableSet.of("deps", "exports"));
-
-    Artifact proguardSpecArtifact = createAarArtifact(ruleContext, PROGUARD_SPEC);
-
+    Artifact extractedSpec = createAarArtifact(ruleContext, PROGUARD_SPEC);
     ruleContext.registerAction(
-        createAarEmbeddedProguardExtractorActions(ruleContext, aar, proguardSpecArtifact));
-
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-    return builder.addTransitive(proguardSpecs).add(proguardSpecArtifact).build();
-  }
-
-  /**
-   * Creates action to extract embedded Proguard.txt from an AAR. If the file is not found, an empty
-   * file will be created
-   */
-  private static SpawnAction createAarEmbeddedProguardExtractorActions(
-      RuleContext ruleContext, Artifact aar, Artifact proguardSpecArtifact) {
-    return new SpawnAction.Builder()
-        .useDefaultShellEnvironment()
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_PROGUARD_EXTACTOR))
+        new SpawnAction.Builder().useDefaultShellEnvironment()
+        .setExecutable(ruleContext.getExecutablePrerequisite(
+            AarImportBaseRule.AAR_EMBEDDED_PROGUARD_EXTACTOR))
         .setMnemonic("AarEmbeddedProguardExtractor")
         .setProgressMessage("Extracting proguard.txt from %s", aar.getFilename())
         .addInput(aar)
-        .addOutput(proguardSpecArtifact)
-        .addCommandLine(
-            CustomCommandLine.builder()
-                .addExecPath("--input_aar", aar)
-                .addExecPath("--output_proguard_file", proguardSpecArtifact)
-                .build())
-        .build(ruleContext);
+        .addOutput(extractedSpec)
+        .addCommandLine(CustomCommandLine.builder()
+            .addExecPath("--input_aar", aar)
+            .addExecPath("--output_proguard_file", extractedSpec).build())
+        .build(ruleContext));
+    return new ProguardLibrary(ruleContext).collectProguardSpecs(extractedSpec);
   }
 
   private NestedSet<Artifact> getBootclasspath(RuleContext ruleContext) {

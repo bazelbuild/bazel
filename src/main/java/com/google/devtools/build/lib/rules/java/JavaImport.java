@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -121,7 +123,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
               .build());
     }
 
-    NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
+    NestedSet<Artifact> proguardSpecs = collectProguardSpecs(ruleContext, jars);
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
     JavaSourceJarsProvider sourceJarsProvider =
@@ -218,5 +220,24 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       compilationToRuntimeJarMap.put(interfaceJar, jar);
     }
     return interfaceJarsBuilder.build();
+  }
+
+  /* Collects transitive and local ProGuard specs, including any embedded in the JARs. */
+  private NestedSet<Artifact> collectProguardSpecs(
+      RuleContext ruleContext, ImmutableList<Artifact> jars) {
+    Artifact extractedSpec = ruleContext.getUniqueDirectoryArtifact(
+        "_jar_import", "proguard.txt", ruleContext.getBinOrGenfilesDirectory());
+    ruleContext.registerAction(
+      new SpawnAction.Builder().useDefaultShellEnvironment()
+          .setMnemonic("JarEmbeddedProguardExtractor")
+          .setProgressMessage("Extracting ProGuard specs from JARs in %s",
+              ruleContext.getTarget().getLabel())
+          .setExecutable(ruleContext.getExecutablePrerequisite("$jar_embedded_proguard_extractor"))
+          .addCommandLine(
+              CustomCommandLine.builder().addExecPaths(jars).addExecPath(extractedSpec).build())
+          .addInputs(jars)
+          .addOutput(extractedSpec)
+          .build(ruleContext));
+    return new ProguardLibrary(ruleContext).collectProguardSpecs(extractedSpec);
   }
 }

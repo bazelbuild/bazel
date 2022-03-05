@@ -20,6 +20,7 @@ filegroup(
         "jdk.BUILD",
         "local_java_repository.bzl",
         "nosystemjdk/README",
+        "jar_embedded_proguard_extractor.py",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.pgcfg",

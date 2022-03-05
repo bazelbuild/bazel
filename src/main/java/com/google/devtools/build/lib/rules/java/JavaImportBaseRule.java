@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -63,6 +64,11 @@ public class JavaImportBaseRule implements RuleDefinition {
                 .orderIndependent()
                 .nonconfigurable(
                     "used in Attribute.validityPredicate implementations (loading time)"))
+        .add(
+            attr("$jar_embedded_proguard_extractor", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .exec()
+              .value(environment.getToolsLabel("//tools/jdk:jar_embedded_proguard_extractor")))
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }

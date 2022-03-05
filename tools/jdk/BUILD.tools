@@ -420,6 +420,11 @@ filegroup(
 )
 
 py_binary(
+    name = "jar_embedded_proguard_extractor",
+    srcs = ["jar_embedded_proguard_extractor.py"],
+)
+
+py_binary(
     name = "proguard_whitelister",
     srcs = [
         "proguard_whitelister.py",

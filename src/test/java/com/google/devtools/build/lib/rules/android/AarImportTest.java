@@ -166,30 +166,10 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toSet()))
         .containsExactly(
-            "a/_aar/bar/proguard.txt", "a/_aar/foo/proguard.txt", "a/_aar/baz/proguard.txt");
-  }
-
-  @Test
-  public void testProguardExtractor() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//a:bar");
-    Artifact proguardSpecsAritfact =
-        target.get(ProguardSpecProvider.PROVIDER).getTransitiveProguardSpecs().toList().get(0);
-
-    Artifact aarProguardExtractor =
-        getDirectPrerequisite(
-                target,
-                ruleClassProvider.getToolsRepository()
-                    + "//tools/android:aar_embedded_proguard_extractor")
-            .getProvider(FilesToRunProvider.class)
-            .getExecutable();
-
-    assertThat(getGeneratingSpawnAction(proguardSpecsAritfact).getArguments())
-        .containsExactly(
-            aarProguardExtractor.getExecPathString(),
-            "--input_aar",
-            "a/bar.aar",
-            "--output_proguard_file",
-            proguardSpecsAritfact.getExecPathString());
+            "a/validated_proguard/bar/a/_aar/bar/proguard.txt_valid",
+            "java/validated_proguard/baz/java/_jar_import/baz/proguard.txt_valid",
+            "a/validated_proguard/baz/a/_aar/baz/proguard.txt_valid",
+            "a/validated_proguard/foo/a/_aar/foo/proguard.txt_valid");
   }
 
   @Test
