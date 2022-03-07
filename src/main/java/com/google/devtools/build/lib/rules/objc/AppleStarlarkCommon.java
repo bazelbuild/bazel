@@ -261,7 +261,6 @@ public class AppleStarlarkCommon
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
       StarlarkInt stamp,
-      Boolean shouldLipo,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {

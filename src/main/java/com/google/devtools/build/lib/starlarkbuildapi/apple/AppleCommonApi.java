@@ -404,15 +404,6 @@ public interface AppleCommonApi<
                     + "If -1 (the default), then the behavior is determined by the --[no]stamp "
                     + "flag. This should be set to 0 when generating the executable output for "
                     + "test rules."),
-        // TODO(b/63092114): Remove should_lipo when the Apple BUILD rules no longer use it.
-        @Param(
-            name = "should_lipo",
-            named = true,
-            positional = false,
-            defaultValue = "False",
-            doc =
-                "No-op. Kept here for backwards compatibility. This field will be removed in a "
-                    + "future release.")
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
@@ -422,7 +413,6 @@ public interface AppleCommonApi<
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkInt stamp,
-      Boolean shouldLipo,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
