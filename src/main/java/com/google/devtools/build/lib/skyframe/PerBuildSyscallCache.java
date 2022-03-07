@@ -51,8 +51,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
       Supplier<LoadingCache<Path, Object>> readdirCacheSupplier) {
     this.statCacheSupplier = statCacheSupplier;
     this.readdirCacheSupplier = readdirCacheSupplier;
-    this.statCache = statCacheSupplier.get();
-    this.readdirCache = readdirCacheSupplier.get();
+    clear();
   }
 
   public static Builder newBuilder() {

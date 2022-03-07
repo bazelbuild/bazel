@@ -126,46 +126,6 @@ public class TestUtils {
     return randomSeed;
   }
 
-  /** {@link SyscallCache} that delegates to an injectable one. */
-  public static class DelegatingSyscallCache implements SyscallCache {
-    private SyscallCache delegate = SyscallCache.NO_CACHE;
-
-    public void setDelegate(SyscallCache syscallCache) {
-      this.delegate = syscallCache;
-    }
-
-    @Override
-    public Collection<Dirent> readdir(Path path) throws IOException {
-      return delegate.readdir(path);
-    }
-
-    @Override
-    public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
-      return delegate.statIfFound(path, symlinks);
-    }
-
-    @Nullable
-    @Override
-    public DirentTypeWithSkip getType(Path path, Symlinks symlinks) throws IOException {
-      return delegate.getType(path, symlinks);
-    }
-
-    @Override
-    public byte[] getFastDigest(Path path) throws IOException {
-      return delegate.getFastDigest(path);
-    }
-
-    @Override
-    public void noteAnalysisPhaseEnded() {
-      delegate.noteAnalysisPhaseEnded();
-    }
-
-    @Override
-    public void clear() {
-      delegate.clear();
-    }
-  }
-
   public static SyscallCache makeDisappearingFileCache(String path) {
     PathFragment badPath = PathFragment.create(path);
     return new SyscallCache() {

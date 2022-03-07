@@ -59,9 +59,9 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DelegatingSyscallCache;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -102,8 +102,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
-  private final TestUtils.DelegatingSyscallCache delegatingSyscallCache =
-      new TestUtils.DelegatingSyscallCache();
+  private final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
   @Override
   public void setUp() throws Exception {
@@ -119,6 +118,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
+    delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
 
     initTargetPatternEvaluator(analysisMock.createRuleClassProvider());
 
