@@ -1373,7 +1373,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   @Immutable
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class MapVariables extends CcToolchainVariables {
     private static final Interner<MapVariables> INTERNER = BlazeInterners.newWeakInterner();
