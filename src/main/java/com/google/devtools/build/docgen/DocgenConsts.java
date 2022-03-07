@@ -176,12 +176,10 @@ public class DocgenConsts {
 
   // The following variables are not constants as they can be overridden from
   // StarlarkDocumentationProcessor#parseOptions
+  // Their purpose is to allow generated Starlark documentation to link into the build encyclopedia.
 
-  // Build Encyclopedia documentation root
-  public static String BeDocsRoot = "/versions/main/be";
-
-  // Documentation files extension
-  public static String documentationExtension = "html";
+  // Root directory of *narrative* Starlark documentation files such as rules.md
+  public static String starlarkDocsRoot = "/rules";
 
   static String toCommandLineFormat(String cmdDoc) {
     // Replace html <br> tags with line breaks

@@ -16,7 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkDocUtils;
+import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,10 +43,24 @@ public final class StarlarkDocumentationProcessor {
   /** Generates the Starlark documentation to the given output directory. */
   public static void generateDocumentation(String outputDir, String... args)
       throws IOException, ClassPathException {
-    parseOptions(args);
+    Map<String, String> options = parseOptions(args);
+
+    String docsRoot = options.get("--starlark_docs_root");
+    if (docsRoot != null) {
+      DocgenConsts.starlarkDocsRoot = docsRoot;
+    }
+
+    String linkMapPath = options.get("--link_map_path");
+    if (linkMapPath == null) {
+      throw new IllegalArgumentException("Required option '--link_map_path' is missing.");
+    }
+
+    DocLinkMap linkMap = DocLinkMap.createFromFile(linkMapPath);
+    StarlarkDocExpander expander =
+        new StarlarkDocExpander(new RuleLinkExpander(/*singlePage*/ false, linkMap));
 
     Map<String, StarlarkBuiltinDoc> modules =
-        new TreeMap<>(StarlarkDocumentationCollector.getAllModules());
+        new TreeMap<>(StarlarkDocumentationCollector.getAllModules(expander));
 
     // Generate the top level module first in the doc
     StarlarkBuiltinDoc topLevelModule =
@@ -71,10 +86,10 @@ public final class StarlarkDocumentationProcessor {
     for (List<StarlarkBuiltinDoc> module : modulesByCategory.values()) {
       Collections.sort(module, (doc1, doc2) -> us.compare(doc1.getTitle(), doc2.getTitle()));
     }
-    writeCategoryPage(Category.CORE, outputDir, modulesByCategory);
-    writeCategoryPage(Category.CONFIGURATION_FRAGMENT, outputDir, modulesByCategory);
-    writeCategoryPage(Category.BUILTIN, outputDir, modulesByCategory);
-    writeCategoryPage(Category.PROVIDER, outputDir, modulesByCategory);
+    writeCategoryPage(Category.CORE, outputDir, modulesByCategory, expander);
+    writeCategoryPage(Category.CONFIGURATION_FRAGMENT, outputDir, modulesByCategory, expander);
+    writeCategoryPage(Category.BUILTIN, outputDir, modulesByCategory, expander);
+    writeCategoryPage(Category.PROVIDER, outputDir, modulesByCategory, expander);
     writeNavPage(outputDir, modulesByCategory.get(Category.TOP_LEVEL_TYPE));
 
     // In the code, there are two StarlarkModuleCategory instances that have no heading:
@@ -138,14 +153,17 @@ public final class StarlarkDocumentationProcessor {
   }
 
   private static void writeCategoryPage(
-      Category category, String outputDir, Map<Category, List<StarlarkBuiltinDoc>> modules)
+      Category category,
+      String outputDir,
+      Map<Category, List<StarlarkBuiltinDoc>> modules,
+      StarlarkDocExpander expander)
       throws IOException {
     File starlarkDocPath =
         new File(String.format("%s/starlark-%s.html", outputDir, category.getTemplateIdentifier()));
     Page page = TemplateEngine.newPage(DocgenConsts.STARLARK_MODULE_CATEGORY_TEMPLATE);
     page.add("category", category);
     page.add("modules", modules.get(category));
-    page.add("description", StarlarkDocUtils.substituteVariables(category.description));
+    page.add("description", expander.expand(category.description));
     page.write(starlarkDocPath);
   }
 
@@ -175,15 +193,15 @@ public final class StarlarkDocumentationProcessor {
     page.write(starlarkDocPath);
   }
 
-  private static void parseOptions(String... args) {
+  private static Map<String, String> parseOptions(String... args) {
+    Map<String, String> options = new HashMap<>();
     for (String arg : args) {
-      if (arg.startsWith("--be_root=")) {
-        DocgenConsts.BeDocsRoot = arg.split("--be_root=", 2)[1];
-      }
-      if (arg.startsWith("--doc_extension=")) {
-        DocgenConsts.documentationExtension = arg.split("--doc_extension=", 2)[1];
+      if (arg.startsWith("--")) {
+        String[] parts = arg.split("=", 2);
+        options.put(parts[0], parts.length > 1 ? parts[1] : null);
       }
     }
+    return options;
   }
 
   /**
@@ -202,8 +220,9 @@ public final class StarlarkDocumentationProcessor {
 
     PROVIDER(
         "Providers",
-        "This section lists providers available on built-in rules. See the "
-            + "<a href='../rules.$DOC_EXT#providers'>Rules page</a> for more on providers."),
+        "This section lists providers available on built-in rules. See the <a"
+            + " href='$STARLARK_DOCS_ROOT/rules.html#providers'>Rules page</a> for more on"
+            + " providers."),
 
     BUILTIN("Built-in Types", "This section lists types of Starlark objects."),
 

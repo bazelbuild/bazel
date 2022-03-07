@@ -1,0 +1,25 @@
+{
+  "beRoot": "/reference/be",
+  "values":
+  {
+      "build-ref": "/concepts/build-ref",
+      "build-ref#labels": "/concepts/labels",
+      "build-ref#name": "/concepts/labels#target-names",
+      "build-ref#BUILD_files": "/concepts/build-files",
+      "build-ref#dependencies": "/concepts/dependencies",
+      "common-definitions": "/reference/be/common-definitions",
+      "config": "/rules/config",
+      "configurable-attributes": "/docs/configurable-attributes",
+      "exec-groups": "/reference/exec-groups",
+      "functions": "/reference/be/functions",
+      "guide": "/contribute/guide",
+      "make-variables": "/reference/be/make-variables",
+      "platforms": "/docs/platforms",
+      "protocol-buffer": "/reference/be/protocol-buffer",
+      "query": "/reference/query",
+      "test-encyclopedia": "/reference/test-encyclopedia",
+      "toolchains": "/docs/toolchains",
+      "user-manual": "/docs/user-manual",
+      "visibility": "/concepts/visibility"
+  }
+}

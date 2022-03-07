@@ -430,12 +430,15 @@ filegroup(
 
 genrule(
     name = "gen_buildencyclopedia",
-    srcs = [":docs_embedded_in_sources"],
+    srcs = [
+        ":docs_embedded_in_sources",
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+    ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
         "mkdir -p $(@D)/be && " +
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-        " --product_name=bazel" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
         " --output_dir=$(@D)/be &&" +
@@ -476,9 +479,12 @@ genrule(
 
 genrule(
     name = "gen_skylarklibrary",
+    srcs = ["//src/main/java/com/google/devtools/build/docgen:bazel_link_map"],
     outs = ["skylark-library.zip"],
     cmd = "mkdir -p $(@D)/skylark-lib &&" +
-          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib" +
+          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin)" +
+          " $(@D)/skylark-lib" +
+          " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
