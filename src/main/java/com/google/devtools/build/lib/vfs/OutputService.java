@@ -141,9 +141,6 @@ public interface OutputService {
    */
   void clean() throws ExecException, InterruptedException;
 
-  /** @return true iff the file actually lives on a remote server */
-  boolean isRemoteFile(Artifact file);
-
   default ActionFileSystemType actionFileSystemType() {
     return ActionFileSystemType.DISABLED;
   }
