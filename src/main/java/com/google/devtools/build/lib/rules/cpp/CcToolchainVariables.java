@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -926,14 +927,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /** Sequence of arbitrary VariableValue objects. */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static final class Sequence extends VariableValueAdapter {
+  private static final class Sequence extends VariableValueAdapter {
     private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
 
     private final ImmutableList<VariableValue> values;
 
-    public Sequence(ImmutableList<VariableValue> values) {
+    private Sequence(ImmutableList<VariableValue> values) {
       this.values = values;
     }
 
@@ -975,13 +974,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * significantly reduces memory overhead.
    */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static final class StructureSequence extends VariableValueAdapter {
+  private static final class StructureSequence extends VariableValueAdapter {
     private final ImmutableList<ImmutableMap<String, VariableValue>> values;
 
-    @VisibleForSerialization
-    StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
+    private StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
       Preconditions.checkNotNull(values);
       this.values = values;
     }
@@ -1028,12 +1024,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * objects significantly reduces memory overhead.
    */
   @Immutable
-  @AutoCodec
+  @VisibleForTesting
   static final class StringSequence extends VariableValueAdapter {
     private final Iterable<String> values;
-    private int hash = 0;
+    private transient int hash = 0;
 
-    public StringSequence(Iterable<String> values) {
+    @VisibleForTesting
+    StringSequence(Iterable<String> values) {
       Preconditions.checkNotNull(values);
       this.values = values;
     }
@@ -1095,7 +1092,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   private static final class StringSetSequence extends VariableValueAdapter {
     private final NestedSet<String> values;
 
-    StringSetSequence(NestedSet<String> values) {
+    private StringSetSequence(NestedSet<String> values) {
       Preconditions.checkNotNull(values);
       this.values = values;
     }
@@ -1141,14 +1138,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
    */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static final class StructureValue extends VariableValueAdapter {
+  private static final class StructureValue extends VariableValueAdapter {
     private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
 
     private final ImmutableMap<String, VariableValue> value;
 
-    public StructureValue(ImmutableMap<String, VariableValue> value) {
+    private StructureValue(ImmutableMap<String, VariableValue> value) {
       this.value = value;
     }
 
@@ -1197,14 +1192,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
+  @VisibleForTesting
   static final class StringValue extends VariableValueAdapter {
     private static final String STRING_VARIABLE_TYPE_NAME = "string";
 
     private final String value;
 
-    public StringValue(String value) {
+    @VisibleForTesting
+    StringValue(String value) {
       Preconditions.checkNotNull(value, "Cannot create StringValue from null");
       this.value = value;
     }
@@ -1246,12 +1241,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
   @Immutable
-  @AutoCodec
+  @VisibleForTesting
   static final class IntegerValue extends VariableValueAdapter {
     private static final String INTEGER_VALUE_TYPE_NAME = "integer";
     private final int value;
 
-    public IntegerValue(int value) {
+    @VisibleForTesting
+    IntegerValue(int value) {
       this.value = value;
     }
 
