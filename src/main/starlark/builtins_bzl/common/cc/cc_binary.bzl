@@ -695,10 +695,9 @@ def cc_binary_impl(ctx, additional_linkopts):
     if has_legacy_link_shared_name:
         binary = ctx.actions.declare_file(target_name)
     else:
-        binary = cc_internal.get_linked_artifact(
+        binary = cc_helper.get_linked_artifact(
             ctx = ctx,
             cc_toolchain = cc_toolchain,
-            config = ctx.configuration,
             is_dynamic_link_type = is_dynamic_link_type,
         )
     linking_mode = _get_link_staticness(ctx, cpp_config)

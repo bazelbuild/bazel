@@ -20,6 +20,26 @@ CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 
+artifact_category = struct(
+    STATIC_LIBRARY = "STATIC_LIBRARY",
+    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
+    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
+    EXECUTABLE = "EXECUTABLE",
+    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
+    PIC_FILE = "PIC_FILE",
+    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
+    OBJECT_FILE = "OBJECT_FILE",
+    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
+    CPP_MODULE = "CPP_MODULE",
+    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
+    PROCESSED_HEADER = "PROCESSED_HEADER",
+    GENERATED_HEADER = "GENERATED_HEADER",
+    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
+    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
+    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
+    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
+)
+
 def _check_src_extension(file, allowed_src_files):
     extension = "." + file.extension
     if _matches_extension(extension, allowed_src_files) or _is_shared_library_extension_valid(file.path):
@@ -456,6 +476,34 @@ def _stringify_linker_input(linker_input):
 
     return "".join(parts)
 
+def _replace_name(name, new_name):
+    last_slash = name.rfind("/")
+    if last_slash == -1:
+        return new_name
+    return name[:last_slash] + "/" + new_name
+
+def _get_base_name(name):
+    last_slash = name.rfind("/")
+    if last_slash == -1:
+        return name
+    return name[last_slash + 1:]
+
+def _get_artifact_name_for_category(cc_toolchain, is_dynamic_link_type, output_name):
+    linked_artifact_category = None
+    if is_dynamic_link_type:
+        linked_artifact_category = artifact_category.DYNAMIC_LIBRARY
+    else:
+        linked_artifact_category = artifact_category.EXECUTABLE
+
+    return cc_toolchain.get_artifact_name_for_category(category = linked_artifact_category, output_name = output_name)
+
+def _get_linked_artifact(ctx, cc_toolchain, is_dynamic_link_type):
+    name = ctx.label.name
+    new_name = _get_artifact_name_for_category(cc_toolchain, is_dynamic_link_type, _get_base_name(name))
+    name = _replace_name(name, new_name)
+
+    return ctx.actions.declare_file(name)
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -484,4 +532,5 @@ cc_helper = struct(
     get_windows_def_file_for_linking = _get_windows_def_file_for_linking,
     generate_def_file = _generate_def_file,
     stringify_linker_input = _stringify_linker_input,
+    get_linked_artifact = _get_linked_artifact,
 )
