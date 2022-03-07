@@ -360,7 +360,7 @@ sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
 
 When migrating your project to platforms, you must either convert changes like
 `return { "//command_line_option:cpu": "arm" }` to `return {
-"//command_line_options:platforms": "//:my_arm_platform" }` or use [platform
+"//command_line_option:platforms": "//:my_arm_platform" }` or use [platform
 mappings](#platform-mappings) to support both styles through the migration
 window.
 
