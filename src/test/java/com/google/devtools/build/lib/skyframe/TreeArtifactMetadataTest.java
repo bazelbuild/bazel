@@ -273,7 +273,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           FileArtifactValue noDigest =
               ActionMetadataHandler.fileArtifactValueFromArtifact(
                   suboutput,
-                  FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,
                   null);
           FileArtifactValue withDigest =

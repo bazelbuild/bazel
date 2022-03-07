@@ -373,7 +373,7 @@ final class ActionMetadataHandler implements MetadataHandler {
             archivedTreeArtifact,
             constructFileArtifactValue(
                 archivedTreeArtifact,
-                FileStatusWithDigestAdapter.adapt(statNoFollow),
+                FileStatusWithDigestAdapter.maybeAdapt(statNoFollow),
                 /*injectedDigest=*/ null));
       } else {
         logger.atInfo().atMostEvery(5, MINUTES).log(
@@ -402,7 +402,7 @@ final class ActionMetadataHandler implements MetadataHandler {
 
     // We already have a stat, so no need to call chmod.
     return constructFileArtifactValue(
-        output, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
+        output, FileStatusWithDigestAdapter.maybeAdapt(statNoFollow), digest);
   }
 
   @Override
@@ -609,7 +609,8 @@ final class ActionMetadataHandler implements MetadataHandler {
       // exists, it was most likely created by the current action. There is a race condition here if
       // an external process creates (or modifies) the file between the deletion and this stat,
       // which we cannot solve.
-      statNoFollow = FileStatusWithDigestAdapter.adapt(pathNoFollow.statIfFound(Symlinks.NOFOLLOW));
+      statNoFollow =
+          FileStatusWithDigestAdapter.maybeAdapt(pathNoFollow.statIfFound(Symlinks.NOFOLLOW));
     }
 
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
@@ -637,7 +638,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
     // and is a source file (since changes to those are checked separately).
     FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
-    FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.adapt(realStat);
+    FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.maybeAdapt(realStat);
     return fileArtifactValueFromStat(
         realRootedPath, realStatWithDigest, digestWillBeInjected, syscallCache, tsgm);
   }

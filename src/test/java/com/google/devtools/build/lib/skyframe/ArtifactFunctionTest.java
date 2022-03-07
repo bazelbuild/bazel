@@ -520,7 +520,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           FileArtifactValue noDigest =
               ActionMetadataHandler.fileArtifactValueFromArtifact(
                   output,
-                  FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,
                   null);
           FileArtifactValue withDigest =

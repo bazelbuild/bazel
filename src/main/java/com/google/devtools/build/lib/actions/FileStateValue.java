@@ -100,7 +100,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         }
         return createWithStatNoFollow(
             rootedPath,
-            FileStatusWithDigestAdapter.adapt(stat),
+            Preconditions.checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
             /*digestWillBeInjected=*/ false,
             syscallCache,
             tsgm);

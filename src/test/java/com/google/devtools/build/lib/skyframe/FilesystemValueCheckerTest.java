@@ -190,7 +190,7 @@ public final class FilesystemValueCheckerTest {
     FileArtifactValue noDigest =
         ActionMetadataHandler.fileArtifactValueFromArtifact(
             artifact,
-            FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+            FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
             SyscallCache.NO_CACHE,
             null);
     return FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
@@ -251,7 +251,7 @@ public final class FilesystemValueCheckerTest {
           List<FileStatusWithDigest> stats = new ArrayList<>();
           for (PathFragment pathFrag : paths) {
             stats.add(
-                FileStatusWithDigestAdapter.adapt(
+                FileStatusWithDigestAdapter.maybeAdapt(
                     fileSystem.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
           }
           return stats;
@@ -1259,7 +1259,7 @@ public final class FilesystemValueCheckerTest {
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
               stats.add(
-                  FileStatusWithDigestAdapter.adapt(
+                  FileStatusWithDigestAdapter.maybeAdapt(
                       fs.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
             }
             return stats;
@@ -1313,7 +1313,7 @@ public final class FilesystemValueCheckerTest {
         FileArtifactValue noDigest =
             ActionMetadataHandler.fileArtifactValueFromArtifact(
                 output,
-                FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                 SyscallCache.NO_CACHE,
                 null);
         FileArtifactValue withDigest =
