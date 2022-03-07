@@ -969,56 +969,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
-   * A sequence of structure values. Exists as a memory optimization - a typical build can contain
-   * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
-   * significantly reduces memory overhead.
-   */
-  @Immutable
-  private static final class StructureSequence extends VariableValueAdapter {
-    private final ImmutableList<ImmutableMap<String, VariableValue>> values;
-
-    private StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
-      Preconditions.checkNotNull(values);
-      this.values = values;
-    }
-
-    @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-      for (ImmutableMap<String, VariableValue> value : values) {
-        sequences.add(new StructureValue(value));
-      }
-      return sequences.build();
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !values.isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof StructureSequence)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      return Objects.equals(values, ((StructureSequence) other).values);
-    }
-
-    @Override
-    public int hashCode() {
-      return values.hashCode();
-    }
-  }
-
-  /**
    * A sequence of simple string values. Exists as a memory optimization - a typical build can
    * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
    * objects significantly reduces memory overhead.
@@ -1135,7 +1085,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /**
    * Single structure value. Be careful not to create sequences of single structures, as the memory
-   * overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
+   * overhead is prohibitively big.
    */
   @Immutable
   private static final class StructureValue extends VariableValueAdapter {
