@@ -729,7 +729,17 @@ public final class HttpCacheClient implements RemoteCacheClient {
       }
 
       isClosed = true;
-      channelPool.close();
+
+      // Clear interrupted status to prevent failure to close, indicated with #14787
+      boolean wasInterrupted = Thread.interrupted();
+      try {
+        channelPool.close();
+      } finally {
+        if (wasInterrupted) {
+          Thread.currentThread().interrupt();
+        }
+      }
+
       eventLoop.shutdownGracefully();
     }
   }
