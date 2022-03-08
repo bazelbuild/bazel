@@ -20,6 +20,9 @@ java_library(
     name = "docgen_javalib",
     srcs = glob(["**/*.java"]),
     resources = [":template_files"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:main",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -67,7 +70,10 @@ java_binary(
     name = "api_exporter",
     srcs = ["ApiExporter.java"],
     main_class = "com.google.devtools.build.docgen.ApiExporter",
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/bazel/repository"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/net/starlark/java/syntax",
+    ],
     deps = [
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/common/options",
