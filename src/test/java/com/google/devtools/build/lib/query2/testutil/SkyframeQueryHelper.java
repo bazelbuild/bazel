@@ -217,8 +217,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         getExtraQueryFunctions(),
         pkgManager.getPackagePath(),
         blockUniverseEvaluationErrors,
-        /*useGraphlessQuery=*/ false,
-        "debugging string");
+        /*useGraphlessQuery=*/ false);
   }
 
   protected abstract Iterable<QueryFunction> getExtraQueryFunctions();

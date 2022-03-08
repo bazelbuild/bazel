@@ -363,8 +363,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
-              /*queryTransitivePackagePreloader=*/ null,
-              /*graphFactory=*/ null,
+              /*transitivePackageLoader=*/ null,
+              /* graphFactory= */ null,
               packageProvider,
               packageProvider,
               preloader,
@@ -383,8 +383,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*extraFunctions=*/ ImmutableList.of(),
               /*packagePath=*/ null,
               /*blockUniverseEvaluationErrors=*/ false,
-              /*useGraphlessQuery=*/ graphlessQuery,
-              "genquery for " + ruleContext.getLabel());
+              /*useGraphlessQuery=*/ graphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
