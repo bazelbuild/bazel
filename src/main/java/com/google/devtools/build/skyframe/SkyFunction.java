@@ -231,29 +231,6 @@ public interface SkyFunction {
     Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys) throws InterruptedException;
 
     /**
-     * Similar to {@link #getValues} but allows the caller to specify a set of types that are proper
-     * subtypes of Exception (see {@link SkyFunctionException} for more details) to find out whether
-     * any of the dependencies' evaluations resulted in exceptions of those types. The returned
-     * objects may throw when attempting to retrieve their value.
-     *
-     * <p>Callers should prioritize their responsibility to detect and handle errors in the returned
-     * map over their responsibility to return {@code null} if values are missing. This is because
-     * in nokeep_going evaluations, an error from a low level dependency is given a chance to be
-     * enriched by its reverse-dependencies, if possible. Callers should also prioritize throwing
-     * exceptions over checking for {@link InterruptedException}, since during the error-bubbling
-     * enrichment process, the SkyFunction is interrupted after it has received the exception to
-     * prevent it from doing too much unnecessary work.
-     *
-     * <p>Returns a map, {@code m}. For all {@code k} in {@code depKeys}, {@code m.get(k) != null}.
-     * For all {@code v} such that there is some {@code k} such that {@code m.get(k) == v}, the
-     * following is true: {@code v.get() != null} iff the dependency {@code k} was already evaluated
-     * and was not in error. {@code v.get()} throws {@code E} iff the dependency {@code k} was
-     * already evaluated with an error in the specified set of {@link Exception} types.
-     */
-    <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-        Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
-
-    /**
      * Simailar to {@link #getValues}, but returns a {@link SkyframeLookupResult}, which contains
      * the values of {@code depKeys}. Use in preference to all other getting methods (except for
      * getOrderedValuesAndExceptions), since this method creates less garbage and allows the calling
@@ -278,8 +255,6 @@ public interface SkyFunction {
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
      *   <li>getValues(ks).get(k) == {@code null} for some ks and k such that ks.contains(k)
-     *   <li>getValuesOrThrow(ks, c).get(k).get() == {@code null} for some ks and k such that
-     *       ks.contains(k)
      *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
      *       getOrderedValuesAndExceptions(ks) for some ks
      *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =

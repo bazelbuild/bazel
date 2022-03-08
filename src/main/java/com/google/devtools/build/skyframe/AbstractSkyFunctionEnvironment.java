@@ -78,7 +78,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   @Nullable
   public <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
       throws E, InterruptedException {
-    return getValuesOrThrow(ImmutableSet.of(depKey), exceptionClass).get(depKey).get();
+    return getValueOrThrow(depKey, exceptionClass, null, null, null);
   }
 
   @Override
@@ -106,12 +106,11 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
       SkyValue getValueOrThrow(
           SkyKey depKey,
           Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
+          @Nullable Class<E2> exceptionClass2,
           @Nullable Class<E3> exceptionClass3,
           @Nullable Class<E4> exceptionClass4)
           throws E1, E2, E3, E4, InterruptedException {
     SkyFunctionException.validateExceptionType(exceptionClass1);
-    SkyFunctionException.validateExceptionType(exceptionClass2);
     SkyframeIterableResult result = getOrderedValuesAndExceptions(ImmutableSet.of(depKey));
     return result.nextOrThrow(exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
   }
@@ -123,17 +122,6 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, null, null, null, null);
     return Collections.unmodifiableMap(
         Maps.transformValues(valuesOrExceptions, ValueOrUntypedException::getValue));
-  }
-
-  @Override
-  public <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-      Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException {
-    SkyFunctionException.validateExceptionType(exceptionClass);
-    Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
-    checkValuesMissingBecauseOfFilteredError(valuesOrExceptions, exceptionClass, null, null, null);
-    return Collections.unmodifiableMap(
-        Maps.transformValues(
-            valuesOrExceptions, voe -> ValueOrException.fromUntypedException(voe, exceptionClass)));
   }
 
   @Override

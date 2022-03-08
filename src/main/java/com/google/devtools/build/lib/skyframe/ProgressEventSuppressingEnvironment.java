@@ -21,7 +21,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.Version;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -100,12 +99,6 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     return delegate.getValues(depKeys);
-  }
-
-  @Override
-  public <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-      Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException {
-    return delegate.getValuesOrThrow(depKeys, exceptionClass);
   }
 
   @Override

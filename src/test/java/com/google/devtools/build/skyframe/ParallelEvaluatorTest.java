@@ -2008,7 +2008,7 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void getValuesOrThrowWithErrors(@TestParameter boolean keepGoing) throws Exception {
+  public void getValueOrThrowWithErrors(@TestParameter boolean keepGoing) throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     final SkyKey errorDep = GraphTester.toSkyKey("errorChild");

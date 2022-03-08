@@ -138,18 +138,6 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-      Iterable<? extends SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException {
-    recordDeps(depKeys);
-    try {
-      return delegate.getValuesOrThrow(depKeys, exceptionClass);
-    } catch (Exception e) {
-      noteException(e);
-      throw e;
-    }
-  }
-
-  @Override
   public boolean valuesMissing() {
     return delegate.valuesMissing();
   }
