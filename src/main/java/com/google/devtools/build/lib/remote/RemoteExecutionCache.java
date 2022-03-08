@@ -13,31 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
+import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
+import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.RxFutures;
+import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
@@ -73,62 +78,52 @@ public class RemoteExecutionCache extends RemoteCache {
             .addAll(additionalInputs.keySet())
             .build();
 
-    // Collect digests that are not being or already uploaded
-    ConcurrentHashMap<Digest, AsyncSubject<Boolean>> missingDigestSubjects =
-        new ConcurrentHashMap<>();
-
-    List<ListenableFuture<Void>> uploadFutures = new ArrayList<>();
-    for (Digest digest : allDigests) {
-      Completable upload =
-          casUploadCache.execute(
-              digest,
-              Completable.defer(
-                  () -> {
-                    // The digest hasn't been processed, add it to the collection which will be used
-                    // later for findMissingDigests call
-                    AsyncSubject<Boolean> missingDigestSubject = AsyncSubject.create();
-                    missingDigestSubjects.put(digest, missingDigestSubject);
-
-                    return missingDigestSubject.flatMapCompletable(
-                        missing -> {
-                          if (!missing) {
-                            return Completable.complete();
-                          }
-                          return RxFutures.toCompletable(
-                              () -> uploadBlob(context, digest, merkleTree, additionalInputs),
-                              MoreExecutors.directExecutor());
-                        });
-                  }),
-              force);
-      uploadFutures.add(RxFutures.toListenableFuture(upload));
+    if (allDigests.isEmpty()) {
+      return;
     }
 
-    ImmutableSet<Digest> missingDigests;
-    try {
-      missingDigests = getFromFuture(findMissingDigests(context, missingDigestSubjects.keySet()));
-    } catch (IOException | InterruptedException e) {
-      for (Map.Entry<Digest, AsyncSubject<Boolean>> entry : missingDigestSubjects.entrySet()) {
-        entry.getValue().onError(e);
-      }
+    MissingDigestFinder missingDigestFinder = new MissingDigestFinder(context, allDigests.size());
+    Flowable<TransferResult> uploads =
+        Flowable.fromIterable(allDigests)
+            .flatMapSingle(
+                digest ->
+                    toTransferResult(
+                        casUploadCache.execute(
+                            digest,
+                            Completable.defer(
+                                () ->
+                                    // We only reach here if the digest is missing or is not being
+                                    // uploaded.
+                                    missingDigestFinder
+                                        .registerAndCount(digest)
+                                        .flatMapCompletable(
+                                            missingDigests -> {
+                                              if (missingDigests.contains(digest)) {
+                                                return toCompletable(
+                                                    () ->
+                                                        uploadBlob(
+                                                            context,
+                                                            digest,
+                                                            merkleTree,
+                                                            additionalInputs),
+                                                    directExecutor());
+                                              } else {
+                                                return Completable.complete();
+                                              }
+                                            })),
+                            /*onIgnore=*/ missingDigestFinder::count,
+                            force)));
 
-      if (e instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
+    try {
+      mergeBulkTransfer(uploads).blockingAwait();
+    } catch (RuntimeException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+        Throwables.throwIfInstanceOf(cause, IOException.class);
       }
       throw e;
     }
-
-    for (Map.Entry<Digest, AsyncSubject<Boolean>> entry : missingDigestSubjects.entrySet()) {
-      AsyncSubject<Boolean> missingSubject = entry.getValue();
-      if (missingDigests.contains(entry.getKey())) {
-        missingSubject.onNext(true);
-      } else {
-        // The digest is already existed in the remote cache, skip the upload.
-        missingSubject.onNext(false);
-      }
-      missingSubject.onComplete();
-    }
-
-    waitForBulkTransfer(uploadFutures, /* cancelRemainingOnInterrupt=*/ false);
   }
 
   private ListenableFuture<Void> uploadBlob(
@@ -159,5 +154,55 @@ public class RemoteExecutionCache extends RemoteCache {
             format(
                 "findMissingDigests returned a missing digest that has not been requested: %s",
                 digest)));
+  }
+
+  /**
+   * A missing digest finder that initiates the request when the internal counter reaches an
+   * expected count.
+   */
+  class MissingDigestFinder {
+    private final int expectedCount;
+    private final AsyncSubject<Set<Digest>> digestsSubject;
+    private final Single<ImmutableSet<Digest>> resultSingle;
+    private final Set<Digest> digests;
+
+    private int currentCount = 0;
+
+    MissingDigestFinder(RemoteActionExecutionContext context, int expectedCount) {
+      checkArgument(expectedCount > 0, "expectedCount should be greater than 0");
+      this.expectedCount = expectedCount;
+      this.digestsSubject = AsyncSubject.create();
+      this.resultSingle =
+          Single.fromObservable(
+              digestsSubject
+                  .flatMapSingle(
+                      digests ->
+                          toSingle(() -> findMissingDigests(context, digests), directExecutor()))
+                  .replay()
+                  .refCount());
+      this.digests = new HashSet<>();
+    }
+
+    /**
+     * Register the {@code digest} and increase the counter.
+     *
+     * @return Single that emits the result of the {@code FindMissingDigest} request.
+     */
+    synchronized Single<ImmutableSet<Digest>> registerAndCount(Digest digest) {
+      digests.add(digest);
+      count();
+      return resultSingle;
+    }
+
+    /** Increase the counter. */
+    synchronized void count() {
+      if (currentCount < expectedCount) {
+        currentCount++;
+        if (currentCount == expectedCount) {
+          digestsSubject.onNext(digests);
+          digestsSubject.onComplete();
+        }
+      }
+    }
   }
 }
