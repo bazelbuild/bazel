@@ -1084,6 +1084,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           }
         }
       }
+      if (topLevelTargets.isEmpty() && topLevelAspects.isEmpty()) {
+        // Top-level ConfiguredTargets may still reference configurations, so we leak them
+        // if any are being retained.
+        // Ideally this would only preserve the configurations reachable from those top-level
+        // targets, but this at least lets people run `bazel build --discard_analysis_cache`
+        // to blow away stale output from `bazel config`.
+        memoizingEvaluator.delete(k -> k.functionName().equals(SkyFunctions.BUILD_CONFIGURATION));
+      }
     }
   }
 
