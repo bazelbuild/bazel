@@ -733,7 +733,7 @@ public class ActionExecutionFunction implements SkyFunction {
             action.discoversInputs(),
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             action.getOutputs(),
-            skyframeActionExecutor.getSyscallCache(),
+            skyframeActionExecutor.getXattrProvider(),
             tsgm.get(),
             pathResolver,
             skyframeActionExecutor.getExecRoot().asFragment(),

@@ -157,8 +157,8 @@ public class DigestUtils {
    *     order to avoid excessive disk seeks.
    */
   public static byte[] getDigestWithManualFallback(
-      Path path, long fileSize, SyscallCache syscallCache) throws IOException {
-    byte[] digest = syscallCache.getFastDigest(path);
+      Path path, long fileSize, XattrProvider xattrProvider) throws IOException {
+    byte[] digest = xattrProvider.getFastDigest(path);
     return digest != null ? digest : manuallyComputeDigest(path, fileSize);
   }
 
@@ -173,8 +173,8 @@ public class DigestUtils {
    * @param path Path of the file.
    */
   public static byte[] getDigestWithManualFallbackWhenSizeUnknown(
-      Path path, SyscallCache syscallCache) throws IOException {
-    return getDigestWithManualFallback(path, -1, syscallCache);
+      Path path, XattrProvider xattrProvider) throws IOException {
+    return getDigestWithManualFallback(path, -1, xattrProvider);
   }
 
   /**

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -205,7 +205,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       }
 
       @Override
-      public Object getResolvedInformation(SyscallCache syscallCache) {
+      public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "new_local_repository")
             .put(ResolvedHashesFunction.ORIGINAL_ATTRIBUTES, orig)

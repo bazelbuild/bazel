@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
@@ -112,7 +113,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       RootedPath rootedPath,
       FileStatusWithDigest statNoFollow,
       boolean digestWillBeInjected,
-      SyscallCache syscallCache,
+      XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Path path = rootedPath.asPath();
@@ -120,7 +121,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       return statNoFollow.isSpecialFile()
           ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)
           : RegularFileStateValue.fromPath(
-              path, statNoFollow, digestWillBeInjected, syscallCache, tsgm);
+              path, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
@@ -223,7 +224,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         Path path,
         FileStatusWithDigest stat,
         boolean digestWillBeInjected,
-        SyscallCache syscallCache,
+        XattrProvider xattrProvider,
         @Nullable TimestampGranularityMonitor tsgm)
         throws InconsistentFilesystemException {
       Preconditions.checkState(stat.isFile(), path);
@@ -232,7 +233,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         // If the digest will be injected, we can skip calling getFastDigest, but we need to store a
         // contents proxy because if the digest is injected but is not available from the
         // filesystem, we will need the proxy to determine whether the file was modified.
-        byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat, syscallCache);
+        byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat, xattrProvider);
         if (digest == null) {
           // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
           // method.
@@ -257,10 +258,10 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
 
     @Nullable
     private static byte[] tryGetDigest(
-        Path path, FileStatusWithDigest stat, SyscallCache syscallCache) throws IOException {
+        Path path, FileStatusWithDigest stat, XattrProvider xattrProvider) throws IOException {
       try {
         byte[] digest = stat.getDigest();
-        return digest != null ? digest : syscallCache.getFastDigest(path);
+        return digest != null ? digest : xattrProvider.getFastDigest(path);
       } catch (IOException ioe) {
         if (!path.isReadable()) {
           return null;

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.File;
 import java.io.IOException;
@@ -42,7 +42,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
   private Map<String, Object> resolvedValues;
   private String resolvedFile;
   private ImmutableList<String> orderedNames;
-  private SyscallCache syscallCache;
+  private XattrProvider xattrProvider;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -63,7 +63,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
     } else {
       this.resolvedFile = null;
     }
-    this.syscallCache = env.getSyscallCache();
+    this.xattrProvider = env.getXattrProvider();
   }
 
   @Override
@@ -100,7 +100,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
   @Subscribe
   public void resolved(ResolvedEvent event) {
     if (resolvedValues != null) {
-      resolvedValues.put(event.getName(), event.getResolvedInformation(syscallCache));
+      resolvedValues.put(event.getName(), event.getResolvedInformation(xattrProvider));
     }
   }
 

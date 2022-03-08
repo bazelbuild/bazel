@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
@@ -317,7 +318,7 @@ public final class SkyframeActionExecutor {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
-  SyscallCache getSyscallCache() {
+  XattrProvider getXattrProvider() {
     return syscallCache;
   }
 
