@@ -157,8 +157,8 @@ def _runfiles_test_impl(ctx):
     for runfile in target_under_test[DefaultInfo].default_runfiles.files.to_list():
         actual_files.append(runfile.basename)
     expected = [
-        "libfoo_so.so",
-        "libbar_so.so",
+        "renamed_so_file_copy.so",
+        "libdirect_so_file.so",
     ]
     for expected_file in expected:
         asserts.true(env, expected_file in actual_files, expected_file + " not found in actual files:\n" + "\n".join(actual_files))

@@ -505,6 +505,8 @@ def _cc_shared_library_impl(ctx):
         if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
             precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
 
+    runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
+
     for export in ctx.attr.roots:
         exports[str(export.label)] = True
 

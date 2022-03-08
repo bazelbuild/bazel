@@ -8,6 +8,12 @@ package(
     default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:__subpackages__"],
 )
 
+py_test(
+    name = "python_test",
+    srcs = ["python_test.py"],
+    data = ["foo_so"],
+)
+
 cc_test(
     name = "cc_test",
     srcs = ["main.cc"],
@@ -371,7 +377,7 @@ debug_files_test(
 
 runfiles_test(
     name = "runfiles_test",
-    target_under_test = ":binary",
+    target_under_test = ":python_test",
     is_linux = select({
         "//src/conditions:linux": True,
         "//conditions:default": False}),
