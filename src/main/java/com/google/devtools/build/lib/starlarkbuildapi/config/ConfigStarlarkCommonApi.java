@@ -60,14 +60,14 @@ public interface ConfigStarlarkCommonApi extends StarlarkValue {
               @ParamType(type = Label.class),
             },
             named = false,
-            doc = "TKTK"),
+            doc = "The toolchain type that is required."),
         @Param(
             name = "mandatory",
             allowedTypes = {@ParamType(type = Boolean.class)},
             named = true,
             positional = false,
             defaultValue = "True",
-            doc = "TKTK")
+            doc = "Whether the toolchain type is mandatory or optional.")
       },
       useStarlarkThread = true)
   StarlarkToolchainTypeRequirement toolchainType(

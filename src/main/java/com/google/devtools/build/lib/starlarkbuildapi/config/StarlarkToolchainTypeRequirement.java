@@ -21,12 +21,21 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Starlark API for accessing details of a ToolchainTypeRequirement. */
-@StarlarkBuiltin(name = "toolchain_type", category = DocCategory.BUILTIN, doc = "TKTK")
+@StarlarkBuiltin(
+    name = "toolchain_type",
+    category = DocCategory.BUILTIN,
+    doc = "A data type describing a dependency on a specific toolchain type.")
 public interface StarlarkToolchainTypeRequirement extends StarlarkValue {
 
-  @StarlarkMethod(name = "toolchain_type", doc = "TKTK", structField = true)
+  @StarlarkMethod(
+      name = "toolchain_type",
+      doc = "The toolchain type that is required.",
+      structField = true)
   Label toolchainType();
 
-  @StarlarkMethod(name = "mandatory", doc = "TKTK", structField = true)
+  @StarlarkMethod(
+      name = "mandatory",
+      doc = "Whether the toolchain type is mandatory or optional.",
+      structField = true)
   boolean mandatory();
 }
