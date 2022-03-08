@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.core;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
@@ -42,10 +41,5 @@ public final class CoreRules implements RuleSet {
     builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());
     builder.addNativeAspectClass(new ValidateTarget()); // internally used aspect
-  }
-
-  @Override
-  public ImmutableList<RuleSet> requires() {
-    return ImmutableList.of();
   }
 }
