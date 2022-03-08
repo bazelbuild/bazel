@@ -121,7 +121,7 @@ public final class RemoteOptions extends OptionsBase {
           "A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs "
               + "(grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided "
               + "Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable "
-              + "TLS. See https://docs.bazel.build/versions/main/remote-caching.html")
+              + "TLS. See https://dbaze.build/docs/remote-caching")
   public String remoteCache;
 
   @Option(

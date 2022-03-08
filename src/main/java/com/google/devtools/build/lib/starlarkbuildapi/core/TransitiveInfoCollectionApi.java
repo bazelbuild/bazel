@@ -23,11 +23,11 @@ import net.starlark.java.eval.StarlarkValue;
     name = "Target",
     category = DocCategory.BUILTIN,
     doc =
-        "The BUILD target for a dependency. Appears in the fields of <code><a "
-            + "href='ctx.html#attr'>ctx.attr</a></code> corresponding to <a "
-            + "href='../rules.html#dependency-attributes'>dependency attributes</a> "
-            + "(<code><a href='attr.html#label'>label</a></code> or <code>"
-            + "<a href='attr.html#label_list'>label_list</a></code>). Has the following fields:\n"
+        "The BUILD target for a dependency. Appears in the fields of <code><a"
+            + " href='ctx.html#attr'>ctx.attr</a></code> corresponding to <a"
+            + " href='$STARLARK_DOCS_ROOT/rules.html#dependency-attributes'>dependency"
+            + " attributes</a> (<code><a href='attr.html#label'>label</a></code> or <code><a"
+            + " href='attr.html#label_list'>label_list</a></code>). Has the following fields:\n"
             //
             + "<ul>\n" //
             + "<li><h3 id='modules.Target.label'>label</h3>\n" //
@@ -46,16 +46,17 @@ import net.starlark.java.eval.StarlarkValue;
             + "applied to this target.</li>\n" //
             //
             + "<li><h3 id='modules.Target.providers'>Providers</h3>\n" //
-            + "The <a href='../rules.html#providers'>providers</a> of a rule target can be "
-            + "accessed by type using index notation (<code>target[DefaultInfo]"
-            + "</code>). The presence of providers can be checked using the <code>in</code> "
-            + "operator (<code>SomeInfo in target</code>).<br/>\n" //
+            + "The <a href='$STARLARK_DOCS_ROOT/rules.html#providers'>providers</a> of a rule"
+            + " target can be accessed by type using index notation"
+            + " (<code>target[DefaultInfo]</code>). The presence of providers can be checked using"
+            + " the <code>in</code> operator (<code>SomeInfo in target</code>).<br/>\n" //
             + "<br/>\n" //
-            + "If the rule's implementation function returns a <code><a href='struct.html'>"
-            + "struct</a></code> instead of a list of <code><a href='Provider.html'>Provider"
-            + "</a></code> instances, the struct's fields can be accessed via the corresponding "
-            + "fields of the <code>Target</code> (<code>target.some_legacy_info</code>). "
-            + "This behavior <a href='../rules.html#migrating-from-legacy-providers'>is deprecated"
-            + "</a>.</li>\n" //
+            + "If the rule's implementation function returns a <code><a"
+            + " href='struct.html'>struct</a></code> instead of a list of <code><a"
+            + " href='Provider.html'>Provider</a></code> instances, the struct's fields can be"
+            + " accessed via the corresponding fields of the <code>Target</code>"
+            + " (<code>target.some_legacy_info</code>). This behavior <a"
+            + " href='$STARLARK_DOCS_ROOT/rules.html#migrating-from-legacy-providers'>is"
+            + " deprecated</a>.</li>\n" //
             + "</ul>")
 public interface TransitiveInfoCollectionApi extends StarlarkValue {}

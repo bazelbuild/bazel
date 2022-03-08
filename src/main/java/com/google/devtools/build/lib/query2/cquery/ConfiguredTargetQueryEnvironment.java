@@ -416,7 +416,7 @@ public class ConfiguredTargetQueryEnvironment
                       + "A short ID is any prefix of a full ID. cquery shows short IDs. 'bazel "
                       + "config' shows full IDs.\n"
                       + "\n"
-                      + "For more help, see https://docs.bazel.build/cquery.html.",
+                      + "For more help, see https://bazel.build/docs/cquery.",
                   ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
             }
         }

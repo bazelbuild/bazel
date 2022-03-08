@@ -584,7 +584,7 @@ public final class Json implements StarlarkValue {
               + "The function accepts one required positional parameter, the JSON string,\n"
               + "and two optional keyword-only string parameters, prefix and indent,\n"
               + "that specify a prefix of each new line, and the unit of indentation.\n"
-              + "If the input is not valid, the funtion may fail or return invalid output.\n",
+              + "If the input is not valid, the function may fail or return invalid output.\n",
       parameters = {
         @Param(name = "s"),
         @Param(name = "prefix", positional = false, named = true, defaultValue = "''"),

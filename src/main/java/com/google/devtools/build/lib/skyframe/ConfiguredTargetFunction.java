@@ -941,7 +941,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 + String.format(
                     "To inspect the select(), run: bazel query --output=build %s.\n",
                     target.getLabel())
-                + "For more help, see https://docs.bazel.build/be/functions.html#select.\n\n";
+                + "For more help, see https://bazel.build/reference/be/functions#select.\n\n";
         throw new ConfiguredValueCreationException(ctgValue, message);
       }
     }

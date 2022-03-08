@@ -48,7 +48,7 @@ public interface WorkspaceGlobalsApi {
               + "<code>mytarget.runfiles/baz/foo/bar</code>.  If no workspace name is "
               + "specified, then the runfile will be symlinked to "
               + "<code>bar.runfiles/foo/bar</code>.</p> "
-              + "<p><a href=\"../../external.html\">Remote repository</a> rule names must be"
+              + "<p><a href=\"/docs/external\">Remote repository</a> rule names must be"
               + "  valid workspace names. For example, you could have"
               + "  <code>maven_jar(name = 'foo')</code>, but not"
               + "  <code>maven_jar(name = 'foo%bar')</code>, as Bazel would attempt to write a"
@@ -114,8 +114,8 @@ public interface WorkspaceGlobalsApi {
       name = "register_execution_platforms",
       doc =
           "Register an already-defined platform so that Bazel can use it as an "
-              + "<a href=\"../../toolchains.html#toolchain-resolution\">execution platform</a> "
-              + "during <a href=\"../../toolchains.html\">toolchain resolution</a>.",
+              + "<a href=\"${link toolchains#toolchain-resolution}\">execution platform</a> "
+              + "during <a href=\"${link toolchains}\">toolchain resolution</a>.",
       extraPositionals =
           @Param(
               name = "platform_labels",
@@ -129,9 +129,9 @@ public interface WorkspaceGlobalsApi {
       name = "register_toolchains",
       doc =
           "Register an already-defined toolchain so that Bazel can use it during "
-              + "<a href=\"../../toolchains.html\">toolchain resolution</a>. See examples of "
-              + "<a href=\"../../toolchains.html#defining-toolchains\">defining</a> and "
-              + "<a href=\"../../toolchains.html#registering-and-building-with-toolchains\">"
+              + "<a href=\"${link toolchains}\">toolchain resolution</a>. See examples of "
+              + "<a href=\"${link toolchains#defining-toolchains}\">defining</a> and "
+              + "<a href=\"${link toolchains#registering-and-building-with-toolchains}\">"
               + "registering toolchains</a>.",
       extraPositionals =
           @Param(

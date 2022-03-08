@@ -175,8 +175,7 @@ public interface JavaCommonApi<
             doc =
                 "A string that specifies how to handle strict deps. Possible values: 'OFF', "
                     + "'ERROR', 'WARN' and 'DEFAULT'. For more details see "
-                    + "https://docs.bazel.build/versions/main/bazel-user-manual.html#"
-                    + "flag--strict_java_deps. By default 'ERROR'."),
+                    + "${link user-manual#flag--strict_java_deps}. By default 'ERROR'."),
         @Param(
             name = "java_toolchain",
             positional = false,

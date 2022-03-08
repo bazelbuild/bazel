@@ -34,7 +34,7 @@ import net.starlark.java.eval.StarlarkValue;
             + " object should be passed via <a href=\"DefaultInfo.html\">DefaultInfo</a> in order"
             + " to tell the build system about the runfiles needed by the outputs produced by the"
             + " rule. <p>See <a"
-            + " href=\"https://docs.bazel.build/skylark/rules.html#runfiles\">runfiles"
+            + " href=\"https://bazel.build/rules/rules#runfiles\">runfiles"
             + " guide</a> for details.")
 public interface RunfilesApi extends StarlarkValue {
 

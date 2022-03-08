@@ -451,8 +451,8 @@ public final class RunfilesSupport {
   /**
    * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. This
    * version discards all arguments. Only use this for <a
-   * href="https://docs.bazel.build/versions/main/platforms.html#skipping-incompatible-targets">Incompatible
-   * Target Skipping</a>.
+   * href="https://bazel.build/docs/platforms#skipping-incompatible-targets">Incompatible Target
+   * Skipping</a>.
    */
   public static RunfilesSupport withExecutableButNoArgs(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable) {

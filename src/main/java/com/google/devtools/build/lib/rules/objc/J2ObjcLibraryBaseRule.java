@@ -88,7 +88,7 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
                 .allowedFileTypes())
         /* <!-- #BLAZE_RULE($j2objc_library_base_rule).ATTRIBUTE(entry_classes) -->
         The list of Java classes whose translated ObjC counterparts will be referenced directly
-        by user ObjC code. This attibute is required if flag <code>--j2objc_dead_code_removal
+        by user ObjC code. This attribute is required if flag <code>--j2objc_dead_code_removal
         </code> is on. The Java classes should be specified in their canonical names as defined by
         <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-6.html#jls-6.7">the Java
         Language Specification.</a>

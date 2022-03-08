@@ -40,21 +40,19 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
   @StarlarkMethod(
       name = "declare_file",
       doc =
-          "Declares that the rule or aspect creates a file with the given filename. "
-              + "If <code>sibling</code> is not specified, the file name is relative to the "
-              + "package "
-              + "directory, otherwise the file is in the same directory as <code>sibling</code>. "
-              + "Files cannot be created outside of the current package."
-              + "<p>Remember that in addition to declaring a file, you must separately create an "
-              + "action that emits the file. Creating that action will require passing the "
-              + "returned <code>File</code> object to the action's construction function."
-              + "<p>Note that <a href='../rules.$DOC_EXT#files'>predeclared output files</a> do "
-              + "not "
-              + "need to be (and cannot be) declared using this function. You can obtain their "
-              + "<code>File</code> objects from "
-              + "<a href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/main/rules/"
-              + "computed_dependencies/hash.bzl\">See example of use</a>.",
+          "Declares that the rule or aspect creates a file with the given filename. If"
+              + " <code>sibling</code> is not specified, the file name is relative to the package"
+              + " directory, otherwise the file is in the same directory as <code>sibling</code>."
+              + " Files cannot be created outside of the current package.<p>Remember that in"
+              + " addition to declaring a file, you must separately create an action that emits the"
+              + " file. Creating that action will require passing the returned <code>File</code>"
+              + " object to the action's construction function.<p>Note that <a"
+              + " href='$STARLARK_DOCS_ROOT/rules.html#files'>predeclared output files</a> do not"
+              + " need to be (and cannot be) declared using this function. You can obtain their"
+              + " <code>File</code> objects from <a"
+              + " href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"
+              + " href=\"https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl\">See"
+              + " example of use</a>.",
       parameters = {
         @Param(
             name = "filename",
@@ -394,7 +392,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "Information for scheduling the action. See "
-                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
                     + "for useful keys."),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.
@@ -621,7 +619,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "Information for scheduling the action. See "
-                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
                     + "for useful keys."),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.

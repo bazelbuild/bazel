@@ -343,7 +343,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
                 + " configuration, run: bazel config .*.\n"
                 + "\n"
                 + "For more help, see"
-                + " https://docs.bazel.build/configurable-attributes.html#why-doesnt-my"
-                + "-select-choose-what-i-expect.*"));
+                + " https://bazel.build/docs/configurable-attributes"
+                + "#faq-select-choose-condition.*"));
   }
 }

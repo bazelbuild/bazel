@@ -24,12 +24,10 @@ import net.starlark.java.eval.Structure;
     name = "fragments",
     category = DocCategory.BUILTIN,
     doc =
-        "A collection of configuration fragments available in the current rule implementation "
-            + "context. Access a specific fragment by its field name. For example, "
-            + "<code>ctx.fragments.java</code> "
-            + "<p>Only configuration fragments which are declared in the rule definition "
-            + "may be accessed in this collection.</p>"
-            + "<p>"
-            + "See <a href=\"../rules.$DOC_EXT#configuration-fragments\">rules documentation</a> "
-            + "for details.")
+        "A collection of configuration fragments available in the current rule implementation"
+            + " context. Access a specific fragment by its field name. For example,"
+            + " <code>ctx.fragments.java</code> <p>Only configuration fragments which are declared"
+            + " in the rule definition may be accessed in this collection.</p><p>See <a"
+            + " href=\"$STARLARK_DOCS_ROOT/rules.html#configuration-fragments\">rules"
+            + " documentation</a> for details.")
 public interface FragmentCollectionApi extends Structure, StarlarkValue {}

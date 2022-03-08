@@ -70,7 +70,7 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "do_not_use_tools_cpp_compiler_present",
       doc =
-          "Do not use this field, its only puprose is to help with migration from "
+          "Do not use this field, its only purpose is to help with migration from "
               + "config_setting.values{'compiler') to "
               + "config_settings.flag_values{'@bazel_tools//tools/cpp:compiler'}",
       structField = true)
