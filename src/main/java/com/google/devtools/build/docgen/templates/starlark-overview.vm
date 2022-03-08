@@ -1,105 +1,94 @@
----
-layout: documentation
-title: One-Page Overview
----
-
-<div style="background-color: #EFCBCB; color: #AE2B2B;  border: 1px solid #AE2B2B; border-radius: 5px; border-left: 10px solid #AE2B2B; padding: 0.5em;">
-<b>IMPORTANT:</b> The Bazel docs have moved! Please update your bookmark to <a href="https://bazel.build/rules/lib/starlark-overview" style="color: #0000EE;">https://bazel.build/rules/lib/starlark-overview</a>
-<p/>
-You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html" style="color: #0000EE;">read about</a> the migration, and let us <a href="https://forms.gle/onkAkr2ZwBmcbWXj7" style="color: #0000EE;">know what you think</a>.
-</div>
-
-<h1>One-Page Overview</h1>
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
+<h1 class="page-title">One-Page Overview</h1>
 
 A list of all modules and globals that are available:
 
 <h2>
 
 
-  <a href="${global_name}.html">Global Functions</a>
+  <a href="/rules/lib/${global_name}">Global Functions</a>
 
 
 </h2>
-<div class="toc">
-  <ul>
+<ul>
 
 #foreach ($name in $global_functions)
 
-    <li>
+  <li>
 
 
-      <a href="${global_name}.html#${name}">${name}</a>
+    <a href="/rules/lib/${global_name}#${name}">${name}</a>
 
 
-    </li>
+  </li>
 
 #end
 
-  </ul>
-</div>
+</ul>
 <h2>
 
 
-  <a href="${global_name}.html">Global Constants</a>
+  <a href="/rules/lib/${global_name}">Global Constants</a>
 
 
 </h2>
-<div class="toc">
-  <ul>
+<ul>
 
 #foreach ($name in $global_constants)
 
-    <li>
+  <li>
 
 
-      <a href="${global_name}.html#${name}">${name}</a>
+    <a href="/rules/lib/${global_name}#${name}">${name}</a>
 
 
-    </li>
+  </li>
 
 #end
 
-  </ul>
-</div>
+</ul>
 <h2>
   Global Modules
 </h2>
-<div class="toc">
-  <ul>
+<ul>
 
 #foreach ($module in $global_modules)
 
-    <li>
+  <li>
 
 
-      <a href="${module.name}.html">${module.name}</a>
+    <a href="/rules/lib/${module.name}">${module.name}</a>
 
-    </li>
+  </li>
 
 #end
 
-  </ul>
-</div>
+</ul>
 #foreach ($entry in $modules.entrySet())
 <h2>
 
 
-  <a href="starlark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
+  <a href="/rules/lib/starlark-${entry.key.templateIdentifier}">${entry.key.title}</a>
 
 
 </h2>
-<div class="toc">
-  <ul>
-  #foreach ($module in $entry.value)
+<ul>
+#foreach ($module in $entry.value)
 
-    <li>
+  <li>
 
 
-      <a href="${module.name}.html">${module.title}</a>
+    <a href="/rules/lib/${module.name}">${module.title}</a>
 
-    </li>
+  </li>
 
-  #end
-  </ul>
-</div>
 #end
+</ul>
+#end
+</body>
+</html>

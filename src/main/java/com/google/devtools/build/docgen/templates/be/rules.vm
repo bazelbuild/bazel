@@ -1,37 +1,32 @@
 #if (!$singlePage)
----
-layout: documentation
-title: ${ruleFamily.name} Rules
----
-
-<div style="background-color: #EFCBCB; color: #AE2B2B;  border: 1px solid #AE2B2B; border-radius: 5px; border-left: 10px solid #AE2B2B; padding: 0.5em;">
-<b>IMPORTANT:</b> The Bazel docs have moved! Please update your bookmark to <a href="https://bazel.build/reference/be/${ruleFamily.getId()}" style="color: #0000EE;">https://bazel.build/reference/be/${ruleFamily.getId()}</a>
-<p/>
-You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html" style="color: #0000EE;">read about</a> the migration, and let us <a href="https://forms.gle/onkAkr2ZwBmcbWXj7" style="color: #0000EE;">know what you think</a>.
-</div>
-
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 #end
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+<html>
+<body>
 #end
 
-<h1>${ruleFamily.name} Rules</h1>
+<h1 class="page-title">${ruleFamily.name} Rules</h1>
 
 ${ruleFamily.summary}
 
 #if (!$singlePage)
-<div class="toc">
-  <h2>Rules</h2>
-  <ul>
+<h2>Rules</h2>
+<ul>
 #foreach ($rule in $ruleFamily.rules)
-    <li>
-      <a href="#${rule.ruleName}">
-        ${rule.ruleName}#if($rule.isDeprecated()) (deprecated)#end
-      </a>
-    </li>
+  <li>
+    <a href="#${rule.ruleName}">
+      ${rule.ruleName}#if($rule.isDeprecated()) (deprecated)#end
+    </a>
+  </li>
 #end
-  </ul>
-</div>
+</ul>
 #end
 
 #foreach ($rule in $ruleFamily.rules)
@@ -58,7 +53,7 @@ ${ruleFamily.summary}
       <tr>
         <td id="${rule.ruleName}.name"><code>name</code></td>
         <td>
-          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p><code><a href="$expander.expandRef("build-ref#name")">Name</a>; required</code></p>
           <p>A unique name for this target.</p>
           ${rule.nameExtraHtmlDoc}
         </td>
@@ -84,4 +79,6 @@ ${ruleFamily.summary}
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+</body>
+</html>
 #end

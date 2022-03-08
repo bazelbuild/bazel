@@ -1,23 +1,18 @@
----
-layout: documentation
-title: ${category.title}
----
-
-<div style="background-color: #EFCBCB; color: #AE2B2B;  border: 1px solid #AE2B2B; border-radius: 5px; border-left: 10px solid #AE2B2B; padding: 0.5em;">
-<b>IMPORTANT:</b> The Bazel docs have moved! Please update your bookmark to <a href="https://bazel.build/rules/lib/starlark-${category.getTemplateIdentifier()}" style="color: #0000EE;">https://bazel.build/rules/lib/starlark-${category.getTemplateIdentifier()}</a>
-<p/>
-You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html" style="color: #0000EE;">read about</a> the migration, and let us <a href="https://forms.gle/onkAkr2ZwBmcbWXj7" style="color: #0000EE;">know what you think</a>.
-</div>
-
-<h1>${category.title}</h1>
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
+<h1 class="page-title">${category.title}</h1>
 
 ${description}
 
-<div class="toc">
 <ul>
 #foreach ($module in $modules)
 
-<li><a href="${module.name}.html">${module.title}</a></li>
+<li><a href="/rules/lib/${module.name}">${module.title}</a></li>
 #end
 </ul>
-</div>
+</body>
+</html>

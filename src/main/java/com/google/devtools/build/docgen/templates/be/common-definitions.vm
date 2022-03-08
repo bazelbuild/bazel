@@ -1,40 +1,33 @@
 #if (!$singlePage)
----
-layout: documentation
-title: Common Definitions
----
-
-<div style="background-color: #EFCBCB; color: #AE2B2B;  border: 1px solid #AE2B2B; border-radius: 5px; border-left: 10px solid #AE2B2B; padding: 0.5em;">
-<b>IMPORTANT:</b> The Bazel docs have moved! Please update your bookmark to <a href="https://bazel.build/reference/be/common-definitions" style="color: #0000EE;">https://bazel.build/reference/be/common-definitions</a>
-<p/>
-You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html" style="color: #0000EE;">read about</a> the migration, and let us <a href="https://forms.gle/onkAkr2ZwBmcbWXj7" style="color: #0000EE;">know what you think</a>.
-</div>
-
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 #end
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 #end
 
-<h1 id="common-definitions">Common definitions</h1>
+<h1 class="page-title" id="common-definitions">Common definitions</h1>
 
 <p>This section defines various terms and concepts that are common to
 many functions or build rules.
 </p>
 
 #if (!$singlePage)
-<div class="toc">
-  <h1>Contents</h1>
-  <ul>
-    <li><a href="#sh-tokenization">Bourne shell tokenization</a></li>
-    <li><a href="#label-expansion">Label Expansion</a></li>
-    <li><a href="#typical-attributes">Typical attributes defined by most build rules</a></li>
-    <li><a href="#common-attributes">Attributes common to all build rules</a></li>
-    <li><a href="#common-attributes-tests">Attributes common to all test rules (*_test)</a></li>
-    <li><a href="#common-attributes-binaries">Attributes common to all binary rules (*_binary)</a></li>
-    <li><a href="#configurable-attributes">Configurable attributes</a></li>
-    <li><a href="#implicit-outputs">Implicit output targets</a></li>
-  </ul>
-</div>
+<h2>Contents</h2>
+<ul>
+  <li><a href="#sh-tokenization">Bourne shell tokenization</a></li>
+  <li><a href="#label-expansion">Label Expansion</a></li>
+  <li><a href="#typical-attributes">Typical attributes defined by most build rules</a></li>
+  <li><a href="#common-attributes">Attributes common to all build rules</a></li>
+  <li><a href="#common-attributes-tests">Attributes common to all test rules (*_test)</a></li>
+  <li><a href="#common-attributes-binaries">Attributes common to all binary rules (*_binary)</a></li>
+  <li><a href="#configurable-attributes">Configurable attributes</a></li>
+  <li><a href="#implicit-outputs">Implicit output targets</a></li>
+</ul>
 #end
 <h2 id='sh-tokenization'>Bourne shell tokenization</h2>
 <p>
@@ -65,7 +58,7 @@ many functions or build rules.
   substring, such as <code>//mypkg:target</code>, and that label is a
   declared prerequisite of the current rule, it is expanded into the
   pathname of the file represented by the
-  <a href="https://docs.bazel.build/versions/main/glossary.html#target">target</a>
+  <a href="https://bazel.build/reference/glossary#target">target</a>
   <code>//mypkg:target</code>.
 </p>
 
@@ -175,13 +168,13 @@ config_setting(
 <p>
   Bazel evaluates configurable attributes after processing macros and before
   processing rules (technically, between the
-  <a href="https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model">
+  <a href="https://bazel.build/rules/concepts#evaluation-model">
   loading and analysis phases</a>).
   Any processing before <code>select()</code> evaluation doesn't know which
   branch the <code>select()</code> chooses. Macros, for example, can't change
   their behavior based on the chosen branch, and <code>bazel query</code> can
   only make conservative guesses about a target's configurable dependencies. See
-  <a href="https://docs.bazel.build/versions/main/configurable-attributes.html#faq">
+  <a href="https://bazel.build/docs/configurable-attributes#faq">
   this FAQ</a>
   for more on using <code>select()</code> with rules and macros.
 </p>
@@ -194,7 +187,7 @@ config_setting(
 </p>
 
 <p>
-  See <a href="https://docs.bazel.build/versions/main/configurable-attributes.html">
+  See <a href="https://bazel.build/docs/configurable-attributes">
   Configurable Build Attributes</a> for a detailed overview.
 </p>
 
@@ -237,7 +230,7 @@ config_setting(
 <p>
   An important but somewhat subtle distinction between the
   two namespaces used by the build system:
-  <a href="../build-ref.html#labels">labels</a> identify <em>targets</em>,
+  <a href="$expander.expandRef("build-ref#labels")">labels</a> identify <em>targets</em>,
   which may be rules or files, and file targets may be divided into
   either source (or input) file targets and derived (or output) file
   targets.  These are the things you can mention in BUILD files,
@@ -250,9 +243,11 @@ config_setting(
   cannot be referenced from within BUILD files or from the command line.
   In this way, the build tool may hide certain implementation details of
   how it does its job. This is explained more fully in
-  the <a href="../build-ref.html">BUILD Concept Reference</a>.
+  the <a href="$expander.expandRef("build-ref")">BUILD Concept Reference</a>.
 </p>
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+</body>
+</html>
 #end

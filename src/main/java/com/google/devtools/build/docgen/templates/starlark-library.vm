@@ -1,36 +1,27 @@
----
-layout: documentation
-title: ${module.title}
----
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 
-<div style="background-color: #EFCBCB; color: #AE2B2B;  border: 1px solid #AE2B2B; border-radius: 5px; border-left: 10px solid #AE2B2B; padding: 0.5em;">
-<b>IMPORTANT:</b> The Bazel docs have moved! Please update your bookmark to <a href="https://bazel.build/rules/lib/${module.name}" style="color: #0000EE;">https://bazel.build/rules/lib/${module.name}</a>
-<p/>
-You can <a href="https://blog.bazel.build/2022/02/17/Launching-new-Bazel-site.html" style="color: #0000EE;">read about</a> the migration, and let us <a href="https://forms.gle/onkAkr2ZwBmcbWXj7" style="color: #0000EE;">know what you think</a>.
-</div>
-
-<a href="../concepts.html">Extensions</a> &gt;
-<a href="starlark-overview.html">API reference</a> &gt;
-${module.title}
+<h1 class="page-title" id="modules.${module.name}">${module.title}</h1>
 
 <!-- {% raw %} -->
-<h1 id="modules.${module.name}">${module.title}</h1>
 
 ${module.documentation}
 
 #if (!$module.methods.isEmpty())
-<div class="toc">
-  <h2>Members</h2>
-  <ul>
-  #foreach ($method in $module.methods)
-    #if ($method.documented())
-    <li>
-      <a href="#${method.name}">${method.name}</a>
-    </li>
-    #end
+<h2>Members</h2>
+<ul>
+#foreach ($method in $module.methods)
+  #if ($method.documented())
+  <li>
+    <a href="#${method.name}">${method.name}</a>
+  </li>
   #end
-  </ul>
-</div>
+#end
+</ul>
 #end
 
 #foreach ($method in $module.methods)
@@ -43,8 +34,9 @@ ${module.documentation}
     ${method.documentation}
 
     #if (!$method.params.isEmpty())
-      <!-- no_toc is a class used by the jekyll-toc plugin for docs.bazel.build -->
-      <h3 class="no_toc">Parameters</h3>
+      <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
         <colgroup>
           <col class="col-param">
@@ -81,5 +73,8 @@ ${module.documentation}
     ${method.returnTypeExtraMessage}
   #end
 #end
+
+</body>
+</html>
 
 <!-- {% endraw %} -->
