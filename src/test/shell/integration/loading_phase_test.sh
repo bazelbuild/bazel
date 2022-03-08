@@ -57,9 +57,6 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-# Our tests use the static crosstool, so make it the default.
-# add_to_bazelrc "build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
-
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
 

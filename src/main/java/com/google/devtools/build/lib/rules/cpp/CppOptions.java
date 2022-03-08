@@ -889,17 +889,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useSpecificToolFiles;
 
   @Option(
-      name = "incompatible_disable_static_cc_toolchains",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "@bazel_tools//tools/cpp:default-toolchain target was removed."
-              + "See https://github.com/bazelbuild/bazel/issues/8546.")
-  public boolean disableStaticCcToolchains;
-
-  @Option(
       name = "incompatible_disable_nocopts",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1200,7 +1189,6 @@ public class CppOptions extends FragmentOptions {
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
     host.useSpecificToolFiles = useSpecificToolFiles;
-    host.disableStaticCcToolchains = disableStaticCcToolchains;
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
     host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
