@@ -706,7 +706,7 @@ public final class PackageFactory {
     return ImmutableList.copyOf(set);
   }
 
-  private static void transitiveClosureOfLabelsRec(
+  public static void transitiveClosureOfLabelsRec(
       Set<Label> set, ImmutableMap<String, Module> loads) {
     for (Module m : loads.values()) {
       BazelModuleContext ctx = BazelModuleContext.of(m);
