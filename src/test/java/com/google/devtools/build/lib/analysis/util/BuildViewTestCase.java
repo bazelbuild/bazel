@@ -1654,9 +1654,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfigurationValue#getIncludeDirectory} corresponding to the package of {@code owner}. So
-   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
-   * be "foo.h".
+   * BuildConfigurationValue#getBuildInfoDirectory} corresponding to the package of {@code owner}.
+   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
+   * just be "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
     return getIncludeArtifact(packageRelativePath, makeConfiguredTargetKey(owner));
@@ -1664,14 +1664,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfigurationValue#getIncludeDirectory} corresponding to the package of {@code owner}. So
-   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
-   * be "foo.h".
+   * BuildConfigurationValue#getBuildInfoDirectory} corresponding to the package of {@code owner}.
+   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
+   * just be "foo.h".
    */
   protected Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        targetConfig.getIncludeDirectory(owner.getLabel().getRepository()),
+        targetConfig.getBuildInfoDirectory(owner.getLabel().getRepository()),
         owner);
   }
 

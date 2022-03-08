@@ -346,13 +346,14 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   /**
-   * Returns the include directory for this build configuration.
+   * Returns the build-info directory for this build configuration, where language-specific
+   * generated build-info artifacts are located.
    *
-   * @deprecated Use {@code RuleContext#getIncludeDirectory} instead whenever possible.
+   * @deprecated Use {@code RuleContext#getBuildInfoDirectory} instead whenever possible.
    */
   @Deprecated
-  public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getIncludeDirectory(repositoryName);
+  public ArtifactRoot getBuildInfoDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getBuildInfoDirectory(repositoryName);
   }
 
   /** @deprecated Use {@link #getGenfilesDirectory} instead. */
