@@ -23,6 +23,7 @@ ProtoInfo = _builtins.toplevel.ProtoInfo
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
+StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"
@@ -972,7 +973,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         OutputGroupInfo(**output_groups),
     ]
     if "fully_static_link" in ctx.features:
-        result.append(cc_internal.statically_linked_marker_provider(is_linked_statically = True))
+        result.append(StaticallyLinkedMarkerInfo(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
     return binary_info, cc_info, result

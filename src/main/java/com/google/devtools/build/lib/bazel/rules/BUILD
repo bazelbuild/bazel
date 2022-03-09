@@ -45,6 +45,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:statically_linked_marker_provider",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/common",
