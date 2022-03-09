@@ -74,7 +74,6 @@ java_library(
         "TargetPatternFunction.java",
         "TargetPatternPhaseFunction.java",
         "TestCompletionFunction.java",
-        "TestCompletionValue.java",
         "ToolchainResolutionFunction.java",
         "ToolchainTypeLookupUtil.java",
         "TopLevelActionLookupConflictFindingFunction.java",
@@ -198,6 +197,7 @@ java_library(
         ":target_pattern_util",
         ":target_pattern_value",
         ":target_patterns_result_builder",
+        ":test_completion_value",
         ":test_expansion_cycle_reporter",
         ":test_expansion_function",
         ":tests_for_target_pattern_function",
@@ -2544,6 +2544,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "test_completion_value",
+    srcs = ["TestCompletionValue.java"],
+    deps = [
+        ":configured_target_key",
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
