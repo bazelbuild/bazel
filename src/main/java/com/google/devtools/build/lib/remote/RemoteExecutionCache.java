@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.concurrent.GuardedBy;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
@@ -163,11 +164,14 @@ public class RemoteExecutionCache extends RemoteCache {
    * expected count.
    */
   class MissingDigestFinder {
+    @GuardedBy("this")
     private final int expectedCount;
     private final AsyncSubject<ImmutableSet<Digest>> digestsSubject;
     private final Single<ImmutableSet<Digest>> resultSingle;
+    @GuardedBy("this")
     private final Set<Digest> digests;
 
+    @GuardedBy("this")
     private int currentCount = 0;
 
     MissingDigestFinder(RemoteActionExecutionContext context, int expectedCount) {
@@ -196,14 +200,16 @@ public class RemoteExecutionCache extends RemoteCache {
      *
      * @return Single that emits the result of the {@code FindMissingDigest} request.
      */
-    synchronized Single<ImmutableSet<Digest>> registerAndCount(Digest digest) {
+    Single<ImmutableSet<Digest>> registerAndCount(Digest digest) {
       AtomicInteger subscribeTimes = new AtomicInteger(0);
       return resultSingle.doOnSubscribe(
           d -> {
-            int times = subscribeTimes.incrementAndGet();
-            checkState(times == 1, "Single is subscribed more than once");
-            digests.add(digest);
-            count();
+            synchronized (this) {
+              int times = subscribeTimes.incrementAndGet();
+              checkState(times == 1, "Single is subscribed more than once");
+              digests.add(digest);
+              count();
+            }
           });
     }
 
