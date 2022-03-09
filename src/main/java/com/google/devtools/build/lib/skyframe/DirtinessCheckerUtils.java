@@ -148,7 +148,7 @@ public class DirtinessCheckerUtils {
         @Nullable TimestampGranularityMonitor tsgm) {
       SkyValue newValue = super.createNewValue(skyKey, syscallCache, tsgm);
       if (Objects.equal(newValue, oldValue)) {
-        return SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue);
+        return SkyValueDirtinessChecker.DirtyResult.notDirty();
       }
       FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
       if (fileType == FileType.EXTERNAL_REPO
@@ -156,9 +156,9 @@ public class DirtinessCheckerUtils {
         // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
         // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
         // parsed.
-        return SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
+        return SkyValueDirtinessChecker.DirtyResult.dirty();
       }
-      return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(oldValue, newValue);
+      return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
     }
   }
 

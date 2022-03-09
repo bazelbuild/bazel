@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -49,57 +51,53 @@ public abstract class SkyValueDirtinessChecker {
       @Nullable TimestampGranularityMonitor tsgm) {
     SkyValue newValue = createNewValue(key, syscallCache, tsgm);
     if (newValue == null) {
-      return DirtyResult.dirty(oldValue);
+      return DirtyResult.dirty();
     }
     return newValue.equals(oldValue)
-        ? DirtyResult.notDirty(oldValue)
-        : DirtyResult.dirtyWithNewValue(oldValue, newValue);
+        ? DirtyResult.notDirty()
+        : DirtyResult.dirtyWithNewValue(newValue);
   }
 
   /** An encapsulation of the result of checking to see if a value is up to date. */
-  public static class DirtyResult {
+  public static final class DirtyResult {
+    private static final DirtyResult NOT_DIRTY =
+        new DirtyResult(/*isDirty=*/ false, /*newValue=*/ null);
+    private static final DirtyResult DIRTY = new DirtyResult(/*isDirty=*/ true, /*newValue=*/ null);
+
     /**
      * Creates a DirtyResult indicating that the external value is the same as the value in the
      * graph.
      */
-    public static DirtyResult notDirty(SkyValue oldValue) {
-      return new DirtyResult(/*isDirty=*/false, oldValue,  /*newValue=*/null);
+    public static DirtyResult notDirty() {
+      return NOT_DIRTY;
     }
 
     /**
      * Creates a DirtyResult indicating that external value is different from the value in the
      * graph, but this new value is not known.
      */
-    public static DirtyResult dirty(@Nullable SkyValue oldValue) {
-      return new DirtyResult(/*isDirty=*/true, oldValue, /*newValue=*/null);
+    public static DirtyResult dirty() {
+      return DIRTY;
     }
 
     /**
      * Creates a DirtyResult indicating that the external value is {@code newValue}, which is
      * different from the value in the graph,
      */
-    public static DirtyResult dirtyWithNewValue(@Nullable SkyValue oldValue, SkyValue newValue) {
-      return new DirtyResult(/*isDirty=*/true, oldValue, newValue);
+    public static DirtyResult dirtyWithNewValue(SkyValue newValue) {
+      return new DirtyResult(/*isDirty=*/ true, newValue);
     }
 
     private final boolean isDirty;
-    @Nullable private final SkyValue oldValue;
     @Nullable private final SkyValue newValue;
 
-    private DirtyResult(boolean isDirty, @Nullable SkyValue oldValue,
-        @Nullable SkyValue newValue) {
+    private DirtyResult(boolean isDirty, @Nullable SkyValue newValue) {
       this.isDirty = isDirty;
-      this.oldValue = oldValue;
       this.newValue = newValue;
     }
 
     public boolean isDirty() {
       return isDirty;
-    }
-
-    @Nullable
-    SkyValue getOldValue() {
-      return oldValue;
     }
 
     /**
@@ -112,6 +110,31 @@ public abstract class SkyValueDirtinessChecker {
     SkyValue getNewValue() {
       Preconditions.checkState(isDirty(), newValue);
       return newValue;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(newValue) + (isDirty ? 13 : 0);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof DirtyResult)) {
+        return false;
+      }
+      DirtyResult that = (DirtyResult) obj;
+      return this.isDirty == that.isDirty && Objects.equals(this.newValue, that.newValue);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("isDirty", isDirty)
+          .add("newValue", newValue)
+          .toString();
     }
   }
 }

@@ -80,17 +80,17 @@ public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecke
     RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;
 
     if (!repositoryValue.repositoryExists()) {
-      return DirtyResult.notDirty(skyValue);
+      return DirtyResult.notDirty();
     }
     if (repositoryValue.isFetchingDelayed()) {
-      return DirtyResult.dirty(skyValue);
+      return DirtyResult.dirty();
     }
 
     if (!managedDirectoriesExist(
         workspaceRoot, managedDirectoriesKnowledge.getManagedDirectories(repositoryName))) {
-      return DirtyResult.dirty(skyValue);
+      return DirtyResult.dirty();
     }
-    return DirtyResult.notDirty(skyValue);
+    return DirtyResult.notDirty();
   }
 
   static boolean managedDirectoriesExist(
