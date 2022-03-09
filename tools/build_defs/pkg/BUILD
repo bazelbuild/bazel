@@ -81,7 +81,6 @@ genrule(
     modes = {"usr/titi": "0755"},
     owner = "42.24",
     ownername = "titi.tata",
-    ownernames = {"etc/nsswitch.conf": "tata.titi"},
     owners = {"etc/nsswitch.conf": "24.42"},
     package_dir = "/",
     strip_prefix = ".",

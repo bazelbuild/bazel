@@ -87,11 +87,6 @@ def _pkg_tar_impl(ctx):
             "--owners=%s=%s" % (_quote(key), ctx.attr.owners[key])
             for key in ctx.attr.owners
         ]
-    if ctx.attr.ownernames:
-        args += [
-            "--owner_names=%s=%s" % (_quote(key), ctx.attr.ownernames[key])
-            for key in ctx.attr.ownernames
-        ]
     if ctx.attr.extension:
         dotPos = ctx.attr.extension.find(".")
         if dotPos > 0:
@@ -133,7 +128,6 @@ _real_pkg_tar = rule(
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),
         "owners": attr.string_dict(),
-        "ownernames": attr.string_dict(),
         "extension": attr.string(default = "tar"),
         "symlinks": attr.string_dict(),
         "include_runfiles": attr.bool(),
