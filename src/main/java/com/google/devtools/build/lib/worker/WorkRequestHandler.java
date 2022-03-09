@@ -118,6 +118,12 @@ public class WorkRequestHandler implements AutoCloseable {
   private final CpuTimeBasedGcScheduler gcScheduler;
 
   /**
+   * If set, this worker will stop handling requests and shut itself down. This can happen if
+   * something throws an {@link Error}.
+   */
+  private final AtomicBoolean shutdownWorker = new AtomicBoolean(false);
+
+  /**
    * Creates a {@code WorkRequestHandler} that will call {@code callback} for each WorkRequest
    * received.
    *
@@ -311,7 +317,7 @@ public class WorkRequestHandler implements AutoCloseable {
    */
   public void processRequests() throws IOException {
     try {
-      while (true) {
+      while (!shutdownWorker.get()) {
         WorkRequest request = messageProcessor.readWorkRequest();
         if (request == null) {
           break;
@@ -322,14 +328,28 @@ public class WorkRequestHandler implements AutoCloseable {
           startResponseThread(request);
         }
       }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      stderr.println("InterruptedException processing requests.");
+    } catch (IOException e) {
+      stderr.println("Error reading next WorkRequest: " + e);
+      e.printStackTrace(stderr);
+    }
+    // TODO(b/220878242): Give the outstanding requests a chance to send a "shutdown" response,
+    // but also try to kill stuck threads. For now, we just interrupt the remaining threads.
+    // We considered doing System.exit here, but that is hard to test and would deny the callers
+    // of this method a chance to clean up. Instead, we initiate the cleanup of our resources here
+    // and the caller can decide whether to wait for an orderly shutdown or now.
+    for (RequestInfo ri : activeRequests.values()) {
+      if (ri.thread.isAlive()) {
+        try {
+          ri.thread.interrupt();
+        } catch (RuntimeException e) {
+          // If we can't interrupt, we can't do much else.
+        }
+      }
     }
   }
 
   /** Starts a thread for the given request. */
-  void startResponseThread(WorkRequest request) throws InterruptedException {
+  void startResponseThread(WorkRequest request) {
     Thread currentThread = Thread.currentThread();
     String threadName =
         request.getRequestId() > 0
@@ -341,7 +361,12 @@ public class WorkRequestHandler implements AutoCloseable {
       while (activeRequests.containsKey(request.getRequestId())) {
         // b/194051480: Previous singleplex requests can still be in activeRequests for a bit after
         // the response has been sent. We need to wait for them to vanish.
-        Thread.sleep(1);
+        try {
+          Thread.sleep(1);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          return;
+        }
       }
     }
     Thread t =
@@ -355,14 +380,27 @@ public class WorkRequestHandler implements AutoCloseable {
               try {
                 respondToRequest(request, requestInfo);
               } catch (IOException e) {
-                e.printStackTrace(stderr);
-                // In case of error, shut down the entire worker.
-                currentThread.interrupt();
+                // IOExceptions here means a problem talking to the server, so we must shut down.
+                if (!shutdownWorker.compareAndSet(false, true)) {
+                  stderr.println("Error communicating with server, shutting down worker.");
+                  e.printStackTrace(stderr);
+                  currentThread.interrupt();
+                }
               } finally {
                 activeRequests.remove(request.getRequestId());
               }
             },
             threadName);
+    t.setUncaughtExceptionHandler(
+        (t1, e) -> {
+          // Shut down the worker in case of severe issues. We don't handle RuntimeException here,
+          // as those are not serious enough to merit shutting down the worker.
+          if (e instanceof Error && shutdownWorker.compareAndSet(false, true)) {
+            stderr.println("Error thrown by worker thread, shutting down worker.");
+            e.printStackTrace(stderr);
+            currentThread.interrupt();
+          }
+        });
     RequestInfo previous = activeRequests.putIfAbsent(request.getRequestId(), new RequestInfo(t));
     if (previous != null) {
       // Kill worker since this shouldn't happen: server didn't follow the worker protocol
@@ -371,7 +409,12 @@ public class WorkRequestHandler implements AutoCloseable {
     t.start();
   }
 
-  /** Handles and responds to the given {@link WorkRequest}. */
+  /**
+   * Handles and responds to the given {@link WorkRequest}.
+   *
+   * @throws IOException if there is an error talking to the server. Errors from calling the {@link
+   *     #callback} are reported with exit code 1.
+   */
   @VisibleForTesting
   void respondToRequest(WorkRequest request, RequestInfo requestInfo) throws IOException {
     int exitCode;
@@ -409,7 +452,7 @@ public class WorkRequestHandler implements AutoCloseable {
    * <p>For simplicity, and to avoid blocking in {@link #cancelCallback}, response to cancellation
    * is still handled by {@link #respondToRequest} once the canceled request aborts (or finishes).
    */
-  void respondToCancelRequest(WorkRequest request) throws IOException {
+  void respondToCancelRequest(WorkRequest request) {
     // Theoretically, we could have gotten two singleplex requests, and we can't tell those apart.
     // However, that's a violation of the protocol, so we don't try to handle it (not least because
     // handling it would be quite error-prone).
