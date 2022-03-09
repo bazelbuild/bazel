@@ -203,20 +203,11 @@ def _find_linker_path(repository_ctx, cc, linker, is_clang):
     if not is_clang:
         return linker
 
-    for line in result.stderr.splitlines():
-        if line.find(linker) == -1:
-            continue
-        for flag in line.split(" "):
-            if flag.find(linker) == -1:
-                continue
-
-            # flag looks like "/usr/lib/ld.gold".
-            return flag.strip(" \"'")
-    auto_configure_warning(
-        "CC with -fuse-ld=" + linker + " returned 0, but its -v output " +
-        "didn't contain '" + linker + "', falling back to the default linker.",
-    )
-    return None
+    # Extract linker path from:
+    # /usr/bin/clang ...
+    # "/usr/bin/ld.lld" -pie -z ...
+    linker_command = result.stderr.splitlines()[-1]
+    return linker_command.strip().split(" ")[0].strip("\"'")
 
 def _add_compiler_option_if_supported(repository_ctx, cc, option):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
