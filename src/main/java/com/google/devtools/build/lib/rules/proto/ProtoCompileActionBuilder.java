@@ -65,7 +65,6 @@ public class ProtoCompileActionBuilder {
   private boolean hasServices;
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
-  private boolean checkStrictImportPublic;
   private String mnemonic;
 
   public ProtoCompileActionBuilder allowServices(boolean hasServices) {
@@ -106,11 +105,6 @@ public class ProtoCompileActionBuilder {
   public ProtoCompileActionBuilder setAdditionalTools(
       Iterable<FilesToRunProvider> additionalTools) {
     this.additionalTools = additionalTools;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder checkStrictImportPublic(boolean checkStrictImportPublic) {
-    this.checkStrictImportPublic = checkStrictImportPublic;
     return this;
   }
 
@@ -216,7 +210,6 @@ public class ProtoCompileActionBuilder {
             /* additional_args */ additionalArgs,
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build()),
             /* mnemonic */ mnemonic,
-            /* strict_imports */ checkStrictImportPublic,
             /* additional_inputs */ inputs == null
                 ? Depset.of(ElementType.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER))
                 : Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs)),
