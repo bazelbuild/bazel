@@ -14,6 +14,7 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Joiner;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 
 /**
@@ -105,6 +106,8 @@ public final class Mutability implements AutoCloseable {
   /** Controls access to {@link Freezable#unsafeShallowFreeze}. */
   private final boolean allowsUnsafeShallowFreeze;
 
+  private ArrayList<Freezable> freezablesToNotifyOnFreeze;
+
   private Mutability(Object[] annotation, boolean allowsUnsafeShallowFreeze) {
     this.annotation = annotation;
     this.allowsUnsafeShallowFreeze = allowsUnsafeShallowFreeze;
@@ -171,13 +174,22 @@ public final class Mutability implements AutoCloseable {
    * Freezes this {@code Mutability}, rendering all {@link Freezable} objects that refer to it
    * immutable.
    *
-   * Note that freezing does not directly touch all the {@code Freezables}, so this operation is
-   * constant-time.
+   * <p>Note that freezing directly touches only the {@code Freezables} for which there was a call
+   * to {@code thisMutability.notifyOnFreeze(thatFreezable)}, so this is linear-time in the number
+   * of such {@code Freezables}s.
    *
    * @return this object, in the fluent style
    */
   public Mutability freeze() {
     this.iteratorCount = null;
+
+    if (freezablesToNotifyOnFreeze != null) {
+      for (Freezable freezable : freezablesToNotifyOnFreeze) {
+        freezable.onFreeze();
+      }
+      freezablesToNotifyOnFreeze = null;
+    }
+
     return this;
   }
 
@@ -188,10 +200,20 @@ public final class Mutability implements AutoCloseable {
 
   /**
    * Returns whether {@link Freezable}s having this {@code Mutability} allow the {@link
-   * #unsafeShallowFreeze} operation.
+   * Freezable#unsafeShallowFreeze} operation.
    */
   public boolean allowsUnsafeShallowFreeze() {
     return allowsUnsafeShallowFreeze;
+  }
+
+  /**
+   * Causes {@code freezable.onFreeze()} to be called in the future when {@link #freeze} is called.
+   */
+  public void notifyOnFreeze(Freezable freezable) {
+    if (freezablesToNotifyOnFreeze == null) {
+      freezablesToNotifyOnFreeze = new ArrayList<>();
+    }
+    freezablesToNotifyOnFreeze.add(freezable);
   }
 
   /**
@@ -206,6 +228,14 @@ public final class Mutability implements AutoCloseable {
      * applicable.
      */
     Mutability mutability();
+
+    /**
+     * If {@code mutability().notifyOnFreeze(this)} has been called, this method gets called when
+     * {@code mutability().freeze()} gets called.
+     *
+     * <p>Do not call this method from outside {@link Mutability#freeze}.
+     */
+    default void onFreeze() {}
 
     /**
      * Registers a change to this Freezable's iterator count and reports whether it is temporarily

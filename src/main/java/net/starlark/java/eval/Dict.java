@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -111,8 +112,21 @@ public class Dict<K, V>
         StarlarkIndexable,
         StarlarkIterable<K> {
 
-  private final Map<K, V> contents;
-  private int iteratorCount; // number of active iterators (unused once frozen)
+  /**
+   * The contents of the Dict.
+   *
+   * <p>This will either be a {@link LinkedHashMap} (for a mutable Dict that hasn't yet been frozen)
+   * or a {@link ImmutableMap} (for a Dict that started frozen or has been frozen; see {@link
+   * #Dict(ImmutableMap)} and {@link #onFreeze}, respectively).
+   */
+  private Map<K, V> contents;
+
+  /**
+   * The number of active iterators.
+   *
+   * <p>This is unused after the Dict is frozen.
+   */
+  private int iteratorCount;
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;
@@ -121,8 +135,7 @@ public class Dict<K, V>
     Preconditions.checkNotNull(mutability);
     Preconditions.checkState(mutability != Mutability.IMMUTABLE);
     this.mutability = mutability;
-    // TODO(bazel-team): Memory optimization opportunity: Make it so that a call to
-    //  `mutability.freeze()` causes `contents` here to become an ImmutableMap.
+    mutability.notifyOnFreeze(this);
     this.contents = contents;
   }
 
@@ -560,6 +573,35 @@ public class Dict<K, V>
   public void unsafeShallowFreeze() {
     Mutability.Freezable.checkUnsafeShallowFreezePrecondition(this);
     this.mutability = Mutability.IMMUTABLE;
+    this.contents = ImmutableMap.copyOf(contents);
+  }
+
+  /**
+   * Switches {@link #contents} to be a {@link ImmutableMap} in order to save memory.
+   *
+   * <p>See the comment in {@link #Dict(ImmutableMap)} for details.
+   */
+  @Override
+  public void onFreeze() {
+    if (contents instanceof LinkedHashMap) {
+      this.contents = ImmutableMap.copyOf(contents);
+      // TODO(bazel-team): Make #mutability IMMUTABLE, causing the old Mutability instance to be
+      // eligible for GC. Do this in StarlarkList too.
+    } else {
+      // Assert #onFreeze hasn't been called before. But also hackily support the usage in
+      // ScriptTest.
+      //
+      // ScriptTest extends the language with a `freeze` feature, allowing #unsafeShallowFreeze to
+      // be called. When the bzl code has already caused that method to be called, #contents will
+      // already be an ImmutableMap, but #mutability will still not be.
+      //
+      // And we definitely want #unsafeShallowFreeze to cause #contents to become an ImmutableMap.
+      // That method is used at the end of deserialization, which uses a mutable #mutability that
+      // became IMMUTABLE in that method.
+      //
+      // TODO(bazel-team): Combine the two methods.
+      Preconditions.checkState(mutability == Mutability.IMMUTABLE);
+    }
   }
 
   /**
@@ -621,6 +663,11 @@ public class Dict<K, V>
   @Override
   public String toString() {
     return Starlark.repr(this);
+  }
+
+  @VisibleForTesting
+  Map<K, V> getContentsForTesting() {
+    return contents;
   }
 
   /**
