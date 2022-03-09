@@ -162,8 +162,8 @@ public class RemoteExecutionCache extends RemoteCache {
    */
   class MissingDigestFinder {
     private final int expectedCount;
-    private final AsyncSubject<Set<Digest>> digestsSubject;
-    private final Single<ImmutableSet<Digest>> resultSingle;
+    private final AsyncSubject<ImmutableSet<Digest>> digestsSubject;
+    private final AsyncSubject<ImmutableSet<Digest>> resultSubject;
     private final Set<Digest> digests;
 
     private int currentCount = 0;
@@ -172,15 +172,13 @@ public class RemoteExecutionCache extends RemoteCache {
       checkArgument(expectedCount > 0, "expectedCount should be greater than 0");
       this.expectedCount = expectedCount;
       this.digestsSubject = AsyncSubject.create();
-      this.resultSingle =
-          Single.fromObservable(
-              digestsSubject
-                  .flatMapSingle(
-                      digests ->
-                          toSingle(() -> findMissingDigests(context, digests), directExecutor()))
-                  .replay()
-                  .refCount());
+      this.resultSubject = AsyncSubject.create();
       this.digests = new HashSet<>();
+
+      digestsSubject
+          .flatMapSingle(
+              digests -> toSingle(() -> findMissingDigests(context, digests), directExecutor()))
+          .subscribe(resultSubject);
     }
 
     /**
@@ -191,7 +189,7 @@ public class RemoteExecutionCache extends RemoteCache {
     synchronized Single<ImmutableSet<Digest>> registerAndCount(Digest digest) {
       digests.add(digest);
       count();
-      return resultSingle;
+      return Single.fromObservable(resultSubject);
     }
 
     /** Increase the counter. */
@@ -199,7 +197,7 @@ public class RemoteExecutionCache extends RemoteCache {
       if (currentCount < expectedCount) {
         currentCount++;
         if (currentCount == expectedCount) {
-          digestsSubject.onNext(digests);
+          digestsSubject.onNext(ImmutableSet.copyOf(digests));
           digestsSubject.onComplete();
         }
       }
