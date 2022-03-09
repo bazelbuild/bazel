@@ -110,6 +110,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -1376,25 +1377,66 @@ public class RemoteExecutionServiceTest {
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
     RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
 
     for (int i = 0; i < taskCount; ++i) {
       executorService.execute(
           () -> {
             try {
-              Spawn spawn =
-                  newSpawn(
-                      ImmutableMap.of(),
-                      ImmutableSet.of(),
-                      NestedSetBuilder.create(Order.STABLE_ORDER, input));
-              FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-              RemoteAction action = service.buildRemoteAction(spawn, context);
-
               service.uploadInputsIfNotPresent(action, /*force=*/ false);
             } catch (Throwable e) {
-              if (e instanceof InterruptedException) {
+              error.set(e);
+            } finally {
+              semaphore.release();
+            }
+          });
+    }
+    semaphore.acquire(taskCount);
+
+    assertThat(error.get()).isNull();
+    assertThat(cache.getNumFindMissingDigests()).containsEntry(inputDigest, 1);
+    for (Integer num : cache.getNumFindMissingDigests().values()) {
+      assertThat(num).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void uploadInputsIfNotPresent_sameInputs_interruptOne_keepOthers() throws Exception {
+    int taskCount = 100;
+    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Semaphore semaphore = new Semaphore(0);
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    Random random = new Random();
+
+    for (int i = 0; i < taskCount; ++i) {
+      boolean shouldInterrupt = random.nextBoolean();
+      executorService.execute(
+          () -> {
+            try {
+              if (shouldInterrupt) {
                 Thread.currentThread().interrupt();
               }
-              error.set(e);
+              service.uploadInputsIfNotPresent(action, /*force=*/ false);
+            } catch (Throwable e) {
+              if (!(shouldInterrupt && e instanceof InterruptedException)) {
+                error.set(e);
+              }
             } finally {
               semaphore.release();
             }
