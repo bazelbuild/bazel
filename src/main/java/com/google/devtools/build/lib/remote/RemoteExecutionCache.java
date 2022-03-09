@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
@@ -43,6 +44,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
@@ -163,7 +165,7 @@ public class RemoteExecutionCache extends RemoteCache {
   class MissingDigestFinder {
     private final int expectedCount;
     private final AsyncSubject<ImmutableSet<Digest>> digestsSubject;
-    private final AsyncSubject<ImmutableSet<Digest>> resultSubject;
+    private final Single<ImmutableSet<Digest>> resultSingle;
     private final Set<Digest> digests;
 
     private int currentCount = 0;
@@ -172,13 +174,21 @@ public class RemoteExecutionCache extends RemoteCache {
       checkArgument(expectedCount > 0, "expectedCount should be greater than 0");
       this.expectedCount = expectedCount;
       this.digestsSubject = AsyncSubject.create();
-      this.resultSubject = AsyncSubject.create();
       this.digests = new HashSet<>();
 
-      digestsSubject
-          .flatMapSingle(
-              digests -> toSingle(() -> findMissingDigests(context, digests), directExecutor()))
-          .subscribe(resultSubject);
+      AtomicInteger findMissingDigestsTimes = new AtomicInteger(0);
+      this.resultSingle =
+          Single.fromObservable(
+              digestsSubject
+                  .flatMapSingle(
+                      digests -> {
+                        int times = findMissingDigestsTimes.incrementAndGet();
+                        checkState(times == 1, "FindMissingDigests is called more than once");
+                        return toSingle(
+                            () -> findMissingDigests(context, digests), directExecutor());
+                      })
+                  .replay(1)
+                  .refCount());
     }
 
     /**
@@ -187,9 +197,14 @@ public class RemoteExecutionCache extends RemoteCache {
      * @return Single that emits the result of the {@code FindMissingDigest} request.
      */
     synchronized Single<ImmutableSet<Digest>> registerAndCount(Digest digest) {
-      digests.add(digest);
-      count();
-      return Single.fromObservable(resultSubject);
+      AtomicInteger subscribeTimes = new AtomicInteger(0);
+      return resultSingle.doOnSubscribe(
+          d -> {
+            int times = subscribeTimes.incrementAndGet();
+            checkState(times == 1, "Single is subscribed more than once");
+            digests.add(digest);
+            count();
+          });
     }
 
     /** Increase the counter. */

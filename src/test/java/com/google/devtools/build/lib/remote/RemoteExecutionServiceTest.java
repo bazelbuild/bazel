@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
@@ -1449,6 +1450,30 @@ public class RemoteExecutionServiceTest {
     for (Integer num : cache.getNumFindMissingDigests().values()) {
       assertThat(num).isEqualTo(1);
     }
+  }
+
+  @Test
+  public void uploadInputsIfNotPresent_interrupted_requestCancelled() throws Exception {
+    SettableFuture<ImmutableSet<Digest>> future = SettableFuture.create();
+    doReturn(future).when(cache).findMissingDigests(any(), any());
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn =
+        newSpawn(
+            ImmutableMap.of(),
+            ImmutableSet.of(),
+            NestedSetBuilder.create(Order.STABLE_ORDER, input));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    try {
+      Thread.currentThread().interrupt();
+      service.uploadInputsIfNotPresent(action, /*force=*/ false);
+    } catch (InterruptedException ignored) {
+    }
+
+    assertThat(future.isCancelled()).isTrue();
   }
 
   @Test
