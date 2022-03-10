@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -53,11 +55,21 @@ public final class BuildConfigurationFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
-
     BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
+
+    BuildOptions targetOptions = key.getOptions();
+    // TODO(blaze-configurability-team): Actually use this rather than just simulate getting it.
+    //  (currently just testing that Skyframe setup is correct for when option is used)
+    if (targetOptions
+        .get(CoreOptions.class)
+        .outputDirectoryNamingScheme
+        .equals(CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_BASELINE)) {
+      PrecomputedValue.BASELINE_CONFIGURATION.get(env);
+    }
+
     try {
       return BuildConfigurationValue.create(
-          key.getOptions(),
+          targetOptions,
           RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
           starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
           // Arguments below this are server-global.

@@ -476,6 +476,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     BuildOptions buildOptions =
         BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
+    // This is being done outside of BuildView, potentially even before the BuildView was
+    // constructed and thus cannot rely on BuildView having injected this for us.
+    skyframeExecutor.setBaselineConfiguration(buildOptions);
     return skyframeExecutor.createConfigurations(reporter, buildOptions, ImmutableSet.of(), false);
   }
 

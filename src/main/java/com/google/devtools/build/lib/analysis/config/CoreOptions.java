@@ -536,6 +536,32 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " existing build actions.")
   public List<Label> actionListeners;
 
+  /** Values for the --experimental_output_directory_naming_scheme options * */
+  public enum OutputDirectoryNamingScheme {
+    /** Use `affected by starlark transition` to track configuration changes * */
+    LEGACY,
+    /** Produce name based on diff from some baseline BuildOptions (usually top-level) * */
+    DIFF_AGAINST_BASELINE
+  }
+
+  /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
+  public static class OutputDirectoryNamingSchemeConverter
+      extends EnumConverter<OutputDirectoryNamingScheme> {
+    public OutputDirectoryNamingSchemeConverter() {
+      super(OutputDirectoryNamingScheme.class, "Output directory naming scheme");
+    }
+  }
+
+  @Option(
+      name = "experimental_output_directory_naming_scheme",
+      defaultValue = "legacy",
+      converter = OutputDirectoryNamingSchemeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Please only use this flag as part of a suggested migration or testing strategy.")
+  public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
+
   @Option(
       name = "is host configuration",
       defaultValue = "false",
@@ -894,6 +920,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.affectedByStarlarkTransition = affectedByStarlarkTransition;
+    host.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;

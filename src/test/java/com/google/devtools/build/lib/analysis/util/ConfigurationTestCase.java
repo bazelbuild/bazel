@@ -193,8 +193,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     Pair<BuildOptions, TestOptions> pair = parseBuildOptionsWithTestOptions(starlarkOptions, args);
 
     skyframeExecutor.handleDiffsForTesting(reporter);
-    return skyframeExecutor.createConfigurations(
-        reporter, pair.getFirst(), ImmutableSortedSet.copyOf(pair.getSecond().multiCpus), false);
+    BuildOptions targetOptions = pair.getFirst();
+    ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(pair.getSecond().multiCpus);
+    skyframeExecutor.setBaselineConfiguration(targetOptions);
+    return skyframeExecutor.createConfigurations(reporter, targetOptions, multiCpu, false);
   }
 
   /** Parses purported commandline options into a BuildOptions (assumes default parsing context.) */
