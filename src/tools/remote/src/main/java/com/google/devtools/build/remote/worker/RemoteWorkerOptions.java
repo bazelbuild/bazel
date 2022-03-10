@@ -199,7 +199,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       if (value > maxValue) {
         logger.atWarning().log(
             "Flag remoteWorker \"jobs\" ('%d') was set too high. "
-                + "This is a result of passing large values to --local_resources or --jobs. "
+                + "This is a result of passing large values to --jobs. "
                 + "Using '%d' jobs",
             value, maxValue);
         value = maxValue;

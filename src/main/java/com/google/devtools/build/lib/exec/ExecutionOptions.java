@@ -305,8 +305,7 @@ public class ExecutionOptions extends OptionsBase {
               + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
               + " by [-|*]<float> (eg. HOST_CPUS*.5 to use half the available CPU cores).By"
               + " default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate"
-              + " the number of CPU cores available. Note: This is a no-op if --local_resources is"
-              + " set.",
+              + " the number of CPU cores available.",
       converter = CpuResourceConverter.class)
   public float localCpuResources;
 
@@ -320,8 +319,7 @@ public class ExecutionOptions extends OptionsBase {
               + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
               + " followed by [-|*]<float> (eg. HOST_RAM*.5 to use half the available RAM). By"
               + " default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate"
-              + " the amount of RAM available and will use 67% of it. Note: This is a no-op if"
-              + " --local_resources is set.",
+              + " the amount of RAM available and will use 67% of it.",
       converter = RamResourceConverter.class)
   public float localRamResources;
 
