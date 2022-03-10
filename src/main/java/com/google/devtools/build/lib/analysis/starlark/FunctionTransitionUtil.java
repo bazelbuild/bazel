@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -49,6 +50,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -432,9 +434,15 @@ public final class FunctionTransitionUtil {
         String nativeOptionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
         Object value;
         try {
+          OptionInfo optionInfo = optionInfoMap.get(nativeOptionName);
+          if (optionInfo == null) {
+            // This can occur if toOptions has been trimmed but the supplied chosen native options
+            // includes that trimmed options.
+            // (e.g. legacy naming mode, using --trim_test_configuration and --test_arg transition).
+            continue;
+          }
           value =
-              optionInfoMap
-                  .get(nativeOptionName)
+              optionInfo
                   .getDefinition()
                   .getField()
                   .get(toOptions.get(optionInfoMap.get(nativeOptionName).getOptionClass()));
@@ -460,6 +468,26 @@ public final class FunctionTransitionUtil {
       }
     }
     return transitionDirectoryNameFragment(hashStrs.build());
+  }
+
+  public static ImmutableSet<String> getAffectedByStarlarkTransitionViaDiff(
+      BuildOptions toOptions, BuildOptions baselineOptions) {
+    if (toOptions.equals(baselineOptions)) {
+      return ImmutableSet.of();
+    }
+
+    BuildOptions.OptionsDiff diff = BuildOptions.diff(toOptions, baselineOptions);
+    Stream<String> diffNative =
+        diff.getFirst().keySet().stream()
+            .filter(
+                optionDef ->
+                    !optionDef.hasOptionMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH))
+            .map(option -> COMMAND_LINE_OPTION_PREFIX + option.getOptionName());
+    // Note: getChangedStarlarkOptions includes all changed options, added options and removed
+    //   options between baselineOptions and toOptions. This is necessary since there is no current
+    //   notion of trimming a Starlark option: 'null' or non-existent justs means set to default.
+    Stream<String> diffStarlark = diff.getChangedStarlarkOptions().stream().map(Label::toString);
+    return Streams.concat(diffNative, diffStarlark).collect(toImmutableSet());
   }
 
   /**

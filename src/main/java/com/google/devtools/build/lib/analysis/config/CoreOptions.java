@@ -287,6 +287,45 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INTERNAL})
   public List<String> affectedByStarlarkTransition;
 
+  /** Values for the --experimental_exec_configuration_distinguisher options * */
+  public enum ExecConfigurationDistinguisherScheme {
+    /** Use hash of selected execution platform for platform_suffix. * */
+    LEGACY,
+    /** Do not touch platform_suffix or do anything else. * */
+    OFF,
+    /** Use hash of entire configuration (with platform_suffix="") for platform_suffix. * */
+    FULL_HASH,
+    /** Set platform_suffix to "exec", instead update `affected by starlark transition` * */
+    DIFF_TO_AFFECTED
+  }
+
+  /** Converter for the {@code --experimental_exec_configuration_distinguisher} options. */
+  public static class ExecConfigurationDistinguisherSchemeConverter
+      extends EnumConverter<ExecConfigurationDistinguisherScheme> {
+    public ExecConfigurationDistinguisherSchemeConverter() {
+      super(
+          ExecConfigurationDistinguisherScheme.class,
+          "Exec transition configuration distinguisher scheme");
+    }
+  }
+
+  @Option(
+      name = "experimental_exec_configuration_distinguisher",
+      defaultValue = "legacy",
+      converter = ExecConfigurationDistinguisherSchemeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy due to"
+              + " potential for action conflicts. Controls how the execution transition changes the"
+              + " platform_suffix flag. In legacy mode, sets it to a hash of the execution"
+              + " platform. In fullhash mode, sets it to a hash of the entire configuration. In off"
+              + " mode, does not touch it.")
+  public ExecConfigurationDistinguisherScheme execConfigurationDistinguisherScheme;
+
+  /* At the moment, EXPLICIT_IN_OUTPUT_PATH is not being set here because platform_suffix
+   * is being used as a configuration distinguisher for the exec transition. */
   @Option(
       name = "platform_suffix",
       defaultValue = "null",
@@ -858,6 +897,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
+    host.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;
     host.executionInfoModifier = executionInfoModifier;

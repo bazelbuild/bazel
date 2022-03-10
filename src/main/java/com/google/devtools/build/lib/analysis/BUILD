@@ -1688,6 +1688,7 @@ java_library(
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         ":platform_options",
+        ":starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
