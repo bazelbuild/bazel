@@ -1368,6 +1368,27 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_missingDeclaredOutputs_dontUpload() throws Exception {
+    Path file = execRoot.getRelative("outputs/file");
+    Artifact outputFile = ActionsTestUtil.createArtifact(artifactRoot, file);
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputFile));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+
+    service.uploadOutputs(action, spawnResult);
+
+    // assert
+    assertThat(cache.getNumFindMissingDigests()).isEmpty();
+  }
+
+  @Test
   public void uploadInputsIfNotPresent_deduplicateFindMissingBlobCalls() throws Exception {
     int taskCount = 100;
     ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
