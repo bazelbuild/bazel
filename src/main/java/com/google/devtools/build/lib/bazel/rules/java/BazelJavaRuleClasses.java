@@ -221,10 +221,7 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("resource_strip_prefix", STRING))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resource_jars) -->
-          Set of archives containing Java resources.
-          <p>
-            If specified, the contents of these jars are merged into the output jar.
-          </p>
+          Deprecated: Use java_import and deps or runtime_deps instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("resource_jars", LABEL_LIST)
