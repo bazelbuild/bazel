@@ -268,7 +268,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
     )
     cc_info = CcInfo(
         compilation_context = compilation_context,
-        cc_native_library_info = cc_internal.collect_native_cc_libraries(deps = ctx.attr.deps, libraries_to_link = libraries),
+        cc_native_library_info = cc_helper.collect_native_cc_libraries(deps = ctx.attr.deps, libraries = libraries),
     )
     output_groups["_validation"] = compilation_context.validation_artifacts
     return (cc_info, instrumented_files_provider, output_groups)

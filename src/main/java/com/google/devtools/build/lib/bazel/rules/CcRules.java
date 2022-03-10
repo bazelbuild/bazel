@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.cpp.CcHostToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -88,6 +89,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new PropellerOptimizeRule());
     builder.addStarlarkBuiltinsInternal(
         "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
+    builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
     builder.addStarlarkBootstrap(
         new CcBootstrap(
             new BazelCcModule(),

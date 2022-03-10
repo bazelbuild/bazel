@@ -19,6 +19,7 @@ load(":common/objc/semantics.bzl", "semantics")
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
+CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",
@@ -504,6 +505,10 @@ def _get_linked_artifact(ctx, cc_toolchain, is_dynamic_link_type):
 
     return ctx.actions.declare_file(name)
 
+def _collect_native_cc_libraries(deps, libraries):
+    transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
+    return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -533,4 +538,5 @@ cc_helper = struct(
     generate_def_file = _generate_def_file,
     stringify_linker_input = _stringify_linker_input,
     get_linked_artifact = _get_linked_artifact,
+    collect_native_cc_libraries = _collect_native_cc_libraries,
 )
