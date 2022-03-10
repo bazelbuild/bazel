@@ -3548,8 +3548,6 @@ genrule(
 )
 EOF
 
-  cache_dir=$(mktemp -d)
-
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       //a:foo >& $TEST_log && fail "Should failed to build"
