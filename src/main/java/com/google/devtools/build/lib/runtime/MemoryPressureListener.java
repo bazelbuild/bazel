@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.metrics.GarbageCollectionMetricsUtils;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -80,7 +81,7 @@ class MemoryPressureListener implements NotificationListener {
     // space. Normally there is one such collector.
     for (GarbageCollectorMXBean gcBean : gcBeans) {
       for (String name : gcBean.getMemoryPoolNames()) {
-        if (isTenuredSpace(name)) {
+        if (GarbageCollectionMetricsUtils.isTenuredSpace(name)) {
           builder.add((NotificationEmitter) gcBean);
         }
       }
@@ -103,7 +104,7 @@ class MemoryPressureListener implements NotificationListener {
     long tenuredSpaceMaxBytes = 0L;
     for (Map.Entry<String, MemoryUsage> memoryUsageEntry :
         gcInfo.getGcInfo().getMemoryUsageAfterGc().entrySet()) {
-      if (!isTenuredSpace(memoryUsageEntry.getKey())) {
+      if (!GarbageCollectionMetricsUtils.isTenuredSpace(memoryUsageEntry.getKey())) {
         continue;
       }
       MemoryUsage space = memoryUsageEntry.getValue();
@@ -135,15 +136,6 @@ class MemoryPressureListener implements NotificationListener {
     // Post to EventBus first so memory pressure subscribers have a chance to make things
     // eligible for GC before RetainedHeapLimiter would trigger a full GC.
     this.retainedHeapLimiter.handle(event);
-  }
-
-  private static boolean isTenuredSpace(String name) {
-    return "CMS Old Gen".equals(name)
-        || "G1 Old Gen".equals(name)
-        || "PS Old Gen".equals(name)
-        || "Tenured Gen".equals(name)
-        || "Shenandoah".equals(name)
-        || "ZHeap".equals(name);
   }
 
   void setEventBus(@Nullable EventBus eventBus) {
