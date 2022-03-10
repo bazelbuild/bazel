@@ -576,8 +576,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_child_configuration_dummy': attr.label(",
         "            cfg=apple_common.multi_arch_split,",
         "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
-        "        '_cc_toolchain': attr.label(",
-        "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_dummy_lib': attr.label(",
         "            default = Label('" + toolsLoc + ":dummy_lib'),),",
         "        '_grep_includes': attr.label(",
