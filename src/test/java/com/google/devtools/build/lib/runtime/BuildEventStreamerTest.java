@@ -949,6 +949,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
             defaultBuildOptions,
             RepositoryName.createFromValidStrippedName("workspace"),
             /*siblingRepositoryLayout=*/ false,
+            /*transitionDirectoryNameFragment=*/ "",
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,

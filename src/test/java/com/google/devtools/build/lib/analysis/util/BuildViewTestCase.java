@@ -472,6 +472,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     // TODO(blaze-configurability): It would be nice to be able to do some starlark options loading
     // to ensure that the values given in this map are the right types for their keys.
+    // TODO(blaze-configurability): It is actually incorrect that build options are potentially
+    // being explicitly set to their default values. In production, Starlark options set to their
+    // default are always null (and various parts of the infra rely on this).
     optionsParser.setStarlarkOptions(starlarkOptions);
 
     BuildOptions buildOptions =

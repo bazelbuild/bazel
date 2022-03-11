@@ -536,11 +536,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " existing build actions.")
   public List<Label> actionListeners;
 
-  /** Values for the --experimental_output_directory_naming_scheme options * */
+  /** Values for the --experimental_output_directory_naming_scheme options */
   public enum OutputDirectoryNamingScheme {
-    /** Use `affected by starlark transition` to track configuration changes * */
+    /** Use `affected by starlark transition` to track configuration changes */
     LEGACY,
-    /** Produce name based on diff from some baseline BuildOptions (usually top-level) * */
+    /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
     DIFF_AGAINST_BASELINE
   }
 
@@ -559,7 +559,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Please only use this flag as part of a suggested migration or testing strategy.")
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy. In"
+              + " legacy mode, transitions (generally only Starlark) set and use `affected by"
+              + " Starlark transition` to determine the ST hash. In diff_against_baseline mode,"
+              + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
+              + " for all configuration, by diffing against the top-level configuration.")
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
   @Option(

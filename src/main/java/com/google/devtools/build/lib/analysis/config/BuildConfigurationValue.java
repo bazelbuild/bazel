@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
-import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -161,6 +160,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
       BuildOptions buildOptions,
       RepositoryName mainRepositoryName,
       boolean siblingRepositoryLayout,
+      String transitionDirectoryNameFragment,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -175,6 +175,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         buildOptions,
         mainRepositoryName,
         siblingRepositoryLayout,
+        transitionDirectoryNameFragment,
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -200,6 +201,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
       BuildOptions buildOptions,
       RepositoryName mainRepositoryName,
       boolean siblingRepositoryLayout,
+      String transitionDirectoryNameFragment,
       // Arguments below this are either server-global and constant or completely dependent values.
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
@@ -216,8 +218,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     if (buildOptions.contains(PlatformOptions.class)) {
       platformOptions = buildOptions.get(PlatformOptions.class);
     }
-    this.transitionDirectoryNameFragment =
-        FunctionTransitionUtil.computeOutputDirectoryNameFragment(buildOptions);
+    this.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     this.outputDirectories =
         new OutputDirectories(
             directories,
@@ -272,12 +273,14 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     BuildConfigurationValue otherVal = (BuildConfigurationValue) other;
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.mainRepositoryName.equals(otherVal.mainRepositoryName)
-        && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout;
+        && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
+        && this.transitionDirectoryNameFragment.equals(otherVal.transitionDirectoryNameFragment);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, mainRepositoryName, siblingRepositoryLayout);
+    return Objects.hash(
+        buildOptions, mainRepositoryName, siblingRepositoryLayout, transitionDirectoryNameFragment);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {

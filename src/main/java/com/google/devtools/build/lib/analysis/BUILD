@@ -1536,7 +1536,6 @@ java_library(
         ":config/invalid_configuration_exception",
         ":config/run_under",
         ":platform_options",
-        ":starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -1867,6 +1866,17 @@ java_library(
     ],
 )
 
+java_library(
+    name = "config/optioninfo",
+    srcs = ["config/OptionInfo.java"],
+    deps = [
+        ":config/build_options",
+        ":config/fragment_options",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
 # TODO(b/144899336): This should be config/transitions/BUILD
 java_library(
     name = "config/transitions/composing_transition",
@@ -2172,12 +2182,12 @@ java_library(
         ":config/build_options",
         ":config/core_options",
         ":config/fragment_options",
+        ":config/optioninfo",
         ":config/starlark_defined_config_transition",
         ":config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",

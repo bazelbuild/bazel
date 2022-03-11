@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
-import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,16 +28,15 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.OptionInfo;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.HashSet;
@@ -48,7 +45,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -63,10 +59,6 @@ import net.starlark.java.eval.Starlark;
  * StarlarkRuleTransitionProvider}.
  */
 public final class FunctionTransitionUtil {
-
-  // The length of the hash of the config tacked onto the end of the output path.
-  // Limited for ergonomics and MAX_PATH reasons.
-  private static final int HASH_LENGTH = 12;
 
   /**
    * Figure out what build settings the given transition changes and apply those changes to the
@@ -92,7 +84,7 @@ public final class FunctionTransitionUtil {
 
       // TODO(waltl): Consider building this once and using it across different split transitions,
       // or reusing BuildOptionDetails.
-      Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
+      ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(buildOptions);
       Dict<String, Object> settings =
           buildSettings(buildOptions, optionInfoMap, starlarkTransition);
 
@@ -113,7 +105,7 @@ public final class FunctionTransitionUtil {
             applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
         splitBuildOptions.put(entry.getKey(), transitionedOptions);
       }
-      return splitBuildOptions.buildOrThrow();
+      return splitBuildOptions.build();
 
     } catch (ValidationException ex) {
       handler.handle(Event.error(starlarkTransition.getLocation(), ex.getMessage()));
@@ -135,7 +127,8 @@ public final class FunctionTransitionUtil {
    *
    * <p>Transitions can also explicitly set --platforms to be clear what platform they set.
    *
-   * <p>Platform mappings: https://bazel.build/concepts/platform-intro#platform-mappings.
+   * <p>Platform mappings:
+   * https://docs.bazel.build/versions/main/platforms-intro.html#platform-mappings.
    *
    * <p>This doesn't check that the changed value is actually different than the source (i.e.
    * setting {@code --cpu=foo} when {@code --cpu} is already {@code foo}). That could unnecessarily
@@ -149,7 +142,7 @@ public final class FunctionTransitionUtil {
         ? ImmutableMap.<String, Object>builder()
             .putAll(originalOutput)
             .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
-            .buildOrThrow()
+            .build()
         : originalOutput;
   }
 
@@ -158,29 +151,8 @@ public final class FunctionTransitionUtil {
     if (transition.getOutputs().contains("//command_line_option:define")) {
       throw new ValidationException(
           "Starlark transition on --define not supported - try using build settings"
-              + " (https://bazel.build/rules/config#user-defined-build-settings).");
+              + " (https://docs.bazel.build/skylark/config.html#user-defined-build-settings).");
     }
-  }
-
-  /** For all the options in the BuildOptions, build a map from option name to its information. */
-  private static ImmutableMap<String, OptionInfo> buildOptionInfo(BuildOptions buildOptions) {
-    ImmutableMap.Builder<String, OptionInfo> builder = new ImmutableMap.Builder<>();
-
-    ImmutableSet<Class<? extends FragmentOptions>> optionClasses =
-        buildOptions.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
-            .collect(toImmutableSet());
-
-    for (Class<? extends FragmentOptions> optionClass : optionClasses) {
-      ImmutableList<OptionDefinition> optionDefinitions =
-          OptionsParser.getOptionDefinitions(optionClass);
-      for (OptionDefinition def : optionDefinitions) {
-        String optionName = def.getOptionName();
-        builder.put(optionName, new OptionInfo(optionClass, def));
-      }
-    }
-
-    return builder.buildOrThrow();
   }
 
   /**
@@ -199,7 +171,7 @@ public final class FunctionTransitionUtil {
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws ValidationException {
-    Map<String, String> inputsCanonicalizedToGiven =
+    ImmutableMap<String, String> inputsCanonicalizedToGiven =
         starlarkTransition.getInputsCanonicalizedToGiven();
     LinkedHashSet<String> remainingInputs =
         Sets.newLinkedHashSet(inputsCanonicalizedToGiven.keySet());
@@ -368,7 +340,7 @@ public final class FunctionTransitionUtil {
             }
             field.set(toOptions.get(optionInfo.getOptionClass()), convertedValue);
 
-            if (!optionInfo.hasMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH)) {
+            if (!optionInfo.hasOptionMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH)) {
               convertedAffectedOptions.add(optionKey);
             }
           }
@@ -403,73 +375,17 @@ public final class FunctionTransitionUtil {
       toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
     }
 
-    updateAffectedByStarlarkTransition(toOptions.get(CoreOptions.class), convertedAffectedOptions);
+    CoreOptions coreOptions = toOptions.get(CoreOptions.class);
+    if (coreOptions.outputDirectoryNamingScheme.equals(
+        CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
+      updateAffectedByStarlarkTransition(coreOptions, convertedAffectedOptions);
+    }
     return toOptions;
   }
 
-  /**
-   * Compute the output directory name fragment corresponding to the new BuildOptions based on the
-   * names and values of all options (both native and Starlark) previously transitioned anywhere in
-   * the build by Starlark transitions. Options only set on command line are not affecting the
-   * computation.
-   *
-   * @param toOptions the {@link BuildOptions} to use to calculate which we need to compute {@code
-   *     transitionDirectoryNameFragment}.
-   */
-  // TODO(bazel-team): This hashes different forms of equivalent values differently though they
-  // should be the same configuration. Starlark transitions are flexible about the values they
-  // take (e.g. bool-typed options can take 0/1, True/False, "0"/"1", or "True"/"False") which
-  // makes it so that two configurations that are the same in value may hash differently.
-  public static String computeOutputDirectoryNameFragment(BuildOptions toOptions) {
-    CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
-    if (buildConfigOptions.affectedByStarlarkTransition.isEmpty()) {
-      return "";
-    }
-    // TODO(blaze-configurability-team): A mild performance optimization would have this be global.
-    Map<String, OptionInfo> optionInfoMap = buildOptionInfo(toOptions);
-
-    TreeMap<String, Object> toHash = new TreeMap<>();
-    for (String optionName : buildConfigOptions.affectedByStarlarkTransition) {
-      if (optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        String nativeOptionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        Object value;
-        try {
-          OptionInfo optionInfo = optionInfoMap.get(nativeOptionName);
-          if (optionInfo == null) {
-            // This can occur if toOptions has been trimmed but the supplied chosen native options
-            // includes that trimmed options.
-            // (e.g. legacy naming mode, using --trim_test_configuration and --test_arg transition).
-            continue;
-          }
-          value =
-              optionInfo
-                  .getDefinition()
-                  .getField()
-                  .get(toOptions.get(optionInfoMap.get(nativeOptionName).getOptionClass()));
-        } catch (IllegalAccessException e) {
-          throw new VerifyException(
-              "IllegalAccess for option " + nativeOptionName + ": " + e.getMessage());
-        }
-        toHash.put(optionName, value);
-      } else {
-        Object value = toOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
-        toHash.put(optionName, value);
-      }
-    }
-
-    ImmutableList.Builder<String> hashStrs = ImmutableList.builderWithExpectedSize(toHash.size());
-    for (Map.Entry<String, Object> singleOptionAndValue : toHash.entrySet()) {
-      Object value = singleOptionAndValue.getValue();
-      if (value != null) {
-        hashStrs.add(singleOptionAndValue.getKey() + "=" + value);
-      } else {
-        // Avoid using =null to different from value being the non-null String "null"
-        hashStrs.add(singleOptionAndValue.getKey() + "@null");
-      }
-    }
-    return transitionDirectoryNameFragment(hashStrs.build());
-  }
-
+  /** Return different options in "affected by Starlark transition" form */
+  // TODO(blaze-configurability-team):This only exists for pseudo-legacy fixups of native
+  //   transitions. Remove once those fixups are removed in favor of the global fixup.
   public static ImmutableSet<String> getAffectedByStarlarkTransitionViaDiff(
       BuildOptions toOptions, BuildOptions baselineOptions) {
     if (toOptions.equals(baselineOptions)) {
@@ -492,7 +408,7 @@ public final class FunctionTransitionUtil {
 
   /**
    * Extend the global build config affectedByStarlarkTransition, by adding any new option names
-   * from changedOptions
+   * from changedOptions. Does nothing if output directory naming scheme is not in legacy mode.
    */
   public static void updateAffectedByStarlarkTransition(
       CoreOptions buildConfigOptions, Set<String> changedOptions) {
@@ -504,41 +420,6 @@ public final class FunctionTransitionUtil {
     mutableCopyToUpdate.addAll(changedOptions);
     buildConfigOptions.affectedByStarlarkTransition =
         ImmutableList.sortedCopyOf(mutableCopyToUpdate);
-  }
-
-  public static String transitionDirectoryNameFragment(Iterable<String> opts) {
-    Fingerprint fp = new Fingerprint();
-    for (String opt : opts) {
-      fp.addString(opt);
-    }
-    // Shorten the hash to 48 bits. This should provide sufficient collision avoidance
-    // (that is, we don't expect anyone to experience a collision ever).
-    // Shortening the hash is important for Windows paths that tend to be short.
-    String suffix = fp.hexDigestAndReset().substring(0, HASH_LENGTH);
-    return "ST-" + suffix;
-  }
-
-  /** Stores option info useful to a FunctionSplitTransition. */
-  private static final class OptionInfo {
-    private final Class<? extends FragmentOptions> optionClass;
-    private final OptionDefinition definition;
-
-    OptionInfo(Class<? extends FragmentOptions> optionClass, OptionDefinition definition) {
-      this.optionClass = optionClass;
-      this.definition = definition;
-    }
-
-    Class<? extends FragmentOptions> getOptionClass() {
-      return optionClass;
-    }
-
-    OptionDefinition getDefinition() {
-      return definition;
-    }
-
-    boolean hasMetadataTag(OptionMetadataTag tag) {
-      return stream(getDefinition().getOptionMetadataTags()).anyMatch(tag::equals);
-    }
   }
 
   private FunctionTransitionUtil() {}
