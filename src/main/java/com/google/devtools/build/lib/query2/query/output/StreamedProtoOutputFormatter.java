@@ -37,7 +37,7 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
         for (Target target : partialResult) {
-          toTargetProtoBuffer(target).writeDelimitedTo(out);
+          toTargetProtoBuffer(target).build().writeDelimitedTo(out);
         }
       }
     };

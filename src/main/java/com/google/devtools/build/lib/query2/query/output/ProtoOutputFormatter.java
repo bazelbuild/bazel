@@ -184,12 +184,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
+  public Build.Target.Builder toTargetProtoBuffer(Target target) throws InterruptedException {
     return toTargetProtoBuffer(target, /*extraDataForAttrHash=*/ "");
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
+  public Build.Target.Builder toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
@@ -251,6 +251,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         // include implicit outputs, host-configuration outputs, and default values.
         rule.getSortedLabels(dependencyFilter)
             .forEach(input -> rulePb.addRuleInput(input.toString()));
+
         rule.getOutputFiles().stream()
             .distinct()
             .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
@@ -369,7 +370,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       throw new IllegalArgumentException(target.toString());
     }
 
-    return targetPb.build();
+    return targetPb;
   }
 
   protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
@@ -564,7 +565,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       // constructing and serializing a QueryResult proto are protected by test coverage and proto
       // best practices.
       for (Target target : partialResult) {
-        codedOut.writeMessage(QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target));
+        codedOut.writeMessage(QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target).build());
       }
     }
 

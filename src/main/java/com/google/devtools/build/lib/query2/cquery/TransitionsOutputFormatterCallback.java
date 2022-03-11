@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.cquery.TransitionResolver.ResolvedTransition;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -110,83 +111,39 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
               + String.format(
                   "%s (%s)",
                   keyedConfiguredTarget.getConfiguredTarget().getOriginalLabel(), shortId(config)));
-      if (!(keyedConfiguredTarget.getConfiguredTarget() instanceof RuleConfiguredTarget)) {
-        continue;
-      }
-      OrderedSetMultimap<DependencyKind, DependencyKey> deps;
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          keyedConfiguredTarget.getConfigConditions();
-
-      // Get a ToolchainContext to use for dependency resolution.
-      ToolchainCollection<ToolchainContext> toolchainContexts =
-          accessor.getToolchainContexts(target, config);
+      KnownTargetsDependencyResolver knownTargetsDependencyResolver = new KnownTargetsDependencyResolver(partialResultMap);
+      Iterable<ResolvedTransition> dependencies;
       try {
-        // We don't actually use fromOptions in our implementation of
-        // DependencyResolver but passing to avoid passing a null and since we have the information
-        // anyway.
-        deps =
-            new FormatterDependencyResolver()
-                .dependentNodeMap(
-                    new TargetAndConfiguration(target, config),
-                    /*aspect=*/ null,
-                    configConditions,
-                    toolchainContexts,
-                    DependencyResolver.shouldUseToolchainTransition(config, target),
-                    trimmingTransitionFactory);
-      } catch (DependencyResolver.Failure | InconsistentAspectOrderException e) {
+        dependencies = new TransitionResolver(eventHandler, knownTargetsDependencyResolver, accessor, this, trimmingTransitionFactory).dependencies(keyedConfiguredTarget);
+      } catch(DependencyResolver.Failure | InconsistentAspectOrderException e){
         // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }
-      for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
-        if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
-            || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
-          continue;
-        }
-        DependencyKey dep = attributeAndDep.getValue();
-        BuildOptions fromOptions = config.getOptions();
-        // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
-        // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition
-        // for an example of the required logic.
-        Collection<BuildOptions> toOptions =
-            dep.getTransition()
-                .apply(TransitionUtil.restrict(dep.getTransition(), fromOptions), eventHandler)
-                .values();
-        String hostConfigurationChecksum = hostConfiguration.checksum();
-        String dependencyName;
-        if (DependencyKind.isToolchain(attributeAndDep.getKey())) {
-          ToolchainDependencyKind tdk = (ToolchainDependencyKind) attributeAndDep.getKey();
-          if (tdk.isDefaultExecGroup()) {
-            dependencyName = "[toolchain dependency]";
-          } else {
-            dependencyName = String.format("[toolchain dependency: %s]", tdk.getExecGroupName());
-          }
-        } else {
-          dependencyName = attributeAndDep.getKey().getAttribute().getName();
-        }
-        addResult(
-            "  "
-                .concat(dependencyName)
-                .concat("#")
-                .concat(dep.getLabel().toString())
-                .concat("#")
-                .concat(dep.getTransition().getName())
-                .concat(" -> ")
-                .concat(
-                    toOptions.stream()
-                        .map(
-                            options -> {
-                              String checksum = options.checksum();
-                              return checksum.equals(hostConfigurationChecksum)
-                                  ? "HOST"
-                                  : shortId(checksum);
-                            })
-                        .collect(joining(", "))));
+        for (ResolvedTransition dep : dependencies) {
+          addResult(
+              "  "
+                  .concat(dep.attributeName())
+                  .concat("#")
+                  .concat(dep.label().toString())
+                  .concat("#")
+                  .concat(dep.transitionName())
+                  .concat(" -> ")
+                  .concat(
+                      dep.options().stream()
+                          .map(
+                              options -> {
+                                String checksum = options.checksum();
+                                return checksum.equals(hostConfiguration.checksum())
+                                    ? "HOST"
+                                    : shortId(checksum);
+                              })
+                          .collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
           continue;
         }
         OptionsDiff diff = new OptionsDiff();
-        for (BuildOptions options : toOptions) {
-          diff = BuildOptions.diff(diff, fromOptions, options);
+        for (BuildOptions options : dep.options()) {
+          diff = BuildOptions.diff(diff, config.getOptions(), options);
         }
         diff.getPrettyPrintList().forEach(singleDiff -> addResult("    " + singleDiff));
       }
@@ -207,20 +164,5 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
     }
     return output;
-  }
-
-  private class FormatterDependencyResolver extends DependencyResolver {
-
-    @Override
-    protected Map<Label, Target> getTargets(
-        OrderedSetMultimap<DependencyKind, Label> labelMap,
-        TargetAndConfiguration fromNode,
-        NestedSetBuilder<Cause> rootCauses) {
-      return labelMap.values().stream()
-          .distinct()
-          .filter(Objects::nonNull)
-          .filter(partialResultMap::containsKey)
-          .collect(Collectors.toMap(Function.identity(), partialResultMap::get));
-    }
   }
 }
