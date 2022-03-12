@@ -30,21 +30,6 @@ if [[ -n "$VERBOSE_COVERAGE" ]]; then
   set -x
 fi
 
-if [[ -z "$LCOV_MERGER" ]]; then
-  # this can happen if a rule returns an InstrumentedFilesInfo (which all do
-  # following 5b216b2) but does not define an _lcov_merger attribute.
-  # Unfortunately, we cannot simply stop this script being called in this case
-  # due to conflicts with how things work within Google.
-  # The file creation is required because TestActionBuilder has already declared
-  # it.
-  # TODO(cmita): Improve this situation so this early-exit isn't required.
-  touch $COVERAGE_OUTPUT_FILE
-  # Execute the test.
-  "$@"
-  TEST_STATUS=$?
-  exit "$TEST_STATUS"
-fi
-
 function resolve_links() {
   local name="$1"
 
@@ -100,15 +85,6 @@ export JAVA_COVERAGE_FILE=$COVERAGE_DIR/jvcov.dat
 # Let tests know that it is a coverage run
 export COVERAGE=1
 export BULK_COVERAGE_RUN=1
-
-
-for name in "$LCOV_MERGER"; do
-  if [[ ! -e $name ]]; then
-    echo --
-    echo Coverage runner: cannot locate file $name
-    exit 1
-  fi
-done
 
 # Setting up the environment for executing the C++ tests.
 if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
@@ -201,6 +177,24 @@ cd $ROOT
 if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
     eval "${CC_CODE_COVERAGE_SCRIPT}"
 fi
+
+if [[ -z "$LCOV_MERGER" ]]; then
+  # this can happen if a rule returns an InstrumentedFilesInfo (which all do
+  # following 5b216b2) but does not define an _lcov_merger attribute.
+  # Unfortunately, we cannot simply stop this script being called in this case
+  # due to conflicts with how things work within Google.
+  # The file creation is required because TestActionBuilder has already declared
+  # it.
+  exit 0
+fi
+
+for name in "$LCOV_MERGER"; do
+  if [[ ! -e $name ]]; then
+    echo --
+    echo Coverage runner: cannot locate file $name
+    exit 1
+  fi
+done
 
 # Export the command line that invokes LcovMerger with the flags:
 # --coverage_dir          The absolute path of the directory where the
