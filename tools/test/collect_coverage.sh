@@ -40,6 +40,7 @@ if [[ -z "$LCOV_MERGER" ]]; then
   # TODO(cmita): Improve this situation so this early-exit isn't required.
   touch $COVERAGE_OUTPUT_FILE
   # Execute the test.
+  cd "$TEST_SRCDIR/$TEST_WORKSPACE"
   "$@"
   TEST_STATUS=$?
   exit "$TEST_STATUS"
