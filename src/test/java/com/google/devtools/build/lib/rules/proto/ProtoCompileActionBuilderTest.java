@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.OS;
@@ -153,7 +152,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -187,7 +185,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -218,7 +215,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of(protoSource("import1.proto"))),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -228,9 +224,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             "--java_out=param1,param2:foo.srcjar",
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
-            "--direct_dependencies",
-            "import1.proto",
-            String.format(ProtoCompileActionBuilder.STRICT_DEPS_FLAG_TEMPLATE, "//foo:bar"),
             "source_file.proto")
         .inOrder();
   }
@@ -244,8 +237,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
             /* providedProtoSources= */ ImmutableList.of());
-    useConfiguration(
-        "--strict_proto_deps=OFF", "--experimental_java_proto_add_allowed_public_imports");
+    useConfiguration("--strict_proto_deps=OFF");
 
     RuleContext ruleContext =
         getRuleContext(getConfiguredTarget("//foo:bar"), collectingAnalysisEnvironment);
@@ -260,7 +252,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare_because_no_plugin",
-        Exports.USE,
         Services.ALLOW);
 
     ImmutableList<String> cmdLine =
@@ -270,8 +261,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             "--java_out=param1,param2:foo.srcjar",
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
-            "--allowed_public_imports",
-            "export1.proto",
             "source_file.proto")
         .inOrder();
   }
@@ -292,7 +281,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "dontcare",
-        Exports.DO_NOT_USE,
         Services.DISALLOW);
 
     ImmutableList<String> cmdLine =
@@ -303,11 +291,11 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
   private static class InterceptOnDemandString extends OnDemandString implements StarlarkValue {
     boolean hasBeenCalled;
 
-          @Override
-          public String toString() {
+    @Override
+    public String toString() {
       hasBeenCalled = true;
-            return "mu";
-          }
+      return "mu";
+    }
   }
 
   @Test
@@ -333,7 +321,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
             /* strictImportableSources */ ImmutableList.of()),
         ImmutableList.of(out),
         "flavour",
-        Exports.DO_NOT_USE,
         Services.ALLOW);
 
     assertThat(outReplacement.hasBeenCalled).isFalse();
@@ -381,7 +368,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         /* strictImportableSources */ ImmutableList.of()),
                     ImmutableList.of(out),
                     "dontcare",
-                    Exports.DO_NOT_USE,
                     Services.ALLOW));
 
     assertThat(e)
@@ -398,8 +384,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 /* transitiveSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ null))
-        .containsAtLeast("-Ifoo.proto=out/foo.proto", "--direct_dependencies=")
-        .inOrder();
+        .contains("-Ifoo.proto=out/foo.proto");
   }
 
   @Test
@@ -410,8 +395,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()))))
-        .containsAtLeast("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto")
-        .inOrder();
+        .contains("-Ifoo.proto=out/foo.proto");
   }
 
   @Test
@@ -423,9 +407,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()),
                     protoSource(derivedArtifact("bar.proto"), derivedRoot.getExecPath()))))
-        .containsAtLeast(
-            "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto")
-        .inOrder();
+        .contains("-Ifoo.proto=out/foo.proto");
   }
 
   /**
@@ -443,8 +425,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                         artifact("@bla//foo:bar", "external/bla/foo/bar.proto"),
                         PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of()))
-        .containsAtLeast("-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies=")
-        .inOrder();
+        .contains("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
   @Test
@@ -456,9 +437,7 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                     protoSource(protoSource, PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of(
                     protoSource(protoSource, PathFragment.create("external/bla")))))
-        .containsAtLeast(
-            "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto")
-        .inOrder();
+        .contains("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
   private Artifact artifact(String ownerLabel, String path) {
@@ -497,7 +476,6 @@ public class ProtoCompileActionBuilderTest extends BuildViewTestCase {
                 : ImmutableList.copyOf(importableProtoSources)),
         ImmutableList.of(out),
         "dontcare",
-        Exports.DO_NOT_USE,
         Services.DISALLOW);
 
     return allArgsForAction(

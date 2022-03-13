@@ -24,6 +24,11 @@ import net.starlark.java.annot.StarlarkMethod;
 
 /** An abstract class containing documentation for a Starlark method. */
 public abstract class StarlarkMethodDoc extends StarlarkDoc {
+
+  public StarlarkMethodDoc(StarlarkDocExpander expander) {
+    super(expander);
+  }
+
   /** Returns whether the Starlark method is documented. */
   public abstract boolean documented();
 

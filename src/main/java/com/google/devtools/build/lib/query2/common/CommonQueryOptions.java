@@ -78,7 +78,7 @@ public class CommonQueryOptions extends OptionsBase {
               + " --universe_scope value inferred for a query expression that uses universe-scoped"
               + " functions (e.g.`allrdeps`) may not be what you want, so you should use this"
               + " option only if you know what you are doing. See"
-              + " https://docs.bazel.build/versions/main/query.html#sky-query for details and"
+              + " https://bazel.build/versions/reference/query#sky-query for details and"
               + " examples. If --universe_scope is set, then this option's value is ignored. Note:"
               + " this option applies only to `query` (i.e. not `cquery`).")
   public boolean inferUniverseScope;

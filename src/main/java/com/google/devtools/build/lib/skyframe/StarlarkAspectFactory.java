@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -82,6 +83,11 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         return null;
       }
       return createAspect(aspectStarlarkObject, ruleContext);
+    } catch (Starlark.UncheckedEvalException ex) {
+      // MissingDepException is expected to transit through Starlark execution.
+      throw ex.getCause() instanceof CachingAnalysisEnvironment.MissingDepException
+          ? (CachingAnalysisEnvironment.MissingDepException) ex.getCause()
+          : ex;
     } catch (EvalException e) {
       ruleContext.ruleError("\n" + e.getMessageWithStack());
       return null;

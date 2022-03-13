@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -279,11 +280,15 @@ public class CompactPersistentActionCache implements ActionCache {
   private static void renameCorruptedFiles(Path cacheRoot) {
     try {
       for (Path path :
-          UnixGlob.forPath(cacheRoot).addPattern("action_*_v" + VERSION + ".*").glob()) {
+          new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+              .addPattern("action_*_v" + VERSION + ".*")
+              .glob()) {
         path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
       }
       for (Path path :
-          UnixGlob.forPath(cacheRoot).addPattern("filename_*_v" + VERSION + ".*").glob()) {
+          new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+              .addPattern("filename_*_v" + VERSION + ".*")
+              .glob()) {
         path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
       }
     } catch (UnixGlob.BadPattern ex) {

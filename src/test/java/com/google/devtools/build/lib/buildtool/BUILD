@@ -156,7 +156,6 @@ java_test(
     name = "DanglingSymlinkTest",
     srcs = ["DanglingSymlinkTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -207,7 +206,6 @@ java_test(
     name = "EditDuringBuildTest",
     srcs = ["EditDuringBuildTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -331,7 +329,6 @@ java_test(
     name = "MiscAnalysisTest",
     srcs = ["MiscAnalysisTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -371,27 +368,9 @@ java_test(
 )
 
 java_test(
-    name = "ModifyBuildFileTest",
-    srcs = ["ModifyBuildFileTest.java"],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "NoOutputActionTest",
     srcs = ["NoOutputActionTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -489,6 +468,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -607,19 +587,7 @@ build_test(
         ":ActionListenerIntegrationTest",
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
-        ":ContextProviderInitializationTest",
-        ":CorruptedActionCacheTest",
-        ":DanglingSymlinkTest",
-        ":EditDuringBuildTest",
-        ":EnvironmentRestrictedBuildTest",
         ":IncludeValidationTest",
-        ":LabelCrossesPackageBoundaryTest",
-        ":MiscAnalysisTest",
-        ":ModifyBuildFileTest",
-        ":NoOutputActionTest",
-        ":PackageGroupIntegrationTest",
-        ":QueryIntegrationTest",
-        ":SymlinkDependencyAnalysisTest",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests",
         # Disabled in Google.
@@ -659,5 +627,23 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "SkymeldBuildIntegrationTest",
+    srcs = ["SkymeldBuildIntegrationTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )

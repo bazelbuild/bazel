@@ -221,10 +221,7 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("resource_strip_prefix", STRING))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resource_jars) -->
-          Set of archives containing Java resources.
-          <p>
-            If specified, the contents of these jars are merged into the output jar.
-          </p>
+          Deprecated: Use java_import and deps or runtime_deps instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("resource_jars", LABEL_LIST)
@@ -370,7 +367,7 @@ public class BazelJavaRuleClasses {
           <ul>
             <li>
               <code>stamp = 1</code>: Always stamp the build information into the binary, even in
-              <a href="../user-manual.html#flag--stamp"><code>--nostamp</code></a> builds. <b>This
+              <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
               setting should be avoided</b>, since it potentially kills remote caching for the
               binary and any downstream actions that depend on it.
             </li>
@@ -380,7 +377,7 @@ public class BazelJavaRuleClasses {
             </li>
             <li>
               <code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="../user-manual.html#flag--stamp"><code>--[no]stamp</code></a> flag.
+              <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
             </li>
           </ul>
           <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
@@ -397,7 +394,7 @@ public class BazelJavaRuleClasses {
 
           <p>By default, Bazel will use the normal JDK launcher (bin/java or java.exe).</p>
 
-          <p>The related <a href="../user-manual.html#flag--java_launcher"><code>
+          <p>The related <a href="${link user-manual#flag--java_launcher}"><code>
           --java_launcher</code></a> Bazel flag affects only those
           <code>java_binary</code> and <code>java_test</code> targets that have
           <i>not</i> specified a <code>launcher</code> attribute.</p>
@@ -433,7 +430,7 @@ public class BazelJavaRuleClasses {
 
           <p>If this attribute is set to false, the
           <a href="${link java_binary.launcher}">launcher</a> attribute  and the related
-          <a href="../user-manual.html#flag--java_launcher"><code>--java_launcher</code></a> flag
+          <a href="${link user-manual#flag--java_launcher}"><code>--java_launcher</code></a> flag
           will be ignored for this target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("use_launcher", BOOLEAN).value(true))

@@ -360,11 +360,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     checkObjcLibraryLinkoptsArePropagatedToLinkAction(getRuleType());
   }
 
-  @Test
-  public void testAvoidDepsObjectsWithCrosstool() throws Exception {
-    checkAvoidDepsObjectsWithCrosstool(getRuleType());
-  }
-
   /** Returns the bcsymbolmap artifact for given architecture and compilation mode. */
   protected Artifact bitcodeSymbol(String arch, CompilationMode mode) throws Exception {
     SpawnAction lipoAction = (SpawnAction) lipoBinAction("//examples/apple_starlark:bin");
@@ -906,6 +901,16 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   @Test
   public void testAvoidDepsObjects() throws Exception {
     checkAvoidDepsObjects(getRuleType());
+  }
+
+  @Test
+  public void testAvoidDepsObjcLibraries() throws Exception {
+    checkAvoidDepsObjcLibraries(getRuleType());
+  }
+
+  @Test
+  public void testAvoidDepsObjcLibrariesAvoidViaCcLibrary() throws Exception {
+    checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(getRuleType());
   }
 
   @Test

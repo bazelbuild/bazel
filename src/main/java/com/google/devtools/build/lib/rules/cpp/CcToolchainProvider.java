@@ -571,6 +571,13 @@ public final class CcToolchainProvider extends NativeInfo
     }
   }
 
+  @Override
+  public String getArtifactNameForCategory(
+      String category, String outputName, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return toolchainFeatures.getArtifactNameForCategory(
+        ArtifactCategory.valueOf(category), outputName);
+  }
   /**
    * Returns true if the featureConfiguration includes statically linking the cpp runtimes.
    *

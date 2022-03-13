@@ -270,13 +270,13 @@ public final class LinkCommandLine extends CommandLine {
         paramFile, linkTargetType, forcedToolPath, featureConfiguration, actionName, variables);
   }
 
-  public static void extractArgumentsForStaticLinkParamFile(
+  private static void extractArgumentsForStaticLinkParamFile(
       List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     commandlineArgs.add(args.get(0)); // ar command, must not be moved!
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
-      if (arg.startsWith("@")) {
+      if (isLikelyParamFile(arg)) {
         commandlineArgs.add(arg); // params file, keep it in the command line
       } else {
         paramFileArgs.add(arg); // the rest goes to the params file
@@ -284,7 +284,7 @@ public final class LinkCommandLine extends CommandLine {
     }
   }
 
-  public static void extractArgumentsForDynamicLinkParamFile(
+  private static void extractArgumentsForDynamicLinkParamFile(
       List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     // Note, that it is not important that all linker arguments are extracted so that
     // they can be moved into a parameter file, but the vast majority should.
@@ -292,12 +292,19 @@ public final class LinkCommandLine extends CommandLine {
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
-      if (arg.startsWith("@")) {
+      if (isLikelyParamFile(arg)) {
         commandlineArgs.add(arg); // params file, keep it in the command line
       } else {
         paramFileArgs.add(arg); // the rest goes to the params file
       }
     }
+  }
+
+  private static boolean isLikelyParamFile(String arg) {
+    return arg.startsWith("@")
+        && !arg.startsWith("@rpath")
+        && !arg.startsWith("@loader_path")
+        && !arg.startsWith("@executable_path");
   }
 
   /**

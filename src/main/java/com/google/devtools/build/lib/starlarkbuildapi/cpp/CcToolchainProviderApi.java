@@ -246,4 +246,15 @@ public interface CcToolchainProviderApi<
 
   @StarlarkMethod(name = "dwp_files", documented = false, useStarlarkThread = true)
   Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_artifact_name_for_category",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "category", positional = false, named = true),
+        @Param(name = "output_name", positional = false, named = true)
+      })
+  String getArtifactNameForCategory(String category, String outputName, StarlarkThread thread)
+      throws EvalException;
 }

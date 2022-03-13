@@ -25,8 +25,8 @@ public class ProtoFileBuildEncyclopediaProcessor extends BuildEncyclopediaProces
   private ImmutableList<RuleDocumentation> nativeRules = null;
 
   public ProtoFileBuildEncyclopediaProcessor(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
-    super(productName, ruleClassProvider);
+      RuleLinkExpander linkExpander, ConfiguredRuleClassProvider ruleClassProvider) {
+    super(linkExpander, ruleClassProvider);
   }
 
   /*
@@ -36,10 +36,8 @@ public class ProtoFileBuildEncyclopediaProcessor extends BuildEncyclopediaProces
   @Override
   public void generateDocumentation(List<String> inputDirs, String outputFile, String denyList)
       throws BuildEncyclopediaDocException, IOException {
-    BuildDocCollector collector = new BuildDocCollector(productName, ruleClassProvider, false);
-    RuleLinkExpander expander = new RuleLinkExpander(productName, true);
-    Map<String, RuleDocumentation> ruleDocEntries =
-        collector.collect(inputDirs, denyList, expander);
+    BuildDocCollector collector = new BuildDocCollector(linkExpander, ruleClassProvider, false);
+    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(inputDirs, denyList);
     RuleFamilies ruleFamilies = assembleRuleFamilies(ruleDocEntries.values());
     ImmutableList.Builder<RuleDocumentation> ruleDocsBuilder = new ImmutableList.Builder<>();
 

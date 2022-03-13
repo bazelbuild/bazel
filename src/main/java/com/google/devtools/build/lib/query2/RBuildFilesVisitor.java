@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -53,7 +54,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -302,30 +302,24 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
   }
 
   private static void includeAncestorKeysInResult(
-      WalkableGraph graph, Set<SkyKey> result, Set<RootedPath> pathsToCheckForNewlyAddedDirectories)
+      WalkableGraph graph, Set<SkyKey> result, Set<? extends FileStateKey> fileStateKeysToFetch)
       throws InterruptedException {
     // Do a single batch fetch of all FileState's corresponding to directories with
     // failed package lookups.
-    Set<SkyKey> fileStateKeysToFetch =
-        pathsToCheckForNewlyAddedDirectories.stream()
-            .map(FileStateValue::key)
-            .collect(Collectors.toSet());
     Map<SkyKey, SkyValue> fileStateValues = graph.getSuccessfulValues(fileStateKeysToFetch);
-
     for (SkyKey fileStateKey : fileStateKeysToFetch) {
       if (fileStateValues.containsKey(fileStateKey)) {
         FileStateValue fsv = (FileStateValue) fileStateValues.get(fileStateKey);
         if (!fsv.getType().exists() && !fsv.getType().isDirectory()) {
-          processFileStateKeyForMissingDirectory(result, (FileStateValue.Key) fileStateKey);
+          processFileStateKeyForMissingDirectory(result, (FileStateKey) fileStateKey);
         }
       } else {
-        processFileStateKeyForMissingDirectory(result, (FileStateValue.Key) fileStateKey);
+        processFileStateKeyForMissingDirectory(result, (FileStateKey) fileStateKey);
       }
     }
   }
 
-  private static void processFileStateKeyForMissingDirectory(
-      Set<SkyKey> result, FileStateValue.Key key) {
+  private static void processFileStateKeyForMissingDirectory(Set<SkyKey> result, FileStateKey key) {
     RootedPath rootedPath = key.argument();
     result.add(key);
     result.add(FileValue.key(rootedPath));

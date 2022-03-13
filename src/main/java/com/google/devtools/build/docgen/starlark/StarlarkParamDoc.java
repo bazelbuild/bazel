@@ -21,7 +21,8 @@ public final class StarlarkParamDoc extends StarlarkDoc {
   private StarlarkMethodDoc method;
   private Param param;
 
-  public StarlarkParamDoc(StarlarkMethodDoc method, Param param) {
+  public StarlarkParamDoc(StarlarkMethodDoc method, Param param, StarlarkDocExpander expander) {
+    super(expander);
     this.method = method;
     this.param = param;
   }
@@ -65,7 +66,7 @@ public final class StarlarkParamDoc extends StarlarkDoc {
   }
 
   @Override
-  public String getDocumentation() {
+  public String getRawDocumentation() {
     String prefixWarning = "";
     if (!param.enableOnlyWithFlag().isEmpty()) {
       prefixWarning =
@@ -83,6 +84,6 @@ public final class StarlarkParamDoc extends StarlarkDoc {
               + "</code>. Use this flag "
               + "to verify your code is compatible with its imminent removal. <br>";
     }
-    return prefixWarning + StarlarkDocUtils.substituteVariables(param.doc());
+    return prefixWarning + param.doc();
   }
 }

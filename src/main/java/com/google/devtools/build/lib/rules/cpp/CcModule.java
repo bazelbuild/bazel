@@ -973,10 +973,8 @@ public abstract class CcModule
   }
 
   @Override
-  public void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
-    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY)) {
-      throw Starlark.errorf("Pass --experimental_cc_shared_library to use cc_shared_library");
-    }
+  public boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
+    return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY);
   }
 
   @Override

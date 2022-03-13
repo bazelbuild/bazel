@@ -19,9 +19,12 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * Interface for objects that can be posted on the public event stream.
@@ -73,15 +76,33 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
     public final Path path;
     public final LocalFileType type;
     public final LocalFileCompression compression;
+    // TODO(b/199940216): use when possible to get source artifact canonical path.
+    @Nullable public final Artifact artifact;
+    @Nullable public final FileArtifactValue artifactMetadata;
 
-    public LocalFile(Path path, LocalFileType type) {
-      this(path, type, LocalFileCompression.NONE);
+    public LocalFile(
+        Path path,
+        LocalFileType type,
+        @Nullable Artifact artifact,
+        @Nullable FileArtifactValue artifactMetadata) {
+      this(path, type, LocalFileCompression.NONE, artifact, artifactMetadata);
     }
 
-    public LocalFile(Path path, LocalFileType type, LocalFileCompression compression) {
+    public LocalFile(
+        Path path,
+        LocalFileType type,
+        LocalFileCompression compression,
+        @Nullable Artifact artifact,
+        @Nullable FileArtifactValue artifactMetadata) {
       this.path = Preconditions.checkNotNull(path);
       this.type = Preconditions.checkNotNull(type);
       this.compression = Preconditions.checkNotNull(compression);
+      this.artifact = artifact;
+      this.artifactMetadata = artifactMetadata;
+      Preconditions.checkState(
+          (artifact == null) == (artifactMetadata == null),
+          "Artifact and metadata must both be null or both non-null: %s",
+          this);
     }
 
     @Override
@@ -95,6 +116,8 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       LocalFile localFile = (LocalFile) o;
       return Objects.equal(path, localFile.path)
           && type == localFile.type
+          && Objects.equal(artifact, localFile.artifact)
+          && Objects.equal(artifactMetadata, localFile.artifactMetadata)
           && compression == localFile.compression;
     }
 
@@ -108,6 +131,8 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       return MoreObjects.toStringHelper(LocalFile.class)
           .add("path", path)
           .add("type", type)
+          .add("artifact", artifact)
+          .add("artifactMetadata", artifactMetadata)
           .toString();
     }
   }

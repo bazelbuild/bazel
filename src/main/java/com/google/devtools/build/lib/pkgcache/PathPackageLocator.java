@@ -223,22 +223,27 @@ public final class PathPackageLocator {
    * <p>If there are WORKSPACE files beneath multiple package path entries, the first one always
    * wins.
    */
-  public Path getWorkspaceFile() {
+  public Path getWorkspaceFile(SyscallCache syscallCache) {
     // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
-    // file.
-    Path workspaceFile =
-        getFilePath(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME, SyscallCache.NO_CACHE);
+    //  file.
+    Path workspaceFile = getFilePath(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME, syscallCache);
     if (workspaceFile != null) {
       return workspaceFile;
     }
-    return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, SyscallCache.NO_CACHE);
+    return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, syscallCache);
   }
 
   private Path getFilePath(PathFragment suffix, SyscallCache cache) {
     for (Root pathEntry : pathEntries) {
       Path buildFile = pathEntry.getRelative(suffix);
       try {
-        Dirent.Type type = cache.getType(buildFile, Symlinks.FOLLOW);
+        SyscallCache.DirentTypeWithSkip typeWithSkip = cache.getType(buildFile, Symlinks.FOLLOW);
+        Dirent.Type type = null;
+        if (typeWithSkip == SyscallCache.DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED) {
+          type = SyscallCache.statusToDirentType(cache.statIfFound(buildFile, Symlinks.FOLLOW));
+        } else if (typeWithSkip != null) {
+          type = typeWithSkip.getType();
+        }
         if (type == Dirent.Type.FILE || type == Dirent.Type.UNKNOWN) {
           return buildFile;
         }

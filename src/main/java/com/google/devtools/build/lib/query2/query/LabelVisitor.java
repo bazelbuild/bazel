@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -66,16 +68,16 @@ import java.util.concurrent.Executors;
  * methods have completed.
  */
 final class LabelVisitor {
-  private static final VisitationAttributes NONE = new VisitationAttributes(ImmutableSet.of(), 0);
-  private final String debugString;
+  private static final VisitationAttributes NONE =
+      new VisitationAttributes(ImmutableSet.of(), OptionalInt.of(0));
 
   /** Attributes of a visitation which determine whether it is up-to-date or not. */
   private static class VisitationAttributes {
     private final Set<Target> targetsToVisit;
-    private final int maxDepth;
+    private final OptionalInt maxDepth;
     private boolean success;
 
-    VisitationAttributes(Set<Target> targetsToVisit, int maxDepth) {
+    VisitationAttributes(Set<Target> targetsToVisit, OptionalInt maxDepth) {
       this.targetsToVisit = targetsToVisit;
       this.maxDepth = maxDepth;
     }
@@ -83,7 +85,8 @@ final class LabelVisitor {
     /** Returns true if and only if this visitation attribute is still up-to-date. */
     boolean current(VisitationAttributes lastVisitation) {
       return targetsToVisit.equals(lastVisitation.targetsToVisit)
-          && maxDepth <= lastVisitation.maxDepth;
+          && (!lastVisitation.maxDepth.isPresent()
+              || !QueryEnvironment.shouldVisit(maxDepth, lastVisitation.maxDepth.getAsInt()));
     }
   }
 
@@ -153,12 +156,10 @@ final class LabelVisitor {
    * @param targetProvider how to resolve labels to targets
    * @param edgeFilter which edges may be traversed
    */
-  public LabelVisitor(
-      TargetProvider targetProvider, DependencyFilter edgeFilter, String debugString) {
+  public LabelVisitor(TargetProvider targetProvider, DependencyFilter edgeFilter) {
     this.targetProvider = targetProvider;
     this.lastVisitation = NONE;
     this.edgeFilter = edgeFilter;
-    this.debugString = debugString;
   }
 
   void syncWithVisitor(
@@ -166,7 +167,7 @@ final class LabelVisitor {
       Set<Target> targetsToVisit,
       boolean keepGoing,
       int parallelThreads,
-      int maxDepth,
+      OptionalInt maxDepth,
       TargetEdgeObserver observer)
       throws InterruptedException {
     VisitationAttributes nextVisitation = new VisitationAttributes(targetsToVisit, maxDepth);
@@ -187,7 +188,7 @@ final class LabelVisitor {
       Iterable<Target> targetsToVisit,
       boolean keepGoing,
       int parallelThreads,
-      int maxDepth,
+      OptionalInt maxDepth,
       TargetEdgeObserver observer)
       throws InterruptedException {
     lastVisitation = NONE;
@@ -200,13 +201,12 @@ final class LabelVisitor {
       Iterable<Target> targetsToVisit,
       boolean keepGoing,
       int parallelThreads,
-      int maxDepth,
+      OptionalInt maxDepth,
       TargetEdgeObserver observer)
       throws InterruptedException {
     visitedTargets.clear();
 
-    Visitor visitor =
-        new Visitor(eventHandler, keepGoing, parallelThreads, maxDepth, observer, debugString);
+    Visitor visitor = new Visitor(eventHandler, keepGoing, parallelThreads, maxDepth, observer);
 
     Throwable uncaught = null;
     boolean result;
@@ -228,12 +228,12 @@ final class LabelVisitor {
   }
 
   private class Visitor {
-    private static final String THREAD_NAME = "LabelVisitor-";
+    private static final String THREAD_NAME = "LabelVisitor";
 
     private final ExecutorService executorService;
     private final QuiescingExecutor executor;
     private final ExtendedEventHandler eventHandler;
-    private final int maxDepth;
+    private final OptionalInt maxDepth;
 
     // Observers are stored individually instead of in a list to reduce iteration cost.
     private final TargetEdgeObserver observer;
@@ -243,20 +243,16 @@ final class LabelVisitor {
         ExtendedEventHandler eventHandler,
         boolean keepGoing,
         int parallelThreads,
-        int maxDepth,
-        TargetEdgeObserver observer,
-        String debugString) {
+        OptionalInt maxDepth,
+        TargetEdgeObserver observer) {
       if (parallelThreads > 1) {
-        this.executorService =
-            NamedForkJoinPool.newNamedPool(THREAD_NAME + debugString, parallelThreads);
+        this.executorService = NamedForkJoinPool.newNamedPool(THREAD_NAME, parallelThreads);
       } else {
         // ForkJoinPool has a bug where it deadlocks with parallelism=1, so use a
         // SingleThreadExecutor instead.
         this.executorService =
             Executors.newSingleThreadExecutor(
-                new ThreadFactoryBuilder()
-                    .setNameFormat(THREAD_NAME + debugString + " %d")
-                    .build());
+                new ThreadFactoryBuilder().setNameFormat(THREAD_NAME + " %d").build());
       }
       this.executor =
           AbstractQueueVisitor.createWithExecutorService(
@@ -288,14 +284,9 @@ final class LabelVisitor {
       executorService.shutdownNow();
     }
 
-    private void enqueueTarget(
-        final Target from,
-        final Attribute attr,
-        final Label label,
-        final int depth,
-        final int count) {
+    private void enqueueTarget(Target from, Attribute attr, Label label, int depth, int count) {
       // Don't perform the targetProvider lookup if at the maximum depth already.
-      if (depth >= maxDepth) {
+      if (maxDepth.isPresent() && depth >= maxDepth.getAsInt()) {
         return;
       }
 
@@ -342,7 +333,7 @@ final class LabelVisitor {
                 from == null ? "(null)" : from.getLabel().toString(),
                 attribute == null ? "(null)" : attribute.getName()));
       }
-      if (depth > maxDepth) {
+      if (!QueryEnvironment.shouldVisit(maxDepth, depth)) {
         return;
       }
 
@@ -390,9 +381,9 @@ final class LabelVisitor {
         // The target was already visited at a greater depth.
         // The closure we are about to build is therefore a subset of what
         // has already been built, and we can skip it.
-        // Also special case MAX_VALUE, where we never want to revisit targets.
+        // Also special case no depth bound, where we never want to revisit targets.
         // (This avoids loading phase overhead outside of queries).
-        if (maxDepth == Integer.MAX_VALUE || minTargetDepth <= depth) {
+        if (!maxDepth.isPresent() || minTargetDepth <= depth) {
           return;
         }
         // Check again in case it was overwritten by another thread.

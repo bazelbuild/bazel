@@ -51,59 +51,6 @@ class OptionsUsage {
     }
   }
 
-  /**
-   * Paragraph-fill the specified input text, indenting lines to 'indent' and
-   * wrapping lines at 'width'.  Returns the formatted result.
-   */
-  static String paragraphFill(String in, int indent, int width) {
-    String indentString = " ".repeat(indent);
-    StringBuilder out = new StringBuilder();
-    String sep = "";
-    for (String paragraph : NEWLINE_SPLITTER.split(in)) {
-      // TODO(ccalvarin) break iterators expect hyphenated words to be line-breakable, which looks
-      // funny for --flag
-      BreakIterator boundary = BreakIterator.getLineInstance(); // (factory)
-      boundary.setText(paragraph);
-      out.append(sep).append(indentString);
-      int cursor = indent;
-      for (int start = boundary.first(), end = boundary.next();
-           end != BreakIterator.DONE;
-           start = end, end = boundary.next()) {
-        String word =
-            paragraph.substring(start, end); // (may include trailing space)
-        if (word.length() + cursor > width) {
-          out.append('\n').append(indentString);
-          cursor = indent;
-        }
-        out.append(word);
-        cursor += word.length();
-      }
-      sep = "\n";
-    }
-    return out.toString();
-  }
-
-  /**
-   * Returns the expansion for an option, if any, regardless of if the expansion is from a function
-   * or is statically declared in the annotation.
-   */
-  private static @Nullable ImmutableList<String> getExpansionIfKnown(
-      OptionDefinition optionDefinition, OptionsData optionsData) {
-    Preconditions.checkNotNull(optionDefinition);
-    return optionsData.getEvaluatedExpansion(optionDefinition);
-  }
-
-  // Placeholder tag "UNKNOWN" is ignored.
-  private static boolean shouldEffectTagBeListed(OptionEffectTag effectTag) {
-    return !effectTag.equals(OptionEffectTag.UNKNOWN);
-  }
-
-  // Tags that only apply to undocumented options are excluded.
-  private static boolean shouldMetadataTagBeListed(OptionMetadataTag metadataTag) {
-    return !metadataTag.equals(OptionMetadataTag.HIDDEN)
-        && !metadataTag.equals(OptionMetadataTag.INTERNAL);
-  }
-
   /** Appends the usage message for a single option-field message to 'usage'. */
   static void getUsage(
       OptionDefinition optionDefinition,
@@ -188,6 +135,60 @@ class OptionsUsage {
       usage.append(paragraphFill("Tags: " + tagList, 6, 80)); // (indent, width)
       usage.append("\n");
     }
+  }
+
+  /**
+   * Paragraph-fill the specified input text, indenting lines to 'indent' and
+   * wrapping lines at 'width'.  Returns the formatted result.
+   */
+  static String paragraphFill(String in, int indent, int width) {
+    String indentString = " ".repeat(indent);
+    StringBuilder out = new StringBuilder();
+    String sep = "";
+    for (String paragraph : NEWLINE_SPLITTER.split(in)) {
+      // TODO(ccalvarin) break iterators expect hyphenated words to be line-breakable, which looks
+      // funny for --flag
+      BreakIterator boundary = BreakIterator.getLineInstance(); // (factory)
+      boundary.setText(paragraph);
+      out.append(sep).append(indentString);
+      int cursor = indent;
+      for (int start = boundary.first(), end = boundary.next();
+           end != BreakIterator.DONE;
+           start = end, end = boundary.next()) {
+        String word =
+            paragraph.substring(start, end); // (may include trailing space)
+        if (word.length() + cursor > width) {
+          out.append('\n').append(indentString);
+          cursor = indent;
+        }
+        out.append(word);
+        cursor += word.length();
+      }
+      sep = "\n";
+    }
+    return out.toString();
+  }
+
+  /**
+   * Returns the expansion for an option, if any, regardless of if the expansion is from a function
+   * or is statically declared in the annotation.
+   */
+  @Nullable
+  private static ImmutableList<String> getExpansionIfKnown(
+      OptionDefinition optionDefinition, OptionsData optionsData) {
+    Preconditions.checkNotNull(optionDefinition);
+    return optionsData.getEvaluatedExpansion(optionDefinition);
+  }
+
+  // Placeholder tag "UNKNOWN" is ignored.
+  private static boolean shouldEffectTagBeListed(OptionEffectTag effectTag) {
+    return !effectTag.equals(OptionEffectTag.UNKNOWN);
+  }
+
+  // Tags that only apply to undocumented options are excluded.
+  private static boolean shouldMetadataTagBeListed(OptionMetadataTag metadataTag) {
+    return !metadataTag.equals(OptionMetadataTag.HIDDEN)
+        && !metadataTag.equals(OptionMetadataTag.INTERNAL);
   }
 
   /** Append the usage message for a single option-field message to 'usage'. */

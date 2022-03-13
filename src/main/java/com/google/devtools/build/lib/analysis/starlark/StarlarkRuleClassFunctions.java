@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -68,12 +70,12 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -568,17 +570,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   private static ImmutableList<Label> parseLabels(
       Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
-    BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    LabelConversionContext context =
-        new LabelConversionContext(
-            moduleContext.label(),
-            moduleContext.repoMapping(),
-            bazelStarlarkContext.getConvertedLabelsInPackage());
+    LabelConverter converter = LabelConverter.forThread(thread);
     for (String input : inputs) {
       try {
-        Label label = context.convert(input);
+        Label label = converter.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf(
@@ -703,6 +698,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
     }
 
+    ImmutableList<Label> toolchainTypes = parseToolchains(toolchains, thread);
     return new StarlarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -716,7 +712,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
-        parseToolchains(toolchains, thread),
+        toolchainTypes.stream()
+            .map(tt -> ToolchainTypeRequirement.create(tt))
+            .collect(toImmutableSet()),
         useToolchainTransition,
         applyToGeneratingRules);
   }

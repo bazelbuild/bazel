@@ -75,11 +75,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -109,7 +108,7 @@ public class PackageFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
   private final AtomicBoolean showLoadingProgress;
-  private final AtomicInteger numPackagesLoaded;
+  private final AtomicInteger numPackagesSuccessfullyLoaded;
   @Nullable private final PackageProgressReceiver packageProgress;
 
   // Not final only for testing.
@@ -176,7 +175,7 @@ public class PackageFunction implements SkyFunction {
       PackageFactory packageFactory,
       CachingPackageLocator pkgLocator,
       AtomicBoolean showLoadingProgress,
-      AtomicInteger numPackagesLoaded,
+      AtomicInteger numPackagesSuccessfullyLoaded,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
@@ -186,7 +185,7 @@ public class PackageFunction implements SkyFunction {
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
     this.showLoadingProgress = showLoadingProgress;
-    this.numPackagesLoaded = numPackagesLoaded;
+    this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.incrementalityIntent = incrementalityIntent;
@@ -281,11 +280,10 @@ public class PackageFunction implements SkyFunction {
       throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException {
     checkState(Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
     FileSymlinkException arbitraryFse = null;
-    for (Map.Entry<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>> entry :
-        env.getValuesOrThrow(depKeys, IOException.class, BuildFileNotFoundException.class)
-            .entrySet()) {
+    SkyframeIterableResult skyframeIterableResult = env.getOrderedValuesAndExceptions(depKeys);
+    while (skyframeIterableResult.hasNext()) {
       try {
-        entry.getValue().get();
+        skyframeIterableResult.nextOrThrow(IOException.class, BuildFileNotFoundException.class);
       } catch (InconsistentFilesystemException e) {
         throw new InternalInconsistentFilesystemException(packageIdentifier, e);
       } catch (FileSymlinkException e) {
@@ -358,6 +356,9 @@ public class PackageFunction implements SkyFunction {
       } catch (InvalidPackageException e) {
         throw new PackageFunctionException(e, Transience.PERSISTENT);
       }
+    }
+    if (!pkg.containsErrors()) {
+      numPackagesSuccessfullyLoaded.incrementAndGet();
     }
     return new PackageValue(pkg);
   }
@@ -564,7 +565,9 @@ public class PackageFunction implements SkyFunction {
     } catch (InvalidPackageException e) {
       throw new PackageFunctionException(e, Transience.PERSISTENT);
     }
-
+    if (!pkg.containsErrors()) {
+      numPackagesSuccessfullyLoaded.incrementAndGet();
+    }
     return new PackageValue(pkg);
   }
 
@@ -671,13 +674,11 @@ public class PackageFunction implements SkyFunction {
       Environment env, List<BzlLoadValue.Key> keys)
       throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    Map<SkyKey, ValueOrException<BzlLoadFailedException>> starlarkLookupResults =
-        env.getValuesOrThrow(keys, BzlLoadFailedException.class);
-    // TODO(b/172462551): use list-based utility (see CL 342917514).
-    for (BzlLoadValue.Key key : keys) {
+    SkyframeIterableResult starlarkLookupResults = env.getOrderedValuesAndExceptions(keys);
+    for (int i = 0; i < keys.size(); i++) {
       // TODO(adonovan): if get fails, report the source location
       // in the corresponding programLoads[i] (see caller).
-      bzlLoads.add((BzlLoadValue) starlarkLookupResults.get(key).get());
+      bzlLoads.add((BzlLoadValue) starlarkLookupResults.nextOrThrow(BzlLoadFailedException.class));
     }
     return env.valuesMissing() ? null : bzlLoads;
   }
@@ -759,24 +760,29 @@ public class PackageFunction implements SkyFunction {
       targetToKey.put(target, key);
       containingPkgLookupKeys.add(key);
     }
-    Map<SkyKey, ValueOrException2<BuildFileNotFoundException, InconsistentFilesystemException>>
-        containingPkgLookupValues =
-            env.getValuesOrThrow(
-                containingPkgLookupKeys,
-                BuildFileNotFoundException.class,
-                InconsistentFilesystemException.class);
+    SkyframeLookupResult containingPkgLookupValues =
+        env.getValuesAndExceptions(containingPkgLookupKeys);
     if (env.valuesMissing() || containingPkgLookupKeys.isEmpty()) {
       return;
     }
     for (Iterator<Target> iterator = pkgBuilder.getTargets().iterator(); iterator.hasNext(); ) {
       Target target = iterator.next();
       SkyKey key = targetToKey.get(target);
-      if (!containingPkgLookupValues.containsKey(key)) {
+      if (!containingPkgLookupKeys.contains(key)) {
         continue;
       }
-      ContainingPackageLookupValue containingPackageLookupValue =
-          getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(
-              pkgId, containingPkgLookupValues.get(key), env);
+      ContainingPackageLookupValue containingPackageLookupValue;
+      try {
+        containingPackageLookupValue =
+            (ContainingPackageLookupValue)
+                containingPkgLookupValues.getOrThrow(
+                    key, BuildFileNotFoundException.class, InconsistentFilesystemException.class);
+      } catch (BuildFileNotFoundException e) {
+        env.getListener().handle(Event.error(null, e.getMessage()));
+        containingPackageLookupValue = null;
+      } catch (InconsistentFilesystemException e) {
+        throw new InternalInconsistentFilesystemException(pkgId, e);
+      }
       if (maybeAddEventAboutLabelCrossingSubpackage(
           pkgBuilder,
           pkgRoot,
@@ -786,24 +792,6 @@ public class PackageFunction implements SkyFunction {
         iterator.remove();
         pkgBuilder.setContainsErrors();
       }
-    }
-  }
-
-  @Nullable
-  private static ContainingPackageLookupValue
-      getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(
-          PackageIdentifier packageIdentifier,
-          ValueOrException2<BuildFileNotFoundException, InconsistentFilesystemException>
-              containingPkgLookupValueOrException,
-          Environment env)
-          throws InternalInconsistentFilesystemException {
-    try {
-      return (ContainingPackageLookupValue) containingPkgLookupValueOrException.get();
-    } catch (BuildFileNotFoundException e) {
-      env.getListener().handle(Event.error(null, e.getMessage()));
-      return null;
-    } catch (InconsistentFilesystemException e) {
-      throw new InternalInconsistentFilesystemException(packageIdentifier, e);
     }
   }
 
@@ -992,11 +980,21 @@ public class PackageFunction implements SkyFunction {
 
       globDepsRequested.addAll(globKeys);
 
-      Map<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>> globValueMap =
-          env.getValuesOrThrow(globKeys, IOException.class, BuildFileNotFoundException.class);
+      SkyframeLookupResult globValueMap = env.getValuesAndExceptions(globKeys);
 
       // For each missing glob, evaluate it asynchronously via the delegate.
-      Collection<SkyKey> missingKeys = getMissingKeys(globKeys, globValueMap);
+      List<SkyKey> missingKeys = new ArrayList<>(globKeys.size());
+      for (SkyKey globKey : globKeys) {
+        try {
+          SkyValue value =
+              globValueMap.getOrThrow(globKey, IOException.class, BuildFileNotFoundException.class);
+          if (value == null) {
+            missingKeys.add(globKey);
+          }
+        } catch (IOException | BuildFileNotFoundException e) {
+          logger.atWarning().withCause(e).log("Exception processing %s", globKey);
+        }
+      }
       List<String> globsToDelegate = new ArrayList<>(missingKeys.size());
       for (SkyKey missingKey : missingKeys) {
         String missingPattern = globKeyToPatternMap.get(missingKey);
@@ -1012,27 +1010,6 @@ public class PackageFunction implements SkyFunction {
                   globsToDelegate, ImmutableList.of(), globberOperation, allowEmpty);
       return new HybridToken(
           globValueMap, globKeys, nonSkyframeIncludesToken, excludes, globberOperation, allowEmpty);
-    }
-
-    private static Collection<SkyKey> getMissingKeys(
-        Collection<SkyKey> globKeys,
-        Map<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>> globValueMap) {
-      List<SkyKey> missingKeys = new ArrayList<>(globKeys.size());
-      for (SkyKey globKey : globKeys) {
-        ValueOrException2<IOException, BuildFileNotFoundException> valueOrException =
-            globValueMap.get(globKey);
-        if (valueOrException == null) {
-          missingKeys.add(globKey);
-        }
-        try {
-          if (valueOrException.get() == null) {
-            missingKeys.add(globKey);
-          }
-        } catch (IOException | BuildFileNotFoundException e) {
-          logger.atWarning().withCause(e).log("Exception processing %s", globKey);
-        }
-      }
-      return missingKeys;
     }
 
     @Override
@@ -1060,8 +1037,7 @@ public class PackageFunction implements SkyFunction {
      */
     private static class HybridToken extends Globber.Token {
       // The result of the Skyframe lookup for all the needed glob patterns.
-      private final Map<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>>
-          globValueMap;
+      private final SkyframeLookupResult globValueMap;
       // The skyframe keys corresponding to the 'includes' patterns fetched from Skyframe
       // (this is includes_sky above).
       private final Iterable<SkyKey> includesGlobKeys;
@@ -1074,7 +1050,7 @@ public class PackageFunction implements SkyFunction {
       private final boolean allowEmpty;
 
       private HybridToken(
-          Map<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>> globValueMap,
+          SkyframeLookupResult globValueMap,
           Iterable<SkyKey> includesGlobKeys,
           @Nullable NonSkyframeGlobber.Token nonSkyframeGlobberIncludesToken,
           List<String> excludes,
@@ -1120,14 +1096,14 @@ public class PackageFunction implements SkyFunction {
       }
 
       private static NestedSet<PathFragment> getGlobMatches(
-          SkyKey globKey,
-          Map<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>> globValueMap)
-          throws IOException {
-        ValueOrException2<IOException, BuildFileNotFoundException> valueOrException =
-            checkNotNull(globValueMap.get(globKey), "%s should not be missing", globKey);
+          SkyKey globKey, SkyframeLookupResult globValueMap) throws IOException {
         try {
           return checkNotNull(
-                  (GlobValue) valueOrException.get(), "%s should not be missing", globKey)
+                  (GlobValue)
+                      globValueMap.getOrThrow(
+                          globKey, BuildFileNotFoundException.class, IOException.class),
+                  "%s should not be missing",
+                  globKey)
               .getMatches();
         } catch (BuildFileNotFoundException e) {
           throw new SkyframeGlobbingIOException(e);
@@ -1356,7 +1332,6 @@ public class PackageFunction implements SkyFunction {
         pkgBuilder.setContainsErrors();
       }
 
-      numPackagesLoaded.incrementAndGet();
       long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
       return new LoadedPackage(pkgBuilder, globDepKeys, loadTimeNanos);
 

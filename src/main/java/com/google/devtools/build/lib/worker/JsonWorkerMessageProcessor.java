@@ -79,7 +79,7 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
             path = reader.nextString();
             break;
           default:
-            // As per https://docs.bazel.build/versions/main/creating-workers.html#work-responses,
+            // As per https://bazel.build/docs/creating-workers#work-responses,
             // unknown fields are ignored.
             reader.skipValue();
             break;
@@ -135,7 +135,7 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
             verbosity = reader.nextInt();
             break;
           default:
-            // As per https://docs.bazel.build/versions/main/creating-workers.html#work-responses,
+            // As per https://bazel.build/docs/creating-workers#work-responses,
             // unknown fields are ignored.
             reader.skipValue();
             break;

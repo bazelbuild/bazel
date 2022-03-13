@@ -291,7 +291,7 @@ function test_starlark_regular_file_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.

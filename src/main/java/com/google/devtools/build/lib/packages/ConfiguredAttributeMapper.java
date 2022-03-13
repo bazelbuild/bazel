@@ -280,7 +280,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     error +=
         "\n"
             + "For more help, see"
-            + " https://docs.bazel.build/configurable-attributes.html#why-doesnt-my-select-choose-what-i-expect.\n\n";
+            + " https://bazel.build/docs/configurable-attributes#faq-select-choose-condition.\n\n";
     return error;
   }
 

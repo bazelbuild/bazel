@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -346,7 +347,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         // remove some of the filesystem operations we're doing here.
         Path path = traversal.root.asRootedPath().asPath();
         FileStateValue fileState =
-            FileStateValue.create(traversal.root.asRootedPath(), SyscallCache.NO_CACHE, null);
+            FileStateValue.create(traversal.root.asRootedPath(), syscallCache, null);
         if (fileState.getType() == FileStateType.NONEXISTENT) {
           throw new IOException("Missing file: " + path);
         }
@@ -438,7 +439,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
    * @return transformed HasDigest value based on the digest field and object type.
    */
   @VisibleForTesting
-  static HasDigest withDigest(HasDigest fsVal, Path path, SyscallCache syscallCache)
+  static HasDigest withDigest(HasDigest fsVal, Path path, XattrProvider syscallCache)
       throws IOException {
     if (fsVal instanceof FileStateValue) {
       FileStateValue fsv = (FileStateValue) fsVal;

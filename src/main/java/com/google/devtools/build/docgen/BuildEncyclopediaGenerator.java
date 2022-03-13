@@ -26,10 +26,10 @@ import java.util.Collections;
 public class BuildEncyclopediaGenerator {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
-        "Usage: docgen_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
+        "Usage: docgen_bin -m link_map_file -p rule_class_provider (-i input_dir)+\n"
             + "    [-o outputdir] [-b denylist] [-1] [-h]\n\n"
             + "Generates the Build Encyclopedia from embedded native rule documentation.\n"
-            + "The product name (-n), rule class provider (-p) and at least one input_dir\n"
+            + "The link map file (-m), rule class provider (-p) and at least one input_dir\n"
             + "(-i) must be specified.\n");
     System.err.println(
         parser.describeOptionsWithDeprecatedCategories(
@@ -66,7 +66,7 @@ public class BuildEncyclopediaGenerator {
       Runtime.getRuntime().exit(0);
     }
 
-    if (options.productName.isEmpty()
+    if (options.linkMapPath.isEmpty()
         || options.inputDirs.isEmpty()
         || options.provider.isEmpty()) {
       printUsage(parser);
@@ -74,15 +74,18 @@ public class BuildEncyclopediaGenerator {
     }
 
     try {
+      DocLinkMap linkMap = DocLinkMap.createFromFile(options.linkMapPath);
+      RuleLinkExpander linkExpander = new RuleLinkExpander(options.singlePage, linkMap);
+
       BuildEncyclopediaProcessor processor = null;
       if (options.singlePage) {
         processor =
             new SinglePageBuildEncyclopediaProcessor(
-                options.productName, createRuleClassProvider(options.provider));
+                linkExpander, createRuleClassProvider(options.provider));
       } else {
         processor =
             new MultiPageBuildEncyclopediaProcessor(
-                options.productName, createRuleClassProvider(options.provider));
+                linkExpander, createRuleClassProvider(options.provider));
       }
       processor.generateDocumentation(options.inputDirs, options.outputDir, options.denylist);
     } catch (BuildEncyclopediaDocException e) {

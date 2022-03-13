@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
@@ -103,6 +104,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final PathPackageLocator packageLocator;
   private final StructImpl attrObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
+  private final SyscallCache syscallCache;
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -119,7 +121,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor remoteExecutor)
+      @Nullable RepositoryRemoteExecutor remoteExecutor,
+      SyscallCache syscallCache)
       throws EvalException {
     super(
         outputDirectory,
@@ -133,6 +136,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     this.rule = rule;
     this.packageLocator = packageLocator;
     this.ignoredPatterns = ignoredPatterns;
+    this.syscallCache = syscallCache;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -176,7 +180,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         || path.startsWith(workingDirectory)) {
       return starlarkPath;
     }
-    Path workspaceRoot = packageLocator.getWorkspaceFile().getParentDirectory();
+    Path workspaceRoot = packageLocator.getWorkspaceFile(syscallCache).getParentDirectory();
     PathFragment relativePath = path.relativeTo(workspaceRoot);
     for (PathFragment ignoredPattern : ignoredPatterns) {
       if (relativePath.startsWith(ignoredPattern)) {

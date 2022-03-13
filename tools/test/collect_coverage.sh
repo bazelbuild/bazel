@@ -39,7 +39,10 @@ if [[ -z "$LCOV_MERGER" ]]; then
   # it.
   # TODO(cmita): Improve this situation so this early-exit isn't required.
   touch $COVERAGE_OUTPUT_FILE
-  exit 0
+  # Execute the test.
+  "$@"
+  TEST_STATUS=$?
+  exit "$TEST_STATUS"
 fi
 
 function resolve_links() {
@@ -232,6 +235,7 @@ LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --filter_sources=/usr/bin/.+ \
   --filter_sources=/usr/lib/.+ \
   --filter_sources=/usr/include.+ \
+  --filter_sources=/Applications/.+ \
   --filter_sources=.*external/.+ \
   --source_file_manifest=${COVERAGE_MANIFEST}"
 

@@ -19,6 +19,27 @@ load(":common/objc/semantics.bzl", "semantics")
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
+CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
+
+artifact_category = struct(
+    STATIC_LIBRARY = "STATIC_LIBRARY",
+    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
+    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
+    EXECUTABLE = "EXECUTABLE",
+    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
+    PIC_FILE = "PIC_FILE",
+    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
+    OBJECT_FILE = "OBJECT_FILE",
+    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
+    CPP_MODULE = "CPP_MODULE",
+    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
+    PROCESSED_HEADER = "PROCESSED_HEADER",
+    GENERATED_HEADER = "GENERATED_HEADER",
+    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
+    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
+    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
+    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
+)
 
 def _check_src_extension(file, allowed_src_files):
     extension = "." + file.extension
@@ -435,6 +456,59 @@ def _additional_inputs_from_linking_context(linking_context):
         inputs.extend(linker_input.additional_inputs)
     return depset(inputs, order = "topological")
 
+def _stringify_linker_input(linker_input):
+    parts = []
+    parts.append(str(linker_input.owner))
+    for library in linker_input.libraries:
+        if library.static_library != None:
+            parts.append(library.static_library.path)
+        if library.pic_static_library != None:
+            parts.append(library.pic_static_library.path)
+        if library.dynamic_library != None:
+            parts.append(library.dynamic_library.path)
+        if library.interface_library != None:
+            parts.append(library.interface_library.path)
+
+    for additional_input in linker_input.additional_inputs:
+        parts.append(additional_input.path)
+
+    for linkstamp in linker_input.linkstamps:
+        parts.append(linkstamp.file().path)
+
+    return "".join(parts)
+
+def _replace_name(name, new_name):
+    last_slash = name.rfind("/")
+    if last_slash == -1:
+        return new_name
+    return name[:last_slash] + "/" + new_name
+
+def _get_base_name(name):
+    last_slash = name.rfind("/")
+    if last_slash == -1:
+        return name
+    return name[last_slash + 1:]
+
+def _get_artifact_name_for_category(cc_toolchain, is_dynamic_link_type, output_name):
+    linked_artifact_category = None
+    if is_dynamic_link_type:
+        linked_artifact_category = artifact_category.DYNAMIC_LIBRARY
+    else:
+        linked_artifact_category = artifact_category.EXECUTABLE
+
+    return cc_toolchain.get_artifact_name_for_category(category = linked_artifact_category, output_name = output_name)
+
+def _get_linked_artifact(ctx, cc_toolchain, is_dynamic_link_type):
+    name = ctx.label.name
+    new_name = _get_artifact_name_for_category(cc_toolchain, is_dynamic_link_type, _get_base_name(name))
+    name = _replace_name(name, new_name)
+
+    return ctx.actions.declare_file(name)
+
+def _collect_native_cc_libraries(deps, libraries):
+    transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
+    return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -462,4 +536,7 @@ cc_helper = struct(
     dll_hash_suffix = _dll_hash_suffix,
     get_windows_def_file_for_linking = _get_windows_def_file_for_linking,
     generate_def_file = _generate_def_file,
+    stringify_linker_input = _stringify_linker_input,
+    get_linked_artifact = _get_linked_artifact,
+    collect_native_cc_libraries = _collect_native_cc_libraries,
 )

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -41,6 +42,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -860,7 +862,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .build(),
         supportsConstraintChecking,
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
-        /*requiredToolchains=*/ ImmutableSet.of(),
+        /*toolchainTypes=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ ToolchainResolutionMode.ENABLED,
         /*useToolchainTransition=*/ ToolchainTransitionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
@@ -990,22 +992,20 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testRequiredToolchains() throws Exception {
+  public void testToolchainTypes() throws Exception {
     RuleClass.Builder ruleClassBuilder =
         new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
 
-    ruleClassBuilder.addRequiredToolchains(
-        Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of()),
-        Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of()));
+    ruleClassBuilder.addToolchainTypes(
+        ToolchainTypeRequirement.create(Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of())),
+        ToolchainTypeRequirement.create(Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of())));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
-    assertThat(ruleClass.getRequiredToolchains())
-        .containsExactly(
-            Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of()),
-            Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of()));
+    assertThat(ruleClass).hasToolchainType("//toolchain:tc1");
+    assertThat(ruleClass).hasToolchainType("//toolchain:tc2");
   }
 
   @Test
@@ -1080,11 +1080,12 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
     Label constraint = Label.parseAbsoluteUnchecked("//constraint");
 
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
             "cherry",
             ExecGroup.builder()
-                .requiredToolchains(ImmutableSet.of(toolchain))
+                .addToolchainType(ToolchainTypeRequirement.create(toolchain))
                 .execCompatibleWith(ImmutableSet.of(constraint))
                 .copyFrom(null)
                 .build()));
@@ -1092,7 +1093,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry")).hasRequiredToolchain(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasToolchainType(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry")).toolchainType(toolchain).isMandatory();
     assertThat(ruleClass.getExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
   }
 

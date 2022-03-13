@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
 import com.google.common.io.Files;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -88,7 +90,9 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public void prefetchInputs() throws IOException {}
+    public ListenableFuture<Void> prefetchInputs() {
+      return immediateVoidFuture();
+    }
 
     @Override
     public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)

@@ -23,11 +23,6 @@ cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library")
-    cpp_config = ctx.fragments.cpp
-
-    if (not cpp_config.experimental_cc_implementation_deps() and
-        len(ctx.attr.implementation_deps) > 0):
-        fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
 
     common = cc_internal.create_common(ctx = ctx)
     common.report_invalid_options(ctx = ctx)
@@ -47,10 +42,18 @@ def _cc_library_impl(ctx):
     semantics.validate_attributes(ctx = ctx)
     _check_no_repeated_srcs(ctx)
 
-    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
+    interface_deps = None
+    implementation_deps = []
+    should_use_interface_deps_behavior = semantics.should_use_interface_deps_behavior(ctx)
+    if should_use_interface_deps_behavior:
+        interface_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.interface_deps)
+        implementation_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
+    else:
+        interface_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
+
     if not _is_stl(ctx.attr.tags) and ctx.attr._stl != None:
-        compilation_contexts.append(ctx.attr._stl[CcInfo].compilation_context)
-    implementation_compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
+        interface_deps.append(ctx.attr._stl[CcInfo].compilation_context)
+
     (compilation_context, srcs_compilation_outputs) = cc_common.compile(
         actions = ctx.actions,
         name = ctx.label.name,
@@ -67,8 +70,8 @@ def _cc_library_impl(ctx):
         private_hdrs = common.private_hdrs,
         public_hdrs = common.public_hdrs,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
-        compilation_contexts = compilation_contexts,
-        implementation_compilation_contexts = implementation_compilation_contexts,
+        compilation_contexts = interface_deps,
+        implementation_compilation_contexts = implementation_deps,
         hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
         grep_includes = ctx.executable._grep_includes,
         textual_hdrs = ctx.files.textual_hdrs,
@@ -108,7 +111,7 @@ def _cc_library_impl(ctx):
     is_google = True
 
     linking_contexts = cc_helper.get_linking_contexts_from_deps(ctx.attr.deps)
-    linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
+    linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.interface_deps))
     if ctx.file.linkstamp != None:
         linkstamps = []
         linkstamps.append(cc_internal.create_linkstamp(
@@ -584,7 +587,7 @@ attrs = {
     ),
     "alwayslink": attr.bool(default = False),
     "linkstatic": attr.bool(default = False),
-    "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
+    "interface_deps": attr.label_list(providers = [CcInfo], allow_files = False),
     "hdrs": attr.label_list(
         allow_files = True,
         flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
@@ -628,6 +631,8 @@ attrs = {
 attrs.update(semantics.get_licenses_attr())
 attrs.update(semantics.get_distribs_attr())
 attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
+attrs.update(semantics.get_interface_deps_allowed_attr())
+
 cc_library = rule(
     implementation = _cc_library_impl,
     attrs = attrs,

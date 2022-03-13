@@ -267,7 +267,8 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
 
   @Test
   public void testStringRepresentations_rules() throws Exception {
-    assertStringRepresentation("native.cc_library", "<built-in rule cc_library>");
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
+    assertStringRepresentation("native.cc_library", "<rule>");
     assertStringRepresentation("def f(): pass", "rule(implementation=f)", "<rule>");
   }
 

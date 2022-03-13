@@ -50,7 +50,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys)
+  public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> batchGet = getBatch(null, Reason.WALKABLE_GRAPH_VALUE, keys);
     Map<SkyKey, SkyValue> result = Maps.newHashMapWithExpectedSize(batchGet.size());

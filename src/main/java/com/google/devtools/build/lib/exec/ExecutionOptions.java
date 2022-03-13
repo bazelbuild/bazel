@@ -301,12 +301,12 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set the number of local CPU threads available to Bazel. Takes "
-              + "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_CPUS*.5 to use half the available CPU cores)."
-              + "By default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate "
-              + "number of CPU cores available for the locally executed build actions. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
+              + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
+              + " by [-|*]<float> (eg. HOST_CPUS*.5 to use half the available CPU cores).By"
+              + " default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate"
+              + " the number of CPU cores available. Note: This is a no-op if --local_resources is"
+              + " set.",
       converter = CpuResourceConverter.class)
   public float localCpuResources;
 
@@ -316,13 +316,12 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set the amount of local host RAM (in MB) available to Bazel. Takes "
-              + "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_RAM*.5 to use half the available RAM)."
-              + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
-              + "amount of RAM available for the locally executed build actions and will use 67% "
-              + "of available RAM. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
+              + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
+              + " followed by [-|*]<float> (eg. HOST_RAM*.5 to use half the available RAM). By"
+              + " default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate"
+              + " the amount of RAM available and will use 67% of it. Note: This is a no-op if"
+              + " --local_resources is set.",
       converter = RamResourceConverter.class)
   public float localRamResources;
 

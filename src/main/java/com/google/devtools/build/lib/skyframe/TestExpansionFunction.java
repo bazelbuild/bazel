@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.skyframe.TestExpansionValue.TestExpansionKe
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -154,19 +154,18 @@ final class TestExpansionFunction implements SkyFunction {
           labels.add(label);
           pkgIdentifiers.add(label.getPackageIdentifier());
         });
-
-    Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
-        env.getValuesOrThrow(PackageValue.keys(pkgIdentifiers), NoSuchPackageException.class);
+    List<SkyKey> skyKeys = PackageValue.keys(pkgIdentifiers);
+    SkyframeIterableResult packages = env.getOrderedValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return false;
     }
     boolean hasError = false;
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry : packages.entrySet()) {
+    for (SkyKey key : skyKeys) {
       try {
         packageMap.put(
-            (PackageIdentifier) entry.getKey().argument(),
-            ((PackageValue) entry.getValue().get()).getPackage());
+            (PackageIdentifier) key.argument(),
+            ((PackageValue) packages.nextOrThrow(NoSuchPackageException.class)).getPackage());
       } catch (NoSuchPackageException e) {
         env.getListener().handle(Event.error(e.getMessage()));
         hasError = true;

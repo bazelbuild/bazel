@@ -68,7 +68,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("original");
     checkCommandLineSectionLabels(line);
     assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
@@ -91,7 +90,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
     checkCommandLineSectionLabels(line);
 
@@ -125,7 +123,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("original");
     checkCommandLineSectionLabels(line);
 
@@ -167,7 +164,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("original");
     checkCommandLineSectionLabels(line);
 
@@ -204,7 +200,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
     checkCommandLineSectionLabels(line);
 
@@ -246,7 +241,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("original");
     checkCommandLineSectionLabels(line);
 
@@ -286,7 +280,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
     checkCommandLineSectionLabels(line);
 
@@ -325,7 +318,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("original");
     checkCommandLineSectionLabels(line);
 
@@ -354,7 +346,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
     checkCommandLineSectionLabels(line);
 
@@ -396,7 +387,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("original");
     checkCommandLineSectionLabels(line);
 
@@ -427,7 +417,6 @@ public class CommandLineEventTest {
             .asStreamProto(null)
             .getStructuredCommandLine();
 
-    assertThat(line).isNotNull();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
     checkCommandLineSectionLabels(line);
 

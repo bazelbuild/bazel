@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -52,9 +53,11 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatt
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -315,14 +318,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
-    Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
-        env.getValuesOrThrow(patternSkyKeys, TargetParsingException.class);
+    SkyframeIterableResult resolvedPatterns = env.getOrderedValuesAndExceptions(patternSkyKeys);
     List<ExpandedPattern> expandedPatterns = new ArrayList<>(patternSkyKeys.size());
 
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
+        value = (TargetPatternValue) resolvedPatterns.nextOrThrow(TargetParsingException.class);
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
@@ -419,8 +421,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // Skip.
       }
     }
-    Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
-        env.getValuesOrThrow(patternSkyKeys, TargetParsingException.class);
+    SkyframeLookupResult resolvedPatterns = env.getValuesAndExceptions(patternSkyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -429,7 +430,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     for (TargetPatternKey key : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(key).get();
+        value = (TargetPatternValue) resolvedPatterns.getOrThrow(key, TargetParsingException.class);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "TargetPatternValue " + key + " was missing, this should never happen"));
+          return null;
+        }
       } catch (TargetParsingException e) {
         // Skip.
         continue;
@@ -445,7 +452,14 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
+        value =
+            (TargetPatternValue) resolvedPatterns.getOrThrow(pattern, TargetParsingException.class);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "TargetPatternValue " + pattern + " was missing, this should never happen"));
+          return null;
+        }
       } catch (TargetParsingException e) {
         // This was already reported in getTargetsToBuild (maybe merge the two code paths?).
         continue;

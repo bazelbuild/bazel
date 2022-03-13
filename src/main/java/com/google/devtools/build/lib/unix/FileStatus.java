@@ -82,18 +82,24 @@ public class FileStatus {
     return (st_mode & S_IFMT) == S_IFREG;
   }
 
-  /**
-   * Returns true iff this file is a directory.
-   */
+  /** Returns true iff this file is a directory. */
   public boolean isDirectory() {
     return (st_mode & S_IFMT) == S_IFDIR;
   }
 
-  /**
-   * Returns true iff this file is a symbolic link.
-   */
+  public static boolean isDirectory(int rawType) {
+    int type = rawType & S_IFMT;
+    return type == S_IFDIR;
+  }
+
+  /** Returns true iff this file is a symbolic link. */
   public boolean isSymbolicLink() {
     return (st_mode & S_IFMT) == S_IFLNK;
+  }
+
+  public static boolean isSymbolicLink(int rawType) {
+    int type = rawType & S_IFMT;
+    return type == S_IFLNK;
   }
 
   /**
@@ -267,15 +273,5 @@ public class FileStatus {
   public static boolean isSpecialFile(int rawType) {
     int type = rawType & S_IFMT;
     return type == S_IFSOCK || type == S_IFBLK || type == S_IFCHR || type == S_IFIFO;
-  }
-
-  public static boolean isDirectory(int rawType) {
-    int type = rawType & S_IFMT;
-    return type == S_IFDIR;
-  }
-
-  public static boolean isSymbolicLink(int rawType) {
-    int type = rawType & S_IFMT;
-    return type == S_IFLNK;
   }
 }

@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
@@ -188,7 +189,10 @@ public final class FilesystemValueCheckerTest {
     Path path = artifact.getPath();
     FileArtifactValue noDigest =
         ActionMetadataHandler.fileArtifactValueFromArtifact(
-            artifact, FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)), null);
+            artifact,
+            FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
+            SyscallCache.NO_CACHE,
+            null);
     return FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
   }
 
@@ -247,7 +251,7 @@ public final class FilesystemValueCheckerTest {
           List<FileStatusWithDigest> stats = new ArrayList<>();
           for (PathFragment pathFrag : paths) {
             stats.add(
-                FileStatusWithDigestAdapter.adapt(
+                FileStatusWithDigestAdapter.maybeAdapt(
                     fileSystem.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
           }
           return stats;
@@ -282,7 +286,7 @@ public final class FilesystemValueCheckerTest {
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
     skyFunctions.put(
-        FileStateValue.FILE_STATE,
+        FileStateKey.FILE_STATE,
         new FileStateFunction(
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
@@ -479,7 +483,10 @@ public final class FilesystemValueCheckerTest {
   private Collection<SkyKey> getDirtyActionValues(ImmutableMap<SkyKey, SkyValue> valuesMap)
       throws InterruptedException {
     return new FilesystemValueChecker(
-            /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST)
         .getDirtyActionValues(
             valuesMap,
             batchStat.getBatchStat(fs),
@@ -510,7 +517,10 @@ public final class FilesystemValueCheckerTest {
   public void testEmpty() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST);
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
 
@@ -518,7 +528,10 @@ public final class FilesystemValueCheckerTest {
   public void testSimple() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.createEmptyFile(path);
@@ -556,7 +569,10 @@ public final class FilesystemValueCheckerTest {
   public void testDirtySymlink() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foo contents");
@@ -621,7 +637,10 @@ public final class FilesystemValueCheckerTest {
   public void testExplicitFiles() throws Exception {
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST);
 
     Path path1 = fs.getPath("/foo1");
     Path path2 = fs.getPath("/foo2");
@@ -679,7 +698,10 @@ public final class FilesystemValueCheckerTest {
     fs.readlinkThrowsIoException = false;
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST);
     Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
@@ -701,7 +723,10 @@ public final class FilesystemValueCheckerTest {
 
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST);
     Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
@@ -763,7 +788,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -779,7 +807,10 @@ public final class FilesystemValueCheckerTest {
       throws InterruptedException {
     assertThat(
             new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -788,7 +819,10 @@ public final class FilesystemValueCheckerTest {
         .containsExactly(actionKey);
     assertThat(
             new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -797,7 +831,10 @@ public final class FilesystemValueCheckerTest {
         .containsExactly(actionKey);
     assertThat(
             new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -806,7 +843,10 @@ public final class FilesystemValueCheckerTest {
         .containsExactly(actionKey);
     assertThat(
             new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -817,7 +857,10 @@ public final class FilesystemValueCheckerTest {
         .isEmpty();
     assertThat(
             new FilesystemValueChecker(
-                    tsgm, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    tsgm,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStatter,
@@ -865,7 +908,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.touchFile(tree.getPath().getRelative(touchedTreePath));
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -887,7 +933,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(tree.getPath().delete()).isTrue();
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -913,7 +962,10 @@ public final class FilesystemValueCheckerTest {
 
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -936,7 +988,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeIsoLatin1(treeFile.getPath(), "other text");
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -960,7 +1015,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeIsoLatin1(newFile.getPath());
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -983,7 +1041,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeIsoLatin1(newFile.getPath());
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -1006,7 +1067,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(treeFile.getPath().delete()).isTrue();
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -1037,7 +1101,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(tree2File.getPath().delete()).isTrue();
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -1069,7 +1136,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(tree2File.getPath().delete()).isTrue();
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -1110,7 +1180,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(treeCFile.getPath().delete()).isTrue();
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -1135,7 +1208,10 @@ public final class FilesystemValueCheckerTest {
     assertThat(treeFile.getPath().delete()).isTrue();
     assertThat(
             new FilesystemValueChecker(
-                    /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     batchStat.getBatchStat(fs),
@@ -1183,7 +1259,7 @@ public final class FilesystemValueCheckerTest {
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
               stats.add(
-                  FileStatusWithDigestAdapter.adapt(
+                  FileStatusWithDigestAdapter.maybeAdapt(
                       fs.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
             }
             return stats;
@@ -1237,7 +1313,8 @@ public final class FilesystemValueCheckerTest {
         FileArtifactValue noDigest =
             ActionMetadataHandler.fileArtifactValueFromArtifact(
                 output,
-                FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                SyscallCache.NO_CACHE,
                 null);
         FileArtifactValue withDigest =
             FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
@@ -1303,7 +1380,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1316,7 +1396,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "new-foo-content");
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1355,7 +1438,10 @@ public final class FilesystemValueCheckerTest {
         .isFalse();
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1368,7 +1454,10 @@ public final class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(fooArtifact.getPath(), "new-foo-content");
     assertThat(
             new FilesystemValueChecker(
-                    /* tsgm= */ null, /* lastExecutionTimeRange= */ null, FSVC_THREADS_FOR_TEST)
+                    /*tsgm=*/ null,
+                    SyscallCache.NO_CACHE,
+                    /*lastExecutionTimeRange=*/ null,
+                    FSVC_THREADS_FOR_TEST)
                 .getDirtyActionValues(
                     evaluator.getValues(),
                     /* batchStatter= */ null,
@@ -1394,7 +1483,10 @@ public final class FilesystemValueCheckerTest {
     Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
-            /*tsgm=*/ null, /*lastExecutionTimeRange=*/ null, FSVC_THREADS_FOR_TEST);
+            /*tsgm=*/ null,
+            SyscallCache.NO_CACHE,
+            /*lastExecutionTimeRange=*/ null,
+            FSVC_THREADS_FOR_TEST);
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 

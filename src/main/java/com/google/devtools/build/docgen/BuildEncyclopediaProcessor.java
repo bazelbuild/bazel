@@ -45,8 +45,8 @@ public abstract class BuildEncyclopediaProcessor {
     }
   };
 
-  /** Name of the product to insert into the documentation. */
-  protected final String productName;
+  /** Class that expand links to the BE. */
+  protected final RuleLinkExpander linkExpander;
 
   /** Rule class provider from which to extract the rule class hierarchy and attributes. */
   protected final ConfiguredRuleClassProvider ruleClassProvider;
@@ -56,8 +56,8 @@ public abstract class BuildEncyclopediaProcessor {
    * rule class hierarchy and attribute checking.
    */
   public BuildEncyclopediaProcessor(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
-    this.productName = productName;
+      RuleLinkExpander linkExpander, ConfiguredRuleClassProvider ruleClassProvider) {
+    this.linkExpander = linkExpander;
     this.ruleClassProvider = Preconditions.checkNotNull(ruleClassProvider);
   }
 
@@ -211,13 +211,12 @@ public abstract class BuildEncyclopediaProcessor {
    * attributes can be expanded.
    *
    * @param attributes The map containing the RuleDocumentationAttributes, keyed by attribute name.
-   * @param expander The RuleLinkExpander to set in each of the RuleDocumentationAttributes.
    * @return The provided map of attributes.
    */
-  protected static Map<String, RuleDocumentationAttribute> expandCommonAttributes(
-      Map<String, RuleDocumentationAttribute> attributes, RuleLinkExpander expander) {
+  protected Map<String, RuleDocumentationAttribute> expandCommonAttributes(
+      Map<String, RuleDocumentationAttribute> attributes) {
     for (RuleDocumentationAttribute attribute : attributes.values()) {
-      attribute.setRuleLinkExpander(expander);
+      attribute.setRuleLinkExpander(linkExpander);
     }
     return attributes;
   }

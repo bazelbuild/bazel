@@ -15,15 +15,22 @@
 package com.google.devtools.build.lib.view.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.NodeEntry;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.ValueWithMetadata;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.After;
 import org.junit.Test;
@@ -110,5 +117,38 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
         Pattern.compile(
             "tree/BUILD:[0-9]+:[0-9]+: Compiling all C\\+\\+ files in tree/dir failed: Expected"
                 + " action_config for 'c\\+\\+-compile' to be configured"));
+  }
+
+  @Test
+  public void warningNotPersisted() throws Exception {
+    write(
+        "tree/tree.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory('dir')",
+        "  ctx.actions.run_shell(outputs = [dir], command = 'touch %s/file.cc' % (dir.path))",
+        "  return [DefaultInfo(files = depset([dir]))]",
+        "",
+        "tree = rule(implementation = _impl)");
+    write(
+        "tree/BUILD",
+        "load(':tree.bzl', 'tree')",
+        "tree(name = 'lib', deprecation = 'This is a warning')");
+    write("cc/BUILD", "cc_library(name = 'cc', srcs = ['//tree:lib'])");
+    buildTarget("//cc:cc");
+    events.assertContainsEvent(EventKind.WARNING, "This is a warning");
+    Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> nodes =
+        getSkyframeExecutor().getEvaluator().getGraphEntries();
+    for (Map.Entry<SkyKey, ? extends NodeEntry> node : nodes) {
+      if (node.getKey() instanceof ActionLookupData) {
+        assertWithMessage("Node " + node.getKey() + " warnings")
+            .that(ValueWithMetadata.getEvents(node.getValue().getValueMaybeWithMetadata()).toList())
+            .isEmpty();
+      }
+    }
+
+    // Warning is shown on a no-op incremental build.
+    events.clear();
+    buildTarget("//cc:cc");
+    events.assertContainsEvent(EventKind.WARNING, "This is a warning");
   }
 }

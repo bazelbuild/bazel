@@ -464,10 +464,14 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           && error.getException() != null
           && (error.getException() instanceof IOException
               || error.getException().getClass().getName().endsWith("SourceArtifactException"))) {
-        logger.atInfo().log(
-            "SkyFunction did not rethrow error, may be a bug that it did not expect one: %s"
-                + " via %s, %s (%s)",
-            errorKey, childErrorKey, error, bubbleErrorInfo);
+        String skyFunctionName = parent.functionName().getName();
+        if (!skyFunctionName.startsWith("FILE")
+            && !skyFunctionName.startsWith("DIRECTORY_LISTING")) {
+          logger.atInfo().log(
+              "SkyFunction did not rethrow error, may be a bug that it did not expect one: %s"
+                  + " via %s, %s (%s)",
+              errorKey, childErrorKey, error, bubbleErrorInfo);
+        }
       }
       if (completedRun && !env.encounteredErrorDuringBubbling()) {
         logger.atInfo().log(

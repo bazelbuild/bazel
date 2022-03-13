@@ -28,10 +28,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.HashMap;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -62,7 +61,7 @@ public class TypeCheckedTagTest {
         TypeCheckedTag.create(
             createTagClass(attr("foo", Type.INTEGER).build()),
             buildTag("tag_name").addAttr("foo", StarlarkInt.of(3)).build(),
-            /*labelConversionContext=*/ null);
+            /*labelConverter=*/ null);
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(StarlarkInt.of(3));
   }
@@ -77,10 +76,9 @@ public class TypeCheckedTagTest {
                 .addAttr(
                     "foo", StarlarkList.immutableOf(":thing1", "//pkg:thing2", "@repo//pkg:thing3"))
                 .build(),
-            new LabelConversionContext(
+            new LabelConverter(
                 Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
-                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo"),
-                new HashMap<>()));
+                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")));
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo"))
         .isEqualTo(
@@ -97,10 +95,9 @@ public class TypeCheckedTagTest {
             createTagClass(
                 attr("foo", BuildType.LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build()),
             buildTag("tag_name").build(),
-            new LabelConversionContext(
+            new LabelConverter(
                 Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
-                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo"),
-                new HashMap<>()));
+                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")));
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(Starlark.NONE);
   }
@@ -135,7 +132,7 @@ public class TypeCheckedTagTest {
                 .addAttr("foo", "fooValue")
                 .addAttr("quux", StarlarkList.immutableOf("quuxValue1", "quuxValue2"))
                 .build(),
-            /*labelConversionContext=*/ null);
+            /*labelConverter=*/ null);
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "bar", "quux");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo("fooValue");
     assertThat(getattr(typeCheckedTag, "bar")).isEqualTo(StarlarkInt.of(3));
@@ -152,7 +149,7 @@ public class TypeCheckedTagTest {
                 TypeCheckedTag.create(
                     createTagClass(attr("foo", Type.STRING).mandatory().build()),
                     buildTag("tag_name").build(),
-                    /*labelConversionContext=*/ null));
+                    /*labelConverter=*/ null));
     assertThat(e).hasMessageThat().contains("mandatory attribute foo isn't being specified");
   }
 
@@ -168,7 +165,7 @@ public class TypeCheckedTagTest {
                             .allowedValues(new AllowedValueSet("yes", "no"))
                             .build()),
                     buildTag("tag_name").addAttr("foo", "maybe").build(),
-                    /*labelConversionContext=*/ null));
+                    /*labelConverter=*/ null));
     assertThat(e)
         .hasMessageThat()
         .contains("the value for attribute foo has to be one of 'yes' or 'no' instead of 'maybe'");
@@ -183,7 +180,7 @@ public class TypeCheckedTagTest {
                 TypeCheckedTag.create(
                     createTagClass(attr("foo", Type.STRING).build()),
                     buildTag("tag_name").addAttr("bar", "maybe").build(),
-                    /*labelConversionContext=*/ null));
+                    /*labelConverter=*/ null));
     assertThat(e).hasMessageThat().contains("unknown attribute bar provided");
   }
 }

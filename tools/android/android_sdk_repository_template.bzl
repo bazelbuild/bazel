@@ -219,7 +219,8 @@ def create_android_sdk_rules(
                 "if [[ ! -d $${SDK} ]] ; then",
                 "  SDK=$$(pwd)/../%s" % name,
                 "fi",
-                "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
+                "tool=$${SDK}/build-tools/%s/%s" % (build_tools_directory, tool),
+                "exec env LD_LIBRARY_PATH=$${SDK}/build-tools/%s/lib64 $$tool $$*" % build_tools_directory,
                 "EOF\n",
             ]),
         )

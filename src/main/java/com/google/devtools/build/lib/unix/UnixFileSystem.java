@@ -50,6 +50,20 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     this.hashAttributeName = hashAttributeName;
   }
 
+  public static Dirent.Type getDirentFromMode(int mode) {
+    if (com.google.devtools.build.lib.unix.FileStatus.isSpecialFile(mode)) {
+      return Dirent.Type.UNKNOWN;
+    } else if (com.google.devtools.build.lib.unix.FileStatus.isFile(mode)) {
+      return Dirent.Type.FILE;
+    } else if (com.google.devtools.build.lib.unix.FileStatus.isDirectory(mode)) {
+      return Dirent.Type.DIRECTORY;
+    } else if (com.google.devtools.build.lib.unix.FileStatus.isSymbolicLink(mode)) {
+      return Dirent.Type.SYMLINK;
+    } else {
+      return Dirent.Type.UNKNOWN;
+    }
+  }
+
   /**
    * Eager implementation of FileStatus for file systems that have an atomic
    * stat(2) syscall. A proxy for {@link com.google.devtools.build.lib.unix.FileStatus}.

@@ -89,7 +89,7 @@ code.
 <code>WORKSPACE</code> file.
 
 <p>
-For more information, read the <a href="https://docs.bazel.build/versions/main/android-ndk.html">
+For more information, read the <a href="https://bazel.build/docs/android-ndk">
 full documentation on using Android NDK with Bazel</a>.
 </p>
 

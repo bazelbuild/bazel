@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.Any;
@@ -799,8 +800,13 @@ public class CommandEnvironment {
     }
   }
 
+  /** Use {@link #getXattrProvider} when possible: see documentation of {@link SyscallCache}. */
   public SyscallCache getSyscallCache() {
     return syscallCache;
+  }
+
+  public XattrProvider getXattrProvider() {
+    return getSyscallCache();
   }
 
   /**

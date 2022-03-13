@@ -15,8 +15,15 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Interface for C++ debug related objects, specifically when fission is used.
@@ -27,4 +34,25 @@ import net.starlark.java.eval.StarlarkValue;
  * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
 @StarlarkBuiltin(name = "CcNativeLibraryInfo", category = DocCategory.PROVIDER, documented = false)
-public interface CcNativeLibraryInfoApi extends StarlarkValue {}
+public interface CcNativeLibraryInfoApi extends StructApi {
+  String NAME = "CcNativeLibraryInfo";
+
+  /** Provider implementing this will be able to construct CcNativeLibraryInfo objects */
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
+  interface Provider extends ProviderApi {
+    @StarlarkMethod(
+        name = NAME,
+        documented = false,
+        selfCall = true,
+        parameters = {
+          @Param(
+              name = "libraries_to_link",
+              positional = false,
+              named = true,
+              allowedTypes = {@ParamType(type = Depset.class)})
+        })
+    @StarlarkConstructor
+    CcNativeLibraryInfoApi createCcNativeLibraryInfo(Object librariesToLinkObject)
+        throws EvalException;
+  }
+}

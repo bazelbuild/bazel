@@ -254,11 +254,12 @@ public final class StarlarkLibrary {
         name = "depset",
         doc =
             "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a"
-                + " list of direct elements of the depset, and <code>transitive</code> parameter"
-                + " is a list of depsets whose elements become indirect elements of the created"
+                + " list of direct elements of the depset, and <code>transitive</code> parameter is"
+                + " a list of depsets whose elements become indirect elements of the created"
                 + " depset. The order in which elements are returned when the depset is converted"
                 + " to a list is specified by the <code>order</code> parameter. See the <a"
-                + " href=\"../depsets.md\">Depsets overview</a> for more information.\n" //
+                + " href=\"https://bazel.build/rules/depsets\">Depsets overview</a> for more"
+                + " information.\n" //
                 + "<p>All"
                 + " elements (direct and indirect) of a depset must be of the same type, as"
                 + " obtained by the expression <code>type(x)</code>.\n" //
@@ -322,18 +323,18 @@ public final class StarlarkLibrary {
         name = "select",
         doc =
             "<code>select()</code> is the helper function that makes a rule attribute "
-                + "<a href=\"$BE_ROOT/common-definitions.html#configurable-attributes\">"
+                + "<a href=\"${link common-definitions#configurable-attributes}\">"
                 + "configurable</a>. See "
-                + "<a href=\"$BE_ROOT/functions.html#select\">build encyclopedia</a> for details.",
+                + "<a href=\"${link functions#select}\">build encyclopedia</a> for details.",
         parameters = {
           @Param(
               name = "x",
               positional = true,
               doc =
                   "A dict that maps configuration conditions to values. Each key is a "
-                      + "<a href=\"$BE_ROOT/../skylark/lib/Label.html\">Label</a> or a label string"
+                      + "<a href=\"Label.html\">Label</a> or a label string"
                       + " that identifies a config_setting or constraint_value instance. See the"
-                      + " <a href=\"$BE_ROOT/../skylark/macros.html#label-resolution-in-macros\">"
+                      + " <a href=\"$STARLARK_DOCS_ROOT/macros.html#label-resolution-in-macros\">"
                       + "documentation on macros</a> for when to use a Label instead of a string."),
           @Param(
               name = "no_match_error",

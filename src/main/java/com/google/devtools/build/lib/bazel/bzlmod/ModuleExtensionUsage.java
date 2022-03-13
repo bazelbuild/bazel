@@ -31,7 +31,11 @@ public abstract class ModuleExtensionUsage {
   /** The name of the extension. */
   public abstract String getExtensionName();
 
-  /** The location where this proxy object was created (by the {@code use_extension} call). */
+  /**
+   * The location where this proxy object was created (by the {@code use_extension} call). Note that
+   * if there were multiple {@code use_extension} calls on same extension, then this only stores the
+   * location of the first one.
+   */
   public abstract Location getLocation();
 
   /**

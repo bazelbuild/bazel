@@ -1,0 +1,18 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
+<h1 class="page-title">${category.title}</h1>
+
+${description}
+
+<ul>
+#foreach ($module in $modules)
+
+<li><a href="/rules/lib/${module.name}">${module.title}</a></li>
+#end
+</ul>
+</body>
+</html>

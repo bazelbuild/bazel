@@ -364,15 +364,15 @@ distrib_java_import(
     name = "error_prone_annotations",
     enable_distributions = ["debian"],
     jars = [
-        "error_prone/error_prone_annotations-2.9.0.jar",
-        "error_prone/error_prone_type_annotations-2.9.0.jar",
+        "error_prone/error_prone_annotations-2.11.0.jar",
+        "error_prone/error_prone_type_annotations-2.11.0.jar",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.9.0.jar",
+        "error_prone/error_prone_annotations-2.11.0.jar",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -381,9 +381,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.9.0.jar",
-        "error_prone/error_prone_check_api-2.9.0.jar",
-        "error_prone/error_prone_core-2.9.0.jar",
+        "error_prone/error_prone_annotation-2.11.0.jar",
+        "error_prone/error_prone_check_api-2.11.0.jar",
+        "error_prone/error_prone_core-2.11.0.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -450,7 +450,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "guava/failureaccess-1.0.1.jar",
-        "guava/guava-31.0.1-jre.jar",
+        "guava/guava-31.1-jre.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -499,7 +499,16 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-31.0.1-jre.jar"],
+    srcs = ["guava/guava-31.1-jre.jar"],
+    enable_distributions = ["debian"],
+)
+
+# For desugaring the Guava jar.
+distrib_jar_filegroup(
+    name = "guava-failureaccess-jar",
+    srcs = [
+      "guava/failureaccess-1.0.1.jar",
+    ],
     enable_distributions = ["debian"],
 )
 
@@ -660,7 +669,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-31.0.1-jre.jar"],
+    jars = ["guava/guava-testlib-31.1-jre.jar"],
 )
 
 distrib_java_import(

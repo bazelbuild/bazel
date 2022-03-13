@@ -53,6 +53,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,6 +65,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /** The 'blaze help' command, which prints all available commands as well as specific help pages. */
 @Command(
@@ -271,6 +273,23 @@ public final class HelpCommand implements BlazeCommand {
     flagBuilder.setHasNegativeFlag(option.hasNegativeOption());
     flagBuilder.setDocumentation(option.getHelpText());
     flagBuilder.setAllowsMultiple(option.allowsMultiple());
+
+    List<String> optionEffectTags =
+        Arrays.stream(option.getOptionEffectTags())
+            .map(Enum::toString)
+            .collect(Collectors.toList());
+    flagBuilder.addAllEffectTags(optionEffectTags);
+
+    List<String> optionMetadataTags =
+        Arrays.stream(option.getOptionMetadataTags())
+            .map(Enum::toString)
+            .collect(Collectors.toList());
+    flagBuilder.addAllMetadataTags(optionMetadataTags);
+
+    if (option.getDocumentationCategory() != null) {
+      flagBuilder.setDocumentationCategory(option.getDocumentationCategory().toString());
+    }
+
     if (option.getAbbreviation() != '\0') {
       flagBuilder.setAbbreviation(String.valueOf(option.getAbbreviation()));
     }

@@ -24,7 +24,7 @@ Runs [ANTLR 3](https://www.antlr3.org//) on a set of grammars.
     <tr id="antlr-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>
@@ -204,7 +204,7 @@ Runs [ANTLR 3](https://www.antlr3.org//) on a set of grammars.
     <tr id="antlr-deps">
       <td><code>deps</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; optional
+        <a href="https://bazel.build/concepts/labels">List of labels</a>; optional
         <p>
           The dependencies to use. Defaults to the most recent ANTLR 3 release,
 but if you need to use a different version, you can specify the
@@ -233,7 +233,7 @@ dependencies here.
     <tr id="antlr-imports">
       <td><code>imports</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; optional
+        <a href="https://bazel.build/concepts/labels">List of labels</a>; optional
         <p>
           The grammar and .tokens files to import. Must be all in the same directory.
         </p>
@@ -296,7 +296,7 @@ dependencies here.
     <tr id="antlr-srcs">
       <td><code>srcs</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; required
+        <a href="https://bazel.build/concepts/labels">List of labels</a>; required
         <p>
           The grammar files to process.
         </p>

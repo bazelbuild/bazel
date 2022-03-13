@@ -91,7 +91,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
       NestedSet<Artifact> inputs,
       boolean writeVolatileInfo,
       boolean writeNonVolatileInfo) {
-    ArtifactRoot outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
+    ArtifactRoot outputPath = config.getBuildInfoDirectory(RepositoryName.MAIN);
     final Artifact header =
         buildInfoContext.getBuildInfoArtifact(
             headerName,

@@ -198,7 +198,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + " set in the crosstool are still applied.")
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
-  // TODO(b/63092114): Mark as @Deprecated.
+  /** @deprecated delete when we are sure it's not used anywhere. */
+  @Deprecated
   @Option(
       name = "incompatible_disable_native_apple_binary_rule",
       defaultValue = "false",

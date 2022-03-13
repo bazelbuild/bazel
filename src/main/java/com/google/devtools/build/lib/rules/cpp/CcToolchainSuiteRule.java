@@ -89,7 +89,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
 
 <p>
   See also this
-  <a href="https://docs.bazel.build/versions/main/cc-toolchain-config-reference.html">
+  <a href="https://bazel.build/docs/cc-toolchain-config-reference">
     page
   </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>

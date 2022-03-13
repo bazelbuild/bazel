@@ -39,7 +39,9 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private TreeMap<String, StarlarkMethodDoc> methodMap;
   @Nullable private StarlarkConstructorMethodDoc javaConstructor;
 
-  public StarlarkBuiltinDoc(StarlarkBuiltin module, String title, Class<?> classObject) {
+  public StarlarkBuiltinDoc(
+      StarlarkBuiltin module, String title, Class<?> classObject, StarlarkDocExpander expander) {
+    super(expander);
     this.module =
         Preconditions.checkNotNull(
             module, "Class has to be annotated with StarlarkBuiltin: %s", classObject);
@@ -55,8 +57,8 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   }
 
   @Override
-  public String getDocumentation() {
-    return StarlarkDocUtils.substituteVariables(module.doc());
+  public String getRawDocumentation() {
+    return module.doc();
   }
 
   public String getTitle() {

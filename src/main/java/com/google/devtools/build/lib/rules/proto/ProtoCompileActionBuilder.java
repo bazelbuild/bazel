@@ -65,7 +65,6 @@ public class ProtoCompileActionBuilder {
   private boolean hasServices;
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
-  private boolean checkStrictImportPublic;
   private String mnemonic;
 
   public ProtoCompileActionBuilder allowServices(boolean hasServices) {
@@ -106,11 +105,6 @@ public class ProtoCompileActionBuilder {
   public ProtoCompileActionBuilder setAdditionalTools(
       Iterable<FilesToRunProvider> additionalTools) {
     this.additionalTools = additionalTools;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder checkStrictImportPublic(boolean checkStrictImportPublic) {
-    this.checkStrictImportPublic = checkStrictImportPublic;
     return this;
   }
 
@@ -216,7 +210,6 @@ public class ProtoCompileActionBuilder {
             /* additional_args */ additionalArgs,
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build()),
             /* mnemonic */ mnemonic,
-            /* strict_imports */ checkStrictImportPublic,
             /* additional_inputs */ inputs == null
                 ? Depset.of(ElementType.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER))
                 : Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs)),
@@ -242,12 +235,6 @@ public class ProtoCompileActionBuilder {
         ImmutableMap.of());
   }
 
-  /** Whether to use exports in the proto compile action. */
-  public enum Exports {
-    USE,
-    DO_NOT_USE,
-  }
-
   /** Whether to allow services in the proto compiler invocation. */
   public enum Services {
     ALLOW,
@@ -270,7 +257,6 @@ public class ProtoCompileActionBuilder {
       ProtoInfo protoInfo,
       Iterable<Artifact> outputs,
       String progressMessage,
-      Exports useExports,
       Services allowServices)
       throws RuleErrorException, InterruptedException {
     if (isEmpty(outputs)) {
@@ -349,14 +335,7 @@ public class ProtoCompileActionBuilder {
             /* outputs */ StarlarkList.immutableCopyOf(outputs),
             /* additional_args */ additionalArgs,
             /* plugins */ StarlarkList.immutableCopyOf(plugins.build())),
-        ImmutableMap.of(
-            "strict_imports",
-            arePublicImportsStrict(ruleContext) ? (useExports == Exports.USE) : false));
-  }
-
-
-  public static boolean arePublicImportsStrict(RuleContext ruleContext) {
-    return ruleContext.getFragment(ProtoConfiguration.class).strictPublicImports();
+        ImmutableMap.of());
   }
 
   /**

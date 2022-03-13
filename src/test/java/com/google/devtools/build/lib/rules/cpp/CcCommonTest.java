@@ -270,6 +270,21 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExpandedDefinesAgainstData() throws Exception {
+    scratch.file("data/BUILD", "filegroup(name = 'data', srcs = ['data.txt'])");
+    ConfiguredTarget expandedDefines =
+        scratchConfiguredTarget(
+            "expanded_defines",
+            "expand_srcs",
+            "cc_library(name = 'expand_srcs',",
+            "           srcs = ['defines.cc'],",
+            "           data = ['//data'],",
+            "           defines = ['FOO=$(location //data)'])");
+    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+        .containsExactly("FOO=data/data.txt");
+  }
+
+  @Test
   public void testStartEndLib() throws Exception {
     getAnalysisMock()
         .ccSupport()

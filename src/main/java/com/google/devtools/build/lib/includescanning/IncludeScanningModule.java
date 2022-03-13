@@ -299,7 +299,9 @@ public class IncludeScanningModule extends BlazeModule {
       includeScannerSupplier.init(
           new IncludeParser(
               new IncludeParser.Hints(
-                  hintsRules, env.getSkyframeBuildView().getArtifactFactory())));
+                  hintsRules,
+                  env.getSyscallCache(),
+                  env.getSkyframeBuildView().getArtifactFactory())));
     }
 
     @Override

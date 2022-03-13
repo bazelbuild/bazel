@@ -88,7 +88,7 @@ public final class Converters {
       try {
         return Integer.decode(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
+        throw new OptionsParsingException("'" + input + "' is not an int", e);
       }
     }
 
@@ -105,7 +105,7 @@ public final class Converters {
       try {
         return Long.decode(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not a long");
+        throw new OptionsParsingException("'" + input + "' is not a long", e);
       }
     }
 
@@ -122,7 +122,7 @@ public final class Converters {
       try {
         return Double.parseDouble(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not a double");
+        throw new OptionsParsingException("'" + input + "' is not a double", e);
       }
     }
 
@@ -323,7 +323,7 @@ public final class Converters {
         int level = Integer.parseInt(input);
         return LEVELS.get(level);
       } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-        throw new OptionsParsingException("Not a log level: " + input);
+        throw new OptionsParsingException("Not a log level: " + input, e);
       }
     }
 
@@ -420,7 +420,7 @@ public final class Converters {
         }
         return value;
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
+        throw new OptionsParsingException("'" + input + "' is not an int", e);
       }
     }
 
@@ -625,7 +625,7 @@ public final class Converters {
         try {
           return Maps.immutableEntry("", Integer.parseInt(input));
         } catch (NumberFormatException e) {
-          throw new OptionsParsingException("'" + input + "' is not an int");
+          throw new OptionsParsingException("'" + input + "' is not an int", e);
         }
       }
       String name = input.substring(0, pos);
@@ -633,7 +633,7 @@ public final class Converters {
       try {
         return Maps.immutableEntry(name, Integer.parseInt(value));
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + value + "' is not an int");
+        throw new OptionsParsingException("'" + value + "' is not an int", e);
       }
     }
 

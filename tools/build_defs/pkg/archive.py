@@ -244,7 +244,6 @@ class TarFileWriter(object):
               rootuid=None,
               rootgid=None,
               numeric=False,
-              name_filter=None,
               root=None):
     """Merge a tar content into the current tar, stripping timestamp.
 
@@ -254,9 +253,6 @@ class TarFileWriter(object):
       rootgid: group id that we will pretend is root (replaced by gid 0).
       numeric: set to true to strip out name of owners (and just use the
           numeric values).
-      name_filter: filter out file by names. If not none, this method will be
-          called for each file to add, given the name and should return true if
-          the file is to be added to the final tar and false otherwise.
       root: place all non-absolute content under given root directory, if not
           None.
 
@@ -282,48 +278,47 @@ class TarFileWriter(object):
       inmode = 'r:' + compression
     intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
-      if name_filter is None or name_filter(tarinfo.name):
-        if not self.preserve_mtime:
-          tarinfo.mtime = self.default_mtime
-        if rootuid is not None and tarinfo.uid == rootuid:
-          tarinfo.uid = 0
-          tarinfo.uname = 'root'
-        if rootgid is not None and tarinfo.gid == rootgid:
-          tarinfo.gid = 0
-          tarinfo.gname = 'root'
-        if numeric:
-          tarinfo.uname = ''
-          tarinfo.gname = ''
+      if not self.preserve_mtime:
+        tarinfo.mtime = self.default_mtime
+      if rootuid is not None and tarinfo.uid == rootuid:
+        tarinfo.uid = 0
+        tarinfo.uname = 'root'
+      if rootgid is not None and tarinfo.gid == rootgid:
+        tarinfo.gid = 0
+        tarinfo.gname = 'root'
+      if numeric:
+        tarinfo.uname = ''
+        tarinfo.gname = ''
 
-        name = tarinfo.name
-        if (not name.startswith('/') and
-            not name.startswith(self.root_directory)):
-          name = os.path.join(self.root_directory, name)
-        if root is not None:
-          if name.startswith('.'):
-            name = '.' + root + name.lstrip('.')
-            # Add root dir with same permissions if missing. Note that
-            # add_file deduplicates directories and is safe to call here.
-            self.add_file('.' + root,
-                          tarfile.DIRTYPE,
-                          uid=tarinfo.uid,
-                          gid=tarinfo.gid,
-                          uname=tarinfo.uname,
-                          gname=tarinfo.gname,
-                          mtime=tarinfo.mtime,
-                          mode=0o755)
-          # Relocate internal hardlinks as well to avoid breaking them.
-          link = tarinfo.linkname
-          if link.startswith('.') and tarinfo.type == tarfile.LNKTYPE:
-            tarinfo.linkname = '.' + root + link.lstrip('.')
-        tarinfo.name = name
+      name = tarinfo.name
+      if (not name.startswith('/') and
+          not name.startswith(self.root_directory)):
+        name = os.path.join(self.root_directory, name)
+      if root is not None:
+        if name.startswith('.'):
+          name = '.' + root + name.lstrip('.')
+          # Add root dir with same permissions if missing. Note that
+          # add_file deduplicates directories and is safe to call here.
+          self.add_file('.' + root,
+                        tarfile.DIRTYPE,
+                        uid=tarinfo.uid,
+                        gid=tarinfo.gid,
+                        uname=tarinfo.uname,
+                        gname=tarinfo.gname,
+                        mtime=tarinfo.mtime,
+                        mode=0o755)
+        # Relocate internal hardlinks as well to avoid breaking them.
+        link = tarinfo.linkname
+        if link.startswith('.') and tarinfo.type == tarfile.LNKTYPE:
+          tarinfo.linkname = '.' + root + link.lstrip('.')
+      tarinfo.name = name
 
-        if tarinfo.isfile():
-          # use extractfile(tarinfo) instead of tarinfo.name to preserve
-          # seek position in intar
-          self._addfile(tarinfo, intar.extractfile(tarinfo))
-        else:
-          self._addfile(tarinfo)
+      if tarinfo.isfile():
+        # use extractfile(tarinfo) instead of tarinfo.name to preserve
+        # seek position in intar
+        self._addfile(tarinfo, intar.extractfile(tarinfo))
+      else:
+        self._addfile(tarinfo)
     intar.close()
 
   def close(self):

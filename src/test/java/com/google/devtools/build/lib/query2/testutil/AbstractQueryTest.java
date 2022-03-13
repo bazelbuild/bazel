@@ -1890,6 +1890,29 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void boundedDepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(evalToListOfStrings("deps(//foo:foo, 1)")).containsExactly("//foo:foo", "//foo:dep");
+  }
+
+  // Ideally we wouldn't fail on an irrelevant error (since //bar:missing is a dep of //foo:dep,
+  // not an rdep). This test documents the current non-ideal behavior.
+  @Test
+  public void boundedRdepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+                .getMessage())
+        .contains("preloading transitive closure failed: no such package 'bar':");
+  }
+
+  @Test
   public void testEqualityOfOrderedThreadSafeImmutableSet() throws Exception {
     writeFile("foo/BUILD", "sh_library(name = 'a')", "sh_library(name = 'b')");
 

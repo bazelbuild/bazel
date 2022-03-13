@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -69,15 +68,6 @@ public interface TestActionContext extends ActionContext {
   @Nullable
   ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum);
 
-  /**
-   * Post the final test result when a test execution is incomplete, perhaps due to environmental
-   * failures.
-   */
-  void finalizeIncompleteTest(
-      TestRunnerAction action,
-      ActionExecutionContext actionExecutionContext,
-      List<FailedAttemptResult> failedAttempts);
-
   /** An individual test attempt result. */
   interface TestAttemptResult {
     /** Test attempt result classification, splitting failures into permanent vs retriable. */
@@ -99,12 +89,6 @@ public interface TestActionContext extends ActionContext {
 
     /** Returns a list of spawn results for this test attempt. */
     ImmutableList<SpawnResult> spawnResults();
-
-    /** Returns the TestResultData for the test. */
-    TestResultData.Builder testResultDataBuilder();
-
-    /** Return the ExecutionInfo data for posting to Build Event Protocol. */
-    BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo();
 
     /**
      * Returns a description of the system failure associated with the primary spawn result, if any.
@@ -207,12 +191,6 @@ public interface TestActionContext extends ActionContext {
     /** Rename the output files if the test attempt failed, and post the test attempt result. */
     FailedAttemptResult finalizeFailedTestAttempt(TestAttemptResult testAttemptResult, int attempt)
         throws IOException;
-
-    /**
-     * Post the final test result when a test execution is incomplete, perhaps due to environmental
-     * failures.
-     */
-    void finalizeIncompleteTest(TestRunnerAction action, List<FailedAttemptResult> failedAttempts);
 
     /** Post the final test result based on the last attempt and the list of failed attempts. */
     void finalizeTest(

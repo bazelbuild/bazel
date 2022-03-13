@@ -56,7 +56,7 @@ import net.starlark.java.eval.StarlarkValue;
         "<p>A specialized data structure that supports efficient merge operations and has a"
             + " defined traversal order. Commonly used for accumulating data from transitive"
             + " dependencies in rules and aspects. For more information see <a"
-            + " href=\"../depsets.md\">here</a>."
+            + " href=\"/rules/depsets\">here</a>."
             + " <p>The elements of a depset must be hashable and all of the same type (as"
             + " defined by the built-in type(x) function), but depsets are not simply"
             + " hash sets and do not support fast membership tests."

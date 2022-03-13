@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -656,8 +657,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * significantly reduces memory overhead.
    */
   @Immutable
-  @AutoCodec
-  public static class LibraryToLinkValue extends VariableValueAdapter {
+  public abstract static class LibraryToLinkValue extends VariableValueAdapter {
     public static final String OBJECT_FILES_FIELD_NAME = "object_files";
     public static final String NAME_FIELD_NAME = "name";
     public static final String TYPE_FIELD_NAME = "type";
@@ -665,114 +665,53 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
 
-    @VisibleForSerialization
-    enum Type {
-      OBJECT_FILE("object_file"),
-      OBJECT_FILE_GROUP("object_file_group"),
-      INTERFACE_LIBRARY("interface_library"),
-      STATIC_LIBRARY("static_library"),
-      DYNAMIC_LIBRARY("dynamic_library"),
-      VERSIONED_DYNAMIC_LIBRARY("versioned_dynamic_library");
-
-      private final String name;
-
-      Type(String name) {
-        this.name = name;
-      }
-    }
-
-    private final String name;
-    private final ImmutableList<Artifact> objectFiles;
-    private final boolean isWholeArchive;
-    private final Type type;
-
     public static LibraryToLinkValue forDynamicLibrary(String name) {
-      return new LibraryToLinkValue(
-          Preconditions.checkNotNull(name),
-          /* objectFiles= */ null,
-          /* isWholeArchive= */ false,
-          Type.DYNAMIC_LIBRARY);
+      return new ForDynamicLibrary(name);
     }
 
     public static LibraryToLinkValue forVersionedDynamicLibrary(String name) {
-      return new LibraryToLinkValue(
-          Preconditions.checkNotNull(name),
-          /* objectFiles= */ null,
-          /* isWholeArchive= */ false,
-          Type.VERSIONED_DYNAMIC_LIBRARY);
+      return new ForVersionedDynamicLibrary(name);
     }
 
     public static LibraryToLinkValue forInterfaceLibrary(String name) {
-      return new LibraryToLinkValue(
-          Preconditions.checkNotNull(name),
-          /* objectFiles= */ null,
-          /* isWholeArchive= */ false,
-          Type.INTERFACE_LIBRARY);
+      return new ForInterfaceLibrary(name);
     }
 
     public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
-      return new LibraryToLinkValue(
-          Preconditions.checkNotNull(name),
-          /* objectFiles= */ null,
-          isWholeArchive,
-          Type.STATIC_LIBRARY);
+      return isWholeArchive ? new ForStaticLibraryWholeArchive(name) : new ForStaticLibrary(name);
     }
 
     public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
-      return new LibraryToLinkValue(
-          Preconditions.checkNotNull(name),
-          /* objectFiles= */ null,
-          isWholeArchive,
-          Type.OBJECT_FILE);
+      return isWholeArchive ? new ForObjectFileWholeArchive(name) : new ForObjectFile(name);
     }
 
     public static LibraryToLinkValue forObjectFileGroup(
         ImmutableList<Artifact> objects, boolean isWholeArchive) {
       Preconditions.checkNotNull(objects);
       Preconditions.checkArgument(!objects.isEmpty());
-      return new LibraryToLinkValue(
-          /* name= */ null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
+      return isWholeArchive
+          ? new ForObjectFileGroupWholeArchive(objects)
+          : new ForObjectFileGroup(objects);
     }
 
-    @VisibleForSerialization
-    LibraryToLinkValue(
-        String name, ImmutableList<Artifact> objectFiles, boolean isWholeArchive, Type type) {
-      this.name = name;
-      this.objectFiles = objectFiles;
-      this.isWholeArchive = isWholeArchive;
-      this.type = type;
-    }
-
-    @Override
     public VariableValue getFieldValue(
         String variableName,
         String field,
         @Nullable ArtifactExpander expander,
         boolean throwOnMissingVariable) {
-      Preconditions.checkNotNull(field);
-      if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
-        return new StringValue(name);
-      } else if (OBJECT_FILES_FIELD_NAME.equals(field) && type.equals(Type.OBJECT_FILE_GROUP)) {
-        ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
-        for (Artifact objectFile : objectFiles) {
-          if (objectFile.isTreeArtifact() && (expander != null)) {
-            List<Artifact> artifacts = new ArrayList<>();
-            expander.expand(objectFile, artifacts);
-            expandedObjectFiles.addAll(
-                Iterables.transform(artifacts, artifact -> artifact.getExecPathString()));
-          } else {
-            expandedObjectFiles.add(objectFile.getExecPathString());
-          }
-        }
-        return new StringSequence(expandedObjectFiles.build());
-      } else if (TYPE_FIELD_NAME.equals(field)) {
-        return new StringValue(type.name);
+      if (TYPE_FIELD_NAME.equals(field)) {
+        return new StringValue(getTypeName());
       } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
-        return new IntegerValue(isWholeArchive ? 1 : 0);
-      } else {
-        return null;
+        return new IntegerValue(getIsWholeArchive() ? 1 : 0);
       }
+      return null;
     }
+
+    protected boolean getIsWholeArchive() {
+      return false;
+    }
+
+    protected abstract String getTypeName();
 
     @Override
     public String getVariableTypeName() {
@@ -785,36 +724,215 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof LibraryToLinkValue)) {
+    public boolean equals(Object obj) {
+      if (!(obj instanceof LibraryToLinkValue)) {
         return false;
       }
-      if (this == other) {
+      if (this == obj) {
         return true;
       }
-      LibraryToLinkValue that = (LibraryToLinkValue) other;
-      return Objects.equals(this.name, that.name)
-          && Objects.equals(this.objectFiles, that.objectFiles)
-          && this.isWholeArchive == that.isWholeArchive
-          && Objects.equals(this.type, that.type);
+      LibraryToLinkValue other = (LibraryToLinkValue) obj;
+      return this.getTypeName().equals(other.getTypeName())
+          && getIsWholeArchive() == other.getIsWholeArchive();
     }
 
     @Override
     public int hashCode() {
-      return 31 * Objects.hash(name, objectFiles, type) + (isWholeArchive ? 1231 : 1237);
+      return Objects.hash(getTypeName(), getIsWholeArchive());
+    }
+
+    private abstract static class LibraryToLinkValueWithName extends LibraryToLinkValue {
+      private final String name;
+
+      LibraryToLinkValueWithName(String name) {
+        this.name = Preconditions.checkNotNull(name);
+      }
+
+      @Override
+      public VariableValue getFieldValue(
+          String variableName,
+          String field,
+          @Nullable ArtifactExpander expander,
+          boolean throwOnMissingVariable) {
+        if (NAME_FIELD_NAME.equals(field)) {
+          return new StringValue(name);
+        }
+        return super.getFieldValue(variableName, field, expander, throwOnMissingVariable);
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (!(obj instanceof LibraryToLinkValueWithName)) {
+          return false;
+        }
+        if (this == obj) {
+          return true;
+        }
+        LibraryToLinkValueWithName other = (LibraryToLinkValueWithName) obj;
+        return this.name.equals(other.name) && super.equals(other);
+      }
+
+      @Override
+      public int hashCode() {
+        return 31 * super.hashCode() + name.hashCode();
+      }
+    }
+
+    private static final class ForDynamicLibrary extends LibraryToLinkValueWithName {
+      private ForDynamicLibrary(String name) {
+        super(name);
+      }
+
+      @Override
+      protected String getTypeName() {
+        return "dynamic_library";
+      }
+    }
+
+    private static final class ForVersionedDynamicLibrary extends LibraryToLinkValueWithName {
+      private ForVersionedDynamicLibrary(String name) {
+        super(name);
+      }
+
+      @Override
+      protected String getTypeName() {
+        return "versioned_dynamic_library";
+      }
+    }
+
+    private static final class ForInterfaceLibrary extends LibraryToLinkValueWithName {
+      private ForInterfaceLibrary(String name) {
+        super(name);
+      }
+
+      @Override
+      protected String getTypeName() {
+        return "interface_library";
+      }
+    }
+
+    private static class ForStaticLibrary extends LibraryToLinkValueWithName {
+      private ForStaticLibrary(String name) {
+        super(name);
+      }
+
+      @Override
+      protected String getTypeName() {
+        return "static_library";
+      }
+    }
+
+    private static final class ForStaticLibraryWholeArchive extends ForStaticLibrary {
+      private ForStaticLibraryWholeArchive(String name) {
+        super(name);
+      }
+
+      @Override
+      protected boolean getIsWholeArchive() {
+        return true;
+      }
+    }
+
+    private static class ForObjectFile extends LibraryToLinkValueWithName {
+      private ForObjectFile(String name) {
+        super(name);
+      }
+
+      @Override
+      protected String getTypeName() {
+        return "object_file";
+      }
+    }
+
+    private static final class ForObjectFileWholeArchive extends ForObjectFile {
+      private ForObjectFileWholeArchive(String name) {
+        super(name);
+      }
+
+      @Override
+      protected boolean getIsWholeArchive() {
+        return true;
+      }
+    }
+
+    private static class ForObjectFileGroup extends LibraryToLinkValue {
+      private final ImmutableList<Artifact> objectFiles;
+
+      private ForObjectFileGroup(ImmutableList<Artifact> objectFiles) {
+        this.objectFiles = objectFiles;
+      }
+
+      @Override
+      public VariableValue getFieldValue(
+          String variableName,
+          String field,
+          @Nullable ArtifactExpander expander,
+          boolean throwOnMissingVariable) {
+        if (NAME_FIELD_NAME.equals(field)) {
+          return null;
+        }
+
+        if (OBJECT_FILES_FIELD_NAME.equals(field)) {
+          ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
+          for (Artifact objectFile : objectFiles) {
+            if (objectFile.isTreeArtifact() && (expander != null)) {
+              List<Artifact> artifacts = new ArrayList<>();
+              expander.expand(objectFile, artifacts);
+              expandedObjectFiles.addAll(
+                  Iterables.transform(artifacts, artifact -> artifact.getExecPathString()));
+            } else {
+              expandedObjectFiles.add(objectFile.getExecPathString());
+            }
+          }
+          return new StringSequence(expandedObjectFiles.build());
+        }
+
+        return super.getFieldValue(variableName, field, expander, throwOnMissingVariable);
+      }
+
+      @Override
+      protected String getTypeName() {
+        return "object_file_group";
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (!(obj instanceof ForObjectFileGroup)) {
+          return false;
+        }
+        if (this == obj) {
+          return true;
+        }
+        ForObjectFileGroup other = (ForObjectFileGroup) obj;
+        return this.objectFiles.equals(other.objectFiles) && super.equals(other);
+      }
+
+      @Override
+      public int hashCode() {
+        return 31 * super.hashCode() + objectFiles.hashCode();
+      }
+    }
+
+    private static final class ForObjectFileGroupWholeArchive extends ForObjectFileGroup {
+      private ForObjectFileGroupWholeArchive(ImmutableList<Artifact> objectFiles) {
+        super(objectFiles);
+      }
+
+      @Override
+      protected boolean getIsWholeArchive() {
+        return true;
+      }
     }
   }
 
   /** Sequence of arbitrary VariableValue objects. */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static final class Sequence extends VariableValueAdapter {
+  private static final class Sequence extends VariableValueAdapter {
     private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
 
     private final ImmutableList<VariableValue> values;
 
-    public Sequence(ImmutableList<VariableValue> values) {
+    private Sequence(ImmutableList<VariableValue> values) {
       this.values = values;
     }
 
@@ -851,70 +969,18 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
-   * A sequence of structure values. Exists as a memory optimization - a typical build can contain
-   * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
-   * significantly reduces memory overhead.
-   */
-  @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static final class StructureSequence extends VariableValueAdapter {
-    private final ImmutableList<ImmutableMap<String, VariableValue>> values;
-
-    @VisibleForSerialization
-    StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
-      Preconditions.checkNotNull(values);
-      this.values = values;
-    }
-
-    @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-      for (ImmutableMap<String, VariableValue> value : values) {
-        sequences.add(new StructureValue(value));
-      }
-      return sequences.build();
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !values.isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof StructureSequence)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      return Objects.equals(values, ((StructureSequence) other).values);
-    }
-
-    @Override
-    public int hashCode() {
-      return values.hashCode();
-    }
-  }
-
-  /**
    * A sequence of simple string values. Exists as a memory optimization - a typical build can
    * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
    * objects significantly reduces memory overhead.
    */
   @Immutable
-  @AutoCodec
+  @VisibleForTesting
   static final class StringSequence extends VariableValueAdapter {
     private final Iterable<String> values;
-    private int hash = 0;
+    private transient int hash = 0;
 
-    public StringSequence(Iterable<String> values) {
+    @VisibleForTesting
+    StringSequence(Iterable<String> values) {
       Preconditions.checkNotNull(values);
       this.values = values;
     }
@@ -976,7 +1042,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   private static final class StringSetSequence extends VariableValueAdapter {
     private final NestedSet<String> values;
 
-    StringSetSequence(NestedSet<String> values) {
+    private StringSetSequence(NestedSet<String> values) {
       Preconditions.checkNotNull(values);
       this.values = values;
     }
@@ -1019,17 +1085,15 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /**
    * Single structure value. Be careful not to create sequences of single structures, as the memory
-   * overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
+   * overhead is prohibitively big.
    */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  static final class StructureValue extends VariableValueAdapter {
+  private static final class StructureValue extends VariableValueAdapter {
     private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
 
     private final ImmutableMap<String, VariableValue> value;
 
-    public StructureValue(ImmutableMap<String, VariableValue> value) {
+    private StructureValue(ImmutableMap<String, VariableValue> value) {
       this.value = value;
     }
 
@@ -1078,14 +1142,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
+  @VisibleForTesting
   static final class StringValue extends VariableValueAdapter {
     private static final String STRING_VARIABLE_TYPE_NAME = "string";
 
     private final String value;
 
-    public StringValue(String value) {
+    @VisibleForTesting
+    StringValue(String value) {
       Preconditions.checkNotNull(value, "Cannot create StringValue from null");
       this.value = value;
     }
@@ -1127,12 +1191,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
   @Immutable
-  @AutoCodec
+  @VisibleForTesting
   static final class IntegerValue extends VariableValueAdapter {
     private static final String INTEGER_VALUE_TYPE_NAME = "integer";
     private final int value;
 
-    public IntegerValue(int value) {
+    @VisibleForTesting
+    IntegerValue(int value) {
       this.value = value;
     }
 
@@ -1308,7 +1373,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   @Immutable
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class MapVariables extends CcToolchainVariables {
     private static final Interner<MapVariables> INTERNER = BlazeInterners.newWeakInterner();

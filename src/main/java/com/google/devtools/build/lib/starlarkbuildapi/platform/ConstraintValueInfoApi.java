@@ -28,7 +28,7 @@ import net.starlark.java.annot.StarlarkMethod;
     name = "ConstraintValueInfo",
     doc =
         "A value for a constraint setting that can be used to define a platform. See "
-            + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
+            + "<a href='${link platforms#defining-constraints-and-platforms}'>Defining "
             + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = DocCategory.PROVIDER)
@@ -37,7 +37,7 @@ public interface ConstraintValueInfoApi extends StructApi {
   @StarlarkMethod(
       name = "constraint",
       doc =
-          "The <a href=\"ConstraintSettingInfo.html\">ConstraintSettingInfo</a> this value can be "
+          "The <a href=\"ConstraintSettingInfo\">ConstraintSettingInfo</a> this value can be "
               + "applied to.",
       structField = true,
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)

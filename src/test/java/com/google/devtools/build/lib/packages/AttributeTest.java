@@ -26,7 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -102,11 +102,12 @@ public class AttributeTest {
     Attribute.Builder<String> builder =
         attr("x", STRING)
             .mandatory()
-            .cfg(HostTransition.createFactory())
+            .cfg(ExecutionTransitionFactory.create())
             .undocumented("")
             .value("y");
     assertThrows(IllegalStateException.class, () -> builder.mandatory());
-    assertThrows(IllegalStateException.class, () -> builder.cfg(HostTransition.createFactory()));
+    assertThrows(
+        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.create()));
     assertThrows(IllegalStateException.class, () -> builder.undocumented(""));
     assertThrows(IllegalStateException.class, () -> builder.value("z"));
 
@@ -279,8 +280,8 @@ public class AttributeTest {
   @Test
   public void testHostTransition() throws Exception {
     Attribute attr =
-        attr("foo", LABEL).cfg(HostTransition.createFactory()).allowedFileTypes().build();
-    assertThat(attr.getTransitionFactory().isHost()).isTrue();
+        attr("foo", LABEL).cfg(ExecutionTransitionFactory.create()).allowedFileTypes().build();
+    assertThat(attr.getTransitionFactory().isTool()).isTrue();
     assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }
 

@@ -64,7 +64,6 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -436,7 +435,9 @@ public class ParallelEvaluatorTest {
     assertThat(keyBAddReverseDepAndCheckIfDoneInterrupted.get()).isTrue();
   }
 
-  private void runPartialResultOnInterruption(boolean buildFastFirst) throws Exception {
+  @Test
+  public void runPartialResultOnInterruption(@TestParameter boolean buildFastFirst)
+      throws Exception {
     graph = new InMemoryGraphImpl();
     // Two runs for fastKey's builder and one for the start of waitKey's builder.
     final CountDownLatch allValuesReady = new CountDownLatch(3);
@@ -496,16 +497,6 @@ public class ParallelEvaluatorTest {
       // On first time being built, leafKey is registered too.
       assertThat(receivedValues).containsExactly(fastKey, leafKey);
     }
-  }
-
-  @Test
-  public void partialResultOnInterruption() throws Exception {
-    runPartialResultOnInterruption(/*buildFastFirst=*/ false);
-  }
-
-  @Test
-  public void partialCachedResultOnInterruption() throws Exception {
-    runPartialResultOnInterruption(/*buildFastFirst=*/ true);
   }
 
   /** Factory for SkyFunctions for interruption testing (see {@link #runInterruptionTest}). */
@@ -1552,7 +1543,7 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void transformErrorDep() throws Exception {
+  public void transformErrorDep(@TestParameter boolean keepGoing) throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
@@ -1561,23 +1552,7 @@ public class ParallelEvaluatorTest {
         .getOrCreate(parentErrorKey)
         .addErrorDependency(errorKey, new StringValue("recovered"))
         .setHasError(true);
-    EvaluationResult<StringValue> result =
-        eval(/*keepGoing=*/ false, ImmutableList.of(parentErrorKey));
-    assertThatEvaluationResult(result).hasSingletonErrorThat(parentErrorKey);
-  }
-
-  @Test
-  public void transformErrorDepKeepGoing() throws Exception {
-    graph = new InMemoryGraphImpl();
-    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
-    tester.getOrCreate(errorKey).setHasError(true);
-    SkyKey parentErrorKey = GraphTester.toSkyKey("parent");
-    tester
-        .getOrCreate(parentErrorKey)
-        .addErrorDependency(errorKey, new StringValue("recovered"))
-        .setHasError(true);
-    EvaluationResult<StringValue> result =
-        eval(/*keepGoing=*/ true, ImmutableList.of(parentErrorKey));
+    EvaluationResult<StringValue> result = eval(keepGoing, ImmutableList.of(parentErrorKey));
     assertThatEvaluationResult(result).hasSingletonErrorThat(parentErrorKey);
   }
 
@@ -1645,9 +1620,8 @@ public class ParallelEvaluatorTest {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env)
                   throws SkyFunctionException, InterruptedException {
-                Map<SkyKey, ValueOrException<SomeErrorException>> values =
-                    env.getValuesOrThrow(
-                        ImmutableList.of(errorKey, otherKey), SomeErrorException.class);
+                SkyframeLookupResult values =
+                    env.getValuesAndExceptions(ImmutableList.of(errorKey, otherKey));
                 if (numComputes.incrementAndGet() == 1) {
                   assertThat(env.valuesMissing()).isTrue();
                 } else {
@@ -1655,7 +1629,7 @@ public class ParallelEvaluatorTest {
                   assertThat(env.valuesMissing()).isFalse();
                 }
                 try {
-                  values.get(errorKey).get();
+                  values.getOrThrow(errorKey, SomeErrorException.class);
                   throw new AssertionError("Should have thrown");
                 } catch (SomeErrorException e) {
                   throw new SkyFunctionException(topException, Transience.PERSISTENT) {};
@@ -1704,7 +1678,8 @@ public class ParallelEvaluatorTest {
    * Regression test: "value in cycle depends on error". The mid value will have two parents -- top
    * and cycle. Error bubbles up from mid to cycle, and we should detect cycle.
    */
-  private void cycleAndErrorInBubbleUp(boolean keepGoing) throws Exception {
+  @Test
+  public void cycleAndErrorInBubbleUp(@TestParameter boolean keepGoing) throws Exception {
     graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     tester = new GraphTester();
     SkyKey errorKey = GraphTester.toSkyKey("error");
@@ -1737,16 +1712,6 @@ public class ParallelEvaluatorTest {
         .hasCycleInfoThat()
         .containsExactly(
             new CycleInfo(ImmutableList.of(topKey), ImmutableList.of(midKey, cycleKey)));
-  }
-
-  @Test
-  public void cycleAndErrorInBubbleUpNoKeepGoing() throws Exception {
-    cycleAndErrorInBubbleUp(false);
-  }
-
-  @Test
-  public void cycleAndErrorInBubbleUpKeepGoing() throws Exception {
-    cycleAndErrorInBubbleUp(true);
   }
 
   /**
@@ -1822,7 +1787,8 @@ public class ParallelEvaluatorTest {
    * Regression test: "value in cycle depends on error". Here, we add an additional top-level key in
    * error, just to mix it up.
    */
-  private void cycleAndErrorAndError(boolean keepGoing) throws Exception {
+  @Test
+  public void cycleAndErrorAndError(@TestParameter boolean keepGoing) throws Exception {
     graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     tester = new GraphTester();
     SkyKey errorKey = GraphTester.toSkyKey("error");
@@ -1885,16 +1851,6 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void cycleAndErrorAndErrorNoKeepGoing() throws Exception {
-    cycleAndErrorAndError(false);
-  }
-
-  @Test
-  public void cycleAndErrorAndErrorKeepGoing() throws Exception {
-    cycleAndErrorAndError(true);
-  }
-
-  @Test
   public void testFunctionCrashTrace() throws Exception {
 
     class ChildFunction implements SkyFunction {
@@ -1939,7 +1895,13 @@ public class ParallelEvaluatorTest {
     }
   }
 
-  private void unexpectedErrorDep(boolean keepGoing) throws Exception {
+  /**
+   * This and the following tests are in response to a bug: "Skyframe error propagation model is
+   * problematic". They ensure that exceptions a child throws that a value does not specify it can
+   * handle in getValueOrThrow do not cause a crash.
+   */
+  @Test
+  public void unexpectedErrorDep(@TestParameter boolean keepGoing) throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     final SomeOtherErrorException exception = new SomeOtherErrorException("error exception");
@@ -1958,22 +1920,8 @@ public class ParallelEvaluatorTest {
     assertThatEvaluationResult(result).hasSingletonErrorThat(topKey);
   }
 
-  /**
-   * This and the following three tests are in response a bug: "Skyframe error propagation model is
-   * problematic". They ensure that exceptions a child throws that a value does not specify it can
-   * handle in getValueOrThrow do not cause a crash.
-   */
   @Test
-  public void unexpectedErrorDepKeepGoing() throws Exception {
-    unexpectedErrorDep(true);
-  }
-
-  @Test
-  public void unexpectedErrorDepNoKeepGoing() throws Exception {
-    unexpectedErrorDep(false);
-  }
-
-  private void unexpectedErrorDepOneLevelDown(final boolean keepGoing) throws Exception {
+  public void unexpectedErrorDepOneLevelDown(@TestParameter boolean keepGoing) throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     final SomeErrorException exception = new SomeErrorException("error exception");
@@ -2018,26 +1966,15 @@ public class ParallelEvaluatorTest {
     }
   }
 
-  @Test
-  public void unexpectedErrorDepOneLevelDownKeepGoing() throws Exception {
-    unexpectedErrorDepOneLevelDown(true);
-  }
-
-  @Test
-  public void unexpectedErrorDepOneLevelDownNoKeepGoing() throws Exception {
-    unexpectedErrorDepOneLevelDown(false);
-  }
-
   /**
    * Exercises various situations involving groups of deps that overlap -- request one group, then
    * request another group that has a dep in common with the first group.
    *
    * @param sameFirst whether the dep in common in the two groups should be the first dep.
    * @param twoCalls whether the two groups should be requested in two different builder calls.
-   * @param valuesOrThrow whether the deps should be requested using getValuesOrThrow.
    */
-  private void sameDepInTwoGroups(
-      final boolean sameFirst, final boolean twoCalls, final boolean valuesOrThrow)
+  @Test
+  public void sameDepInTwoGroups(@TestParameter boolean sameFirst, @TestParameter boolean twoCalls)
       throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey topKey = GraphTester.toSkyKey("top");
@@ -2053,22 +1990,14 @@ public class ParallelEvaluatorTest {
         .getOrCreate(topKey)
         .setBuilder(
             (skyKey, env) -> {
-              if (valuesOrThrow) {
-                env.getValuesOrThrow(leaves, SomeErrorException.class);
-              } else {
-                env.getValues(leaves);
-              }
+              env.getOrderedValuesAndExceptions(leaves);
               if (twoCalls && env.valuesMissing()) {
                 return null;
               }
               SkyKey first = sameFirst ? leaves.get(0) : leaf4;
               SkyKey second = sameFirst ? leaf4 : leaves.get(2);
               ImmutableList<SkyKey> secondRequest = ImmutableList.of(first, second);
-              if (valuesOrThrow) {
-                env.getValuesOrThrow(secondRequest, SomeErrorException.class);
-              } else {
-                env.getValues(secondRequest);
-              }
+              env.getOrderedValuesAndExceptions(secondRequest);
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2079,46 +2008,7 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void sameDepInTwoGroups_Same_Two_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ true, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Same_Two_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ true, /*valuesOrThrow=*/ false);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Same_One_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ false, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Same_One_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ true, /*twoCalls=*/ false, /*valuesOrThrow=*/ false);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_Two_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ true, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_Two_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ true, /*valuesOrThrow=*/ false);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_One_Throw() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ false, /*valuesOrThrow=*/ true);
-  }
-
-  @Test
-  public void sameDepInTwoGroups_Different_One_Deps() throws Exception {
-    sameDepInTwoGroups(/*sameFirst=*/ false, /*twoCalls=*/ false, /*valuesOrThrow=*/ false);
-  }
-
-  private void getValuesOrThrowWithErrors(boolean keepGoing) throws Exception {
+  public void getValueOrThrowWithErrors(@TestParameter boolean keepGoing) throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     final SkyKey errorDep = GraphTester.toSkyKey("errorChild");
@@ -2158,16 +2048,6 @@ public class ParallelEvaluatorTest {
     assertThat(evaluationResult.hasError()).isTrue();
     assertThat(evaluationResult.getError().getException())
         .isEqualTo(keepGoing ? parentExn : childExn);
-  }
-
-  @Test
-  public void getValuesOrThrowWithErrors_NoKeepGoing() throws Exception {
-    getValuesOrThrowWithErrors(/*keepGoing=*/ false);
-  }
-
-  @Test
-  public void getValuesOrThrowWithErrors_KeepGoing() throws Exception {
-    getValuesOrThrowWithErrors(/*keepGoing=*/ true);
   }
 
   @Test
@@ -2730,8 +2610,10 @@ public class ParallelEvaluatorTest {
         .isEqualTo(new StringValue("the third time's the charm!"));
   }
 
-  private void runUnhandledTransitiveErrors(
-      boolean keepGoing, final boolean explicitlyPropagateError) throws Exception {
+  @Test
+  public void runUnhandledTransitiveErrors(
+      @TestParameter boolean keepGoing, @TestParameter boolean explicitlyPropagateError)
+      throws Exception {
     graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     tester = new GraphTester();
     SkyKey grandparentKey = GraphTester.toSkyKey("grandparent");
@@ -2767,28 +2649,6 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(keepGoing, ImmutableList.of(grandparentKey));
     assertThat(errorPropagated.get()).isTrue();
     assertThatEvaluationResult(result).hasSingletonErrorThat(grandparentKey);
-  }
-
-  @Test
-  public void unhandledTransitiveErrorsDuringErrorBubbling_ImplicitPropagation() throws Exception {
-    runUnhandledTransitiveErrors(/*keepGoing=*/ false, /*explicitlyPropagateError=*/ false);
-  }
-
-  @Test
-  public void unhandledTransitiveErrorsDuringErrorBubbling_ExplicitPropagation() throws Exception {
-    runUnhandledTransitiveErrors(/*keepGoing=*/ false, /*explicitlyPropagateError=*/ true);
-  }
-
-  @Test
-  public void unhandledTransitiveErrorsDuringNormalEvaluation_ImplicitPropagation()
-      throws Exception {
-    runUnhandledTransitiveErrors(/*keepGoing=*/ true, /*explicitlyPropagateError=*/ false);
-  }
-
-  @Test
-  public void unhandledTransitiveErrorsDuringNormalEvaluation_ExplicitPropagation()
-      throws Exception {
-    runUnhandledTransitiveErrors(/*keepGoing=*/ true, /*explicitlyPropagateError=*/ true);
   }
 
   private static class ChildKey extends AbstractSkyKey<String> {

@@ -70,7 +70,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupStarlarkRule() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_lite_proto_library");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+java_lite_proto_library",
+        "--experimental_google_legacy_api");
   }
 
   private void mockToolchains() throws IOException {
