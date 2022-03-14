@@ -85,10 +85,10 @@ class TarFileWriterTest(unittest.TestCase):
 
   def testDottedFiles(self):
     with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_file("a")
-      f.add_file("b/.c")
-      f.add_file("..d")
-      f.add_file(".e")
+      f.add_file_and_parents("a")
+      f.add_file_and_parents("b/.c")
+      f.add_file_and_parents("..d")
+      f.add_file_and_parents(".e")
     content = [
         {"name": "a"},
         {"name": "b"},
@@ -121,7 +121,7 @@ class TarFileWriterTest(unittest.TestCase):
 
   def testAddingDirectoriesForFile(self):
     with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_file("d/f")
+      f.add_file_and_parents("d/f")
     content = [
         {"name": "d", "mode": 0o755},
         {"name": "d/f"},
@@ -140,36 +140,31 @@ class TarFileWriterTest(unittest.TestCase):
 
     with mini_tar.TarFileWriter(self.tempfile) as f:
       f.add_dir("d", d_dir)
-      f.add_file("d/f")
-
+      f.add_file_and_parents("d/f")
       f.add_dir("a", a_dir)
-      f.add_file("a/b/f")
+      f.add_file_and_parents("a/b/f")
     content = [
-        {"name": "d",
-         "mode": 0o755},
+        {"name": "d", "mode": 0o755},
         {"name": "d/dir_file"},
         {"name": "d/f"},
-        {"name": "a",
-         "mode": 0o755},
+        {"name": "a", "mode": 0o755},
         {"name": "a/dir_file"},
-        {"name": "a/b",
-         "mode": 0o755},
+        {"name": "a/b", "mode": 0o755},
         {"name": "a/b/f"},
     ]
     self.assertTarFileContent(self.tempfile, content)
 
   def testAddingDirectoriesForFileManually(self):
     with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_file("d", tarfile.DIRTYPE)
-      f.add_file("d/f")
-      f.add_file("a", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b/", tarfile.DIRTYPE)
-      f.add_file("a/b/c/f")
-
-      f.add_file("x/y/f")
-      f.add_file("x", tarfile.DIRTYPE)
+      f.add_file_and_parents("d", tarfile.DIRTYPE)
+      f.add_file_and_parents("d/f")
+      f.add_file_and_parents("a", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b/", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b/c/f")
+      f.add_file_and_parents("x/y/f")
+      f.add_file_and_parents("x", tarfile.DIRTYPE)
     content = [
         {"name": "d", "mode": 0o755},
         {"name": "d/f"},
@@ -185,34 +180,25 @@ class TarFileWriterTest(unittest.TestCase):
 
   def testChangingRootDirectory(self):
     with mini_tar.TarFileWriter(self.tempfile, root_directory="root") as f:
-      f.add_file("d", tarfile.DIRTYPE)
-      f.add_file("d/f")
-
-      f.add_file("a", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b", tarfile.DIRTYPE)
-      f.add_file("a/b/", tarfile.DIRTYPE)
-      f.add_file("a/b/c/f")
-
-      f.add_file("x/y/f")
-      f.add_file("x", tarfile.DIRTYPE)
+      f.add_file_and_parents("d", tarfile.DIRTYPE)
+      f.add_file_and_parents("d/f")
+      f.add_file_and_parents("a", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b/", tarfile.DIRTYPE)
+      f.add_file_and_parents("a/b/c/f")
+      f.add_file_and_parents("x/y/f")
+      f.add_file_and_parents("x", tarfile.DIRTYPE)
     content = [
-        {"name": "root",
-         "mode": 0o755},
-        {"name": "root/d",
-         "mode": 0o755},
+        {"name": "root", "mode": 0o755},
+        {"name": "root/d", "mode": 0o755},
         {"name": "root/d/f"},
-        {"name": "root/a",
-         "mode": 0o755},
-        {"name": "root/a/b",
-         "mode": 0o755},
-        {"name": "root/a/b/c",
-         "mode": 0o755},
+        {"name": "root/a", "mode": 0o755},
+        {"name": "root/a/b", "mode": 0o755},
+        {"name": "root/a/b/c", "mode": 0o755},
         {"name": "root/a/b/c/f"},
-        {"name": "root/x",
-         "mode": 0o755},
-        {"name": "root/x/y",
-         "mode": 0o755},
+        {"name": "root/x", "mode": 0o755},
+        {"name": "root/x/y", "mode": 0o755},
         {"name": "root/x/y/f"},
     ]
     self.assertTarFileContent(self.tempfile, content)

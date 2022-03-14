@@ -105,7 +105,7 @@ class TarFileWriter(object):
       # Add the x bit to directories to prevent non-traversable directories.
       # The x bit is set only to if the read bit is set.
       dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
-      self.add_file(
+      self.add_file_and_parents(
           name + '/',
           tarfile.DIRTYPE,
           uid=uid,
@@ -126,15 +126,16 @@ class TarFileWriter(object):
         self.add_dir(new_name, new_path, uid, gid, uname, gname, mtime, mode,
                      depth - 1)
     else:
-      self.add_file(name,
-                    tarfile.REGTYPE,
-                    file_content=path,
-                    uid=uid,
-                    gid=gid,
-                    uname=uname,
-                    gname=gname,
-                    mtime=mtime,
-                    mode=mode)
+      self.add_file_and_parents(
+          name,
+          tarfile.REGTYPE,
+          file_content=path,
+          uid=uid,
+          gid=gid,
+          uname=uname,
+          gname=gname,
+          mtime=mtime,
+          mode=mode)
 
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
@@ -148,17 +149,17 @@ class TarFileWriter(object):
       print(('Duplicate file in archive: %s, '
              'picking first occurrence' % info.name))
 
-  def add_file(self,
-               name,
-               kind=tarfile.REGTYPE,
-               link=None,
-               file_content=None,
-               uid=0,
-               gid=0,
-               uname='',
-               gname='',
-               mtime=None,
-               mode=None):
+  def add_file_and_parents(self,
+                           name,
+                           kind=tarfile.REGTYPE,
+                           link=None,
+                           file_content=None,
+                           uid=0,
+                           gid=0,
+                           uname='',
+                           gname='',
+                           mtime=None,
+                           mode=None):
     """Add a file to the current tar.
 
     Args:
@@ -191,14 +192,9 @@ class TarFileWriter(object):
     components = name.rsplit('/', 1)
     if len(components) > 1:
       d = components[0]
-      self.add_file(d,
-                    tarfile.DIRTYPE,
-                    uid=uid,
-                    gid=gid,
-                    uname=uname,
-                    gname=gname,
-                    mtime=mtime,
-                    mode=0o755)
+      self.add_file_and_parents(d, tarfile.DIRTYPE, uid=uid, gid=gid,
+                                uname=uname, gname=gname, mtime=mtime,
+                                mode=0o755)
     tarinfo = tarfile.TarInfo(name)
     tarinfo.mtime = mtime
     tarinfo.uid = uid
@@ -222,29 +218,11 @@ class TarFileWriter(object):
       self._addfile(tarinfo)
 
 
-class TarFile(object):
-  """A class to generates a TAR file."""
-
-  def __init__(self, output, root_directory, default_mtime):
-    self.root_directory = root_directory
-    self.output = output
-    self.default_mtime = default_mtime
-
-  def __enter__(self):
-    self.tarfile = TarFileWriter(
-        self.output,
-        self.root_directory,
-        default_mtime=self.default_mtime)
-    return self
-
-  def __exit__(self, t, v, traceback):
-    self.tarfile.close()
-
-  def add_file(self, f, destfile, mode=None, ids=None, names=None):
+  def add_file_at_dest(self, path, destfile, mode=None, ids=None, names=None):
     """Add a file to the tar file.
 
     Args:
-       f: the file to add to the layer
+       path: the file to add to the layer
        destfile: the name of the file in the layer
        mode: force to set the specified mode, by default the value from the
          source is taken.
@@ -263,9 +241,9 @@ class TarFile(object):
     if names is None:
       names = ('', '')
     dest = os.path.normpath(dest).replace(os.path.sep, '/')
-    self.tarfile.add_file(
+    self.add_file_and_parents(
         dest,
-        file_content=f,
+        file_content=path,
         mode=mode,
         uid=ids[0],
         gid=ids[1],
@@ -340,10 +318,13 @@ def main():
     default_ownername = options.owner_name.split('.', 1)
 
   # Add objects to the tar file
-  with TarFile(options.output, options.directory, PORTABLE_MTIME) as output:
+  with TarFileWriter(name=options.output,
+                     root_directory=options.directory,
+                     default_mtime=PORTABLE_MTIME) as output:
     for f in options.file:
-      (inf, tof) = unquote_and_split(f, '=')
-      output.add_file(inf, tof, mode=default_mode, names=default_ownername)
+      (input_path, dest) = unquote_and_split(f, '=')
+      output.add_file_at_dest(input_path, dest, mode=default_mode,
+                              names=default_ownername)
 
 
 if __name__ == '__main__':
