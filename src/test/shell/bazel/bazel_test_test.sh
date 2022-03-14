@@ -222,7 +222,7 @@ EOF
   expect_log '1 test passes.$'
 }
 
-# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
@@ -241,7 +241,7 @@ EOF
   chmod u+x scripts/hello
 
   # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
-  PATH=$PATH:$PWD/scripts bazel --nomaster_bazelrc test //testing:t1 -s --run_under=hello \
+  PATH=$PATH:$PWD/scripts bazel --ignore_all_rc_files test //testing:t1 -s --run_under=hello \
     --test_output=all --incompatible_strict_action_env=true >& $TEST_log && fail "Expected failure"
 
   # With --action_env=PATH, the local PATH is forwarded to the test.
@@ -626,7 +626,7 @@ function test_detailed_test_summary() {
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
 }
 
-# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
@@ -658,7 +658,7 @@ EOF
   chmod +x true.sh flaky.sh false.sh
 
   # We do not use sandboxing so we can trick to be deterministically flaky
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events \
+  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events \
       --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
@@ -672,7 +672,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:pass \
+  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events //:pass \
       &> $TEST_log || fail "//:pass should have passed"
   expect_log_once "PASS.*: //:pass"
   expect_log_once "PASSED"
@@ -681,7 +681,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:fail \
+  bazel --ignore_all_rc_files test --experimental_ui_debug_all_events //:fail \
       &> $TEST_log && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL.*: //:fail (.*/fail/test_attempts/attempt_..log)" 2
