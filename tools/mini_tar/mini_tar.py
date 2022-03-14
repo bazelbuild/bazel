@@ -99,14 +99,12 @@ class TarFileWriter(object):
     if mtime is None:
       mtime = self.default_mtime
     if os.path.isdir(path):
-      # Remove trailing '/' (index -1 => last character)
-      if name[-1] == '/':
-        name = name[:-1]
+      name = name.rstrip('/') + '/'
       # Add the x bit to directories to prevent non-traversable directories.
       # The x bit is set only to if the read bit is set.
       dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
       self.add_file_and_parents(
-          name + '/',
+          name,
           tarfile.DIRTYPE,
           uid=uid,
           gid=gid,
@@ -121,7 +119,7 @@ class TarFileWriter(object):
       filelist = os.listdir(path)
       filelist.sort()
       for f in filelist:
-        new_name = os.path.join(name, f)
+        new_name = name + f
         new_path = os.path.join(path, f)
         self.add_dir(new_name, new_path, uid, gid, uname, gname, mtime, mode,
                      depth - 1)
@@ -161,6 +159,8 @@ class TarFileWriter(object):
                            mtime=None,
                            mode=None):
     """Add a file to the current tar.
+
+    Creates parent directories if needed.
 
     Args:
       name: the name of the file to add.
@@ -217,22 +217,19 @@ class TarFileWriter(object):
         self.directories.add(name)
       self._addfile(tarinfo)
 
-
-  def add_file_at_dest(self, path, destfile, mode=None, ids=None, names=None):
+  def add_file_at_dest(self, in_path, dest_path, mode=None, ids=None, names=None):
     """Add a file to the tar file.
 
     Args:
        path: the file to add to the layer
-       destfile: the name of the file in the layer
+       dest_path: the name of the file in the layer
        mode: force to set the specified mode, by default the value from the
          source is taken.
        ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership. `f` will be
-         copied to `self.directory/destfile` in the layer.
+       names: (username, groupname) for the file to set ownership. 
     """
-    dest = destfile.lstrip('/')  # Remove leading slashes
-    #if self.directory and self.directory != '/':
-    #  dest = self.directory.lstrip('/') + '/' + dest
+    # Make a clean '/' deliminted destination path
+    dest = os.path.normpath(dest_path.strip('/')).replace(os.path.sep, '/')
     # If mode is unspecified, derive the mode from the file's mode.
     if mode is None:
       mode = 0o755 if os.access(f, os.X_OK) else 0o644
@@ -240,10 +237,9 @@ class TarFileWriter(object):
       ids = (0, 0)
     if names is None:
       names = ('', '')
-    dest = os.path.normpath(dest).replace(os.path.sep, '/')
     self.add_file_and_parents(
         dest,
-        file_content=path,
+        file_content=in_path,
         mode=mode,
         uid=ids[0],
         gid=ids[1],
@@ -297,7 +293,6 @@ def main():
   parser.add_argument(
       '--directory',
       help='Directory in which to store the file inside the layer')
-
   parser.add_argument('--file', action='append', help='input_paty=dest_path')
   parser.add_argument(
       '--owner', default='0.0',
