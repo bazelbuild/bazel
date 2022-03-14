@@ -68,3 +68,8 @@ CC_17_COPT = select({
     "//src/tools/launcher:clang-cl_compiler": ["/std:c++17"],
     "//conditions:default": ["-std=c++17"],
 })
+
+LINK_UNICODE = select({
+    "//src/tools/launcher:mingw-gcc_compiler": ["-municode"],
+    "//conditions:default": [],
+})

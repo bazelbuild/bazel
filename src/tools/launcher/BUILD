@@ -1,4 +1,4 @@
-load(":win_rules.bzl", "CC_17_COPT", "win_cc_binary", "win_cc_library")
+load(":win_rules.bzl", "CC_17_COPT", "LINK_UNICODE", "win_cc_binary", "win_cc_library")
 
 filegroup(
     name = "srcs",
@@ -16,11 +16,17 @@ config_setting(
     flag_values = {"@bazel_tools//tools/cpp:compiler": "clang-cl"},
 )
 
+config_setting(
+    name = "mingw-gcc_compiler",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "mingw-gcc"},
+)
+
 win_cc_binary(
     name = "launcher",
     srcs = ["launcher_main.cc"],
     copts = CC_17_COPT,
     features = ["fully_static_link"],
+    linkopts = LINK_UNICODE,
     linkstatic = True,
     visibility = [
         "//src:__pkg__",
