@@ -38,11 +38,17 @@ def _impl(ctx):
         ACTION_NAMES.lto_backend,
     ]
 
+    lto_index_actions = [
+        ACTION_NAMES.lto_index_for_executable,
+        ACTION_NAMES.lto_index_for_dynamic_library,
+        ACTION_NAMES.lto_index_for_nodeps_dynamic_library,
+    ]
+
     all_link_actions = [
         ACTION_NAMES.cpp_link_executable,
         ACTION_NAMES.cpp_link_dynamic_library,
         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-    ]
+    ] + lto_index_actions
 
     opt_feature = feature(name = "opt")
     fastbuild_feature = feature(name = "fastbuild")
@@ -50,7 +56,6 @@ def _impl(ctx):
     supports_dynamic_linker_feature = feature(name = "supports_dynamic_linker", enabled = True)
     supports_pic_feature = feature(name = "supports_pic", enabled = True)
     static_link_cpp_runtimes_feature = feature(name = "static_link_cpp_runtimes", enabled = True)
-
 
     default_compile_flags = []
     unfiltered_compile_flags = []
@@ -196,11 +201,80 @@ def _impl(ctx):
         flag_sets = unfiltered_compile_flag_sets,
     )
 
+    supports_start_end_lib_feature = feature(
+        name = "supports_start_end_lib",
+        enabled = True,
+        requires = [feature_set(features = ["thin_lto"])],
+    )
+    thinlto_feature = feature(
+        name = "thin_lto",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                ] + all_link_actions + lto_index_actions,
+                flag_groups = [
+                    flag_group(flags = ["-flto=thin"]),
+                    flag_group(
+                        expand_if_available = "lto_indexing_bitcode_file",
+                        flags = [
+                            "-Xclang",
+                            "-fthin-link-bitcode=%{lto_indexing_bitcode_file}",
+                        ],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.linkstamp_compile],
+                flag_groups = [flag_group(flags = ["-DBUILD_LTO_TYPE=thin"])],
+            ),
+            flag_set(
+                actions = lto_index_actions,
+                flag_groups = [
+                    flag_group(flags = [
+                        "-flto=thin",
+                        "-Wl,-plugin-opt,thinlto-index-only%{thinlto_optional_params_file}",
+                        "-Wl,-plugin-opt,thinlto-emit-imports-files",
+                        "-Wl,-plugin-opt,thinlto-prefix-replace=%{thinlto_prefix_replace}",
+                    ]),
+                    flag_group(
+                        expand_if_available = "thinlto_object_suffix_replace",
+                        flags = [
+                            "-Wl,-plugin-opt,thinlto-object-suffix-replace=%{thinlto_object_suffix_replace}",
+                        ],
+                    ),
+                    flag_group(
+                        expand_if_available = "thinlto_merged_object_file",
+                        flags = [
+                            "-Wl,-plugin-opt,obj-path=%{thinlto_merged_object_file}",
+                        ],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.lto_backend],
+                flag_groups = [
+                    flag_group(flags = [
+                        "-c",
+                        "-fthinlto-index=%{thinlto_index}",
+                        "-o",
+                        "%{thinlto_output_object_file}",
+                        "-x",
+                        "ir",
+                        "%{thinlto_input_bitcode_file}",
+                    ]),
+                ],
+            ),
+        ],
+    )
+
     features = [
         default_compile_flags_feature,
         default_link_flags_feature,
         supports_dynamic_linker_feature,
         supports_pic_feature,
+        supports_start_end_lib_feature,
         static_link_cpp_runtimes_feature,
         fastbuild_feature,
         dbg_feature,
@@ -208,6 +282,7 @@ def _impl(ctx):
         user_compile_flags_feature,
         sysroot_feature,
         unfiltered_compile_flags_feature,
+        thinlto_feature,
     ]
 
     tool_paths = []
