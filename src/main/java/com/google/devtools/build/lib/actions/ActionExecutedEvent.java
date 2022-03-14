@@ -120,6 +120,11 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     return actionMetadataLogs;
   }
 
+  @Nullable
+  public FileArtifactValue getPrimaryOutputMetadata() {
+    return primaryOutputMetadata;
+  }
+
   @Override
   public BuildEventId getEventId() {
     if (action.getOwner() == null) {
