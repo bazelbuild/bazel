@@ -350,7 +350,7 @@ public class UploadManifest {
   /** Uploads outputs and action result (if exit code is 0) to remote cache. */
   public ActionResult upload(
       RemoteActionExecutionContext context, RemoteCache remoteCache, ExtendedEventHandler reporter)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, ExecException {
     try {
       return uploadAsync(context, remoteCache, reporter).blockingGet();
     } catch (RuntimeException e) {
@@ -358,6 +358,7 @@ public class UploadManifest {
       if (cause != null) {
         throwIfInstanceOf(cause, InterruptedException.class);
         throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, ExecException.class);
       }
       throw e;
     }
