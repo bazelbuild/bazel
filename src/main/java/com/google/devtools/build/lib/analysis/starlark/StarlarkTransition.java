@@ -267,31 +267,39 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       Map<PackageValue.Key, PackageValue> buildSettingPackages,
       Map<String, BuildOptions> toOptions)
       throws TransitionException {
-    // Collect settings changed during this transition and their types. This includes settings that
-    // were only used as inputs as to the transition and thus had their default values added to the
-    // fromOptions, which in case of a no-op transition directly end up in toOptions.
-    Map<Label, Rule> changedSettingToRule = Maps.newHashMap();
+    // Collect settings that are inputs or outputs of the transition together with their types.
+    // Output setting values will be validated and removed if set to their default.
+    Map<Label, Rule> inputAndOutputSettingsToRule = Maps.newHashMap();
+    // Collect settings that were only used as inputs to the transition and thus possibly had their
+    // default values added to the fromOptions. They will be removed if set to ther default, but
+    // should not be validated.
+    Set<Label> inputOnlySettings = Sets.newHashSet();
     root.visit(
         (StarlarkTransitionVisitor)
             transition -> {
-              ImmutableSet<Label> changedSettings =
+              ImmutableSet<Label> inputAndOutputSettings =
                   getRelevantStarlarkSettingsFromTransition(
                       transition, Settings.INPUTS_AND_OUTPUTS);
-              for (Label setting : changedSettings) {
-                changedSettingToRule.put(
+              ImmutableSet<Label> outputSettings =
+                  getRelevantStarlarkSettingsFromTransition(transition, Settings.OUTPUTS);
+              for (Label setting : inputAndOutputSettings) {
+                inputAndOutputSettingsToRule.put(
                     setting, getActual(buildSettingPackages, setting).getAssociatedRule());
+                if (!outputSettings.contains(setting)) {
+                  inputOnlySettings.add(setting);
+                }
               }
             });
 
-    // Return early if no starlark settings were affected.
-    if (changedSettingToRule.isEmpty()) {
+    // Return early if the transition has neither inputs nor outputs (rare).
+    if (inputAndOutputSettingsToRule.isEmpty()) {
       return toOptions;
     }
 
     ImmutableMap.Builder<Label, Label> aliasToActualBuilder = new ImmutableMap.Builder<>();
-    for (Map.Entry<Label, Rule> changedSettingWithRule : changedSettingToRule.entrySet()) {
-      Label setting = changedSettingWithRule.getKey();
-      Rule rule = changedSettingWithRule.getValue();
+    for (Map.Entry<Label, Rule> settingWithRule : inputAndOutputSettingsToRule.entrySet()) {
+      Label setting = settingWithRule.getKey();
+      Rule rule = settingWithRule.getValue();
       if (!rule.getLabel().equals(setting)) {
         aliasToActualBuilder.put(setting, rule.getLabel());
       }
@@ -307,69 +315,28 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       BuildOptions.Builder cleanedOptions = null;
       // Clean up aliased values.
       BuildOptions options = unalias(entry.getValue(), aliasToActual);
-      for (Map.Entry<Label, Rule> changedSettingWithRule : changedSettingToRule.entrySet()) {
+      for (Map.Entry<Label, Rule> settingWithRule : inputAndOutputSettingsToRule.entrySet()) {
         // If the build setting was referenced in the transition via an alias, this is that alias
-        Label maybeAliasSetting = changedSettingWithRule.getKey();
-        Rule rule = changedSettingWithRule.getValue();
-        // If the build setting was *not* referenced in the transition by an alias, this is the same
-        // value as {@code maybeAliasSetting} above.
+        Label maybeAliasSetting = settingWithRule.getKey();
+        Rule rule = settingWithRule.getValue();
         Label actualSetting = rule.getLabel();
-        Object newValue = options.getStarlarkOptions().get(actualSetting);
-        // TODO(b/154132845): fix NPE occasionally observed here.
-        Preconditions.checkState(
-            newValue != null,
-            "Error while attempting to validate new values from starlark"
-                + " transition(s) with the outputs %s. Post-transition configuration should include"
-                + " '%s' but only includes starlark options: %s. If you run into this error"
-                + " please ping b/154132845 or email blaze-configurability@google.com.",
-            changedSettingToRule.keySet(),
-            actualSetting,
-            options.getStarlarkOptions().keySet());
-        boolean allowsMultiple = rule.getRuleClassObject().getBuildSetting().allowsMultiple();
-        if (allowsMultiple) {
-          // if this setting allows multiple settings
-          if (!(newValue instanceof List)) {
-            throw new TransitionException(
-                String.format(
-                    "'%s' allows multiple values and must be set"
-                        + " in transition using a starlark list instead of single value '%s'",
-                    actualSetting, newValue));
+        // Input-only settings may have had their literal default value added to the BuildOptions
+        // so that the transition can read them. We have to remove these explicitly set value here
+        // to preserve the invariant that Starlark settings at default values are not explicitly set
+        // in the BuildOptions.
+        final boolean isInputOnlySettingAtDefault =
+            inputOnlySettings.contains(maybeAliasSetting)
+                && rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)
+                    .equals(options.getStarlarkOptions().get(actualSetting));
+        // For output settings, the raw value returned by the transition first has to be validated
+        // and converted to the proper type before it can be compared to the default value.
+        if (isInputOnlySettingAtDefault
+            || validateAndCheckIfAtDefault(
+                rule, options, maybeAliasSetting, inputAndOutputSettingsToRule.keySet())) {
+          if (cleanedOptions == null) {
+            cleanedOptions = options.toBuilder();
           }
-          List<?> rawNewValueAsList = (List<?>) newValue;
-          List<Object> convertedValue = new ArrayList<>();
-          Type<?> type = rule.getRuleClassObject().getBuildSetting().getType();
-          for (Object value : rawNewValueAsList) {
-            try {
-              convertedValue.add(type.convert(value, maybeAliasSetting));
-            } catch (ConversionException e) {
-              throw new TransitionException(e);
-            }
-          }
-          if (convertedValue.equals(
-              ImmutableList.of(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)))) {
-            if (cleanedOptions == null) {
-              cleanedOptions = options.toBuilder();
-            }
-            cleanedOptions.removeStarlarkOption(rule.getLabel());
-          }
-        } else {
-          // if this setting does not allow multiple settings
-          Object convertedValue;
-          try {
-            convertedValue =
-                rule.getRuleClassObject()
-                    .getBuildSetting()
-                    .getType()
-                    .convert(newValue, maybeAliasSetting);
-          } catch (ConversionException e) {
-            throw new TransitionException(e);
-          }
-          if (convertedValue.equals(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
-            if (cleanedOptions == null) {
-              cleanedOptions = options.toBuilder();
-            }
-            cleanedOptions.removeStarlarkOption(rule.getLabel());
-          }
+          cleanedOptions.removeStarlarkOption(rule.getLabel());
         }
       }
       // Keep the same instance if we didn't do anything to maintain reference equality later on.
@@ -379,6 +346,81 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       }
     }
     return cleanedOptionMap.buildOrThrow();
+  }
+
+  /**
+   * Validate the value of a particular build setting after a transition has been applied.
+   *
+   * @param buildSettingRule the build setting to validate.
+   * @param options the {@link BuildOptions} reflecting the post-transition configuration.
+   * @param maybeAliasSetting the label used to refer to the build setting in the transition,
+   *     possibly an alias. This is only used for error messages.
+   * @param inputAndOutputSettings the transition input and output settings. This is only used for
+   *     error messages.
+   * @return {@code true} if and only if the setting is set to its default value after the
+   *     transition.
+   * @throws TransitionException if the value returned by the transition for this setting has an
+   *     invalid type.
+   */
+  private static boolean validateAndCheckIfAtDefault(
+      Rule buildSettingRule,
+      BuildOptions options,
+      Label maybeAliasSetting,
+      Set<Label> inputAndOutputSettings)
+      throws TransitionException {
+    // If the build setting was *not* referenced in the transition by an alias, this is the same
+    // value as {@code maybeAliasSetting}.
+    Label actualSetting = buildSettingRule.getLabel();
+    Object newValue = options.getStarlarkOptions().get(actualSetting);
+    // TODO(b/154132845): fix NPE occasionally observed here.
+    Preconditions.checkState(
+        newValue != null,
+        "Error while attempting to validate new values from starlark"
+            + " transition(s) with the inputs and outputs %s. Post-transition configuration should"
+            + " include '%s' but only includes starlark options: %s. If you run into this error"
+            + " please ping b/154132845 or email blaze-configurability@google.com.",
+        inputAndOutputSettings,
+        actualSetting,
+        options.getStarlarkOptions().keySet());
+    boolean allowsMultiple =
+        buildSettingRule.getRuleClassObject().getBuildSetting().allowsMultiple();
+    if (allowsMultiple) {
+      // if this setting allows multiple settings
+      if (!(newValue instanceof List)) {
+        throw new TransitionException(
+            String.format(
+                "'%s' allows multiple values and must be set"
+                    + " in transition using a starlark list instead of single value '%s'",
+                actualSetting, newValue));
+      }
+      List<?> rawNewValueAsList = (List<?>) newValue;
+      List<Object> convertedValue = new ArrayList<>();
+      Type<?> type = buildSettingRule.getRuleClassObject().getBuildSetting().getType();
+      for (Object value : rawNewValueAsList) {
+        try {
+          convertedValue.add(type.convert(value, maybeAliasSetting));
+        } catch (ConversionException e) {
+          throw new TransitionException(e);
+        }
+      }
+      return convertedValue.equals(
+          ImmutableList.of(buildSettingRule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
+    } else {
+      // if this setting does not allow multiple settings
+      Object convertedValue;
+      try {
+        convertedValue =
+            buildSettingRule
+                .getRuleClassObject()
+                .getBuildSetting()
+                .getType()
+                .convert(newValue, maybeAliasSetting);
+      } catch (ConversionException e) {
+        throw new TransitionException(e);
+      }
+      return convertedValue.equals(
+          buildSettingRule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+    }
   }
 
   /*
