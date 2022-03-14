@@ -65,87 +65,111 @@ class TarFileWriter(object):
     """Close the output tar file."""
     self.tar.close()
 
-  def add_dir(self,
-              name,
-              path,
-              uid=0,
-              gid=0,
-              uname='',
-              gname='',
-              mtime=None,
-              mode=None,
-              depth=100):
-    """Recursively add a directory.
-
-    Args:
-      name: the destination path of the directory to add.
-      path: the path of the directory to add.
-      uid: owner user identifier.
-      gid: owner group identifier.
-      uname: owner user names.
-      gname: owner group names.
-      mtime: modification time to put in the archive.
-      mode: unix permission mode of the file, default 0644 (0755).
-      depth: maximum depth to recurse in to avoid infinite loops
-             with cyclic mounts.
-
-    Raises:
-      TarFileWriter.Error: when the recursion depth has exceeded the
-                           `depth` argument.
-    """
-    if not (name == self.root_directory
-            or name.startswith(self.root_directory + '/')):
-      name = os.path.join(self.root_directory, name)
-    if mtime is None:
-      mtime = self.default_mtime
-    if os.path.isdir(path):
-      name = name.rstrip('/') + '/'
-      # Add the x bit to directories to prevent non-traversable directories.
-      # The x bit is set only to if the read bit is set.
-      dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
-      self.add_file_and_parents(
-          name,
-          tarfile.DIRTYPE,
-          uid=uid,
-          gid=gid,
-          uname=uname,
-          gname=gname,
-          mtime=mtime,
-          mode=dirmode)
-      if depth <= 0:
-        raise self.Error('Recursion depth exceeded, probably in '
-                         'an infinite directory loop.')
-      # Iterate over the sorted list of file so we get a deterministic result.
-      filelist = os.listdir(path)
-      filelist.sort()
-      for f in filelist:
-        new_name = name + f
-        new_path = os.path.join(path, f)
-        self.add_dir(new_name, new_path, uid, gid, uname, gname, mtime, mode,
-                     depth - 1)
-    else:
-      self.add_file_and_parents(
-          name,
-          tarfile.REGTYPE,
-          file_content=path,
-          uid=uid,
-          gid=gid,
-          uname=uname,
-          gname=gname,
-          mtime=mtime,
-          mode=mode)
-
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
-    if not info.name.endswith('/') and info.type == tarfile.DIRTYPE:
+    if info.type == tarfile.DIRTYPE:
       # Enforce the ending / for directories so we correctly deduplicate.
-      info.name += '/'
+      if not info.name.endswith('/'):
+        info.name += '/'
+      self.directories.add(info.name)
     if info.name not in self.members:
       self.tar.addfile(info, fileobj)
       self.members.add(info.name)
     elif info.type != tarfile.DIRTYPE:
       print(('Duplicate file in archive: %s, '
              'picking first occurrence' % info.name))
+
+  def add_dirs(self,
+               path,
+               uid=0,
+               gid=0,
+               uname='',
+               gname='',
+               mtime=None,
+               mode=0o755):
+    """Add this directory name and its parents.
+
+    Args:
+      path: destination path in archive.
+      uid: owner user identifier.
+      gid: owner group identifier.
+      uname: owner user names.
+      gname: owner group names.
+      mtime: modification time to put in the archive.
+      mode: unix permission mode of the dir, default 0o755.
+    """
+    path = path.strip('/')
+    if not path:
+      return
+    if path in self.directories:
+      return
+    components = path.rsplit('/', 1)
+    if len(components) > 1:
+      self.add_dirs(components[0], uid=uid, gid=gid, uname=uname, gname=gname,
+                    mtime=mtime, mode=mode)
+    self.directories.add(path)
+    self.directories.add(path+'/')
+    tarinfo = tarfile.TarInfo(path+'/')
+    tarinfo.mtime = mtime or self.default_mtime
+    tarinfo.uid = uid
+    tarinfo.gid = gid
+    tarinfo.uname = uname
+    tarinfo.gname = gname
+    tarinfo.type = tarfile.DIRTYPE
+    tarinfo.mode = mode or 0o755
+    self.tar.addfile(tarinfo, fileobj=None)
+
+  def add_tree(self,
+               input_path,
+               dest_path,
+               uid=0,
+               gid=0,
+               uname='',
+               gname='',
+               mtime=None,
+               mode=None):
+    """Recursively add a tree of files.
+
+    Args:
+      input_path: the path of the directory to add.
+      dest_path: the destination path of the directory to add.
+      uid: owner user identifier.
+      gid: owner group identifier.
+      uname: owner user names.
+      gname: owner group names.
+      mtime: modification time to put in the archive.
+      mode: unix permission mode of the file, default 0644 (0755).
+    """
+    # Add the x bit to directories to prevent non-traversable directories.
+    # The x bit is set only to if the read bit is set.
+    dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
+
+    components = dest_path.rsplit('/', 1)
+    if len(components) > 1:
+      self.add_dirs(components[0], uid=uid, gid=gid, uname=uname, gname=gname,
+                    mtime=mtime, mode=dirmode)
+
+    if os.path.isdir(input_path):
+      dest_path = dest_path.rstrip('/') + '/'
+      # Iterate over the sorted list of file so we get a deterministic result.
+      filelist = os.listdir(input_path)
+      filelist.sort()
+      for f in filelist:
+        self.add_tree(input_path = input_path + '/' + f,
+                      dest_path = dest_path + f,
+                      uid=uid, gid=gid, uname=uname, gname=gname, mtime=mtime,
+                      mode=mode)
+    else:
+      self.add_file_and_parents(
+          dest_path,
+          tarfile.REGTYPE,
+          file_content=input_path,
+          uid=uid,
+          gid=gid,
+          uname=uname,
+          gname=gname,
+          mtime=mtime,
+          mode=mode)
 
   def add_file_and_parents(self,
                            name,
@@ -175,28 +199,34 @@ class TarFileWriter(object):
       mtime: modification time to put in the archive.
       mode: unix permission mode of the file, default 0644 (0755).
     """
-    if file_content and os.path.isdir(file_content):
-      # Recurse into directory
-      self.add_dir(name, file_content, uid, gid, uname, gname, mtime, mode)
-      return
-    if not (name == self.root_directory or name.startswith('/') or
-            name.startswith(self.root_directory + '/')):
-      name = os.path.join(self.root_directory, name)
+    if self.root_directory and (
+        not (name == self.root_directory or name.startswith('/') or
+             name.startswith(self.root_directory + '/'))):
+      name = self.root_directory + '/' + name
+    components = name.rsplit('/', 1)
+    if len(components) > 1:
+      self.add_dirs(components[0], uid=uid, gid=gid, uname=uname, gname=gname,
+                    mtime=mtime, mode=0o755)
+
     if kind == tarfile.DIRTYPE:
       name = name.rstrip('/')
       if name in self.directories:
         return
-    if mtime is None:
-      mtime = self.default_mtime
 
-    components = name.rsplit('/', 1)
-    if len(components) > 1:
-      d = components[0]
-      self.add_file_and_parents(d, tarfile.DIRTYPE, uid=uid, gid=gid,
-                                uname=uname, gname=gname, mtime=mtime,
-                                mode=0o755)
+    if file_content and os.path.isdir(file_content):
+      self.add_tree(
+          input_path=file_content,
+          dest_path=name,
+          uid=uid,
+          gid=gid,
+          uname=uname,
+          gname=gname,
+          mtime=mtime,
+          mode=mode)
+      return
+
     tarinfo = tarfile.TarInfo(name)
-    tarinfo.mtime = mtime
+    tarinfo.mtime = mtime or self.default_mtime
     tarinfo.uid = uid
     tarinfo.gid = gid
     tarinfo.uname = uname
@@ -211,11 +241,9 @@ class TarFileWriter(object):
     if file_content:
       with open(file_content, 'rb') as f:
         tarinfo.size = os.fstat(f.fileno()).st_size
-        self._addfile(tarinfo, f)
+        self._addfile(tarinfo, fileobj=f)
     else:
-      if kind == tarfile.DIRTYPE:
-        self.directories.add(name)
-      self._addfile(tarinfo)
+      self._addfile(tarinfo, fileobj=None)
 
   def add_file_at_dest(self, in_path, dest_path, mode=None, ids=None, names=None):
     """Add a file to the tar file.
