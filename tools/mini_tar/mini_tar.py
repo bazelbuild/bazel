@@ -15,7 +15,6 @@
 """This tool build tar files from a list of inputs."""
 
 import argparse
-import gzip
 import os
 import tarfile
 
@@ -33,8 +32,7 @@ class TarFileWriter(object):
   def __init__(self,
                name,
                root_directory='',
-               default_mtime=None,
-               preserve_tar_mtimes=False):
+               default_mtime=None):
     """TarFileWriter wraps tarfile.open().
 
     Args:
@@ -43,29 +41,17 @@ class TarFileWriter(object):
       default_mtime: default mtime to use for elements in the archive.
           May be an integer or the value 'portable' to use the date
           2000-01-01, which is compatible with non *nix OSes'.
-      preserve_tar_mtimes: if true, keep file mtimes from input tar file.
     """
     mode = 'w:'
-    self.gz = False
     self.name = name
-    self.root_directory = root_directory.rstrip('/')
-
-    self.preserve_mtime = preserve_tar_mtimes
-
+    self.root_directory = root_directory.strip('/')
     if default_mtime is None:
       self.default_mtime = 0
     elif default_mtime == 'portable':
       self.default_mtime = PORTABLE_MTIME
     else:
       self.default_mtime = int(default_mtime)
-
-    self.fileobj = None
-    if self.gz:
-      # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
-      # Instead, we manually re-implement gzopen from tarfile.py and set mtime.
-      self.fileobj = gzip.GzipFile(
-          filename=name, mode='w', compresslevel=9, mtime=self.default_mtime)
-    self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
+    self.tar = tarfile.open(name=name, mode=mode)
     self.members = set([])
     self.directories = set(['.'])
 
@@ -74,6 +60,10 @@ class TarFileWriter(object):
 
   def __exit__(self, t, v, traceback):
     self.close()
+
+  def close(self):
+    """Close the output tar file."""
+    self.tar.close()
 
   def add_dir(self,
               name,
@@ -103,7 +93,7 @@ class TarFileWriter(object):
       TarFileWriter.Error: when the recursion depth has exceeded the
                            `depth` argument.
     """
-    if not (name == self.root_directory or name.startswith('/')
+    if not (name == self.root_directory
             or name.startswith(self.root_directory + '/')):
       name = os.path.join(self.root_directory, name)
     if mtime is None:
@@ -231,101 +221,6 @@ class TarFileWriter(object):
         self.directories.add(name)
       self._addfile(tarinfo)
 
-  def add_tar(self,
-              tar,
-              rootuid=None,
-              rootgid=None,
-              numeric=False,
-              root=None):
-    """Merge a tar content into the current tar, stripping timestamp.
-
-    Args:
-      tar: the name of tar to extract and put content into the current tar.
-      rootuid: user id that we will pretend is root (replaced by uid 0).
-      rootgid: group id that we will pretend is root (replaced by gid 0).
-      numeric: set to true to strip out name of owners (and just use the
-          numeric values).
-      root: place all non-absolute content under given root directory, if not
-          None.
-
-    Raises:
-      TarFileWriter.Error: if an error happens when uncompressing the tar file.
-    """
-    if root and root[0] not in ['/', '.']:
-      # Root prefix should start with a '/', adds it if missing
-      root = '/' + root
-    compression = os.path.splitext(tar)[-1][1:]
-    if compression == 'tgz':
-      compression = 'gz'
-    elif compression == 'bzip2':
-      compression = 'bz2'
-    elif compression not in ['gz', 'bz2']:
-      compression = ''
-    if compression in ['gz', 'bz2']:
-      # prevent performance issues due to accidentally-introduced seeks
-      # during intar traversal by opening in "streaming" mode. gz, bz2
-      # are supported natively by python 2.7 and 3.x
-      inmode = 'r|' + compression
-    else:
-      inmode = 'r:' + compression
-    intar = tarfile.open(name=tar, mode=inmode)
-    for tarinfo in intar:
-      if not self.preserve_mtime:
-        tarinfo.mtime = self.default_mtime
-      if rootuid is not None and tarinfo.uid == rootuid:
-        tarinfo.uid = 0
-        tarinfo.uname = 'root'
-      if rootgid is not None and tarinfo.gid == rootgid:
-        tarinfo.gid = 0
-        tarinfo.gname = 'root'
-      if numeric:
-        tarinfo.uname = ''
-        tarinfo.gname = ''
-
-      name = tarinfo.name
-      if (not name.startswith('/') and
-          not name.startswith(self.root_directory)):
-        name = os.path.join(self.root_directory, name)
-      if root is not None:
-        if name.startswith('.'):
-          name = '.' + root + name.lstrip('.')
-          # Add root dir with same permissions if missing. Note that
-          # add_file deduplicates directories and is safe to call here.
-          self.add_file('.' + root,
-                        tarfile.DIRTYPE,
-                        uid=tarinfo.uid,
-                        gid=tarinfo.gid,
-                        uname=tarinfo.uname,
-                        gname=tarinfo.gname,
-                        mtime=tarinfo.mtime,
-                        mode=0o755)
-        # Relocate internal hardlinks as well to avoid breaking them.
-        link = tarinfo.linkname
-        if link.startswith('.') and tarinfo.type == tarfile.LNKTYPE:
-          tarinfo.linkname = '.' + root + link.lstrip('.')
-      tarinfo.name = name
-
-      if tarinfo.isfile():
-        # use extractfile(tarinfo) instead of tarinfo.name to preserve
-        # seek position in intar
-        self._addfile(tarinfo, intar.extractfile(tarinfo))
-      else:
-        self._addfile(tarinfo)
-    intar.close()
-
-  def close(self):
-    """Close the output tar file.
-
-    This class should not be used anymore after calling that method.
-
-    Raises:
-      TarFileWriter.Error: if an error happens when compressing the output file.
-    """
-    self.tar.close()
-    # Close the gzip file object if necessary.
-    if self.fileobj:
-      self.fileobj.close()
-
 
 class TarFile(object):
   """A class to generates a TAR file."""
@@ -377,16 +272,6 @@ class TarFile(object):
         uname=names[0],
         gname=names[1])
 
-  def add_link(self, symlink, destination):
-    """Add a symbolic link pointing to `destination`.
-
-    Args:
-      symlink: the name of the symbolic link to add.
-      destination: where the symbolic link point to.
-    """
-    symlink = os.path.normpath(symlink).replace(os.path.sep, '/')
-    self.tarfile.add_file(symlink, tarfile.SYMTYPE, link=destination)
-
 
 def unquote_and_split(arg, c):
   """Split a string at the first unquoted occurrence of a character.
@@ -431,22 +316,14 @@ def main():
                       help='The output file, mandatory.')
   parser.add_argument('--mode',
                       help='Force the mode on the added files (in octal).')
-  #parser.add_argument(
-  #    '--mtime',
-  #    help='Set mtime on tar file entries. May be an integer or the'
-  #         ' value "portable", to get the value 2000-01-01, which is'
-  #         ' is usable with non *nix OSes.')
   parser.add_argument(
       '--directory',
       help='Directory in which to store the file inside the layer')
 
-  parser.add_argument(
-      '--file', action='append',
-      help='input_paty=dest_path')
+  parser.add_argument('--file', action='append', help='input_paty=dest_path')
   parser.add_argument(
       '--owner', default='0.0',
-      help='Specify the numeric default owner of all files,'
-           ' e.g., 0.0')
+      help='Specify the numeric default owner of all files. E.g. 0.0')
   parser.add_argument(
       '--owner_name',
       help='Specify the owner name of all files, e.g. root.root.')
@@ -467,9 +344,6 @@ def main():
     for f in options.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof, mode=default_mode, names=default_ownername)
-    #for link in options.link:
-    #  l = unquote_and_split(link, ':')
-    #  output.add_link(l[0], l[1])
 
 
 if __name__ == '__main__':

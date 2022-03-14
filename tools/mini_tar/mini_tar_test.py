@@ -105,7 +105,7 @@ class TarFileWriterTest(unittest.TestCase):
         {"name": "./a/b", "data": b"ab", "mode": 0o644},
         {"name": "./a/c", "mode": 0o755},
         {"name": "./a/c/d", "data": b"acd", "mode": 0o644},
-        ]
+    ]
     tempdir = os.path.join(os.environ["TEST_TMPDIR"], "test_dir")
     # Iterate over the `content` array to create the directory
     # structure it describes.
