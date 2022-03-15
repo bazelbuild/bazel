@@ -1101,9 +1101,21 @@ public class RemoteExecutionServiceTest {
     ActionResult r = ActionResult.newBuilder().setExitCode(0).build();
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
+    // set file1 as declared output but not mandatory output
     Spawn spawn =
-        newSpawn(
-            ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"), ImmutableSet.of(a1));
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /*arguments=*/ ImmutableList.of(),
+            /*environment=*/ ImmutableMap.of(),
+            /*executionInfo=*/ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
+            /*runfileSupplier=*/ null,
+            /*filesetMappings=*/ ImmutableMap.of(),
+            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*outputs=*/ ImmutableSet.of(a1),
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
+
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -1121,7 +1133,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_missingDeclaredOutputs_reportError() throws Exception {
+  public void downloadOutputs_missingMandatoryOutputs_reportError() throws Exception {
     // Test that an AC which misses declared outputs is correctly ignored.
     Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
     ActionResult.Builder builder = ActionResult.newBuilder();
