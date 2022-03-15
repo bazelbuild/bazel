@@ -505,25 +505,6 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                 + "_desugared.jar"));
   }
 
-  /**
-   * Desugars the given Jar using an executable prerequisite {@code "$desugar"}. Rules calling this
-   * method must declare the appropriate prerequisite, similar to how {@link #getDefinition} does it
-   * for {@link DexArchiveAspect} under a different name.
-   *
-   * <p>It's useful to have this action separately since callers need to look up classpath and
-   * bootclasspath in a different way than this aspect does it.
-   *
-   * @return the artifact given as {@code result}, which can simplify calling code
-   */
-  static Artifact desugar(
-      RuleContext ruleContext,
-      Artifact jar,
-      NestedSet<Artifact> bootclasspath,
-      NestedSet<Artifact> classpath,
-      Artifact result) {
-    return createDesugarAction(ruleContext, "$desugar", jar, bootclasspath, classpath, result);
-  }
-
   private static Artifact createDesugarAction(
       RuleContext ruleContext,
       String desugarPrereqName,
@@ -560,6 +541,25 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                 args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
             .build(ruleContext));
     return result;
+  }
+
+  /**
+   * Desugars the given Jar using an executable prerequisite {@code "$desugar"}. Rules calling this
+   * method must declare the appropriate prerequisite, similar to how {@link #getDefinition} does it
+   * for {@link DexArchiveAspect} under a different name.
+   *
+   * <p>It's useful to have this action separately since callers need to look up classpath and
+   * bootclasspath in a different way than this aspect does it.
+   *
+   * @return the artifact given as {@code result}, which can simplify calling code
+   */
+  static Artifact desugar(
+      RuleContext ruleContext,
+      Artifact jar,
+      NestedSet<Artifact> bootclasspath,
+      NestedSet<Artifact> classpath,
+      Artifact result) {
+    return createDesugarAction(ruleContext, "$desugar", jar, bootclasspath, classpath, result);
   }
 
   /**
