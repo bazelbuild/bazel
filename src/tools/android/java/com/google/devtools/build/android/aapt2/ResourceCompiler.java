@@ -426,7 +426,7 @@ public class ResourceCompiler {
       generated.addAll(compiled.build());
       if (compilationErrors.isEmpty()) {
         // ensure that the generated files are before the normal files.
-        return generated.build();
+        return ImmutableList.sortedCopyOf(generated.build());
       }
       throw CompileError.of(compilationErrors);
     }
