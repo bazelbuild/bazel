@@ -357,8 +357,12 @@ public class ResourceCompiler {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      // Ignore directories and "hidden" files that start with .
-      if (!Files.isDirectory(file) && !file.getFileName().toString().startsWith(".")) {
+      // Ignore directories and "hidden" files that start with ., ends with .tmp or .params files.
+      final String fileName = file.getFileName().toString();
+      if (!Files.isDirectory(file)
+          && !fileName.startsWith(".")
+          && !fileName.endsWith(".tmp")
+          && !fileName.endsWith(".params")) {
         pathToProcessed.add(file);
       }
       return super.visitFile(file, attrs);
