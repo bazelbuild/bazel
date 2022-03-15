@@ -140,7 +140,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
                     ruleContext.getConfiguration().legacyExternalRunfiles())
                 // add the jars to the runfiles
                 .addArtifacts(javaArtifacts.getRuntimeJars())
-                .addTargets(targets, RunfilesProvider.DEFAULT_RUNFILES)
+                .addTargets(targets, RunfilesProvider.DEFAULT_RUNFILES,
+                    ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData())
                 .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                 .build();
 
