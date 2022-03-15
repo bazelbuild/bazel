@@ -1011,16 +1011,20 @@ public class RemoteExecutionService {
       metadata = parseActionResultMetadata(action, result);
     }
 
-    // Check that all declared outputs exist
+    // Check that all mandatory outputs are created.
     for (ActionInput output : action.spawn.getOutputFiles()) {
-      Path localPath = execRoot.getRelative(output.getExecPath());
-      if (!metadata.files.containsKey(localPath) && !metadata.directories.containsKey(localPath)) {
-        throw new IOException(
-            "Invalid AC entry "
-                + action.actionKey.getDigest().getHash()
-                + ": expected output "
-                + prettyPrint(output)
-                + " does not exist.");
+      if (action.spawn.isMandatoryOutput(output)) {
+        Path localPath = execRoot.getRelative(output.getExecPath());
+        if (!metadata.files.containsKey(localPath)
+            && !metadata.directories.containsKey(localPath)
+            && !metadata.symlinks.containsKey(localPath)) {
+          throw new IOException(
+              "Invalid AC entry "
+                  + action.actionKey.getDigest().getHash()
+                  + ": expected output "
+                  + prettyPrint(output)
+                  + " does not exist.");
+        }
       }
     }
 
@@ -1150,9 +1154,10 @@ public class RemoteExecutionService {
     return Single.fromCallable(
         () -> {
           ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+          // Check that all mandatory outputs are created.
           for (ActionInput outputFile : action.spawn.getOutputFiles()) {
             Path localPath = execRoot.getRelative(outputFile.getExecPath());
-            if (!localPath.exists()) {
+            if (action.spawn.isMandatoryOutput(outputFile) && !localPath.exists()) {
               throw new IOException(
                   "Expected output " + prettyPrint(outputFile) + " was not created locally.");
             }
