@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.NOT_TEST;
+import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PARALLEL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -50,16 +54,20 @@ import javax.annotation.Nullable;
 public class BuildDriverFunction implements SkyFunction {
   private final TransitiveActionLookupValuesCollector transitiveActionLookupValuesCollector;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
+  private final Supplier<EventBus> eventBus;
 
   BuildDriverFunction(
       TransitiveActionLookupValuesCollector transitiveActionLookupValuesCollector,
-      Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder) {
+      Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
+      Supplier<EventBus> eventBus) {
     this.transitiveActionLookupValuesCollector = transitiveActionLookupValuesCollector;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
+    this.eventBus = eventBus;
   }
 
   private static class State implements SkyKeyComputeState {
     private ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts;
+    private boolean sentTestAnalysisCompleteEvent = false;
   }
   /**
    * From the ConfiguredTarget/Aspect keys, get the top-level artifacts. Then evaluate them together
@@ -106,39 +114,93 @@ public class BuildDriverFunction implements SkyFunction {
                 state.actionConflicts));
       }
     }
-    ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
 
     Preconditions.checkState(
         topLevelSkyValue instanceof ConfiguredTargetValue
             || topLevelSkyValue instanceof TopLevelAspectsValue);
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
-      ConfiguredTarget configuredTarget =
-          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget();
-      addExtraActionsIfRequested(
-          configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+      requestConfiguredTargetExecution(
+          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget(),
+          buildDriverKey,
+          actionLookupKey,
+          env,
+          topLevelArtifactContext,
+          state);
+    } else {
+      requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
+    }
+
+    return env.valuesMissing() ? null : new BuildDriverValue(topLevelSkyValue);
+  }
+
+  private void requestConfiguredTargetExecution(
+      ConfiguredTarget configuredTarget,
+      BuildDriverKey buildDriverKey,
+      ActionLookupKey actionLookupKey,
+      Environment env,
+      TopLevelArtifactContext topLevelArtifactContext,
+      State state)
+      throws InterruptedException {
+    ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
+    addExtraActionsIfRequested(
+        configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+    if (buildDriverKey.getTestType() == NOT_TEST) {
       env.getValues(
           Iterables.concat(
               artifactsToBuild.build(),
               Collections.singletonList(
                   TargetCompletionValue.key(
                       (ConfiguredTargetKey) actionLookupKey, topLevelArtifactContext, false))));
-    } else {
-      List<SkyKey> aspectCompletionKeys = new ArrayList<>();
-      for (SkyValue aspectValue :
-          ((TopLevelAspectsValue) topLevelSkyValue).getTopLevelAspectsValues()) {
-        addExtraActionsIfRequested(
-            ((AspectValue) aspectValue)
-                .getConfiguredAspect()
-                .getProvider(ExtraActionArtifactsProvider.class),
-            artifactsToBuild);
-        aspectCompletionKeys.add(
-            AspectCompletionKey.create(
-                ((AspectValue) aspectValue).getKey(), topLevelArtifactContext));
-      }
-      env.getValues(Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
+      return;
     }
 
-    return env.valuesMissing() ? null : new BuildDriverValue(topLevelSkyValue);
+    if (!state.sentTestAnalysisCompleteEvent) {
+      SkyValue buildConfigurationValue = env.getValue(configuredTarget.getConfigurationKey());
+      if (env.valuesMissing()) {
+        return;
+      }
+      eventBus
+          .get()
+          .post(
+              new TestAnalysisCompleteEvent(
+                  configuredTarget, (BuildConfigurationValue) buildConfigurationValue));
+      state.sentTestAnalysisCompleteEvent = true;
+    }
+
+    Preconditions.checkState(
+        PARALLEL.equals(buildDriverKey.getTestType()),
+        "Invalid test type, expect only parallel tests: %s",
+        buildDriverKey);
+    // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
+    env.getValues(
+        Iterables.concat(
+            artifactsToBuild.build(),
+            Collections.singletonList(
+                TestCompletionValue.key(
+                    (ConfiguredTargetKey) actionLookupKey,
+                    topLevelArtifactContext,
+                    /*exclusiveTesting=*/ false))));
+  }
+
+  private void requestAspectExecution(
+      TopLevelAspectsValue topLevelAspectsValue,
+      Environment env,
+      TopLevelArtifactContext topLevelArtifactContext)
+      throws InterruptedException {
+
+    ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
+    List<SkyKey> aspectCompletionKeys = new ArrayList<>();
+    for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
+      addExtraActionsIfRequested(
+          ((AspectValue) aspectValue)
+              .getConfiguredAspect()
+              .getProvider(ExtraActionArtifactsProvider.class),
+          artifactsToBuild);
+      aspectCompletionKeys.add(
+          AspectCompletionKey.create(
+              ((AspectValue) aspectValue).getKey(), topLevelArtifactContext));
+    }
+    env.getValues(Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
   }
 
   private ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(

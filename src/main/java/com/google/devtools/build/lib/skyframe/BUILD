@@ -995,12 +995,15 @@ java_library(
         ":incremental_artifact_conflict_finder",
         ":precomputed_value",
         ":target_completion_value",
+        ":test_analysis_complete_event",
+        ":test_completion_value",
         ":top_level_aspects_value",
         ":top_level_conflict_exception",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
@@ -2548,6 +2551,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "test_analysis_complete_event",
+    srcs = ["TestAnalysisCompleteEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//third_party:jsr305",
     ],
 )
 

@@ -23,18 +23,32 @@ import java.util.Objects;
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
  * the {@link ActionLookupKey} and executing the associated actions.
  */
-public class BuildDriverKey implements SkyKey {
+public final class BuildDriverKey implements SkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
+  private final TestType testType;
   private final boolean strictActionConflictCheck;
 
   public BuildDriverKey(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck) {
+    this(
+        actionLookupKey,
+        topLevelArtifactContext,
+        strictActionConflictCheck,
+        /*testType=*/ TestType.NOT_TEST);
+  }
+
+  public BuildDriverKey(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck,
+      TestType testType) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.strictActionConflictCheck = strictActionConflictCheck;
+    this.testType = testType;
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -43,6 +57,14 @@ public class BuildDriverKey implements SkyKey {
 
   public ActionLookupKey getActionLookupKey() {
     return actionLookupKey;
+  }
+
+  public boolean isTest() {
+    return TestType.NOT_TEST.equals(testType);
+  }
+
+  public TestType getTestType() {
+    return testType;
   }
 
   public boolean strictActionConflictCheck() {
@@ -67,5 +89,16 @@ public class BuildDriverKey implements SkyKey {
   @Override
   public int hashCode() {
     return Objects.hash(actionLookupKey, topLevelArtifactContext);
+  }
+
+  @Override
+  public final String toString() {
+    return String.format("ActionLookupKey: %s; TestType: %s", actionLookupKey, testType);
+  }
+
+  enum TestType {
+    NOT_TEST,
+    PARALLEL,
+    EXCLUSIVE
   }
 }

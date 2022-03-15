@@ -74,12 +74,15 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
 import com.google.devtools.build.lib.skyframe.SkyframeErrorProcessor.ErrorProcessingResult;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
@@ -93,6 +96,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionDefinition;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -608,8 +612,10 @@ public final class SkyframeBuildView {
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
+      @Nullable ImmutableSet<Label> testsToRun,
+      ImmutableMap<Label, Target> labelTargetMap,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
-      TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
+      TopLevelArtifactContext topLevelArtifactContext,
       EventBus eventBus,
       BugReporter bugReporter,
       boolean keepGoing,
@@ -633,19 +639,43 @@ public final class SkyframeBuildView {
       largestTopLevelKeySetCheckedForConflicts = newKeys;
     }
 
-    List<BuildDriverKey> buildDriverCTKeys =
-        ctKeys.stream()
-            .map(
-                k ->
-                    new BuildDriverKey(
-                        k, topLevelArtifactContextForConflictPruning, strictConflictCheck))
-            .collect(Collectors.toList());
+    List<BuildDriverKey> buildDriverCTKeys = new ArrayList<>(/*initialCapacity=*/ ctKeys.size());
+    List<Label> exclusiveTestsLabels = new ArrayList<>();
+
+    for (ConfiguredTargetKey ctKey : ctKeys) {
+      TestType testType =
+          determineTestType(
+              testsToRun,
+              labelTargetMap,
+              ctKey.getLabel(),
+              topLevelArtifactContext.runTestsExclusively());
+      if (TestType.EXCLUSIVE.equals(testType)) {
+        exclusiveTestsLabels.add(ctKey.getLabel());
+        continue;
+      }
+      buildDriverCTKeys.add(
+          new BuildDriverKey(
+              ctKey,
+              topLevelArtifactContext,
+              strictConflictCheck,
+              determineTestType(
+                  testsToRun,
+                  labelTargetMap,
+                  ctKey.getLabel(),
+                  topLevelArtifactContext.runTestsExclusively())));
+    }
+
+    if (!exclusiveTestsLabels.isEmpty()) {
+      // TODO(b/223558573) Make exclusive tests work.
+      eventHandler.handle(
+          Event.warn(
+              "--experimental_merged_skyframe_analysis_execution is currently incompatible with"
+                  + " exclusive tests. The following exclusive tests won't be run: "
+                  + exclusiveTestsLabels));
+    }
     List<BuildDriverKey> buildDriverAspectKeys =
         topLevelAspectsKeys.stream()
-            .map(
-                k ->
-                    new BuildDriverKey(
-                        k, topLevelArtifactContextForConflictPruning, strictConflictCheck))
+            .map(k -> new BuildDriverKey(k, topLevelArtifactContext, strictConflictCheck))
             .collect(Collectors.toList());
 
     try (SilentCloseable c =
@@ -704,7 +734,7 @@ public final class SkyframeBuildView {
                 ctKeys,
                 topLevelAspectsKeys,
                 configurationLookupSupplier,
-                topLevelArtifactContextForConflictPruning,
+                topLevelArtifactContext,
                 eventBus,
                 keepGoing,
                 errorProcessingResult)
@@ -841,6 +871,26 @@ public final class SkyframeBuildView {
       }
     }
   }
+
+  private static TestType determineTestType(
+      ImmutableSet<Label> testsToRun,
+      ImmutableMap<Label, Target> labelTargetMap,
+      Label label,
+      boolean runTestsExclusively) {
+    if (testsToRun == null || !testsToRun.contains(label)) {
+      return TestType.NOT_TEST;
+    }
+    Target target = labelTargetMap.get(label);
+    if (target instanceof Rule) {
+      if (runTestsExclusively || TargetUtils.isExclusiveTestRule((Rule) target)) {
+        return TestType.EXCLUSIVE;
+      } else {
+        return TestType.PARALLEL;
+      }
+    }
+    return TestType.NOT_TEST;
+  }
+
   // When we check for action conflicts that occur with a TopLevelAspectKey, a reference to the
   // lower-level AspectKeys is required: it could happen that only some AspectKeys, but not
   // all, that derived from a TopLevelAspectKey has a conflicting action.

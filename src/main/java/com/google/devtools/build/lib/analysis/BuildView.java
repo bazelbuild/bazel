@@ -410,6 +410,8 @@ public class BuildView {
                 eventHandler,
                 topLevelCtKeys,
                 aspectsKeys.build(),
+                loadingResult.getTestsToRunLabels(),
+                labelToTargetMap,
                 memoizedConfigurationLookupSupplier,
                 topLevelOptions,
                 eventBus,
