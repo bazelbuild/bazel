@@ -21,14 +21,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Provider;
@@ -74,46 +70,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "get_linked_artifact",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "config", positional = false, named = true),
-        @Param(name = "is_dynamic_link_type", positional = false, named = true),
-      })
-  public Artifact getLinkedArtifactForStarlark(
-      StarlarkRuleContext starlarkRuleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue config,
-      Boolean isDynamicLinkType)
-      throws EvalException {
-    Link.LinkTargetType linkType =
-        isDynamicLinkType ? Link.LinkTargetType.DYNAMIC_LIBRARY : Link.LinkTargetType.EXECUTABLE;
-    try {
-      return CppHelper.getLinkedArtifact(
-          starlarkRuleContext.getRuleContext(), ccToolchain, config, linkType);
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
-  }
-
-  @StarlarkMethod(
-      name = "collect_compilation_prerequisites",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "compilation_context", positional = false, named = true),
-      })
-  public Depset collectCompilationPrerequisites(
-      StarlarkRuleContext starlarkRuleContext, CcCompilationContext compilationContext) {
-    return Depset.of(
-        Artifact.TYPE,
-        CcCommon.collectCompilationPrerequisites(
-            starlarkRuleContext.getRuleContext(), compilationContext));
-  }
-
-  @StarlarkMethod(
       name = "create_common",
       documented = false,
       parameters = {
@@ -128,16 +84,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "statically_linked_marker_provider",
-      documented = false,
-      parameters = {
-        @Param(name = "is_linked_statically", positional = false, named = true),
-      })
-  public StaticallyLinkedMarkerProvider staticallyLinkedMarkerProvider(boolean isLinkedStatically) {
-    return new StaticallyLinkedMarkerProvider(isLinkedStatically);
-  }
-
-  @StarlarkMethod(
       name = "create_cc_provider",
       documented = false,
       parameters = {
@@ -145,20 +91,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public CcStarlarkApiInfo createCcProvider(CcInfo ccInfo) {
     return new CcStarlarkApiInfo(ccInfo);
-  }
-
-  @StarlarkMethod(
-      name = "collect_native_cc_libraries",
-      documented = false,
-      parameters = {
-        @Param(name = "deps", positional = false, named = true),
-        @Param(name = "libraries_to_link", positional = false, named = true),
-      })
-  public CcNativeLibraryInfo collectNativeCcLibraries(Sequence<?> deps, Sequence<?> librariesToLink)
-      throws EvalException {
-    return CppHelper.collectNativeCcLibraries(
-        Sequence.cast(deps, TransitiveInfoCollection.class, "deps"),
-        Sequence.cast(librariesToLink, LibraryToLink.class, "libraries_to_link"));
   }
 
   @StarlarkMethod(

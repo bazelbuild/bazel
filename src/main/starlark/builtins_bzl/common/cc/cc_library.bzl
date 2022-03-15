@@ -234,9 +234,9 @@ def _cc_library_impl(ctx):
 
     linking_context_for_runfiles = _build_linking_context_from_library(ctx, libraries_to_link)
 
-    cc_native_library_info = cc_internal.collect_native_cc_libraries(
+    cc_native_library_info = cc_helper.collect_native_cc_libraries(
         deps = ctx.attr.deps,
-        libraries_to_link = libraries_to_link,
+        libraries = libraries_to_link,
     )
 
     files_builder = []
