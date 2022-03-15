@@ -203,12 +203,12 @@ public class RemoteExecutionCache extends RemoteCache {
       AtomicInteger subscribeTimes = new AtomicInteger(0);
       return resultSingle.doOnSubscribe(
           d -> {
+            int times = subscribeTimes.incrementAndGet();
+            checkState(times == 1, "Single is subscribed more than once");
             synchronized (this) {
-              int times = subscribeTimes.incrementAndGet();
-              checkState(times == 1, "Single is subscribed more than once");
               digests.add(digest);
-              count();
             }
+            count();
           });
     }
 
