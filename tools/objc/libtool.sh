@@ -62,9 +62,9 @@ function hash_objfile() {
   echo "$SYMLINK_NAME"
 }
 
-python_executable=/usr/bin/python2.7
+python_executable=/usr/bin/python3
 if [[ ! -x "$python_executable" ]]; then
-  python_executable=python
+  python_executable=python3
 fi
 
 ARGS=()
