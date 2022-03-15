@@ -1011,6 +1011,19 @@ public class RemoteExecutionService {
       metadata = parseActionResultMetadata(action, result);
     }
 
+    // Check that all declared outputs exist
+    for (ActionInput output : action.spawn.getOutputFiles()) {
+      Path localPath = execRoot.getRelative(output.getExecPath());
+      if (!metadata.files.containsKey(localPath) && !metadata.directories.containsKey(localPath)) {
+        throw new IOException(
+            "Invalid AC entry "
+                + action.actionKey.getDigest().getHash()
+                + ": expected output "
+                + prettyPrint(output)
+                + " does not exist.");
+      }
+    }
+
     FileOutErr outErr = action.spawnExecutionContext.getFileOutErr();
 
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
@@ -1124,23 +1137,26 @@ public class RemoteExecutionService {
     return null;
   }
 
+  private static String prettyPrint(ActionInput actionInput) {
+    if (actionInput instanceof Artifact) {
+      return ((Artifact) actionInput).prettyPrint();
+    } else {
+      return actionInput.getExecPathString();
+    }
+  }
+
   private Single<UploadManifest> buildUploadManifestAsync(
       RemoteAction action, SpawnResult spawnResult) {
     return Single.fromCallable(
         () -> {
           ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
           for (ActionInput outputFile : action.spawn.getOutputFiles()) {
-            Path outputPath = execRoot.getRelative(outputFile.getExecPath());
-            if (!outputPath.exists()) {
-              String output;
-              if (outputFile instanceof Artifact) {
-                output = ((Artifact) outputFile).prettyPrint();
-              } else {
-                output = outputFile.getExecPathString();
-              }
-              throw new IOException("Expected output " + output + " was not created locally.");
+            Path localPath = execRoot.getRelative(outputFile.getExecPath());
+            if (!localPath.exists()) {
+              throw new IOException(
+                  "Expected output " + prettyPrint(outputFile) + " was not created locally.");
             }
-            outputFiles.add(outputPath);
+            outputFiles.add(localPath);
           }
 
           return UploadManifest.create(

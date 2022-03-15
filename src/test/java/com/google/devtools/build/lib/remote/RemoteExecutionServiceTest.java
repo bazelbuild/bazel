@@ -1121,6 +1121,32 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_missingDeclaredOutputs_reportError() throws Exception {
+    // Test that an AC which misses declared outputs is correctly ignored.
+    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    ImmutableSet.Builder<Artifact> outputs = ImmutableSet.builder();
+    ImmutableList<String> expectedOutputFiles = ImmutableList.of("outputs/foo", "outputs/bar");
+    for (String outputFile : expectedOutputFiles) {
+      Path path = remotePathResolver.outputPathToLocalPath(outputFile);
+      Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
+      outputs.add(output);
+    }
+    Spawn spawn = newSpawn(ImmutableMap.of(), outputs.build());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    IOException error =
+        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
+
+    assertThat(error).hasMessageThat().containsMatch("expected output .+ does not exist.");
+  }
+
+  @Test
   public void uploadOutputs_uploadDirectory_works() throws Exception {
     // Test that uploading a directory works.
 
