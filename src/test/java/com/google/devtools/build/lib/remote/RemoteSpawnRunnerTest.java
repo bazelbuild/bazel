@@ -40,6 +40,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
+import build.bazel.remote.execution.v2.OutputFile;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +48,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
@@ -1197,6 +1199,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
     RemoteExecutionService service = runner.getRemoteExecutionService();
     doReturn(cachedActionResult).when(service).lookupCache(any());
+    doReturn(null).when(service).downloadOutputs(any(), any());
 
     Spawn spawn = newSimpleSpawn(topLevelOutput);
     FakeSpawnExecutionContext policy = getSpawnContext(spawn);
