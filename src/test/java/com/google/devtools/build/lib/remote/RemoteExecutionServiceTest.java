@@ -1134,7 +1134,7 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void downloadOutputs_missingMandatoryOutputs_reportError() throws Exception {
-    // Test that an AC which misses declared outputs is correctly ignored.
+    // Test that an AC which misses mandatory outputs is correctly ignored.
     Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
@@ -1406,7 +1406,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void uploadOutputs_missingDeclaredOutputs_dontUpload() throws Exception {
+  public void uploadOutputs_missingMandatoryOutputs_dontUpload() throws Exception {
     Path file = execRoot.getRelative("outputs/file");
     Artifact outputFile = ActionsTestUtil.createArtifact(artifactRoot, file);
     RemoteExecutionService service = newRemoteExecutionService();
