@@ -214,18 +214,19 @@ public class RemoteExecutionCache extends RemoteCache {
 
     /** Increase the counter. */
     void count() {
-      boolean reachedExpectedCount = false;
+      ImmutableSet<Digest> digestsResult = null;
+
       synchronized (this) {
         if (currentCount < expectedCount) {
           currentCount++;
           if (currentCount == expectedCount) {
-            reachedExpectedCount = true;
+            digestsResult = ImmutableSet.copyOf(digestsResult);
           }
         }
       }
 
-      if (reachedExpectedCount) {
-        digestsSubject.onNext(ImmutableSet.copyOf(digests));
+      if (digestsResult != null) {
+        digestsSubject.onNext(digestsResult);
         digestsSubject.onComplete();
       }
     }
