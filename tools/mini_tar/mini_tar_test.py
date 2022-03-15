@@ -65,7 +65,6 @@ class TarFileWriterTest(unittest.TestCase):
 
   def tearDown(self):
     if os.path.exists(self.tempfile):
-      os.system('tar tvf ' + self.tempfile)
       os.remove(self.tempfile)
 
   def test_empty_tar_file(self):
@@ -102,9 +101,9 @@ class TarFileWriterTest(unittest.TestCase):
 
   def test_add_parents(self):
     with mini_tar.TarFileWriter(self.tempfile) as f:
-      f.add_dirs("a/b/c/d")
+      f.add_parents("a/b/c/d/file")
       f.add_file_and_parents("a/b/foo")
-      f.add_dirs("a/b/e")
+      f.add_parents("a/b/e/file")
     content = [
         {"name": "a", "mode": 0o755},
         {"name": "a/b", "mode": 0o755},
@@ -135,6 +134,7 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_file_at_dest(in_path=tempdir, dest_path=".", mode=0o640)
     self.assertTarFileContent(self.tempfile, content)
 
+    # Try it again, but re-rooted
     with mini_tar.TarFileWriter(self.tempfile, root_directory="foo") as f:
       f.add_file_at_dest(in_path=tempdir, dest_path="x", mode=0o640)
     n_content = [

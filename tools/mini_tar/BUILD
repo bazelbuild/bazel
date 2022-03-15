@@ -19,7 +19,7 @@ py_binary(
     name = "mini_tar",
     srcs = ["mini_tar.py"],
     python_version = "PY3",
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
 )
 

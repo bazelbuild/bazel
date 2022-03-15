@@ -1,4 +1,4 @@
-# Lint as: python2, python3
+# Lint as: python3
 # Copyright 2022 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,12 +32,20 @@ class TarFileWriter(object):
   def __init__(self,
                name,
                root_directory='',
+               default_gid=0,
+               default_uid=0,
+               default_uname='',
+               default_gname='',
                default_mtime=None):
     """TarFileWriter wraps tarfile.open().
 
     Args:
       name: the tar file name.
       root_directory: virtual root to prepend to elements in the archive.
+      default_uid: uid to assign to files in the archive.
+      default_gid: gid to assign to files in the archive.
+      default_uname: user name to assign to files in the archive.
+      default_gname: group name to assign to files in the archive.
       default_mtime: default mtime to use for elements in the archive.
           May be an integer or the value 'portable' to use the date
           2000-01-01, which is compatible with non *nix OSes'.
@@ -45,6 +53,10 @@ class TarFileWriter(object):
     mode = 'w:'
     self.name = name
     self.root_directory = root_directory.strip('/')
+    self.default_gid = default_gid
+    self.default_uid = default_uid
+    self.default_uname = default_uname
+    self.default_gname = default_gname
     if default_mtime is None:
       self.default_mtime = 0
     elif default_mtime == 'portable':
@@ -52,7 +64,7 @@ class TarFileWriter(object):
     else:
       self.default_mtime = int(default_mtime)
     self.tar = tarfile.open(name=name, mode=mode)
-    self.members = set([])
+    self.members = set()
     self.directories = set(['.'])
 
   def __enter__(self):
@@ -71,7 +83,6 @@ class TarFileWriter(object):
       # Enforce the ending / for directories so we correctly deduplicate.
       if not info.name.endswith('/'):
         info.name += '/'
-      self.directories.add(info.name)
     if info.name not in self.members:
       self.tar.addfile(info, fileobj)
       self.members.add(info.name)
@@ -79,75 +90,52 @@ class TarFileWriter(object):
       print(('Duplicate file in archive: %s, '
              'picking first occurrence' % info.name))
 
-  def add_dirs(self,
-               path,
-               uid=0,
-               gid=0,
-               uname='',
-               gname='',
-               mtime=None,
-               mode=0o755):
-    """Add this directory name and its parents.
+  def add_parents(self, path, mode=0o755):
+    """Add the parents of this path to the archive.
 
     Args:
       path: destination path in archive.
-      uid: owner user identifier.
-      gid: owner group identifier.
-      uname: owner user names.
-      gname: owner group names.
-      mtime: modification time to put in the archive.
       mode: unix permission mode of the dir, default 0o755.
     """
-    path = path.strip('/')
-    if not path:
-      return
-    if path in self.directories:
-      return
+
+    def add_dirs(path):
+      """Helper to add dirs."""
+      path = path.strip('/')
+      if not path:
+        return
+      if path in self.directories:
+        return
+      components = path.rsplit('/', 1)
+      if len(components) > 1:
+        add_dirs(components[0])
+      self.directories.add(path)
+      tarinfo = tarfile.TarInfo(path+'/')
+      tarinfo.mtime = self.default_mtime
+      tarinfo.uid = self.default_uid
+      tarinfo.gid = self.default_gid
+      tarinfo.uname = self.default_uname
+      tarinfo.gname = self.default_gname
+      tarinfo.type = tarfile.DIRTYPE
+      tarinfo.mode = mode or 0o755
+      self.tar.addfile(tarinfo, fileobj=None)
+
     components = path.rsplit('/', 1)
     if len(components) > 1:
-      self.add_dirs(components[0], uid=uid, gid=gid, uname=uname, gname=gname,
-                    mtime=mtime, mode=mode)
-    self.directories.add(path)
-    self.directories.add(path+'/')
-    tarinfo = tarfile.TarInfo(path+'/')
-    tarinfo.mtime = mtime or self.default_mtime
-    tarinfo.uid = uid
-    tarinfo.gid = gid
-    tarinfo.uname = uname
-    tarinfo.gname = gname
-    tarinfo.type = tarfile.DIRTYPE
-    tarinfo.mode = mode or 0o755
-    self.tar.addfile(tarinfo, fileobj=None)
+      add_dirs(components[0])
 
-  def add_tree(self,
-               input_path,
-               dest_path,
-               uid=0,
-               gid=0,
-               uname='',
-               gname='',
-               mtime=None,
-               mode=None):
+
+  def add_tree(self, input_path, dest_path, mode=None):
     """Recursively add a tree of files.
 
     Args:
       input_path: the path of the directory to add.
       dest_path: the destination path of the directory to add.
-      uid: owner user identifier.
-      gid: owner group identifier.
-      uname: owner user names.
-      gname: owner group names.
-      mtime: modification time to put in the archive.
       mode: unix permission mode of the file, default 0644 (0755).
     """
     # Add the x bit to directories to prevent non-traversable directories.
     # The x bit is set only to if the read bit is set.
     dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
-
-    components = dest_path.rsplit('/', 1)
-    if len(components) > 1:
-      self.add_dirs(components[0], uid=uid, gid=gid, uname=uname, gname=gname,
-                    mtime=mtime, mode=dirmode)
+    self.add_parents(dest_path, mode=dirmode)
 
     if os.path.isdir(input_path):
       dest_path = dest_path.rstrip('/') + '/'
@@ -157,30 +145,18 @@ class TarFileWriter(object):
       for f in filelist:
         self.add_tree(input_path = input_path + '/' + f,
                       dest_path = dest_path + f,
-                      uid=uid, gid=gid, uname=uname, gname=gname, mtime=mtime,
                       mode=mode)
     else:
-      self.add_file_and_parents(
-          dest_path,
-          tarfile.REGTYPE,
-          file_content=input_path,
-          uid=uid,
-          gid=gid,
-          uname=uname,
-          gname=gname,
-          mtime=mtime,
-          mode=mode)
+      self.add_file_and_parents(dest_path,
+                                tarfile.REGTYPE,
+                                file_content=input_path,
+                                mode=mode)
 
   def add_file_and_parents(self,
                            name,
                            kind=tarfile.REGTYPE,
                            link=None,
                            file_content=None,
-                           uid=0,
-                           gid=0,
-                           uname='',
-                           gname='',
-                           mtime=None,
                            mode=None):
     """Add a file to the current tar.
 
@@ -192,21 +168,13 @@ class TarFileWriter(object):
       link: if the file is a link, the destination of the link.
       file_content: file to read the content from. Provide either this
           one or `content` to specifies a content for the file.
-      uid: owner user identifier.
-      gid: owner group identifier.
-      uname: owner user names.
-      gname: owner group names.
-      mtime: modification time to put in the archive.
       mode: unix permission mode of the file, default 0644 (0755).
     """
     if self.root_directory and (
         not (name == self.root_directory or name.startswith('/') or
              name.startswith(self.root_directory + '/'))):
       name = self.root_directory + '/' + name
-    components = name.rsplit('/', 1)
-    if len(components) > 1:
-      self.add_dirs(components[0], uid=uid, gid=gid, uname=uname, gname=gname,
-                    mtime=mtime, mode=0o755)
+    self.add_parents(name, mode=0o755)
 
     if kind == tarfile.DIRTYPE:
       name = name.rstrip('/')
@@ -214,23 +182,15 @@ class TarFileWriter(object):
         return
 
     if file_content and os.path.isdir(file_content):
-      self.add_tree(
-          input_path=file_content,
-          dest_path=name,
-          uid=uid,
-          gid=gid,
-          uname=uname,
-          gname=gname,
-          mtime=mtime,
-          mode=mode)
+      self.add_tree(input_path=file_content, dest_path=name, mode=mode)
       return
 
     tarinfo = tarfile.TarInfo(name)
-    tarinfo.mtime = mtime or self.default_mtime
-    tarinfo.uid = uid
-    tarinfo.gid = gid
-    tarinfo.uname = uname
-    tarinfo.gname = gname
+    tarinfo.mtime = self.default_mtime
+    tarinfo.uid = self.default_uid
+    tarinfo.gid = self.default_gid
+    tarinfo.uname = self.default_uname
+    tarinfo.gname = self.default_gname
     tarinfo.type = kind
     if mode is None:
       tarinfo.mode = 0o644 if kind == tarfile.REGTYPE else 0o755
@@ -245,34 +205,20 @@ class TarFileWriter(object):
     else:
       self._addfile(tarinfo, fileobj=None)
 
-  def add_file_at_dest(self, in_path, dest_path, mode=None, ids=None, names=None):
+  def add_file_at_dest(self, in_path, dest_path, mode=None):
     """Add a file to the tar file.
 
     Args:
-       path: the file to add to the layer
-       dest_path: the name of the file in the layer
-       mode: force to set the specified mode, by default the value from the
-         source is taken.
-       ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership. 
+       in_path: the path of the file to add to the artifact
+       dest_path: the name of the file in the artifact
+       mode: force to the specified mode. Default is mode from the file.
     """
-    # Make a clean '/' deliminted destination path
+    # Make a clean, '/' deliminted destination path
     dest = os.path.normpath(dest_path.strip('/')).replace(os.path.sep, '/')
     # If mode is unspecified, derive the mode from the file's mode.
     if mode is None:
       mode = 0o755 if os.access(f, os.X_OK) else 0o644
-    if ids is None:
-      ids = (0, 0)
-    if names is None:
-      names = ('', '')
-    self.add_file_and_parents(
-        dest,
-        file_content=in_path,
-        mode=mode,
-        uid=ids[0],
-        gid=ids[1],
-        uname=names[0],
-        gname=names[1])
+    self.add_file_and_parents(dest, file_content=in_path, mode=mode)
 
 
 def unquote_and_split(arg, c):
@@ -314,10 +260,13 @@ def main():
   parser = argparse.ArgumentParser(
       description='Helper for building tar packages',
       fromfile_prefix_chars='@')
-  parser.add_argument('--output', required=True,
-                      help='The output file, mandatory.')
-  parser.add_argument('--mode',
-                      help='Force the mode on the added files (in octal).')
+  parser.add_argument(
+      '--output',
+      required=True,
+      help='The output file, mandatory.')
+  parser.add_argument(
+      '--mode',
+      help='Force the mode on the added files (in octal).')
   parser.add_argument(
       '--directory',
       help='Directory in which to store the file inside the layer')
@@ -340,14 +289,22 @@ def main():
   if options.owner_name:
     default_ownername = options.owner_name.split('.', 1)
 
+  uid = gid = 0
+  if options.owner:
+    ids = options.owner.split('.', 1)
+    uid = int(ids[0])
+    gid = int(ids[1])
+
   # Add objects to the tar file
   with TarFileWriter(name=options.output,
                      root_directory=options.directory,
+                     default_uid=uid, default_gid=gid,
+                     default_uname=default_ownername[0],
+                     default_gname=default_ownername[1],
                      default_mtime=PORTABLE_MTIME) as output:
     for f in options.file:
       (input_path, dest) = unquote_and_split(f, '=')
-      output.add_file_at_dest(input_path, dest, mode=default_mode,
-                              names=default_ownername)
+      output.add_file_at_dest(input_path, dest, mode=default_mode)
 
 
 if __name__ == '__main__':
