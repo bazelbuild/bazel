@@ -220,7 +220,7 @@ public class RemoteExecutionCache extends RemoteCache {
         if (currentCount < expectedCount) {
           currentCount++;
           if (currentCount == expectedCount) {
-            digestsResult = ImmutableSet.copyOf(digestsResult);
+            digestsResult = ImmutableSet.copyOf(digests);
           }
         }
       }
