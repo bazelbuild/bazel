@@ -660,7 +660,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     Returns:
       Appropriate providers for cc_binary/cc_test.
     """
-    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary")
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
     common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 

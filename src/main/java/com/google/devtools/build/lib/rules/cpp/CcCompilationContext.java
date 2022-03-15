@@ -531,6 +531,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return usePic ? transitivePicModules : transitiveModules;
   }
 
+  @Override
+  public Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getTransitiveModules(usePic));
+  }
+
   /**
    * Returns the immutable set of additional transitive inputs needed for compilation, like C++
    * module map artifacts.
@@ -539,6 +546,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     addAdditionalInputs(builder);
     return builder.build();
+  }
+
+  @Override
+  public Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getAdditionalInputs());
   }
 
   /** Adds additional transitive inputs needed for compilation to builder. */

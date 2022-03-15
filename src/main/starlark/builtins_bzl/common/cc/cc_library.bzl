@@ -22,7 +22,7 @@ cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
-    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library")
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
     common = cc_internal.create_common(ctx = ctx)
     common.report_invalid_options(ctx = ctx)

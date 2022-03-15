@@ -41,23 +41,23 @@ artifact_category = struct(
     CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
 )
 
-def _check_src_extension(file, allowed_src_files):
+def _check_src_extension(file, allowed_src_files, allow_versioned_shared_libraries):
     extension = "." + file.extension
-    if _matches_extension(extension, allowed_src_files) or _is_shared_library_extension_valid(file.path):
+    if _matches_extension(extension, allowed_src_files) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
         return True
     return False
 
-def _check_srcs_extensions(ctx, allowed_src_files, rule_name):
+def _check_srcs_extensions(ctx, allowed_src_files, rule_name, allow_versioned_shared_libraries):
     for src in ctx.attr.srcs:
         if DefaultInfo in src:
             files = src[DefaultInfo].files.to_list()
             if len(files) == 1 and files[0].is_source:
-                if not _check_src_extension(files[0], allowed_src_files) and not files[0].is_directory:
+                if not _check_src_extension(files[0], allowed_src_files, allow_versioned_shared_libraries) and not files[0].is_directory:
                     fail("in srcs attribute of {} rule {}: source file '{}' is misplaced here".format(rule_name, ctx.label, str(src.label)))
             else:
                 at_least_one_good = False
                 for file in files:
-                    if _check_src_extension(file, allowed_src_files) or file.is_directory:
+                    if _check_src_extension(file, allowed_src_files, allow_versioned_shared_libraries) or file.is_directory:
                         at_least_one_good = True
                         break
                 if not at_least_one_good:
@@ -134,6 +134,24 @@ def _find_cpp_toolchain(ctx):
     # We didn't find anything.
     fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
 
+def _collect_compilation_prerequisites(ctx, compilation_context):
+    direct = []
+    transitive = []
+    if hasattr(ctx.attr, "srcs"):
+        for src in ctx.attr.srcs:
+            if DefaultInfo in src:
+                files = src[DefaultInfo].files.to_list()
+                for file in files:
+                    if _check_src_extension(file, extensions.CC_AND_OBJC, False):
+                        direct.append(file)
+
+    transitive.append(compilation_context.headers)
+    transitive.append(compilation_context.additional_inputs())
+    transitive.append(compilation_context.transitive_modules(use_pic = True))
+    transitive.append(compilation_context.transitive_modules(use_pic = False))
+
+    return depset(direct = direct, transitive = transitive)
+
 def _build_output_groups_for_emitting_compile_providers(
         compilation_outputs,
         compilation_context,
@@ -151,7 +169,7 @@ def _build_output_groups_for_emitting_compile_providers(
         use_pic = use_pic,
     )
     output_groups_builder["compilation_outputs"] = files_to_compile
-    output_groups_builder["compilation_prerequisites_INTERNAL_"] = cc_internal.collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
+    output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(
@@ -219,14 +237,6 @@ OBJC_SOURCE = [".m"]
 OBJCPP_SOURCE = [".mm"]
 CLIF_INPUT_PROTO = [".ipb"]
 CLIF_OUTPUT_PROTO = [".opb"]
-CC_AND_OBJC = []
-CC_AND_OBJC.extend(CC_SOURCE)
-CC_AND_OBJC.extend(C_SOURCE)
-CC_AND_OBJC.extend(OBJC_SOURCE)
-CC_AND_OBJC.extend(OBJCPP_SOURCE)
-CC_AND_OBJC.extend(CLIF_INPUT_PROTO)
-CC_AND_OBJC.extend(CLIF_OUTPUT_PROTO)
-
 CC_HEADER = [".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H", ".tcc"]
 ASSESMBLER_WITH_C_PREPROCESSOR = [".S"]
 ASSEMBLER = [".s", ".asm"]
@@ -237,6 +247,15 @@ ALWAYSLINK_PIC_LIBRARY = [".pic.lo"]
 SHARED_LIBRARY = [".so", ".dylib", ".dll"]
 OBJECT_FILE = [".o", ".obj"]
 PIC_OBJECT_FILE = [".pic.o"]
+
+CC_AND_OBJC = []
+CC_AND_OBJC.extend(CC_SOURCE)
+CC_AND_OBJC.extend(C_SOURCE)
+CC_AND_OBJC.extend(OBJC_SOURCE)
+CC_AND_OBJC.extend(OBJCPP_SOURCE)
+CC_AND_OBJC.extend(CC_HEADER)
+CC_AND_OBJC.extend(ASSEMBLER)
+CC_AND_OBJC.extend(ASSESMBLER_WITH_C_PREPROCESSOR)
 
 extensions = struct(
     CC_SOURCE = CC_SOURCE,
@@ -392,12 +411,7 @@ def _build_precompiled_files(ctx):
         shared_libraries,
     )
 
-def _is_shared_library_extension_valid(shared_library_name):
-    if (shared_library_name.endswith(".so") or
-        shared_library_name.endswith(".dll") or
-        shared_library_name.endswith(".dylib")):
-        return True
-
+def _is_versioned_shared_library_extension_valid(shared_library_name):
     # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
     # must match VERSIONED_SHARED_LIBRARY.
     for ext in (".so.", ".dylib."):
@@ -411,8 +425,15 @@ def _is_shared_library_extension_valid(shared_library_name):
                     if not (c.isalnum() or c == "_"):
                         return False
             return True
-
     return False
+
+def _is_shared_library_extension_valid(shared_library_name):
+    if (shared_library_name.endswith(".so") or
+        shared_library_name.endswith(".dll") or
+        shared_library_name.endswith(".dylib")):
+        return True
+
+    return _is_versioned_shared_library_extension_valid(shared_library_name)
 
 def _get_providers(deps, provider):
     providers = []
@@ -538,5 +559,6 @@ cc_helper = struct(
     generate_def_file = _generate_def_file,
     stringify_linker_input = _stringify_linker_input,
     get_linked_artifact = _get_linked_artifact,
+    collect_compilation_prerequisites = _collect_compilation_prerequisites,
     collect_native_cc_libraries = _collect_native_cc_libraries,
 )
