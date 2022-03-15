@@ -21,13 +21,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
@@ -91,15 +89,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public CcStarlarkApiInfo createCcProvider(CcInfo ccInfo) {
     return new CcStarlarkApiInfo(ccInfo);
-  }
-
-  @StarlarkMethod(
-      name = "PackageGroupInfo",
-      documented = false,
-      structField = true,
-      parameters = {})
-  public Provider getPackageGroupInfo() {
-    return PackageGroupConfiguredTarget.PROVIDER;
   }
 
   @StarlarkMethod(
