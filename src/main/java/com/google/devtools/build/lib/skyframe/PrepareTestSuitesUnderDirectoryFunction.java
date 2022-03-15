@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.PrepareTestSuitesUnderDirectoryValue.Key;
 import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 
 /**
  * {@link SkyFunction} to recursively traverse a directory and ensure {@link
@@ -62,13 +62,9 @@ public class PrepareTestSuitesUnderDirectoryFunction implements SkyFunction {
                           argument.getRootedPath().getRootRelativePath()))),
               keysToRequest);
     }
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(keysToRequest);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (PrepareDepsOfTargetsUnderDirectoryFunction.checkValuesMissing(keysToRequest, result)) {
-      return null;
-    }
-    return PrepareTestSuitesUnderDirectoryValue.INSTANCE;
+    return GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, keysToRequest, NoSuchPackageException.class)
+        ? null
+        : PrepareTestSuitesUnderDirectoryValue.INSTANCE;
   }
 }

@@ -25,6 +25,8 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +44,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -80,6 +83,7 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link ParallelEvaluator}. */
 @RunWith(TestParameterInjector.class)
@@ -2251,6 +2255,90 @@ public class ParallelEvaluatorTest {
               }
               numComputes.incrementAndGet();
               assertThat(env.valuesMissing()).isTrue();
+              return null;
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(parentKey)
+        .hasExceptionThat()
+        .isSameInstanceAs(childExn);
+    assertThat(numComputes.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void declareDependenciesAndCheckIfValuesMissing() throws Exception {
+    graph = new InMemoryGraphImpl();
+    final SkyKey childKey = GraphTester.toSkyKey("error");
+    final SomeErrorException childExn = new SomeErrorException("child error");
+    tester
+        .getOrCreate(childKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              throw new GenericFunctionException(childExn, Transience.PERSISTENT);
+            });
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    final AtomicInteger numComputes = new AtomicInteger(0);
+    BugReporter mockReporter = mock(BugReporter.class);
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              boolean valuesMissing =
+                  GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+                      env,
+                      ImmutableList.of(childKey),
+                      SomeOtherErrorException.class,
+                      /*exceptionClass2=*/ null,
+                      mockReporter);
+              numComputes.incrementAndGet();
+              assertThat(valuesMissing).isTrue();
+              return null;
+            });
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));
+    ArgumentCaptor<IllegalStateException> exceptionCaptor =
+        ArgumentCaptor.forClass(IllegalStateException.class);
+    verify(mockReporter).sendBugReport(exceptionCaptor.capture());
+    assertThat(exceptionCaptor.getValue()).hasMessageThat().contains("Some value from");
+    verifyNoMoreInteractions(mockReporter);
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(parentKey)
+        .hasExceptionThat()
+        .isSameInstanceAs(childExn);
+    assertThat(numComputes.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void declareDependenciesAndCheckIfNotValuesMissing() throws Exception {
+    graph = new InMemoryGraphImpl();
+    final SkyKey otherKey = GraphTester.toSkyKey("other");
+    final SkyKey childKey = GraphTester.toSkyKey("error");
+    final SomeErrorException childExn = new SomeErrorException("child error");
+    tester.set(otherKey, new StringValue("other"));
+    tester
+        .getOrCreate(childKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              throw new GenericFunctionException(childExn, Transience.PERSISTENT);
+            });
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    final AtomicInteger numComputes = new AtomicInteger(0);
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            (skyKey, env) -> {
+              if (numComputes.incrementAndGet() == 1) {
+                boolean valuesMissing =
+                    GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+                        env, ImmutableList.of(otherKey, childKey), SomeErrorException.class);
+                assertThat(valuesMissing).isTrue();
+              } else {
+                boolean valuesMissing =
+                    GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+                        env, ImmutableList.of(otherKey, childKey), SomeErrorException.class);
+                assertThat(valuesMissing).isFalse();
+              }
               return null;
             });
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/ true, ImmutableList.of(parentKey));

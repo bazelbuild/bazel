@@ -45,11 +45,11 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -274,12 +274,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           builder.add(TransitiveTraversalValue.key(target.getLabel()));
         }
         ImmutableList<SkyKey> skyKeys = builder.build();
-        SkyframeIterableResult skyframeIterableResult = env.getOrderedValuesAndExceptions(skyKeys);
-        while (skyframeIterableResult.hasNext()) {
-          skyframeIterableResult.nextOrThrow(
-              NoSuchPackageException.class, NoSuchTargetException.class);
-        }
-        if (env.valuesMissing()) {
+        if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, skyKeys, NoSuchPackageException.class, NoSuchTargetException.class)) {
           throw new MissingDepException();
         }
         return ImmutableSet.of();

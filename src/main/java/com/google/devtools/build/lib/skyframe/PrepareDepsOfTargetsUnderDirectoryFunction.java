@@ -16,16 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectoryValue.PrepareDepsOfTargetsUnderDirectoryKey;
 import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 
 /**
  * Ensures the graph contains the targets in the directory's package, if any, and in the
@@ -76,37 +75,9 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
                       filteringPolicy)),
               keysToRequest);
     }
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(keysToRequest);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (checkValuesMissing(keysToRequest, result)) {
-      return null;
-    }
-    return PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
-  }
-
-  /**
-   * Returns true iff {@link SkyframeIterableResult#nextOrThrow} returned {@code null} that
-   * indicated a missing dependency.
-   */
-  static boolean checkValuesMissing(
-      Iterable<? extends SkyKey> keysToRequest, SkyframeIterableResult result) {
-    while (result.hasNext()) {
-      try {
-        SkyValue value = result.nextOrThrow(NoSuchPackageException.class);
-        if (value == null) {
-          BugReport.sendBugReport(
-              new IllegalStateException(
-                  "Some value from "
-                      + Iterables.toString(keysToRequest)
-                      + " was missing, this should never happen"));
-          return true;
-        }
-      } catch (NoSuchPackageException e) {
-        continue;
-      }
-    }
-    return false;
+    return GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, keysToRequest, NoSuchPackageException.class)
+        ? null
+        : PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
   }
 }
