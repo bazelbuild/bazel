@@ -147,7 +147,10 @@ def _build_link_once_static_libs_map(merged_shared_library_infos):
     return link_once_static_libs_map
 
 def _is_dynamic_only(library_to_link):
-    if library_to_link.static_library == None and library_to_link.pic_static_library == None:
+    if (library_to_link.static_library == None and
+        library_to_link.pic_static_library == None and
+        (library_to_link.objects == None or len(library_to_link.objects) == 0) and
+        (library_to_link.pic_objects == None or len(library_to_link.pic_objects) == 0)):
         return True
     return False
 
@@ -501,7 +504,10 @@ def _cc_shared_library_impl(ctx):
 
     precompiled_only_dynamic_libraries_runfiles = []
     for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
-        precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+        # precompiled_dynamic_library.dynamic_library could be None if the library to link just contains
+        # an interface library which is valid if the actual library is obtained from the system.
+        if precompiled_dynamic_library.dynamic_library != None:
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
         if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
             precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
 
