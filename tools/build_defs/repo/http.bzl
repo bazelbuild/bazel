@@ -114,7 +114,7 @@ def _http_archive_impl(ctx):
     sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
     return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
 
-_HTTP_FILE_BUILD = """
+_HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -152,7 +152,7 @@ def _http_file_impl(ctx):
 
     return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
 
-_HTTP_JAR_BUILD = """
+_HTTP_JAR_BUILD = """\
 load("@rules_java//java:defs.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
