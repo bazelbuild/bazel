@@ -164,7 +164,6 @@ public class RemoteExecutionCache extends RemoteCache {
    * expected count.
    */
   class MissingDigestFinder {
-    @GuardedBy("this")
     private final int expectedCount;
     private final AsyncSubject<ImmutableSet<Digest>> digestsSubject;
     private final Single<ImmutableSet<Digest>> resultSingle;
@@ -191,7 +190,7 @@ public class RemoteExecutionCache extends RemoteCache {
                         return toSingle(
                             () -> findMissingDigests(context, digests), directExecutor());
                       })
-                  .replay(1)
+                  .publish()
                   .refCount());
     }
 
@@ -214,13 +213,20 @@ public class RemoteExecutionCache extends RemoteCache {
     }
 
     /** Increase the counter. */
-    synchronized void count() {
-      if (currentCount < expectedCount) {
-        currentCount++;
-        if (currentCount == expectedCount) {
-          digestsSubject.onNext(ImmutableSet.copyOf(digests));
-          digestsSubject.onComplete();
+    void count() {
+      boolean reachedExpectedCount = false;
+      synchronized (this) {
+        if (currentCount < expectedCount) {
+          currentCount++;
+          if (currentCount == expectedCount) {
+            reachedExpectedCount = true;
+          }
         }
+      }
+
+      if (reachedExpectedCount) {
+        digestsSubject.onNext(ImmutableSet.copyOf(digests));
+        digestsSubject.onComplete();
       }
     }
   }
