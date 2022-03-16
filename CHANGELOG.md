@@ -1,3 +1,28 @@
+## Release 6.0.0-pre.20220310.1 (2022-03-16)
+
+```
+Baseline: 68bf2ea0064768870a2ec20514df644a6995c663
+```
+
+Important changes:
+
+  - Make protocOpts() publicly accessible.
+  - Add some documentation about how configuration information is
+    conveyed in cquery proto output.
+  - Introduces experimental static library linking API under
+    apple_common.link_multi_arch_static_library
+  - Further deprecation and removal of pkg_tar. Stop supporting
+    legacy use of 'files' attribute, where it could be a list of
+    labels instead of a map of paths to labels.
+  - Removed --incompatible_no_build_defs_pkg flag. It never fulfilled
+    its purpose because --all_incompatible_changes would never set
+    it. The last rule it gated (pkg_tar) is scheduled to be removed
+    in Bazel 6.x.
+  - Add coverage configuration fragment, used to expose
+    output_generator label.
+
+This release contains contributions from many people at Google, as well as Adam Wolf, Albert Lloveras, Andrew Katson, Benjamin Lee, Benjamin Peterson, Brentley Jones, Christopher Sauer, Fabian Meumertzheim, Hannes Kufler, Joel Williamson, Keith Smiley, Michael P. Nitowski, Nitesh Anandan, Ryan Schmidt, Son Luong Ngoc, Thi Doan.
+
 ## Release 6.0.0-pre.20220223.1 (2022-03-02)
 
 ```
