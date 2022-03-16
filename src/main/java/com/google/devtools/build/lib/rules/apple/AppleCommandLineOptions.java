@@ -521,6 +521,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.applePlatforms = applePlatforms;
     host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
 
+    // Save host option for further use.
+    host.hostMacosMinimumOs = hostMacosMinimumOs;
+
     return host;
   }
 
